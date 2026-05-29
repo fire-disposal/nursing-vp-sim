@@ -9,7 +9,7 @@
 # ============================================================
 set -e
 
-DEPLOY_DIR="/opt/xunihuanzhe"
+DEPLOY_DIR="/opt/nursing-vp-sim"
 MODE="local"
 
 # ── 解析参数 ──
@@ -66,8 +66,8 @@ fi
 if [ "$MODE" = "prod" ]; then
   echo "=== 生产部署: $VERSION ==="
   REPO="${GITHUB_REPOSITORY_OWNER:-fire-disposal}"
-  IMG_BACKEND="ghcr.io/$REPO/xunihuanzhe-backend:$VERSION"
-  IMG_FRONTEND="ghcr.io/$REPO/xunihuanzhe-frontend:$VERSION"
+  IMG_BACKEND="ghcr.io/$REPO/nursing-vp-sim-backend:$VERSION"
+  IMG_FRONTEND="ghcr.io/$REPO/nursing-vp-sim-frontend:$VERSION"
 
   cd "$DEPLOY_DIR"
 

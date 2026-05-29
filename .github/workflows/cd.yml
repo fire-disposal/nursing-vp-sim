@@ -28,7 +28,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/xunihuanzhe
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
           tags: type=match,pattern=v(.*),group=1
 
       - name: Set up Docker Buildx
@@ -47,7 +47,7 @@ jobs:
           context: .
           file: Dockerfile.backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/xunihuanzhe-backend:${{ steps.meta.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -58,7 +58,7 @@ jobs:
           context: .
           file: Dockerfile.frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/xunihuanzhe-frontend:${{ steps.meta.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -68,9 +68,9 @@ jobs:
     runs-on: ubuntu-latest
     if: success()
     env:
-      DEPLOY_DIR: /opt/xunihuanzhe
-      IMG_BACKEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/xunihuanzhe-backend:${{ needs.build.outputs.version }}
-      IMG_FRONTEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/xunihuanzhe-frontend:${{ needs.build.outputs.version }}
+      DEPLOY_DIR: /opt/nursing-vp-sim
+      IMG_BACKEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/nursing-vp-sim-backend:${{ needs.build.outputs.version }}
+      IMG_FRONTEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/nursing-vp-sim-frontend:${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -91,7 +91,7 @@ jobs:
           # 展开本地变量后通过 SSH 执行
           ssh "$USER@$HOST" << DEPLOY
             set -e
-            DEPLOY_DIR="/opt/xunihuanzhe"
+            DEPLOY_DIR="/opt/nursing-vp-sim"
 
             # 首次部署：自动创建目录结构
             sudo mkdir -p "\$DEPLOY_DIR/cases" "\$DEPLOY_DIR/backups"

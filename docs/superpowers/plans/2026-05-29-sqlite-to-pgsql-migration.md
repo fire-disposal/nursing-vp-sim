@@ -405,7 +405,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-fire-disposal}/xunihuanzhe-backend:${VERSION:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-fire-disposal}/nursing-vp-sim-backend:${VERSION:-latest}
     ports:
       - "127.0.0.1:9001:8000"
     volumes:
@@ -426,7 +426,7 @@ services:
       start_period: 15s
 
   frontend:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-fire-disposal}/xunihuanzhe-frontend:${VERSION:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-fire-disposal}/nursing-vp-sim-frontend:${VERSION:-latest}
     ports:
       - "9000:80"
     depends_on:
@@ -682,7 +682,7 @@ git commit -m "✅ test: 确认 57 条测试全通过（SQLite → PG 迁移后�
 - [ ] **Step 1: 拉取最新代码**
 
 ```bash
-ssh yecaoyun "cd /opt/xunihuanzhe && git pull"
+ssh yecaoyun "cd /opt/nursing-vp-sim && git pull"
 ```
 
 - [ ] **Step 2: 更新 .env**
@@ -696,7 +696,7 @@ DATABASE_URL=postgresql://nursing:nursing123@db:5432/nursing_vp
 - [ ] **Step 3: 重新构建并部署**
 
 ```bash
-ssh yecaoyun "cd /opt/xunihuanzhe && docker compose down --timeout 30 && docker compose up -d --build"
+ssh yecaoyun "cd /opt/nursing-vp-sim && docker compose down --timeout 30 && docker compose up -d --build"
 ```
 
 - [ ] **Step 4: 验证服务**
@@ -729,13 +729,13 @@ psql -h localhost -p 5432 -U nursing -d nursing_vp
 - [ ] **Step 1: 删除旧 Docker 卷**
 
 ```bash
-ssh yecaoyun "docker volume rm xunihuanzhe_db_data"
+ssh yecaoyun "docker volume rm nursing-vp-sim_db_data"
 ```
 
 - [ ] **Step 2: 验证卷已删除**
 
 ```bash
-ssh yecaoyun "docker volume ls | grep xunihuanzhe"
+ssh yecaoyun "docker volume ls | grep nursing-vp-sim"
 ```
 
 Expected: 只显示 `ai_vp_pg_data`，无 `db_data`。
