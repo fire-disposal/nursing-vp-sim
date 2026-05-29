@@ -29,11 +29,12 @@ if [ "$MODE" = "setup" ]; then
   cd "$DEPLOY_DIR"
 
   if [ ! -f .env ]; then
-    echo "# 请填入你的 DeepSeek API Key" > .env
+    echo "# 请填入你的 DeepSeek API Key 和数据库密码" > .env
     echo "DEEPSEEK_API_KEY=sk-your-key-here" >> .env
     echo "SECRET_KEY=$(openssl rand -hex 32)" >> .env
     echo "CORS_ORIGINS=https://你的域名.com" >> .env
-    echo ">> .env 已生成，请编辑填入正确的 DEEPSEEK_API_KEY 和 CORS_ORIGINS"
+    echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" >> .env
+    echo ">> .env 已生成，请编辑填入正确的 DEEPSEEK_API_KEY、CORS_ORIGINS 和 POSTGRES_PASSWORD（如需）"
   fi
 
   # 拷贝病例文件
@@ -82,15 +83,35 @@ if [ "$MODE" = "prod" ]; then
   # 生成 compose 文件（使用 printf 避免 heredoc 缩进问题）
   printf '%s\n' \
     'services:' \
+    '  db:' \
+    '    image: postgres:15' \
+    '    container_name: nursing-db' \
+    '    restart: unless-stopped' \
+    '    environment:' \
+    '      POSTGRES_USER: nursing' \
+    '      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}' \
+    '      POSTGRES_DB: nursing_vp' \
+    '      TZ: Asia/Shanghai' \
+    '    volumes:' \
+    '      - ai_vp_pg_data:/var/lib/postgresql/data' \
+    '    ports: ["127.0.0.1:5433:5432"]' \
+    '    healthcheck:' \
+    '      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]' \
+    '      interval: 10s' \
+    '      timeout: 5s' \
+    '      retries: 5' \
+    '      start_period: 20s' \
     '  backend:' \
     "    image: $IMG_BACKEND" \
     '    ports: ["127.0.0.1:9001:8000"]' \
     '    volumes:' \
-    '      - db_data:/app/data' \
     '      - ./cases:/app/cases:ro' \
     '    env_file: [.env]' \
     '    environment:' \
-    '      - DATABASE_URL=sqlite:///data/data.db' \
+    '      - DATABASE_URL=postgresql://nursing:${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
+    '    depends_on:' \
+    '      db:' \
+    '        condition: service_healthy' \
     '    restart: unless-stopped' \
     '  frontend:' \
     "    image: $IMG_FRONTEND" \
@@ -100,7 +121,7 @@ if [ "$MODE" = "prod" ]; then
     '        condition: service_healthy' \
     '    restart: unless-stopped' \
     'volumes:' \
-    '  db_data:' \
+    '  ai_vp_pg_data:' \
     > docker-compose.yml
 
   docker compose down --timeout 30
