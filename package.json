@@ -1,0 +1,14 @@
+{
+  "name": "nursing-vp-sim",
+  "version": "2026.05.29",
+  "private": true,
+  "description": "Nursing Virtual Patient Simulator — LLM-powered medical history interview training",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19",
+    "@commitlint/config-conventional": "^19",
+    "husky": "^9"
+  }
+}

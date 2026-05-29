@@ -1,0 +1,156 @@
+name: Docker Build & Deploy
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      owner_lc: ${{ steps.owner.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize owner (lowercase)
+        id: owner
+        run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/xunihuanzhe
+          tags: type=semver,pattern={{version}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/xunihuanzhe-backend:${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/xunihuanzhe-frontend:${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    env:
+      DEPLOY_DIR: /opt/xunihuanzhe
+      IMG_BACKEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/xunihuanzhe-backend:${{ needs.build.outputs.version }}
+      IMG_FRONTEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/xunihuanzhe-frontend:${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to server
+        run: |
+          set -e
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+
+          # 添加服务器 host key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # 展开本地变量后通过 SSH 执行
+          ssh "$USER@$HOST" << DEPLOY
+            set -e
+            DEPLOY_DIR="/opt/xunihuanzhe"
+
+            # 首次部署：自动创建目录结构
+            sudo mkdir -p "\$DEPLOY_DIR/cases" "\$DEPLOY_DIR/backups"
+            sudo chown -R "\$USER:\$USER" "\$DEPLOY_DIR"
+
+            cd "\$DEPLOY_DIR"
+
+            # 创建 .env（如果不存在，需要手动填入 API Key）
+            if [ ! -f .env ]; then
+              echo "# 请填入 DeepSeek API Key" > .env
+              echo "DEEPSEEK_API_KEY=sk-your-key-here" >> .env
+              echo "SECRET_KEY=\$(openssl rand -hex 32)" >> .env
+              echo "CORS_ORIGINS=http://localhost" >> .env
+              echo ">> 已生成 .env 模板，请编辑填入 DEEPSEEK_API_KEY 和 CORS_ORIGINS"
+            fi
+
+            # 登录 GHCR（使用 GitHub token）
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
+
+            # 拉取新镜像
+            docker pull "$IMG_BACKEND" 2>/dev/null || true
+            docker pull "$IMG_FRONTEND" 2>/dev/null || true
+
+            # 生成部署 compose 文件（自动填入镜像标签）
+            printf '%s\n' \
+              'services:' \
+              '  backend:' \
+              "    image: $IMG_BACKEND" \
+              '    ports: ["127.0.0.1:9001:8000"]' \
+              '    volumes:' \
+              '      - db_data:/app/data' \
+              '      - ./cases:/app/cases:ro' \
+              '    env_file: [.env]' \
+              '    environment:' \
+              '      - DATABASE_URL=sqlite:///data/data.db' \
+              '    restart: unless-stopped' \
+              '    healthcheck:' \
+              '      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]' \
+              '      interval: 30s' \
+              '      timeout: 5s' \
+              '      retries: 3' \
+              '      start_period: 10s' \
+              '  frontend:' \
+              "    image: $IMG_FRONTEND" \
+              '    ports: ["9000:80"]' \
+              '    depends_on:' \
+              '      backend:' \
+              '        condition: service_healthy' \
+              '    restart: unless-stopped' \
+              'volumes:' \
+              '  db_data:' \
+              > docker-compose.yml
+
+            # 平滑重启
+            docker compose down --timeout 30
+            docker compose up -d
+
+            # 清理旧镜像
+            docker image prune -f
+          DEPLOY
+
+          echo ">> 部署完成: $IMG_BACKEND / $IMG_FRONTEND"
