@@ -1,24 +1,8 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime as SAType, ForeignKey, JSON, Index
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, JSON, Index
 from sqlalchemy.orm import relationship
 from database import Base
 
-
-class UtcDateTime(TypeDecorator):
-    """确保 SQLite 读写时 UTC 时区信息不丢失，Pydantic 序列化时带 Z/+00:00 后缀"""
-    impl = SAType
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is not None and value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
-        return value
-
-    def process_result_value(self, value, dialect):
-        if value is not None:
-            return value.replace(tzinfo=timezone.utc)
-        return value
 
 
 class User(Base):
@@ -30,7 +14,7 @@ class User(Base):
     role = Column(String(10), nullable=False, default="student")  # student / teacher
     display_name = Column(String(50), nullable=False)
     student_id = Column(String(30), nullable=True)
-    created_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     training_records = relationship("TrainingRecord", back_populates="user")
 
@@ -42,7 +26,7 @@ class Case(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     case_data = Column(JSON, nullable=False)  # 完整病例数据
-    created_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class TrainingRecord(Base):
@@ -58,8 +42,8 @@ class TrainingRecord(Base):
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress / completed
     scoring_status = Column(String(20), nullable=True)  # null / pending / processing / completed / failed
     scoring_error = Column(Text, nullable=True)  # 评分失败时的错误信息
-    start_time = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc))
-    end_time = Column(UtcDateTime, nullable=True)
+    start_time = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    end_time = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="training_records")
     case = relationship("Case")
@@ -77,7 +61,7 @@ class Message(Base):
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
     role = Column(String(10), nullable=False)  # student / patient
     content = Column(Text, nullable=False)
-    created_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     record = relationship("TrainingRecord", back_populates="messages")
 
@@ -101,10 +85,10 @@ class Score(Base):
     # 教师复核
     review_status = Column(String(20), nullable=True)  # null / reviewed
     reviewed_by = Column(Integer, nullable=True)
-    reviewed_at = Column(UtcDateTime, nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
     review_detail_scores = Column(JSON, nullable=True)
     review_comment = Column(Text, nullable=True)
-    created_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     record = relationship("TrainingRecord", back_populates="score")
 
@@ -116,8 +100,8 @@ class Note(Base):
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class LLMCallLog(Base):
@@ -146,4 +130,4 @@ class LLMCallLog(Base):
     request_chars = Column(Integer, nullable=True)
     response_chars = Column(Integer, nullable=True)
     meta = Column(JSON, nullable=True)
-    created_at = Column(UtcDateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
