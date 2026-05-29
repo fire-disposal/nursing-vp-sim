@@ -13,7 +13,7 @@ ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "2026.05.29")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'data.db')}")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://nursing:nursing123@localhost:5433/nursing_vp")
 
 _raw_secret = os.getenv("SECRET_KEY", "")
 _SECRET_PLACEHOLDERS = {"", "change-me-to-a-random-secret-key", "virtual-patient-secret-key-change-in-production"}
