@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import DATABASE_URL, ENV
 from database import Base
+import models  # noqa: F401 — 确保所有表定义被注册到 Base.metadata
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
