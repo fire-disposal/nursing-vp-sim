@@ -1,3 +1,21 @@
+/**
+ * 提交消息格式校验 (Husky commit-msg hook)
+ *
+ * 格式: <emoji> <type>: <描述>
+ * 示例: ✨ feat: 添加患者评分模块
+ *       🐛 fix: 修复 SSE 流式断连问题
+ *       🔧 chore: 版本号统一为日期风格
+ *
+ * 快速复制前缀 (Quick Copy):
+ *   ✨ feat:       🐛 fix:        📝 docs:
+ *   ♻️ refactor:   🔧 chore:      ✅ test:
+ *   💄 style:      🚀 ci:         📦 build:
+ *   ⚡ perf:
+ *
+ * 版本号: vYYYY.MM.DD 或 vYYYY.MM.DD-N (e.g. v2026.05.29, v2026.05.29-3)
+ * Tag 格式由 .husky/pre-push 校验
+ */
+
 const fs = require('fs');
 const { execSync } = require('child_process');
 
