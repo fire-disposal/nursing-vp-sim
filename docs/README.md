@@ -17,9 +17,10 @@
 
 ## 当前版本
 
-- **版本**: v1.16-stable
-- **最后更新**: 2026-05-27
-- **状态**: 商业级布局优化完成。学生端/教师端页面全面使用 PageHeader + StatCard + Tabs + Modal 等新UI组件，DashboardHome 角色分流重构，Admin 拆分为4个独立Tab组件。前端已有14个UI组件。剩余 Phase 5 响应式优化。
+- **版本**: v2026.05.29
+- **最后更新**: 2026-05-29
+- **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
+- **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker + VPS），前后端测试全通过，Husky 提交规范已启用。
 
 ## 快速了解
 
