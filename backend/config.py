@@ -10,7 +10,7 @@ except ImportError:
     pass
 
 ENV = os.getenv("ENV", "development")
-APP_VERSION = os.getenv("APP_VERSION", "1.13.0")
+APP_VERSION = os.getenv("APP_VERSION", "2026.05.29")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'data.db')}")

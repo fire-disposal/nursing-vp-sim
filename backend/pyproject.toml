@@ -1,6 +1,6 @@
 [project]
 name = "virtual-patient-backend"
-version = "1.16.0"
+version = "2026.05.29"
 description = "虚拟患者训练系统 - 后端 API"
 requires-python = ">=3.13"
 dependencies = [

@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     engine.dispose()
 
 
-app = FastAPI(title="虚拟患者训练系统", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="虚拟患者训练系统", version="2026.05.29", lifespan=lifespan)
 
 _cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 app.add_middleware(
