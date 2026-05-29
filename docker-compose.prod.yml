@@ -6,27 +6,44 @@
 #   ./deploy.sh --setup              # 首次：创建目录 + 生成 .env
 #   ./deploy.sh --prod v1.17.0       # 部署指定版本
 #
-# 方式二：手动
-#   export VERSION=v1.17.0
-#   docker login ghcr.io -u USERNAME
-#   docker compose -f docker-compose.prod.yml up -d
-#
 # === 数据库持久化 ===
-# 具名卷 db_data 挂载到 /app/data，SQLite 文件 data.db 位于卷内。
-# 容器重建、镜像更新均不会清空数据库。备份见 deploy.sh --backup。
+# PostgreSQL 数据持久化于命名卷 ai_vp_pg_data。
+# 容器重建、镜像更新均不会清空数据库。
 
 services:
+  db:
+    image: postgres:15
+    container_name: nursing-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nursing
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: nursing_vp
+      TZ: Asia/Shanghai
+    volumes:
+      - ai_vp_pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   backend:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-fire-disposal}/nursing-vp-sim-backend:${VERSION:-latest}
     ports:
       - "127.0.0.1:9001:8000"
     volumes:
-      - db_data:/app/data          # 具名卷 — 数据永久保存
-      - ./cases:/app/cases:ro      # 病例文件只读
+      - ./cases:/app/cases:ro
     env_file:
       - .env
     environment:
-      - DATABASE_URL=sqlite:///data/data.db
+      - DATABASE_URL=postgresql://nursing:${POSTGRES_PASSWORD}@db:5432/nursing_vp
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -45,4 +62,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  db_data:
+  ai_vp_pg_data:
