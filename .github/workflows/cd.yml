@@ -94,7 +94,7 @@ jobs:
             DEPLOY_DIR="/opt/nursing-vp-sim"
 
             # 首次部署：自动创建目录结构
-            sudo mkdir -p "\$DEPLOY_DIR/cases" "\$DEPLOY_DIR/backups"
+            sudo mkdir -p "\$DEPLOY_DIR/backups"
             sudo chown -R "\$USER:\$USER" "\$DEPLOY_DIR"
 
             cd "\$DEPLOY_DIR"
@@ -140,8 +140,6 @@ jobs:
               '  backend:' \
               "    image: $IMG_BACKEND" \
               '    ports: ["127.0.0.1:9001:8000"]' \
-              '    volumes:' \
-              '      - ./cases:/app/cases:ro' \
               '    env_file: [.env]' \
               '    depends_on:' \
               '      db:' \
