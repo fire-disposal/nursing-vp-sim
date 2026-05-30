@@ -86,7 +86,7 @@ class LLMRouter:
                 if key.status == "disabled":
                     continue
                 if key.status == "rate_limited":
-                    if key.rate_limit_until and key.rate_limit_until > datetime.now(timezone.utc):
+                    if key.rate_limit_until is None or key.rate_limit_until > datetime.now(timezone.utc):
                         continue
                     key.status = "active"
                     key.rate_limit_until = None
@@ -109,12 +109,15 @@ class LLMRouter:
         provider_groups.sort(key=lambda g: g[0])
 
         for _, group in provider_groups:
-            total_weight = sum(k[0].weight for k in group)
+            exact = [k for k in group if k[0].purpose == purpose]
+            wild = [k for k in group if k[0].purpose == "*"]
+            candidates = exact if exact else wild
+            total_weight = sum(k[0].weight for k in candidates)
             if total_weight <= 0:
                 continue
             r = random.uniform(0, total_weight)
             cumulative = 0
-            for key, provider in group:
+            for key, provider in candidates:
                 cumulative += key.weight
                 if r <= cumulative:
                     key.last_used_at = datetime.now(timezone.utc)
