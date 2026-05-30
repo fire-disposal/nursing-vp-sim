@@ -133,7 +133,7 @@ def batch_create_users(
 @router.get("/stats", response_model=AdminStats)
 def get_stats(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     total_students = db.query(User).filter(User.role == "student").count()
-    total_records = db.query(TrainingRecord).count()
+    total_records = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.status == "completed").scalar()
     completed_records = db.query(TrainingRecord).filter(TrainingRecord.status == "completed").count()
     avg_score = db.query(func.avg(Score.total_score)).scalar()
 
