@@ -86,7 +86,7 @@ function ScoreItem({ item }) {
   );
 }
 
-export default function ScoreCard({ score, onClose }) {
+export default function ScoreCard({ score, onClose, onRetry, onGoHome }) {
   if (!score) return null;
 
   const detailScores = score.detail_scores || {};
@@ -179,6 +179,13 @@ export default function ScoreCard({ score, onClose }) {
           <div className="score-section">
             <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}><Lightbulb size={16} color="#2563eb" />改进建议</h4>
             <div className="text-block">{score.suggestions}</div>
+          </div>
+        )}
+
+        {(onRetry || onGoHome) && (
+          <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "center" }}>
+            {onRetry && <button className="btn btn-primary" onClick={onRetry}>再试一次</button>}
+            {onGoHome && <button className="btn" onClick={onGoHome}>结束训练（返回首页）</button>}
           </div>
         )}
       </div>

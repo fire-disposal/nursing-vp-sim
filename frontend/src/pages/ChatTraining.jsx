@@ -529,7 +529,31 @@ export default function ChatTraining() {
         </button>
       </div>
 
-      {showScore && score && <ScoreCard score={score} onClose={() => setShowScore(false)} />}
+      {ending && (
+        <div className="score-overlay">
+          <div className="score-modal" style={{ textAlign: "center", padding: "40px 32px", maxWidth: 420 }}>
+            <div style={{
+              width: 48, height: 48, margin: "0 auto 20px",
+              border: "4px solid var(--gray-200)", borderTopColor: "var(--blue-600)",
+              borderRadius: "50%", animation: "spin 0.8s linear infinite",
+            }} />
+            <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>AI 正在评分</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.6 }}>
+              正在分析你的训练表现，根据问诊完整性、沟通技巧等维度进行评分，请耐心等待...
+            </p>
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {showScore && score && (
+        <ScoreCard
+          score={score}
+          onClose={() => setShowScore(false)}
+          onRetry={() => navigate("/cases")}
+          onGoHome={() => navigate("/home")}
+        />
+      )}
     </div>
   );
 }
