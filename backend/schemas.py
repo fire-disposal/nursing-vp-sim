@@ -322,3 +322,117 @@ class ScoreReviewResponse(BaseModel):
     original_detail_scores: Optional[dict] = None
     review_detail_scores: Optional[dict] = None
     review_comment: Optional[str] = None
+
+
+# ── API 管理 ──
+
+class ApiProviderCreate(BaseModel):
+    name: str = Field(..., max_length=40)
+    display_name: str = Field(..., max_length=80)
+    base_url: str = Field(..., max_length=200)
+    api_type: str = Field(default="openai_compatible", max_length=20)
+    default_model: str = Field(..., max_length=80)
+    is_enabled: bool = True
+    priority: int = Field(default=100, ge=1)
+
+
+class ApiProviderUpdate(BaseModel):
+    display_name: Optional[str] = Field(None, max_length=80)
+    base_url: Optional[str] = Field(None, max_length=200)
+    default_model: Optional[str] = Field(None, max_length=80)
+    is_enabled: Optional[bool] = None
+    priority: Optional[int] = Field(None, ge=1)
+
+
+class ApiProviderResponse(BaseModel):
+    id: int
+    name: str
+    display_name: str
+    base_url: str
+    api_type: str
+    default_model: str
+    is_enabled: bool
+    priority: int
+    key_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiKeyCreate(BaseModel):
+    provider_id: int
+    label: Optional[str] = None
+    raw_key: str = Field(..., min_length=10)
+    model: Optional[str] = None
+    weight: int = Field(default=10, ge=0, le=100)
+    price_input_per_1m: float = 0
+    price_output_per_1m: float = 0
+    monthly_cost_limit: Optional[float] = None
+
+
+class ApiKeyUpdate(BaseModel):
+    label: Optional[str] = Field(None, max_length=80)
+    model: Optional[str] = None
+    weight: Optional[int] = Field(None, ge=0, le=100)
+    status: Optional[str] = None
+    price_input_per_1m: Optional[float] = None
+    price_output_per_1m: Optional[float] = None
+    balance: Optional[float] = None
+    monthly_cost_limit: Optional[float] = None
+
+
+class ApiKeyResponse(BaseModel):
+    id: int
+    provider_id: int
+    provider_name: str = ""
+    label: str
+    key_suffix: str
+    model: Optional[str]
+    weight: int
+    status: str
+    price_input_per_1m: float
+    price_output_per_1m: float
+    balance: Optional[float]
+    monthly_cost_limit: Optional[float]
+    call_count_today: int
+    total_tokens_today: int
+    total_cost_today: float
+    last_used_at: Optional[datetime]
+    rate_limit_until: Optional[datetime]
+    consecutive_failures: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiKeyRuleCreate(BaseModel):
+    api_key_id: int
+    purpose: str = Field(..., max_length=40)
+    priority: int = Field(default=100, ge=1)
+    is_enabled: bool = True
+
+
+class ApiKeyRuleUpdate(BaseModel):
+    purpose: Optional[str] = Field(None, max_length=40)
+    priority: Optional[int] = Field(None, ge=1)
+    is_enabled: Optional[bool] = None
+
+
+class ApiKeyRuleResponse(BaseModel):
+    id: int
+    api_key_id: int
+    purpose: str
+    priority: int
+    is_enabled: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiHealthResponse(BaseModel):
+    provider_id: int
+    provider_name: str
+    status: str
+    latency_ms: int | None
+    error: str | None
