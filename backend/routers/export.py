@@ -2,7 +2,7 @@ import csv
 import io
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 from database import get_db
 from models import User, Case, TrainingRecord, Message, Score
 from auth import get_current_user, require_teacher
@@ -25,10 +25,10 @@ def export_records(current_user: User = Depends(require_teacher), db: Session = 
         buf.seek(0)
 
         records = db.query(TrainingRecord).options(
-            joinedload(TrainingRecord.user),
-            joinedload(TrainingRecord.case),
-            joinedload(TrainingRecord.score),
-            joinedload(TrainingRecord.messages),
+            selectinload(TrainingRecord.user),
+            selectinload(TrainingRecord.case),
+            selectinload(TrainingRecord.score),
+            selectinload(TrainingRecord.messages),
         ).order_by(TrainingRecord.start_time.desc()).yield_per(100)
 
         for r in records:
