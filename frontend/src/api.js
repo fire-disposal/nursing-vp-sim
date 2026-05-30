@@ -58,8 +58,8 @@ export function getMe() {
   return api.get("/auth/me");
 }
 
-export function getCases() {
-  return api.get("/cases");
+export function getCases(params = {}) {
+  return api.get("/cases", { params });
 }
 
 export function getCaseDetail(id) {
@@ -152,8 +152,8 @@ export function exportRecordDetail(id) {
   return api.get(`/export/record/${id}`, { responseType: "blob" });
 }
 
-export function getUsers() {
-  return api.get("/admin/users");
+export function getUsers(params = {}) {
+  return api.get("/admin/users", { params });
 }
 
 export function getStats() {
@@ -174,12 +174,12 @@ export function getTrends(period = "month") {
   return api.get(`/stats/trends?period=${period}`);
 }
 
-export function getTeacherSummary() {
-  return api.get("/stats/teacher-summary");
+export function getTeacherSummary(params = {}) {
+  return api.get("/stats/teacher-summary", { params });
 }
 
-export function getStudentRanking() {
-  return api.get("/stats/ranking");
+export function getStudentRanking(params = {}) {
+  return api.get("/stats/ranking", { params });
 }
 
 // 用户管理
@@ -196,8 +196,8 @@ export function deleteUser(id) {
 }
 
 // 病例管理
-export function getManageCases() {
-  return api.get("/cases/manage/list");
+export function getManageCases(params = {}) {
+  return api.get("/cases/manage/list", { params });
 }
 
 export function createCase(caseData) {
