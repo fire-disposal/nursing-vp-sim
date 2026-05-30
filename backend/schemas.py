@@ -418,3 +418,54 @@ class ApiHealthResponse(BaseModel):
     status: str
     latency_ms: int | None
     error: str | None
+
+
+# ── Prompt 管理 ──
+
+class PromptTemplateCreate(BaseModel):
+    purpose: str = Field(..., max_length=40)
+    name: Optional[str] = Field(None, max_length=80)
+    system_prompt: str = Field(..., min_length=10)
+    user_prompt: Optional[str] = None
+    variables: Optional[list[dict]] = None
+    created_by: Optional[str] = None
+    remark: Optional[str] = None
+    activate: bool = False
+
+
+class PromptTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=80)
+    system_prompt: Optional[str] = Field(None, min_length=10)
+    user_prompt: Optional[str] = None
+    variables: Optional[list[dict]] = None
+    remark: Optional[str] = None
+
+
+class PromptTemplateResponse(BaseModel):
+    id: int
+    purpose: str
+    version: int
+    name: Optional[str]
+    system_prompt: str
+    user_prompt: Optional[str]
+    template_engine: str
+    variables: Optional[list]
+    is_active: bool
+    created_by: Optional[str]
+    remark: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PromptValidateRequest(BaseModel):
+    system_prompt: str
+    user_prompt: Optional[str] = None
+    variables: Optional[list[dict]] = None
+
+
+class PromptValidateResponse(BaseModel):
+    valid: bool
+    errors: list[str] = []
+    missing_vars: list[str] = []

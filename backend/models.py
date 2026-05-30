@@ -212,3 +212,23 @@ class ApiKey(Base):
 
     provider = relationship("ApiProvider", back_populates="keys")
 
+
+class PromptTemplate(Base):
+    """LLM 提示词模板"""
+    __tablename__ = "prompt_templates"
+
+    id = Column(Integer, primary_key=True)
+    purpose = Column(String(40), nullable=False, index=True)
+    version = Column(Integer, nullable=False, default=1)
+    name = Column(String(80), nullable=True)
+    system_prompt = Column(Text, nullable=False)
+    user_prompt = Column(Text, nullable=True)
+    template_engine = Column(String(20), nullable=False, default="format")
+    variables = Column(JSON, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=False)
+    created_by = Column(String(80), nullable=True)
+    remark = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
