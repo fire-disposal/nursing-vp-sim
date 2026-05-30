@@ -1,25 +1,30 @@
 @echo off
-chcp 65001 >nul
 echo ============================================
-echo   虚拟患者训练系统 (开发模式)
+echo   Nursing VP Sim - Dev Mode
 echo ============================================
 echo.
-echo   后端:  http://localhost:8000
-echo   前端:  npm run dev --prefix frontend
+echo   Backend:  http://localhost:8000
+echo   Frontend: http://localhost:3000
+echo   API Docs: http://localhost:8000/docs
 echo.
 
-set "VENV_PYTHON=%~dp0backend\.venv\Scripts\python.exe"
+set "ROOT=%~dp0"
+set "VENV_PYTHON=%ROOT%backend\.venv\Scripts\python.exe"
 
 if not exist "%VENV_PYTHON%" (
-    echo [错误] 未找到虚拟环境，请先在 backend\ 下创建 .venv
+    echo [ERROR] Virtual env not found at backend\.venv
+    echo Run: cd backend ^&^& uv sync
     pause
     exit /b 1
 )
 
-cd /d "%~dp0backend"
-echo [启动] 后端开发服务器 (uvicorn --reload)...
-"%VENV_PYTHON%" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+echo [1/2] Starting backend (uvicorn --reload)...
+start "Nursing-Backend" cmd /c "cd /d "%ROOT%backend" && "%VENV_PYTHON%" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+echo [2/2] Starting frontend (vite dev)...
+start "Nursing-Frontend" cmd /c "cd /d "%ROOT%frontend" && npm run dev"
 
 echo.
-echo 后端已停止。
-pause >nul
+echo Both servers started. Close their windows to stop.
+echo.
+pause
