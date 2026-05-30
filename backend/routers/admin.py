@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, Integer as SAInteger
 from database import get_db
 from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel
-from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, LLMLogListResponse
+from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse
 from auth import require_teacher, hash_password
 from logger import log_info
 import os
@@ -254,10 +254,10 @@ def get_llm_stats(current_user: User = Depends(require_teacher), db: Session = D
     )
 
 
-@router.get("/llm-logs", response_model=LLMLogListResponse)
+@router.get("/llm-logs", response_model=PaginatedResponse[LLMCallLogItem])
 def get_llm_logs(
-    page: int = 1,
-    page_size: int = 20,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     purpose: str | None = None,
     status: str | None = None,
     date_from: str | None = None,
@@ -267,15 +267,15 @@ def get_llm_logs(
     db: Session = Depends(get_db),
 ):
     """返回 LLM 调用日志。aggregate_patient_chat=true 时将同一训练下的 patient_chat 聚合为一条训练级记录。"""
-    all_items = []
-
-    # 是否对 patient_chat 做训练级聚合
     do_agg = aggregate_patient_chat and (purpose is None or purpose == "patient_chat")
-    # 是否需要返回原始（非聚合）日志
     need_raw = (not aggregate_patient_chat) or (purpose != "patient_chat")
 
+    agg_count = 0
+    raw_count = 0
+    agg_rows = []
+    raw_rows = []
+
     if do_agg:
-        # ── 聚合 patient_chat，按 record_id 分组 ──
         agg_q = db.query(
             LLMCallLog.record_id.label("record_id"),
             func.max(LLMCallLog.id).label("id"),
@@ -301,7 +301,6 @@ def get_llm_logs(
             LLMCallLog.record_id.isnot(None),
         )
 
-        # 日期筛选作用于原始调用
         if date_from:
             agg_q = agg_q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
         if date_to:
@@ -309,54 +308,17 @@ def get_llm_logs(
 
         agg_q = agg_q.group_by(LLMCallLog.record_id)
 
-        # 状态筛选作用于聚合结果
         if status == "success":
             agg_q = agg_q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) == 0)
         elif status == "failed":
             agg_q = agg_q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) > 0)
 
-        agg_rows = agg_q.all()
-
-        for r in agg_rows:
-            avg_lat = round(r.latency_ms) if r.latency_ms else None
-            all_items.append({
-                "id": r.id,
-                "user_id": r.user_id,
-                "record_id": r.record_id,
-                "case_id": r.case_id,
-                "purpose": "patient_chat",
-                "provider": "deepseek",
-                "model": "",
-                "temperature": None,
-                "max_tokens": None,
-                "prompt_tokens": r.prompt_tokens,
-                "completion_tokens": r.completion_tokens,
-                "total_tokens": r.total_tokens,
-                "token_estimated": 1 if r.token_estimated else 0,
-                "estimated_cost": round(r.estimated_cost, 6) if r.estimated_cost else None,
-                "cost_currency": None,
-                "latency_ms": avg_lat,
-                "status": "success" if (r.error_count or 0) == 0 else "failed",
-                "error_type": None,
-                "error_message": None,
-                "request_chars": None,
-                "response_chars": None,
-                "created_at": r.created_at,
-                "call_count": r.call_count,
-                "avg_latency_ms": avg_lat,
-                "error_count": r.error_count or 0,
-                "first_called_at": r.first_called_at,
-                "last_called_at": r.created_at,
-                "student_name": r.student_name,
-                "case_name": r.case_name,
-                "is_aggregated": True,
-            })
+        agg_count = agg_q.order_by(None).count()
+        agg_rows = agg_q.order_by(func.max(LLMCallLog.created_at).desc()).offset(offset).limit(limit).all()
 
     if need_raw:
-        # ── 非 patient_chat 原始日志 ──
         q = db.query(LLMCallLog)
         if aggregate_patient_chat and purpose is None:
-            # 聚合模式且未指定用途：排除已聚合的 patient_chat，只取 scoring/qa/summary/other
             q = q.filter(LLMCallLog.purpose != "patient_chat")
         elif purpose:
             q = q.filter(LLMCallLog.purpose == purpose)
@@ -366,10 +328,55 @@ def get_llm_logs(
             q = q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
         if date_to:
             q = q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
-        raw_logs = q.order_by(LLMCallLog.created_at.desc()).all()
-        all_items.extend(raw_logs)
 
-    # 按 created_at 降序排列
+        raw_count = q.order_by(None).count()
+
+        remaining_offset = max(0, offset - agg_count)
+        remaining_limit = max(0, limit - len(agg_rows))
+        if remaining_limit > 0:
+            raw_rows = q.order_by(LLMCallLog.created_at.desc()).offset(remaining_offset).limit(remaining_limit).all()
+
+    total = agg_count + raw_count
+
+    all_items = []
+
+    for r in agg_rows:
+        avg_lat = round(r.latency_ms) if r.latency_ms else None
+        all_items.append({
+            "id": r.id,
+            "user_id": r.user_id,
+            "record_id": r.record_id,
+            "case_id": r.case_id,
+            "purpose": "patient_chat",
+            "provider": "deepseek",
+            "model": "",
+            "temperature": None,
+            "max_tokens": None,
+            "prompt_tokens": r.prompt_tokens,
+            "completion_tokens": r.completion_tokens,
+            "total_tokens": r.total_tokens,
+            "token_estimated": 1 if r.token_estimated else 0,
+            "estimated_cost": round(r.estimated_cost, 6) if r.estimated_cost else None,
+            "cost_currency": None,
+            "latency_ms": avg_lat,
+            "status": "success" if (r.error_count or 0) == 0 else "failed",
+            "error_type": None,
+            "error_message": None,
+            "request_chars": None,
+            "response_chars": None,
+            "created_at": r.created_at,
+            "call_count": r.call_count,
+            "avg_latency_ms": avg_lat,
+            "error_count": r.error_count or 0,
+            "first_called_at": r.first_called_at,
+            "last_called_at": r.created_at,
+            "student_name": r.student_name,
+            "case_name": r.case_name,
+            "is_aggregated": True,
+        })
+
+    all_items.extend(raw_rows)
+
     def _get_ts(item):
         if isinstance(item, dict):
             return item["created_at"]
@@ -377,15 +384,11 @@ def get_llm_logs(
 
     all_items.sort(key=_get_ts, reverse=True)
 
-    # 分页
-    total = len(all_items)
-    start = (page - 1) * page_size
-    end = start + page_size
-    paged = all_items[start:end]
+    items = []
+    for it in all_items:
+        if isinstance(it, dict):
+            items.append(LLMCallLogItem(**it))
+        else:
+            items.append(LLMCallLogItem.model_validate(it))
 
-    return LLMLogListResponse(
-        items=paged,
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)

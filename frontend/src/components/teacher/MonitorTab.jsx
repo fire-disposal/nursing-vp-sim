@@ -22,7 +22,7 @@ export default function MonitorTab() {
   const loadData = useCallback(() => {
     getLLMStats().then(({ data }) => setStats(data)).catch(() => {});
     setLoading(true);
-    const params = { page, page_size: 20 };
+    const params = { offset: (page - 1) * 20, limit: 20 };
     if (filters.purpose) params.purpose = filters.purpose;
     if (filters.status) params.status = filters.status;
     if (filters.date_from) params.date_from = filters.date_from;

@@ -285,13 +285,6 @@ class LLMStatsResponse(BaseModel):
     daily: list  # [{date, count, success_count, fail_count, total_cost}] 最近30天
 
 
-class LLMLogListResponse(BaseModel):
-    items: List[LLMCallLogItem]
-    total: int
-    page: int
-    page_size: int
-
-
 # ── 教师复核 ──
 
 class ScoreReviewRequest(BaseModel):
