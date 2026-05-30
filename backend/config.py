@@ -1,18 +1,13 @@
 import os
-import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
-# 加载项目根目录 .env（不覆盖已有环境变量，保证 Docker/CI 注入优先生效）
 try:
     from dotenv import load_dotenv
     env_path = Path(__file__).resolve().parent.parent / ".env"
-    loaded = load_dotenv(env_path)
-    if loaded:
-        print(f"[config] 已加载: {env_path}", file=sys.stderr)
-    else:
-        print(f"[config] .env 未找到或已加载过: {env_path}", file=sys.stderr)
+    load_dotenv(env_path)
 except ImportError:
-    print("[config] python-dotenv 未安装，跳过 .env 加载", file=sys.stderr)
+    pass
 
 ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "dev")
@@ -53,3 +48,23 @@ LLM_CHAT_TIMEOUT = int(os.getenv("LLM_CHAT_TIMEOUT", "30"))
 LLM_CHAT_MAX_TOKENS = int(os.getenv("LLM_CHAT_MAX_TOKENS", "512"))
 LLM_SCORING_TIMEOUT = int(os.getenv("LLM_SCORING_TIMEOUT", "120"))
 LLM_SCORING_MAX_TOKENS = int(os.getenv("LLM_SCORING_MAX_TOKENS", "2048"))
+
+
+def log_config(logger):
+    """输出脱敏后的关键配置（启动时调用）"""
+    db = urlparse(DATABASE_URL)
+    db_safe = f"{db.scheme}://{db.username}:***@{db.hostname}:{db.port}{db.path}"
+
+    secret_tail = SECRET_KEY[-4:] if len(SECRET_KEY) >= 4 else "****"
+    api_tail = DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****"
+
+    logger.info("── 环境配置 ──────────────────────────")
+    logger.info("  环境:       %s", ENV)
+    logger.info("  版本:       %s", APP_VERSION)
+    logger.info("  数据库:     %s", db_safe)
+    logger.info("  CORS:       %s", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000"))
+    logger.info("  SECRET_KEY: ***%s (%d 位)", secret_tail, len(SECRET_KEY))
+    logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
+    logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
+    logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)
+    logger.info("──────────────────────────────────────")

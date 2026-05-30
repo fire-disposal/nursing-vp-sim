@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -12,13 +13,27 @@ from sqlalchemy.orm import Session
 from database import init_db, engine, get_db
 from routers import auth, cases, training, chat, export, admin, notes, qa, stats
 from logger import audit_logger
-from config import APP_VERSION
+from config import APP_VERSION, log_config
+
+_startup_logger = logging.getLogger("nursing")
 
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))  # 默认 10MB
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _startup_logger.info(
+        "\n"
+        "  _   __              _               __      ______  _____ \n"
+        " | | / /             (_)              \\ \\    / /  _ \\|  __ \\\n"
+        " | |/ / _   _  _ __  _  __ _  _   _   \\ \\  / /| |_) | |__) |\n"
+        " |    \\| | | || '__|| |/ _` || | | |   \\ \\/ / |  __/|  ___/\n"
+        " | |\\  \\ |_| || |   | | (_| || |_| |    \\  /  | |   | |\n"
+        " \\_| \\_/\\__,_||_|   |_|\\__, | \\__,_|     \\/   |_|   |_|\n"
+        "                         __/ |\n"
+        "                        |___/    虚拟患者训练系统"
+    )
+    log_config(_startup_logger)
     from database import _log_connection
     _log_connection()
     init_db()
