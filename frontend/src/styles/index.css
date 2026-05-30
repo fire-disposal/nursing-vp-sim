@@ -433,7 +433,7 @@ body {
 
 .training-patient-avatar-img {
   width: 36px; height: 36px; border-radius: 50%;
-  object-fit: cover;
+  object-fit: cover; object-position: center;
   background: var(--gray-100);
 }
 
@@ -605,7 +605,7 @@ body {
 
 .portrait-img {
   width: 160px; height: 160px; border-radius: 50%;
-  object-fit: cover;
+  object-fit: cover; object-position: center;
   background: var(--gray-100);
   border: 3px solid var(--blue-100);
 }
@@ -668,7 +668,7 @@ body {
 /* Chat bubble avatars */
 .msg-avatar {
   width: 32px; height: 32px; border-radius: 50%;
-  object-fit: cover; flex-shrink: 0;
+  object-fit: cover; object-position: center; flex-shrink: 0;
   background: var(--gray-100);
 }
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
