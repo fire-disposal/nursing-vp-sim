@@ -385,8 +385,10 @@ class TestAlembicMigration:
         files = [f for f in os.listdir(versions_dir) if f.endswith(".py") and not f.startswith("_")]
         assert len(files) >= 1, "至少需要一个迁移文件"
 
-        # 读取迁移文件验证包含所有表
-        with open(os.path.join(versions_dir, files[0]), "r", encoding="utf-8") as f:
+        # 读取初始迁移文件验证包含所有表（跳过后续仅添加索引的迁移）
+        initial_files = [f for f in files if "initial" in f.lower()]
+        target_file = initial_files[0] if initial_files else files[0]
+        with open(os.path.join(versions_dir, target_file), "r", encoding="utf-8") as f:
             content = f.read()
 
         required_tables = [
