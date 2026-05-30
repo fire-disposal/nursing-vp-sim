@@ -707,13 +707,27 @@ body {
 }
 .sidebar-user .info .name { color: #fff; font-size: 0.78rem; font-weight: 500; }
 .sidebar-user .info .role { color: var(--gray-400); font-size: 0.66rem; }
+.sidebar-footer-actions { display: flex; gap: 6px; }
+.btn-about {
+  background: rgba(255,255,255,0.06); color: var(--gray-400);
+  border: none; padding: 6px 10px; border-radius: 6px;
+  font-size: 0.76rem; cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  font-family: inherit;
+}
+.btn-about:hover { background: rgba(255,255,255,0.12); color: #fff; }
 .btn-logout {
   background: rgba(255,255,255,0.06); color: var(--gray-400);
   border: none; padding: 6px 12px; border-radius: 6px;
-  font-size: 0.76rem; cursor: pointer; width: 100%;
+  font-size: 0.76rem; cursor: pointer; flex: 1;
   font-family: inherit;
 }
 .btn-logout:hover { background: rgba(239,68,68,0.15); color: #fca5a5; }
+
+.about-content { text-align: center; padding: var(--space-2) 0; }
+.about-content h3 { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0 0 8px; }
+.about-content p { color: var(--text-secondary); margin: 0 0 12px; font-size: var(--font-size-sm); }
+.about-version { font-size: var(--font-size-sm); color: var(--text-tertiary); margin: var(--space-4) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--border-color); }
 .main-content { flex: 1; margin-left: 200px; padding: 28px 36px; min-height: 100vh; }
 
 .page-header { margin-bottom: 24px; }

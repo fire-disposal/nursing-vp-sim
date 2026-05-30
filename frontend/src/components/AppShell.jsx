@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BarChart3, ClipboardList, HelpCircle, Home, Menu, Settings, Stethoscope, X } from "lucide-react";
+import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, Settings, Stethoscope, X } from "lucide-react";
+import Modal from "./ui/Modal";
+import { APP_VERSION } from "../version";
 
 const studentLinks = [
   { to: "/home", icon: Home, label: "首页" },
@@ -23,6 +25,7 @@ export default function AppShell({ children, user, onLogout }) {
   const isTeacher = user?.role === "teacher";
   const links = isTeacher ? teacherLinks : studentLinks;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
@@ -69,10 +72,24 @@ export default function AppShell({ children, user, onLogout }) {
               <div className="role">{isTeacher ? "教师" : "学生"}</div>
             </div>
           </div>
-          <button className="btn-logout" onClick={handleLogout}>
-            退出登录
-          </button>
+          <div className="sidebar-footer-actions">
+            <button className="btn-about" onClick={() => setAboutOpen(true)}>
+              <Info size={14} />
+              关于
+            </button>
+            <button className="btn-logout" onClick={handleLogout}>
+              退出登录
+            </button>
+          </div>
         </div>
+
+        <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于" maxWidth={380}>
+          <div className="about-content">
+            <h3>虚拟患者系统</h3>
+            <p>护理病史采集技能训练平台</p>
+            <p className="about-version">版本 {APP_VERSION}</p>
+          </div>
+        </Modal>
       </aside>
 
       <main className="main-content">
