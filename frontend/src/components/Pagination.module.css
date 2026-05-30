@@ -1,0 +1,30 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  justify-content: flex-end;
+}
+
+.info {
+  color: #666;
+  font-size: 14px;
+}
+
+.btn {
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:not(:disabled):hover {
+  background: #f0f0f0;
+}
