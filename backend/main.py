@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from database import init_db, engine, get_db
 from routers import auth, cases, training, chat, export, admin, notes, qa, stats
 from logger import audit_logger
+from config import APP_VERSION
 
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))  # 默认 10MB
 
@@ -40,7 +41,7 @@ async def lifespan(app: FastAPI):
     engine.dispose()
 
 
-app = FastAPI(title="虚拟患者训练系统", version="2026.05.29", lifespan=lifespan)
+app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
 
 _cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 app.add_middleware(
