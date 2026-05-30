@@ -17,3 +17,15 @@ export function resetKey(id) { return api.post(`/admin/api/keys/${id}/reset`); }
 export function fetchKeyStats(id) { return api.get(`/admin/api/keys/${id}/stats`); }
 export function reloadRouter() { return api.post("/admin/api/reload"); }
 export function checkHealth() { return api.get("/admin/api/health"); }
+
+export function fetchPrompts(purpose) {
+  const params = {};
+  if (purpose) params.purpose = purpose;
+  return api.get("/admin/prompts", { params });
+}
+export function createPrompt(data) { return api.post("/admin/prompts", data); }
+export function updatePrompt(id, data) { return api.put(`/admin/prompts/${id}`, data); }
+export function deletePrompt(id) { return api.delete(`/admin/prompts/${id}`); }
+export function activatePrompt(id) { return api.post(`/admin/prompts/${id}/activate`); }
+export function validatePrompt(data) { return api.post("/admin/prompts/validate", data); }
+export function reloadPrompts() { return api.post("/admin/prompts/reload"); }
