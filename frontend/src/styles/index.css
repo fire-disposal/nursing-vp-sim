@@ -431,10 +431,10 @@ body {
 
 .training-patient-identity { display: flex; align-items: center; gap: 10px; flex: 1; }
 
-.training-patient-avatar {
+.training-patient-avatar-img {
   width: 36px; height: 36px; border-radius: 50%;
-  background: var(--gray-100); color: var(--gray-500);
-  display: flex; align-items: center; justify-content: center;
+  object-fit: cover;
+  background: var(--gray-100);
 }
 
 .training-patient-name { font-size: 0.88rem; font-weight: 600; color: var(--gray-900); }
@@ -573,6 +573,104 @@ body {
   flex-shrink: 0;
 }
 .send-btn:hover:not(:disabled) { background: #1d4ed8; }
+
+/* Portrait Panel */
+.training-body {
+  display: flex; flex: 1; overflow: hidden;
+  position: relative;
+}
+
+.portrait-panel {
+  width: 280px; flex-shrink: 0;
+  background: #fff; border-right: 1px solid var(--gray-200);
+  display: flex; flex-direction: row;
+  transition: width 0.25s ease, margin-left 0.25s ease;
+  overflow: hidden;
+  position: relative;
+}
+.portrait-panel.collapsed {
+  width: 0; border-right: none;
+}
+
+.portrait-inner {
+  flex: 1; display: flex; flex-direction: column;
+  overflow-y: auto; padding: 20px 16px; gap: 20px;
+  min-width: 280px;
+}
+
+.portrait-figure {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;
+}
+
+.portrait-img {
+  width: 160px; height: 160px; border-radius: 50%;
+  object-fit: cover;
+  background: var(--gray-100);
+  border: 3px solid var(--blue-100);
+}
+
+.portrait-name {
+  font-size: 1rem; font-weight: 700; color: var(--gray-900);
+}
+
+.portrait-meta {
+  font-size: 0.78rem; color: var(--gray-500);
+}
+
+.portrait-record-card {
+  border: 2px dashed var(--gray-300);
+  border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.portrait-record-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; font-weight: 600; color: var(--gray-600);
+}
+
+.portrait-record-placeholder {
+  font-size: 0.75rem; color: var(--gray-400);
+  text-align: center; padding: 20px 0;
+}
+
+.portrait-toggle {
+  position: absolute; top: 12px; right: -34px;
+  width: 30px; height: 30px;
+  border: 1px solid var(--gray-200); border-left: none;
+  border-radius: 0 6px 6px 0;
+  background: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gray-400); z-index: 10;
+  transition: right 0.25s ease;
+}
+.portrait-panel.collapsed .portrait-toggle {
+  right: -34px;
+}
+
+.portrait-overlay {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .portrait-panel {
+    position: fixed; top: 56px; left: 0; bottom: 0; z-index: 500;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.15);
+  }
+  .portrait-panel.collapsed {
+    left: -280px; width: 280px;
+  }
+  .portrait-panel:not(.collapsed) + .portrait-overlay {
+    display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 499;
+  }
+}
+
+/* Chat bubble avatars */
+.msg-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  background: var(--gray-100);
+}
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ============================================================

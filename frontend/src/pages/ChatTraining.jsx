@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Send, Mic, MicOff, Phone, Volume2, VolumeX, Clock, ListChecks, ChevronRight, X, Circle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, Mic, MicOff, Phone, Volume2, VolumeX, Clock, ListChecks, ChevronRight, X, Circle, CheckCircle2 } from "lucide-react";
 import { getRecordDetail, sendMessageStream, endTraining } from "../api";
 import ScoreCard from "../components/ScoreCard";
+import PatientPortrait from "../components/PatientPortrait";
+import { getPatientAvatar, getNurseAvatar } from "../utils/avatar";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 
@@ -152,6 +154,8 @@ export default function ChatTraining() {
   const [speechSupported, setSpeechSupported] = useState({ recognition: false, synthesis: false });
   const [requiredInquiries, setRequiredInquiries] = useState([]);
   const [showInquirySidebar, setShowInquirySidebar] = useState(false);
+  const [patientInfo, setPatientInfo] = useState(null);
+  const [showPortrait, setShowPortrait] = useState(true);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
   const timerRef = useRef(null);
@@ -211,6 +215,7 @@ export default function ChatTraining() {
       setMessages(data.messages || []);
       if (data.case_name) setCaseTitle(data.case_name);
       if (data.required_inquiries) setRequiredInquiries(data.required_inquiries);
+      if (data.patient_info) setPatientInfo(data.patient_info);
       const r = data.remaining_seconds != null
         ? data.remaining_seconds
         : Math.max(0, (data.time_limit || 20) * 60 - Math.floor((Date.now() - new Date(data.start_time).getTime()) / 1000));
@@ -398,9 +403,11 @@ export default function ChatTraining() {
           <ArrowLeft size={20} />
         </button>
         <div className="training-patient-identity">
-          <div className="training-patient-avatar">
-            <User size={20} />
-          </div>
+          <img
+            className="training-patient-avatar-img"
+            src={getPatientAvatar(patientInfo)}
+            alt={patientName || "虚拟患者"}
+          />
           <div>
             <div className="training-patient-name">{patientName || "虚拟患者"}</div>
             <div className="training-patient-desc">
@@ -431,11 +438,23 @@ export default function ChatTraining() {
         </button>
       </header>
 
-      <div className="training-conversation">
+      <div className="training-body">
+        <PatientPortrait
+          patientInfo={patientInfo}
+          collapsed={!showPortrait}
+          onToggle={() => setShowPortrait((v) => !v)}
+        />
+
+        <div className="training-conversation">
         {messages.length <= 1 && (
           <div className="training-hint">
             <div className="training-hint-icon">
-              <User size={36} strokeWidth={1} />
+              <img
+                className="msg-avatar"
+                src={getPatientAvatar(patientInfo)}
+                alt="患者"
+                style={{ width: 36, height: 36 }}
+              />
             </div>
             <p>请按照护理评估流程与患者交流</p>
             <span>从主诉开始，逐步了解现病史、既往史、用药史等信息</span>
@@ -443,9 +462,23 @@ export default function ChatTraining() {
         )}
         {messages.map((msg, i) => (
           <div key={msg.id || i} className={`msg-row ${msg.role}`}>
+            {msg.role === "patient" && (
+              <img
+                className="msg-avatar"
+                src={getPatientAvatar(patientInfo)}
+                alt="患者"
+              />
+            )}
             <div className={`msg-bubble${msg.streaming ? " streaming" : ""}`}>
               <p>{msg.content}{msg.streaming ? "" : ""}</p>
             </div>
+            {msg.role === "student" && (
+              <img
+                className="msg-avatar"
+                src={getNurseAvatar()}
+                alt="护士"
+              />
+            )}
             {msg.role === "patient" && !msg.streaming && speechSupported.synthesis && (
               <button className="msg-speak-btn" onClick={() => speakText(msg.content)} title={speaking ? "停止朗读" : "朗读"}>
                 {speaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
@@ -455,6 +488,11 @@ export default function ChatTraining() {
         ))}
         {loading && !messages.some(m => m.streaming) && (
           <div className="msg-row patient">
+            <img
+              className="msg-avatar"
+              src={getPatientAvatar(patientInfo)}
+              alt="患者"
+            />
             <div className="msg-bubble">
               <div className="typing-dots"><span /><span /><span /></div>
             </div>
@@ -464,6 +502,7 @@ export default function ChatTraining() {
           <div className="time-up-banner">训练时间已结束，系统正在自动评分...</div>
         )}
         <div ref={messagesEndRef} />
+      </div>
       </div>
 
       <div className="training-input-bar">

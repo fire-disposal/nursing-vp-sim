@@ -56,7 +56,7 @@ if (!m) {
 }
 
 const matchedEmoji = m[1];
-const stripped = firstLine.slice([...matchedEmoji].length + 1);
+const stripped = firstLine.slice(matchedEmoji.length + 1);
 const lintFile = msgFile + '.lint';
 fs.writeFileSync(lintFile, stripped + msg.slice(firstLine.length), 'utf-8');
 

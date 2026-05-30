@@ -137,6 +137,7 @@ class TrainingRecordDetail(BaseModel):
     score: Optional[ScoreItem] = None
     notes: List[NoteItem] = []
     required_inquiries: Optional[list] = None
+    patient_info: Optional[dict] = None
 
     model_config = ConfigDict(from_attributes=True)
 
