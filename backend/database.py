@@ -29,11 +29,14 @@ def _log_connection():
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-            result = conn.execute(text("SELECT current_database(), version()"))
-            row = result.fetchone()
-            db_name = row[0]
-            pg_ver = row[1].split(",")[0] if row[1] else "unknown"
-        logger.info("数据库连接成功 → %s (PostgreSQL %s)", db_name, pg_ver)
+            if parsed.scheme.startswith("postgres"):
+                result = conn.execute(text("SELECT current_database(), version()"))
+                row = result.fetchone()
+                db_name = row[0]
+                pg_ver = row[1].split(",")[0] if row[1] else "unknown"
+                logger.info("数据库连接成功 → %s (PostgreSQL %s)", db_name, pg_ver)
+            else:
+                logger.info("数据库连接成功 → %s (SQLite)", getattr(parsed, "path", ":memory:"))
     except Exception as e:
         logger.error("数据库连接失败: %s: %s", type(e).__name__, e)
         raise
