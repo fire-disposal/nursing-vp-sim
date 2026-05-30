@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, Integer as SAInteger
 from database import get_db
@@ -6,6 +6,7 @@ from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse
 from auth import require_teacher, hash_password
 from logger import log_info
+from pagination import paginate
 import os
 import shutil
 from datetime import datetime, timezone
@@ -15,10 +16,16 @@ from config import DATABASE_URL
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
 
-@router.get("/users", response_model=list[UserBrief])
-def list_users(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
-    users = db.query(User).order_by(User.created_at.desc()).all()
-    return users
+@router.get("/users", response_model=PaginatedResponse[UserBrief])
+def list_users(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    query = db.query(User).order_by(User.created_at.desc())
+    items, total = paginate(query, offset, limit)
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)

@@ -27,7 +27,9 @@ class TestUserManagement:
         _, token = teacher
         resp = client.get("/api/admin/users", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
+        data = resp.json()
+        assert "items" in data
+        assert "total" in data
 
     def test_get_users_as_student_forbidden(self, client, student):
         _, token = student
