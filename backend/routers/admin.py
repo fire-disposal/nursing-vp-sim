@@ -173,38 +173,26 @@ def backup_database(current_user: User = Depends(require_teacher)):
     tmpdir = tempfile.mkdtemp()
 
     try:
-        if parsed.scheme.startswith("postgres"):
-            env = os.environ.copy()
-            if parsed.password:
-                env["PGPASSWORD"] = parsed.password
+        env = os.environ.copy()
+        if parsed.password:
+            env["PGPASSWORD"] = parsed.password
 
-            cmd = [
-                "pg_dump",
-                "-h", parsed.hostname or "localhost",
-                "-p", str(parsed.port or 5432),
-                "-U", parsed.username or "postgres",
-                "-d", parsed.path.lstrip("/"),
-                "-f", os.path.join(tmpdir, f"dump_{timestamp}.sql"),
-                "--no-owner",
-                "--no-acl",
-            ]
+        cmd = [
+            "pg_dump",
+            "-h", parsed.hostname or "localhost",
+            "-p", str(parsed.port or 5432),
+            "-U", parsed.username or "postgres",
+            "-d", parsed.path.lstrip("/"),
+            "-f", os.path.join(tmpdir, f"dump_{timestamp}.sql"),
+            "--no-owner",
+            "--no-acl",
+        ]
 
-            result = subprocess.run(cmd, env=env, capture_output=True, text=True)
-            if result.returncode != 0:
-                raise HTTPException(status_code=500, detail=f"pg_dump 失败: {result.stderr}")
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"pg_dump 失败: {result.stderr}")
 
-            dump_path = os.path.join(tmpdir, f"dump_{timestamp}.sql")
-
-        elif parsed.scheme.startswith("sqlite"):
-            db_path = DATABASE_URL[10:]  # strip "sqlite:///"
-            if not os.path.exists(db_path):
-                raise HTTPException(status_code=500, detail=f"数据库文件不存在: {db_path}")
-
-            dump_path = os.path.join(tmpdir, f"dump_{timestamp}.db")
-            shutil.copy2(db_path, dump_path)
-
-        else:
-            raise HTTPException(status_code=501, detail=f"不支持的数据库类型: {parsed.scheme}")
+        dump_path = os.path.join(tmpdir, f"dump_{timestamp}.sql")
 
         zip_path = os.path.join(tmpdir, f"backup_{timestamp}.zip")
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
