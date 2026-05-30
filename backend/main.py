@@ -127,7 +127,7 @@ app.include_router(stats.router)
 
 @app.get("/api")
 def root():
-    return {"message": "虚拟患者训练系统 API", "version": "1.0.0"}
+    return {"message": "虚拟患者训练系统 API", "version": APP_VERSION}
 
 
 @app.get("/api/health")
