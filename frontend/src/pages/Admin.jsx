@@ -7,12 +7,14 @@ import RecordsTab from "../components/teacher/RecordsTab";
 import UsersTab from "../components/teacher/UsersTab";
 import CasesTab from "../components/teacher/CasesTab";
 import MonitorTab from "../components/teacher/MonitorTab";
+import QARecordsTab from "../components/teacher/QARecordsTab";
 
 const ADMIN_TABS = [
   { key: "records", label: "训练记录" },
   { key: "users", label: "用户管理" },
   { key: "cases", label: "病例管理" },
   { key: "monitor", label: "调用监控" },
+  { key: "qa-records", label: "问答记录" },
 ];
 
 export default function Admin({ user, onLogout }) {
@@ -32,6 +34,7 @@ export default function Admin({ user, onLogout }) {
       {activeTab === "users" && <UsersTab currentUserId={user?.id} />}
       {activeTab === "cases" && <CasesTab />}
       {activeTab === "monitor" && <MonitorTab />}
+      {activeTab === "qa-records" && <QARecordsTab />}
     </Layout>
   );
 }
