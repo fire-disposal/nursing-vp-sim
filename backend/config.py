@@ -10,7 +10,7 @@ except ImportError:
     pass
 
 ENV = os.getenv("ENV", "development")
-APP_VERSION = os.getenv("APP_VERSION", "2026.05.29")
+APP_VERSION = os.getenv("APP_VERSION", "dev")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://nursing:nursing123@localhost:5433/nursing_vp")
