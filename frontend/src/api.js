@@ -165,6 +165,18 @@ export function askQuestion(question) {
   return api.post("/qa/ask", { question });
 }
 
+export function getQAHistory(params = {}) {
+  return api.get("/qa/history", { params });
+}
+
+export function deleteQARecord(id) {
+  return api.delete(`/qa/history/${id}`);
+}
+
+export function getQAHistoryAll(params = {}) {
+  return api.get("/qa/history/all", { params });
+}
+
 // Duration stats
 export function getDurationStats(period = "month") {
   return api.get(`/stats/duration?period=${period}`);
