@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, RefreshCw, Loader2, Trash2 } from "lucide-react";
 import { getRecords, deleteRecord } from "../api";
@@ -15,21 +15,26 @@ export default function History({ user, onLogout }) {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const LIMIT = 50;
+  const [filters, setFilters] = useState({ status: "", date_from: "", date_to: "" });
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
 
-  const fetchRecords = () => {
+  const fetchRecords = useCallback(() => {
     setLoading(true);
     setError(null);
-    getRecords({ offset, limit: LIMIT })
+    const params = { offset, limit: LIMIT };
+    if (filters.status) params.status = filters.status;
+    if (filters.date_from) params.date_from = filters.date_from;
+    if (filters.date_to) params.date_to = filters.date_to;
+    getRecords(params)
       .then(({ data }) => {
         setRecords(data.items);
         setTotal(data.total);
       })
       .catch((err) => setError(err.response?.data?.detail || "加载记录失败"))
       .finally(() => setLoading(false));
-  };
+  }, [filters, offset]);
 
   const handleDeleteRecord = async (r) => {
     const ok = await confirm({ title: "删除记录", message: `确定删除「${r.case_name}」的训练记录吗？此操作不可撤销。`, confirmLabel: "确定删除", danger: true });
@@ -43,9 +48,13 @@ export default function History({ user, onLogout }) {
     }
   };
 
+  const clearFilters = () => setFilters({ status: "", date_from: "", date_to: "" });
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
   useEffect(() => {
-    fetchRecords();
-  }, []);
+    setOffset(0);
+  }, [filters.status, filters.date_from, filters.date_to]);
 
   return (
     <Layout user={user} onLogout={onLogout}>
@@ -56,6 +65,30 @@ export default function History({ user, onLogout }) {
       />
 
       <div className="card">
+        <div className="filter-bar">
+          <div className="filter-row">
+            <div className="filter-item">
+              <label>状态</label>
+              <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
+                <option value="">全部</option>
+                <option value="in_progress">进行中</option>
+                <option value="completed">已完成</option>
+              </select>
+            </div>
+            <div className="filter-item">
+              <label>开始日期(起)</label>
+              <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} />
+            </div>
+            <div className="filter-item">
+              <label>开始日期(止)</label>
+              <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} />
+            </div>
+            <div className="filter-item" style={{ alignSelf: "flex-end" }}>
+              <button className="btn btn-sm" onClick={clearFilters}>清除过滤</button>
+            </div>
+          </div>
+        </div>
+
         {loading ? (
           <div className="empty-state">
             <Loader2 size={42} className="spin" />

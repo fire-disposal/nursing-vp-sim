@@ -234,24 +234,25 @@ def get_records(
             )
         if case_id is not None:
             base = base.filter(TrainingRecord.case_id == case_id)
-        if status:
-            base = base.filter(TrainingRecord.status == status)
-        if date_from:
-            try:
-                df = datetime.fromisoformat(date_from)
-                if df.tzinfo is None:
-                    df = df.replace(tzinfo=timezone.utc)
-                base = base.filter(TrainingRecord.start_time >= df)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
-        if date_to:
-            try:
-                dt = datetime.fromisoformat(date_to)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                base = base.filter(TrainingRecord.start_time <= dt)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
+
+    if status:
+        base = base.filter(TrainingRecord.status == status)
+    if date_from:
+        try:
+            df = datetime.fromisoformat(date_from)
+            if df.tzinfo is None:
+                df = df.replace(tzinfo=timezone.utc)
+            base = base.filter(TrainingRecord.start_time >= df)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
+    if date_to:
+        try:
+            dt = datetime.fromisoformat(date_to)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            base = base.filter(TrainingRecord.start_time <= dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
 
     query = base.options(
         joinedload(TrainingRecord.case),
