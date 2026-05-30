@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from database import init_db, engine, get_db
 from routers import auth, cases, training, chat, export, admin, notes, qa, stats
 from routers.admin_api import router as admin_api_router
+from routers.admin_prompts import router as admin_prompts_router
 from logger import audit_logger
 from config import APP_VERSION, log_config
 
@@ -82,6 +83,13 @@ async def lifespan(app: FastAPI):
         await refresh_router()
     except Exception as e:
         _startup_logger.error("LLMRouter 初始化失败: %s", e)
+    # 初始化 PromptManager 并 seed 默认模板
+    try:
+        from services.prompt_manager import get_prompt_manager
+        await get_prompt_manager()
+        _startup_logger.info("PromptManager 初始化完成")
+    except Exception as e:
+        _startup_logger.error("PromptManager 初始化失败: %s", e)
     # 启动 LLM 日志消费者
     from services.llm_logging import start_worker, stop_worker
     await start_worker()
@@ -193,6 +201,7 @@ app.include_router(notes.router)
 app.include_router(qa.router)
 app.include_router(stats.router)
 app.include_router(admin_api_router)
+app.include_router(admin_prompts_router)
 
 
 @app.get("/api")
