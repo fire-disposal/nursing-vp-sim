@@ -13,7 +13,7 @@ ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://nursing:nursing123@localhost:5432/nursing_vp")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vptest")
 
 _raw_secret = os.getenv("SECRET_KEY", "")
 _SECRET_PLACEHOLDERS = {"", "change-me-to-a-random-secret-key", "virtual-patient-secret-key-change-in-production"}
