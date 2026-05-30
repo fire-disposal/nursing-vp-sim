@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import signal
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -18,6 +19,18 @@ from config import APP_VERSION, log_config
 _startup_logger = logging.getLogger("nursing")
 
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))  # 默认 10MB
+
+_shutdown_event = asyncio.Event()
+
+
+def _handle_signal(sig, frame):
+    _startup_logger.info("收到信号 %s，开始优雅关闭...", sig.name if hasattr(sig, "name") else sig)
+    _shutdown_event.set()
+
+
+signal.signal(signal.SIGTERM, _handle_signal)  # Docker stop / taskkill
+# SIGINT 由 uvicorn 处理 (Ctrl+C)，这里作为兜底
+signal.signal(signal.SIGINT, _handle_signal)
 
 
 @asynccontextmanager
@@ -44,18 +57,26 @@ async def lifespan(app: FastAPI):
     # 限流器后台清理（每 10 分钟）
     from rate_limiter import _limiter as rate_limiter
     async def _cleanup_loop():
-        while True:
-            await asyncio.sleep(600)
-            rate_limiter.cleanup()
+        while not _shutdown_event.is_set():
+            try:
+                await asyncio.wait_for(_shutdown_event.wait(), timeout=600)
+            except asyncio.TimeoutError:
+                rate_limiter.cleanup()
     cleanup_task = asyncio.create_task(_cleanup_loop())
     yield
+    _startup_logger.info("正在关闭服务...")
     cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
     await stop_worker()
-    # 关闭共享 httpx 客户端
     from services.llm_service import _shared_client
     if _shared_client:
         await _shared_client.aclose()
+    _startup_logger.info("释放数据库连接池...")
     engine.dispose()
+    _startup_logger.info("服务已关闭")
 
 
 app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
