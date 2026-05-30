@@ -1,14 +1,20 @@
 """API Key 加密工具 —— Fernet 对称加密"""
 import base64
 import hashlib
-import os
 from cryptography.fernet import Fernet
+from config import KEY_ENCRYPTION_KEY
 
-_ENV_KEY = os.getenv("KEY_ENCRYPTION_KEY", "")
+_ENCRYPTION_KEY = KEY_ENCRYPTION_KEY
 
 def _derive_fernet() -> Fernet:
-    if _ENV_KEY:
-        return Fernet(_ENV_KEY.encode())
+    if _ENCRYPTION_KEY:
+        try:
+            return Fernet(_ENCRYPTION_KEY.encode())
+        except Exception:
+            raise RuntimeError(
+                "KEY_ENCRYPTION_KEY 不是有效的 Fernet 密钥（需 32 字节 base64）。\n"
+                "可使用 python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" 生成"
+            )
     from config import SECRET_KEY
     raw = hashlib.sha256(SECRET_KEY.encode()).digest()
     return Fernet(base64.urlsafe_b64encode(raw))

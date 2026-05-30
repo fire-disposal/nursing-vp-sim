@@ -141,6 +141,8 @@ class LLMCallLog(Base):
     meta = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
+    api_key = relationship("ApiKey")
+
 
 class QARecord(Base):
     """通用护理问答记录"""
