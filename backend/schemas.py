@@ -1,6 +1,15 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Generic, TypeVar
 from pydantic import BaseModel, Field, ConfigDict
+
+T = TypeVar("T")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: list[T]
+    total: int
+    offset: int
+    limit: int
 
 
 class LoginRequest(BaseModel):
