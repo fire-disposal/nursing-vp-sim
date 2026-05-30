@@ -1,27 +1,32 @@
 import { useState, useEffect } from "react";
 import Modal from "../ui/Modal";
-import { createKey, updateKey, fetchKeyRules, createKeyRule, deleteKeyRule, fetchProviders } from "../../api/apiManagement";
+import { createKey, updateKey, fetchProviders } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 
-const PURPOSE_OPTIONS = ["patient_chat", "scoring", "qa", "summary", "*"];
+const PURPOSE_OPTIONS = [
+  { value: "*", label: "默认（所有场景）" },
+  { value: "patient_chat", label: "患者对话" },
+  { value: "scoring", label: "评分" },
+  { value: "qa", label: "问答" },
+];
 
 export default function KeyModal({ open, keyData, onClose, onSaved }) {
   const toast = useToast();
   const [providers, setProviders] = useState([]);
   const [form, setForm] = useState({
     provider_id: "",
+    purpose: "*",
     label: "",
     raw_key: "",
     model: "",
     weight: 100,
+    priority: 100,
     price_input: 0,
     price_output: 0,
     monthly_cost_limit: "",
   });
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [rules, setRules] = useState([]);
-  const [newRule, setNewRule] = useState({ purpose: "*", priority: 100 });
 
   useEffect(() => {
     if (open) {
@@ -33,30 +38,31 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
     if (keyData) {
       setForm({
         provider_id: keyData.provider_id || "",
+        purpose: keyData.purpose || "*",
         label: keyData.label || "",
         raw_key: keyData.raw_key || "",
         model: keyData.model || "",
         weight: keyData.weight ?? 100,
+        priority: keyData.priority ?? 100,
         price_input: keyData.price_input ?? 0,
         price_output: keyData.price_output ?? 0,
         monthly_cost_limit: keyData.monthly_cost_limit ?? "",
       });
-      fetchKeyRules(keyData.id).then(({ data }) => setRules(data)).catch(() => setRules([]));
     } else {
       setForm({
         provider_id: providers[0]?.id || "",
+        purpose: "*",
         label: "",
         raw_key: "",
         model: "",
         weight: 100,
+        priority: 100,
         price_input: 0,
         price_output: 0,
         monthly_cost_limit: "",
       });
-      setRules([]);
     }
     setShowKey(false);
-    setNewRule({ purpose: "*", priority: 100 });
   }, [keyData, open, providers]);
 
   const handleChange = (field) => (e) => {
@@ -66,8 +72,8 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.provider_id) { toast.error("Please select a provider"); return; }
-    if (!form.raw_key && !keyData) { toast.error("API key is required"); return; }
+    if (!form.provider_id) { toast.error("请选择服务商"); return; }
+    if (!form.raw_key && !keyData) { toast.error("API Key 为必填项"); return; }
     setSaving(true);
     try {
       const payload = { ...form };
@@ -76,39 +82,17 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
       }
       if (keyData) {
         await updateKey(keyData.id, payload);
-        toast.success("Key updated");
+        toast.success("Key 已更新");
       } else {
         await createKey(payload);
-        toast.success("Key created");
+        toast.success("Key 已创建");
       }
       onSaved();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Save failed");
+      toast.error(err.response?.data?.detail || "保存失败");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const addRule = async () => {
-    if (!keyData) { toast.error("Save the key first before adding rules"); return; }
-    try {
-      const { data } = await createKeyRule(keyData.id, newRule);
-      setRules((r) => [...r, data]);
-      setNewRule({ purpose: "*", priority: 100 });
-      toast.success("Rule added");
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to add rule");
-    }
-  };
-
-  const removeRule = async (ruleId) => {
-    try {
-      await deleteKeyRule(ruleId);
-      setRules((r) => r.filter((rule) => rule.id !== ruleId));
-      toast.success("Rule deleted");
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to delete rule");
     }
   };
 
@@ -137,7 +121,7 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={keyData ? "Edit Key" : "Add Key"}
+      title={keyData ? "编辑 Key" : "添加 Key"}
       maxWidth={640}
       footer={
         <>
@@ -153,7 +137,7 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
               fontSize: "0.85rem",
             }}
           >
-            Cancel
+            取消
           </button>
           <button
             onClick={handleSave}
@@ -169,24 +153,32 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
               opacity: saving ? 0.6 : 1,
             }}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "保存中..." : "保存"}
           </button>
         </>
       }
     >
       <form onSubmit={handleSave}>
         <div style={fieldStyle}>
-          <label style={labelStyle}>Provider *</label>
+          <label style={labelStyle}>服务商 *</label>
           <select style={inputStyle} value={form.provider_id} onChange={handleChange("provider_id")} required>
-            <option value="">-- Select Provider --</option>
+            <option value="">-- 请选择服务商 --</option>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>{p.display_name || p.name} ({p.base_url})</option>
             ))}
           </select>
         </div>
         <div style={fieldStyle}>
-          <label style={labelStyle}>Label</label>
-          <input style={inputStyle} value={form.label} onChange={handleChange("label")} placeholder="Auto-generated if empty" />
+          <label style={labelStyle}>用途</label>
+          <select style={inputStyle} value={form.purpose} onChange={handleChange("purpose")}>
+            {PURPOSE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>标签</label>
+          <input style={inputStyle} value={form.label} onChange={handleChange("label")} placeholder="留空将自动生成" />
         </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>API Key {!keyData && "*"}</label>
@@ -213,108 +205,48 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
                 whiteSpace: "nowrap",
               }}
             >
-              {showKey ? "Hide" : "Show"}
+              {showKey ? "隐藏" : "显示"}
             </button>
           </div>
         </div>
         <div style={fieldStyle}>
-          <label style={labelStyle}>Model</label>
-          <input style={inputStyle} value={form.model} onChange={handleChange("model")} placeholder="e.g. gpt-4o" />
+          <label style={labelStyle}>模型</label>
+          <input style={inputStyle} value={form.model} onChange={handleChange("model")} placeholder="例如: gpt-4o" />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>权重 ({form.weight})</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={form.weight}
+            onChange={handleChange("weight")}
+            style={{
+              width: "100%",
+              accentColor: "var(--color-primary)",
+              margin: 0,
+            }}
+          />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>优先级</label>
+          <input style={inputStyle} type="number" value={form.priority} onChange={handleChange("priority")} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
           <div style={fieldStyle}>
-            <label style={labelStyle}>Weight</label>
-            <input style={inputStyle} type="number" value={form.weight} onChange={handleChange("weight")} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Price Input ($/1M)</label>
+            <label style={labelStyle}>输入价格 ($/1M)</label>
             <input style={inputStyle} type="number" step="0.01" value={form.price_input} onChange={handleChange("price_input")} />
           </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
           <div style={fieldStyle}>
-            <label style={labelStyle}>Price Output ($/1M)</label>
+            <label style={labelStyle}>输出价格 ($/1M)</label>
             <input style={inputStyle} type="number" step="0.01" value={form.price_output} onChange={handleChange("price_output")} />
           </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Monthly Cost Limit ($)</label>
-            <input style={inputStyle} type="number" step="0.01" value={form.monthly_cost_limit} onChange={handleChange("monthly_cost_limit")} placeholder="No limit" />
-          </div>
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>月度费用上限 ($)</label>
+          <input style={inputStyle} type="number" step="0.01" value={form.monthly_cost_limit} onChange={handleChange("monthly_cost_limit")} placeholder="无限制" />
         </div>
       </form>
-
-      {keyData && (
-        <div style={{ marginTop: "var(--space-5)", borderTop: "1px solid var(--border-color)", paddingTop: "var(--space-4)" }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: "var(--space-3)", color: "var(--text-secondary)" }}>Routing Rules</h3>
-          {rules.length > 0 ? (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "var(--space-3)", fontSize: "0.8rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
-                  <th style={{ padding: "var(--space-1) var(--space-2)", color: "var(--text-secondary)" }}>Purpose</th>
-                  <th style={{ padding: "var(--space-1) var(--space-2)", color: "var(--text-secondary)" }}>Priority</th>
-                  <th style={{ padding: "var(--space-1) var(--space-2)", color: "var(--text-secondary)" }}>Enabled</th>
-                  <th style={{ padding: "var(--space-1) var(--space-2)", color: "var(--text-secondary)", width: 60 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {rules.map((rule) => (
-                  <tr key={rule.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <td style={{ padding: "var(--space-1) var(--space-2)" }}><span style={{ padding: "1px 6px", borderRadius: "var(--radius-full)", fontSize: "0.75rem", background: "var(--bg-surface-subtle)" }}>{rule.purpose}</span></td>
-                    <td style={{ padding: "var(--space-1) var(--space-2)" }}>{rule.priority}</td>
-                    <td style={{ padding: "var(--space-1) var(--space-2)" }}>{rule.enabled ? "Yes" : "No"}</td>
-                    <td style={{ padding: "var(--space-1) var(--space-2)" }}>
-                      <button
-                        type="button"
-                        onClick={() => removeRule(rule.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "var(--red-400)",
-                          cursor: "pointer",
-                          fontSize: "0.75rem",
-                          padding: 0,
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div style={{ color: "var(--text-tertiary)", fontSize: "0.85rem", marginBottom: "var(--space-3)" }}>No rules configured</div>
-          )}
-          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ ...labelStyle, fontSize: "0.75rem" }}>Purpose</label>
-              <select style={{ ...inputStyle, fontSize: "0.8rem" }} value={newRule.purpose} onChange={(e) => setNewRule((r) => ({ ...r, purpose: e.target.value }))}>
-                {PURPOSE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <div style={{ width: 100 }}>
-              <label style={{ ...labelStyle, fontSize: "0.75rem" }}>Priority</label>
-              <input style={{ ...inputStyle, fontSize: "0.8rem" }} type="number" value={newRule.priority} onChange={(e) => setNewRule((r) => ({ ...r, priority: Number(e.target.value) || 100 }))} />
-            </div>
-            <button
-              type="button"
-              onClick={addRule}
-              style={{
-                padding: "var(--space-2) var(--space-3)",
-                border: "none",
-                borderRadius: "var(--radius-md)",
-                background: "var(--color-primary)",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: "0.8rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Add Rule
-            </button>
-          </div>
-        </div>
-      )}
     </Modal>
   );
 }
