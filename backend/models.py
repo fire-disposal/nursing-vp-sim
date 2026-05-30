@@ -8,7 +8,7 @@ from database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(10), nullable=False, default="student")  # student / teacher
@@ -22,7 +22,7 @@ class User(Base):
 class Case(Base):
     __tablename__ = "cases"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     case_data = Column(JSON, nullable=False)  # 完整病例数据
@@ -34,9 +34,11 @@ class TrainingRecord(Base):
     __table_args__ = (
         Index("ix_tr_user_status", "user_id", "status"),
         Index("ix_tr_status", "status"),
+        Index("ix_tr_start_time", "start_time"),
+        Index("ix_tr_case_id", "case_id"),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     case_id = Column(Integer, ForeignKey("cases.id"), nullable=False)
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress / completed
@@ -57,7 +59,7 @@ class Message(Base):
         Index("ix_msg_record_created", "record_id", "created_at"),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
     role = Column(String(10), nullable=False)  # student / patient
     content = Column(Text, nullable=False)
@@ -69,7 +71,7 @@ class Message(Base):
 class Score(Base):
     __tablename__ = "scores"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), unique=True, nullable=False)
     total_score = Column(Float, nullable=False)
     detail_scores = Column(JSON, nullable=True)
@@ -95,8 +97,11 @@ class Score(Base):
 
 class Note(Base):
     __tablename__ = "notes"
+    __table_args__ = (
+        Index("ix_notes_record_id", "record_id"),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
@@ -108,7 +113,7 @@ class LLMCallLog(Base):
     """记录每次 LLM 调用的元数据，用于成本监控和稳定性分析"""
     __tablename__ = "llm_call_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=True, index=True)
     case_id = Column(Integer, ForeignKey("cases.id"), nullable=True, index=True)
