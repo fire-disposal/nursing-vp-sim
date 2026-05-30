@@ -21,10 +21,16 @@ from urllib.parse import urlparse
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
 
-@router.get("/users", response_model=list[UserBrief])
-def list_users(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
-    users = db.query(User).order_by(User.created_at.desc()).all()
-    return users
+@router.get("/users", response_model=PaginatedResponse[UserBrief])
+def list_users(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    total = db.query(User).count()
+    users = db.query(User).order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    return PaginatedResponse(items=users, total=total, offset=offset, limit=limit)
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)

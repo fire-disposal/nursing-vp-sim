@@ -4,9 +4,13 @@ import { getUsers, register, updateUser, deleteUser, batchCreateUsers } from "..
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
+import Pagination from "../Pagination";
 
 export default function UsersTab({ currentUserId }) {
   const [users, setUsers] = useState([]);
+  const [userTotal, setUserTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 50;
   const [showRegister, setShowRegister] = useState(false);
   const [regForm, setRegForm] = useState({ username: "", password: "", role: "student", display_name: "", student_id: "" });
   const [regMsg, setRegMsg] = useState("");
@@ -23,9 +27,9 @@ export default function UsersTab({ currentUserId }) {
   const toast = useToast();
   const { confirm } = useConfirm();
 
-  const loadUsers = useCallback(() => {
-    getUsers().then(({ data }) => setUsers(data)).catch(() => toast.error("加载用户列表失败"));
-  }, [toast]);
+  const loadUsers = useCallback((_offset) => {
+    getUsers({ offset: _offset != null ? _offset : offset, limit: LIMIT }).then(({ data }) => { setUsers(data.items); setUserTotal(data.total); }).catch(() => toast.error("加载用户列表失败"));
+  }, [offset, toast]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
@@ -38,7 +42,7 @@ export default function UsersTab({ currentUserId }) {
       await register(payload);
       setRegMsg("注册成功！");
       setRegForm({ username: "", password: "", role: "student", display_name: "", student_id: "" });
-      loadUsers();
+      setOffset(0); loadUsers(0);
     } catch (err) {
       setRegMsg(err.response?.data?.detail || "注册失败");
     }
@@ -63,7 +67,7 @@ export default function UsersTab({ currentUserId }) {
     try {
       await updateUser(editUser.id, payload);
       setShowEditUser(false);
-      loadUsers();
+      setOffset(0); loadUsers(0);
     } catch (err) {
       setEditUserMsg(err.response?.data?.detail || "保存失败");
     }
@@ -76,7 +80,7 @@ export default function UsersTab({ currentUserId }) {
     try {
       await deleteUser(u.id);
       toast.success("用户已删除");
-      loadUsers();
+      setOffset(0); loadUsers(0);
     } catch (err) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
@@ -116,7 +120,7 @@ export default function UsersTab({ currentUserId }) {
     try {
       const { data } = await batchCreateUsers(batchPreview);
       setBatchResult(data);
-      if (data.created > 0) { toast.success(`成功创建 ${data.created} 名用户`); loadUsers(); }
+      if (data.created > 0) { toast.success(`成功创建 ${data.created} 名用户`); setOffset(0); loadUsers(0); }
       if (data.skipped > 0) toast.warning(`跳过 ${data.skipped} 名用户`);
     } catch (err) {
       toast.error(err.response?.data?.detail || "批量导入失败");
@@ -179,6 +183,7 @@ export default function UsersTab({ currentUserId }) {
             ))}
           </tbody>
         </table>
+        <Pagination total={userTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
 
       {/* Edit User Modal */}
