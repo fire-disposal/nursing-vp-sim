@@ -166,6 +166,7 @@ export default function ChatTraining() {
   const warned2Ref = useRef(false);
   const progressIntervalRef = useRef(null);
   const progressSpeedRef = useRef(0);
+  const prevShowScoreRef = useRef(false);
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
@@ -418,6 +419,14 @@ export default function ChatTraining() {
     if (!showScore) return;
     progressSpeedRef.current = 8;
   }, [showScore]);
+
+  useEffect(() => {
+    if (!scoreProgress && !showScore) return;
+    if (prevShowScoreRef.current && !showScore && showOverlay) {
+      setShowOverlay(false);
+    }
+    prevShowScoreRef.current = showScore;
+  }, [showScore, showOverlay, scoreProgress]);
 
   useEffect(() => {
     if (scoreProgress >= 100 && showScore) {
