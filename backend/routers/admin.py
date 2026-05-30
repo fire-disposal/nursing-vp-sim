@@ -6,26 +6,25 @@ from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse
 from auth import require_teacher, hash_password
 from logger import log_info
-from pagination import paginate
 import os
 import shutil
 from datetime import datetime, timezone
 from datetime import timedelta
 from config import DATABASE_URL
+from fastapi.responses import FileResponse
+import tempfile
+import zipfile
+import subprocess
+import threading
+from urllib.parse import urlparse
 
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
 
-@router.get("/users", response_model=PaginatedResponse[UserBrief])
-def list_users(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
-):
-    query = db.query(User).order_by(User.created_at.desc())
-    items, total = paginate(query, offset, limit)
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+@router.get("/users", response_model=list[UserBrief])
+def list_users(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return users
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)
@@ -133,7 +132,7 @@ def batch_create_users(
 @router.get("/stats", response_model=AdminStats)
 def get_stats(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     total_students = db.query(User).filter(User.role == "student").count()
-    total_records = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.status == "completed").scalar()
+    total_records = db.query(TrainingRecord).count()
     completed_records = db.query(TrainingRecord).filter(TrainingRecord.status == "completed").count()
     avg_score = db.query(func.avg(Score.total_score)).scalar()
 
@@ -162,36 +161,68 @@ def get_stats(current_user: User = Depends(require_teacher), db: Session = Depen
 
 @router.post("/backup")
 def backup_database(current_user: User = Depends(require_teacher)):
-    """创建数据库备份。教师权限。保留最近 10 个备份。"""
-    # 从 DATABASE_URL 解析 SQLite 文件路径
-    db_url = DATABASE_URL
-    if not db_url.startswith("sqlite"):
-        raise HTTPException(status_code=501, detail="备份功能仅支持 SQLite 环境。PostgreSQL 请使用 pg_dump。")
-    db_path = db_url[10:]
-
-    if not os.path.exists(db_path):
-        raise HTTPException(status_code=500, detail=f"数据库文件不存在: {db_path}")
-
-    backup_dir = os.path.join(os.path.dirname(db_path), "backups")
-    os.makedirs(backup_dir, exist_ok=True)
-
+    """创建数据库备份，返回 zip 文件下载。教师权限。"""
+    parsed = urlparse(DATABASE_URL)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    backup_name = f"data_backup_{timestamp}.db"
-    backup_path = os.path.join(backup_dir, backup_name)
+    tmpdir = tempfile.mkdtemp()
 
-    shutil.copy2(db_path, backup_path)
+    try:
+        if parsed.scheme.startswith("postgres"):
+            env = os.environ.copy()
+            if parsed.password:
+                env["PGPASSWORD"] = parsed.password
 
-    # 清理旧备份：仅保留最近 10 个
-    existing = sorted(
-        [f for f in os.listdir(backup_dir) if f.startswith("data_backup_") and f.endswith(".db")],
-        reverse=True,
-    )
-    for old in existing[10:]:
-        os.remove(os.path.join(backup_dir, old))
+            cmd = [
+                "pg_dump",
+                "-h", parsed.hostname or "localhost",
+                "-p", str(parsed.port or 5432),
+                "-U", parsed.username or "postgres",
+                "-d", parsed.path.lstrip("/"),
+                "-f", os.path.join(tmpdir, f"dump_{timestamp}.sql"),
+                "--no-owner",
+                "--no-acl",
+            ]
 
-    log_info(f"数据库备份: {backup_name} ({os.path.getsize(backup_path)} bytes)",
-             user_id=current_user.id, user_role=current_user.role)
-    return {"message": "备份完成", "filename": backup_name}
+            result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise HTTPException(status_code=500, detail=f"pg_dump 失败: {result.stderr}")
+
+            dump_path = os.path.join(tmpdir, f"dump_{timestamp}.sql")
+
+        elif parsed.scheme.startswith("sqlite"):
+            db_path = DATABASE_URL[10:]  # strip "sqlite:///"
+            if not os.path.exists(db_path):
+                raise HTTPException(status_code=500, detail=f"数据库文件不存在: {db_path}")
+
+            dump_path = os.path.join(tmpdir, f"dump_{timestamp}.db")
+            shutil.copy2(db_path, dump_path)
+
+        else:
+            raise HTTPException(status_code=501, detail=f"不支持的数据库类型: {parsed.scheme}")
+
+        zip_path = os.path.join(tmpdir, f"backup_{timestamp}.zip")
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(dump_path, arcname=os.path.basename(dump_path))
+
+        log_info(f"数据库备份: backup_{timestamp}.zip",
+                 user_id=current_user.id, user_role=current_user.role)
+
+        def cleanup():
+            import time
+            time.sleep(5)
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        threading.Thread(target=cleanup, daemon=True).start()
+
+        return FileResponse(
+            zip_path,
+            media_type="application/zip",
+            filename=f"nursing_backup_{timestamp}.zip",
+        )
+
+    except HTTPException:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
+
 
 
 # ── LLM 调用监控 ──
