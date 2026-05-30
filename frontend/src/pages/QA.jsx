@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { Lightbulb, MessageCircle } from "lucide-react";
 import Layout from "../components/Layout";
 import PageHeader from "../components/ui/PageHeader";
@@ -51,6 +51,11 @@ export default function QA({ user, onLogout }) {
         title="护理问答"
         subtitle="向AI护理导师提问护理专业知识，获取即时解答"
         icon={MessageCircle}
+        actions={
+          <Link to="/qa/history" className="btn btn-sm" style={{ textDecoration: "none" }}>
+            查看历史记录
+          </Link>
+        }
       />
 
       <div className="qa-container">

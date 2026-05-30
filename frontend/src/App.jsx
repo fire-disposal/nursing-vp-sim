@@ -11,6 +11,7 @@ const ChatTraining = lazy(() => import("./pages/ChatTraining"));
 const History = lazy(() => import("./pages/History"));
 const RecordDetail = lazy(() => import("./pages/RecordDetail"));
 const QA = lazy(() => import("./pages/QA"));
+const QAHistory = lazy(() => import("./pages/QAHistory"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Admin = lazy(() => import("./pages/Admin"));
 
@@ -91,6 +92,10 @@ export default function App() {
 
         <Route path="/qa" element={
           <ProtectedRoute><QA user={user} onLogout={handleLogout} /></ProtectedRoute>
+        } />
+
+        <Route path="/qa/history" element={
+          <ProtectedRoute><QAHistory user={user} onLogout={handleLogout} /></ProtectedRoute>
         } />
 
         <Route path="/stats" element={
