@@ -48,6 +48,8 @@ jobs:
           file: Dockerfile.backend
           push: true
           tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.meta.outputs.version }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -59,6 +61,8 @@ jobs:
           file: Dockerfile.frontend
           push: true
           tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.meta.outputs.version }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
