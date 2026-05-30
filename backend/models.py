@@ -136,3 +136,19 @@ class LLMCallLog(Base):
     response_chars = Column(Integer, nullable=True)
     meta = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class QARecord(Base):
+    """通用护理问答记录"""
+    __tablename__ = "qa_records"
+    __table_args__ = (
+        Index("ix_qa_user_created", "user_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    question = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+    user = relationship("User")
