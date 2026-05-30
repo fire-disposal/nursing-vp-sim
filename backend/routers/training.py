@@ -10,7 +10,9 @@ from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog
 from schemas import (
     TrainingStartRequest, TrainingStartResponse, TrainingRecordBrief,
     TrainingRecordDetail, ScoreReviewRequest, ScoreReviewResponse,
+    PaginatedResponse,
 )
+from pagination import paginate
 from auth import get_current_user, require_teacher
 from config import LLM_CONCURRENT_LIMIT
 from logger import log_info, audit_logger
@@ -208,12 +210,11 @@ def retry_scoring(
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 
 
-@router.get("/records", response_model=list[TrainingRecordBrief])
+@router.get("/records", response_model=PaginatedResponse[TrainingRecordBrief])
 def get_records(
-    response: Response,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     student_name: str | None = Query(None, description="按学生姓名模糊搜索"),
     case_id: int | None = Query(None, description="按病例ID筛选"),
@@ -252,20 +253,16 @@ def get_records(
             except ValueError:
                 raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
 
-    total = base.count()
     query = base.options(
         joinedload(TrainingRecord.case),
         joinedload(TrainingRecord.user),
         joinedload(TrainingRecord.score),
-    )
-    records = query.order_by(TrainingRecord.start_time.desc()).offset(offset).limit(limit).all()
+    ).order_by(TrainingRecord.start_time.desc())
 
-    response.headers["X-Total-Count"] = str(total)
-    response.headers["X-Has-More"] = str(offset + limit < total).lower()
+    records, total = paginate(query, offset, limit)
 
-    result = []
-    for r in records:
-        result.append(TrainingRecordBrief(
+    items = [
+        TrainingRecordBrief(
             id=r.id,
             case_id=r.case_id,
             case_name=r.case.name if r.case else "",
@@ -275,8 +272,10 @@ def get_records(
             start_time=r.start_time,
             end_time=r.end_time,
             score_total=r.score.total_score if r.score else None,
-        ))
-    return result
+        )
+        for r in records
+    ]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/records/{record_id}", response_model=TrainingRecordDetail)

@@ -181,7 +181,7 @@ class TestRecords:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert records_resp.status_code == 200
-        assert len(records_resp.json()) == 1
+        assert len(records_resp.json()["items"]) == 1
 
     def test_teacher_sees_all(self, client, teacher, student, test_case):
         user_t, teacher_token = teacher
@@ -199,7 +199,7 @@ class TestRecords:
             headers={"Authorization": f"Bearer {teacher_token}"},
         )
         assert records_resp.status_code == 200
-        assert len(records_resp.json()) >= 1
+        assert len(records_resp.json()["items"]) >= 1
 
     def test_filter_by_status(self, client, teacher, student, test_case):
         _, teacher_token = teacher
@@ -215,7 +215,7 @@ class TestRecords:
             "/api/training/records?status=in_progress",
             headers={"Authorization": f"Bearer {teacher_token}"},
         )
-        assert all(r["status"] == "in_progress" for r in resp.json())
+        assert all(r["status"] == "in_progress" for r in resp.json()["items"])
 
     def test_filter_by_student_name(self, client, teacher, student):
         _, teacher_token = teacher
