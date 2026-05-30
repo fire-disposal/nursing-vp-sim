@@ -131,7 +131,7 @@ def get_stats(current_user: User = Depends(require_teacher), db: Session = Depen
     avg_score = db.query(func.avg(Score.total_score)).scalar()
 
     avg_duration = db.query(func.avg(
-        (func.julianday(TrainingRecord.end_time) - func.julianday(TrainingRecord.start_time)) * 1440
+        func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60
     )).filter(
         TrainingRecord.status == "completed",
         TrainingRecord.end_time.isnot(None),
