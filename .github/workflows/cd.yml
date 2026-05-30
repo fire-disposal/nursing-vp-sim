@@ -110,7 +110,8 @@ jobs:
               echo "SECRET_KEY=\$(openssl rand -hex 32)" >> .env
               echo "CORS_ORIGINS=http://localhost" >> .env
               echo "POSTGRES_PASSWORD=\$(openssl rand -hex 16)" >> .env
-              echo ">> 已生成 .env 模板，请编辑填入 DEEPSEEK_API_KEY、CORS_ORIGINS 和 POSTGRES_PASSWORD（如需）"
+              echo "DATABASE_URL=postgresql://nursing:\$POSTGRES_PASSWORD@db:5432/nursing_vp" >> .env
+              echo ">> 已生成 .env 模板，请编辑填入 DEEPSEEK_API_KEY 和 CORS_ORIGINS"
             fi
 
             # 登录 GHCR（使用 GitHub token）
@@ -145,6 +146,8 @@ jobs:
               "    image: $IMG_BACKEND" \
               '    ports: ["127.0.0.1:9001:8000"]' \
               '    env_file: [.env]' \
+              '    environment:' \
+              '      DATABASE_URL: postgresql://nursing:${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
               '    depends_on:' \
               '      db:' \
               '        condition: service_healthy' \
