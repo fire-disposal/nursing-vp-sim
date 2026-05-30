@@ -11,6 +11,7 @@ import Layout from "../components/Layout";
 import PageHeader from "../components/ui/PageHeader";
 import { getTrends, getTeacherSummary, getStudentRanking } from "../api";
 import { useToast } from "../components/Toast";
+import Pagination from "../components/Pagination";
 
 export default function Stats({ user, onLogout }) {
   const [period, setPeriod] = useState("month");
@@ -18,14 +19,25 @@ export default function Stats({ user, onLogout }) {
   const [summary, setSummary] = useState(null);
   const [ranking, setRanking] = useState(null);
   const toast = useToast();
+  const [summaryOffset, setSummaryOffset] = useState(0);
+  const [summaryTotal, setSummaryTotal] = useState(0);
+  const [rankingOffset, setRankingOffset] = useState(0);
+  const [rankingTotal, setRankingTotal] = useState(0);
+  const LIMIT = 50;
 
   useEffect(() => {
     getTrends(period).then(({ data }) => setTrends(data)).catch(() => toast.error("加载趋势数据失败"));
     if (user?.role === "teacher") {
-      getTeacherSummary().then(({ data }) => setSummary(data)).catch(() => toast.error("加载教师概览失败"));
-      getStudentRanking().then(({ data }) => setRanking(data)).catch(() => toast.error("加载排行榜失败"));
+      getTeacherSummary({ offset: summaryOffset, limit: LIMIT }).then(({ data }) => {
+        setSummary(data.items);
+        setSummaryTotal(data.total);
+      }).catch(() => toast.error("加载教师概览失败"));
+      getStudentRanking({ offset: rankingOffset, limit: LIMIT }).then(({ data }) => {
+        setRanking(data.items);
+        setRankingTotal(data.total);
+      }).catch(() => toast.error("加载排行榜失败"));
     }
-  }, [period, user]);
+  }, [period, user, summaryOffset, rankingOffset]);
 
   const daily = trends?.daily || [];
   const hasData = daily.length > 0;
@@ -173,6 +185,7 @@ export default function Stats({ user, onLogout }) {
               ))}
             </tbody>
           </table>
+          <Pagination total={summaryTotal} offset={summaryOffset} limit={LIMIT} onChange={setSummaryOffset} />
         </div>
       )}
 
@@ -211,6 +224,7 @@ export default function Stats({ user, onLogout }) {
               ))}
             </tbody>
           </table>
+          <Pagination total={rankingTotal} offset={rankingOffset} limit={LIMIT} onChange={setRankingOffset} />
         </div>
       )}
     </Layout>

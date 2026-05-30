@@ -29,14 +29,14 @@ export default function DashboardHome({ user, onLogout }) {
 
   useEffect(() => {
     if (user?.role === "student") {
-      getCases().then(({ data }) => setCases(data)).catch(() => toast.error("加载病例列表失败"));
+      getCases().then(({ data }) => setCases(data.items)).catch(() => toast.error("加载病例列表失败"));
       getDurationStats().then(({ data }) => setDurationStats(data)).catch(() => toast.error("加载统计失败"));
     }
     if (user?.role === "teacher") {
       getStats().then(({ data }) => setStats(data)).catch(() => toast.error("加载管理统计失败"));
     }
     getRecords()
-      .then(({ data }) => setRecords(data || []))
+      .then(({ data }) => setRecords(data.items || []))
       .catch(() => toast.error("加载训练记录失败"));
   }, [user]);
 
