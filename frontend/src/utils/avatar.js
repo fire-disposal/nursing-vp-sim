@@ -6,7 +6,8 @@ import middleMale from "../assets/avatars/patient_middle_male.png";
 import middleFemale from "../assets/avatars/patient_middle_female.png";
 import elderMale from "../assets/avatars/patient_elder_male.png";
 import elderFemale from "../assets/avatars/patient_elder_female.png";
-import nurseImg from "../assets/avatars/nurse.png";
+import nurseMale from "../assets/avatars/nurse_male.png";
+import nurseFemale from "../assets/avatars/nurse_female.png";
 
 const avatars = {
   patient_child_male: childMale,
@@ -17,7 +18,8 @@ const avatars = {
   patient_middle_female: middleFemale,
   patient_elder_male: elderMale,
   patient_elder_female: elderFemale,
-  nurse: nurseImg,
+  nurse_male: nurseMale,
+  nurse_female: nurseFemale,
 };
 
 export function getAgeGroup(age) {
@@ -37,6 +39,7 @@ export function getPatientAvatar(patientInfo) {
   return avatars[key] || avatars.patient_youth_male;
 }
 
-export function getNurseAvatar() {
-  return avatars.nurse;
+export function getNurseAvatar(gender) {
+  const sex = gender === "男" ? "male" : "female";
+  return avatars[`nurse_${sex}`];
 }
