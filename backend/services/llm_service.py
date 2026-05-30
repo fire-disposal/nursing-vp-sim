@@ -67,6 +67,8 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                    record_id: int | None = None,
                    case_id: int | None = None,
                    log_meta: dict | None = None,
+                   client: httpx.AsyncClient | None = None,
+                   semaphore: asyncio.Semaphore | None = None,
                    ) -> str:
     """调用 DeepSeek API，返回文本回复。支持自动记录调用日志。"""
     if not DEEPSEEK_API_KEY:
@@ -81,13 +83,14 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
     request_text = " ".join(m.get("content", "") for m in messages)
 
-    client = await _get_client()
+    _client = client if client is not None else await _get_client()
+    _sema = semaphore if semaphore is not None else _rate_limiter
     last_error = None
     t0 = time.perf_counter()
     for attempt in range(max_retries):
-        async with _rate_limiter:
+        async with _sema:
             try:
-                resp = await client.post(
+                resp = await _client.post(
                     f"{DEEPSEEK_BASE_URL}/v1/chat/completions",
                     headers=_build_headers(),
                     json=payload,
@@ -311,12 +314,15 @@ async def call_llm_json(messages: list, temperature: float = 0.3, max_tokens: in
                         record_id: int | None = None,
                         case_id: int | None = None,
                         log_meta: dict | None = None,
+                        client: httpx.AsyncClient | None = None,
+                        semaphore: asyncio.Semaphore | None = None,
                         ) -> dict:
     """调用 DeepSeek API，返回 JSON 结构化结果（容错解析），支持日志记录"""
     response_text = await call_llm(
         messages, temperature, max_tokens, timeout, max_retries,
         purpose=purpose, user_id=user_id, record_id=record_id,
         case_id=case_id, log_meta=log_meta,
+        client=client, semaphore=semaphore,
     )
     return _safe_parse_json(response_text)
 

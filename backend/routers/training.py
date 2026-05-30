@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import httpx
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
@@ -11,6 +12,7 @@ from schemas import (
     TrainingRecordDetail, ScoreReviewRequest, ScoreReviewResponse,
 )
 from auth import get_current_user, require_teacher
+from config import LLM_CONCURRENT_LIMIT
 from logger import log_info, audit_logger
 
 router = APIRouter(prefix="/api/training", tags=["训练"])
@@ -77,6 +79,8 @@ def _run_scoring_background(record_id: int, case_data: dict):
 
     async def _do():
         db = SessionLocal()
+        local_client = httpx.AsyncClient(timeout=httpx.Timeout(180, connect=15.0))
+        local_sema = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if not record:
@@ -86,7 +90,8 @@ def _run_scoring_background(record_id: int, case_data: dict):
 
             from services.scoring import evaluate_training
             await asyncio.wait_for(
-                evaluate_training(record_id, case_data, db),
+                evaluate_training(record_id, case_data, db,
+                                  client=local_client, semaphore=local_sema),
                 timeout=SCORING_GLOBAL_TIMEOUT,
             )
 
@@ -116,6 +121,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
             audit_logger.error("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
         finally:
             db.close()
+            await local_client.aclose()
 
     try:
         asyncio.run(_do())

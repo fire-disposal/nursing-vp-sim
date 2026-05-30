@@ -5,9 +5,13 @@ from services.llm_service import call_llm_json, build_scoring_prompt_from_rubric
 from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
 from logger import log_info
+import asyncio
+import httpx
 
 
-async def evaluate_training(record_id: int, case_data: dict, db: Session) -> Score:
+async def evaluate_training(record_id: int, case_data: dict, db: Session,
+                            client: httpx.AsyncClient | None = None,
+                            semaphore: asyncio.Semaphore | None = None) -> Score:
     """对训练对话进行评分并保存结果"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -27,7 +31,8 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session) -> Sco
                                    max_tokens=LLM_SCORING_MAX_TOKENS, timeout=LLM_SCORING_TIMEOUT, max_retries=3,
                                    purpose="scoring", user_id=record.user_id,
                                    record_id=record_id, case_id=record.case_id,
-                                   log_meta={"message_count": len(messages)})
+                                   log_meta={"message_count": len(messages)},
+                                   client=client, semaphore=semaphore)
 
     # 校验 LLM 返回的评分结果完整性，避免静默写入不完整数据
     _validate_scoring_result(result, rubric)

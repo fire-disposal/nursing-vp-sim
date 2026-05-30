@@ -1,5 +1,16 @@
 """Training flow tests: start, messages, end with scoring (mocked LLM)."""
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
+
+
+class _FakeResponse:
+    status_code = 200
+
+    def raise_for_status(self):
+        pass
+
+    @staticmethod
+    def json():
+        return {"choices": [{"message": {"content": "hello"}}], "usage": {"total_tokens": 10}}
 
 
 class TestStartTraining:
@@ -274,3 +285,73 @@ class TestScoreReview:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 403
+
+
+class TestScoringIsolation:
+    """验证后台评分使用独立 client/semaphore，不污染模块级共享资源。"""
+
+    def test_call_llm_uses_provided_client(self):
+        """提供 client/semaphore 时不应使用共享资源。"""
+        import httpx
+        import asyncio
+        from services.llm_service import call_llm
+
+        async def _do():
+            local_client = httpx.AsyncClient()
+            local_sema = asyncio.Semaphore(1)
+            messages = [{"role": "user", "content": "hi"}]
+            fake_resp = _FakeResponse()
+
+            with patch.object(local_client, "post", new_callable=AsyncMock) as mock_post:
+                mock_post.return_value = fake_resp
+
+                with patch("services.llm_service._get_client", new_callable=AsyncMock) as mock_get:
+                    result = await call_llm(messages, client=local_client, semaphore=local_sema,
+                                            purpose="test", max_retries=1)
+                    assert result == "hello"
+                    mock_get.assert_not_called()
+                    mock_post.assert_awaited_once()
+
+        asyncio.run(_do())
+
+    def test_call_llm_falls_back_to_shared_without_client(self):
+        """未提供 client/semaphore 时应使用共享资源。"""
+        import httpx
+        import asyncio
+        from services.llm_service import call_llm
+
+        async def _do():
+            messages = [{"role": "user", "content": "hi"}]
+            fake_client = httpx.AsyncClient()
+            fake_resp = _FakeResponse()
+
+            with patch.object(fake_client, "post", new_callable=AsyncMock) as mock_post:
+                mock_post.return_value = fake_resp
+
+                with patch("services.llm_service._get_client", return_value=fake_client):
+                    result = await call_llm(messages, purpose="test", max_retries=1)
+                    assert result == "hello"
+                    mock_post.assert_awaited_once()
+
+        asyncio.run(_do())
+
+    def test_call_llm_json_passes_through_client(self):
+        """call_llm_json 将 client/semaphore 转发给 call_llm。"""
+        import httpx
+        import asyncio
+        from services.llm_service import call_llm_json
+
+        local_client = httpx.AsyncClient()
+        local_sema = asyncio.Semaphore(10)
+        messages = [{"role": "user", "content": "test"}]
+
+        async def _do():
+            with patch("services.llm_service.call_llm", new_callable=AsyncMock) as mock_llm:
+                mock_llm.return_value = '{"result": "ok"}'
+                await call_llm_json(messages, client=local_client, semaphore=local_sema,
+                                    purpose="test", max_retries=1)
+                call_kwargs = mock_llm.call_args.kwargs
+                assert call_kwargs["client"] is local_client
+                assert call_kwargs["semaphore"] is local_sema
+
+        asyncio.run(_do())
