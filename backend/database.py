@@ -1,12 +1,13 @@
 import logging
 import traceback
-from sqlalchemy import create_engine
+from urllib.parse import urlparse
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import QueuePool
 
 from config import DATABASE_URL
 
-logger = logging.getLogger("nursing.db")
+logger = logging.getLogger("nursing")
 
 engine = create_engine(
     DATABASE_URL,
@@ -19,6 +20,23 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+def _log_connection():
+    parsed = urlparse(DATABASE_URL)
+    safe_url = f"{parsed.scheme}://{parsed.username}:***@{parsed.hostname}:{parsed.port}{parsed.path}"
+    logger.info("数据库连接: %s", safe_url)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            result = conn.execute(text("SELECT current_database(), version()"))
+            row = result.fetchone()
+            db_name = row[0]
+            pg_ver = row[1].split(",")[0] if row[1] else "unknown"
+        logger.info("数据库连接成功 → %s (PostgreSQL %s)", db_name, pg_ver)
+    except Exception as e:
+        logger.error("数据库连接失败: %s: %s", type(e).__name__, e)
+        raise
 
 
 def get_db():

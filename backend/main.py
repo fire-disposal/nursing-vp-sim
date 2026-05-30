@@ -19,6 +19,8 @@ _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024))) 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from database import _log_connection
+    _log_connection()
     init_db()
     _seed_data()
     # 启动 LLM 日志消费者

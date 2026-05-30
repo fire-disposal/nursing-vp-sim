@@ -1,39 +1,30 @@
 @echo off
 chcp 65001 >nul
 echo ============================================
-echo   虚拟患者训练系统 - 生产模式启动
+echo   虚拟患者训练系统
 echo ============================================
 
+set "VENV_PYTHON=%~dp0backend\.venv\Scripts\python.exe"
 set UVICORN_WORKERS=4
 
-cd /d "%~dp0backend"
-
-echo [1/4] 安装依赖...
-uv sync --frozen 2>nul
-if %errorlevel% neq 0 (
-    uv sync 2>nul
-)
-
-echo [2/4] 执行数据库迁移...
-uv run python -c "from alembic.config import Config; from alembic import command; cfg = Config('alembic.ini'); command.upgrade(cfg, 'head')" 2>nul
-if %errorlevel% neq 0 (
-    echo [警告] 数据库迁移失败，回退到 create_all...
-)
-
-echo [3/4] 启动后端 (%UVICORN_WORKERS% workers)...
-start "VirtualPatient-Backend" cmd /c "uv run uvicorn main:app --host 0.0.0.0 --port 8000 --workers %UVICORN_WORKERS%"
-
+echo [1/3] 安装前端依赖...
 cd /d "%~dp0frontend"
-
-echo [4/4] 构建前端...
-call npm run build 2>nul
+call npm ci
 
 echo.
-echo ============================================
-echo   后端 API: http://localhost:8000
-echo   健康检查: http://localhost:8000/api/health
-echo   前端构建: frontend\dist (StaticFiles / Nginx 提供服务)
-echo ============================================
+echo [2/3] 构建前端...
+call npm run build
+if %errorlevel% neq 0 (
+    echo [错误] 前端构建失败
+    pause
+    exit /b 1
+)
+
 echo.
-echo 按任意键退出...
+echo [3/3] 启动后端 (%UVICORN_WORKERS% workers)...
+cd /d "%~dp0backend"
+"%VENV_PYTHON%" -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers %UVICORN_WORKERS%
+
+echo.
+echo 后端已停止。
 pause >nul
