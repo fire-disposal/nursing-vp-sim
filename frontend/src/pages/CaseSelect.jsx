@@ -5,6 +5,7 @@ import { getCases, startTraining } from "../api";
 import Layout from "../components/Layout";
 import PageHeader from "../components/ui/PageHeader";
 import { useToast } from "../components/Toast";
+import Pagination from "../components/Pagination";
 
 export default function CaseSelect({ user, onLogout }) {
   const [cases, setCases] = useState([]);
@@ -12,10 +13,16 @@ export default function CaseSelect({ user, onLogout }) {
   const [startingId, setStartingId] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 50;
 
   useEffect(() => {
-    getCases().then(({ data }) => setCases(data)).catch(() => toast.error("加载病例列表失败"));
-  }, []);
+    getCases({ offset, limit: LIMIT }).then(({ data }) => {
+      setCases(data.items);
+      setTotal(data.total);
+    }).catch(() => toast.error("加载病例列表失败"));
+  }, [offset]);
 
   const filteredCases = difficultyFilter === 0
     ? cases
@@ -135,6 +142,8 @@ export default function CaseSelect({ user, onLogout }) {
           </div>
         )}
       </div>
+
+      <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
     </Layout>
   );
 }

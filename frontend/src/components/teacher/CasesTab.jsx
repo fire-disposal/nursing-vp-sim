@@ -4,6 +4,7 @@ import { getManageCases, getCaseDetail, createCase, updateCase, deleteCase } fro
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
+import Pagination from "../Pagination";
 
 const NEW_CASE_TEMPLATE = {
   name: "", time_limit: 20, description: "",
@@ -53,12 +54,18 @@ export default function CasesTab() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const toast = useToast();
   const { confirm } = useConfirm();
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 50;
 
-  const loadCases = useCallback(() => {
-    getManageCases().then(({ data }) => setCases(data)).catch(() => toast.error("加载病例列表失败"));
+  const fetchCases = useCallback((off) => {
+    getManageCases({ offset: off, limit: LIMIT }).then(({ data }) => {
+      setCases(data.items);
+      setTotal(data.total);
+    }).catch(() => toast.error("加载病例列表失败"));
   }, [toast]);
 
-  useEffect(() => { loadCases(); }, [loadCases]);
+  useEffect(() => { fetchCases(offset); }, [offset, fetchCases]);
 
   const openNew = () => {
     setEditingCase(null);
@@ -85,7 +92,7 @@ export default function CasesTab() {
       if (editingCase) { await updateCase(editingCase.id, caseData); }
       else { await createCase(caseData); }
       setShowEditor(false);
-      loadCases();
+      if (offset === 0) { fetchCases(0); } else { setOffset(0); }
     } catch (err) {
       setCaseMsg(err.response?.data?.detail || "保存失败");
     }
@@ -95,7 +102,7 @@ export default function CasesTab() {
     if (c.training_count > 0) { toast.warning(`该病例已有 ${c.training_count} 条训练记录，无法删除`); return; }
     const ok = await confirm({ title: "删除病例", message: `确定删除病例"${c.name}"吗？`, confirmLabel: "确定删除", danger: true });
     if (!ok) return;
-    try { await deleteCase(c.id); toast.success("病例已删除"); loadCases(); }
+    try { await deleteCase(c.id); toast.success("病例已删除"); if (offset === 0) { fetchCases(0); } else { setOffset(0); } }
     catch (err) { toast.error(err.response?.data?.detail || "删除失败"); }
   };
 
@@ -145,6 +152,7 @@ export default function CasesTab() {
             </tbody>
           </table>
         )}
+        <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
 
       <Modal open={showEditor} onClose={() => setShowEditor(false)} title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"} maxWidth={800}>
