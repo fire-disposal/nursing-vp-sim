@@ -379,7 +379,7 @@ def get_llm_logs(
             "record_id": r.record_id,
             "case_id": r.case_id,
             "purpose": "patient_chat",
-            "provider": "deepseek",
+            "provider_name": "deepseek",
             "model": "",
             "temperature": None,
             "max_tokens": None,

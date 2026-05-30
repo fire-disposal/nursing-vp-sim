@@ -272,7 +272,7 @@ class TestAllModelsCreate:
             record_id=tr.id,
             case_id=case.id,
             purpose="patient_chat",
-            provider="deepseek",
+            provider_name="deepseek",
             model="deepseek-chat",
             prompt_tokens=100,
             completion_tokens=50,
@@ -432,7 +432,7 @@ class TestScoreScoreScaleDefault:
 
         log = LLMCallLog(
             purpose="patient_chat",
-            provider="deepseek",
+            provider_name="deepseek",
             model="deepseek-chat",
             status="success",
         )

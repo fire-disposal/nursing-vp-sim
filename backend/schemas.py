@@ -270,7 +270,7 @@ class LLMCallLogItem(BaseModel):
     record_id: Optional[int] = None
     case_id: Optional[int] = None
     purpose: str
-    provider: str = "deepseek"
+    provider_name: str = "deepseek"
     model: str = ""
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
