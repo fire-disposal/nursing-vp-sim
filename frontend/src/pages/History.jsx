@@ -6,11 +6,15 @@ import Layout from "../components/Layout";
 import PageHeader from "../components/ui/PageHeader";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
+import Pagination from "../components/Pagination";
 
 export default function History({ user, onLogout }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 50;
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
@@ -18,8 +22,11 @@ export default function History({ user, onLogout }) {
   const fetchRecords = () => {
     setLoading(true);
     setError(null);
-    getRecords()
-      .then(({ data }) => setRecords(data))
+    getRecords({ offset, limit: LIMIT })
+      .then(({ data }) => {
+        setRecords(data.items);
+        setTotal(data.total);
+      })
       .catch((err) => setError(err.response?.data?.detail || "加载记录失败"))
       .finally(() => setLoading(false));
   };
@@ -134,6 +141,7 @@ export default function History({ user, onLogout }) {
             </tbody>
           </table>
         )}
+        <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
     </Layout>
   );
