@@ -5,7 +5,8 @@ from database import get_db
 from models import User, Case, TrainingRecord, Message
 from schemas import ChatMessageRequest, ChatMessageResponse
 from auth import get_current_user
-from services.llm_service import call_llm, call_llm_stream, build_patient_system_prompt
+from services.llm_service import call_llm, call_llm_stream
+from services.prompt_manager import get_prompt_manager
 from services.patient_guard import (
     get_allowed_hidden_info, get_revealed_topics, sanitize_patient_reply,
 )
@@ -20,8 +21,8 @@ router = APIRouter(prefix="/api/chat", tags=["对话"])
 _disclosed_topics: dict[int, set] = {}
 
 
-def _build_llm_context(case_data: dict, history_messages: list,
-                       student_content: str, record_id: int) -> list:
+async def _build_llm_context(case_data: dict, history_messages: list,
+                               student_content: str, record_id: int) -> list:
     """构建 LLM 消息列表，含隐藏信息筛选"""
     # 从历史对话中恢复已泄露主题
     history_text = " ".join(m.content for m in history_messages)
@@ -36,7 +37,26 @@ def _build_llm_context(case_data: dict, history_messages: list,
         if h.get("triggered") and h.get("topic"):
             _disclosed_topics[record_id].add(h["topic"])
 
-    system_prompt = build_patient_system_prompt(case_data, allowed)
+    pi = case_data.get("patient_info", {})
+    patient_info_str = f"{pi.get('name', '患者')}，{pi.get('age', '')}岁，{pi.get('gender', '')}"
+
+    hidden_items = []
+    for detail in allowed:
+        if detail.get("triggered"):
+            hidden_items.append(f"- {detail.get('content', detail)}")
+    hidden_info_rules = "\n".join(hidden_items) if hidden_items else "暂无额外信息"
+
+    pm = await get_prompt_manager()
+    tmpl = await pm.get("patient_chat")
+    system_prompt = tmpl.render(
+        communication_style=case_data.get("communication_style", "友善自然"),
+        patient_info=patient_info_str,
+        chief_complaint=case_data.get("chief_complaint", "未知"),
+        present_illness=case_data.get("present_illness", "未知"),
+        allergy_history=case_data.get("allergy_history", "无"),
+        hidden_info_rules=hidden_info_rules,
+    )
+
     llm_messages = [{"role": "system", "content": system_prompt}]
     for msg in history_messages[-16:]:  # 最近 16 条（8 轮对话）
         role = "user" if msg.role == "student" else "assistant"
@@ -71,7 +91,7 @@ async def send_message(
     case_data = case.case_data or {}
 
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages, _allowed = _build_llm_context(case_data, messages, req.content, record_id)
+    llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
     try:
         reply = await call_llm(llm_messages, temperature=0.6,
@@ -118,7 +138,7 @@ async def send_message_stream(
     case_data = case.case_data or {}
 
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages, _allowed = _build_llm_context(case_data, messages, req.content, record_id)
+    llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
     async def generate():
         full_reply = ""
