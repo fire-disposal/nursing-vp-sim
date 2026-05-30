@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import Case, TrainingRecord, User
-from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem
+from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse
 from auth import get_current_user, require_teacher
 from logger import log_info
+from pagination import paginate
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
@@ -38,39 +39,61 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
     )
 
 
-@router.get("", response_model=list[CaseBrief])
-def list_cases(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    cases = db.query(Case).all()
-    result = []
-    for c in cases:
-        summary = _extract_patient_summary(c.case_data or {})
-        cd = c.case_data or {}
-        result.append(CaseBrief(
-            id=c.id,
-            name=c.name,
+@router.get("", response_model=PaginatedResponse[CaseBrief])
+def list_cases(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    query = db.query(Case).order_by(Case.id)
+    items, total = paginate(query, offset, limit)
+    return PaginatedResponse(items=[
+        CaseBrief(
+            id=c.id, name=c.name,
+            difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
             description=c.description,
-            difficulty=cd.get("difficulty", 1),
-            patient_summary=summary,
-        ))
-    return result
+            patient_summary=c.case_data.get("patient_info") if c.case_data else None,
+        ) for c in items
+    ], total=total, offset=offset, limit=limit)
 
 
 # ── 教师病例管理（/manage/list 必须在 /{case_id} 之前声明，避免 "manage" 被当作 case_id）──
 
-@router.get("/manage/list", response_model=list[CaseManageItem])
+@router.get("/manage/list", response_model=PaginatedResponse[CaseManageItem])
 def list_cases_manage(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _=Depends(require_teacher),
 ):
     """教师查看所有病例（含训练次数统计）"""
-    cases = db.query(Case).order_by(Case.created_at.desc()).all()
-    result = []
-    for c in cases:
-        count = db.query(func.count(TrainingRecord.id)).filter(
-            TrainingRecord.case_id == c.id
-        ).scalar() or 0
-        result.append(_to_manage_item(c, count))
-    return result
+    query = db.query(Case).order_by(Case.created_at.desc())
+    total = query.order_by(None).count()
+    cases = query.offset(offset).limit(limit).all()
+
+    training_counts = {}
+    if cases:
+        rows = db.query(
+            TrainingRecord.case_id, func.count(TrainingRecord.id)
+        ).filter(
+            TrainingRecord.case_id.in_([c.id for c in cases])
+        ).group_by(TrainingRecord.case_id).all()
+        training_counts = dict(rows)
+
+    return PaginatedResponse(items=[
+        CaseManageItem(
+            id=c.id, name=c.name, description=c.description,
+            patient_name=(c.case_data or {}).get("patient_info", {}).get("name", ""),
+            patient_age=(c.case_data or {}).get("patient_info", {}).get("age"),
+            patient_gender=(c.case_data or {}).get("patient_info", {}).get("gender", ""),
+            chief_complaint=(c.case_data or {}).get("chief_complaint", ""),
+            time_limit=(c.case_data or {}).get("time_limit", 20),
+            difficulty=(c.case_data or {}).get("difficulty", 1),
+            created_at=c.created_at,
+            training_count=training_counts.get(c.id, 0),
+        ) for c in cases
+    ], total=total, offset=offset, limit=limit)
 
 
 @router.get("/{case_id}", response_model=CaseDetail)

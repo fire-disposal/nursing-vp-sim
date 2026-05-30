@@ -8,9 +8,9 @@ class TestStudentCases:
         resp = client.get("/api/cases", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         data = resp.json()
-        assert isinstance(data, list)
-        assert len(data) >= 1
-        assert "patient_summary" in data[0]
+        assert "items" in data
+        assert data["total"] >= 1
+        assert "patient_summary" in data["items"][0]
 
     def test_get_case_detail(self, client, student, test_case):
         _, token = student
@@ -25,8 +25,8 @@ class TestManageCases:
         resp = client.get("/api/cases/manage/list", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         data = resp.json()
-        assert isinstance(data, list)
-        assert "training_count" in data[0]
+        assert "items" in data
+        assert "training_count" in data["items"][0]
 
     def test_create_case(self, client, teacher):
         _, token = teacher
@@ -80,4 +80,4 @@ class TestManageCases:
         _, token = teacher
         resp = client.get("/api/cases/manage/list", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
+        assert "items" in resp.json()
