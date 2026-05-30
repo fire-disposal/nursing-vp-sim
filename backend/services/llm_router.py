@@ -26,7 +26,7 @@ class LLMRouter:
     async def load_from_db(self):
         """从数据库加载配置到内存"""
         from database import SessionLocal
-        from models import ApiProvider, ApiKey, ApiKeyRule
+        from models import ApiProvider, ApiKey
 
         db = SessionLocal()
         try:
@@ -37,11 +37,6 @@ class LLMRouter:
                     ApiKey.provider_id == p.id,
                     ApiKey.status.in_(["active", "rate_limited"]),
                 ).all()
-                for k in keys:
-                    k.rules = db.query(ApiKeyRule).filter(
-                        ApiKeyRule.api_key_id == k.id,
-                        ApiKeyRule.is_enabled == True,
-                    ).all()
                 config[p.id] = {"provider": p, "keys": keys}
             total_active = sum(1 for c in config.values() for k in c["keys"] if k.status == "active")
             if total_active == 0:
@@ -82,56 +77,53 @@ class LLMRouter:
         if degraded and degraded_at and degraded_at > datetime.now(timezone.utc):
             raise RuntimeError("所有 API provider 不可用，全局降级中")
 
-        candidates = []
+        # 收集所有匹配的 provider 组，按 provider.priority 升序排序
+        provider_groups = []
         for pd in self._cache.values():
             provider = pd["provider"]
+            group_keys = []
             for key in pd["keys"]:
                 if key.status == "disabled":
                     continue
                 if key.status == "rate_limited":
-                    if key.rate_limit_until is None or key.rate_limit_until > datetime.now(timezone.utc):
+                    if key.rate_limit_until and key.rate_limit_until > datetime.now(timezone.utc):
                         continue
                     key.status = "active"
                     key.rate_limit_until = None
                 if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
                     continue
-                rule_priority = None
-                for r in (key.rules or []):
-                    if r.purpose == purpose:
-                        rule_priority = r.priority
-                        break
-                if rule_priority is None:
-                    for r in (key.rules or []):
-                        if r.purpose == "*":
-                            rule_priority = r.priority
-                            break
-                if rule_priority is None:
+                if key.purpose != purpose and key.purpose != "*":
                     continue
-                candidates.append((key, provider, rule_priority))
+                group_keys.append((key, provider))
+            if group_keys:
+                provider_groups.append((provider.priority, group_keys))
 
-        if not candidates:
-            self._global_degraded = (True, datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS))
+        if not provider_groups:
+            self._global_degraded = (
+                True,
+                datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+            )
             raise RuntimeError("无可用 API key")
 
-        candidates.sort(key=lambda c: c[2])
-        groups = {}
-        for c in candidates:
-            groups.setdefault(c[2], []).append(c)
+        # 按 provider.priority 升序尝试
+        provider_groups.sort(key=lambda g: g[0])
 
-        for priority in sorted(groups.keys()):
-            group = groups[priority]
-            total_weight = sum(c[0].weight for c in group)
+        for _, group in provider_groups:
+            total_weight = sum(k[0].weight for k in group)
             if total_weight <= 0:
                 continue
             r = random.uniform(0, total_weight)
             cumulative = 0
-            for key, provider, _ in group:
+            for key, provider in group:
                 cumulative += key.weight
                 if r <= cumulative:
                     key.last_used_at = datetime.now(timezone.utc)
                     return key, provider
 
-        self._global_degraded = (True, datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS))
+        self._global_degraded = (
+            True,
+            datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+        )
         raise RuntimeError("无可用 API key")
 
     def get_decrypted_key(self, key_id: int) -> str:
