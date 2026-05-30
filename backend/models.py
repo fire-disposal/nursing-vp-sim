@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, Text, Float, Boolean, DateTime, Date,
-    BigInteger, Numeric, JSON, ForeignKey, Index, UniqueConstraint,
+    BigInteger, Numeric, JSON, ForeignKey, Index,
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -202,24 +202,13 @@ class ApiKey(Base):
     consecutive_failures = Column(Integer, nullable=False, default=0)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
     rate_limit_until = Column(DateTime(timezone=True), nullable=True)
+    purpose = Column(String(40), nullable=False, default="*")
+    priority = Column(Integer, nullable=False, default=100)
+    __table_args__ = (
+        Index("idx_api_keys_purpose", "purpose"),
+    )
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     provider = relationship("ApiProvider", back_populates="keys")
-    rules = relationship("ApiKeyRule", back_populates="api_key", cascade="all, delete-orphan")
 
-
-class ApiKeyRule(Base):
-    __tablename__ = "api_key_rules"
-    __table_args__ = (
-        UniqueConstraint("api_key_id", "purpose", name="uq_key_purpose"),
-    )
-
-    id = Column(Integer, primary_key=True)
-    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=False)
-    purpose = Column(String(40), nullable=False)
-    priority = Column(Integer, nullable=False, default=100)
-    is_enabled = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
-    api_key = relationship("ApiKey", back_populates="rules")
