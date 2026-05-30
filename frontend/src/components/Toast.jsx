@@ -89,7 +89,7 @@ export function ToastProvider({ children }) {
             <span style={{ color: colors[t.type].icon, display: "flex", flexShrink: 0 }}>
               {icons[t.type]}
             </span>
-            <span style={{ color: colors[t.type].text, fontSize: "0.84rem", fontWeight: 500, flex: 1 }}>
+            <span style={{ color: colors[t.type].text, fontSize: "0.84rem", fontWeight: 500, flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
               {t.message}
             </span>
             <button className="toast-close" onClick={() => remove(t.id)}>
