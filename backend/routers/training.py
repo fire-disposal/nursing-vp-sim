@@ -299,6 +299,8 @@ def get_record_detail(record_id: int, current_user: User = Depends(get_current_u
     if record.status == "in_progress" and record.start_time:
         elapsed = (datetime.now(timezone.utc) - record.start_time).total_seconds()
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
+    patient_info = case_data.get("patient_info", {})
+
     return TrainingRecordDetail(
         id=record.id,
         case_id=record.case_id,
@@ -315,6 +317,7 @@ def get_record_detail(record_id: int, current_user: User = Depends(get_current_u
         score=score,
         notes=note_records,
         required_inquiries=case_data.get("required_inquiries", []),
+        patient_info=patient_info,
     )
 
 
