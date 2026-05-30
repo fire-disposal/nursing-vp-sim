@@ -44,6 +44,7 @@ LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "0"))
 LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "0"))
 LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
 
+# [deprecated] 仅用于 seed 初始数据，API 管理已迁移到数据库（LLMRouter）
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")

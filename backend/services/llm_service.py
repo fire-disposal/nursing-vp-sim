@@ -6,14 +6,13 @@ import time
 import httpx
 from logger import log_error
 from config import (
-    DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL,
     LLM_MAX_RETRIES,
     LLM_CONCURRENT_LIMIT,
     LLM_CHAT_TIMEOUT, LLM_CHAT_MAX_TOKENS,
     LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS,
 )
 
-# 并发限流（防止触发 DeepSeek API 限流）
+# 并发限流
 _rate_limiter = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
 
 # 可重试的 HTTP 状态码和异常类型
@@ -24,13 +23,6 @@ _RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError,
 # 模块级共享客户端 —— 使用 HTTP/2 多路复用，避免连接池问题
 _shared_client: httpx.AsyncClient | None = None
 _shared_client_lock = asyncio.Lock()
-
-
-def _build_headers() -> dict:
-    return {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json",
-    }
 
 
 async def _get_client() -> httpx.AsyncClient:
@@ -70,93 +62,142 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                    client: httpx.AsyncClient | None = None,
                    semaphore: asyncio.Semaphore | None = None,
                    ) -> str:
-    """调用 DeepSeek API，返回文本回复。支持自动记录调用日志。"""
-    if not DEEPSEEK_API_KEY:
-        raise RuntimeError("DEEPSEEK_API_KEY 未配置")
+    """通过 LLMRouter 选择 key/provider 调用 LLM API，返回文本回复。支持自动记录调用日志。"""
+    from services.llm_router import get_router
 
-    payload = {
-        "model": DEEPSEEK_MODEL,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
+    router = await get_router()
 
-    request_text = " ".join(m.get("content", "") for m in messages)
+    used_key_id = None
+    provider_name = "unknown"
+    model = "unknown"
+    last_error = None
+    t0 = time.perf_counter()
 
     _client = client if client is not None else await _get_client()
     _sema = semaphore if semaphore is not None else _rate_limiter
-    last_error = None
-    t0 = time.perf_counter()
-    for attempt in range(max_retries):
-        async with _sema:
-            try:
+
+    request_text = " ".join(m.get("content", "") for m in messages)
+
+    for attempt in range(max_retries + 2):
+        try:
+            key, provider = router.select_key(purpose)
+            api_key = router.get_decrypted_key(key.id)
+            used_key_id = key.id
+            provider_name = provider.name
+            model = key.model or provider.default_model
+
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+
+            async with _sema:
                 resp = await _client.post(
-                    f"{DEEPSEEK_BASE_URL}/v1/chat/completions",
-                    headers=_build_headers(),
+                    f"{provider.base_url}/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
                     json=payload,
                     timeout=httpx.Timeout(timeout, connect=15.0),
                 )
-                if resp.status_code in _RETRYABLE_STATUSES:
-                    last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-                else:
-                    resp.raise_for_status()
-                    data = resp.json()
-                    content = data["choices"][0]["message"]["content"]
-                    latency_ms = int((time.perf_counter() - t0) * 1000)
-                    # 记录成功日志
-                    _log_llm_success(
-                        purpose=purpose, user_id=user_id, record_id=record_id,
-                        case_id=case_id, temperature=temperature, max_tokens=max_tokens,
-                        latency_ms=latency_ms, request_text=request_text,
-                        response_text=content, usage=data.get("usage"),
-                        log_meta=log_meta,
-                    )
-                    return content
-            except _RETRYABLE_EXCEPTIONS as e:
-                last_error = f"{type(e).__name__}: {str(e)[:200]}"
-                if isinstance(e, httpx.RemoteProtocolError):
-                    await _reset_client()
 
-        if attempt < max_retries - 1:
-            delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-            await asyncio.sleep(delay)
+            if resp.status_code == 429:
+                router.report_result(key.id, success=False, tokens=0,
+                                     latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
+                last_error = "HTTP 429"
+                if attempt < max_retries + 1:
+                    delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
+                    await asyncio.sleep(delay)
+                continue
 
-    # 所有重试失败后记录失败日志
+            if resp.status_code in _RETRYABLE_STATUSES:
+                last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                router.report_result(key.id, success=False, tokens=0, latency_ms=0, error=last_error)
+                if attempt < max_retries:
+                    delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
+                    await asyncio.sleep(delay)
+                continue
+
+            resp.raise_for_status()
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"]
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            usage = data.get("usage", {})
+            total_tokens = usage.get("total_tokens", 0) or len(content) // 2
+
+            router.report_result(key.id, success=True, tokens=total_tokens,
+                                 latency_ms=latency_ms, error=None)
+
+            _log_llm_success(
+                purpose=purpose, user_id=user_id, record_id=record_id,
+                case_id=case_id, temperature=temperature, max_tokens=max_tokens,
+                latency_ms=latency_ms, request_text=request_text,
+                response_text=content, usage=usage,
+                log_meta=log_meta, api_key_id=key.id, provider_name=provider_name, model=model,
+            )
+            return content
+
+        except _RETRYABLE_EXCEPTIONS as e:
+            error_str = f"{type(e).__name__}: {str(e)[:200]}"
+            if used_key_id:
+                router.report_result(used_key_id, success=False, tokens=0,
+                                     latency_ms=0, error=error_str)
+            last_error = error_str
+            if isinstance(e, httpx.RemoteProtocolError):
+                await _reset_client()
+            if attempt < max_retries + 1:
+                delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
+                await asyncio.sleep(delay)
+        except RuntimeError as e:
+            if "无可用" in str(e):
+                raise
+            last_error = str(e)[:200]
+            if used_key_id:
+                router.report_result(used_key_id, success=False, tokens=0,
+                                     latency_ms=0, error=last_error)
+            if attempt < max_retries:
+                await asyncio.sleep(1)
+            continue
+
     latency_ms = int((time.perf_counter() - t0) * 1000)
     _log_llm_failure(
         purpose=purpose, user_id=user_id, record_id=record_id,
         case_id=case_id, temperature=temperature, max_tokens=max_tokens,
         latency_ms=latency_ms, request_text=request_text,
-        error_type="retries_exhausted", error_message=last_error,
-        log_meta=log_meta,
+        error_type="all_providers_failed", error_message=last_error,
+        log_meta=log_meta, api_key_id=used_key_id,
+        provider_name=provider_name, model=model,
     )
-
-    msg = f"LLM调用失败（已重试{max_retries}次）: {last_error}"
-    log_error(msg)
-    raise RuntimeError(msg)
+    raise RuntimeError(f"LLM调用失败（所有 provider 不可用）: {last_error}")
 
 
 def _log_llm_success(*, purpose, user_id, record_id, case_id, temperature,
-                     max_tokens, latency_ms, request_text, response_text, usage, log_meta):
+                     max_tokens, latency_ms, request_text, response_text, usage, log_meta,
+                     api_key_id=None, provider_name="deepseek", model=""):
     from services.llm_logging import enqueue_log
     enqueue_log(
         purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
-        model=DEEPSEEK_MODEL, temperature=temperature, max_tokens=max_tokens,
+        model=model, temperature=temperature, max_tokens=max_tokens,
         latency_ms=latency_ms, status="success",
         request_text=request_text, response_text=response_text, usage=usage,
-        meta=log_meta,
+        meta=log_meta, api_key_id=api_key_id, provider_name=provider_name,
     )
 
 
 def _log_llm_failure(*, purpose, user_id, record_id, case_id, temperature,
-                     max_tokens, latency_ms, request_text, error_type, error_message, log_meta):
+                     max_tokens, latency_ms, request_text, error_type, error_message, log_meta,
+                     api_key_id=None, provider_name="deepseek", model=""):
     from services.llm_logging import enqueue_log
     enqueue_log(
         purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
-        model=DEEPSEEK_MODEL, temperature=temperature, max_tokens=max_tokens,
+        model=model, temperature=temperature, max_tokens=max_tokens,
         latency_ms=latency_ms, status="failed",
         error_type=error_type, error_message=error_message,
         request_text=request_text, meta=log_meta,
+        api_key_id=api_key_id, provider_name=provider_name,
     )
 
 
@@ -168,12 +209,16 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                           case_id: int | None = None,
                           log_meta: dict | None = None,
                           ):
-    """调用 DeepSeek API，流式返回文本块。使用共享 HTTP/2 客户端。"""
-    if not DEEPSEEK_API_KEY:
-        raise RuntimeError("DEEPSEEK_API_KEY 未配置")
+    """通过 LLMRouter 选择 key/provider，流式返回文本块。"""
+    from services.llm_router import get_router
+
+    router = await get_router()
+    key, provider = router.select_key(purpose)
+    api_key = router.get_decrypted_key(key.id)
+    model = key.model or provider.default_model
 
     payload = {
-        "model": DEEPSEEK_MODEL,
+        "model": model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -191,8 +236,11 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
         async with _rate_limiter:
             async with client.stream(
                 "POST",
-                f"{DEEPSEEK_BASE_URL}/v1/chat/completions",
-                headers=_build_headers(),
+                f"{provider.base_url}/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
                 json=payload,
                 timeout=httpx.Timeout(timeout, connect=15.0),
             ) as resp:
@@ -219,21 +267,28 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
         raise
     finally:
         latency_ms = int((time.perf_counter() - t0) * 1000)
+        total_tokens = len(full_reply) // 2
         if error_type:
+            router.report_result(key.id, success=False, tokens=0,
+                                 latency_ms=latency_ms, error=error_message)
             _log_llm_failure(
                 purpose=purpose, user_id=user_id, record_id=record_id,
                 case_id=case_id, temperature=temperature, max_tokens=max_tokens,
                 latency_ms=latency_ms, request_text=request_text,
                 error_type=error_type, error_message=error_message,
-                log_meta=log_meta,
+                log_meta=log_meta, api_key_id=key.id,
+                provider_name=provider.name, model=model,
             )
         else:
+            router.report_result(key.id, success=True, tokens=total_tokens,
+                                 latency_ms=latency_ms, error=None)
             _log_llm_success(
                 purpose=purpose, user_id=user_id, record_id=record_id,
                 case_id=case_id, temperature=temperature, max_tokens=max_tokens,
                 latency_ms=latency_ms, request_text=request_text,
                 response_text=full_reply, usage=None,
-                log_meta=log_meta,
+                log_meta=log_meta, api_key_id=key.id,
+                provider_name=provider.name, model=model,
             )
 
 
@@ -317,7 +372,7 @@ async def call_llm_json(messages: list, temperature: float = 0.3, max_tokens: in
                         client: httpx.AsyncClient | None = None,
                         semaphore: asyncio.Semaphore | None = None,
                         ) -> dict:
-    """调用 DeepSeek API，返回 JSON 结构化结果（容错解析），支持日志记录"""
+    """调用 LLM API（通过 Router 路由），返回 JSON 结构化结果（容错解析），支持日志记录"""
     response_text = await call_llm(
         messages, temperature, max_tokens, timeout, max_retries,
         purpose=purpose, user_id=user_id, record_id=record_id,

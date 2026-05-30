@@ -3,7 +3,6 @@ import asyncio
 import logging
 from database import SessionLocal
 from config import (
-    DEEPSEEK_MODEL,
     LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M, LLM_COST_CURRENCY,
 )
 
@@ -28,7 +27,7 @@ def _estimate_cost(prompt_tokens: int, completion_tokens: int) -> float:
 
 def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
                  max_tokens, latency_ms, status, error_type, error_message,
-                 request_text, response_text, usage, meta):
+                 request_text, response_text, usage, meta, api_key_id=None, provider_name="deepseek"):
     """构建 LLMCallLog 条目字典"""
     if usage:
         prompt_tokens = usage.get("prompt_tokens")
@@ -48,8 +47,8 @@ def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
         "record_id": record_id,
         "case_id": case_id,
         "purpose": purpose,
-        "provider_name": "deepseek",
-        "model": model or DEEPSEEK_MODEL,
+        "provider_name": provider_name,
+        "model": model,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "prompt_tokens": prompt_tokens,
@@ -65,6 +64,7 @@ def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
         "request_chars": len(request_text) if request_text else None,
         "response_chars": len(response_text) if response_text else None,
         "meta": meta,
+        "api_key_id": api_key_id,
     }
 
 
@@ -128,9 +128,10 @@ def _flush_batch(items: list[dict]):
 
 
 def enqueue_log(*, purpose, user_id=None, record_id=None, case_id=None,
-                model=DEEPSEEK_MODEL, temperature=None, max_tokens=None,
+                model="", temperature=None, max_tokens=None,
                 latency_ms=0, status="success", error_type=None, error_message=None,
-                request_text="", response_text="", usage=None, meta=None):
+                request_text="", response_text="", usage=None, meta=None,
+                api_key_id=None, provider_name="deepseek"):
     if _log_queue is None:
         return
     entry = _build_entry(
@@ -139,6 +140,7 @@ def enqueue_log(*, purpose, user_id=None, record_id=None, case_id=None,
         latency_ms=latency_ms, status=status, error_type=error_type,
         error_message=error_message, request_text=request_text,
         response_text=response_text, usage=usage, meta=meta,
+        api_key_id=api_key_id, provider_name=provider_name,
     )
     try:
         _log_queue.put_nowait(entry)
