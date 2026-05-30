@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
         from services.crypto_utils import encrypt_api_key
         from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
         from database import SessionLocal
-        from models import ApiProvider, ApiKey, ApiKeyRule
+        from models import ApiProvider, ApiKey
 
         db = SessionLocal()
         try:
@@ -70,8 +70,8 @@ async def lifespan(app: FastAPI):
                     )
                     db.add(k)
                     db.flush()
-                    for purpose in ["patient_chat", "scoring", "qa", "*"]:
-                        db.add(ApiKeyRule(api_key_id=k.id, purpose=purpose, priority=10))
+                    k.purpose = "*"
+                    k.priority = 10
                     db.commit()
                     _startup_logger.info("已从 .env seed 默认 DeepSeek provider + key")
                 else:

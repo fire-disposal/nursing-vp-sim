@@ -3,11 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import User, ApiProvider, ApiKey, ApiKeyRule, LLMCallLog
+from models import User, ApiProvider, ApiKey, LLMCallLog
 from schemas import (
     ApiProviderCreate, ApiProviderUpdate, ApiProviderResponse,
     ApiKeyCreate, ApiKeyUpdate, ApiKeyResponse,
-    ApiKeyRuleCreate, ApiKeyRuleUpdate, ApiKeyRuleResponse,
     ApiHealthResponse,
 )
 from auth import require_teacher
@@ -103,6 +102,8 @@ def list_keys(
         result.append(ApiKeyResponse(
             id=k.id, provider_id=k.provider_id,
             provider_name=provider.name if provider else "",
+            purpose=k.purpose,
+            priority=k.priority,
             label=k.label, key_suffix=k.key_suffix, model=k.model,
             weight=k.weight, status=k.status,
             price_input_per_1m=float(k.price_input_per_1m),
@@ -131,8 +132,12 @@ async def create_key(
     k = ApiKey(
         provider_id=data.provider_id, label=label,
         encrypted_key=encrypt_api_key(data.raw_key), key_suffix=suffix,
-        model=data.model or provider.default_model, weight=data.weight,
-        status="active", price_input_per_1m=data.price_input_per_1m,
+        model=data.model or provider.default_model,
+        purpose=data.purpose,
+        priority=data.priority,
+        weight=data.weight,
+        status="active",
+        price_input_per_1m=data.price_input_per_1m,
         price_output_per_1m=data.price_output_per_1m,
         monthly_cost_limit=data.monthly_cost_limit,
     )
@@ -167,7 +172,6 @@ async def delete_key(
     k = db.query(ApiKey).filter(ApiKey.id == key_id).first()
     if not k:
         raise HTTPException(404, "Key 不存在")
-    db.query(ApiKeyRule).filter(ApiKeyRule.api_key_id == key_id).delete()
     db.delete(k)
     db.commit()
     await refresh_router()
@@ -223,49 +227,6 @@ def key_stats(
     recent_errors = [{"created_at": str(e.created_at), "error_type": e.error_type, "error_message": e.error_message} for e in errors]
 
     return {"daily": daily, "by_purpose": by_purpose, "recent_errors": recent_errors}
-
-# --- Rules ---
-
-@router.get("/keys/{key_id}/rules", response_model=list[ApiKeyRuleResponse])
-def list_rules(key_id: int, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
-    rules = db.query(ApiKeyRule).filter(ApiKeyRule.api_key_id == key_id).all()
-    return [ApiKeyRuleResponse(id=r.id, api_key_id=r.api_key_id, purpose=r.purpose, priority=r.priority, is_enabled=r.is_enabled, created_at=r.created_at) for r in rules]
-
-@router.post("/keys/{key_id}/rules", status_code=201)
-async def create_rule(key_id: int, data: ApiKeyRuleCreate, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
-    k = db.query(ApiKey).filter(ApiKey.id == key_id).first()
-    if not k:
-        raise HTTPException(404, "Key 不存在")
-    existing = db.query(ApiKeyRule).filter(ApiKeyRule.api_key_id == key_id, ApiKeyRule.purpose == data.purpose).first()
-    if existing:
-        raise HTTPException(400, f"规则 {data.purpose} 已存在")
-    r = ApiKeyRule(api_key_id=key_id, purpose=data.purpose, priority=data.priority, is_enabled=data.is_enabled)
-    db.add(r)
-    db.commit()
-    db.refresh(r)
-    await refresh_router()
-    return {"id": r.id, "purpose": r.purpose}
-
-@router.put("/rules/{rule_id}")
-async def update_rule(rule_id: int, data: ApiKeyRuleUpdate, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
-    r = db.query(ApiKeyRule).filter(ApiKeyRule.id == rule_id).first()
-    if not r:
-        raise HTTPException(404, "规则不存在")
-    for field, val in data.model_dump(exclude_none=True).items():
-        setattr(r, field, val)
-    db.commit()
-    await refresh_router()
-    return {"ok": True}
-
-@router.delete("/rules/{rule_id}")
-async def delete_rule(rule_id: int, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
-    r = db.query(ApiKeyRule).filter(ApiKeyRule.id == rule_id).first()
-    if not r:
-        raise HTTPException(404, "规则不存在")
-    db.delete(r)
-    db.commit()
-    await refresh_router()
-    return {"ok": True}
 
 # --- Health ---
 
