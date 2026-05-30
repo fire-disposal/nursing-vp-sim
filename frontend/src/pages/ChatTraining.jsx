@@ -538,11 +538,22 @@ export default function ChatTraining() {
               borderRadius: "50%", animation: "spin 0.8s linear infinite",
             }} />
             <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>AI 正在评分</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.6 }}>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: 24 }}>
               正在分析你的训练表现，根据问诊完整性、沟通技巧等维度进行评分，请耐心等待...
             </p>
+            <div style={{
+              height: 6, borderRadius: 3, background: "var(--gray-200)", overflow: "hidden",
+            }}>
+              <div style={{
+                height: "100%", borderRadius: 3, background: "var(--blue-600)",
+                width: "0%", animation: "scoreProgress 10s ease-out forwards",
+              }} />
+            </div>
           </div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <style>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes scoreProgress { from { width: 0%; } to { width: 85%; } }
+          `}</style>
         </div>
       )}
 
