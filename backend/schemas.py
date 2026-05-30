@@ -179,6 +179,27 @@ class QAResponse(BaseModel):
     answer: str
 
 
+class QARecordOut(BaseModel):
+    id: int
+    question: str
+    answer: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QARecordAdminOut(BaseModel):
+    id: int
+    user_id: int
+    username: str
+    display_name: Optional[str]
+    question: str
+    answer: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DurationStats(BaseModel):
     daily: list  # [{date: "2026-05-20", minutes: 45}, ...]
     total_minutes: int
