@@ -145,6 +145,8 @@ export default function ChatTraining() {
   const [ending, setEnding] = useState(false);
   const [score, setScore] = useState(null);
   const [showScore, setShowScore] = useState(false);
+  const [scoreProgress, setScoreProgress] = useState(0);
+  const [showOverlay, setShowOverlay] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [caseTitle, setCaseTitle] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -162,6 +164,8 @@ export default function ChatTraining() {
   const autoEndRef = useRef(false);
   const warned5Ref = useRef(false);
   const warned2Ref = useRef(false);
+  const progressIntervalRef = useRef(null);
+  const progressSpeedRef = useRef(0);
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
@@ -389,6 +393,39 @@ export default function ChatTraining() {
     }
   }, [remaining, ending, showScore]);
 
+  useEffect(() => {
+    if (!ending) return;
+    setShowOverlay(true);
+    setScoreProgress(0);
+    progressSpeedRef.current = 100 / (15 * 20);
+
+    progressIntervalRef.current = setInterval(() => {
+      setScoreProgress((prev) => {
+        const next = prev + progressSpeedRef.current;
+        return Math.min(next, 100);
+      });
+    }, 50);
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, [ending]);
+
+  useEffect(() => {
+    if (!showScore) return;
+    progressSpeedRef.current = 8;
+  }, [showScore]);
+
+  useEffect(() => {
+    if (scoreProgress >= 100 && showScore) {
+      const timer = setTimeout(() => setShowOverlay(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [scoreProgress, showScore]);
+
   const formatTime = (sec) => {
     if (sec == null) return "--:--";
     const m = Math.floor(sec / 60);
@@ -529,7 +566,7 @@ export default function ChatTraining() {
         </button>
       </div>
 
-      {ending && (
+      {showOverlay && (
         <div className="score-overlay">
           <div className="score-modal" style={{ textAlign: "center", padding: "40px 32px", maxWidth: 420 }}>
             <div style={{
@@ -537,7 +574,9 @@ export default function ChatTraining() {
               border: "4px solid var(--gray-200)", borderTopColor: "var(--blue-600)",
               borderRadius: "50%", animation: "spin 0.8s linear infinite",
             }} />
-            <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>AI 正在评分</h3>
+            <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>
+              {scoreProgress >= 100 ? "评分完成，即将展示报告" : "AI 正在评分"}
+            </h3>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: 24 }}>
               正在分析你的训练表现，根据问诊完整性、沟通技巧等维度进行评分，请耐心等待...
             </p>
@@ -545,15 +584,12 @@ export default function ChatTraining() {
               height: 6, borderRadius: 3, background: "var(--gray-200)", overflow: "hidden",
             }}>
               <div style={{
-                height: "100%", borderRadius: 3, background: "var(--blue-600)",
-                width: "0%", animation: "scoreProgress 10s ease-out forwards",
+                height: "100%", borderRadius: 3, background: scoreProgress >= 100 ? "#22c55e" : "var(--blue-600)",
+                width: `${scoreProgress}%`, transition: scoreProgress >= 100 ? "none" : "width 0.05s linear",
               }} />
             </div>
           </div>
-          <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes scoreProgress { from { width: 0%; } to { width: 100%; } }
-          `}</style>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
