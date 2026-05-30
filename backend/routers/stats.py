@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import User, TrainingRecord, Score
-from schemas import DurationStats, TrendStats
+from schemas import DurationStats, TrendStats, PaginatedResponse
 from auth import get_current_user, require_teacher
+from pagination import paginate
 
 router = APIRouter(prefix="/api/stats", tags=["统计"])
 
@@ -16,42 +17,35 @@ def get_duration_stats(
     db: Session = Depends(get_db),
     period: str = Query("month", description="统计周期: week / month / all"),
 ):
-    """获取训练时长统计"""
-    if current_user.role == "teacher":
-        records = db.query(TrainingRecord).filter(TrainingRecord.status == "completed").all()
-    else:
-        records = db.query(TrainingRecord).filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == "completed",
-        ).all()
-
-    # 确定时间范围
     now = datetime.now(timezone.utc)
     if period == "week":
-        start_date = now - timedelta(days=7)
+        since = now - timedelta(days=7)
     elif period == "month":
-        start_date = now - timedelta(days=30)
+        since = now - timedelta(days=30)
     else:
-        start_date = None
+        since = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
-    # 按日聚合
-    daily_data = {}
-    total_minutes = 0
-    for r in records:
-        if r.start_time and r.end_time:
-            duration = (r.end_time - r.start_time).total_seconds() / 60
-            date_key = r.start_time.strftime("%Y-%m-%d")
-            if start_date is None or r.start_time >= start_date:
-                daily_data[date_key] = daily_data.get(date_key, 0) + duration
-            total_minutes += duration
-
-    daily = [{"date": k, "minutes": round(v, 1)} for k, v in sorted(daily_data.items())]
-
-    return DurationStats(
-        daily=daily,
-        total_minutes=round(total_minutes),
-        total_sessions=len(records),
+    base = db.query(
+        func.date(TrainingRecord.start_time).label("d"),
+        func.sum(
+            func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60
+        ).label("minutes"),
+        func.count().label("sessions"),
+    ).filter(
+        TrainingRecord.status == "completed",
+        TrainingRecord.start_time >= since,
     )
+
+    if current_user.role != "teacher":
+        base = base.filter(TrainingRecord.user_id == current_user.id)
+
+    rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
+
+    daily = [{"date": str(r.d), "minutes": round(float(r.minutes or 0), 1)} for r in rows]
+    total_minutes = round(sum(r.minutes or 0 for r in rows))
+    total_sessions = sum(r.sessions for r in rows)
+
+    return DurationStats(daily=daily, total_minutes=total_minutes, total_sessions=total_sessions)
 
 
 @router.get("/trends", response_model=TrendStats)
@@ -60,97 +54,76 @@ def get_trends(
     db: Session = Depends(get_db),
     period: str = Query("month", description="统计周期: week / month / all"),
 ):
-    """获取每日训练趋势（含次数、时长、得分）"""
-    if current_user.role == "teacher":
-        records = db.query(TrainingRecord).filter(TrainingRecord.status == "completed").all()
-    else:
-        records = db.query(TrainingRecord).filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == "completed",
-        ).all()
-
     now = datetime.now(timezone.utc)
     if period == "week":
-        start_date = now - timedelta(days=7)
+        since = now - timedelta(days=7)
     elif period == "month":
-        start_date = now - timedelta(days=30)
+        since = now - timedelta(days=30)
     else:
-        start_date = None
+        since = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
-    # Collect record IDs for score lookup
-    record_ids = [r.id for r in records]
-    scores = {}
-    if record_ids:
-        score_rows = db.query(Score).filter(Score.record_id.in_(record_ids)).all()
-        scores = {sc.record_id: sc.total_score for sc in score_rows}
-
-    # Group by date
-    daily_data = {}
-    total_minutes = 0
-    for r in records:
-        if r.start_time:
-            date_key = r.start_time.strftime("%Y-%m-%d")
-            if start_date is not None and r.start_time < start_date:
-                continue
-            entry = daily_data.setdefault(date_key, {"sessions": 0, "minutes": 0.0, "score_sum": 0.0, "score_count": 0})
-            entry["sessions"] += 1
-            if r.start_time and r.end_time:
-                duration = (r.end_time - r.start_time).total_seconds() / 60
-                entry["minutes"] += duration
-                total_minutes += duration
-            if r.id in scores:
-                entry["score_sum"] += scores[r.id]
-                entry["score_count"] += 1
-
-    daily = []
-    all_scores = []
-    for date_key in sorted(daily_data.keys()):
-        d = daily_data[date_key]
-        avg = round(d["score_sum"] / d["score_count"], 1) if d["score_count"] > 0 else None
-        daily.append({
-            "date": date_key,
-            "sessions": d["sessions"],
-            "minutes": round(d["minutes"], 1),
-            "avg_score": avg,
-        })
-        if avg is not None:
-            all_scores.append(avg)
-
-    overall_avg = round(sum(all_scores) / len(all_scores), 1) if all_scores else None
-
-    return TrendStats(
-        daily=daily,
-        total_sessions=len(records),
-        total_minutes=round(total_minutes),
-        avg_score=overall_avg,
+    base = db.query(
+        func.date(TrainingRecord.start_time).label("d"),
+        func.count().label("sessions"),
+        func.sum(
+            func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60
+        ).label("minutes"),
+        func.avg(Score.total_score).label("avg_score"),
+    ).outerjoin(Score, Score.record_id == TrainingRecord.id).filter(
+        TrainingRecord.status == "completed",
+        TrainingRecord.start_time >= since,
     )
 
+    if current_user.role != "teacher":
+        base = base.filter(TrainingRecord.user_id == current_user.id)
 
-@router.get("/teacher-summary")
+    rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
+
+    daily = [
+        {"date": str(r.d), "sessions": r.sessions,
+         "minutes": round(float(r.minutes or 0), 1),
+         "avg_score": round(float(r.avg_score), 1) if r.avg_score is not None else None}
+        for r in rows
+    ]
+    total_sessions = sum(r.sessions for r in rows)
+    total_minutes = round(sum(r.minutes or 0 for r in rows))
+    all_scores = [float(r.avg_score) for r in rows if r.avg_score is not None]
+    overall_avg = round(sum(all_scores) / len(all_scores), 1) if all_scores else None
+
+    return TrendStats(daily=daily, total_sessions=total_sessions, total_minutes=total_minutes, avg_score=overall_avg)
+
+
+@router.get("/teacher-summary", response_model=PaginatedResponse[dict])
 def teacher_summary(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    """教师视角：每个学生的训练统计"""
-    students = db.query(User).filter(User.role == "student").all()
-    result = []
-    for s in students:
-        records = db.query(TrainingRecord).filter(
-            TrainingRecord.user_id == s.id,
-            TrainingRecord.status == "completed",
-        ).all()
-        total_sec = 0
-        for r in records:
-            if r.start_time and r.end_time:
-                total_sec += (r.end_time - r.start_time).total_seconds()
-        result.append({
-            "student_id": s.id,
-            "display_name": s.display_name,
-            "student_code": s.student_id,
-            "total_sessions": len(records),
-            "total_minutes": round(total_sec / 60),
-        })
-    return result
+    base = db.query(
+        User.id.label("user_id"),
+        User.display_name.label("display_name"),
+        User.student_id.label("student_code"),
+        func.count(TrainingRecord.id).label("total_sessions"),
+        func.coalesce(
+            func.sum(func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60),
+            0,
+        ).label("total_minutes"),
+    ).outerjoin(
+        TrainingRecord,
+        (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed")
+    ).filter(
+        User.role == "student"
+    ).group_by(User.id).order_by(User.id)
+
+    items, total = paginate(base, offset, limit)
+
+    data = [
+        {"user_id": r.user_id, "display_name": r.display_name, "student_code": r.student_code,
+         "total_sessions": r.total_sessions, "total_minutes": round(float(r.total_minutes))}
+        for r in items
+    ]
+    return PaginatedResponse(items=data, total=total, offset=offset, limit=limit)
 
 
 @router.get("/ranking")
