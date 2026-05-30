@@ -33,6 +33,8 @@ def upgrade() -> None:
         WHERE api_keys.id = sub.api_key_id
     """)
 
+    op.execute(sa.text("UPDATE api_keys SET purpose = '*', priority = 100 WHERE purpose IS NULL OR priority IS NULL"))
+
     op.alter_column('api_keys', 'purpose', nullable=False)
     op.alter_column('api_keys', 'priority', nullable=False)
     
