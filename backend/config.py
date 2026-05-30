@@ -1,13 +1,18 @@
 import os
+import sys
 from pathlib import Path
 
-# 自动加载项目根目录的 .env 文件
+# 加载项目根目录 .env（不覆盖已有环境变量，保证 Docker/CI 注入优先生效）
 try:
     from dotenv import load_dotenv
     env_path = Path(__file__).resolve().parent.parent / ".env"
-    load_dotenv(env_path)
+    loaded = load_dotenv(env_path)
+    if loaded:
+        print(f"[config] 已加载: {env_path}", file=sys.stderr)
+    else:
+        print(f"[config] .env 未找到或已加载过: {env_path}", file=sys.stderr)
 except ImportError:
-    pass
+    print("[config] python-dotenv 未安装，跳过 .env 加载", file=sys.stderr)
 
 ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "dev")
