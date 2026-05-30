@@ -126,60 +126,42 @@ def teacher_summary(
     return PaginatedResponse(items=data, total=total, offset=offset, limit=limit)
 
 
-@router.get("/ranking")
+@router.get("/ranking", response_model=PaginatedResponse[dict])
 def student_ranking(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    """教师视角：学生成绩排名（按平均分降序）"""
-    students = db.query(User).filter(User.role == "student").all()
-    result = []
-    for s in students:
-        records = db.query(TrainingRecord).filter(
-            TrainingRecord.user_id == s.id,
-            TrainingRecord.status == "completed",
-        ).all()
-        if not records:
-            result.append({
-                "user_id": s.id,
-                "display_name": s.display_name,
-                "student_id": s.student_id,
-                "total_sessions": 0,
-                "avg_score": None,
-                "total_score": 0,
-                "total_minutes": 0,
-            })
-            continue
+    sub = db.query(
+        User.id.label("user_id"),
+        User.display_name.label("display_name"),
+        User.student_id.label("student_id"),
+        func.count(TrainingRecord.id).label("total_sessions"),
+        func.coalesce(func.avg(Score.total_score), 0).label("avg_score"),
+        func.coalesce(func.sum(Score.total_score), 0).label("total_score"),
+        func.coalesce(
+            func.sum(func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60),
+            0,
+        ).label("total_minutes"),
+        func.rank().over(order_by=func.coalesce(func.avg(Score.total_score), 0).desc()).label("rank"),
+    ).outerjoin(
+        TrainingRecord,
+        (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed")
+    ).outerjoin(
+        Score, Score.record_id == TrainingRecord.id
+    ).filter(
+        User.role == "student"
+    ).group_by(User.id).subquery()
 
-        record_ids = [r.id for r in records]
-        scores = db.query(Score).filter(Score.record_id.in_(record_ids)).all()
-        score_map = {sc.record_id: sc.total_score for sc in scores}
+    total = db.query(func.count()).select_from(sub).scalar()
+    rows = db.query(sub).order_by(sub.c.rank).offset(offset).limit(limit).all()
 
-        total_score = 0
-        score_count = 0
-        total_sec = 0
-        for r in records:
-            if r.id in score_map:
-                total_score += score_map[r.id]
-                score_count += 1
-            if r.start_time and r.end_time:
-                total_sec += (r.end_time - r.start_time).total_seconds()
-
-        result.append({
-            "user_id": s.id,
-            "display_name": s.display_name,
-            "student_id": s.student_id,
-            "total_sessions": len(records),
-            "avg_score": round(total_score / score_count, 1) if score_count > 0 else None,
-            "total_score": round(total_score, 1),
-            "total_minutes": round(total_sec / 60),
-        })
-
-    # 按平均分降序排列
-    result.sort(key=lambda x: (x["avg_score"] is not None, x["avg_score"] or 0), reverse=True)
-
-    # 添加排名
-    for i, item in enumerate(result):
-        item["rank"] = i + 1
-
-    return result
+    items = [
+        {"user_id": r.user_id, "display_name": r.display_name, "student_id": r.student_id,
+         "total_sessions": r.total_sessions, "avg_score": round(float(r.avg_score), 1) if r.avg_score else None,
+         "total_score": round(float(r.total_score), 1), "total_minutes": round(float(r.total_minutes)),
+         "rank": r.rank}
+        for r in rows
+    ]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
