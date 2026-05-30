@@ -4,26 +4,37 @@ import { Download, Trash2, ClipboardList } from "lucide-react";
 import { getRecords, exportRecords, deleteRecord, getManageCases } from "../../api";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
+import Pagination from "../../components/Pagination";
 
 export default function RecordsTab() {
   const [records, setRecords] = useState([]);
   const [caseOptions, setCaseOptions] = useState([]);
   const [filters, setFilters] = useState({ student_name: "", case_id: "", status: "", date_from: "", date_to: "" });
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 50;
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
 
   const loadData = useCallback(() => {
-    const params = {};
+    const params = { offset, limit: LIMIT };
     if (filters.student_name) params.student_name = filters.student_name;
     if (filters.case_id) params.case_id = filters.case_id;
     if (filters.status) params.status = filters.status;
     if (filters.date_from) params.date_from = filters.date_from;
     if (filters.date_to) params.date_to = filters.date_to;
-    getRecords(params).then(({ data }) => setRecords(data)).catch(() => toast.error("加载训练记录失败"));
-  }, [filters, toast]);
+    getRecords(params).then(({ data }) => {
+      setRecords(data.items);
+      setTotal(data.total);
+    }).catch(() => toast.error("加载训练记录失败"));
+  }, [filters, offset, toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [filters.student_name, filters.case_id, filters.status, filters.date_from, filters.date_to]);
 
   useEffect(() => {
     getManageCases().then(({ data }) => setCaseOptions(data.map((c) => ({ id: c.id, name: c.name })))).catch(() => {});
@@ -94,7 +105,7 @@ export default function RecordsTab() {
       </div>
 
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {records.length} 条记录</span>
+        <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {total} 条记录</span>
         <button className="btn btn-primary" onClick={handleExport}><Download size={16} />导出CSV</button>
       </div>
 
@@ -138,6 +149,7 @@ export default function RecordsTab() {
           </tbody>
         </table>
       )}
+      <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
     </div>
   );
 }
