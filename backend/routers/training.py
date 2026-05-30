@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, Backgrou
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from database import get_db, SessionLocal
-from models import User, Case, TrainingRecord, Message, Score, Note
+from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog
 from schemas import (
     TrainingStartRequest, TrainingStartResponse, TrainingRecordBrief,
     TrainingRecordDetail, ScoreReviewRequest, ScoreReviewResponse,
@@ -334,6 +334,7 @@ def delete_record(record_id: int, current_user: User = Depends(get_current_user)
     db.query(Message).filter(Message.record_id == record_id).delete()
     db.query(Score).filter(Score.record_id == record_id).delete()
     db.query(Note).filter(Note.record_id == record_id).delete()
+    db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
     db.delete(record)
     db.commit()
 
