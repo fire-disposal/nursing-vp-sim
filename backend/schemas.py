@@ -365,6 +365,8 @@ class ApiKeyCreate(BaseModel):
     label: Optional[str] = None
     raw_key: str = Field(..., min_length=10)
     model: Optional[str] = None
+    purpose: str = Field(default="*", max_length=40)
+    priority: int = Field(default=100, ge=1)
     weight: int = Field(default=10, ge=0, le=100)
     price_input_per_1m: float = 0
     price_output_per_1m: float = 0
@@ -374,6 +376,8 @@ class ApiKeyCreate(BaseModel):
 class ApiKeyUpdate(BaseModel):
     label: Optional[str] = Field(None, max_length=80)
     model: Optional[str] = None
+    purpose: Optional[str] = Field(None, max_length=40)
+    priority: Optional[int] = Field(None, ge=1)
     weight: Optional[int] = Field(None, ge=0, le=100)
     status: Optional[str] = None
     price_input_per_1m: Optional[float] = None
@@ -389,6 +393,8 @@ class ApiKeyResponse(BaseModel):
     label: str
     key_suffix: str
     model: Optional[str]
+    purpose: str = "*"
+    priority: int = 100
     weight: int
     status: str
     price_input_per_1m: float
@@ -401,30 +407,6 @@ class ApiKeyResponse(BaseModel):
     last_used_at: Optional[datetime]
     rate_limit_until: Optional[datetime]
     consecutive_failures: int
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ApiKeyRuleCreate(BaseModel):
-    api_key_id: int
-    purpose: str = Field(..., max_length=40)
-    priority: int = Field(default=100, ge=1)
-    is_enabled: bool = True
-
-
-class ApiKeyRuleUpdate(BaseModel):
-    purpose: Optional[str] = Field(None, max_length=40)
-    priority: Optional[int] = Field(None, ge=1)
-    is_enabled: Optional[bool] = None
-
-
-class ApiKeyRuleResponse(BaseModel):
-    id: int
-    api_key_id: int
-    purpose: str
-    priority: int
-    is_enabled: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
