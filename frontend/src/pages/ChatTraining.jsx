@@ -552,7 +552,7 @@ export default function ChatTraining() {
           </div>
           <style>{`
             @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes scoreProgress { from { width: 0%; } to { width: 85%; } }
+            @keyframes scoreProgress { from { width: 0%; } to { width: 100%; } }
           `}</style>
         </div>
       )}
