@@ -165,10 +165,9 @@ def backup_database(current_user: User = Depends(require_teacher)):
     """创建数据库备份。教师权限。保留最近 10 个备份。"""
     # 从 DATABASE_URL 解析 SQLite 文件路径
     db_url = DATABASE_URL
-    if db_url.startswith("sqlite:///"):
-        db_path = db_url[10:]  # 去掉 "sqlite:///"
-    else:
-        raise HTTPException(status_code=500, detail="仅支持 SQLite 数据库备份")
+    if not db_url.startswith("sqlite"):
+        raise HTTPException(status_code=501, detail="备份功能仅支持 SQLite 环境。PostgreSQL 请使用 pg_dump。")
+    db_path = db_url[10:]
 
     if not os.path.exists(db_path):
         raise HTTPException(status_code=500, detail=f"数据库文件不存在: {db_path}")
