@@ -8,6 +8,8 @@ import UsersTab from "../components/teacher/UsersTab";
 import CasesTab from "../components/teacher/CasesTab";
 import MonitorTab from "../components/teacher/MonitorTab";
 import QARecordsTab from "../components/teacher/QARecordsTab";
+import ApiManagementTab from "../components/teacher/ApiManagementTab";
+import PromptManagementTab from "../components/teacher/PromptManagementTab";
 
 const ADMIN_TABS = [
   { key: "records", label: "训练记录" },
@@ -15,6 +17,8 @@ const ADMIN_TABS = [
   { key: "cases", label: "病例管理" },
   { key: "monitor", label: "调用监控" },
   { key: "qa-records", label: "问答记录" },
+  { key: "api", label: "API 管理" },
+  { key: "prompts", label: "Prompt 管理" },
 ];
 
 export default function Admin({ user, onLogout }) {
@@ -35,6 +39,8 @@ export default function Admin({ user, onLogout }) {
       {activeTab === "cases" && <CasesTab />}
       {activeTab === "monitor" && <MonitorTab />}
       {activeTab === "qa-records" && <QARecordsTab />}
+      {activeTab === "api" && <ApiManagementTab />}
+      {activeTab === "prompts" && <PromptManagementTab />}
     </Layout>
   );
 }

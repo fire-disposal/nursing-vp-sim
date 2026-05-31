@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, JSON, Index
+from sqlalchemy import (
+    Column, Integer, String, Text, Float, Boolean, DateTime, Date,
+    BigInteger, Numeric, JSON, ForeignKey, Index,
+)
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -118,7 +121,8 @@ class LLMCallLog(Base):
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=True, index=True)
     case_id = Column(Integer, ForeignKey("cases.id"), nullable=True, index=True)
     purpose = Column(String(40), nullable=False, index=True)  # patient_chat / scoring / qa / summary / other
-    provider = Column(String(40), nullable=False, default="deepseek")
+    provider_name = Column(String(40), nullable=False, default="deepseek")
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
     model = Column(String(80), nullable=False)
     temperature = Column(Float, nullable=True)
     max_tokens = Column(Integer, nullable=True)
@@ -137,6 +141,8 @@ class LLMCallLog(Base):
     meta = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
+    api_key = relationship("ApiKey")
+
 
 class QARecord(Base):
     """通用护理问答记录"""
@@ -152,3 +158,77 @@ class QARecord(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
     user = relationship("User")
+
+
+class ApiProvider(Base):
+    __tablename__ = "api_providers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(40), unique=True, nullable=False)
+    display_name = Column(String(80), nullable=False)
+    base_url = Column(String(200), nullable=False)
+    api_type = Column(String(20), nullable=False, default="openai_compatible")
+    default_model = Column(String(80), nullable=False)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    priority = Column(Integer, nullable=False, default=100)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    keys = relationship("ApiKey", back_populates="provider", cascade="all, delete-orphan")
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True)
+    provider_id = Column(Integer, ForeignKey("api_providers.id"), nullable=False)
+    label = Column(String(80), nullable=False)
+    encrypted_key = Column(Text, nullable=False)
+    key_suffix = Column(String(8), nullable=False)
+    model = Column(String(80), nullable=True)
+    weight = Column(Integer, nullable=False, default=10)
+    status = Column(String(20), nullable=False, default="active")
+    price_input_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
+    price_output_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
+    currency = Column(String(10), nullable=False, default="CNY")
+    balance = Column(Numeric(12, 6), nullable=True)
+    monthly_cost_limit = Column(Numeric(12, 6), nullable=True)
+    call_count_today = Column(Integer, nullable=False, default=0)
+    total_tokens_today = Column(BigInteger, nullable=False, default=0)
+    total_cost_today = Column(Numeric(12, 6), nullable=False, default=0)
+    stats_date = Column(Date, nullable=True)
+    monthly_cost_used = Column(Numeric(12, 6), nullable=False, default=0)
+    stats_month = Column(String(7), nullable=True)
+    consecutive_failures = Column(Integer, nullable=False, default=0)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    rate_limit_until = Column(DateTime(timezone=True), nullable=True)
+    purpose = Column(String(40), nullable=False, default="*")
+    priority = Column(Integer, nullable=False, default=100)
+    __table_args__ = (
+        Index("idx_api_keys_purpose", "purpose"),
+    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    provider = relationship("ApiProvider", back_populates="keys")
+
+
+class PromptTemplate(Base):
+    """LLM 提示词模板"""
+    __tablename__ = "prompt_templates"
+
+    id = Column(Integer, primary_key=True)
+    purpose = Column(String(40), nullable=False, index=True)
+    version = Column(Integer, nullable=False, default=1)
+    name = Column(String(80), nullable=True)
+    system_prompt = Column(Text, nullable=False)
+    user_prompt = Column(Text, nullable=True)
+    template_engine = Column(String(20), nullable=False, default="format")
+    variables = Column(JSON, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=False)
+    created_by = Column(String(80), nullable=True)
+    remark = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+

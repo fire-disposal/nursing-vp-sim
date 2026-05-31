@@ -6,38 +6,47 @@
 
 学生与 LLM 驱动的虚拟患者进行自然语言对话，模拟真实病史采集。系统自动对沟通技能（14项）和病史采集（5项）进行 19 项细粒度评分（100分制），提供证据化反馈。教师可复核修改 AI 评分，管理用户和病例，监控 LLM 调用与成本。
 
-> **版本:** v2026.05.29 · **状态:** 生产就绪
+> **版本:** v2026.05.31 · **数据库:** PostgreSQL · **部署:** Docker Compose
 
 ## 快速启动
 
 ```bash
-# 后端（端口 8000）
-cd backend
-uv sync
-uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-
-# 前端（端口 3000）
-cd frontend
+# 首次安装
 npm install
+cd backend && uv sync && cd ..
+cd frontend && npm install && cd ..
+
+# 开发模式（一键启动前后端，Ctrl+C 停止）
 npm run dev
 ```
 
+- 后端: http://localhost:8000 （API 文档: /docs）
+- 前端: http://localhost:3000
+
 ### 默认账号
 
-| 角色   | 用户名     | 密码    |
+| 角色   | 用户名      | 密码    |
 |--------|-----------|---------|
 | 教师   | admin     | admin123 |
 | 学生   | student1~5 | 123456  |
+
+## Docker 部署
+
+```bash
+# 根目录 .env 配置 DEEPSEEK_API_KEY 和 SECRET_KEY 后
+docker compose up -d
+```
 
 ## 技术栈
 
 | 层级     | 技术 |
 |----------|------|
-| 后端     | Python 3.13 / FastAPI / SQLAlchemy 2.0 / SQLite WAL |
+| 后端     | Python 3.13 / FastAPI / SQLAlchemy 2.0 / PostgreSQL |
 | 前端     | React 19 / Vite 8 / react-router-dom v7 / recharts |
-| LLM      | DeepSeek Chat API（流式 SSE + JSON 模式） |
+| LLM      | 多 Provider 路由（DeepSeek / OpenAI 兼容），流式 SSE |
 | 认证     | JWT（python-jose）+ bcrypt |
-| 测试     | pytest（42条）+ Vitest（17条） |
+| 加密     | Fernet 对称加密（SECRET_KEY 派生） |
+| 测试     | pytest + Vitest |
 | CI/CD    | GitHub Actions → Docker → GHCR → VPS 部署 |
 
 ## 核心功能
@@ -45,44 +54,54 @@ npm run dev
 - **虚拟患者对话** — LLM 角色扮演，隐藏信息按关键词触发逐步披露
 - **自动评分** — 19 项评分标准，每项附带对话证据 + 评分理由
 - **教师复核** — 逐项修改 AI 评分 + 复核备注 + 复核徽章
-- **流式对话** — SSE 逐字显示，首字延迟 <1s，打字光标动画
+- **流式对话** — SSE 逐字显示，支持重试与故障转移
+- **多 API 管理** — 多 Provider/Key 优先级加权路由、熔断、限流、健康检查
+- **Prompt 管理** — 数据库模板化，支持变量渲染、版本激活、热重载
+- **DeepSeek 一键添加** — 仅需 API Key，自动配置官方参数
+- **LLM 监控** — 调用日志、费用估算（per-key）、30天趋势、CSV 导出
 - **采集进度** — 客户端关键词匹配，追踪关键问询覆盖
-- **LLM 监控** — 按用途统计调用次数/延迟/费用，训练级聚合
 - **时长统计** — 每日趋势、累计分钟、学生排名
-- **CSV 导出** — 流式导出训练记录
-- **14 个 UI 组件** — CSS 变量设计体系，统一视觉风格
 
 ## 项目结构
 
 ```
-├── backend/           # FastAPI（routers/、services/、models.py、schemas.py）
-├── frontend/          # React SPA（pages/、components/ui/、styles/）
-├── docs/              # 架构、API、数据库、前端设计文档
-├── .github/workflows/ # CI（测试+构建）+ CD（Docker 推送+VPS 部署，v* tag 触发）
+├── backend/                  # FastAPI
+│   ├── routers/              # API 路由（admin, chat, qa, training, ...）
+│   ├── services/             # LLM 路由、日志、Prompt 管理、评分
+│   ├── models.py / schemas.py
+│   └── tests/
+├── frontend/                 # React SPA
+│   ├── src/pages/            # 页面组件
+│   ├── src/components/       # UI 组件（teacher/, ui/）
+│   └── src/api/              # API 客户端
+├── docs/                     # 架构、API、数据库、前端设计文档
+├── .github/workflows/        # CI（测试+构建）+ CD（v* tag 触发部署）
 ├── docker-compose.yml
 ├── Dockerfile.backend / Dockerfile.frontend
-└── nginx.conf
+├── nginx.conf
+└── package.json              # 根 npm scripts（npm run dev）
 ```
 
 ## 环境变量
 
-在项目根目录将 `.env.example` 复制为 `.env`：
+将 `.env.example` 复制为 `.env`，按需配置：
 
 ```bash
 # 必填
-DEEPSEEK_API_KEY=sk-your-key
-SECRET_KEY=<随机字符串>
+SECRET_KEY=<随机字符串>                   # JWT 签名 + API Key 加密派生
+DEEPSEEK_API_KEY=sk-your-key            # 首次启动自动 seed 到数据库
 
-# 可选
-DEEPSEEK_MODEL=deepseek-chat
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-CORS_ORIGINS=http://localhost:3000,http://localhost:8000
-DATABASE_URL=sqlite:///data.db
+# 数据库（Docker 部署自动使用容器内地址）
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
+
+# 可选调参
+LLM_CONCURRENT_LIMIT=50                 # 并发上限
+LLM_MAX_RETRIES=3
 ```
 
-## 仓库 Secrets（GitHub Actions）
+> Provider 配置、模型、定价等均在教师管理面板的「API 管理」中操作，无需通过环境变量。
 
-CI/CD 流水线所需配置：
+## 仓库 Secrets（GitHub Actions）
 
 | Secret            | 用途                        |
 |-------------------|----------------------------|

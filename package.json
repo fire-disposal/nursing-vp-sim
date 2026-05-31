@@ -4,11 +4,15 @@
   "private": true,
   "description": "Nursing Virtual Patient Simulator — LLM-powered medical history interview training",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev": "concurrently -n BE,FE -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && .venv\\Scripts\\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:frontend": "cd frontend && npm run dev"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
     "@commitlint/config-conventional": "^19",
+    "concurrently": "^9",
     "husky": "^9"
   }
 }

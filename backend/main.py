@@ -12,6 +12,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from database import init_db, engine, get_db
 from routers import auth, cases, training, chat, export, admin, notes, qa, stats
+from routers.admin_api import router as admin_api_router
+from routers.admin_prompts import router as admin_prompts_router
 from logger import audit_logger
 from config import APP_VERSION, log_config
 
@@ -38,6 +40,56 @@ async def lifespan(app: FastAPI):
     _log_connection()
     init_db()
     _seed_data()
+    # 初始化 LLMRouter 并 seed 默认 provider
+    try:
+        from services.llm_router import refresh_router
+        from services.crypto_utils import encrypt_api_key
+        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+        from database import SessionLocal
+        from models import ApiProvider, ApiKey
+
+        db = SessionLocal()
+        try:
+            if db.query(ApiProvider).count() == 0:
+                if DEEPSEEK_API_KEY:
+                    p = ApiProvider(
+                        name="deepseek", display_name="DeepSeek",
+                        base_url=DEEPSEEK_BASE_URL, default_model=DEEPSEEK_MODEL,
+                        api_type="openai_compatible", priority=10,
+                    )
+                    db.add(p)
+                    db.flush()
+                    suffix = DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****"
+                    k = ApiKey(
+                        provider_id=p.id,
+                        label=f"DeepSeek-{suffix}",
+                        encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
+                        key_suffix=suffix,
+                        model=DEEPSEEK_MODEL,
+                        weight=10,
+                        status="active",
+                    )
+                    db.add(k)
+                    db.flush()
+                    k.purpose = "*"
+                    k.priority = 10
+                    db.commit()
+                    _startup_logger.info("已从 .env seed 默认 DeepSeek provider + key")
+                else:
+                    _startup_logger.info("DEEPSEEK_API_KEY 未设置，跳过 seed")
+        finally:
+            db.close()
+
+        await refresh_router()
+    except Exception as e:
+        _startup_logger.error("LLMRouter 初始化失败: %s", e)
+    # 初始化 PromptManager 并 seed 默认模板
+    try:
+        from services.prompt_manager import get_prompt_manager
+        await get_prompt_manager()
+        _startup_logger.info("PromptManager 初始化完成")
+    except Exception as e:
+        _startup_logger.error("PromptManager 初始化失败: %s", e)
     # 启动 LLM 日志消费者
     from services.llm_logging import start_worker, stop_worker
     await start_worker()
@@ -148,6 +200,8 @@ app.include_router(admin.router)
 app.include_router(notes.router)
 app.include_router(qa.router)
 app.include_router(stats.router)
+app.include_router(admin_api_router)
+app.include_router(admin_prompts_router)
 
 
 @app.get("/api")

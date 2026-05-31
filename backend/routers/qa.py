@@ -6,7 +6,7 @@ from schemas import QARequest, QAResponse, QARecordOut, QARecordAdminOut, Pagina
 from auth import get_current_user, require_teacher
 from services.llm_service import call_llm
 from rate_limiter import check_qa_limit
-from prompts import NURSING_SYSTEM_PROMPT
+from services.prompt_manager import get_prompt_manager
 from pagination import paginate
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
@@ -19,8 +19,10 @@ async def ask_question(req: QARequest, current_user: User = Depends(get_current_
 
     check_qa_limit(current_user.id)
 
+    pm = await get_prompt_manager()
+    tmpl = await pm.get("qa")
     messages = [
-        {"role": "system", "content": NURSING_SYSTEM_PROMPT},
+        {"role": "system", "content": tmpl.render()},
         {"role": "user", "content": req.question},
     ]
 

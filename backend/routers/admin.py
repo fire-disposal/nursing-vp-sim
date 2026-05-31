@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, Integer as SAInteger
 from database import get_db
-from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel
+from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse
 from auth import require_teacher, hash_password
 from logger import log_info
@@ -11,7 +11,7 @@ import shutil
 from datetime import datetime, timezone
 from datetime import timedelta
 from config import DATABASE_URL
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 import tempfile
 import zipfile
 import subprocess
@@ -251,6 +251,8 @@ def get_llm_stats(current_user: User = Depends(require_teacher), db: Session = D
 
     today_stats = _build_llm_stats(db, today_start)
     week_stats = _build_llm_stats(db, week_start)
+    month_start_cal = today_start.replace(day=1)
+    month_stats = _build_llm_stats(db, month_start_cal)
 
     # by_purpose
     rows = db.query(
@@ -277,10 +279,24 @@ def get_llm_stats(current_user: User = Depends(require_teacher), db: Session = D
         for r in daily_rows
     ]
 
+    # by_provider: 最近7天按 Provider 统计
+    provider_rows = db.query(
+        LLMCallLog.provider_name,
+        func.count().label("count"),
+        func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("total_cost"),
+        func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
+    ).filter(LLMCallLog.created_at >= week_start, LLMCallLog.created_at < now).group_by(LLMCallLog.provider_name).all()
+    by_provider = [
+        {"provider": r[0] or "unknown", "count": r[1], "total_cost": round(float(r[2]), 4), "error_count": r[3] or 0}
+        for r in provider_rows
+    ]
+
     return LLMStatsResponse(
         today=today_stats,
         week=week_stats,
+        month=month_stats,
         by_purpose=by_purpose,
+        by_provider=by_provider,
         daily=daily,
     )
 
@@ -324,9 +340,11 @@ def get_llm_logs(
             func.max(LLMCallLog.created_at).label("created_at"),
             User.display_name.label("student_name"),
             CaseModel.name.label("case_name"),
+            ApiProvider.display_name.label("provider_display_name"),
         ).join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id, isouter=True) \
          .join(User, TrainingRecord.user_id == User.id, isouter=True) \
          .join(CaseModel, TrainingRecord.case_id == CaseModel.id, isouter=True) \
+         .join(ApiProvider, LLMCallLog.provider_name == ApiProvider.name, isouter=True) \
          .filter(
             LLMCallLog.purpose == "patient_chat",
             LLMCallLog.record_id.isnot(None),
@@ -379,7 +397,7 @@ def get_llm_logs(
             "record_id": r.record_id,
             "case_id": r.case_id,
             "purpose": "patient_chat",
-            "provider": "deepseek",
+            "provider_name": r.provider_display_name or "deepseek",
             "model": "",
             "temperature": None,
             "max_tokens": None,
@@ -423,3 +441,61 @@ def get_llm_logs(
             items.append(LLMCallLogItem.model_validate(it))
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.get("/llm-logs/export")
+def export_llm_logs_csv(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """导出 LLM 调用日志为 CSV 文件"""
+    import csv
+    import io
+
+    q = db.query(LLMCallLog)
+    if date_from:
+        q = q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
+    if date_to:
+        q = q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
+    logs = q.order_by(LLMCallLog.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "时间", "用户ID", "训练记录ID", "病例ID", "用途",
+        "Provider", "模型", "状态", "延迟(ms)", "PromptTokens",
+        "CompletionTokens", "TotalTokens", "估算标记", "预估费用",
+        "错误类型", "错误信息", "请求字符数", "响应字符数",
+    ])
+    for log in logs:
+        writer.writerow([
+            log.id,
+            log.created_at.isoformat() if log.created_at else "",
+            log.user_id or "",
+            log.record_id or "",
+            log.case_id or "",
+            log.purpose,
+            getattr(log, "provider_name", ""),
+            log.model,
+            log.status,
+            log.latency_ms or "",
+            log.prompt_tokens or "",
+            log.completion_tokens or "",
+            log.total_tokens or "",
+            log.token_estimated,
+            log.estimated_cost if log.estimated_cost is not None else "",
+            log.error_type or "",
+            (log.error_message or "")[:200],
+            log.request_chars or "",
+            log.response_chars or "",
+        ])
+
+    csv_content = output.getvalue()
+    output.close()
+    return Response(
+        content=csv_content.encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=llm_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"},
+    )

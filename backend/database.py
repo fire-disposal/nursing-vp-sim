@@ -73,15 +73,12 @@ def init_db():
         for line in traceback.format_exc().strip().split("\n"):
             logger.error("  %s", line)
         logger.error("=" * 60)
-        logger.warning("回退到 create_all（表结构可能不完整，请修复后重启）")
 
         try:
             Base.metadata.create_all(bind=engine)
-            # 标记所有迁移为已应用，避免下次启动重复执行
-            from alembic.config import Config as _Config
-            from alembic import command as _command
-            _command.stamp(_Config(alembic_ini), "head")
-            logger.info("已标记迁移版本为 head")
+            logger.warning("已从模型创建所有表（作为回退方案）")
+            logger.warning("⚠ 请尽快排查并修复迁移问题后重启，避免 schema 漂移")
         except Exception as e2:
-            logger.error("create_all 或 stamp 也失败: %s", e2)
+            logger.error("create_all 也失败: %s", e2)
+            raise
 

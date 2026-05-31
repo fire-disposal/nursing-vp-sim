@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Generic, TypeVar
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 T = TypeVar("T")
 
@@ -63,7 +63,7 @@ class TrainingStartResponse(BaseModel):
 
 
 class ChatMessageRequest(BaseModel):
-    content: str
+    content: str = Field(..., max_length=4096)
 
 
 class ChatMessageResponse(BaseModel):
@@ -270,7 +270,7 @@ class LLMCallLogItem(BaseModel):
     record_id: Optional[int] = None
     case_id: Optional[int] = None
     purpose: str
-    provider: str = "deepseek"
+    provider_name: str = "deepseek"
     model: str = ""
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
@@ -303,7 +303,9 @@ class LLMCallLogItem(BaseModel):
 class LLMStatsResponse(BaseModel):
     today: dict  # {count, success_rate, avg_latency_ms, total_cost}
     week: dict   # same structure
+    month: dict = {}  # same structure, current calendar month
     by_purpose: list  # [{purpose, count, avg_latency_ms, error_count}]
+    by_provider: list = []  # [{provider, count, cost, error_count}] 最近7天
     daily: list  # [{date, count, success_count, fail_count, total_cost}] 最近30天
 
 
@@ -322,3 +324,157 @@ class ScoreReviewResponse(BaseModel):
     original_detail_scores: Optional[dict] = None
     review_detail_scores: Optional[dict] = None
     review_comment: Optional[str] = None
+
+
+# ── API 管理 ──
+
+class ApiProviderCreate(BaseModel):
+    name: str = Field(..., max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
+    display_name: str = Field(..., max_length=80)
+    base_url: str = Field(..., max_length=200)
+    api_type: str = Field(default="openai_compatible", max_length=20)
+    default_model: str = Field(..., max_length=80)
+    is_enabled: bool = True
+    priority: int = Field(default=100, ge=1)
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, v):
+        if not v.startswith("https://") and not v.startswith("http://"):
+            raise ValueError("base_url 必须以 http:// 或 https:// 开头")
+        return v
+
+
+class ApiProviderUpdate(BaseModel):
+    display_name: Optional[str] = Field(None, max_length=80)
+    base_url: Optional[str] = Field(None, max_length=200)
+    default_model: Optional[str] = Field(None, max_length=80)
+    is_enabled: Optional[bool] = None
+    priority: Optional[int] = Field(None, ge=1)
+
+
+class ApiProviderResponse(BaseModel):
+    id: int
+    name: str
+    display_name: str
+    base_url: str
+    api_type: str
+    default_model: str
+    is_enabled: bool
+    priority: int
+    key_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiKeyCreate(BaseModel):
+    provider_id: int
+    label: Optional[str] = None
+    raw_key: str = Field(..., min_length=10, max_length=500)
+    model: Optional[str] = None
+    purpose: str = Field(default="*", max_length=40)
+    priority: int = Field(default=100, ge=1, le=10000)
+    weight: int = Field(default=10, ge=0, le=100)
+    price_input_per_1m: float = 0
+    price_output_per_1m: float = 0
+    monthly_cost_limit: Optional[float] = None
+
+
+class ApiKeyUpdate(BaseModel):
+    label: Optional[str] = Field(None, max_length=80)
+    model: Optional[str] = None
+    purpose: Optional[str] = Field(None, max_length=40)
+    priority: Optional[int] = Field(None, ge=1, le=10000)
+    weight: Optional[int] = Field(None, ge=0, le=100)
+    status: Optional[str] = Field(None, pattern="^(active|disabled|rate_limited)$")
+    price_input_per_1m: Optional[float] = None
+    price_output_per_1m: Optional[float] = None
+    balance: Optional[float] = None
+    monthly_cost_limit: Optional[float] = None
+
+
+class ApiKeyResponse(BaseModel):
+    id: int
+    provider_id: int
+    provider_name: str = ""
+    label: str
+    key_suffix: str
+    model: Optional[str]
+    purpose: str = "*"
+    priority: int = 100
+    weight: int
+    status: str
+    price_input_per_1m: float
+    price_output_per_1m: float
+    balance: Optional[float]
+    monthly_cost_limit: Optional[float]
+    call_count_today: int
+    total_tokens_today: int
+    total_cost_today: float
+    last_used_at: Optional[datetime]
+    rate_limit_until: Optional[datetime]
+    consecutive_failures: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiHealthResponse(BaseModel):
+    provider_id: int
+    provider_name: str
+    status: str
+    latency_ms: int | None
+    error: str | None
+
+
+# ── Prompt 管理 ──
+
+class PromptTemplateCreate(BaseModel):
+    purpose: str = Field(..., max_length=40)
+    name: Optional[str] = Field(None, max_length=80)
+    system_prompt: str = Field(..., min_length=10)
+    user_prompt: Optional[str] = None
+    variables: Optional[list[dict]] = None
+    created_by: Optional[str] = None
+    remark: Optional[str] = None
+    activate: bool = False
+
+
+class PromptTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=80)
+    system_prompt: Optional[str] = Field(None, min_length=10)
+    user_prompt: Optional[str] = None
+    variables: Optional[list[dict]] = None
+    remark: Optional[str] = None
+
+
+class PromptTemplateResponse(BaseModel):
+    id: int
+    purpose: str
+    version: int
+    name: Optional[str]
+    system_prompt: str
+    user_prompt: Optional[str]
+    template_engine: str
+    variables: Optional[list]
+    is_active: bool
+    created_by: Optional[str]
+    remark: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PromptValidateRequest(BaseModel):
+    system_prompt: str
+    user_prompt: Optional[str] = None
+    variables: Optional[list[dict]] = None
+
+
+class PromptValidateResponse(BaseModel):
+    valid: bool
+    errors: list[str] = []
+    missing_vars: list[str] = []

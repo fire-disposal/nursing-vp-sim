@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: "/api",
   timeout: 120000,
 });
@@ -231,6 +231,13 @@ export function getLLMStats() {
 
 export function getLLMLogs(params = {}) {
   return api.get("/admin/llm-logs", { params: { aggregate_patient_chat: true, ...params } });
+}
+
+export function exportLLMLogs(dateFrom, dateTo) {
+  const params = {};
+  if (dateFrom) params.date_from = dateFrom;
+  if (dateTo) params.date_to = dateTo;
+  return api.get("/admin/llm-logs/export", { params, responseType: "blob" });
 }
 
 // 教师复核
