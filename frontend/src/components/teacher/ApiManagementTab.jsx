@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Edit3, Trash2, RefreshCw, Server, Activity, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Edit3, Trash2, RefreshCw, Server, Activity, AlertTriangle, ChevronUp, ChevronDown, Zap } from "lucide-react";
 import {
   fetchProviders, updateProvider, deleteProvider,
   fetchKeys, deleteKey, resetKey,
-  reloadRouter, checkHealth,
+  reloadRouter, checkHealth, createDeepseekKey,
 } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
@@ -31,6 +31,9 @@ export default function ApiManagementTab() {
   const [editingProvider, setEditingProvider] = useState(null);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
+  const [dsKey, setDsKey] = useState("");
+  const [dsLabel, setDsLabel] = useState("");
+  const [dsSaving, setDsSaving] = useState(false);
 
   const loadProviders = useCallback(() => {
     fetchProviders().then(({ data }) => setProviders(data)).catch(() => toast.error("Failed to load providers"));
@@ -86,6 +89,23 @@ export default function ApiManagementTab() {
 
   const handleReload = async () => {
     try { await reloadRouter(); toast.success("Router reloaded"); } catch (err) { toast.error(err.response?.data?.detail || "Reload failed"); }
+  };
+
+  const handleQuickAddDS = async () => {
+    if (!dsKey.trim() || dsKey.trim().length < 10) { toast.error("请输入有效的 DeepSeek API Key"); return; }
+    setDsSaving(true);
+    try {
+      const resp = await createDeepseekKey(dsKey.trim(), dsLabel.trim() || undefined);
+      toast.success(`DeepSeek Key 已添加 (${resp.data.key_suffix})`);
+      setDsKey("");
+      setDsLabel("");
+      loadKeys();
+      loadProviders();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "添加失败");
+    } finally {
+      setDsSaving(false);
+    }
   };
 
   const weightTotals = {};
@@ -164,6 +184,64 @@ export default function ApiManagementTab() {
             <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0, color: "var(--text-primary)" }}>API Keys</h3>
             <button onClick={() => { setEditingKey(null); setShowKeyModal(true); }} style={S.primaryBtn}><Plus size={14} /> Add Key</button>
           </div>
+
+          <div className="card" style={{ padding: "var(--space-4)", marginBottom: "var(--space-4)", background: "linear-gradient(135deg, var(--blue-50), var(--bg-surface))", border: "1px solid var(--blue-200)", borderRadius: "var(--radius-md)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+              <Zap size={16} style={{ color: "var(--blue-600)" }} />
+              <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--blue-700)" }}>快速添加 DeepSeek</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginLeft: "auto" }}>自动配置官方参数（模型/价格/地址）</span>
+            </div>
+            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end" }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>API Key</label>
+                <input
+                  type="password"
+                  value={dsKey}
+                  onChange={(e) => setDsKey(e.target.value)}
+                  placeholder="sk-..."
+                  style={{
+                    width: "100%", padding: "var(--space-2) var(--space-3)",
+                    border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)",
+                    fontSize: "0.85rem", boxSizing: "border-box",
+                    background: "var(--bg-surface)", color: "var(--text-primary)",
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleQuickAddDS(); }}
+                />
+              </div>
+              <div style={{ width: 180 }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>标签（可选）</label>
+                <input
+                  value={dsLabel}
+                  onChange={(e) => setDsLabel(e.target.value)}
+                  placeholder="例如: 个人账号"
+                  style={{
+                    width: "100%", padding: "var(--space-2) var(--space-3)",
+                    border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)",
+                    fontSize: "0.85rem", boxSizing: "border-box",
+                    background: "var(--bg-surface)", color: "var(--text-primary)",
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleQuickAddDS(); }}
+                />
+              </div>
+              <button
+                onClick={handleQuickAddDS}
+                disabled={dsSaving}
+                style={{
+                  padding: "var(--space-2) var(--space-4)", border: "none",
+                  borderRadius: "var(--radius-md)", background: "var(--blue-600)",
+                  color: "#fff", cursor: dsSaving ? "not-allowed" : "pointer",
+                  fontSize: "0.85rem", fontWeight: 600, whiteSpace: "nowrap",
+                  opacity: dsSaving ? 0.6 : 1, height: 38,
+                }}
+              >
+                {dsSaving ? "添加中..." : "添加 DeepSeek Key"}
+              </button>
+            </div>
+            <div style={{ marginTop: "var(--space-2)", fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+              将自动配置：模型 deepseek-v4-flash · 价格 ¥1/¥2 每百万token（输入/输出）· 地址 api.deepseek.com
+            </div>
+          </div>
+
           {loading ? (
             <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>Loading...</div>
           ) : keys.length === 0 ? (

@@ -11,6 +11,11 @@ export function fetchKeys(providerId, status) {
   return api.get("/admin/api/keys", { params });
 }
 export function createKey(data) { return api.post("/admin/api/keys", data); }
+export function createDeepseekKey(rawKey, label) {
+  const params = { raw_key: rawKey };
+  if (label) params.label = label;
+  return api.post("/admin/api/keys/deepseek", null, { params });
+}
 export function updateKey(id, data) { return api.put(`/admin/api/keys/${id}`, data); }
 export function deleteKey(id) { return api.delete(`/admin/api/keys/${id}`); }
 export function resetKey(id) { return api.post(`/admin/api/keys/${id}/reset`); }

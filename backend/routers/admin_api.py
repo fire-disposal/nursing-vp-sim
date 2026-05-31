@@ -147,6 +147,55 @@ async def create_key(
     await refresh_router()
     return {"id": k.id, "key_suffix": k.key_suffix}
 
+
+@router.post("/keys/deepseek", status_code=201)
+async def create_deepseek_key(
+    raw_key: str = Query(..., min_length=10, max_length=500, description="DeepSeek API Key"),
+    label: str | None = Query(None, max_length=80, description="标签（留空自动生成）"),
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """快捷添加 DeepSeek Key：自动创建 Provider + 填入官方默认参数"""
+    provider = db.query(ApiProvider).filter(ApiProvider.name == "deepseek").first()
+    if not provider:
+        provider = ApiProvider(
+            name="deepseek",
+            display_name="DeepSeek",
+            base_url="https://api.deepseek.com",
+            api_type="openai_compatible",
+            default_model="deepseek-v4-flash",
+            is_enabled=True,
+            priority=10,
+        )
+        db.add(provider)
+        db.flush()
+
+    suffix = raw_key[-4:] if len(raw_key) >= 4 else "****"
+    k = ApiKey(
+        provider_id=provider.id,
+        label=label or f"DeepSeek-{suffix}",
+        encrypted_key=encrypt_api_key(raw_key),
+        key_suffix=suffix,
+        model=provider.default_model,
+        purpose="*",
+        priority=10,
+        weight=100,
+        status="active",
+        price_input_per_1m=1,
+        price_output_per_1m=2,
+    )
+    db.add(k)
+    db.commit()
+    db.refresh(k)
+    await refresh_router()
+    return {
+        "id": k.id,
+        "key_suffix": k.key_suffix,
+        "provider": provider.name,
+        "model": k.model,
+        "price": "¥1/2 per 1M tokens (input/output)",
+    }
+
 @router.put("/keys/{key_id}")
 async def update_key(
     key_id: int,
