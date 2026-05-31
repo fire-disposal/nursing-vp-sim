@@ -164,20 +164,22 @@ class LLMRouter:
     def _update_stats(self, key, tokens: int):
         today = datetime.now(timezone.utc).date()
         month = today.strftime("%Y-%m")
-        if not hasattr(key, 'stats_date') or key.stats_date is None or key.stats_date < today:
+        stats_date = getattr(key, 'stats_date', None)
+        if stats_date is None or stats_date < today:
             key.call_count_today = 0
             key.total_tokens_today = 0
             key.total_cost_today = float(0)
             key.stats_date = today
-        if not hasattr(key, 'stats_month') or key.stats_month is None or key.stats_month < month:
+        stats_month = getattr(key, 'stats_month', None)
+        if stats_month is None or stats_month < month:
             key.monthly_cost_used = float(0)
             key.stats_month = month
-        key.call_count_today = getattr(key, 'call_count_today', 0) + 1
-        key.total_tokens_today = getattr(key, 'total_tokens_today', 0) + tokens
-        price = float(getattr(key, 'price_input_per_1m', 0) or 0) + float(getattr(key, 'price_output_per_1m', 0) or 0)
-        cost = price * tokens / 1_000_000
-        key.total_cost_today = float(getattr(key, 'total_cost_today', 0) or 0) + cost
-        key.monthly_cost_used = float(getattr(key, 'monthly_cost_used', 0) or 0) + cost
+        key.call_count_today = (key.call_count_today or 0) + 1
+        key.total_tokens_today = (key.total_tokens_today or 0) + tokens
+        avg_price = (float(getattr(key, 'price_input_per_1m', 0) or 0) + float(getattr(key, 'price_output_per_1m', 0) or 0)) / 2
+        cost = avg_price * tokens / 1_000_000
+        key.total_cost_today = float(key.total_cost_today or 0) + cost
+        key.monthly_cost_used = float(key.monthly_cost_used or 0) + cost
 
 
 _router: LLMRouter | None = None

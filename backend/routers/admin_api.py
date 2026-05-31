@@ -317,9 +317,6 @@ def api_aggregate_stats(
     db: Session = Depends(get_db),
 ):
     """API 使用聚合统计：总量概览 + 按 key/provider 细分"""
-    today = datetime.now(timezone.utc).date()
-    month = today.strftime("%Y-%m")
-
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = today_start.replace(day=1)
 
