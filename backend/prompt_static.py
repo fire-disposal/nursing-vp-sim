@@ -106,5 +106,9 @@ def get_sample_vars() -> dict:
                 "hidden_info_rules": "- 患者担心自己可能患有脑部疾病，但不愿主动提及\n- 近期因工作压力大，睡眠质量差",
             },
             "qa": {},
+            "case_generation": {
+                "description": "糖尿病足溃疡老年患者，有10年糖尿病史，近期足部出现溃疡不愈合",
+                "reference_material": "患者长期血糖控制不佳，HbA1c 9.2%。参考标准糖尿病足护理评估流程。",
+            },
         }
-    return _SAMPLE_VARS_CACHE
+        return _SAMPLE_VARS_CACHE
