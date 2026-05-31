@@ -1,11 +1,12 @@
 import { ArrowLeft, CheckCircle2, Circle, Clock, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail, sendMessageStream } from "../api";
 import PatientPortrait from "../components/PatientPortrait";
 import ScoreCard from "../components/ScoreCard";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
+import useVoice from "../hooks/useVoice";
 import { getNurseAvatar, getPatientAvatar } from "../utils/avatar";
 
 function extractKeywords(inquiry) {
@@ -206,11 +207,8 @@ export default function ChatTraining() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [caseTitle, setCaseTitle] = useState("");
-  const [isListening, setIsListening] = useState(false);
   const [remaining, setRemaining] = useState(null);
   const [timerActive, setTimerActive] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState({ recognition: false, synthesis: false });
   const [requiredInquiries, setRequiredInquiries] = useState([]);
   const [showInquirySidebar, setShowInquirySidebar] = useState(false);
   const [patientInfo, setPatientInfo] = useState(null);
@@ -227,6 +225,27 @@ export default function ChatTraining() {
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
+  const voice = useVoice();
+
+  const toggleVoice = () => {
+    voice.startListening().then(
+      (text) => setInput(text),
+      (err) => {
+        if (err.error === "not-allowed") toast.warning("麦克风权限被拒绝，请在浏览器设置中允许");
+        else if (err.error === "no-speech") toast.info("未检测到语音，请重试");
+        else if (err.message) toast.info(err.message);
+        else toast.info("语音识别失败，请重试");
+      },
+    );
+  };
+
+  const handleSpeakToggle = (text) => {
+    if (voice.isSpeaking) {
+      voice.stopSpeak();
+    } else {
+      voice.speakRaw(text);
+    }
+  };
 
   const studentMessages = useMemo(() => messages.filter((m) => m.role === "student"), [messages]);
 
@@ -305,65 +324,6 @@ export default function ChatTraining() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    const rec = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-    const syn = !!window.speechSynthesis;
-    setSpeechSupported({ recognition: rec, synthesis: syn });
-  }, []);
-
-  const speakText = useCallback(
-    (text) => {
-      if (!window.speechSynthesis) return;
-      if (speaking) {
-        window.speechSynthesis.cancel();
-        setSpeaking(false);
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "zh-CN";
-      u.rate = 0.9;
-      u.onend = () => setSpeaking(false);
-      u.onerror = () => setSpeaking(false);
-      setSpeaking(true);
-      window.speechSynthesis.speak(u);
-    },
-    [speaking],
-  );
-
-  const toggleVoice = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.info("您的浏览器不支持语音输入，请使用 Chrome 或 Edge");
-      return;
-    }
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "zh-CN";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = (e) => {
-      setInput(e.results[0][0].transcript);
-      setIsListening(false);
-    };
-    recognition.onerror = (e) => {
-      setIsListening(false);
-      if (e.error === "not-allowed") {
-        toast.warning("麦克风权限被拒绝，请在浏览器设置中允许");
-      } else if (e.error === "no-speech") {
-        toast.info("未检测到语音，请重试");
-      } else {
-        toast.info("语音识别失败，请重试");
-      }
-    };
-    recognition.onend = () => setIsListening(false);
-    recognition.start();
-    setIsListening(true);
-  };
-
   const handleSend = async () => {
     const content = input.trim();
     if (!content || loading) return;
@@ -376,15 +336,18 @@ export default function ChatTraining() {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    voice.resetSpeakState();
 
     await sendMessageStream(
       Number(recordId),
       content,
       (chunk) => {
         setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, content: msg.content + chunk } : msg)));
+        voice.speakStreamChunk(chunk);
       },
       (doneId) => {
         setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, streaming: false, id: doneId || msg.id } : msg)));
+        voice.flushStreamSpeak();
         setLoading(false);
         if (abortRef.current === controller) abortRef.current = null;
       },
@@ -601,9 +564,9 @@ export default function ChatTraining() {
                 </p>
               </div>
               {msg.role === "student" && <img className="msg-avatar" src={getNurseAvatar()} alt="护士" />}
-              {msg.role === "patient" && !msg.streaming && speechSupported.synthesis && (
-                <button className="msg-speak-btn" onClick={() => speakText(msg.content)} title={speaking ? "停止朗读" : "朗读"}>
-                  {speaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              {msg.role === "patient" && !msg.streaming && voice.speechSupported.synthesis && (
+                <button className="msg-speak-btn" onClick={() => handleSpeakToggle(msg.content)} title={voice.isSpeaking ? "停止朗读" : "朗读"}>
+                  {voice.isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 </button>
               )}
             </div>
@@ -645,14 +608,14 @@ export default function ChatTraining() {
       </div>
 
       <div className="training-input-bar">
-        {speechSupported.recognition && (
+        {voice.speechSupported.recognition && (
           <button
-            className={`voice-btn ${isListening ? "active" : ""}`}
+            className={`voice-btn ${voice.isListening ? "active" : ""}`}
             onClick={toggleVoice}
             disabled={loading || ending || remaining === 0}
-            title={isListening ? "停止录音" : "语音输入"}
+            title={voice.isListening ? "停止录音" : "语音输入"}
           >
-            {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+            {voice.isListening ? <MicOff size={20} /> : <Mic size={20} />}
           </button>
         )}
         <input
