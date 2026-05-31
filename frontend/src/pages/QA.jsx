@@ -1,116 +1,205 @@
-import { Lightbulb, MessageCircle } from "lucide-react";
+import { Lightbulb, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { askQuestion } from "../api";
+import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "../api";
 import Layout from "../components/Layout";
-import PageHeader from "../components/ui/PageHeader";
+
+const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
 
 export default function QA({ user, onLogout }) {
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const endRef = useRef(null);
-  const handledQueryRef = useRef(false);
-  const [searchParams] = useSearchParams();
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const loadSessions = useCallback(async () => {
+    try {
+      const res = await getQASessions();
+      setSessions(res.data || []);
+    } catch (e) {
+      console.error("加载会话列表失败", e);
+    }
+  }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    loadSessions();
+  }, [loadSessions]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendQuestion = useCallback(
-    async (question) => {
-      const q = question.trim();
-      if (!q || loading) return;
-      setInput("");
-      setMessages((prev) => [...prev, { role: "user", content: q }]);
+  const switchSession = useCallback(async (sessionId) => {
+    try {
+      const res = await getQASessionMessages(sessionId);
+      setActiveSessionId(sessionId);
+      setMessages(res.data || []);
+    } catch (e) {
+      console.error("加载会话消息失败", e);
+    }
+  }, []);
+
+  const sendMessage = useCallback(async () => {
+    const q = input.trim();
+    if (!q || loading) return;
+    setInput("");
+    const optimisticId = -Date.now();
+
+    if (!activeSessionId) {
       setLoading(true);
+      setMessages([{ id: optimisticId, role: "user", content: q }]);
       try {
-        const { data } = await askQuestion(q);
-        setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
-      } catch (err) {
-        const msg = err.response?.data?.detail || err.message || "请求失败";
-        setMessages((prev) => [...prev, { role: "assistant", content: `抱歉，AI导师暂时无法回复：${msg}` }]);
+        const res = await createQASession(q);
+        const { session_id, answer: ans } = res.data;
+        setActiveSessionId(session_id);
+        setMessages([
+          { id: optimisticId, role: "user", content: q },
+          { id: optimisticId + 1, role: "assistant", content: ans },
+        ]);
+        await loadSessions();
+      } catch (_e) {
+        setMessages([
+          { id: optimisticId, role: "user", content: q },
+          { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复，请稍后重试。" },
+        ]);
       } finally {
         setLoading(false);
       }
+      return;
+    }
+
+    setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: q }]);
+    setLoading(true);
+    try {
+      const res = await askInQASession(activeSessionId, q);
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== optimisticId),
+        { id: optimisticId, role: "user", content: q },
+        { id: optimisticId + 1, role: "assistant", content: res.data.answer },
+      ]);
+      await loadSessions();
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== optimisticId),
+        { id: optimisticId, role: "user", content: q },
+        { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复：" + (e.response?.data?.detail || e.message) },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [input, loading, activeSessionId, loadSessions]);
+
+  const handleDeleteSession = useCallback(
+    async (e, sessionId) => {
+      e.stopPropagation();
+      if (!confirm("确定要删除此会话？")) return;
+      try {
+        await deleteQASession(sessionId);
+        if (activeSessionId === sessionId) {
+          setActiveSessionId(null);
+          setMessages([]);
+        }
+        await loadSessions();
+      } catch (e) {
+        console.error("删除会话失败", e);
+      }
     },
-    [loading],
+    [activeSessionId, loadSessions],
   );
 
-  useEffect(() => {
-    const q = searchParams.get("q")?.trim();
-    if (!q || handledQueryRef.current) return;
-    handledQueryRef.current = true;
-    setInput(q);
-    sendQuestion(q);
-  }, [searchParams, sendQuestion]);
-
-  const handleSend = () => {
-    sendQuestion(input);
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
   return (
     <Layout user={user} onLogout={onLogout}>
-      <PageHeader
-        title="护理问答"
-        subtitle="向AI护理导师提问护理专业知识，获取即时解答"
-        icon={MessageCircle}
-        actions={
-          <Link to="/qa/history" className="btn btn-sm" style={{ textDecoration: "none" }}>
-            查看历史记录
-          </Link>
-        }
-      />
-
-      <div className="qa-container">
-        <div className="card" style={{ marginBottom: 16 }}>
-          {messages.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-secondary)" }}>
-              <div className="empty-icon-soft">
-                <Lightbulb size={42} />
+      <div className="qa-layout">
+        <aside className="qa-sidebar">
+          <button
+            className="qa-new-btn"
+            onClick={() => {
+              setActiveSessionId(null);
+              setMessages([]);
+              inputRef.current?.focus();
+            }}
+          >
+            <Plus size={16} />
+            <span>新对话</span>
+          </button>
+          <div className="qa-session-list">
+            {sessions.map((s) => (
+              <div key={s.id} className={`qa-session-item ${activeSessionId === s.id ? "active" : ""}`} onClick={() => switchSession(s.id)}>
+                <span className="qa-session-title">{s.title}</span>
+                <span className="qa-session-time">{new Date(s.updated_at).toLocaleDateString()}</span>
+                <button className="qa-session-delete" onClick={(e) => handleDeleteSession(e, s.id)}>
+                  <Trash2 size={14} />
+                </button>
               </div>
-              <div style={{ marginBottom: 16, fontWeight: 500 }}>护理专业问答助手</div>
-              <div style={{ fontSize: "0.85rem" }}>
-                你可以询问以下内容：
-                <br />
-                病史采集技巧 · 护理评估方法 · 护理诊断知识
-                <br />
-                护理操作规范 · 疾病护理要点 · 沟通技巧指导
+            ))}
+            {sessions.length === 0 && <div className="qa-session-empty">暂无历史对话</div>}
+          </div>
+        </aside>
+
+        <main className="qa-main">
+          {!activeSessionId && messages.length === 0 ? (
+            <div className="qa-empty-state">
+              <Lightbulb size={48} className="qa-empty-icon" />
+              <h2>护理问答</h2>
+              <p>向AI护理导师提问，获取专业的护理学知识解答</p>
+              <div className="qa-suggestions">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    className="qa-suggestion-btn"
+                    onClick={() => {
+                      setInput(s);
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
-            <div className="qa-messages">
-              {messages.map((m, i) => (
-                <div key={i} className={`qa-bubble ${m.role === "user" ? "question" : "answer"}`}>
-                  <div style={{ fontWeight: 600, fontSize: "0.75rem", marginBottom: 4, opacity: 0.7 }}>{m.role === "user" ? "你" : "AI护理导师"}</div>
-                  {m.content}
-                </div>
-              ))}
-              {loading && (
-                <div className="typing-dots">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              )}
-              <div ref={endRef} />
-            </div>
+            <>
+              <div className="qa-messages">
+                {messages.map((m, i) => (
+                  <div key={i} className={`qa-bubble ${m.role}`}>
+                    <div className="qa-bubble-content">{m.content}</div>
+                  </div>
+                ))}
+                {loading && (
+                  <div className="qa-bubble assistant">
+                    <div className="qa-typing">
+                      <span className="qa-typing-dot" />
+                      <span className="qa-typing-dot" />
+                      <span className="qa-typing-dot" />
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="qa-input-row">
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="输入您的问题..."
+                  disabled={loading}
+                />
+                <button onClick={sendMessage} disabled={loading || !input.trim()}>
+                  提问
+                </button>
+              </div>
+            </>
           )}
-
-          <div className="qa-input-row">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="输入你的护理专业问题..."
-              disabled={loading}
-            />
-            <button className="btn btn-primary" onClick={handleSend} disabled={!input.trim() || loading}>
-              {loading ? "思考中" : "提问"}
-            </button>
-          </div>
-        </div>
+        </main>
       </div>
     </Layout>
   );

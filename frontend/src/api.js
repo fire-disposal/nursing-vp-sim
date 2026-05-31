@@ -158,21 +158,33 @@ export function getStats() {
   return api.get("/admin/stats");
 }
 
-// Q&A
-export function askQuestion(question) {
-  return api.post("/qa/ask", { question });
+// Q&A (多轮会话)
+export function createQASession(question) {
+  return api.post("/qa/sessions", { question });
 }
 
-export function getQAHistory(params = {}) {
-  return api.get("/qa/history", { params });
+export function getQASessions() {
+  return api.get("/qa/sessions");
 }
 
-export function deleteQARecord(id) {
-  return api.delete(`/qa/history/${id}`);
+export function deleteQASession(id) {
+  return api.delete(`/qa/sessions/${id}`);
+}
+
+export function getQASessionMessages(sessionId) {
+  return api.get(`/qa/sessions/${sessionId}/messages`);
+}
+
+export function askInQASession(sessionId, question) {
+  return api.post(`/qa/sessions/${sessionId}/ask`, { question });
 }
 
 export function getQAHistoryAll(params = {}) {
   return api.get("/qa/history/all", { params });
+}
+
+export function getQASessionMessagesAdmin(sessionId) {
+  return api.get(`/qa/history/all/${sessionId}/messages`);
 }
 
 // Duration stats
