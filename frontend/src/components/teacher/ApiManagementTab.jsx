@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Edit3, Trash2, RefreshCw, Server, Activity, AlertTriangle, ChevronUp, ChevronDown, Zap } from "lucide-react";
 import {
   fetchProviders, updateProvider, deleteProvider,
@@ -35,28 +35,31 @@ export default function ApiManagementTab() {
   const [dsLabel, setDsLabel] = useState("");
   const [dsSaving, setDsSaving] = useState(false);
 
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
   const loadProviders = useCallback(() => {
-    fetchProviders().then(({ data }) => setProviders(data)).catch(() => toast.error("Failed to load providers"));
-  }, [toast]);
+    fetchProviders().then(({ data }) => setProviders(data)).catch(() => toastRef.current.error("Failed to load providers"));
+  }, []);
   const loadKeys = useCallback(() => {
     setLoading(true);
-    fetchKeys(null, null).then(({ data }) => setKeys(data)).catch(() => toast.error("Failed to load keys")).finally(() => setLoading(false));
-  }, [toast]);
+    fetchKeys(null, null).then(({ data }) => setKeys(data)).catch(() => toastRef.current.error("Failed to load keys")).finally(() => setLoading(false));
+  }, []);
   const loadHealth = useCallback(() => {
     setLoading(true);
-    checkHealth().then(({ data }) => setHealth(data)).catch(() => toast.error("Failed to check health")).finally(() => setLoading(false));
-  }, [toast]);
+    checkHealth().then(({ data }) => setHealth(data)).catch(() => {}).finally(() => setLoading(false));
+  }, []);
   useEffect(() => {
     if (subTab === "providers") loadProviders();
     else if (subTab === "keys") loadKeys();
     else if (subTab === "health") loadHealth();
-  }, [subTab, loadProviders, loadKeys, loadHealth]);
+  }, [subTab]);
 
   useEffect(() => {
     if (!healthAutoRefresh || subTab !== "health") return;
     const timer = setInterval(loadHealth, 30000);
     return () => clearInterval(timer);
-  }, [healthAutoRefresh, subTab, loadHealth]);
+  }, [healthAutoRefresh, subTab]);
 
   const handleMoveProvider = async (index, direction) => {
     const sorted = [...providers].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
