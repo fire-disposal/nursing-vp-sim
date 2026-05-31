@@ -1,14 +1,20 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { FeedbackProvider } from "../components/FeedbackProvider";
+import { ToastProvider } from "../components/Toast";
 import Layout from "../components/Layout";
 
 function renderLayout(user, initialRoute = "/home") {
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
-      <Layout user={user} onLogout={vi.fn()}>
-        <div data-testid="child">Content</div>
-      </Layout>
+      <ToastProvider>
+        <FeedbackProvider>
+          <Layout user={user} onLogout={vi.fn()}>
+            <div data-testid="child">Content</div>
+          </Layout>
+        </FeedbackProvider>
+      </ToastProvider>
     </MemoryRouter>,
   );
 }
