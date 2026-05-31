@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Edit3, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRight, RefreshCw, Hash, Eye } from "lucide-react";
+import { Plus, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRight, RefreshCw, Hash, Eye } from "lucide-react";
 import { fetchPrompts, createPrompt, updatePrompt, deletePrompt, activatePrompt, validatePrompt, reloadPrompts } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";

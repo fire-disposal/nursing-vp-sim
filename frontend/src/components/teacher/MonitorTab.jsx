@@ -31,7 +31,7 @@ export default function MonitorTab() {
       a.download = `llm_logs_export.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {}
+    } catch { /* ignore export errors */ }
   }, [filters.date_from, filters.date_to]);
 
   const loadData = useCallback(() => {

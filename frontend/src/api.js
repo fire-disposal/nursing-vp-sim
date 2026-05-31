@@ -119,7 +119,7 @@ export async function sendMessageStream(recordId, content, onChunk, onDone, onEr
         if (data.content) {
           onChunk(data.content);
         }
-      } catch {}
+      } catch { /* ignore malformed SSE chunks */ }
     }
   }
 }

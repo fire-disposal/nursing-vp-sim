@@ -27,26 +27,26 @@ class TestLLMStats:
         logs = [
             LLMCallLog(
                 user_id=1, purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=500,
+                provider_name="deepseek", status="success", latency_ms=500,
                 prompt_tokens=100, completion_tokens=50, total_tokens=150,
                 token_estimated=0, estimated_cost=0.002, created_at=today,
             ),
             LLMCallLog(
                 user_id=1, purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=300,
+                provider_name="deepseek", status="success", latency_ms=300,
                 prompt_tokens=200, completion_tokens=80, total_tokens=280,
                 token_estimated=0, estimated_cost=0.003, created_at=today,
             ),
             LLMCallLog(
                 user_id=1, purpose="scoring", model="deepseek-chat",
-                provider="deepseek", status="failed", latency_ms=1000,
+                provider_name="deepseek", status="failed", latency_ms=1000,
                 prompt_tokens=500, completion_tokens=0, total_tokens=500,
                 token_estimated=1, estimated_cost=0.001, created_at=today,
             ),
             # 7天前的旧记录
             LLMCallLog(
                 user_id=1, purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=400,
+                provider_name="deepseek", status="success", latency_ms=400,
                 prompt_tokens=100, completion_tokens=50, total_tokens=150,
                 token_estimated=0, estimated_cost=0.002,
                 created_at=today - timedelta(days=5),
@@ -83,7 +83,7 @@ class TestLLMStats:
 
         log = LLMCallLog(
             user_id=1, purpose="patient_chat", model="deepseek-chat",
-            provider="deepseek", status="success", latency_ms=500,
+            provider_name="deepseek", status="success", latency_ms=500,
             prompt_tokens=100, completion_tokens=50, total_tokens=150,
             token_estimated=0, estimated_cost=0.0, created_at=today,
         )
@@ -137,20 +137,20 @@ class TestLLMLogs:
             LLMCallLog(
                 user_id=student.id, record_id=record.id, case_id=1,
                 purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=500,
+                provider_name="deepseek", status="success", latency_ms=500,
                 prompt_tokens=100, completion_tokens=50, total_tokens=150,
                 token_estimated=0, estimated_cost=0.002, created_at=now,
             ),
             LLMCallLog(
                 user_id=student.id, record_id=record.id, case_id=1,
                 purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=300,
+                provider_name="deepseek", status="success", latency_ms=300,
                 prompt_tokens=200, completion_tokens=80, total_tokens=280,
                 token_estimated=0, estimated_cost=0.003, created_at=now,
             ),
             LLMCallLog(
                 user_id=student.id, purpose="scoring", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=200,
+                provider_name="deepseek", status="success", latency_ms=200,
                 prompt_tokens=300, completion_tokens=100, total_tokens=400,
                 token_estimated=0, estimated_cost=0.001, created_at=now,
             ),
@@ -188,14 +188,14 @@ class TestLLMLogs:
             LLMCallLog(
                 user_id=student.id, record_id=record.id, case_id=1,
                 purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=100,
+                provider_name="deepseek", status="success", latency_ms=100,
                 prompt_tokens=50, completion_tokens=25, total_tokens=75,
                 token_estimated=0, estimated_cost=0.001, created_at=now,
             ),
             LLMCallLog(
                 user_id=student.id, record_id=record.id, case_id=1,
                 purpose="patient_chat", model="deepseek-chat",
-                provider="deepseek", status="success", latency_ms=200,
+                provider_name="deepseek", status="success", latency_ms=200,
                 prompt_tokens=100, completion_tokens=50, total_tokens=150,
                 token_estimated=0, estimated_cost=0.002, created_at=now,
             ),
@@ -239,7 +239,7 @@ class TestLLMLogs:
         log = LLMCallLog(
             user_id=student.id, record_id=record.id, case_id=1,
             purpose="patient_chat", model="deepseek-chat",
-            provider="deepseek", status="success", latency_ms=100,
+            provider_name="deepseek", status="success", latency_ms=100,
             prompt_tokens=50, completion_tokens=25, total_tokens=75,
             token_estimated=0, estimated_cost=0.0, created_at=now,
         )

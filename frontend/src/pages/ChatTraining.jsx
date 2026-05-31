@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Mic, MicOff, Phone, Volume2, VolumeX, Clock, ListChecks, ChevronRight, X, Circle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, Mic, MicOff, Phone, Volume2, VolumeX, Clock, ListChecks, X, Circle, CheckCircle2 } from "lucide-react";
 import { getRecordDetail, sendMessageStream, endTraining } from "../api";
 import ScoreCard from "../components/ScoreCard";
 import PatientPortrait from "../components/PatientPortrait";
