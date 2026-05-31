@@ -337,7 +337,7 @@ export default function ApiManagementTab() {
                     <tr><td colSpan={3} style={S.empty}>Click "Check Health" to test providers</td></tr>
                   ) : health.map((h, i) => (
                     <tr key={i}>
-                      <td style={S.td}>{h.provider || h.name || h.id}</td>
+                      <td style={S.td}>{h.provider_name || h.id}</td>
                       <td style={S.td}><span style={S.badge(h.status === "ok" ? "var(--green-100)" : "var(--red-100)", h.status === "ok" ? "var(--green-700)" : "var(--red-700)")}>{h.status || "unknown"}</span></td>
                       <td style={S.td}>{h.latency_ms != null ? `${h.latency_ms}ms` : "-"}</td>
                     </tr>
