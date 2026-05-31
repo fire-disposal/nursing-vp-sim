@@ -202,7 +202,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }) {
   if (total === 0) return null;
 
   return (
-    <div style={{ flex: "0 0 280px" }}>
+    <div style={{ flex: "1 1 300px", minWidth: 280 }}>
       <h3 style={{ fontSize: "0.9rem", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: 6 }}>
         <MessageSquare size={14} />
         评价分布
@@ -217,7 +217,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }) {
             cy="50%"
             outerRadius={70}
             innerRadius={35}
-            label={({ name, percent }) => `${PIE_LABELS[Number(name.slice(-1)) - 1]} ${(percent * 100).toFixed(0)}%`}
+            label={({ name, percent }) => `${PIE_LABELS[Number(name.slice(-1)) - 1].slice(2)} ${(percent * 100).toFixed(0)}%`}
             labelLine={false}
           >
             {data.map((_, i) => (
