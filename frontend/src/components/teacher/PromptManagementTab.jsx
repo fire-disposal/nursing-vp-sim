@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Edit3, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Plus, Edit3, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRight, RefreshCw, Hash, Eye } from "lucide-react";
 import { fetchPrompts, createPrompt, updatePrompt, deletePrompt, activatePrompt, validatePrompt, reloadPrompts } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
@@ -52,7 +52,11 @@ export default function PromptManagementTab() {
       }
       setEditing(null);
       load();
-    } catch (err) { toast.error(err.response?.data?.detail || "保存失败"); }
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const msg = Array.isArray(detail) ? detail.map((e) => e.msg || e.type || "未知错误").join("; ") : (detail || "保存失败");
+      toast.error(msg);
+    }
     finally { setSaving(false); }
   };
 
@@ -60,7 +64,7 @@ export default function PromptManagementTab() {
     const ok = await confirm({ title: "切换版本", message: `「${PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ''}"？`, confirmText: "切换" });
     if (!ok) return;
     try { await activatePrompt(p.id); toast.success(`已切换到 v${p.version}`); load(); }
-    catch (err) { toast.error(err.response?.data?.detail || "激活失败"); }
+    catch (err) { const d = err.response?.data?.detail; toast.error(Array.isArray(d) ? d.map((e) => e.msg).join("; ") : (d || "激活失败")); }
   };
 
   const handleDelete = async (p) => {
@@ -83,17 +87,34 @@ export default function PromptManagementTab() {
     catch (err) { toast.error("热加载失败"); }
   };
 
+  const handleShowActive = () => {
+    const active = PURPOSES.map((p) => {
+      const v = grouped[p]?.find((t) => t.is_active);
+      return v ? `${PURPOSE_LABELS[p]} v${v.version}${v.name ? ` (${v.name})` : ""}` : `${PURPOSE_LABELS[p]} 未激活`;
+    }).join("  ·  ");
+    setExpanded(Object.fromEntries(PURPOSES.map((p) => [p, true])));
+    toast.success(active);
+  };
+
   const editorTitle = editing === "new"
     ? `新建「${PURPOSE_LABELS[form.purpose]}」`
     : editing
       ? (() => { const t = prompts.find((p) => p.id === editing); return t ? `编辑「${PURPOSE_LABELS[t.purpose]}」v${t.version}` : "编辑"; })()
       : null;
 
+  const extractVars = (text) => [...new Set((text.match(/\{(\w+)\}/g) || []).map((v) => v.slice(1, -1)))];
+  const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt]);
+  const editedPrompt = editing && editing !== "new" ? prompts.find((p) => p.id === editing) : null;
+  const dbVars = editedPrompt?.variables || [];
+
   return (
     <div>
-      <div style={{ marginBottom: "var(--space-4)" }}>
+      <div style={{ marginBottom: "var(--space-4)", display: "flex", gap: "var(--space-2)" }}>
         <button onClick={handleReload} style={{ padding: "var(--space-2) var(--space-4)", border: "1px solid var(--amber-400)", borderRadius: "var(--radius-md)", background: "var(--amber-50)", color: "var(--amber-700)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
           <RefreshCw size={13} /> 热加载
+        </button>
+        <button onClick={handleShowActive} style={{ padding: "var(--space-2) var(--space-4)", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "var(--bg-surface)", color: "var(--color-primary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <Eye size={13} /> 查看生效版本
         </button>
       </div>
 
@@ -178,7 +199,15 @@ export default function PromptManagementTab() {
 
         {editing && (
           <div className="card" style={{ padding: "var(--space-5)" }}>
-            <h4 style={{ margin: "0 0 var(--space-4) 0", fontSize: "0.95rem" }}>{editorTitle}</h4>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+              <h4 style={{ margin: 0, fontSize: "0.95rem", flex: 1 }}>{editorTitle}</h4>
+              {editedPrompt && (
+                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+                  更新于 {new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}
+                </span>
+              )}
+            </div>
+
             {editing === "new" && (
               <div style={{ marginBottom: "var(--space-3)" }}>
                 <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>场景</label>
@@ -188,34 +217,68 @@ export default function PromptManagementTab() {
                 </select>
               </div>
             )}
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>版本名称</label>
-              <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版"
-                style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>版本名称</label>
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版"
+                  style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>备注</label>
+                <input value={form.remark} onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))} placeholder="修改说明..."
+                  style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box" }} />
+              </div>
             </div>
             <div style={{ marginBottom: "var(--space-3)" }}>
-              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>System Prompt</label>
-              <textarea value={form.system_prompt} onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))} rows={10}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>System Prompt</label>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{form.system_prompt.length} 字符</span>
+              </div>
+              <textarea value={form.system_prompt} onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))} rows={12}
                 style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.8rem", fontFamily: "monospace", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box", resize: "vertical" }} />
             </div>
             {form.purpose === "scoring" && (
               <div style={{ marginBottom: "var(--space-3)" }}>
-                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>User Prompt Template</label>
-                <textarea value={form.user_prompt} onChange={(e) => setForm((f) => ({ ...f, user_prompt: e.target.value }))} rows={4}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>User Prompt Template</label>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{(form.user_prompt || "").length} 字符</span>
+                </div>
+                <textarea value={form.user_prompt} onChange={(e) => setForm((f) => ({ ...f, user_prompt: e.target.value }))} rows={6}
                   style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.8rem", fontFamily: "monospace", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box", resize: "vertical" }} />
               </div>
             )}
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>备注</label>
-              <input value={form.remark} onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))} placeholder="修改说明..."
-                style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box" }} />
+
+            <div style={{ marginBottom: "var(--space-3)", display: "flex", alignItems: "flex-start", gap: "var(--space-3)", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                  <Hash size={12} /> 模板变量 {currentVars.length > 0 && `(${currentVars.length})`}
+                </div>
+                {currentVars.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {currentVars.map((v) => {
+                      const desc = dbVars.find((d) => d.name === v);
+                      return (
+                        <span key={v} title={desc?.desc || ""} style={{
+                          padding: "2px 10px", borderRadius: "var(--radius-full)", fontSize: "0.7rem",
+                          background: "var(--blue-50)", color: "var(--blue-700)",
+                          border: "1px solid var(--blue-200)", fontFamily: "monospace",
+                        }}>
+                          {`{${v}}`}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>无变量（纯静态 prompt）</span>
+                )}
+              </div>
             </div>
             {validation && (
               <div style={{ padding: "var(--space-3)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-3)",
                 background: validation.valid ? "var(--green-50)" : "var(--red-50)",
                 color: validation.valid ? "var(--green-700)" : "var(--red-700)", fontSize: "0.8rem" }}>
                 {validation.valid ? "校验通过" : validation.errors.join("; ")}
-                {validation.missing_vars?.length > 0 && <div style={{ marginTop: 4 }}>变量: {validation.missing_vars.join(", ")}</div>}
+                {validation.missing_vars?.length > 0 && <div style={{ marginTop: 4 }}>变量未声明: {validation.missing_vars.join(", ")}</div>}
               </div>
             )}
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
