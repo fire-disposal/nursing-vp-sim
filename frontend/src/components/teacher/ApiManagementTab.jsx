@@ -79,9 +79,10 @@ export default function ApiManagementTab() {
   };
 
   const handleDeleteProvider = async (p) => {
-    if (p.keys_count > 0) { toast.error(`Cannot delete provider with ${p.keys_count} active keys.`); return; }
+    if (providers.length <= 1) { toastRef.current.error("至少需要保留一个 Provider"); return; }
+    if (p.keys_count > 0) { toastRef.current.error(`Cannot delete provider with ${p.keys_count} active keys.`); return; }
     if (!await confirm({ title: "Delete Provider", message: `Delete "${p.name}"?`, confirmText: "Delete", danger: true })) return;
-    try { await deleteProvider(p.id); toast.success("Provider deleted"); loadProviders(); } catch (err) { toast.error(err.response?.data?.detail || "Delete failed"); }
+    try { await deleteProvider(p.id); toastRef.current.success("Provider deleted"); loadProviders(); } catch (err) { toastRef.current.error(err.response?.data?.detail || "Delete failed"); }
   };
 
   const handleDeleteKey = async (k) => {
@@ -174,7 +175,7 @@ export default function ApiManagementTab() {
                     <td style={S.td}>{p.keys_count ?? "-"}</td>
                     <td style={S.td}>
                       <button onClick={() => { setEditingProvider(p); setShowProviderModal(true); }} style={{ ...S.btn, color: "var(--color-primary)" }}><Edit3 size={12} /> Edit</button>
-                      <button onClick={() => handleDeleteProvider(p)} style={{ ...S.btn, color: "var(--red-400)" }}><Trash2 size={12} /> Delete</button>
+                      <button onClick={() => { if (providers.length <= 1) { toastRef.current.error("至少需要保留一个 Provider"); return; } handleDeleteProvider(p); }} disabled={providers.length <= 1} style={{ ...S.btn, color: providers.length <= 1 ? "var(--text-tertiary)" : "var(--red-400)", cursor: providers.length <= 1 ? "not-allowed" : "pointer" }}><Trash2 size={12} /> Delete</button>
                     </td>
                   </tr>
                 ))}

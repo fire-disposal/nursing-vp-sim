@@ -74,6 +74,9 @@ def delete_provider(
     p = db.query(ApiProvider).filter(ApiProvider.id == provider_id).first()
     if not p:
         raise HTTPException(404, "Provider 不存在")
+    total = db.query(ApiProvider).count()
+    if total <= 1:
+        raise HTTPException(400, "至少需要保留一个 Provider，无法删除")
     key_count = db.query(ApiKey).filter(ApiKey.provider_id == provider_id).count()
     if key_count > 0:
         raise HTTPException(400, f"请先删除该 provider 下的 {key_count} 个 key")
