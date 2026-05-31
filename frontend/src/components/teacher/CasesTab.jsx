@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { createCase, deleteCase, getCaseDetail, getManageCases, updateCase } from "../../api";
+import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "../../api";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
@@ -77,6 +77,13 @@ export default function CasesTab() {
   const [caseForm, setCaseForm] = useState(parseCaseData(NEW_CASE_TEMPLATE));
   const [caseMsg, setCaseMsg] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiMode, setAiMode] = useState("quick");
+  const [aiDescription, setAiDescription] = useState("");
+  const [aiReferenceCaseIds, setAiReferenceCaseIds] = useState([]);
+  const [aiReferenceText, setAiReferenceText] = useState("");
+  const [aiError, setAiError] = useState("");
   const toast = useToast();
   const { confirm } = useConfirm();
   const [offset, setOffset] = useState(0);
@@ -104,6 +111,11 @@ export default function CasesTab() {
     setCaseForm(parseCaseData(NEW_CASE_TEMPLATE));
     setCaseMsg("");
     setShowAdvanced(false);
+    setShowAiPanel(false);
+    setAiDescription("");
+    setAiReferenceCaseIds([]);
+    setAiReferenceText("");
+    setAiError("");
     setShowEditor(true);
   };
 
@@ -114,6 +126,11 @@ export default function CasesTab() {
       .catch(() => toast.error("加载病例数据失败"));
     setCaseMsg("");
     setShowAdvanced(false);
+    setShowAiPanel(false);
+    setAiDescription("");
+    setAiReferenceCaseIds([]);
+    setAiReferenceText("");
+    setAiError("");
     setShowEditor(true);
   };
 
@@ -179,6 +196,40 @@ export default function CasesTab() {
     e.target.value = "";
   };
 
+  const handleAiGenerate = async (field) => {
+    setAiError("");
+    if (!field && !aiDescription.trim()) {
+      setAiError("请输入病例描述");
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const payload = {
+        mode: aiMode,
+        description: aiDescription || caseForm.chief_complaint || caseForm.description || "护理病史采集训练病例",
+        reference_case_ids: aiMode === "reference" ? aiReferenceCaseIds : undefined,
+        reference_text: aiMode === "reference" && aiReferenceText ? aiReferenceText : undefined,
+        field: field || null,
+      };
+      if (field) {
+        payload.current_case_data = buildCaseData(caseForm);
+      }
+      const { data } = await generateCase(payload);
+      if (field) {
+        updateField(field, data.field_value);
+        toast.success(`已生成 ${field} 建议`);
+      } else {
+        setCaseForm(parseCaseData(data.case_data));
+        toast.success("病例生成成功，请检查并保存");
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail || "AI 生成失败";
+      setAiError(field ? `生成「${field}」失败: ${detail}` : detail);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const updateField = (field, value) => setCaseForm((prev) => ({ ...prev, [field]: value }));
   const updateList = (field, text) => setCaseForm((prev) => ({ ...prev, [field]: text.split("\n").filter((s) => s.trim()) }));
 
@@ -187,6 +238,21 @@ export default function CasesTab() {
       <div style={{ marginBottom: 16, display: "flex", gap: 12 }}>
         <button className="btn btn-primary" onClick={openNew}>
           <Plus size={16} /> 添加病例
+        </button>
+        <button
+          className="btn"
+          onClick={() => {
+            openNew();
+            setShowAiPanel(true);
+            setAiMode("quick");
+            setAiDescription("");
+            setAiReferenceCaseIds([]);
+            setAiReferenceText("");
+            setAiError("");
+          }}
+          style={{ background: "var(--purple-50)", border: "1px solid var(--purple-300)", color: "var(--purple-700)", display: "flex", alignItems: "center", gap: 6 }}
+        >
+          <Wand2 size={16} /> AI 生成病例
         </button>
       </div>
 
@@ -249,6 +315,88 @@ export default function CasesTab() {
 
       <Modal open={showEditor} onClose={() => setShowEditor(false)} title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"} maxWidth={800}>
         {caseMsg && <div className={caseMsg.includes("成功") || caseMsg.includes("导入成功") ? "success-msg" : "error-msg"}>{caseMsg}</div>}
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              setShowAiPanel(!showAiPanel);
+              setAiError("");
+            }}
+            style={{ display: "flex", alignItems: "center", gap: 4, background: showAiPanel ? "var(--purple-50)" : "transparent", border: "1px solid var(--purple-300)", color: "var(--purple-700)" }}
+          >
+            <Wand2 size={14} /> {showAiPanel ? "收起 AI 面板" : "展开 AI 面板"}
+          </button>
+          {showAiPanel && (
+            <div className="card" style={{ marginTop: "var(--space-3)", padding: "var(--space-4)", background: "var(--purple-25)", border: "1px solid var(--purple-100)" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${aiMode === "quick" ? "btn-primary" : ""}`}
+                  onClick={() => setAiMode("quick")}
+                >
+                  快速生成
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${aiMode === "reference" ? "btn-primary" : ""}`}
+                  onClick={() => setAiMode("reference")}
+                >
+                  参考资料生成
+                </button>
+              </div>
+              <div className="form-group">
+                <label>病例描述 *</label>
+                <textarea
+                  rows={2}
+                  value={aiDescription}
+                  onChange={(e) => setAiDescription(e.target.value)}
+                  placeholder="一句话描述，如：糖尿病足溃疡老年患者，有10年糖尿病史..."
+                />
+              </div>
+              {aiMode === "reference" && (
+                <>
+                  <div className="form-group">
+                    <label>参考现有病例（多选）</label>
+                    <select
+                      multiple
+                      value={aiReferenceCaseIds.map(String)}
+                      onChange={(e) => setAiReferenceCaseIds(Array.from(e.target.selectedOptions, (o) => Number(o.value)))}
+                      style={{ minHeight: 100 }}
+                    >
+                      {cases.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}{c.chief_complaint ? ` — ${c.chief_complaint}` : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>自由参考资料</label>
+                    <textarea
+                      rows={3}
+                      value={aiReferenceText}
+                      onChange={(e) => setAiReferenceText(e.target.value)}
+                      placeholder="粘贴临床笔记、文献摘要等参考内容..."
+                    />
+                  </div>
+                </>
+              )}
+              {aiError && <div className="error-msg" style={{ marginBottom: "var(--space-2)" }}>{aiError}</div>}
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleAiGenerate(null)}
+                disabled={aiGenerating}
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+              >
+                {aiGenerating ? (
+                  <>⟳ 生成中...</>
+                ) : (
+                  <><Sparkles size={14} /> 生成完整病例</>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
         <form onSubmit={handleSave} className="case-editor-form">
           <fieldset>
             <legend>基础信息</legend>
@@ -341,11 +489,39 @@ export default function CasesTab() {
             {showAdvanced && (
               <>
                 <div className="form-group">
-                  <label>隐藏信息（一行一条）</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    隐藏信息（一行一条）
+                    <button
+                      type="button"
+                      disabled={aiGenerating}
+                      onClick={() => {
+                        if (!showAiPanel) setShowAiPanel(true);
+                        handleAiGenerate("hidden_info");
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--purple-500)", display: "flex", alignItems: "center" }}
+                      title="AI 建议"
+                    >
+                      <Sparkles size={13} />
+                    </button>
+                  </label>
                   <textarea rows={4} value={(caseForm.hidden_info || []).join("\n")} onChange={(e) => updateList("hidden_info", e.target.value)} />
                 </div>
                 <div className="form-group">
-                  <label>必须问到的内容（一行一条）</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    必须问到的内容（一行一条）
+                    <button
+                      type="button"
+                      disabled={aiGenerating}
+                      onClick={() => {
+                        if (!showAiPanel) setShowAiPanel(true);
+                        handleAiGenerate("required_inquiries");
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--purple-500)", display: "flex", alignItems: "center" }}
+                      title="AI 建议"
+                    >
+                      <Sparkles size={13} />
+                    </button>
+                  </label>
                   <textarea
                     rows={4}
                     value={(caseForm.required_inquiries || []).join("\n")}
@@ -353,7 +529,21 @@ export default function CasesTab() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>评分标准 (JSON)</label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    评分标准 (JSON)
+                    <button
+                      type="button"
+                      disabled={aiGenerating}
+                      onClick={() => {
+                        if (!showAiPanel) setShowAiPanel(true);
+                        handleAiGenerate("scoring_criteria");
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--purple-500)", display: "flex", alignItems: "center" }}
+                      title="AI 建议"
+                    >
+                      <Sparkles size={13} />
+                    </button>
+                  </label>
                   <textarea
                     rows={6}
                     style={{ fontFamily: "monospace", fontSize: "0.8rem" }}
