@@ -372,7 +372,7 @@ def get_llm_logs(
     all_items = []
 
     for r in agg_rows:
-        avg_lat = round(r.latency_ms) if r.latency_ms else None
+        avg_lat = round(r.latency_ms) if r.latency_ms is not None else None
         all_items.append({
             "id": r.id,
             "user_id": r.user_id,
@@ -387,7 +387,7 @@ def get_llm_logs(
             "completion_tokens": r.completion_tokens,
             "total_tokens": r.total_tokens,
             "token_estimated": 1 if r.token_estimated else 0,
-            "estimated_cost": round(r.estimated_cost, 6) if r.estimated_cost else None,
+            "estimated_cost": round(r.estimated_cost, 6) if r.estimated_cost is not None else None,
             "cost_currency": None,
             "latency_ms": avg_lat,
             "status": "success" if (r.error_count or 0) == 0 else "failed",

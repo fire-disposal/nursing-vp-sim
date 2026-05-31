@@ -1,5 +1,268 @@
-"""Admin API tests: user management, stats, role-based access control."""
+"""Admin API tests: user management, stats, role-based access control, LLM monitoring."""
 import pytest
+from datetime import datetime, timezone, timedelta
+
+
+class TestLLMStats:
+    def test_get_llm_stats_empty(self, client, teacher):
+        """空数据时也应返回合法的 stats 结构"""
+        _, token = teacher
+        resp = client.get("/api/admin/llm-stats", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "today" in data
+        assert "week" in data
+        assert "by_purpose" in data
+        assert "daily" in data
+        assert data["today"]["count"] == 0
+        assert data["today"]["total_cost"] == 0
+        assert data["daily"] == []
+
+    def test_get_llm_stats_with_data(self, client, teacher, db_session):
+        """有 LLM 调用记录时应正确聚合统计"""
+        from models import LLMCallLog
+        now = datetime.now(timezone.utc)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        logs = [
+            LLMCallLog(
+                user_id=1, purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=500,
+                prompt_tokens=100, completion_tokens=50, total_tokens=150,
+                token_estimated=0, estimated_cost=0.002, created_at=today,
+            ),
+            LLMCallLog(
+                user_id=1, purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=300,
+                prompt_tokens=200, completion_tokens=80, total_tokens=280,
+                token_estimated=0, estimated_cost=0.003, created_at=today,
+            ),
+            LLMCallLog(
+                user_id=1, purpose="scoring", model="deepseek-chat",
+                provider="deepseek", status="failed", latency_ms=1000,
+                prompt_tokens=500, completion_tokens=0, total_tokens=500,
+                token_estimated=1, estimated_cost=0.001, created_at=today,
+            ),
+            # 7天前的旧记录
+            LLMCallLog(
+                user_id=1, purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=400,
+                prompt_tokens=100, completion_tokens=50, total_tokens=150,
+                token_estimated=0, estimated_cost=0.002,
+                created_at=today - timedelta(days=5),
+            ),
+        ]
+        for log in logs:
+            db_session.add(log)
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get("/api/admin/llm-stats", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+
+        today_stats = data["today"]
+        assert today_stats["count"] == 3
+        assert today_stats["success_rate"] == round(2 / 3 * 100, 1)
+        assert today_stats["total_cost"] == round(0.002 + 0.003 + 0.001, 4)
+
+        week_stats = data["week"]
+        assert week_stats["count"] == 4
+
+        by_purpose = {p["purpose"]: p["count"] for p in data["by_purpose"]}
+        assert by_purpose.get("patient_chat") == 3  # 2 today + 1 five days ago
+        assert by_purpose.get("scoring") == 1
+
+        assert len(data["daily"]) >= 1
+
+    def test_get_llm_stats_no_cost_config(self, client, teacher, db_session):
+        """estimated_cost 为 0 时也能正常返回（不应因 falsy 而变成 null）"""
+        from models import LLMCallLog
+        now = datetime.now(timezone.utc)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        log = LLMCallLog(
+            user_id=1, purpose="patient_chat", model="deepseek-chat",
+            provider="deepseek", status="success", latency_ms=500,
+            prompt_tokens=100, completion_tokens=50, total_tokens=150,
+            token_estimated=0, estimated_cost=0.0, created_at=today,
+        )
+        db_session.add(log)
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get("/api/admin/llm-stats", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["today"]["total_cost"] == 0
+
+    def test_llm_stats_student_forbidden(self, client, student):
+        _, token = student
+        resp = client.get("/api/admin/llm-stats", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
+    def test_llm_stats_unauthenticated(self, client):
+        resp = client.get("/api/admin/llm-stats")
+        assert resp.status_code == 401
+
+
+class TestLLMLogs:
+    def test_get_llm_logs_empty(self, client, teacher):
+        _, token = teacher
+        resp = client.get("/api/admin/llm-logs", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+
+    def test_get_llm_logs_with_data(self, client, teacher, db_session, test_case):
+        from models import LLMCallLog, TrainingRecord, User as UserModel
+        from auth import hash_password
+
+        student = UserModel(
+            username="logtest", password_hash=hash_password("123"),
+            role="student", display_name="测试学生",
+        )
+        db_session.add(student)
+        db_session.commit()
+        db_session.refresh(student)
+
+        record = TrainingRecord(user_id=student.id, case_id=test_case.id, status="completed")
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+
+        now = datetime.now(timezone.utc)
+        logs = [
+            LLMCallLog(
+                user_id=student.id, record_id=record.id, case_id=1,
+                purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=500,
+                prompt_tokens=100, completion_tokens=50, total_tokens=150,
+                token_estimated=0, estimated_cost=0.002, created_at=now,
+            ),
+            LLMCallLog(
+                user_id=student.id, record_id=record.id, case_id=1,
+                purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=300,
+                prompt_tokens=200, completion_tokens=80, total_tokens=280,
+                token_estimated=0, estimated_cost=0.003, created_at=now,
+            ),
+            LLMCallLog(
+                user_id=student.id, purpose="scoring", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=200,
+                prompt_tokens=300, completion_tokens=100, total_tokens=400,
+                token_estimated=0, estimated_cost=0.001, created_at=now,
+            ),
+        ]
+        for log in logs:
+            db_session.add(log)
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get("/api/admin/llm-logs", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 2  # 1 aggregated patient_chat + 1 scoring
+
+    def test_get_llm_logs_aggregation(self, client, teacher, db_session, test_case):
+        """聚合模式下 patient_chat 应合并为一条训练级记录"""
+        from models import LLMCallLog, TrainingRecord, User as UserModel
+        from auth import hash_password
+
+        student = UserModel(
+            username="aggtest", password_hash=hash_password("123"),
+            role="student", display_name="聚合测试",
+        )
+        db_session.add(student)
+        db_session.commit()
+        db_session.refresh(student)
+
+        record = TrainingRecord(user_id=student.id, case_id=test_case.id, status="completed")
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+
+        now = datetime.now(timezone.utc)
+        logs = [
+            LLMCallLog(
+                user_id=student.id, record_id=record.id, case_id=1,
+                purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=100,
+                prompt_tokens=50, completion_tokens=25, total_tokens=75,
+                token_estimated=0, estimated_cost=0.001, created_at=now,
+            ),
+            LLMCallLog(
+                user_id=student.id, record_id=record.id, case_id=1,
+                purpose="patient_chat", model="deepseek-chat",
+                provider="deepseek", status="success", latency_ms=200,
+                prompt_tokens=100, completion_tokens=50, total_tokens=150,
+                token_estimated=0, estimated_cost=0.002, created_at=now,
+            ),
+        ]
+        for log in logs:
+            db_session.add(log)
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get("/api/admin/llm-logs", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        items = data["items"]
+        agg_items = [i for i in items if i.get("is_aggregated")]
+        assert len(agg_items) == 1
+        agg = agg_items[0]
+        assert agg["call_count"] == 2
+        assert agg["purpose"] == "patient_chat"
+        # 聚合费用应为 0.001 + 0.002 = 0.003
+        assert agg["estimated_cost"] == round(0.001 + 0.002, 6)
+
+    def test_get_llm_logs_estimated_cost_zero(self, client, teacher, db_session, test_case):
+        """estimated_cost 为 0 的聚合行不应因 falsy 而变成 None"""
+        from models import LLMCallLog, TrainingRecord, User as UserModel
+        from auth import hash_password
+
+        student = UserModel(
+            username="zerocost", password_hash=hash_password("123"),
+            role="student", display_name="零费用",
+        )
+        db_session.add(student)
+        db_session.commit()
+        db_session.refresh(student)
+
+        record = TrainingRecord(user_id=student.id, case_id=test_case.id, status="completed")
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+
+        now = datetime.now(timezone.utc)
+        log = LLMCallLog(
+            user_id=student.id, record_id=record.id, case_id=1,
+            purpose="patient_chat", model="deepseek-chat",
+            provider="deepseek", status="success", latency_ms=100,
+            prompt_tokens=50, completion_tokens=25, total_tokens=75,
+            token_estimated=0, estimated_cost=0.0, created_at=now,
+        )
+        db_session.add(log)
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get("/api/admin/llm-logs", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        items = data["items"]
+        agg_items = [i for i in items if i.get("is_aggregated")]
+        assert len(agg_items) == 1
+        assert agg_items[0]["estimated_cost"] == 0.0  # 不应为 None
+
+    def test_llm_logs_student_forbidden(self, client, student):
+        _, token = student
+        resp = client.get("/api/admin/llm-logs", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
+    def test_llm_logs_unauthenticated(self, client):
+        resp = client.get("/api/admin/llm-logs")
+        assert resp.status_code == 401
 
 
 class TestAdminStats:
