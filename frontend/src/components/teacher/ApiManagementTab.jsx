@@ -37,7 +37,10 @@ export default function ApiManagementTab() {
   const [dsSaving, setDsSaving] = useState(false);
 
   const toastRef = useRef(toast);
-  toastRef.current = toast;
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
 
   const loadProviders = useCallback(() => {
     fetchProviders().then(({ data }) => setProviders(data)).catch((err) => {
@@ -101,7 +104,7 @@ export default function ApiManagementTab() {
       const { data } = await testKey(k.id);
       if (data.ok) toast.success(`${k.label || 'Key'} 连接正常 · ${data.latency_ms}ms`);
       else toast.error(data.error || "连接失败");
-    } catch (err) { toast.error("测试请求失败"); }
+    } catch { toast.error("测试请求失败"); }
   };
 
   const handleReload = async () => {

@@ -49,12 +49,12 @@ async def _build_llm_context(case_data: dict, history_messages: list,
     pm = await get_prompt_manager()
     tmpl = await pm.get("patient_chat")
     system_prompt = tmpl.render(
-        communication_style=case_data.get("communication_style", "友善自然"),
-        patient_info=patient_info_str,
-        chief_complaint=case_data.get("chief_complaint", "未知"),
-        present_illness=case_data.get("present_illness", "未知"),
-        allergy_history=case_data.get("allergy_history", "无"),
-        hidden_info_rules=hidden_info_rules,
+        communication_style=str(case_data.get("communication_style", "友善自然")).replace("{", "{{").replace("}", "}}"),
+        patient_info=patient_info_str.replace("{", "{{").replace("}", "}}"),
+        chief_complaint=str(case_data.get("chief_complaint", "未知")).replace("{", "{{").replace("}", "}}"),
+        present_illness=str(case_data.get("present_illness", "未知")).replace("{", "{{").replace("}", "}}"),
+        allergy_history=str(case_data.get("allergy_history", "无")).replace("{", "{{").replace("}", "}}"),
+        hidden_info_rules=hidden_info_rules.replace("{", "{{").replace("}", "}}"),
     )
 
     llm_messages = [{"role": "system", "content": system_prompt}]

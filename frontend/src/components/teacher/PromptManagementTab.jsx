@@ -82,12 +82,12 @@ export default function PromptManagementTab() {
     try {
       const { data } = await validatePrompt({ system_prompt: form.system_prompt, user_prompt: form.user_prompt || null });
       setValidation(data);
-    } catch (err) { toast.error("校验失败"); }
+    } catch { toast.error("校验失败"); }
   };
 
   const handleReload = async () => {
     try { await reloadPrompts(); toast.success("模板已热加载"); }
-    catch (err) { toast.error("热加载失败"); }
+    catch { toast.error("热加载失败"); }
   };
 
   const handleShowActive = () => {

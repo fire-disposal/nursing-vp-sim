@@ -77,11 +77,16 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("scoring")
+    # 防止对话中的 { } 破坏 str.format()
+    safe_rubric_dim = rubric_dim_text.replace("{", "{{").replace("}", "}}")
+    safe_json_tpl = rubric_json_template
+    safe_inquiries = required_inquiries_str.replace("{", "{{").replace("}", "}}")
+    safe_conversation = conversation_text.replace("{", "{{").replace("}", "}}")
     system_content, user_content = tmpl.render_pair(
-        rubric_dim_text=rubric_dim_text,
-        rubric_json_template=rubric_json_template,
-        required_inquiries=required_inquiries_str,
-        conversation_text=conversation_text,
+        rubric_dim_text=safe_rubric_dim,
+        rubric_json_template=safe_json_tpl,
+        required_inquiries=safe_inquiries,
+        conversation_text=safe_conversation,
     )
     scoring_messages = [
         {"role": "system", "content": system_content},
