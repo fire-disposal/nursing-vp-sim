@@ -187,13 +187,15 @@ function RatingPieChart({ tag, dateFrom, dateTo }) {
           totals.rating_4 += d.rating_4 || 0;
           totals.rating_5 += d.rating_5 || 0;
         });
-        setData([
-          { name: "rating_1", value: totals.rating_1, idx: 0 },
-          { name: "rating_2", value: totals.rating_2, idx: 1 },
-          { name: "rating_3", value: totals.rating_3, idx: 2 },
-          { name: "rating_4", value: totals.rating_4, idx: 3 },
-          { name: "rating_5", value: totals.rating_5, idx: 4 },
-        ].filter(d => d.value > 0));
+        setData(
+          [
+            { name: "rating_1", value: totals.rating_1, idx: 0 },
+            { name: "rating_2", value: totals.rating_2, idx: 1 },
+            { name: "rating_3", value: totals.rating_3, idx: 2 },
+            { name: "rating_4", value: totals.rating_4, idx: 3 },
+            { name: "rating_5", value: totals.rating_5, idx: 4 },
+          ].filter((d) => d.value > 0),
+        );
       })
       .catch(() => setData([]));
   }, [tag, dateFrom, dateTo]);
