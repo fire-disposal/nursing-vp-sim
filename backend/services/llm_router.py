@@ -181,6 +181,31 @@ class LLMRouter:
         key.total_cost_today = float(key.total_cost_today or 0) + cost
         key.monthly_cost_used = float(key.monthly_cost_used or 0) + cost
 
+        # 每隔 5 次调用持久化一次到 DB，避免每次请求写 DB
+        if key.call_count_today % 5 == 0:
+            self._persist_key_stats(key)
+
+    @staticmethod
+    def _persist_key_stats(key):
+        from database import SessionLocal
+        from models import ApiKey
+        db = SessionLocal()
+        try:
+            db_key = db.query(ApiKey).filter(ApiKey.id == key.id).first()
+            if db_key:
+                db_key.call_count_today = key.call_count_today
+                db_key.total_tokens_today = key.total_tokens_today
+                db_key.total_cost_today = float(key.total_cost_today or 0)
+                db_key.monthly_cost_used = float(key.monthly_cost_used or 0)
+                db_key.stats_date = key.stats_date
+                db_key.stats_month = key.stats_month
+                db_key.last_used_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
 
 _router: LLMRouter | None = None
 _router_lock = asyncio.Lock()
