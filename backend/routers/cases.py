@@ -1,12 +1,16 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import Case, TrainingRecord, User
-from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse
+from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse
 from auth import get_current_user, require_teacher
 from logger import log_info
 from pagination import paginate
+from services.llm_service import call_llm_json
+from services.prompt_manager import get_prompt_manager
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
@@ -94,6 +98,87 @@ def list_cases_manage(
             training_count=training_counts.get(c.id, 0),
         ) for c in cases
     ], total=total, offset=offset, limit=limit)
+
+
+_logger = logging.getLogger("nursing")
+
+
+@router.post("/generate", response_model=CaseGenerateResponse)
+async def generate_case(
+    data: CaseGenerateRequest,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    if not data.description.strip():
+        raise HTTPException(400, "描述不能为空")
+
+    reference_material = ""
+    if data.mode == "reference":
+        parts = []
+        if data.reference_case_ids:
+            ref_cases = db.query(Case).filter(Case.id.in_(data.reference_case_ids)).all()
+            found_ids = {c.id for c in ref_cases}
+            missing = [cid for cid in data.reference_case_ids if cid not in found_ids]
+            if missing:
+                raise HTTPException(404, f"参考病例不存在: {missing}")
+            for c in ref_cases:
+                parts.append(f"--- 参考病例: {c.name} ---\n{_format_case_for_prompt(c.case_data)}")
+        if data.reference_text:
+            parts.append(f"--- 补充参考资料 ---\n{data.reference_text}")
+        reference_material = "\n\n".join(parts)
+
+    pm = await get_prompt_manager()
+    tmpl = await pm.get("case_generation")
+    system_content = tmpl.render(
+        description=data.description,
+        reference_material=reference_material or "无",
+    )
+
+    if data.field:
+        system_content += f"\n\n当前任务：只生成字段「{data.field}」。"
+        if data.current_case_data:
+            system_content += f"\n\n当前病例上下文：\n{_format_case_for_prompt(data.current_case_data)}"
+
+    messages = [{"role": "system", "content": system_content}]
+
+    try:
+        result = await call_llm_json(
+            messages, temperature=0.3, max_tokens=4096, timeout=120, max_retries=3,
+            purpose="case_generation", user_id=current_user.id,
+        )
+    except Exception as e:
+        _logger.exception("case_generation LLM call failed")
+        raise HTTPException(500, f"AI 生成失败: {str(e)}")
+
+    if data.field:
+        field_value = result.get("field_value") or result.get(data.field)
+        return CaseGenerateResponse(field_value=field_value, field=data.field)
+
+    return CaseGenerateResponse(case_data=result)
+
+
+def _format_case_for_prompt(case_data: dict) -> str:
+    info = case_data.get("patient_info", {})
+    lines = [
+        f"名称: {case_data.get('name', '')}",
+        f"患者: {info.get('name', '')}, {info.get('age', '')}岁, {info.get('gender', '')}",
+        f"主诉: {case_data.get('chief_complaint', '')}",
+        f"开场白: {case_data.get('opening_line', '')}",
+        f"现病史: {case_data.get('present_illness', '')}",
+        f"既往史: {case_data.get('past_history', '')}",
+        f"用药史: {case_data.get('medication_history', '')}",
+        f"过敏史: {case_data.get('allergy_history', '')}",
+        f"家族史: {case_data.get('family_history', '')}",
+        f"社会史: {case_data.get('social_history', '')}",
+        f"沟通风格: {case_data.get('communication_style', '')}",
+    ]
+    hidden_info = case_data.get("hidden_info", [])
+    if hidden_info:
+        lines.append(f"隐藏信息: {'; '.join(hidden_info)}")
+    required = case_data.get("required_inquiries", [])
+    if required:
+        lines.append(f"必须采集: {'; '.join(required)}")
+    return "\n".join(lines)
 
 
 @router.get("/{case_id}", response_model=CaseDetail)
