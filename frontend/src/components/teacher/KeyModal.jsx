@@ -21,8 +21,8 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
     model: "",
     weight: 100,
     priority: 100,
-    price_input: 0,
-    price_output: 0,
+    price_input_per_1m: 0,
+    price_output_per_1m: 0,
     monthly_cost_limit: "",
   });
   const [showKey, setShowKey] = useState(false);
@@ -44,8 +44,8 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
         model: keyData.model || "",
         weight: keyData.weight ?? 100,
         priority: keyData.priority ?? 100,
-        price_input: keyData.price_input ?? 0,
-        price_output: keyData.price_output ?? 0,
+        price_input_per_1m: keyData.price_input_per_1m ?? 0,
+        price_output_per_1m: keyData.price_output_per_1m ?? 0,
         monthly_cost_limit: keyData.monthly_cost_limit ?? "",
       });
     } else {
@@ -57,8 +57,8 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
         model: "",
         weight: 100,
         priority: 100,
-        price_input: 0,
-        price_output: 0,
+        price_input_per_1m: 0,
+        price_output_per_1m: 0,
         monthly_cost_limit: "",
       });
     }
@@ -234,16 +234,16 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
           <div style={fieldStyle}>
-            <label style={labelStyle}>输入价格 ($/1M)</label>
-            <input style={inputStyle} type="number" step="0.01" value={form.price_input} onChange={handleChange("price_input")} />
+            <label style={labelStyle}>输入价格 (¥/1M tokens)</label>
+            <input style={inputStyle} type="number" step="0.01" value={form.price_input_per_1m} onChange={handleChange("price_input_per_1m")} />
           </div>
           <div style={fieldStyle}>
-            <label style={labelStyle}>输出价格 ($/1M)</label>
-            <input style={inputStyle} type="number" step="0.01" value={form.price_output} onChange={handleChange("price_output")} />
+            <label style={labelStyle}>输出价格 (¥/1M tokens)</label>
+            <input style={inputStyle} type="number" step="0.01" value={form.price_output_per_1m} onChange={handleChange("price_output_per_1m")} />
           </div>
         </div>
         <div style={fieldStyle}>
-          <label style={labelStyle}>月度费用上限 ($)</label>
+          <label style={labelStyle}>月度费用上限 (¥)</label>
           <input style={inputStyle} type="number" step="0.01" value={form.monthly_cost_limit} onChange={handleChange("monthly_cost_limit")} placeholder="无限制" />
         </div>
       </form>

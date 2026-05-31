@@ -177,13 +177,13 @@ export default function ApiManagementTab() {
                   <tbody>
                     {group.map((k) => {
                       const pct = total > 0 ? ((k.weight || 0) / total * 100) : 0;
-                      const warn = k.monthly_cost_limit && k.today_cost != null && Number(k.today_cost) >= Number(k.monthly_cost_limit) * 0.9;
+                      const warn = k.monthly_cost_limit && k.total_cost_today != null && Number(k.total_cost_today) >= Number(k.monthly_cost_limit) * 0.9;
                       const sc = STATUS_COLORS[k.status] || STATUS_COLORS.disabled;
                       return (
                         <tr key={k.id}>
                           <td style={S.td}>{k.label || `key-${k.id}`}</td>
                           <td style={S.td}>{k.provider_name || k.provider_id}</td>
-                          <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>{k.masked_key || "sk-****"}</td>
+                          <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>sk-...{k.key_suffix || "****"}</td>
                           <td style={S.td}>{k.model || "-"}</td>
                           <td style={S.td}>
                             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
@@ -194,10 +194,10 @@ export default function ApiManagementTab() {
                             </div>
                           </td>
                           <td style={S.td}><span style={S.badge(sc.bg, sc.color)}>{STATUS_LABELS[k.status] || k.status}</span></td>
-                          <td style={S.td}>{k.today_calls ?? "-"}</td>
+                          <td style={S.td}>{k.call_count_today ?? "-"}</td>
                           <td style={S.td}>
                             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              {k.today_cost != null ? `¥${Number(k.today_cost).toFixed(4)}` : "-"}
+                              {k.total_cost_today != null ? `¥${Number(k.total_cost_today).toFixed(4)}` : "-"}
                               {warn && <AlertTriangle size={12} style={{ color: "var(--amber-500)" }} title="接近月度费用上限" />}
                             </span>
                           </td>
