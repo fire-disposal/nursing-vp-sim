@@ -118,7 +118,7 @@ export default function PromptManagementTab() {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "var(--space-4)", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "var(--space-4)", alignItems: "start", minHeight: "calc(100vh - 180px)" }}>
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {PURPOSES.map((purpose) => {
             const versions = grouped[purpose] || [];
@@ -198,7 +198,7 @@ export default function PromptManagementTab() {
         </div>
 
         {editing && (
-          <div className="card" style={{ padding: "var(--space-5)" }}>
+          <div className="card" style={{ padding: "var(--space-5)", display: "flex", flexDirection: "column", height: "100%" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
               <h4 style={{ margin: 0, fontSize: "0.95rem", flex: 1 }}>{editorTitle}</h4>
               {editedPrompt && (
@@ -229,13 +229,13 @@ export default function PromptManagementTab() {
                   style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box" }} />
               </div>
             </div>
-            <div style={{ marginBottom: "var(--space-3)" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", marginBottom: "var(--space-3)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>System Prompt</label>
                 <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{form.system_prompt.length} 字符</span>
               </div>
-              <textarea value={form.system_prompt} onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))} rows={12}
-                style={{ width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.8rem", fontFamily: "monospace", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box", resize: "vertical" }} />
+              <textarea value={form.system_prompt} onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
+                style={{ flex: 1, minHeight: 200, width: "100%", padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.8rem", fontFamily: "monospace", background: "var(--bg-surface)", color: "var(--text-primary)", boxSizing: "border-box", resize: "vertical" }} />
             </div>
             {form.purpose === "scoring" && (
               <div style={{ marginBottom: "var(--space-3)" }}>
