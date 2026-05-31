@@ -46,7 +46,6 @@ def upgrade() -> None:
             WHERE api_keys.id = sub.api_key_id
         """))
         conn.execute(sa.text("DROP TABLE IF EXISTS api_key_rules"))
-        conn.commit()
 
     # 填充默认值
     conn.execute(sa.text("UPDATE api_keys SET purpose = '*', priority = 100 WHERE purpose IS NULL OR priority IS NULL"))
