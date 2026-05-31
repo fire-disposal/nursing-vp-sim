@@ -171,31 +171,40 @@ class AdminStats(BaseModel):
     today_records: int = 0
 
 
-class QARequest(BaseModel):
+# ── QA 多轮对话 ──
+
+class QASessionCreate(BaseModel):
     question: str
 
-
-class QAResponse(BaseModel):
-    answer: str
-
-
-class QARecordOut(BaseModel):
+class QASessionItem(BaseModel):
     id: int
-    question: str
-    answer: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class QAMessageItem(BaseModel):
+    id: int
+    role: str
+    content: str
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
+class QAAskResponse(BaseModel):
+    session_id: int
+    answer: str
 
-class QARecordAdminOut(BaseModel):
+class QASessionAdminItem(BaseModel):
     id: int
     user_id: int
-    username: str
-    display_name: Optional[str]
-    question: str
-    answer: str
+    student_name: str = ""
+    student_code: str = ""
+    title: str
+    message_count: int = 0
     created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

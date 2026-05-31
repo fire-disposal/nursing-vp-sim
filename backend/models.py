@@ -144,20 +144,39 @@ class LLMCallLog(Base):
     api_key = relationship("ApiKey")
 
 
-class QARecord(Base):
-    """通用护理问答记录"""
-    __tablename__ = "qa_records"
+class QASession(Base):
+    """通用护理问答会话"""
+    __tablename__ = "qa_sessions"
     __table_args__ = (
-        Index("ix_qa_user_created", "user_id", "created_at"),
+        Index("ix_qa_sessions_user_updated", "user_id", "updated_at"),
     )
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    question = Column(Text, nullable=False)
-    answer = Column(Text, nullable=False)
+    title = Column(String(80), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+    records = relationship("QARecord", back_populates="session", order_by="QARecord.created_at")
+
+
+class QARecord(Base):
+    """通用护理问答消息记录"""
+    __tablename__ = "qa_records"
+    __table_args__ = (
+        Index("ix_qa_session_created", "session_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("qa_sessions.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
     user = relationship("User")
+    session = relationship("QASession", back_populates="records")
 
 
 class ApiProvider(Base):
