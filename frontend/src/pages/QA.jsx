@@ -1,5 +1,7 @@
 import { Bot, Lightbulb, Plus, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "../api";
 import Layout from "../components/Layout";
 import { getNurseAvatar } from "../utils/avatar";
@@ -163,7 +165,9 @@ export default function QA({ user, onLogout }) {
                       </div>
                     )}
                     <div className="qa-bubble">
-                      <div className="qa-bubble-content">{m.content}</div>
+                      <div className="qa-bubble-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                      </div>
                     </div>
                     {isUser && <img className="qa-avatar qa-avatar-user" src={nurseAvatar} alt="护士" />}
                   </div>
