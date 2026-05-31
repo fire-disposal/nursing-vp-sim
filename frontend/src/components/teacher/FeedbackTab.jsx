@@ -1,4 +1,4 @@
-import { BarChart3, MessageSquare } from "lucide-react";
+import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getFeedbackStats, getFeedbacks } from "../../api";
@@ -46,6 +46,9 @@ const EMOTION_MAP = {
 function FeedbackChart() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const weekLabel = weekOffset === 0 ? "本周" : weekOffset === -1 ? "上周" : `${-weekOffset}周前`;
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +57,7 @@ function FeedbackChart() {
     const now = new Date();
     const dayOfWeek = now.getDay();
     const monday = new Date(now);
-    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
     monday.setHours(0, 0, 0, 0);
 
     const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
@@ -93,7 +96,7 @@ function FeedbackChart() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [weekOffset]);
 
   if (loading)
     return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)" }}>加载图表...</div>;
@@ -103,10 +106,44 @@ function FeedbackChart() {
 
   return (
     <div style={{ marginBottom: 20 }}>
-      <h3 style={{ fontSize: "0.95rem", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-        <BarChart3 size={16} />
-        本周反馈分布
-      </h3>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <h3 style={{ fontSize: "0.95rem", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <BarChart3 size={16} />
+          {weekLabel}反馈分布
+        </h3>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            onClick={() => setWeekOffset((v) => v - 1)}
+            style={{
+              padding: "4px 8px",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-surface)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            onClick={() => setWeekOffset((v) => v + 1)}
+            disabled={weekOffset >= 0}
+            style={{
+              padding: "4px 8px",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-surface)",
+              cursor: weekOffset >= 0 ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              opacity: weekOffset >= 0 ? 0.4 : 1,
+            }}
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
