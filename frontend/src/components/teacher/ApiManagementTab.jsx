@@ -14,8 +14,9 @@ const STATUS_COLORS = {
   active: { bg: "var(--green-100)", color: "var(--green-700)" },
   rate_limited: { bg: "var(--amber-100)", color: "var(--amber-700)" },
   disabled: { bg: "var(--red-100)", color: "var(--red-700)" },
+  paused: { bg: "var(--amber-100)", color: "var(--amber-700)" },
 };
-const STATUS_LABELS = { active: "正常", rate_limited: "限流中", disabled: "已禁用" };
+const STATUS_LABELS = { active: "正常", rate_limited: "限流中", disabled: "已禁用", paused: "停用" };
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", "*": "默认（所有场景）" };
 
 export default function ApiManagementTab() {
@@ -271,7 +272,8 @@ export default function ApiManagementTab() {
                     {group.map((k) => {
                       const pct = total > 0 ? ((k.weight || 0) / total * 100) : 0;
                       const warn = k.monthly_cost_limit && k.total_cost_today != null && Number(k.total_cost_today) >= Number(k.monthly_cost_limit) * 0.9;
-                      const sc = STATUS_COLORS[k.status] || STATUS_COLORS.disabled;
+                      const displayStatus = (k.weight ?? 10) === 0 ? "paused" : k.status;
+                      const sc = STATUS_COLORS[displayStatus] || STATUS_COLORS.disabled;
                       return (
                         <tr key={k.id}>
                           <td style={S.td}>{k.label || `key-${k.id}`}</td>
@@ -286,7 +288,7 @@ export default function ApiManagementTab() {
                               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", minWidth: 36, textAlign: "right" }}>{Math.round(pct)}%</span>
                             </div>
                           </td>
-                          <td style={S.td}><span style={S.badge(sc.bg, sc.color)}>{STATUS_LABELS[k.status] || k.status}</span></td>
+                          <td style={S.td}><span style={S.badge(sc.bg, sc.color)}>{STATUS_LABELS[displayStatus] || displayStatus}</span></td>
                           <td style={S.td}>{k.call_count_today ?? "-"}</td>
                           <td style={S.td}>
                             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
