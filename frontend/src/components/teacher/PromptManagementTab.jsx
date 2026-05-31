@@ -231,9 +231,21 @@ export default function PromptManagementTab() {
         )}
 
         {!editing && (
-          <div className="card" style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--text-tertiary)" }}>
-            <Layers size={32} style={{ marginBottom: "var(--space-3)", opacity: 0.4 }} />
-            <div style={{ fontSize: "0.85rem" }}>选择左侧版本进行编辑，或点击 <Plus size={12} style={{ verticalAlign: "middle" }} /> 新建</div>
+          <div className="card" style={{ padding: "var(--space-8)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+            <Layers size={40} style={{ color: "var(--text-tertiary)", opacity: 0.5, marginBottom: "var(--space-4)" }} />
+            <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "var(--space-1)" }}>选择左侧版本进行编辑</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginBottom: "var(--space-4)" }}>
+              点击版本名打开编辑器，或点击左侧 <Plus size={12} style={{ verticalAlign: "middle", color: "var(--color-primary)" }} /> 为场景创建新版本
+            </div>
+            {!prompts.length && (
+              <button onClick={() => openNew("patient_chat")} style={{
+                padding: "var(--space-2) var(--space-5)", border: "none", borderRadius: "var(--radius-md)",
+                background: "var(--color-primary)", color: "#fff", cursor: "pointer",
+                fontSize: "0.85rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "var(--space-1)",
+              }}>
+                <Plus size={14} /> 创建第一个版本
+              </button>
+            )}
           </div>
         )}
       </div>
