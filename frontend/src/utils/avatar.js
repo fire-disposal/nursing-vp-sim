@@ -1,13 +1,13 @@
-import childMale from "../assets/avatars/patient_child_male.png";
-import childFemale from "../assets/avatars/patient_child_female.png";
-import youthMale from "../assets/avatars/patient_youth_male.png";
-import youthFemale from "../assets/avatars/patient_youth_female.png";
-import middleMale from "../assets/avatars/patient_middle_male.png";
-import middleFemale from "../assets/avatars/patient_middle_female.png";
-import elderMale from "../assets/avatars/patient_elder_male.png";
-import elderFemale from "../assets/avatars/patient_elder_female.png";
-import nurseMale from "../assets/avatars/nurse_male.png";
 import nurseFemale from "../assets/avatars/nurse_female.png";
+import nurseMale from "../assets/avatars/nurse_male.png";
+import childFemale from "../assets/avatars/patient_child_female.png";
+import childMale from "../assets/avatars/patient_child_male.png";
+import elderFemale from "../assets/avatars/patient_elder_female.png";
+import elderMale from "../assets/avatars/patient_elder_male.png";
+import middleFemale from "../assets/avatars/patient_middle_female.png";
+import middleMale from "../assets/avatars/patient_middle_male.png";
+import youthFemale from "../assets/avatars/patient_youth_female.png";
+import youthMale from "../assets/avatars/patient_youth_male.png";
 
 const avatars = {
   patient_child_male: childMale,

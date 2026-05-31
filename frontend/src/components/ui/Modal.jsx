@@ -6,7 +6,9 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     document.body.style.overflow = "hidden";
     return () => {
@@ -20,7 +22,9 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
   return (
     <div
       ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -45,16 +49,16 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
           ...style,
         }}
       >
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "var(--space-5) var(--space-6)",
-          borderBottom: "1px solid var(--border-color)",
-        }}>
-          <h2 style={{ fontSize: "var(--font-size-lg)", fontWeight: "var(--font-weight-semibold)", margin: 0 }}>
-            {title}
-          </h2>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "var(--space-5) var(--space-6)",
+            borderBottom: "1px solid var(--border-color)",
+          }}
+        >
+          <h2 style={{ fontSize: "var(--font-size-lg)", fontWeight: "var(--font-weight-semibold)", margin: 0 }}>{title}</h2>
           <button
             onClick={onClose}
             style={{
@@ -66,26 +70,32 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
               borderRadius: "var(--radius-sm)",
               display: "flex",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-surface-subtle)"; e.currentTarget.style.color = "var(--text-primary)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "var(--text-tertiary)"; }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--bg-surface-subtle)";
+              e.currentTarget.style.color = "var(--text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "";
+              e.currentTarget.style.color = "var(--text-tertiary)";
+            }}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div style={{ padding: "var(--space-6)" }}>
-          {children}
-        </div>
+        <div style={{ padding: "var(--space-6)" }}>{children}</div>
 
         {footer && (
-          <div style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "var(--space-2)",
-            padding: "var(--space-4) var(--space-6)",
-            borderTop: "1px solid var(--border-color)",
-            background: "var(--bg-surface-subtle)",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "var(--space-2)",
+              padding: "var(--space-4) var(--space-6)",
+              borderTop: "1px solid var(--border-color)",
+              background: "var(--bg-surface-subtle)",
+            }}
+          >
             {footer}
           </div>
         )}

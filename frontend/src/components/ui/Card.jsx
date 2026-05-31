@@ -19,7 +19,16 @@ export default function Card({ title, titleIcon: TitleIcon, actions, children, s
             borderBottom: children ? "1px solid var(--border-color)" : "none",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontWeight: "var(--font-weight-semibold)", fontSize: "var(--font-size-md)", color: "var(--text-primary)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+              fontWeight: "var(--font-weight-semibold)",
+              fontSize: "var(--font-size-md)",
+              color: "var(--text-primary)",
+            }}
+          >
             {TitleIcon && <TitleIcon size={17} />}
             {title}
           </div>

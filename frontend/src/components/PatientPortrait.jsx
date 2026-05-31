@@ -10,11 +10,7 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }) {
       <div className={`portrait-panel${collapsed ? " collapsed" : ""}`}>
         <div className="portrait-inner">
           <div className="portrait-figure">
-            <img
-              src={avatarSrc}
-              alt={name}
-              className="portrait-img"
-            />
+            <img src={avatarSrc} alt={name} className="portrait-img" />
             <div className="portrait-name">{name}</div>
             {patientInfo && (
               <div className="portrait-meta">
@@ -28,24 +24,16 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }) {
               <User size={14} />
               <span>病历卡</span>
             </div>
-            <div className="portrait-record-placeholder">
-              病历记录区域预留
-            </div>
+            <div className="portrait-record-placeholder">病历记录区域预留</div>
           </div>
         </div>
 
-        <button
-          className="portrait-toggle"
-          onClick={onToggle}
-          title={collapsed ? "展开患者信息" : "收起患者信息"}
-        >
+        <button className="portrait-toggle" onClick={onToggle} title={collapsed ? "展开患者信息" : "收起患者信息"}>
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
       </div>
 
-      {!collapsed && (
-        <div className="portrait-overlay" onClick={onToggle} />
-      )}
+      {!collapsed && <div className="portrait-overlay" onClick={onToggle} />}
     </>
   );
 }

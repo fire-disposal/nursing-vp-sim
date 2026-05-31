@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getTrends } from "../api";
 
 const PERIODS = [
@@ -28,7 +28,9 @@ export default function TrainingDurationChart() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [period]);
 
   const chartData = useMemo(() => {
@@ -41,9 +43,7 @@ export default function TrainingDurationChart() {
     }));
   }, [trends]);
 
-  const averageMinutes = trends?.total_sessions
-    ? Math.round(trends.total_minutes / trends.total_sessions)
-    : 0;
+  const averageMinutes = trends?.total_sessions ? Math.round(trends.total_minutes / trends.total_sessions) : 0;
 
   return (
     <div className="chart-card">
@@ -54,11 +54,7 @@ export default function TrainingDurationChart() {
         </div>
         <div className="period-tabs">
           {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              className={`period-tab ${period === p.key ? "active" : ""}`}
-              onClick={() => setPeriod(p.key)}
-            >
+            <button key={p.key} className={`period-tab ${period === p.key ? "active" : ""}`} onClick={() => setPeriod(p.key)}>
               {p.label}
             </button>
           ))}
@@ -93,9 +89,7 @@ export default function TrainingDurationChart() {
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
             <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
             <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} unit="min" />
-            <Tooltip
-              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", fontSize: "0.8rem" }}
-            />
+            <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", fontSize: "0.8rem" }} />
             <Legend />
             <Bar yAxisId="left" dataKey="sessions" name="训练次数" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={28} />
             <Bar yAxisId="right" dataKey="minutes" name="训练时长" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={28} />

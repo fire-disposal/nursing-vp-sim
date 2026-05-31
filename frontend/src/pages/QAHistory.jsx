@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { MessageCircle, Trash2 } from "lucide-react";
-import { getQAHistory, deleteQARecord } from "../api";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { deleteQARecord, getQAHistory } from "../api";
 import Layout from "../components/Layout";
-import PageHeader from "../components/ui/PageHeader";
+import Pagination from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
-import Pagination from "../components/Pagination";
+import PageHeader from "../components/ui/PageHeader";
 
 function truncate(text, maxLen) {
   if (text.length <= maxLen) return text;
@@ -34,7 +34,9 @@ export default function QAHistory({ user, onLogout }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchRecords(); }, [offset]);
+  useEffect(() => {
+    fetchRecords();
+  }, [offset]);
 
   const handleDelete = async (r) => {
     const ok = await confirm({
@@ -58,12 +60,7 @@ export default function QAHistory({ user, onLogout }) {
 
   return (
     <Layout user={user} onLogout={onLogout}>
-      <PageHeader
-        title="问答历史"
-        subtitle="查看你以往的护理知识问答记录"
-        icon={MessageCircle}
-        backTo="/qa"
-      />
+      <PageHeader title="问答历史" subtitle="查看你以往的护理知识问答记录" icon={MessageCircle} backTo="/qa" />
 
       <div className="card">
         {loading ? (
@@ -73,15 +70,17 @@ export default function QAHistory({ user, onLogout }) {
           </div>
         ) : records.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon-soft"><MessageCircle size={42} /></div>
+            <div className="empty-icon-soft">
+              <MessageCircle size={42} />
+            </div>
             <div style={{ marginBottom: 16 }}>暂无问答记录</div>
-            <Link to="/qa" className="btn btn-primary">去提问</Link>
+            <Link to="/qa" className="btn btn-primary">
+              去提问
+            </Link>
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: 12, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-              共 {total} 条记录
-            </div>
+            <div style={{ marginBottom: 12, fontSize: "0.8rem", color: "var(--text-secondary)" }}>共 {total} 条记录</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {records.map((r) => {
                 const isOpen = expanded === r.id;
@@ -108,16 +107,17 @@ export default function QAHistory({ user, onLogout }) {
                       </div>
                       <button
                         className="btn btn-sm btn-danger"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(r); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(r);
+                        }}
                         title="删除"
                         style={{ flexShrink: 0 }}
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 10 }}>
-                      {new Date(r.created_at).toLocaleString("zh-CN")}
-                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 10 }}>{new Date(r.created_at).toLocaleString("zh-CN")}</div>
                   </div>
                 );
               })}

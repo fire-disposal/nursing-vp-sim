@@ -30,11 +30,7 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    const shouldRetry =
-      !err.response ||
-      err.response.status >= 500 ||
-      err.code === "ECONNABORTED" ||
-      err.code === "ERR_NETWORK";
+    const shouldRetry = !err.response || err.response.status >= 500 || err.code === "ECONNABORTED" || err.code === "ERR_NETWORK";
 
     if (!shouldRetry) {
       return Promise.reject(err);
@@ -43,7 +39,7 @@ api.interceptors.response.use(
     config._retryCount = (config._retryCount || 0) + 1;
     await new Promise((resolve) => setTimeout(resolve, 1000));
     return api(config);
-  }
+  },
 );
 
 export function login(username, password) {
@@ -119,7 +115,9 @@ export async function sendMessageStream(recordId, content, onChunk, onDone, onEr
         if (data.content) {
           onChunk(data.content);
         }
-      } catch { /* ignore malformed SSE chunks */ }
+      } catch {
+        /* ignore malformed SSE chunks */
+      }
     }
   }
 }

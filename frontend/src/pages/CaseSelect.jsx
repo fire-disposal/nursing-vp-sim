@@ -1,11 +1,11 @@
+import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
 import { getCases, startTraining } from "../api";
 import Layout from "../components/Layout";
-import PageHeader from "../components/ui/PageHeader";
-import { useToast } from "../components/Toast";
 import Pagination from "../components/Pagination";
+import { useToast } from "../components/Toast";
+import PageHeader from "../components/ui/PageHeader";
 
 export default function CaseSelect({ user, onLogout }) {
   const [cases, setCases] = useState([]);
@@ -18,15 +18,15 @@ export default function CaseSelect({ user, onLogout }) {
   const LIMIT = 50;
 
   useEffect(() => {
-    getCases({ offset, limit: LIMIT }).then(({ data }) => {
-      setCases(data.items);
-      setTotal(data.total);
-    }).catch(() => toast.error("加载病例列表失败"));
+    getCases({ offset, limit: LIMIT })
+      .then(({ data }) => {
+        setCases(data.items);
+        setTotal(data.total);
+      })
+      .catch(() => toast.error("加载病例列表失败"));
   }, [offset]);
 
-  const filteredCases = difficultyFilter === 0
-    ? cases
-    : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);
+  const filteredCases = difficultyFilter === 0 ? cases : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);
 
   const DIFFICULTY_LABELS = { 1: "初级", 2: "中级", 3: "高级" };
 
@@ -61,9 +61,12 @@ export default function CaseSelect({ user, onLogout }) {
               本训练旨在帮助护理学生掌握<strong>系统化的护理病史采集技能</strong>。请按照护理评估框架进行问诊：
             </p>
             <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 8 }}>
-              <strong>① 主诉与现病史评估</strong> — 了解患者就诊的主要原因，症状的发生、发展和演变过程<br />
-              <strong>② 既往史与用药史</strong> — 了解慢性病史、用药情况、依从性和药物不良反应<br />
-              <strong>③ 个人史与家族史</strong> — 评估生活方式、环境暴露、家族疾病风险<br />
+              <strong>① 主诉与现病史评估</strong> — 了解患者就诊的主要原因，症状的发生、发展和演变过程
+              <br />
+              <strong>② 既往史与用药史</strong> — 了解慢性病史、用药情况、依从性和药物不良反应
+              <br />
+              <strong>③ 个人史与家族史</strong> — 评估生活方式、环境暴露、家族疾病风险
+              <br />
               <strong>④ 功能与心理社会评估</strong> — 评估日常生活能力、情绪状态、家庭支持、健康认知
             </div>
             <p style={{ fontSize: "0.8rem", color: "var(--primary)", borderTop: "1px solid #fde68a", paddingTop: 8 }}>
@@ -77,11 +80,7 @@ export default function CaseSelect({ user, onLogout }) {
       {/* Difficulty filter */}
       <div className="difficulty-filter">
         {[0, 1, 2, 3].map((d) => (
-          <button
-            key={d}
-            className={`difficulty-chip ${difficultyFilter === d ? "active" : ""}`}
-            onClick={() => setDifficultyFilter(d)}
-          >
+          <button key={d} className={`difficulty-chip ${difficultyFilter === d ? "active" : ""}`} onClick={() => setDifficultyFilter(d)}>
             {d === 0 ? "全部" : DIFFICULTY_LABELS[d]}
           </button>
         ))}
@@ -98,37 +97,30 @@ export default function CaseSelect({ user, onLogout }) {
                 <span className={`difficulty-badge d-${d}`}>
                   {Array.from({ length: d }, (_, i) => (
                     <Star key={i} size={10} fill="currentColor" />
-                  ))}
-                  {" "}{DIFFICULTY_LABELS[d]}
+                  ))}{" "}
+                  {DIFFICULTY_LABELS[d]}
                 </span>
               </div>
               <h3>{c.name}</h3>
               {p.chief_complaint && (
-                <div style={{
-                  background: "#f8fafc",
-                  borderRadius: 8,
-                  padding: "10px 14px",
-                  margin: "12px 0",
-                  borderLeft: "3px solid var(--primary)",
-                }}>
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    margin: "12px 0",
+                    borderLeft: "3px solid var(--primary)",
+                  }}
+                >
                   <div style={{ fontSize: "0.7rem", color: "var(--text-light)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     主诉
                   </div>
-                  <div style={{ fontSize: "0.875rem", color: "var(--text)", fontWeight: 500 }}>
-                    {p.chief_complaint}
-                  </div>
+                  <div style={{ fontSize: "0.875rem", color: "var(--text)", fontWeight: 500 }}>{p.chief_complaint}</div>
                 </div>
               )}
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                {c.description}
-              </p>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>{c.description}</p>
               <div style={{ marginTop: 20 }}>
-                <button
-                  className="btn btn-primary"
-                  style={{ width: "100%" }}
-                  onClick={() => handleStart(c.id)}
-                  disabled={startingId === c.id}
-                >
+                <button className="btn btn-primary" style={{ width: "100%" }} onClick={() => handleStart(c.id)} disabled={startingId === c.id}>
                   {startingId === c.id ? "加载中..." : "开始训练 →"}
                 </button>
               </div>
@@ -137,7 +129,9 @@ export default function CaseSelect({ user, onLogout }) {
         })}
         {filteredCases.length === 0 && (
           <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-            <div className="icon"><ClipboardList size={42} /></div>
+            <div className="icon">
+              <ClipboardList size={42} />
+            </div>
             <div>暂无可用的病例</div>
           </div>
         )}

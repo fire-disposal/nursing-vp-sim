@@ -52,8 +52,12 @@ export default function Table({ columns, data, rowKey, emptyState, onRowClick, s
                 transition: "background var(--transition-fast)",
                 borderBottom: "1px solid var(--border-color)",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-surface-hover)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--bg-surface-hover)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "";
+              }}
             >
               {columns.map((col) => (
                 <td

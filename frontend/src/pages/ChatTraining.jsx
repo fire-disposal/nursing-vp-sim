@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Mic, MicOff, Phone, Volume2, VolumeX, Clock, ListChecks, X, Circle, CheckCircle2 } from "lucide-react";
-import { getRecordDetail, sendMessageStream, endTraining } from "../api";
-import ScoreCard from "../components/ScoreCard";
+import { ArrowLeft, CheckCircle2, Circle, Clock, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { endTraining, getRecordDetail, sendMessageStream } from "../api";
 import PatientPortrait from "../components/PatientPortrait";
-import { getPatientAvatar, getNurseAvatar } from "../utils/avatar";
+import ScoreCard from "../components/ScoreCard";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
+import { getNurseAvatar, getPatientAvatar } from "../utils/avatar";
 
 function extractKeywords(inquiry) {
   const cleaned = inquiry.replace(/[（）()]/g, " ");
@@ -18,7 +18,10 @@ function extractKeywords(inquiry) {
 }
 
 function getInquiryLabel(inquiry) {
-  return inquiry.replace(/（[^）]*）/g, "").replace(/\([^)]*\)/g, "").slice(0, 18);
+  return inquiry
+    .replace(/（[^）]*）/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .slice(0, 18);
 }
 
 function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }) {
@@ -46,41 +49,82 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }) {
         title="采集进度"
         style={{
           position: "relative",
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "6px 12px", borderRadius: 20,
-          border: "1px solid #d1d5db", background: "#fff",
-          cursor: "pointer", fontSize: "0.78rem", fontWeight: 500, color: "#374151",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 12px",
+          borderRadius: 20,
+          border: "1px solid #d1d5db",
+          background: "#fff",
+          cursor: "pointer",
+          fontSize: "0.78rem",
+          fontWeight: 500,
+          color: "#374151",
           transition: "all 0.15s",
         }}
       >
         <ListChecks size={16} />
-        <span>{covered}/{total}</span>
+        <span>
+          {covered}/{total}
+        </span>
         {pct < 100 && (
-          <span style={{
-            position: "absolute", top: -3, right: -3, width: 8, height: 8,
-            borderRadius: "50%", background: "#f59e0b",
-          }} />
+          <span
+            style={{
+              position: "absolute",
+              top: -3,
+              right: -3,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: "#f59e0b",
+            }}
+          />
         )}
       </button>
 
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: 300, maxWidth: "85vw",
-        background: "#fff", zIndex: 1000, boxShadow: "-2px 0 20px rgba(0,0,0,0.1)",
-        transform: isOpen ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 0.25s ease",
-        display: "flex", flexDirection: "column",
-      }}>
-        <div style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "16px 20px", borderBottom: "1px solid #e5e7eb",
-        }}>
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 300,
+          maxWidth: "85vw",
+          background: "#fff",
+          zIndex: 1000,
+          boxShadow: "-2px 0 20px rgba(0,0,0,0.1)",
+          transform: isOpen ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.25s ease",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 20px",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
           <h3 style={{ fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
             <ListChecks size={18} /> 采集进度
           </h3>
-          <button onClick={onToggle} style={{
-            width: 28, height: 28, borderRadius: 6, border: "1px solid #e5e7eb",
-            background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+          <button
+            onClick={onToggle}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <X size={14} />
           </button>
         </div>
@@ -93,10 +137,15 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }) {
             </span>
           </div>
           <div style={{ height: 6, borderRadius: 3, background: "#e5e7eb", overflow: "hidden" }}>
-            <div style={{
-              height: "100%", borderRadius: 3, background: pct >= 80 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444",
-              width: `${pct}%`, transition: "width 0.5s ease",
-            }} />
+            <div
+              style={{
+                height: "100%",
+                borderRadius: 3,
+                background: pct >= 80 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444",
+                width: `${pct}%`,
+                transition: "width 0.5s ease",
+              }}
+            />
           </div>
         </div>
 
@@ -104,35 +153,43 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }) {
           {inquiries.map((inquiry, idx) => {
             const done = addressed.has(idx);
             return (
-              <div key={idx} style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
-                padding: "9px 20px", fontSize: "0.78rem", color: done ? "#374151" : "#9ca3af",
-                transition: "color 0.2s",
-              }}>
-                {done
-                  ? <CheckCircle2 size={16} style={{ color: "#22c55e", flexShrink: 0, marginTop: 1 }} />
-                  : <Circle size={16} style={{ color: "#d1d5db", flexShrink: 0, marginTop: 1 }} />
-                }
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  padding: "9px 20px",
+                  fontSize: "0.78rem",
+                  color: done ? "#374151" : "#9ca3af",
+                  transition: "color 0.2s",
+                }}
+              >
+                {done ? (
+                  <CheckCircle2 size={16} style={{ color: "#22c55e", flexShrink: 0, marginTop: 1 }} />
+                ) : (
+                  <Circle size={16} style={{ color: "#d1d5db", flexShrink: 0, marginTop: 1 }} />
+                )}
                 <span style={{ lineHeight: 1.4 }}>{getInquiryLabel(inquiry)}</span>
               </div>
             );
           })}
         </div>
 
-        <div style={{
-          padding: "12px 20px", borderTop: "1px solid #f3f4f6",
-          fontSize: "0.7rem", color: "#9ca3af", lineHeight: 1.5,
-        }}>
+        <div
+          style={{
+            padding: "12px 20px",
+            borderTop: "1px solid #f3f4f6",
+            fontSize: "0.7rem",
+            color: "#9ca3af",
+            lineHeight: 1.5,
+          }}
+        >
           提示：系统根据对话关键词自动匹配，仅供参考。建议按护理评估框架全面采集病史。
         </div>
       </div>
 
-      {isOpen && (
-        <div
-          onClick={onToggle}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 999 }}
-        />
-      )}
+      {isOpen && <div onClick={onToggle} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 999 }} />}
     </>
   );
 }
@@ -215,23 +272,33 @@ export default function ChatTraining() {
     warned2Ref.current = false;
     autoEndRef.current = false;
     let cancelled = false;
-    getRecordDetail(recordId).then(({ data }) => {
-      if (cancelled) return;
-      setMessages(data.messages || []);
-      if (data.case_name) setCaseTitle(data.case_name);
-      if (data.required_inquiries) setRequiredInquiries(data.required_inquiries);
-      if (data.patient_info) setPatientInfo(data.patient_info);
-      const r = data.remaining_seconds != null
-        ? data.remaining_seconds
-        : Math.max(0, (data.time_limit || 20) * 60 - Math.floor((Date.now() - new Date(data.start_time).getTime()) / 1000));
-      setRemaining(r);
-      setTimerActive(true);
-      if (data.messages?.length > 0) {
-        const m = data.messages[0].content.match(/我是(.+?)[。，]/);
-        if (m) setPatientName(m[1]);
-      }
-    }).catch(() => { if (!cancelled) { toast.error("加载训练记录失败"); navigate("/cases"); } });
-    return () => { cancelled = true; };
+    getRecordDetail(recordId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setMessages(data.messages || []);
+        if (data.case_name) setCaseTitle(data.case_name);
+        if (data.required_inquiries) setRequiredInquiries(data.required_inquiries);
+        if (data.patient_info) setPatientInfo(data.patient_info);
+        const r =
+          data.remaining_seconds != null
+            ? data.remaining_seconds
+            : Math.max(0, (data.time_limit || 20) * 60 - Math.floor((Date.now() - new Date(data.start_time).getTime()) / 1000));
+        setRemaining(r);
+        setTimerActive(true);
+        if (data.messages?.length > 0) {
+          const m = data.messages[0].content.match(/我是(.+?)[。，]/);
+          if (m) setPatientName(m[1]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast.error("加载训练记录失败");
+          navigate("/cases");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [recordId, navigate]);
 
   useEffect(() => {
@@ -244,22 +311,25 @@ export default function ChatTraining() {
     setSpeechSupported({ recognition: rec, synthesis: syn });
   }, []);
 
-  const speakText = useCallback((text) => {
-    if (!window.speechSynthesis) return;
-    if (speaking) {
+  const speakText = useCallback(
+    (text) => {
+      if (!window.speechSynthesis) return;
+      if (speaking) {
+        window.speechSynthesis.cancel();
+        setSpeaking(false);
+        return;
+      }
       window.speechSynthesis.cancel();
-      setSpeaking(false);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "zh-CN";
-    u.rate = 0.9;
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    setSpeaking(true);
-    window.speechSynthesis.speak(u);
-  }, [speaking]);
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "zh-CN";
+      u.rate = 0.9;
+      u.onend = () => setSpeaking(false);
+      u.onerror = () => setSpeaking(false);
+      setSpeaking(true);
+      window.speechSynthesis.speak(u);
+    },
+    [speaking],
+  );
 
   const toggleVoice = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -300,10 +370,7 @@ export default function ChatTraining() {
     setInput("");
     const studentMsgId = Date.now();
     const patientMsgId = studentMsgId + 1;
-    setMessages((prev) => [...prev,
-      { role: "student", content, id: studentMsgId },
-      { role: "patient", content: "", id: patientMsgId, streaming: true },
-    ]);
+    setMessages((prev) => [...prev, { role: "student", content, id: studentMsgId }, { role: "patient", content: "", id: patientMsgId, streaming: true }]);
     setLoading(true);
 
     if (abortRef.current) abortRef.current.abort();
@@ -311,14 +378,13 @@ export default function ChatTraining() {
     abortRef.current = controller;
 
     await sendMessageStream(
-      Number(recordId), content,
+      Number(recordId),
+      content,
       (chunk) => {
-        setMessages((prev) => prev.map((msg) =>
-          msg.id === patientMsgId ? { ...msg, content: msg.content + chunk } : msg));
+        setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, content: msg.content + chunk } : msg)));
       },
       (doneId) => {
-        setMessages((prev) => prev.map((msg) =>
-          msg.id === patientMsgId ? { ...msg, streaming: false, id: doneId || msg.id } : msg));
+        setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, streaming: false, id: doneId || msg.id } : msg)));
         setLoading(false);
         if (abortRef.current === controller) abortRef.current = null;
       },
@@ -371,7 +437,12 @@ export default function ChatTraining() {
   };
 
   const handleEnd = async () => {
-    const ok = await confirm({ title: "结束训练", message: "确定结束本次训练吗？结束后将自动评分，可能需要等待数十秒。", confirmLabel: "确定结束", danger: true });
+    const ok = await confirm({
+      title: "结束训练",
+      message: "确定结束本次训练吗？结束后将自动评分，可能需要等待数十秒。",
+      confirmLabel: "确定结束",
+      danger: true,
+    });
     if (!ok) return;
     executeEnd(false);
   };
@@ -450,15 +521,27 @@ export default function ChatTraining() {
   return (
     <div className="training-shell">
       <header className="training-topbar">
-        <button className="training-back" onClick={async () => { const isActive = remaining > 0 && !score && !ending; if (isActive) { const ok = await confirm({ title: "离开训练", message: "训练还在进行中，离开将丢失当前进度，确认离开吗？", confirmLabel: "确认离开", danger: true }); if (!ok) return; } navigate("/home"); }} title="返回首页">
+        <button
+          className="training-back"
+          onClick={async () => {
+            const isActive = remaining > 0 && !score && !ending;
+            if (isActive) {
+              const ok = await confirm({
+                title: "离开训练",
+                message: "训练还在进行中，离开将丢失当前进度，确认离开吗？",
+                confirmLabel: "确认离开",
+                danger: true,
+              });
+              if (!ok) return;
+            }
+            navigate("/home");
+          }}
+          title="返回首页"
+        >
           <ArrowLeft size={20} />
         </button>
         <div className="training-patient-identity">
-          <img
-            className="training-patient-avatar-img"
-            src={getPatientAvatar(patientInfo)}
-            alt={patientName || "虚拟患者"}
-          />
+          <img className="training-patient-avatar-img" src={getPatientAvatar(patientInfo)} alt={patientName || "虚拟患者"} />
           <div>
             <div className="training-patient-name">{patientName || "虚拟患者"}</div>
             <div className="training-patient-desc">
@@ -478,7 +561,13 @@ export default function ChatTraining() {
 
         <div
           className="training-timer"
-          style={remaining !== null && remaining <= 120 ? { background: "#fef2f2", borderColor: "#fca5a5", color: "#dc2626" } : remaining !== null && remaining <= 300 ? { background: "#fffbeb", borderColor: "#fcd34d", color: "#d97706" } : {}}
+          style={
+            remaining !== null && remaining <= 120
+              ? { background: "#fef2f2", borderColor: "#fca5a5", color: "#dc2626" }
+              : remaining !== null && remaining <= 300
+                ? { background: "#fffbeb", borderColor: "#fcd34d", color: "#d97706" }
+                : {}
+          }
         >
           <Clock size={16} />
           <span>{formatTime(remaining)}</span>
@@ -490,82 +579,62 @@ export default function ChatTraining() {
       </header>
 
       <div className="training-body">
-        <PatientPortrait
-          patientInfo={patientInfo}
-          collapsed={!showPortrait}
-          onToggle={() => setShowPortrait((v) => !v)}
-        />
+        <PatientPortrait patientInfo={patientInfo} collapsed={!showPortrait} onToggle={() => setShowPortrait((v) => !v)} />
 
         <div className="training-conversation">
-        {messages.length <= 1 && (
-          <div className="training-hint">
-            <div className="training-hint-icon">
-              <img
-                className="msg-avatar"
-                src={getPatientAvatar(patientInfo)}
-                alt="患者"
-                style={{ width: 36, height: 36 }}
-              />
+          {messages.length <= 1 && (
+            <div className="training-hint">
+              <div className="training-hint-icon">
+                <img className="msg-avatar" src={getPatientAvatar(patientInfo)} alt="患者" style={{ width: 36, height: 36 }} />
+              </div>
+              <p>请按照护理评估流程与患者交流</p>
+              <span>从主诉开始，逐步了解现病史、既往史、用药史等信息</span>
             </div>
-            <p>请按照护理评估流程与患者交流</p>
-            <span>从主诉开始，逐步了解现病史、既往史、用药史等信息</span>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={msg.id || i} className={`msg-row ${msg.role}`}>
-            {msg.role === "patient" && (
-              <img
-                className="msg-avatar"
-                src={getPatientAvatar(patientInfo)}
-                alt="患者"
-              />
-            )}
-            <div className={`msg-bubble${msg.streaming ? " streaming" : ""}`}>
-              <p>{msg.content}{msg.streaming ? "" : ""}</p>
+          )}
+          {messages.map((msg, i) => (
+            <div key={msg.id || i} className={`msg-row ${msg.role}`}>
+              {msg.role === "patient" && <img className="msg-avatar" src={getPatientAvatar(patientInfo)} alt="患者" />}
+              <div className={`msg-bubble${msg.streaming ? " streaming" : ""}`}>
+                <p>
+                  {msg.content}
+                  {msg.streaming ? "" : ""}
+                </p>
+              </div>
+              {msg.role === "student" && <img className="msg-avatar" src={getNurseAvatar()} alt="护士" />}
+              {msg.role === "patient" && !msg.streaming && speechSupported.synthesis && (
+                <button className="msg-speak-btn" onClick={() => speakText(msg.content)} title={speaking ? "停止朗读" : "朗读"}>
+                  {speaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                </button>
+              )}
             </div>
-            {msg.role === "student" && (
-              <img
-                className="msg-avatar"
-                src={getNurseAvatar()}
-                alt="护士"
-              />
-            )}
-            {msg.role === "patient" && !msg.streaming && speechSupported.synthesis && (
-              <button className="msg-speak-btn" onClick={() => speakText(msg.content)} title={speaking ? "停止朗读" : "朗读"}>
-                {speaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
-              </button>
-            )}
-          </div>
-        ))}
-        {loading && !messages.some(m => m.streaming) && (
-          <div className="msg-row patient">
-            <img
-              className="msg-avatar"
-              src={getPatientAvatar(patientInfo)}
-              alt="患者"
-            />
-            <div className="msg-bubble">
-              <div className="typing-dots"><span /><span /><span /></div>
+          ))}
+          {loading && !messages.some((m) => m.streaming) && (
+            <div className="msg-row patient">
+              <img className="msg-avatar" src={getPatientAvatar(patientInfo)} alt="患者" />
+              <div className="msg-bubble">
+                <div className="typing-dots">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-        {remaining === 0 && (
-          <div className="time-up-banner">训练时间已结束，系统正在自动评分...</div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          )}
+          {remaining === 0 && <div className="time-up-banner">训练时间已结束，系统正在自动评分...</div>}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <div className="training-input-bar">
         {speechSupported.recognition && (
-        <button
-          className={`voice-btn ${isListening ? "active" : ""}`}
-          onClick={toggleVoice}
-          disabled={loading || ending || remaining === 0}
-          title={isListening ? "停止录音" : "语音输入"}
-        >
-          {isListening ? <MicOff size={20} /> : <Mic size={20} />}
-        </button>
+          <button
+            className={`voice-btn ${isListening ? "active" : ""}`}
+            onClick={toggleVoice}
+            disabled={loading || ending || remaining === 0}
+            title={isListening ? "停止录音" : "语音输入"}
+          >
+            {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
         )}
         <input
           type="text"
@@ -583,24 +652,38 @@ export default function ChatTraining() {
       {showOverlay && (
         <div className="score-overlay">
           <div className="score-modal" style={{ textAlign: "center", padding: "40px 32px", maxWidth: 420 }}>
-            <div style={{
-              width: 48, height: 48, margin: "0 auto 20px",
-              border: "4px solid var(--gray-200)", borderTopColor: "var(--blue-600)",
-              borderRadius: "50%", animation: "spin 0.8s linear infinite",
-            }} />
-            <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>
-              {scoreProgress >= 100 ? "评分完成，即将展示报告" : "AI 正在评分"}
-            </h3>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                margin: "0 auto 20px",
+                border: "4px solid var(--gray-200)",
+                borderTopColor: "var(--blue-600)",
+                borderRadius: "50%",
+                animation: "spin 0.8s linear infinite",
+              }}
+            />
+            <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>{scoreProgress >= 100 ? "评分完成，即将展示报告" : "AI 正在评分"}</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: 24 }}>
               正在分析你的训练表现，根据问诊完整性、沟通技巧等维度进行评分，请耐心等待...
             </p>
-            <div style={{
-              height: 6, borderRadius: 3, background: "var(--gray-200)", overflow: "hidden",
-            }}>
-              <div style={{
-                height: "100%", borderRadius: 3, background: scoreProgress >= 100 ? "#22c55e" : "var(--blue-600)",
-                width: `${scoreProgress}%`, transition: scoreProgress >= 100 ? "none" : "width 0.05s linear",
-              }} />
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                background: "var(--gray-200)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  borderRadius: 3,
+                  background: scoreProgress >= 100 ? "#22c55e" : "var(--blue-600)",
+                  width: `${scoreProgress}%`,
+                  transition: scoreProgress >= 100 ? "none" : "width 0.05s linear",
+                }}
+              />
             </div>
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -608,12 +691,7 @@ export default function ChatTraining() {
       )}
 
       {showScore && score && (
-        <ScoreCard
-          score={score}
-          onClose={() => setShowScore(false)}
-          onRetry={() => navigate("/cases")}
-          onGoHome={() => navigate("/home")}
-        />
+        <ScoreCard score={score} onClose={() => setShowScore(false)} onRetry={() => navigate("/cases")} onGoHome={() => navigate("/home")} />
       )}
     </div>
   );

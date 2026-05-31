@@ -1,15 +1,15 @@
-import { useState } from "react";
 import { Settings } from "lucide-react";
+import { useState } from "react";
 import Layout from "../components/Layout";
-import PageHeader from "../components/ui/PageHeader";
-import Tabs from "../components/ui/Tabs";
-import RecordsTab from "../components/teacher/RecordsTab";
-import UsersTab from "../components/teacher/UsersTab";
+import ApiManagementTab from "../components/teacher/ApiManagementTab";
 import CasesTab from "../components/teacher/CasesTab";
 import MonitorTab from "../components/teacher/MonitorTab";
-import QARecordsTab from "../components/teacher/QARecordsTab";
-import ApiManagementTab from "../components/teacher/ApiManagementTab";
 import PromptManagementTab from "../components/teacher/PromptManagementTab";
+import QARecordsTab from "../components/teacher/QARecordsTab";
+import RecordsTab from "../components/teacher/RecordsTab";
+import UsersTab from "../components/teacher/UsersTab";
+import PageHeader from "../components/ui/PageHeader";
+import Tabs from "../components/ui/Tabs";
 
 const ADMIN_TABS = [
   { key: "records", label: "训练记录" },
@@ -26,11 +26,7 @@ export default function Admin({ user, onLogout }) {
 
   return (
     <Layout user={user} onLogout={onLogout}>
-      <PageHeader
-        title="管理后台"
-        subtitle="教师管理面板：查看训练记录、管理用户与病例、监控 LLM 调用"
-        icon={Settings}
-      />
+      <PageHeader title="管理后台" subtitle="教师管理面板：查看训练记录、管理用户与病例、监控 LLM 调用" icon={Settings} />
 
       <Tabs tabs={ADMIN_TABS} activeTab={activeTab} onChange={setActiveTab} />
 

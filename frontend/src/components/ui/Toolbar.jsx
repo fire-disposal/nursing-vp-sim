@@ -17,17 +17,9 @@ export default function Toolbar({ children, style }) {
 }
 
 export function ToolbarLeft({ children, style }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap", ...style }}>
-      {children}
-    </div>
-  );
+  return <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap", ...style }}>{children}</div>;
 }
 
 export function ToolbarRight({ children, style }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap", ...style }}>
-      {children}
-    </div>
-  );
+  return <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap", ...style }}>{children}</div>;
 }

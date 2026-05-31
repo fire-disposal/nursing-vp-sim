@@ -6,7 +6,9 @@ export default function Drawer({ open, onClose, title, children, width = 360, po
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     document.body.style.overflow = "hidden";
     return () => {
@@ -22,7 +24,9 @@ export default function Drawer({ open, onClose, title, children, width = 360, po
   return (
     <div
       ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -55,17 +59,17 @@ export default function Drawer({ open, onClose, title, children, width = 360, po
           }
         `}</style>
 
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "var(--space-4) var(--space-5)",
-          borderBottom: "1px solid var(--border-color)",
-          flexShrink: 0,
-        }}>
-          <h3 style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", margin: 0 }}>
-            {title}
-          </h3>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "var(--space-4) var(--space-5)",
+            borderBottom: "1px solid var(--border-color)",
+            flexShrink: 0,
+          }}
+        >
+          <h3 style={{ fontSize: "var(--font-size-md)", fontWeight: "var(--font-weight-semibold)", margin: 0 }}>{title}</h3>
           <button
             onClick={onClose}
             style={{
@@ -82,9 +86,7 @@ export default function Drawer({ open, onClose, title, children, width = 360, po
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-5)" }}>
-          {children}
-        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-5)" }}>{children}</div>
       </div>
     </div>
   );

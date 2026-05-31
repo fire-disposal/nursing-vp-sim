@@ -38,43 +38,51 @@ export default function StatCard({ icon: Icon, value, label, color = "blue", tre
       }}
     >
       {Icon && (
-        <div style={{
-          width: 44,
-          height: 44,
-          borderRadius: "var(--radius-md)",
-          background: c.bg,
-          color: c.color,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "var(--radius-md)",
+            background: c.bg,
+            color: c.color,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
           <Icon size={20} />
         </div>
       )}
       <div style={{ minWidth: 0 }}>
-        <div style={{
-          fontSize: "var(--font-size-xl)",
-          fontWeight: "var(--font-weight-bold)",
-          lineHeight: 1.2,
-          color: "var(--text-primary)",
-        }}>
+        <div
+          style={{
+            fontSize: "var(--font-size-xl)",
+            fontWeight: "var(--font-weight-bold)",
+            lineHeight: 1.2,
+            color: "var(--text-primary)",
+          }}
+        >
           {value ?? "-"}
         </div>
-        <div style={{
-          fontSize: "var(--font-size-sm)",
-          color: "var(--text-secondary)",
-          marginTop: 2,
-        }}>
+        <div
+          style={{
+            fontSize: "var(--font-size-sm)",
+            color: "var(--text-secondary)",
+            marginTop: 2,
+          }}
+        >
           {label}
         </div>
         {trend && (
-          <div style={{
-            fontSize: "var(--font-size-xs)",
-            color: trend > 0 ? "var(--color-success)" : trend < 0 ? "var(--color-danger)" : "var(--text-tertiary)",
-            marginTop: 2,
-            fontWeight: "var(--font-weight-medium)",
-          }}>
+          <div
+            style={{
+              fontSize: "var(--font-size-xs)",
+              color: trend > 0 ? "var(--color-success)" : trend < 0 ? "var(--color-danger)" : "var(--text-tertiary)",
+              marginTop: 2,
+              fontWeight: "var(--font-weight-medium)",
+            }}
+          >
             {trend > 0 ? "↑" : trend < 0 ? "↓" : "→"} {Math.abs(trend)}%
           </div>
         )}

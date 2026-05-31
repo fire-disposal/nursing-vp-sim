@@ -1,12 +1,27 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { BarChart3, ClipboardList, Clock, Download, FileText, MessageCircle, RefreshCw, User, ShieldCheck, Edit3, X, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
-import { getRecordDetail, exportRecordDetail, retryScoring, getScoreReview, submitScoreReview } from "../api";
+import {
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+  Clock,
+  Download,
+  Edit3,
+  FileText,
+  MessageCircle,
+  MessageSquare,
+  RefreshCw,
+  ShieldCheck,
+  User,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "../api";
 import Layout from "../components/Layout";
-import PageHeader from "../components/ui/PageHeader";
 import ScoreCard from "../components/ScoreCard";
 import { useToast } from "../components/Toast";
 import Badge from "../components/ui/Badge";
+import PageHeader from "../components/ui/PageHeader";
 
 function ReviewItem({ item, editedScore, onChange }) {
   const [expanded, setExpanded] = useState(false);
@@ -15,11 +30,19 @@ function ReviewItem({ item, editedScore, onChange }) {
 
   return (
     <div style={{ marginBottom: 6 }}>
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "8px 12px", borderRadius: 8, background: "#f9fafb", border: "1px solid #e5e7eb",
-        flexWrap: "wrap", gap: 8,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "8px 12px",
+          borderRadius: 8,
+          background: "#f9fafb",
+          border: "1px solid #e5e7eb",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: "0.82rem", fontWeight: 500, color: "#374151" }}>{item.name}</span>
@@ -34,10 +57,13 @@ function ReviewItem({ item, editedScore, onChange }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
             <span style={{ fontSize: "0.7rem", color: "#9ca3af" }}>AI 评分: </span>
-            <span style={{
-              fontSize: "0.72rem", fontWeight: 700,
-              color: item.score >= 3 ? "#15803d" : item.score >= 2 ? "#b45309" : "#dc2626",
-            }}>
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: item.score >= 3 ? "#15803d" : item.score >= 2 ? "#b45309" : "#dc2626",
+              }}
+            >
               {item.score}/3
             </span>
           </div>
@@ -48,11 +74,16 @@ function ReviewItem({ item, editedScore, onChange }) {
               key={s}
               onClick={() => onChange(item.id, s)}
               style={{
-                width: 32, height: 32, borderRadius: 8, border: currentScore === s ? "2px solid #2563eb" : "1px solid #d1d5db",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: currentScore === s ? "2px solid #2563eb" : "1px solid #d1d5db",
                 background: currentScore === s ? "#eff6ff" : "#fff",
                 color: currentScore === s ? "#2563eb" : "#6b7280",
-                fontWeight: currentScore === s ? 700 : 500, fontSize: "0.8rem",
-                cursor: "pointer", transition: "all 0.15s",
+                fontWeight: currentScore === s ? 700 : 500,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                transition: "all 0.15s",
               }}
             >
               {s}
@@ -61,10 +92,17 @@ function ReviewItem({ item, editedScore, onChange }) {
         </div>
       </div>
       {expanded && hasEvidence && (
-        <div style={{
-          margin: "2px 4px 4px 12px", padding: "8px 10px", borderRadius: 6,
-          background: "#f8fafc", border: "1px solid #e5e7eb", fontSize: "0.73rem", lineHeight: 1.55,
-        }}>
+        <div
+          style={{
+            margin: "2px 4px 4px 12px",
+            padding: "8px 10px",
+            borderRadius: 6,
+            background: "#f8fafc",
+            border: "1px solid #e5e7eb",
+            fontSize: "0.73rem",
+            lineHeight: 1.55,
+          }}
+        >
           {item.evidence && (
             <div style={{ marginBottom: item.reason ? 4 : 0 }}>
               <span style={{ fontWeight: 600, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
@@ -135,8 +173,15 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }) {
           <button
             onClick={onClose}
             style={{
-              width: 32, height: 32, borderRadius: 8, border: "1px solid #e5e7eb",
-              background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <X size={16} />
@@ -146,19 +191,20 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }) {
         {isNewFormat ? (
           categories.map(([catName, catData]) => (
             <div key={catName} style={{ marginBottom: 16 }}>
-              <div style={{
-                fontSize: "0.75rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase",
-                letterSpacing: "0.05em", marginBottom: 8,
-              }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color: "#6b7280",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 8,
+                }}
+              >
                 {catName}（{catData.score}/{catData.max}）
               </div>
               {catData.items.map((item) => (
-                <ReviewItem
-                  key={item.id}
-                  item={item}
-                  editedScore={editedScores[item.id]}
-                  onChange={handleScoreChange}
-                />
+                <ReviewItem key={item.id} item={item} editedScore={editedScores[item.id]} onChange={handleScoreChange} />
               ))}
             </div>
           ))
@@ -169,23 +215,28 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }) {
         )}
 
         <div style={{ marginTop: 16 }}>
-          <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
-            复核备注
-          </label>
+          <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>复核备注</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="可选：对评分调整的说明..."
             rows={3}
             style={{
-              width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #d1d5db",
-              fontSize: "0.82rem", resize: "vertical", fontFamily: "inherit",
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              fontSize: "0.82rem",
+              resize: "vertical",
+              fontFamily: "inherit",
             }}
           />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button className="btn btn-outline" onClick={onClose} disabled={submitting}>取消</button>
+          <button className="btn btn-outline" onClick={onClose} disabled={submitting}>
+            取消
+          </button>
           <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? "提交中..." : "提交复核"}
           </button>
@@ -273,7 +324,9 @@ export default function RecordDetail({ user, onLogout }) {
       a.download = `record_${id}.txt`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { toast.error("导出失败"); }
+    } catch {
+      toast.error("导出失败");
+    }
   };
 
   const handleSubmitReview = async (modifiedScores, comment) => {
@@ -302,53 +355,58 @@ export default function RecordDetail({ user, onLogout }) {
     );
   }
 
-  const duration = record.end_time
-    ? Math.round((new Date(record.end_time) - new Date(record.start_time)) / 60000)
-    : null;
+  const duration = record.end_time ? Math.round((new Date(record.end_time) - new Date(record.start_time)) / 60000) : null;
   const isLegacyScore = record.score?.rubric_version?.startsWith("legacy");
   const scoreMax = isLegacyScore
     ? 100
     : record.score?.detail_scores
-    ? Object.values(record.score.detail_scores).reduce((sum, value) => {
-        if (value && typeof value === "object" && "max" in value) return sum + (value.max || 0);
-        return sum + 30;
-      }, 0)
-    : 100;
+      ? Object.values(record.score.detail_scores).reduce((sum, value) => {
+          if (value && typeof value === "object" && "max" in value) return sum + (value.max || 0);
+          return sum + 30;
+        }, 0)
+      : 100;
 
   return (
     <Layout user={user} onLogout={onLogout}>
-      <PageHeader
-        title="记录详情"
-        subtitle={`训练记录 #${record.id}`}
-        icon={FileText}
-        backTo="/history"
-      />
+      <PageHeader title="记录详情" subtitle={`训练记录 #${record.id}`} icon={FileText} backTo="/history" />
 
       {/* 元信息 */}
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon blue"><User size={22} /></div>
+          <div className="stat-icon blue">
+            <User size={22} />
+          </div>
           <div>
-            <div className="stat-value" style={{ fontSize: "1rem" }}>{record.user_display_name}</div>
+            <div className="stat-value" style={{ fontSize: "1rem" }}>
+              {record.user_display_name}
+            </div>
             <div className="stat-label">学生</div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon cyan"><ClipboardList size={22} /></div>
+          <div className="stat-icon cyan">
+            <ClipboardList size={22} />
+          </div>
           <div>
-            <div className="stat-value" style={{ fontSize: "1rem" }}>{record.case_name}</div>
+            <div className="stat-value" style={{ fontSize: "1rem" }}>
+              {record.case_name}
+            </div>
             <div className="stat-label">病例</div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon amber"><Clock size={22} /></div>
+          <div className="stat-icon amber">
+            <Clock size={22} />
+          </div>
           <div>
             <div className="stat-value">{duration != null ? `${duration}分钟` : "-"}</div>
             <div className="stat-label">训练时长</div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon green"><BarChart3 size={22} /></div>
+          <div className="stat-icon green">
+            <BarChart3 size={22} />
+          </div>
           <div>
             <div className="stat-value">{record.score?.total_score ?? "-"}</div>
             <div className="stat-label">得分</div>
@@ -362,15 +420,14 @@ export default function RecordDetail({ user, onLogout }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <h3 style={{ color: "var(--amber-700)" }}>
-                {record.scoring_status === "pending" || record.scoring_status === "processing"
-                  ? "评分正在生成中..." : "暂无评分"}
+                {record.scoring_status === "pending" || record.scoring_status === "processing" ? "评分正在生成中..." : "暂无评分"}
               </h3>
               <p style={{ fontSize: "0.85rem", color: "var(--amber-700)", marginTop: 4 }}>
                 {record.scoring_status === "pending" || record.scoring_status === "processing"
-                  ? "AI 正在分析对话内容，预计几秒到一分钟内完成。" :
-                  record.scoring_status === "failed"
-                    ? `评分失败: ${record.scoring_error || "未知错误"}` :
-                    "评分尚未生成"}
+                  ? "AI 正在分析对话内容，预计几秒到一分钟内完成。"
+                  : record.scoring_status === "failed"
+                    ? `评分失败: ${record.scoring_error || "未知错误"}`
+                    : "评分尚未生成"}
               </p>
             </div>
             {record.scoring_status === "failed" && (
@@ -409,8 +466,13 @@ export default function RecordDetail({ user, onLogout }) {
                   <Edit3 size={14} /> {isReviewed ? "修改复核" : "复核评分"}
                 </button>
               )}
-              <button className="btn btn-sm btn-primary" onClick={() => setShowScore(true)}>查看详细评分</button>
-              <button className="btn btn-sm btn-outline" onClick={handleExport}><Download size={14} />导出记录</button>
+              <button className="btn btn-sm btn-primary" onClick={() => setShowScore(true)}>
+                查看详细评分
+              </button>
+              <button className="btn btn-sm btn-outline" onClick={handleExport}>
+                <Download size={14} />
+                导出记录
+              </button>
             </div>
           </div>
           <div style={{ fontSize: "2.5rem", fontWeight: 800, color: "var(--primary)" }}>
@@ -418,10 +480,17 @@ export default function RecordDetail({ user, onLogout }) {
             <span style={{ fontSize: "1rem", color: "var(--text-secondary)", fontWeight: 400 }}> / {scoreMax}分</span>
           </div>
           {isReviewed && review?.review_comment && (
-            <div style={{
-              marginTop: 10, padding: "8px 12px", borderRadius: 6, background: "rgba(255,255,255,0.7)",
-              fontSize: "0.78rem", color: "#374151", border: "1px solid #e5e7eb",
-            }}>
+            <div
+              style={{
+                marginTop: 10,
+                padding: "8px 12px",
+                borderRadius: 6,
+                background: "rgba(255,255,255,0.7)",
+                fontSize: "0.78rem",
+                color: "#374151",
+                border: "1px solid #e5e7eb",
+              }}
+            >
               <span style={{ fontWeight: 600, color: "#6b7280" }}>复核备注：</span>
               {review.review_comment}
             </div>
@@ -431,15 +500,22 @@ export default function RecordDetail({ user, onLogout }) {
 
       {/* 对话回放 */}
       <div className="card">
-        <div className="card-header"><h3><MessageCircle size={18} />对话回放 ({record.messages.length}条消息)</h3></div>
+        <div className="card-header">
+          <h3>
+            <MessageCircle size={18} />
+            对话回放 ({record.messages.length}条消息)
+          </h3>
+        </div>
         <div style={{ background: "#f8fafc", borderRadius: 8, padding: 20, maxHeight: 400, overflowY: "auto" }}>
           {record.messages.map((msg) => (
             <div key={msg.id} style={{ marginBottom: 10, fontSize: "0.875rem", lineHeight: 1.6 }}>
-              <span style={{
-                fontWeight: 600,
-                color: msg.role === "student" ? "var(--primary)" : "#0d9488",
-                marginRight: 8,
-              }}>
+              <span
+                style={{
+                  fontWeight: 600,
+                  color: msg.role === "student" ? "var(--primary)" : "#0d9488",
+                  marginRight: 8,
+                }}
+              >
                 {msg.role === "student" ? "学生：" : "患者："}
               </span>
               <span>{msg.content}</span>

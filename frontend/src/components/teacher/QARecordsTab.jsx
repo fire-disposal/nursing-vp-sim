@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
 import { MessageCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { getQAHistoryAll } from "../../api";
-import { useToast } from "../Toast";
 import Pagination from "../../components/Pagination";
+import { useToast } from "../Toast";
 
 function truncate(text, maxLen) {
   if (text.length <= maxLen) return text;
@@ -30,12 +30,12 @@ export default function QARecordsTab() {
 
   return (
     <div className="card">
-      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-        共 {total} 条问答记录
-      </div>
+      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>共 {total} 条问答记录</div>
       {records.length === 0 ? (
         <div className="empty-state">
-          <div className="icon"><MessageCircle size={42} /></div>
+          <div className="icon">
+            <MessageCircle size={42} />
+          </div>
           <div>暂无问答记录</div>
         </div>
       ) : (
@@ -53,11 +53,7 @@ export default function QARecordsTab() {
             {records.map((r) => {
               const isOpen = expanded === r.id;
               return (
-                <tr
-                  key={r.id}
-                  onClick={() => toggleExpand(r.id)}
-                  style={{ cursor: "pointer" }}
-                >
+                <tr key={r.id} onClick={() => toggleExpand(r.id)} style={{ cursor: "pointer" }}>
                   <td style={{ fontWeight: 500 }}>{r.display_name || r.username}</td>
                   <td style={{ color: "var(--text-secondary)" }}>{r.display_name ? r.username : "-"}</td>
                   <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isOpen ? "normal" : "nowrap" }}>

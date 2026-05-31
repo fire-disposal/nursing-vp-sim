@@ -2,28 +2,22 @@ export default function FormField({ label, required, error, help, children, styl
   return (
     <div style={{ marginBottom: "var(--space-4)", ...style }}>
       {label && (
-        <label style={{
-          display: "block",
-          fontSize: "var(--font-size-sm)",
-          color: "var(--text-secondary)",
-          marginBottom: "var(--space-1)",
-          fontWeight: "var(--font-weight-semibold)",
-        }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "var(--font-size-sm)",
+            color: "var(--text-secondary)",
+            marginBottom: "var(--space-1)",
+            fontWeight: "var(--font-weight-semibold)",
+          }}
+        >
           {label}
           {required && <span style={{ color: "var(--color-danger)", marginLeft: 2 }}>*</span>}
         </label>
       )}
       {children}
-      {help && (
-        <div style={{ fontSize: "var(--font-size-xs)", color: "var(--text-tertiary)", marginTop: "var(--space-1)" }}>
-          {help}
-        </div>
-      )}
-      {error && (
-        <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-danger)", marginTop: "var(--space-1)" }}>
-          {error}
-        </div>
-      )}
+      {help && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--text-tertiary)", marginTop: "var(--space-1)" }}>{help}</div>}
+      {error && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-danger)", marginTop: "var(--space-1)" }}>{error}</div>}
     </div>
   );
 }
@@ -78,7 +72,9 @@ export function Select({ options, placeholder, ...props }) {
     >
       {placeholder && <option value="">{placeholder}</option>}
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
       ))}
     </select>
   );

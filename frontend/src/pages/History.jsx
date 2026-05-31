@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { ClipboardList, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, RefreshCw, Loader2, Trash2 } from "lucide-react";
-import { getRecords, deleteRecord } from "../api";
+import { deleteRecord, getRecords } from "../api";
 import Layout from "../components/Layout";
-import PageHeader from "../components/ui/PageHeader";
+import Pagination from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
-import Pagination from "../components/Pagination";
+import PageHeader from "../components/ui/PageHeader";
 
 export default function History({ user, onLogout }) {
   const [records, setRecords] = useState([]);
@@ -37,7 +37,12 @@ export default function History({ user, onLogout }) {
   }, [filters, offset]);
 
   const handleDeleteRecord = async (r) => {
-    const ok = await confirm({ title: "删除记录", message: `确定删除「${r.case_name}」的训练记录吗？此操作不可撤销。`, confirmLabel: "确定删除", danger: true });
+    const ok = await confirm({
+      title: "删除记录",
+      message: `确定删除「${r.case_name}」的训练记录吗？此操作不可撤销。`,
+      confirmLabel: "确定删除",
+      danger: true,
+    });
     if (!ok) return;
     try {
       await deleteRecord(r.id);
@@ -50,7 +55,9 @@ export default function History({ user, onLogout }) {
 
   const clearFilters = () => setFilters({ status: "", date_from: "", date_to: "" });
 
-  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
 
   useEffect(() => {
     setOffset(0);
@@ -58,11 +65,7 @@ export default function History({ user, onLogout }) {
 
   return (
     <Layout user={user} onLogout={onLogout}>
-      <PageHeader
-        title="训练记录"
-        subtitle={user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"}
-        icon={ClipboardList}
-      />
+      <PageHeader title="训练记录" subtitle={user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"} icon={ClipboardList} />
 
       <div className="card">
         <div className="filter-bar">
@@ -84,7 +87,9 @@ export default function History({ user, onLogout }) {
               <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} />
             </div>
             <div className="filter-item" style={{ alignSelf: "flex-end" }}>
-              <button className="btn btn-sm" onClick={clearFilters}>清除过滤</button>
+              <button className="btn btn-sm" onClick={clearFilters}>
+                清除过滤
+              </button>
             </div>
           </div>
         </div>
@@ -96,7 +101,9 @@ export default function History({ user, onLogout }) {
           </div>
         ) : error ? (
           <div className="empty-state">
-            <div className="icon"><ClipboardList size={42} /></div>
+            <div className="icon">
+              <ClipboardList size={42} />
+            </div>
             <div style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</div>
             <button className="btn btn-primary" onClick={fetchRecords}>
               <RefreshCw size={16} /> 重试
@@ -104,7 +111,9 @@ export default function History({ user, onLogout }) {
           </div>
         ) : records.length === 0 ? (
           <div className="empty-state">
-            <div className="icon"><ClipboardList size={42} /></div>
+            <div className="icon">
+              <ClipboardList size={42} />
+            </div>
             <div>暂无训练记录</div>
           </div>
         ) : (
@@ -123,52 +132,46 @@ export default function History({ user, onLogout }) {
             </thead>
             <tbody>
               {records.map((r) => {
-                const durMins = r.end_time
-                  ? Math.round((new Date(r.end_time) - new Date(r.start_time)) / 60000)
-                  : null;
+                const durMins = r.end_time ? Math.round((new Date(r.end_time) - new Date(r.start_time)) / 60000) : null;
                 return (
-                <tr key={r.id}>
-                  {user?.role === "teacher" && <td>{r.user_display_name}</td>}
-                  {user?.role === "teacher" && <td style={{ color: "var(--text-secondary)" }}>{r.user_student_id}</td>}
-                  <td>{r.case_name}</td>
-                  <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                    {new Date(r.start_time).toLocaleString("zh-CN")}
-                  </td>
-                  <td style={{ color: durMins != null ? "var(--text-secondary)" : "var(--text-light)" }}>
-                    {durMins != null ? `${durMins} 分钟` : "进行中"}
-                  </td>
-                  <td>
-                    <span className={`badge ${r.status === "completed" ? "badge-success" : "badge-info"}`}>
-                      {r.status === "completed" ? "已完成" : "进行中"}
-                    </span>
-                  </td>
-                  <td>
-                    {r.score_total != null ? (
-                      <span style={{ fontWeight: 600, color: "var(--primary)" }}>{r.score_total}分</span>
-                    ) : r.scoring_status === "pending" || r.scoring_status === "processing" ? (
-                      <span style={{ fontSize: "0.78rem", color: "var(--amber-500)" }}>评分中...</span>
-                    ) : r.scoring_status === "failed" ? (
-                      <span style={{ fontSize: "0.78rem", color: "var(--red-500)" }} title={r.scoring_error}>评分失败</span>
-                    ) : (
-                      <span style={{ color: "var(--text-light)" }}>-</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className="link" onClick={() => navigate(`/record/${r.id}`)}>查看详情</span>
-                    {r.status === "in_progress" && user?.role !== "teacher" && (
-                      <span className="link" style={{ marginLeft: 12 }} onClick={() => navigate(`/training/${r.id}`)}>
-                        继续训练
+                  <tr key={r.id}>
+                    {user?.role === "teacher" && <td>{r.user_display_name}</td>}
+                    {user?.role === "teacher" && <td style={{ color: "var(--text-secondary)" }}>{r.user_student_id}</td>}
+                    <td>{r.case_name}</td>
+                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(r.start_time).toLocaleString("zh-CN")}</td>
+                    <td style={{ color: durMins != null ? "var(--text-secondary)" : "var(--text-light)" }}>{durMins != null ? `${durMins} 分钟` : "进行中"}</td>
+                    <td>
+                      <span className={`badge ${r.status === "completed" ? "badge-success" : "badge-info"}`}>
+                        {r.status === "completed" ? "已完成" : "进行中"}
                       </span>
-                    )}
-                    <button
-                      className="btn btn-sm btn-danger"
-                      style={{ marginLeft: 12 }}
-                      onClick={() => handleDeleteRecord(r)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
+                    </td>
+                    <td>
+                      {r.score_total != null ? (
+                        <span style={{ fontWeight: 600, color: "var(--primary)" }}>{r.score_total}分</span>
+                      ) : r.scoring_status === "pending" || r.scoring_status === "processing" ? (
+                        <span style={{ fontSize: "0.78rem", color: "var(--amber-500)" }}>评分中...</span>
+                      ) : r.scoring_status === "failed" ? (
+                        <span style={{ fontSize: "0.78rem", color: "var(--red-500)" }} title={r.scoring_error}>
+                          评分失败
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text-light)" }}>-</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="link" onClick={() => navigate(`/record/${r.id}`)}>
+                        查看详情
+                      </span>
+                      {r.status === "in_progress" && user?.role !== "teacher" && (
+                        <span className="link" style={{ marginLeft: 12 }} onClick={() => navigate(`/training/${r.id}`)}>
+                          继续训练
+                        </span>
+                      )}
+                      <button className="btn btn-sm btn-danger" style={{ marginLeft: 12 }} onClick={() => handleDeleteRecord(r)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>

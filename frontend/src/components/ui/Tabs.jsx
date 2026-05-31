@@ -31,15 +31,17 @@ export default function Tabs({ tabs, activeTab, onChange, style }) {
           {tab.icon && <tab.icon size={14} style={{ marginRight: 6, verticalAlign: -2 }} />}
           {tab.label}
           {tab.count != null && (
-            <span style={{
-              marginLeft: 6,
-              padding: "1px 7px",
-              borderRadius: "var(--radius-full)",
-              fontSize: "var(--font-size-xs)",
-              fontWeight: "var(--font-weight-semibold)",
-              background: activeTab === tab.key ? "var(--color-primary-soft)" : "var(--bg-surface-subtle)",
-              color: activeTab === tab.key ? "var(--color-primary)" : "var(--text-tertiary)",
-            }}>
+            <span
+              style={{
+                marginLeft: 6,
+                padding: "1px 7px",
+                borderRadius: "var(--radius-full)",
+                fontSize: "var(--font-size-xs)",
+                fontWeight: "var(--font-weight-semibold)",
+                background: activeTab === tab.key ? "var(--color-primary-soft)" : "var(--bg-surface-subtle)",
+                color: activeTab === tab.key ? "var(--color-primary)" : "var(--text-tertiary)",
+              }}
+            >
               {tab.count}
             </span>
           )}

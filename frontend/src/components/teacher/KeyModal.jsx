@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import Modal from "../ui/Modal";
-import { createKey, updateKey, fetchProviders } from "../../api/apiManagement";
+import { useEffect, useState } from "react";
+import { createKey, fetchProviders, updateKey } from "../../api/apiManagement";
 import { useToast } from "../Toast";
+import Modal from "../ui/Modal";
 
 const PURPOSE_OPTIONS = [
   { value: "*", label: "默认（所有场景）" },
@@ -30,7 +30,9 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
 
   useEffect(() => {
     if (open) {
-      fetchProviders().then(({ data }) => setProviders(data)).catch(() => {});
+      fetchProviders()
+        .then(({ data }) => setProviders(data))
+        .catch(() => {});
     }
   }, [open]);
 
@@ -72,8 +74,14 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.provider_id) { toast.error("请选择服务商"); return; }
-    if (!form.raw_key && !keyData) { toast.error("API Key 为必填项"); return; }
+    if (!form.provider_id) {
+      toast.error("请选择服务商");
+      return;
+    }
+    if (!form.raw_key && !keyData) {
+      toast.error("API Key 为必填项");
+      return;
+    }
     setSaving(true);
     try {
       const payload = { ...form };
@@ -164,7 +172,9 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
           <select style={inputStyle} value={form.provider_id} onChange={handleChange("provider_id")} required>
             <option value="">-- 请选择服务商 --</option>
             {providers.map((p) => (
-              <option key={p.id} value={p.id}>{p.display_name || p.name} ({p.base_url})</option>
+              <option key={p.id} value={p.id}>
+                {p.display_name || p.name} ({p.base_url})
+              </option>
             ))}
           </select>
         </div>
@@ -172,7 +182,9 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
           <label style={labelStyle}>用途</label>
           <select style={inputStyle} value={form.purpose} onChange={handleChange("purpose")}>
             {PURPOSE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
         </div>
@@ -219,12 +231,21 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
             <span
               title="同一用途下按权重比例分配流量。设为 0 则暂停使用该 key。多个 key 的权重之和为 100% 的分配基准。"
               style={{
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                width: 16, height: 16, borderRadius: "50%",
-                background: "var(--text-tertiary)", color: "#fff",
-                fontSize: "0.65rem", fontWeight: 700, cursor: "help",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                background: "var(--text-tertiary)",
+                color: "#fff",
+                fontSize: "0.65rem",
+                fontWeight: 700,
+                cursor: "help",
               }}
-            >i</span>
+            >
+              i
+            </span>
           </label>
           <input
             type="range"
@@ -255,7 +276,14 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
         </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>月度费用上限 (¥)</label>
-          <input style={inputStyle} type="number" step="0.01" value={form.monthly_cost_limit} onChange={handleChange("monthly_cost_limit")} placeholder="无限制" />
+          <input
+            style={inputStyle}
+            type="number"
+            step="0.01"
+            value={form.monthly_cost_limit}
+            onChange={handleChange("monthly_cost_limit")}
+            placeholder="无限制"
+          />
         </div>
       </form>
     </Modal>

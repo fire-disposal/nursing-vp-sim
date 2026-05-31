@@ -32,34 +32,34 @@ export default function PageHeader({ title, subtitle, icon: Icon, actions, backT
       )}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--space-2)",
-            fontSize: "var(--font-size-xl)",
-            fontWeight: "var(--font-weight-bold)",
-            color: "var(--text-primary)",
-            margin: 0,
-          }}>
+          <h1
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+              fontSize: "var(--font-size-xl)",
+              fontWeight: "var(--font-weight-bold)",
+              color: "var(--text-primary)",
+              margin: 0,
+            }}
+          >
             {Icon && <Icon size={22} />}
             {title}
           </h1>
           {subtitle && (
-            <p style={{
-              fontSize: "var(--font-size-sm)",
-              color: "var(--text-secondary)",
-              marginTop: "var(--space-1)",
-              marginBottom: 0,
-            }}>
+            <p
+              style={{
+                fontSize: "var(--font-size-sm)",
+                color: "var(--text-secondary)",
+                marginTop: "var(--space-1)",
+                marginBottom: 0,
+              }}
+            >
               {subtitle}
             </p>
           )}
         </div>
-        {actions && (
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
-            {actions}
-          </div>
-        )}
+        {actions && <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{actions}</div>}
       </div>
     </div>
   );

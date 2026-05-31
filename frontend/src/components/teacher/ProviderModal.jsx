@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import Modal from "../ui/Modal";
+import { useEffect, useState } from "react";
 import { createProvider, updateProvider } from "../../api/apiManagement";
 import { useToast } from "../Toast";
+import Modal from "../ui/Modal";
 
 export default function ProviderModal({ open, provider, onClose, onSaved }) {
   const toast = useToast();

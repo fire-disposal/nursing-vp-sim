@@ -29,16 +29,7 @@ const sizeStyles = {
   lg: { padding: "10px 24px", fontSize: "var(--font-size-base)", height: "44px", borderRadius: "var(--radius-md)" },
 };
 
-export default function Button({
-  variant = "primary",
-  size = "md",
-  icon: Icon,
-  loading = false,
-  disabled = false,
-  children,
-  style,
-  ...props
-}) {
+export default function Button({ variant = "primary", size = "md", icon: Icon, loading = false, disabled = false, children, style, ...props }) {
   const isDisabled = disabled || loading;
   const vs = variantStyles[variant] || variantStyles.primary;
   const ss = sizeStyles[size] || sizeStyles.md;
@@ -71,7 +62,11 @@ export default function Button({
       }}
       {...props}
     >
-      {loading ? <Loader2 size={ss.fontSize === "var(--font-size-sm)" ? 13 : 15} className="spin" /> : Icon ? <Icon size={ss.fontSize === "var(--font-size-sm)" ? 13 : 15} /> : null}
+      {loading ? (
+        <Loader2 size={ss.fontSize === "var(--font-size-sm)" ? 13 : 15} className="spin" />
+      ) : Icon ? (
+        <Icon size={ss.fontSize === "var(--font-size-sm)" ? 13 : 15} />
+      ) : null}
       {children}
     </button>
   );

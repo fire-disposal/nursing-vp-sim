@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, Info, X, XCircle } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 const ToastContext = createContext(null);
 
@@ -36,10 +36,7 @@ export function ToastProvider({ children }) {
       const id = ++_nextId;
       setToasts((prev) => {
         if (prev.length >= 5) return prev; // 最多5个
-        return [
-          ...prev,
-          { id, message, type, duration, entering: true },
-        ];
+        return [...prev, { id, message, type, duration, entering: true }];
       });
       if (duration > 0) {
         timersRef.current[id] = setTimeout(() => remove(id), duration);
@@ -65,9 +62,7 @@ export function ToastProvider({ children }) {
     });
     if (ids.length > 0) {
       const timer = setTimeout(() => {
-        setToasts((prev) =>
-          prev.map((t) => (ids.includes(t.id) ? { ...t, entering: false } : t)),
-        );
+        setToasts((prev) => prev.map((t) => (ids.includes(t.id) ? { ...t, entering: false } : t)));
       }, 50);
       return () => clearTimeout(timer);
     }
@@ -86,9 +81,7 @@ export function ToastProvider({ children }) {
               borderColor: colors[t.type].border,
             }}
           >
-            <span style={{ color: colors[t.type].icon, display: "flex", flexShrink: 0 }}>
-              {icons[t.type]}
-            </span>
+            <span style={{ color: colors[t.type].icon, display: "flex", flexShrink: 0 }}>{icons[t.type]}</span>
             <span style={{ color: colors[t.type].text, fontSize: "0.84rem", fontWeight: 500, flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
               {t.message}
             </span>

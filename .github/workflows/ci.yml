@@ -45,8 +45,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (warn only)
-        run: npx eslint src/ || true
+      - name: Lint (Biome)
+        run: npx biome check src/ --max-diagnostics 20
 
       - name: Run tests
         run: npx vitest run

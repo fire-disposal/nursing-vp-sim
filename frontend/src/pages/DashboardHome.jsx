@@ -1,23 +1,31 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  Stethoscope, ClipboardList, MessageCircle, Star,
-  Users, CheckCircle, Clock, Target, Settings, Download,
-  TrendingUp, Award, ArrowRight, Play, BookOpen,
+  ArrowRight,
+  Award,
+  BookOpen,
+  CheckCircle,
+  ClipboardList,
+  Clock,
+  Download,
+  MessageCircle,
+  Play,
+  Settings,
+  Star,
+  Stethoscope,
+  Target,
+  TrendingUp,
+  Users,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "../api";
 import Layout from "../components/Layout";
+import { useToast } from "../components/Toast";
+import TrainingDurationChart from "../components/TrainingDurationChart";
+import Badge from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
 import StatCard from "../components/ui/StatCard";
-import Badge from "../components/ui/Badge";
-import TrainingDurationChart from "../components/TrainingDurationChart";
-import { getCases, getRecords, getStats, getDurationStats, exportRecords } from "../api";
-import { useToast } from "../components/Toast";
 
-const QUICK_QA_HINTS = [
-  "如何询问患者既往病史？",
-  "糖尿病患者病史采集重点是什么？",
-  "如何评估疼痛程度？",
-];
+const QUICK_QA_HINTS = ["如何询问患者既往病史？", "糖尿病患者病史采集重点是什么？", "如何评估疼痛程度？"];
 
 export default function DashboardHome({ user, onLogout }) {
   const [cases, setCases] = useState([]);
@@ -29,11 +37,17 @@ export default function DashboardHome({ user, onLogout }) {
 
   useEffect(() => {
     if (user?.role === "student") {
-      getCases().then(({ data }) => setCases(data.items)).catch(() => toast.error("加载病例列表失败"));
-      getDurationStats().then(({ data }) => setDurationStats(data)).catch(() => toast.error("加载统计失败"));
+      getCases()
+        .then(({ data }) => setCases(data.items))
+        .catch(() => toast.error("加载病例列表失败"));
+      getDurationStats()
+        .then(({ data }) => setDurationStats(data))
+        .catch(() => toast.error("加载统计失败"));
     }
     if (user?.role === "teacher") {
-      getStats().then(({ data }) => setStats(data)).catch(() => toast.error("加载管理统计失败"));
+      getStats()
+        .then(({ data }) => setStats(data))
+        .catch(() => toast.error("加载管理统计失败"));
     }
     getRecords()
       .then(({ data }) => setRecords(data.items || []))
@@ -50,7 +64,9 @@ export default function DashboardHome({ user, onLogout }) {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("导出成功");
-    } catch { toast.error("导出失败"); }
+    } catch {
+      toast.error("导出失败");
+    }
   };
 
   if (user?.role === "teacher") {
@@ -70,12 +86,16 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
   const completedCount = records.filter((r) => r.status === "completed").length;
   const latestScore = latestCompleted?.score_total;
 
-  const scoreGrade = latestScore != null
-    ? latestScore >= 85 ? { label: "优秀", color: "green" }
-      : latestScore >= 70 ? { label: "良好", color: "blue" }
-      : latestScore >= 60 ? { label: "一般", color: "amber" }
-      : { label: "待提高", color: "red" }
-    : null;
+  const scoreGrade =
+    latestScore != null
+      ? latestScore >= 85
+        ? { label: "优秀", color: "green" }
+        : latestScore >= 70
+          ? { label: "良好", color: "blue" }
+          : latestScore >= 60
+            ? { label: "一般", color: "amber" }
+            : { label: "待提高", color: "red" }
+      : null;
 
   const recentCases = cases.slice(0, 3);
 
@@ -88,9 +108,19 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           <button
             className="btn btn-primary"
             style={{ padding: "var(--space-3) var(--space-6)", fontSize: "var(--font-size-md)", fontWeight: 600 }}
-            onClick={() => inProgressRecord ? navigate(`/training/${inProgressRecord.id}`) : navigate("/cases")}
+            onClick={() => (inProgressRecord ? navigate(`/training/${inProgressRecord.id}`) : navigate("/cases"))}
           >
-            {inProgressRecord ? <><Play size={16} />继续训练</> : <><Stethoscope size={16} />开始训练</>}
+            {inProgressRecord ? (
+              <>
+                <Play size={16} />
+                继续训练
+              </>
+            ) : (
+              <>
+                <Stethoscope size={16} />
+                开始训练
+              </>
+            )}
           </button>
         }
       />
@@ -115,7 +145,11 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           </span>
           <span className="hub-status-label">
             最新得分
-            {scoreGrade && <Badge variant={scoreGrade.color} style={{ marginLeft: 6, fontSize: "0.6rem" }}>{scoreGrade.label}</Badge>}
+            {scoreGrade && (
+              <Badge variant={scoreGrade.color} style={{ marginLeft: 6, fontSize: "0.6rem" }}>
+                {scoreGrade.label}
+              </Badge>
+            )}
           </span>
         </div>
       </div>
@@ -126,22 +160,17 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
         <div className="dashboard-main">
           {/* 训练行动区 */}
           <div className="training-hero">
-            <div className="hero-icon-wrap"><Stethoscope size={40} /></div>
-            <div className="training-hero-title">
-              {inProgressRecord ? "继续进行中的训练" : "开始新的病史采集训练"}
+            <div className="hero-icon-wrap">
+              <Stethoscope size={40} />
             </div>
+            <div className="training-hero-title">{inProgressRecord ? "继续进行中的训练" : "开始新的病史采集训练"}</div>
             <div className="training-hero-desc">
-              {inProgressRecord
-                ? "你有一个进行中的训练，点击下方按钮继续。"
-                : "选择虚拟患者，系统模拟真实护理问诊场景，训练结束后自动评分并提供反馈。"}
+              {inProgressRecord ? "你有一个进行中的训练，点击下方按钮继续。" : "选择虚拟患者，系统模拟真实护理问诊场景，训练结束后自动评分并提供反馈。"}
             </div>
             <div className="hero-case-tag">
               <BookOpen size={14} /> 病例库：{cases.length} 例可用
             </div>
-            <button
-              className="hero-start-btn"
-              onClick={() => inProgressRecord ? navigate(`/training/${inProgressRecord.id}`) : navigate("/cases")}
-            >
+            <button className="hero-start-btn" onClick={() => (inProgressRecord ? navigate(`/training/${inProgressRecord.id}`) : navigate("/cases"))}>
               {inProgressRecord ? "继续训练 →" : "选择病例开始训练 →"}
             </button>
             {!inProgressRecord && <div className="hero-hint">约 20 分钟完成一次训练</div>}
@@ -151,19 +180,20 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           {recentCases.length > 0 && (
             <div className="card">
               <div className="card-header">
-                <h3><BookOpen size={17} />推荐病例</h3>
-                <span className="link" onClick={() => navigate("/cases")}>查看全部 →</span>
+                <h3>
+                  <BookOpen size={17} />
+                  推荐病例
+                </h3>
+                <span className="link" onClick={() => navigate("/cases")}>
+                  查看全部 →
+                </span>
               </div>
               <div className="case-pick-list">
                 {recentCases.map((c) => {
                   const p = c.patient_summary || {};
                   const d = c.difficulty || 1;
                   return (
-                    <div
-                      key={c.id}
-                      className="case-pick-item"
-                      onClick={() => navigate("/cases")}
-                    >
+                    <div key={c.id} className="case-pick-item" onClick={() => navigate("/cases")}>
                       <div className="case-pick-avatar">
                         <Stethoscope size={16} />
                       </div>
@@ -171,7 +201,8 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
                         <div className="case-pick-name">
                           {c.name}
                           <span className={`difficulty-badge d-${d}`} style={{ marginLeft: 8 }}>
-                            {"★".repeat(d)}{"☆".repeat(3 - d)}
+                            {"★".repeat(d)}
+                            {"☆".repeat(3 - d)}
                           </span>
                         </div>
                         <div className="case-pick-meta">
@@ -190,22 +221,29 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           {records.length > 0 && (
             <div className="card">
               <div className="card-header">
-                <h3><ClipboardList size={17} />最近训练记录</h3>
-                <span className="link" onClick={() => navigate("/history")}>查看全部 →</span>
+                <h3>
+                  <ClipboardList size={17} />
+                  最近训练记录
+                </h3>
+                <span className="link" onClick={() => navigate("/history")}>
+                  查看全部 →
+                </span>
               </div>
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>病例</th><th>时间</th><th>状态</th><th>得分</th><th></th>
+                    <th>病例</th>
+                    <th>时间</th>
+                    <th>状态</th>
+                    <th>得分</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {records.slice(0, 5).map((r) => (
                     <tr key={r.id}>
                       <td>{r.case_name}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                        {new Date(r.start_time).toLocaleDateString("zh-CN")}
-                      </td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(r.start_time).toLocaleDateString("zh-CN")}</td>
                       <td>
                         <span className={`badge ${r.status === "completed" ? "badge-success" : "badge-info"}`}>
                           {r.status === "completed" ? "已完成" : "进行中"}
@@ -215,9 +253,13 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
                         {r.score_total != null ? `${r.score_total}分` : "-"}
                       </td>
                       <td>
-                        <span className="link" onClick={() => navigate(`/record/${r.id}`)}>详情</span>
+                        <span className="link" onClick={() => navigate(`/record/${r.id}`)}>
+                          详情
+                        </span>
                         {r.status === "in_progress" && (
-                          <span className="link" style={{ marginLeft: 12 }} onClick={() => navigate(`/training/${r.id}`)}>继续训练</span>
+                          <span className="link" style={{ marginLeft: 12 }} onClick={() => navigate(`/training/${r.id}`)}>
+                            继续训练
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -233,21 +275,28 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           {/* 最新反馈 */}
           <div className="side-card">
             <div className="side-card-head">
-              <h3><Award size={14} style={{ marginRight: 6 }} />最新反馈</h3>
+              <h3>
+                <Award size={14} style={{ marginRight: 6 }} />
+                最新反馈
+              </h3>
             </div>
             {latestCompleted ? (
               <>
                 <div className="feedback-mini-row">
                   <span className="feedback-mini-case">{latestCompleted.case_name}</span>
-                  <span className="feedback-mini-date">
-                    {new Date(latestCompleted.start_time).toLocaleDateString("zh-CN")}
-                  </span>
+                  <span className="feedback-mini-date">{new Date(latestCompleted.start_time).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <div className="feedback-mini-score-row">
                   <span className="feedback-mini-big">{latestCompleted.score_total}</span>
                   <span className="feedback-mini-unit">分</span>
                   <span className={`feedback-mini-tag ${latestCompleted.score_total >= 70 ? "good" : "warn"}`}>
-                    {latestCompleted.score_total >= 85 ? "优秀" : latestCompleted.score_total >= 70 ? "良好" : latestCompleted.score_total >= 60 ? "一般" : "待提高"}
+                    {latestCompleted.score_total >= 85
+                      ? "优秀"
+                      : latestCompleted.score_total >= 70
+                        ? "良好"
+                        : latestCompleted.score_total >= 60
+                          ? "一般"
+                          : "待提高"}
                   </span>
                 </div>
                 <div className="feedback-mini-grid">
@@ -272,7 +321,9 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
                 </div>
                 <div className="feedback-mini-list">
                   {latestCompleted.score?.strengths?.slice(0, 1).map((s, i) => (
-                    <div key={i} className="feedback-mini-plus">+ {s}</div>
+                    <div key={i} className="feedback-mini-plus">
+                      + {s}
+                    </div>
                   ))}
                 </div>
                 <div style={{ marginTop: 10 }}>
@@ -296,7 +347,10 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           {/* 快速提问 */}
           <div className="side-card">
             <div className="side-card-head">
-              <h3><MessageCircle size={14} style={{ marginRight: 6 }} />快速提问</h3>
+              <h3>
+                <MessageCircle size={14} style={{ marginRight: 6 }} />
+                快速提问
+              </h3>
             </div>
             <div className="qa-quick-row">
               <input
@@ -307,16 +361,20 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
                   }
                 }}
               />
-              <button onClick={() => {
-                const el = document.querySelector(".qa-quick-row input");
-                if (el?.value.trim()) navigate(`/qa?q=${encodeURIComponent(el.value.trim())}`);
-              }}>
+              <button
+                onClick={() => {
+                  const el = document.querySelector(".qa-quick-row input");
+                  if (el?.value.trim()) navigate(`/qa?q=${encodeURIComponent(el.value.trim())}`);
+                }}
+              >
                 <ArrowRight size={16} />
               </button>
             </div>
             <div className="qa-quick-hints">
               {QUICK_QA_HINTS.map((h, i) => (
-                <span key={i} onClick={() => navigate(`/qa?q=${encodeURIComponent(h)}`)}>{h}</span>
+                <span key={i} onClick={() => navigate(`/qa?q=${encodeURIComponent(h)}`)}>
+                  {h}
+                </span>
               ))}
             </div>
           </div>
@@ -324,19 +382,18 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
           {/* 本周统计 */}
           <div className="side-card">
             <div className="side-card-head">
-              <h3><TrendingUp size={14} style={{ marginRight: 6 }} />本周训练</h3>
+              <h3>
+                <TrendingUp size={14} style={{ marginRight: 6 }} />
+                本周训练
+              </h3>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1, textAlign: "center", padding: "10px 0", background: "var(--bg-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 700, color: "var(--color-primary)" }}>
-                  {durationStats?.total_sessions ?? 0}
-                </div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 700, color: "var(--color-primary)" }}>{durationStats?.total_sessions ?? 0}</div>
                 <div style={{ fontSize: "var(--font-size-xs)", color: "var(--text-tertiary)" }}>训练次数</div>
               </div>
               <div style={{ flex: 1, textAlign: "center", padding: "10px 0", background: "var(--bg-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 700, color: "var(--color-clinical)" }}>
-                  {durationStats?.total_minutes ?? 0}
-                </div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 700, color: "var(--color-clinical)" }}>{durationStats?.total_minutes ?? 0}</div>
                 <div style={{ fontSize: "var(--font-size-xs)", color: "var(--text-tertiary)" }}>累计分钟</div>
               </div>
             </div>
@@ -388,14 +445,24 @@ function TeacherDashboard({ user, onLogout, stats, records, handleExport, naviga
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "var(--space-4)", marginTop: "var(--space-5)" }}>
         <div className="card">
           <div className="card-header">
-            <h3><ClipboardList size={17} />最近训练动态</h3>
-            <span className="link" onClick={() => navigate("/history")}>查看全部 →</span>
+            <h3>
+              <ClipboardList size={17} />
+              最近训练动态
+            </h3>
+            <span className="link" onClick={() => navigate("/history")}>
+              查看全部 →
+            </span>
           </div>
           {recentRecords.length > 0 ? (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>学生</th><th>病例</th><th>状态</th><th>时间</th><th>得分</th><th></th>
+                  <th>学生</th>
+                  <th>病例</th>
+                  <th>状态</th>
+                  <th>时间</th>
+                  <th>得分</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -408,18 +475,22 @@ function TeacherDashboard({ user, onLogout, stats, records, handleExport, naviga
                         {r.status === "completed" ? "已完成" : "进行中"}
                       </span>
                     </td>
-                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                      {new Date(r.start_time).toLocaleString("zh-CN")}
-                    </td>
+                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(r.start_time).toLocaleString("zh-CN")}</td>
                     <td>
                       {r.score_total != null ? (
-                        <span style={{
-                          fontWeight: 600,
-                          color: r.score_total >= 85 ? "var(--color-success)"
-                            : r.score_total >= 70 ? "var(--color-primary)"
-                            : r.score_total >= 60 ? "var(--color-warning)"
-                            : "var(--color-danger)",
-                        }}>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color:
+                              r.score_total >= 85
+                                ? "var(--color-success)"
+                                : r.score_total >= 70
+                                  ? "var(--color-primary)"
+                                  : r.score_total >= 60
+                                    ? "var(--color-warning)"
+                                    : "var(--color-danger)",
+                          }}
+                        >
                           {r.score_total}分
                         </span>
                       ) : (
@@ -427,16 +498,16 @@ function TeacherDashboard({ user, onLogout, stats, records, handleExport, naviga
                       )}
                     </td>
                     <td>
-                      <span className="link" onClick={() => navigate(`/record/${r.id}`)}>详情</span>
+                      <span className="link" onClick={() => navigate(`/record/${r.id}`)}>
+                        详情
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <div style={{ textAlign: "center", padding: 40, color: "var(--text-tertiary)", fontSize: "0.85rem" }}>
-              暂无训练记录
-            </div>
+            <div style={{ textAlign: "center", padding: 40, color: "var(--text-tertiary)", fontSize: "0.85rem" }}>暂无训练记录</div>
           )}
         </div>
 
@@ -472,11 +543,7 @@ function TeacherDashboard({ user, onLogout, stats, records, handleExport, naviga
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--text-secondary)" }}>训练完成率</span>
-                <strong>
-                  {stats?.total_records > 0
-                    ? `${Math.round((stats.completed_records / stats.total_records) * 100)}%`
-                    : "-"}
-                </strong>
+                <strong>{stats?.total_records > 0 ? `${Math.round((stats.completed_records / stats.total_records) * 100)}%` : "-"}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--text-secondary)" }}>今日训练次数</span>

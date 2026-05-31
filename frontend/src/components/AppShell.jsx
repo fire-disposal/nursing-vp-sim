@@ -1,8 +1,8 @@
+import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, Settings, Stethoscope, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, Settings, Stethoscope, X } from "lucide-react";
-import Modal from "./ui/Modal";
 import { APP_VERSION } from "../version";
+import Modal from "./ui/Modal";
 
 const studentLinks = [
   { to: "/home", icon: Home, label: "首页" },
@@ -48,25 +48,23 @@ export default function AppShell({ children, user, onLogout }) {
           {links.map((link) => {
             const Icon = link.icon;
             return (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.to === "/home"}
-              onClick={closeMenu}
-              className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
-            >
-              <Icon className="nav-icon" size={16} />
-              {link.label}
-            </NavLink>
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.to === "/home"}
+                onClick={closeMenu}
+                className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+              >
+                <Icon className="nav-icon" size={16} />
+                {link.label}
+              </NavLink>
             );
           })}
         </nav>
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="avatar-dot">
-              {(user?.display_name || "U")[0]}
-            </div>
+            <div className="avatar-dot">{(user?.display_name || "U")[0]}</div>
             <div className="info">
               <div className="name">{user?.display_name}</div>
               <div className="role">{isTeacher ? "教师" : "学生"}</div>
@@ -93,11 +91,7 @@ export default function AppShell({ children, user, onLogout }) {
       </aside>
 
       <main className="main-content">
-        <button
-          className="mobile-menu-btn"
-          onClick={() => setMobileMenuOpen((v) => !v)}
-          aria-label={mobileMenuOpen ? "关闭菜单" : "打开菜单"}
-        >
+        <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen((v) => !v)} aria-label={mobileMenuOpen ? "关闭菜单" : "打开菜单"}>
           {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         {children}
