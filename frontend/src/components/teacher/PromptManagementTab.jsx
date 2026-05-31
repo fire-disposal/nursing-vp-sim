@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Edit3, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Edit3, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { fetchPrompts, createPrompt, updatePrompt, deletePrompt, activatePrompt, validatePrompt, reloadPrompts } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
@@ -91,9 +91,9 @@ export default function PromptManagementTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "var(--space-4)" }}>
-        <button onClick={handleReload} style={{ padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", background: "var(--bg-surface)", color: "var(--text-primary)", cursor: "pointer", fontSize: "0.85rem" }}>
-          热加载
+      <div style={{ marginBottom: "var(--space-4)" }}>
+        <button onClick={handleReload} style={{ padding: "var(--space-2) var(--space-4)", border: "1px solid var(--amber-400)", borderRadius: "var(--radius-md)", background: "var(--amber-50)", color: "var(--amber-700)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <RefreshCw size={13} /> 热加载
         </button>
       </div>
 
