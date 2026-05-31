@@ -1,16 +1,17 @@
 # 05 — LLM提示词与评分设计
 
-> 适用版本: v1.16-stable | 最后更新: 2026-05-27
+> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
 
 ## LLM 配置
 
-| 配置项 | 值 | 环境变量 |
-|--------|-----|----------|
-| API Base URL | `https://api.deepseek.com` | DEEPSEEK_BASE_URL |
-| 模型 | `deepseek-chat` | DEEPSEEK_MODEL |
+| 配置项 | 值 | 说明 |
+|--------|-----|------|
+| 路由策略 | 多 Provider 优先级加权路由 | llm_router.py，按 priority/weight 分配 |
+| 默认 Provider | DeepSeek | 首次启动自动 seed |
+| 模型 | 各 Key 独立配置 | deepseek-chat / gpt-4o / 自定义 |
 | 温度 | 对话0.7 / 评分0.3 | 硬编码 |
-| 聊天 max_tokens | 512 | LLM_CHAT_MAX_TOKENS |
-| 评分 max_tokens | 2048 | LLM_SCORING_MAX_TOKENS |
+| 聊天 max_tokens | 512 | 环境变量 / DB 配置 |
+| 评分 max_tokens | 2048 | 环境变量 / DB 配置 |
 | 聊天请求超时 | 30s | LLM_CHAT_TIMEOUT |
 | 评分请求超时 | 120s | LLM_SCORING_TIMEOUT |
 | 聊天最大重试 | 2 | 硬编码 |
@@ -19,7 +20,17 @@
 | 连接池大小 | 20 | LLM_CONNECTION_POOL_SIZE |
 | Keepalive 连接 | 10 | LLM_CONNECTION_KEEPALIVE |
 
-### 超时和 Token 分离设计 (v1.7-stable)
+### 多 Provider 路由机制 (v2026.05.31)
+
+- **llm_router.py**: 多 Provider/Key 优先级加权路由
+  - 按 Provider 优先级 → Key 权重选取可用 Key
+  - 熔断器：连续失败达到 `circuit_breaker_threshold` 自动熔断，冷却 `circuit_breaker_cooldown` 秒后恢复
+  - 健康检查：定时检测 Key 连通性，标记 healthy/unhealthy
+  - 灰度发布：通过 priority/weight/is_active 控制流量分配
+- **加密存储**: API Key 经 Fernet（SECRET_KEY 派生）加密后存入 `api_keys.key_value`
+- **per-key 统计**: `total_calls` / `total_cost` / `last_used_at` 实时更新，每5次调用持久化
+
+### 超时和 Token 分离设计
 
 聊天和评分使用不同的超时和 token 限制，通过 `call_llm()` 的按调用参数实现：
 
@@ -31,7 +42,7 @@
 每次请求还设置了独立的连接超时 `connect=15.0`，避免 TCP 握手阻塞过久。
 重试延迟公式: `min(2^attempt, 4) + random(0, 0.5)` 秒，最多等待 4.5s 即进入下次重试。
 
-## LLM 服务可靠性机制 (v1.6-concurrent 新增)
+## LLM 服务可靠性机制
 
 ### 共享 HTTP 连接池
 - 模块级 `httpx.AsyncClient` 单例，启动时初始化、关闭时清理
@@ -62,6 +73,16 @@
 ## 虚拟患者 System Prompt 结构
 
 位于 `backend/services/llm_service.py` → `build_patient_system_prompt()`
+（可由 `prompt_manager.py` 从 DB 模板覆盖）
+
+### Prompt 模板管理 (v2026.05.31)
+
+- `backend/services/prompt_manager.py`: DB Prompt 模板加载/渲染/缓存
+- **模板变量**: 支持 `{variable_name}` 占位符，渲染时替换
+- **多版本**: 同一 (name, purpose) 下多版本共存，同时仅一个 is_active
+- **热重载**: 激活新版本后即时生效，无需重启服务
+- **前端管理**: `PromptManagementTab.jsx` — 教师可视化编辑、预览、激活
+- **模板用途分类**: chat（虚拟患者）、scoring（自动评分）、qa（护理问答）、guard（患者保护）
 
 ### Prompt层次
 
@@ -122,18 +143,18 @@ Score 入库 (100分制, score_scale=100)
 | 沟通技能 | 14项 | 1-3分/项 | 42分 | 74分 | 评估护患互动中的沟通技巧和人际交往能力 |
 | 病史采集 | 5项 | 1-3分/项 | 15分 | 26分 | 评估全面收集病史信息的能力 |
 
-### 评分标准版本化 (v1.14+)
+### 评分标准版本化
 - 评分标准存储在 `backend/rubrics/nursing_history_v1.json`
 - 每项含 1/2/3 分锚点描述（如 "3: 主动礼貌问候，语气自然，使用恰当称呼，能建立初步信任"）
 - 动态生成 Prompt，版本号记录在 Score.rubric_version（如 "nursing_history_v1@1.0"）
 - `rubrics/__init__.py`: 加载 + 内存缓存，`load_rubric("nursing_history_v1")` 返回完整 rubric dict
 
-### 证据化评分 (v1.14+)
+### 证据化评分
 - 每项必须提供 `evidence`（对话中的具体证据，30-80字）和 `reason`（评分理由，20-50字）
 - 学生未提及则打1分，evidence 写"未涉及"
 - `_validate_scoring_result()` 对 evidence 覆盖率 <50% 输出告警日志但不阻塞
 
-### 评分容错 (v1.15)
+### 评分容错
 - `strengths`, `weaknesses`, `missed_content` 缺失时填 `[]`
 - `suggestions` 缺失时填 `""`
 - 仅 `total_score` 和 `detail_scores` 缺失才拒绝评分
@@ -244,7 +265,7 @@ Score 入库 (100分制, score_scale=100)
 
 ### 添加新病例方法
 
-**方式一（推荐）：教师后台在线管理** (v1.8 新增)
+**方式一（推荐）：教师后台在线管理**
 1. 使用教师账号登录 → 管理后台 → 病例管理
 2. 点击「添加病例」→ 表单填写 → 保存
 3. 或上传已有 `.json` 文件快速导入

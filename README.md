@@ -95,8 +95,9 @@ DEEPSEEK_API_KEY=sk-your-key            # 首次启动自动 seed 到数据库
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 
 # 可选调参
-LLM_CONCURRENT_LIMIT=50                 # 并发上限
+LLM_CONCURRENT_LIMIT=10                 # 并发上限
 LLM_MAX_RETRIES=3
+POSTGRES_PASSWORD=postgres              # Docker PostgreSQL 密码
 ```
 
 > Provider 配置、模型、定价等均在教师管理面板的「API 管理」中操作，无需通过环境变量。

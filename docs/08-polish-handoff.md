@@ -1,6 +1,6 @@
 # 08 — 交接记录
 
-> 适用版本: v1.16-stable | 最后更新: 2026-05-27
+> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
 
 本文档用于记录当前版本状态，作为下次继续开发时的快速上下文。
 
@@ -8,18 +8,58 @@
 
 ## 当前版本概要
 
-**v1.16-stable** — 商业级布局优化完成。学生端/教师端页面全面使用 PageHeader + StatCard + Tabs + Modal 等新UI组件体系（14个UI组件），DashboardHome 角色分流重构，Admin 拆分为4个独立Tab组件。
+**v2026.05.31** — 多 API 管理 + Prompt 模板 + 数据库从 SQLite 迁移到 PostgreSQL + Docker 部署 完成。
 
-**最新改动 (2026-05-27):**
-- Phase 0: main.jsx 添加 CSS 导入修复全局样式丢失
-- Phase 2: 新增 8 个 UI 组件（Tabs/Table/PageHeader/StatCard/Modal/FormField/Toolbar/Drawer）
-- Phase 3: DashboardHome 重构为 StudentDashboard + TeacherDashboard（商业级布局）
-- Phase 4: Admin 拆分为 1个Tabs容器 + 4个独立Tab组件（RecordsTab/UsersTab/CasesTab/MonitorTab）
-- 所有学生端页面统一使用 PageHeader（CaseSelect/History/QA/Stats/RecordDetail）
+**最新改动 (2026-05-28 ~ 2026-05-31):**
+- 数据库 SQLite → PostgreSQL 15 + Alembic 迁移
+- 多 LLM Provider/Key 管理（优先级加权路由 + 熔断 + 健康检查 + 加密存储）
+- Prompt 模板 DB 管理（版本化 + 变量渲染 + 热激活）
+- 问答历史（学生端 + 教师端管理）
+- 患者画像卡片、分页标准化、跳过评分按钮
+- Docker Compose 部署（PostgreSQL + backend + frontend + nginx）
+- CI/CD 完善（GitHub Actions → GHCR → VPS，Biome 替代 ESLint）
+- 多项 Bug 修复（prompt injection、latency、migration idempotency 等）
+
+**上一版本** (2026-05-27):
+- 商业级布局优化完成。14个UI组件，DashboardHome 角色分流，Admin 拆分 4 Tab。
+- 详情见下方对应日期记录。
 
 ---
 
-## v1.16 新增 (2026-05-27) — 商业级布局优化
+## v2026.05.28-31 新增 — 架构升级 + 多 API 管理 + Prompt DB + 问答历史
+
+### 数据库升级 (v2026.05.28)
+- SQLite → PostgreSQL 15
+- Alembic 管理 schema 迁移
+- Docker Compose 一键部署
+
+### 多 API 管理 (v2026.05.29)
+- `backend/models.py`: ApiProvider (api_providers), ApiKey (api_keys)
+- `backend/services/llm_router.py`: 优先级加权路由 + 熔断 + 健康检查
+- `backend/services/crypto_utils.py`: Fernet 加密 API Key
+- `backend/routers/admin_api.py`: Provider/Key CRUD + 连通性测试
+- 前端 ApiManagementTab: Provider 列表 + Key 管理 + DeepSeek 一键添加
+
+### Prompt DB 管理 (v2026.05.29)
+- `backend/models.py`: PromptTemplate (prompt_templates) 版本化
+- `backend/services/prompt_manager.py`: 加载/渲染/缓存
+- `backend/routers/admin_prompts.py`: 模板 CRUD + 版本激活
+- 前端 PromptManagementTab: 模板编辑 + 变量预览 + 热激活
+
+### 问答历史 (v2026.05.30)
+- `backend/models.py`: QARecord (qa_records)
+- `backend/routers/qa.py`: 问答自动保存 + 历史查询 + 删除
+- 前端 QAHistory 页面 + QARecordsTab
+- 患者画像 PatientPortrait + 分页标准化 Pagination + 跳过评分按钮
+
+### Bug 修复 (v2026.05.31)
+- Prompt format injection 防护
+- latency_ms UnboundLocalError
+- per-key stats 持久化
+- migration idempotency
+- CI: ESLint → Biome, commitlint 类型扩展
+
+## 2026-05-27 — v1.16 商业级布局优化
 
 ### Phase 0: CSS 修复
 1. **main.jsx 添加 CSS 导入**: `import "./styles/index.css"` — 此前所有页面显示浏览器默认样式，根因是 Vite 入口缺少样式导入
@@ -47,7 +87,7 @@
 
 ---
 
-## v1.15 新增 (2026-05-27) — 评分容错 + 百分制
+## 2026-05-27 — 评分容错 + 百分制
 
 1. **评分容错** (`services/scoring.py`): `_validate_scoring_result()` 对 LLM 遗漏的 strengths/weaknesses/missed_content/suggestions 填入默认值（[]/""），不拒绝评分
 2. **57→100分制**: rubric JSON 新增 `raw_max:57`/`raw_scale:3`，LLM 按原始分制打分，`_convert_to_100_scale()` 入库前换算
@@ -55,7 +95,7 @@
 
 ---
 
-## v1.14 新增 (2026-05-26) — 评分体系升级 + 界面商业级重构
+## 2026-05-26 — 评分体系升级 + 界面商业级重构
 
 ### 评分体系升级
 1. **评分标准版本化** (`rubrics/nursing_history_v1.json`): 19项条目含锚点描述，动态生成 Prompt，版本追踪（rubric_version）
@@ -77,7 +117,7 @@
 
 ---
 
-## v1.13 新增 (2026-05-26) — 第三梯队：运维与可观测性
+## 2026-05-26 — 第三梯队：运维与可观测性
 
 1. **`/api/health` 健康检查** — `backend/main.py`，验证 DB 连接 + 返回版本，DB 失败返回 503
 2. **数据库备份** — `POST /api/admin/backup`（教师），`backups/` 目录保留最近 10 个
@@ -87,7 +127,7 @@
 
 ---
 
-## v1.12 新增 (2026-05-25) — 第二梯队：可靠性与韧性 + 流式响应
+## 2026-05-25 — 第二梯队：可靠性与韧性 + 流式响应
 
 ### SSE 流式对话
 
@@ -153,23 +193,23 @@
 
 ## 之前版本概要
 
-### v1.10 (2026-05-24)
+## 2026-05-24 — 仪表盘中枢化 + 统计图表关联化
 
 学生仪表盘中枢化（4张点击式功能卡片）+ 统计关联图表（ComposedChart 双Y轴）+ `/api/stats/trends` 接口 + 病例难度分级（1-3星，全端覆盖）+ 5个病例（初级1/中级2/高级2，覆盖呼吸/内分泌/消化/风湿免疫/心血管5个学科方向）。
 
-### v1.9 (2026-05-23)
+## 2026-05-23 — 功能缺口补齐 + 测试套件
 
 搜索/过滤 + 用户管理（编辑/删除）+ Toast 通知系统 + 学生成绩排名 + 训练记录删除 + 统一仪表盘（角色分流）+ 测试套件（57条）。
 
-### v1.8 (2026-05-23)
+## 2026-05-23 — 训练计时 + 教师病例管理
 
 训练倒计时（归零自动结束）+ 教师病例管理（在线 CRUD + JSON 导入）。
 
-### v1.7 (2026-05-22)
+## 2026-05-22 — Bug 修复 + 性能优化
 
 聊天当前消息遗漏修复 + 回答正确性 Prompt 优化 + LLM 响应速度优化（聊天 5-30s → 1-2s）。
 
-### v1.6 (2026-05-21)
+## 2026-05-21 — 40人并发优化 + 商业化打磨
 
 40人并发优化（7个 Phase：WAL + 连接池 + LLM 加固 + 事务修复 + N+1 修复 + 前端韧性 + 配置管理）+ 商业化打磨第一轮。
 
@@ -177,39 +217,37 @@
 
 ## 压缩上下文摘要
 
-项目路径 `D:\大语言模型调用编程\编程\新版\1.6version`。虚拟患者训练系统。FastAPI + SQLite(WAL/QueuePool) + React 19 + Vite 8。DeepSeek Chat API 驱动虚拟患者、评分和护理问答。当前 **v1.16-stable**。
+虚拟患者训练系统。FastAPI + PostgreSQL 15 + React 19 + Vite 8。多 LLM Provider 路由 + Docker Compose 部署。当前 **v2026.05.31**。
 
-**v1.16 新增**: 商业级布局优化 — Phase 0 CSS修复(main.jsx import index.css) + Phase 2 8个新UI组件(Tabs/Table/PageHeader/StatCard/Modal/FormField/Toolbar/Drawer，累计14个) + Phase 3 DashboardHome 角色分流重构(StudentDashboard: PageHeader+状态栏+2列65/35+训练Hero+推荐病例+侧面板; TeacherDashboard: PageHeader+5 StatCard+趋势图+2列动态/操作) + Phase 4 Admin 拆分为 1+4 组件(Tabs容器~40行 + RecordsTab/UsersTab/CasesTab/MonitorTab) + 所有页面统一使用 PageHeader。Bug修复: Admin caseOptions 恢复 + lint 清理。
+**2026-05-31 新增**: 多 API 管理（Provider/Key 优先级加权路由 + 熔断 + 加密）+ Prompt DB 管理（版本化 + 变量渲染 + 热激活）+ 统一 LLM 配置 + Bug 修复（prompt injection/latency/migration idempotency）+ CI 完善（Biome 替代 ESLint）。
 
-**v1.15 新增**: 评分容错(strengths/weaknesses等缺失时填默认值而非拒绝) + 57→100分制转换(LLM按57分制打分，_convert_to_100_scale()入库前换算，rubric新增raw_max/raw_scale) + 前端旧记录100分制显示修复。
+**2026-05-30 新增**: 问答历史（QAHistory + QARecordsTab）+ 患者画像 PatientPortrait + 分页标准化 Pagination + 跳过评分按钮 + 版本注入。
 
-**v1.14 新增**: 评分标准版本化(rubrics/nursing_history_v1.json 19项含锚点) + 证据化评分(evidence+reason，ScoreCard可展开) + 教师复核(ReviewEditor模态框，review_status徽章) + scoring_status追踪(训练结束→pending→processing→completed/failed) + 设计系统(tokens.css + 6个UI组件) + AppShell统一布局 + 采集进度侧栏(中文bigram关键词匹配) + ScoreCard动画。
+**2026-05-28 新增**: 后端整体翻新 — SQLite → PostgreSQL 15 + Alembic 迁移 + Docker Compose 部署 + uv 包管理。
 
-**v1.13 新增**: /health 健康检查 + 数据库备份 + 批量导入密码脱敏 + 分页元数据 + CSV流式导出。
+**2026-05-27 新增**: 商业级布局优化 — 14个UI组件 + DashboardHome 角色分流(StudentDashboard/TeacherDashboard) + Admin 拆分4Tab(RecordsTab/UsersTab/CasesTab/MonitorTab) + PageHeader 统一 + 评分容错 + 57→100分制。
 
-**v1.12 新增**: SSE 流式对话（首字 <1s）+ 第二梯队全部 5 项完成 + UtcDateTime 时区保护。
+**2026-05-26 新增**: 评分体系升级 — 评分标准版本化(rubrics JSON) + 证据化评分(evidence+reason) + 教师复核(ReviewEditor) + 设计系统(tokens.css + 6 UI组件) + AppShell + 采集进度侧栏 + /health + 数据库备份 + CSV流式导出。
 
-**v1.11 新增**: 速率限制（4端点）+ 密码强度统一 + 审计日志系统。
+**2026-05-25 新增**: SSE 流式对话 + 第二梯队可靠性与韧性(15处吞错修复/输入恢复/beforeunload/定时器防绕过/Error Boundary) + UtcDateTime 时区保护 + 第三梯队(速率限制/密码强度/审计日志)。
 
-**v1.10 新增**: 学生仪表盘中枢化 + 统计关联图表(ComposedChart双Y轴) + 病例难度分级 + 5个病例(5学科)。
+**2026-05-24 及之前**: 学生仪表盘中枢化 + 统计图表关联化(ComposedChart双Y轴) + 病例难度分级 + 5个病例 + 训练倒计时 + 教师病例管理 + 多维过滤 + 用户管理 + Toast + 排行榜 + 记录删除 + 测试套件(57条)。
 
-**v1.8-1.9 新增**: 训练倒计时 + 教师病例管理 + 仪表盘统一 + 多维过滤 + 用户管理 + Toast + 排行榜 + 记录删除 + 测试套件(57条)。
+**评分体系**: LLM 按 57 分制打分(19项×1-3分) → _validate_scoring_result(容错+默认值) → _convert_to_100_scale → Score入库(100分制) → ScoreCard展示(evidence展开+教师复核)。
 
-**评分体系**: LLM按57分制打分(19项×1-3分) → _validate_scoring_result(容错+默认值) → _convert_to_100_scale(总分和维度分×100/57) → Score入库(100分制) → 前端ScoreCard展示(evidence展开+教师复核)。
+**LLM 服务**: 多 Provider 优先级加权路由(熔断+健康检查) + 流式 SSE(首字<1s) + 评分~13s + api_keys 加密存储(Fernet) + per-key 统计持久化 + LLM 调用审计日志。
 
-**LLM 性能**: 聊天 SSE 流式首字 <1s，评分 ~13s。
+**基础设施**: PostgreSQL 15 + SQLAlchemy 2.0 + Alembic 迁移 + Docker Compose(DB+Backend+Frontend+Nginx) + CI/CD(GitHub Actions→GHCR→VPS) + 速率限制(4端点) + 审计日志 + /health。
 
-**基础设施**: SQLite WAL + QueuePool(5+15) + 3个复合索引 + UtcDateTime + 速率限制(4端点) + 审计日志 + /health + 数据库备份 + LLM调用审计日志。
+**前端**: 14 UI 组件 + Pagination + PatientPortrait + SSE 流式对话 + Error Boundary + beforeunload + 采集进度 + ConfirmDialog + Toast + ScoreCard + ReviewEditor + API 管理面板(ApiManagementTab/KeyModal/ProviderModal) + Prompt 管理面板(PromptManagementTab) + 问答历史(QAHistory/QARecordsTab)。
 
-**前端特色**: 14个UI组件 + SSE流式对话 + Error Boundary + beforeunload + 采集进度侧栏 + ConfirmDialog + Toast + ScoreCard + ReviewEditor + AbortController + Axios重试 + 商业级布局(PageHeader/StatCard/Tabs/Modal/Drawer)。
-
-**关键文件**: 后端 `main.py` → `routers/chat.py` → `routers/training.py` → `services/llm_service.py` → `services/scoring.py` → `rubrics/nursing_history_v1.json`。前端 `ChatTraining.jsx` → `DashboardHome.jsx`(StudentDashboard/TeacherDashboard) → `Admin.jsx`(Tabs container) → `RecordDetail.jsx` → `ScoreCard.jsx` → `components/teacher/`(4个Tab)。启动看 `07-startup-guide.md`。
+**关键文件**: 后端 `main.py` → `routers/`(11模块) → `services/`(llm_router/llm_service/scoring/prompt_manager/crypto_utils) → `rubrics/` → `migrations/`。前端 `ChatTraining.jsx` → `DashboardHome.jsx` → `Admin.jsx`(6Tab) → `RecordDetail.jsx` → `components/teacher/`(9个) → `ui/`(14个)。启动看 `07-startup-guide.md`。
 
 ---
 
 ## 剩余待完善问题（按优先级排列）
 
-### 第二梯队：可靠性与韧性 ✅ 已完成 (v1.12)
+### 第二梯队：可靠性与韧性 ✅ 已完成
 
 | # | 问题 | 状态 |
 |---|------|------|
@@ -219,7 +257,7 @@
 | 4 | 定时器刷新重置 | ✅ 基于服务端 start_time 计算 |
 | 5 | 无全局 Error Boundary | ✅ 全局异常边界包裹应用根 |
 
-### 第三梯队：运维与可观测性 ✅ 已完成 (v1.13)
+### 第三梯队：运维与可观测性 ✅ 已完成
 
 | # | 问题 | 状态 |
 |---|------|------|

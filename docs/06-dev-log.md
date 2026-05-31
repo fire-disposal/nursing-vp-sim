@@ -812,18 +812,122 @@
 
 ---
 
+### v2026.05.28 — 后端整体翻新 (SQLite → PostgreSQL + 架构升级)
+
+**目标**: 将后端从 SQLite 单体架构升级为 PostgreSQL + Alembic 迁移的生产级架构。
+
+**完成内容：**
+
+- **数据库迁移**: SQLite → PostgreSQL 15，SQLAlchemy 2.0 ORM + Alembic 迁移管理
+- **架构升级**: 统一 lifespan 生命周期、结构化日志、速率限制保留
+- **部署升级**: Docker Compose（PostgreSQL + backend + frontend + nginx）
+- **CI/CD**: GitHub Actions → Docker build → GHCR → VPS 部署（v* tag 触发）
+- **uv 包管理**: 从 pip/requirements.txt 迁移到 uv/pyproject.toml
+
+---
+
+### v2026.05.29 — 多 API 管理 + Prompt DB 管理 + 统一 LLM 配置
+
+**目标**: 从单一 DeepSeek API Key 升级为多 Provider 管理系统，Prompt 从代码硬编码升级为数据库模板化。
+
+**完成内容：**
+
+#### 多 API Provider/Key 管理
+- `backend/models.py` — 新增 `ApiProvider`（api_providers 表）和 `ApiKey`（api_keys 表）
+- `backend/services/llm_router.py` — **新建**，多 Provider/Key 优先级加权路由
+  - 按 Provider 优先级 → Key 权重选取可用 Key
+  - 熔断器：连续失败达到 threshold 自动熔断，冷却后恢复
+  - 健康检查：定时检测 Key 连通性
+  - 灰度发布：通过 priority/weight/is_active 控制流量分配
+- `backend/services/crypto_utils.py` — **新建**，Fernet 对称加密（SECRET_KEY 派生），API Key 加密存储
+- `backend/routers/admin_api.py` — **新建**，Provider CRUD + Key CRUD + 连通性测试
+- `frontend/src/components/teacher/ApiManagementTab.jsx` — **新建**
+  - Provider 列表 + 添加/编辑 Provider Modal（ProviderModal.jsx）
+  - 展开 Provider 查看 Key 列表 + 添加/编辑 Key Modal（KeyModal.jsx）
+  - Key 连通性测试按钮 + 健康状态显示
+  - **DeepSeek 一键添加**: 仅填 Key，自动拉取官方默认参数
+- **per-key 统计持久化**: `total_calls`/`total_cost` 每5次调用写入 DB
+
+#### Prompt 模板 DB 管理
+- `backend/models.py` — 新增 `PromptTemplate`（prompt_templates 表），支持多版本 + 激活
+- `backend/services/prompt_manager.py` — **新建**，DB 模板加载/渲染 `{变量}`/缓存
+- `backend/routers/admin_prompts.py` — **新建**，模板 CRUD + 版本激活
+- `frontend/src/components/teacher/PromptManagementTab.jsx` — **新建**
+  - 模板列表（名称/用途/版本/激活状态）+ 创建/编辑 Modal
+  - 变量预览提示 + 版本自动递增 + 热激活
+
+#### LLM 配置统一
+- 告别环境变量碎片化（`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` 等）
+- 所有 LLM 参数统一管理在 `api_providers` / `api_keys` 表中
+- `.env` 仅需 `DEEPSEEK_API_KEY` 用于首次启动自动 seed 默认 Provider
+
+---
+
+### v2026.05.30 — 问答历史 + 患者画像 + 分页标准化 + 版本注入
+
+**目标**: 补齐历史记录、改善用户体验、标准化公共组件。
+
+**完成内容：**
+
+#### 问答历史
+- `backend/models.py` — 新增 `QARecord`（qa_records 表），问答自动保存
+- `backend/routers/qa.py` — 新增 `GET /qa/history`、`GET /qa/history/all`、`DELETE /qa/history/:id`
+- `frontend/src/pages/QAHistory.jsx` — **新建**，问答历史页面（PageHeader + Pagination）
+- `frontend/src/components/teacher/QARecordsTab.jsx` — **新建**，教师全局管理
+- `frontend/src/App.jsx` — 新增 `/qa/history` 路由
+
+#### 患者画像
+- `frontend/src/components/PatientPortrait.jsx` — **新建**，训练页患者信息卡片
+- 显示患者姓名、年龄、性别、主诉，帮助学生在对话中保持角色意识
+
+#### 分页标准化
+- `frontend/src/components/Pagination.jsx` — **新建**，统一分页组件
+- 所有列表页（History、QAHistory、Admin 各 Tab）使用统一分页交互
+- `backend/pagination.py` — 后端分页工具
+
+#### 跳过评分按钮
+- `frontend/src/pages/ChatTraining.jsx` — 评分等待 overlay 新增"跳过评分"按钮
+- 学生可跳过长时间等待的评分，直接查看对话记录
+
+#### 版本注入
+- 前后端统一版本号 `2026.05.29`，通过配置注入
+
+---
+
+### v2026.05.31 — Bug 修复 + CI 完善 + 文档更新
+
+**目标**: 修复上线前发现的关键 Bug，完善 CI/CD，更新文档。
+
+**完成内容：**
+
+#### Bug 修复
+- **Prompt format 注入防护**: escape `{}` in prompt vars to prevent format injection
+- **latency_ms 初始化**: init `latency_ms=0` to prevent `UnboundLocalError`
+- **per-key stats 持久化**: persist per-key stats to DB every 5 calls
+- **Key 连通性测试**: 添加 Key connectivity test button + QA error detail
+- **迁移 idempotent**: safe on fresh DB and after `create_all`
+- **provider→provider_name**: fix provider field name in test fixtures
+- **未使用 import 清理**: remove unused imports + escape chars + BOM whitespace
+
+#### CI 完善
+- **从 ESLint 迁移到 Biome**: 前端 lint 速度更快，规则更合理
+- **commitlint 类型扩展**: 添加 `merge` / `a11y` 等新 type
+- **CI lint fix**: 移除对齐问题的测试
+
+---
+
 ## 当前项目状态
 
-- **版本**: v1.16-stable
-- **数据库**: SQLite WAL 模式 + QueuePool(5+15) 连接池 + 5个索引 + UtcDateTime 时区保护 + 一键备份(教师) + 评分版本字段 + 教师复核字段 + LLM 调用日志
-- **安全**: 速率限制（4端点）+ 密码强度统一（min_length=6）+ .env 保护 + 审计日志 + 批量导入密码脱敏
-- **评分体系**: 19项条目 2类(沟通14项 + 病史5项) + **100分制显示**(57分制打分×100/57换算) + 证据化(evidence+reason) + 版本化(rubric JSON) + 教师复核(review_status/detail_scores/comment) + 可选字段容错(strengths/weaknesses/missed_content/suggestions 缺失时填默认值)
-- **LLM 服务**: 共享 httpx 连接池(20) + 流式 SSE 响应 + 分离超时(聊天30s/评分120s) + 分离token(512/2048) + 重试延迟封顶 + Semaphore(10) 并发限流 + JSON 容错解析 + RemoteProtocolError 自动连接池重置 + LLM 调用审计日志(cost/token/latency)
-- **前端设计系统**: tokens.css(CSS变量体系) + 14个UI组件(Button/Card/Badge/ConfirmDialog/EmptyState/LoadingState/Tabs/Table/PageHeader/StatCard/Modal/FormField/Toolbar/Drawer) + AppShell统一布局 + Toast通知 + ErrorBoundary
-- **API路由**: 9个模块 (~33个端点)，含 health 检查、记录过滤/删除、用户编辑/删除、批量导入、成绩排名、流式聊天、数据库备份、分页元数据、教师复核、LLM 调用日志查询
-- **前端特色**: SSE 流式对话(逐字显示+闪烁光标) + 采集进度侧栏(关键词匹配) + 教师复核编辑器 + ConfirmDialog + beforeunload 守卫 + timer 防绕过 + 输入恢复 + AbortController + Axios 重试 + 商业级布局(PageHeader/StatCard/Tabs/Modal/Drawer)
+- **版本**: v2026.05.31
+- **数据库**: PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移
+- **安全**: 速率限制（4端点）+ 密码强度统一（min_length=6）+ .env 保护 + 审计日志 + API Key 加密存储（Fernet）
+- **评分体系**: 19项条目 2类(沟通14项 + 病史5项) + **100分制显示**(57分制打分×100/57换算) + 证据化(evidence+reason) + 版本化(rubric JSON) + 教师复核(review_status/detail_scores/comment) + 可选字段容错 + 跳过评分按钮
+- **LLM 服务**: 多 Provider 优先级加权路由 + 熔断 + 健康检查 + 共享 httpx 连接池(20) + 流式 SSE 响应 + 分离超时 + 重试 + Semaphore(10) + JSON 容错 + RemoteProtocolError 自动重置 + LLM 调用审计日志(cost/token/latency per-key)
+- **前端设计系统**: tokens.css(CSS变量体系) + 14个UI组件 + Pagination + PatientPortrait + AppShell统一布局 + Toast通知 + ErrorBoundary
+- **API路由**: 11个模块 (~45个端点)，含 API 管理、Prompt 管理、问答历史、health 检查、数据库备份、分页元数据、教师复核、LLM 调用日志
+- **前端特色**: SSE 流式对话(逐字显示+闪烁光标) + 采集进度侧栏(关键词匹配) + 教师复核编辑器 + ConfirmDialog + beforeunload 守卫 + timer 防绕过 + QA 历史 + 患者画像 + API 管理面板 + Prompt 管理面板
 - **测试**: 后端 40 条 (pytest) + 前端 17 条 (Vitest) = 57 条，全部通过
-- **部署**: lifespan 生命周期 + start.bat + 生产静态文件服务 + .env 配置
+- **部署**: Docker Compose（PostgreSQL 15 + backend + frontend + nginx）+ CI/CD（GitHub Actions → GHCR → VPS）
 - **并发能力**: 验证可支撑 40 人同时在线训练
 - **响应速度**: 聊天流式首字 <1s，评分 ~13s
 - **患者角色保护**: patient_guard.py — 角色泄露检测、诊断泄露检测、隐藏信息规则引擎、fallback 回复
@@ -883,6 +987,6 @@
 - [x] 速率限制 ✓ (v1.11)
 - [x] 密码强度规范 ✓ (v1.11)
 - [x] 审计日志 ✓ (v1.11)
-- [ ] 数据库迁移到 PostgreSQL (SQLite WAL 已足够40人)
+- [x] 数据库迁移到 PostgreSQL ✓ (v2026.05.28)
+- [x] Docker 容器化部署 ✓ (v2026.05.28)
 - [ ] 前端构建产物部署到 Nginx
-- [ ] Docker 容器化部署

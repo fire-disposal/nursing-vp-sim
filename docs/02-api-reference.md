@@ -1,6 +1,6 @@
 # 02 — API接口文档
 
-> 适用版本: v1.16-stable | 最后更新: 2026-05-27
+> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
 
 Base URL: `http://localhost:8000/api`
 
@@ -16,7 +16,7 @@ Base URL: `http://localhost:8000/api`
 
 **状态说明**: 
 - ✅ 前端在用
-- ⚠️ 后端保留但前端未使用（notes模块，v1.4移除前端使用）
+- ⚠️ 后端保留但前端未使用（notes模块）
 
 
 ---
@@ -113,7 +113,7 @@ Response: { message, record_id, scoring_status: "pending" }
 - 前端轮询 GET /training/records/:id 检测 scoring_status 变化（每3秒，最多40次）
 权限：学生（仅自己）
 
-### POST /training/:id/retry-scoring — 重新触发评分 (v1.15)
+### POST /training/:id/retry-scoring — 重新触发评分
 ```
 Response: { message, record_id, scoring_status: "pending" }
 ```
@@ -132,7 +132,7 @@ Response: [{ id, case_id, case_name, user_display_name, user_student_id, status,
 - 使用 joinedload 预加载关联模型 (1次查询替代 1+3N 次)
 权限：登录
 
-### DELETE /training/records/:id — 删除训练记录 (v1.9)
+### DELETE /training/records/:id — 删除训练记录
 ```
 Response: { message: "训练记录已删除" }
 ```
@@ -148,13 +148,13 @@ Response: { ..., time_limit, messages: [...], score: {...}, notes: [...], scorin
 - 学生训练页可通过此接口轮询 scoring_status 检测评分完成
 权限：登录（学生仅自己，教师全部）
 
-### GET /training/records/:id/review — 获取评分复核信息 (v1.14)
+### GET /training/records/:id/review — 获取评分复核信息
 ```
 Response: { score_id, review_status, reviewed_by_name, reviewed_at, original_detail_scores, review_detail_scores, review_comment }
 ```
 权限：登录
 
-### POST /training/records/:id/review — 提交评分复核 (v1.14)
+### POST /training/records/:id/review — 提交评分复核
 ```
 Request:  { detail_scores?, comment? }
 Response: { score_id, review_status: "reviewed", reviewed_by_name, reviewed_at, ... }
@@ -176,7 +176,7 @@ Response: { role: "patient", content }
 - 上下文包含完整System Prompt + 历史消息
 权限：学生（仅自己训练，仅进行中）
 
-### POST /chat/:record_id/message/stream — 发送消息（SSE流式）(v1.12)
+### POST /chat/:record_id/message/stream — 发送消息（SSE流式）
 ```
 Request:  { content }
 Response: text/event-stream (data: {content} ... data: [DONE])
@@ -216,9 +216,30 @@ Response: { id, content, created_at, updated_at }
 Request:  { question }
 Response: { answer }
 ```
-- 调用DeepSeek API，System Prompt限定为护理教育导师角色
+- 调用 LLM，System Prompt 限定为护理教育导师角色
 - 仅回答护理专业问题
+- **自动保存**问答案记录到 qa_records 表
 权限：登录
+
+### GET /qa/history — 获取当前用户问答历史
+```
+Query:  ?limit=50&offset=0
+Response: { items: [{ id, question, answer, created_at }], total, has_more }
+```
+权限：登录
+
+### GET /qa/history/all — 获取全部问答历史（教师）
+```
+Query:  ?limit=50&offset=0&user_name=
+Response: { items: [{ id, user_name, question, answer, created_at }], total, has_more }
+```
+权限：教师
+
+### DELETE /qa/history/:id — 删除问答记录
+```
+Response: { message: "已删除" }
+```
+权限：学生（仅自己）/ 教师
 
 ---
 
@@ -232,7 +253,7 @@ Response: { daily: [{ date, minutes }], total_minutes, total_sessions }
 - 学生看自己的，教师看全部完成的
 权限：登录
 
-### GET /stats/trends?period=week|month|all — 训练趋势 (v1.10)
+### GET /stats/trends?period=week|month|all — 训练趋势
 ```
 Response: { daily: [{ date, sessions, minutes, avg_score }], total_sessions, total_minutes, avg_score }
 ```
@@ -246,7 +267,7 @@ Response: [{ student_id, display_name, student_code, total_sessions, total_minut
 ```
 权限：教师
 
-### GET /stats/ranking — 学生成绩排名 (v1.9)
+### GET /stats/ranking — 学生成绩排名
 ```
 Response: [{ rank, user_id, display_name, student_id, total_sessions, avg_score, total_score, total_minutes }]
 ```
@@ -277,7 +298,7 @@ Response: 文本文件 (元信息 + 完整对话 + 评分结果)
 ### GET /admin/users — 用户列表
 权限：教师
 
-### PUT /admin/users/:id — 编辑用户 (v1.9)
+### PUT /admin/users/:id — 编辑用户
 ```
 Request:  { display_name?, student_id?, role?, password? }
 Response: { id, username, display_name, ... }
@@ -285,14 +306,14 @@ Response: { id, username, display_name, ... }
 - 未填写的字段不修改；password 留空不修改密码
 权限：教师
 
-### DELETE /admin/users/:id — 删除用户 (v1.9)
+### DELETE /admin/users/:id — 删除用户
 ```
 Response: { message: "用户已删除" }
 ```
 - 不能删除自己
 权限：教师
 
-### POST /admin/users/batch — 批量导入用户 (v1.9)
+### POST /admin/users/batch — 批量导入用户
 ```
 Request:  [ { username, password, display_name, role?, student_id? }, ... ]
 Response: { created: N, skipped: N, errors: [...] }
@@ -304,23 +325,119 @@ Response: { created: N, skipped: N, errors: [...] }
 ```
 Response: { total_students, total_records, completed_records, average_score }
 ```
-- v1.9: 仪表盘（教师）使用此接口展示概览卡片
 权限：教师
 
-### POST /admin/backup — 数据库备份 (v1.13)
+### POST /admin/backup — 数据库备份
 ```
 Response: { message, file, size }
 ```
 - 备份到 `backups/` 目录，保留最近 10 个
 权限：教师
 
+### GET /admin/llm-stats — LLM 调用统计
+```
+Response: { today_calls, today_cost, week_calls, week_cost, by_purpose: [...], daily_trend: [...] }
+```
+权限：教师
+
+### GET /admin/llm-logs — LLM 调用日志列表
+```
+Query:  ?limit=20&offset=0&purpose=chat&status=success&date_from=&date_to=
+Response: { items: [{ id, user_name, purpose, provider, model, estimated_input_tokens, estimated_output_tokens, estimated_cost, latency_ms, status, error_message, created_at }], total, has_more }
+```
+权限：教师
+
+### GET /admin/llm-logs/export — 导出 LLM 日志 CSV
+```
+Response: CSV 文件
+```
+权限：教师
+
+---
+
+## API 管理模块 `/admin/api`
+
+### GET /admin/api/providers — 获取 Provider 列表
+```
+Response: [{ id, name, base_url, api_type, description, is_active, key_count, created_at }]
+```
+权限：教师
+
+### POST /admin/api/providers — 创建 Provider
+```
+Request:  { name, base_url, api_type?, description? }
+Response: Provider
+```
+权限：教师
+
+### PUT /admin/api/providers/:id — 编辑 Provider
+### DELETE /admin/api/providers/:id — 删除 Provider（级联删除关联 Key）
+
+### GET /admin/api/providers/:id/keys — 获取 Provider 下的 Key 列表
+```
+Response: [{ id, key_alias, model, priority, weight, is_active, total_calls, total_cost, health_status, ... }]
+```
+- key_value 字段返回脱敏值（`sk-****xxxx`）
+权限：教师
+
+### POST /admin/api/providers/:id/keys — 添加 API Key
+```
+Request:  { key_value, key_alias?, model, priority?, weight?, input_price, output_price, rate_limit?, circuit_breaker_threshold?, circuit_breaker_cooldown? }
+Response: Key (key_value 脱敏)
+```
+- key_value 使用 Fernet 加密存储
+权限：教师
+
+### PUT /admin/api/keys/:id — 编辑 Key
+### DELETE /admin/api/keys/:id — 删除 Key
+
+### POST /admin/api/keys/:id/test — 连通性测试
+```
+Response: { success, latency_ms, message }
+```
+- 发送一条简单请求测试 Key 是否可用
+权限：教师
+
+---
+
+## Prompt 管理模块 `/admin/prompts`
+
+### GET /admin/prompts — 获取 Prompt 模板列表
+```
+Query:  ?purpose=chat|scoring|qa|guard
+Response: [{ id, name, purpose, version, is_active, description, updated_at }]
+```
+权限：教师
+
+### GET /admin/prompts/:id — 获取模板详情
+```
+Response: { id, name, purpose, version, content, description, is_active, created_at, updated_at }
+```
+权限：教师
+
+### POST /admin/prompts — 创建 Prompt 模板
+```
+Request:  { name, purpose, content, description? }
+Response: PromptTemplate（version 自动递增）
+```
+权限：教师
+
+### PUT /admin/prompts/:id — 编辑模板
+- 编辑后 version 自动 +1，旧版本 is_active 自动设为 false
+
+### POST /admin/prompts/:id/activate — 激活模板版本
+- 同一 (name, purpose) 下其他版本自动停用
+
+### DELETE /admin/prompts/:id — 删除模板
+权限：教师
+
 ---
 
 ## 系统模块
 
-### GET /api/health — 健康检查 (v1.13)
+### GET /api/health — 健康检查
 ```
-Response: { status: "ok", version: "1.15.0", database: "connected", timestamp }
+Response: { status: "ok", version: "2026.05.29", database: "connected", timestamp }
 ```
 - DB 连接失败时返回 503
 权限：公开

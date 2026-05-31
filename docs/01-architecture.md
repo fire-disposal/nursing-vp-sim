@@ -1,6 +1,6 @@
 # 01 — 系统架构
 
-> 适用版本: v1.16-stable | 最后更新: 2026-05-27
+> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
 
 ## 技术栈
 
@@ -10,17 +10,20 @@
 | 前端框架 | React 19 + Vite | SPA单页应用 |
 | 前端路由 | react-router-dom v7 | 客户端路由 |
 | HTTP客户端 | axios (前端) / httpx (后端) | 前端120s超时+自动重试；后端共享连接池 |
-| 数据库 | SQLite WAL模式 + SQLAlchemy ORM | QueuePool连接池(5+15)，读写并发 |
+| 数据库 | PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移 | 生产级关系型数据库 |
 | 认证 | JWT (python-jose) | 无状态Token认证 |
 | 密码哈希 | bcrypt (passlib) | 安全密码存储 |
-| LLM API | DeepSeek Chat API | 虚拟患者对话 + 自动评分 + 护理问答 |
+| LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义） | 优先级加权路由、熔断、健康检查 |
 | LLM 可靠性 | 分离超时(聊天30s/评分120s)+重试(2-3次)+限流(10并发)+JSON容错 | 防止API限流和瞬时故障 |
+| 加密 | Fernet 对称加密（SECRET_KEY 派生） | API Key 加密存储 |
 | 语音 | 浏览器 Web Speech API | 语音识别 + 语音合成 |
 | 图表 | recharts (ComposedChart) | 关联训练统计（双Y轴：次数+时长、次数+得分） |
 | 图标 | lucide-react | 统一 SVG 图标库 |
 | 评分标准 | rubrics/ JSON 文件 + 版本缓存 | 19项条目动态生成 Prompt，evidence+reason 证据化，100分制显示 |
 | 教师复核 | review API + 前端 ReviewEditor | 教师逐项修改分数 + 备注，复核徽章 |
 | 患者保护 | patient_guard.py | 角色泄露/诊断泄露检测，隐藏信息规则引擎，fallback 回复 |
+| Prompt 管理 | prompt_manager.py + DB 模板 | 多模板版本化、变量渲染、激活/停用、热重载 |
+| API Key 管理 | crypto_utils.py + Fernet 加密 | 加密存储、连通性测试、per-key 用量统计 |
 | 配置管理 | python-dotenv | .env 文件自动加载 |
 | 速率限制 | 内存滑动窗口（rate_limiter.py） | 无需 Redis，线程安全 |
 | 审计日志 | Python logging（logger.py） | JSON 格式，控制台+文件，请求ID追踪 |
@@ -28,118 +31,126 @@
 ## 项目结构（当前）
 
 ```
-编程/
+nursing-vp-sim/
 ├── backend/                              # 后端服务
 │   ├── main.py                           # FastAPI入口 + lifespan生命周期 + 种子数据
 │   ├── config.py                          # 全局配置 (API Key, LLM参数, .env加载)
-│   ├── database.py                        # SQLite WAL模式 + QueuePool连接池
+│   ├── database.py                        # PostgreSQL + SQLAlchemy 2.0 + Alembic 迁移
 │   ├── rate_limiter.py                    # 内存滑动窗口速率限制器
 │   ├── logger.py                          # 结构化JSON审计日志
-│   ├── models.py                          # SQLAlchemy ORM模型 (6张表 + 3个复合索引)
+│   ├── pagination.py                      # 分页工具
+│   ├── models.py                          # SQLAlchemy ORM模型 (11张表)
 │   ├── schemas.py                         # Pydantic请求/响应模型
 │   ├── auth.py                            # JWT认证 + 角色权限中间件
-│   ├── routers/                           # API路由 (9个模块)
+│   ├── routers/                           # API路由 (11个模块)
 │   │   ├── auth.py                        # 登录 / 注册
 │   │   ├── cases.py                       # 病例列表 / 详情 / 教师CRUD管理
-│   │   ├── training.py                    # 训练开始 / 结束 / 记录
-│   │   ├── chat.py                        # LLM对话 (核心)
+│   │   ├── training.py                    # 训练开始 / 结束 / 记录 / 复核
+│   │   ├── chat.py                        # LLM对话 (流式SSE)
 │   │   ├── notes.py                       # 训练笔记 CRUD (后端保留，前端已移除)
-│   │   ├── qa.py                          # 通用护理问答
-│   │   ├── stats.py                       # 训练时长统计
+│   │   ├── qa.py                          # 通用护理问答 + 问答历史
+│   │   ├── stats.py                       # 训练时长统计 + 趋势 + 排名
 │   │   ├── export.py                      # CSV/文本导出
-│   │   └── admin.py                       # 教师管理 (用户/统计)
+│   │   ├── admin.py                       # 教师管理 (用户/统计/备份)
+│   │   ├── admin_api.py                   # API Provider/Key 管理
+│   │   └── admin_prompts.py               # Prompt 模板管理
 │   ├── services/                          # 业务逻辑层
-│   │   ├── llm_service.py                 # DeepSeek API封装 + System Prompt构建 + rubric动态评分Prompt
-│   │   ├── scoring.py                     # 自动评分逻辑 + evidence软校验 + 57→100分制转换
-│   │   ├── patient_guard.py               # 患者角色边界保护 (角色泄露/诊断泄露检测)
-│   │   └── llm_logging.py                 # LLM调用审计日志 (token/cost/latency 独立会话)
-│   ├── rubrics/                           # 评分标准 (v1.14 新增)
+│   │   ├── llm_service.py                 # LLM API封装 + Prompt构建 + rubric动态评分
+│   │   ├── llm_router.py                  # 多Provider优先级加权路由 + 熔断 + 健康检查
+│   │   ├── llm_logging.py                 # LLM调用审计日志 (token/cost/latency)
+│   │   ├── scoring.py                     # 自动评分逻辑 + 57→100分制转换
+│   │   ├── patient_guard.py               # 患者角色边界保护
+│   │   ├── prompt_manager.py              # DB Prompt模板加载/渲染/缓存
+│   │   └── crypto_utils.py                # Fernet对称加密 (API Key加密存储)
+│   ├── rubrics/                           # 评分标准
 │   │   ├── __init__.py                    # 版本加载 + 缓存
 │   │   └── nursing_history_v1.json        # 19项评分标准（含锚点、示例）
 │   ├── migrations/                        # Alembic 数据库迁移
-│   │   ├── ..._add_rubric_fields.py       # 评分版本化字段
-│   │   └── ..._add_score_review.py        # 教师复核字段
+│   │   └── versions/                      # 迁移版本文件
 │   ├── cases/                             # 病例数据 (JSON)
 │   │   ├── case1.json                     # 咳嗽咳痰伴呼吸困难 (难度1)
 │   │   ├── case2.json                     # 足部皮肤破溃伴红肿疼痛 (难度2)
 │   │   ├── case3.json                     # 右下腹痛 (难度3)
 │   │   ├── case4.json                     # 双膝关节疼痛伴晨僵 (难度2)
 │   │   └── case5.json                     # 胸痛伴心悸 (难度3)
-│   ├── requirements.txt
+│   ├── pyproject.toml                     # uv 项目配置
 │   └── tests/                             # 后端测试 (pytest)
-│       ├── conftest.py                    # 测试夹具 (内存SQLite + TestClient)
-│       ├── test_auth.py                   # 认证测试 (12条)
-│       ├── test_training.py               # 训练流程测试 (16条)
-│       ├── test_admin.py                  # 管理功能测试 (7条)
-│       └── test_cases.py                  # 病例CRUD测试 (5条)
+│       ├── conftest.py                    # 测试夹具 (TestClient)
+│       ├── test_auth.py                   # 认证测试
+│       ├── test_training.py               # 训练流程测试
+│       ├── test_admin.py                  # 管理功能测试
+│       └── test_cases.py                  # 病例CRUD测试
 │
-├── .env                                   # 环境变量配置 (含 DeepSeek Key)
-├── .env.example                           # 环境变量模板 (无敏感数据)
-├── start.bat                              # 生产启动脚本 (1 worker, SQLite单进程)
+├── .env                                   # 环境变量配置
+├── .env.example                           # 环境变量模板
 │
 ├── frontend/                              # 前端应用
 │   ├── src/
-│   │   ├── App.jsx                        # 路由配置 + 权限守卫
+│   │   ├── App.jsx                        # 路由配置 + 权限守卫 + lazy loading
 │   │   ├── main.jsx                       # React入口
-│   │   ├── api.js                         # 后端API调用封装
-│   │   ├── pages/                         # 页面组件 (9个在用，均使用 PageHeader)
+│   │   ├── api.js                         # 后端API调用封装 (37个函数)
+│   │   ├── pages/                         # 页面组件 (10个)
 │   │   │   ├── Login.jsx                  # 登录页
-│   │   │   ├── DashboardHome.jsx          # ★ Dashboard工作台 (当前首页)
-│   │   │   ├── ChatTraining.jsx           # ★ 训练对话页 (极简全屏)
-│   │   │   ├── CaseSelect.jsx             # 病例选择页 (旧版，保留)
-│   │   │   ├── QA.jsx                     # 通用问答 (AI护理导师)
-│   │   │   ├── Stats.jsx                  # 训练统计
+│   │   │   ├── DashboardHome.jsx          # Dashboard工作台 (角色分流)
+│   │   │   ├── ChatTraining.jsx           # 训练对话页 (SSE流式 + 采集进度)
+│   │   │   ├── CaseSelect.jsx             # 病例选择页 (难度筛选)
+│   │   │   ├── QA.jsx                     # 护理问答
+│   │   │   ├── QAHistory.jsx              # 问答历史
+│   │   │   ├── Stats.jsx                  # 训练统计 + 排行榜
 │   │   │   ├── History.jsx                # 历史记录列表
-│   │   │   ├── RecordDetail.jsx           # 记录详情 + 对话回放
+│   │   │   ├── RecordDetail.jsx           # 记录详情 + 教师复核
 │   │   │   └── Admin.jsx                  # 教师管理后台
-│   │   ├── components/                    # 通用组件
-│   │   │   ├── AppShell.jsx               # 统一侧边栏布局 (v1.14 新增)
+│   │   ├── components/                    # 通用组件 (31个)
+│   │   │   ├── AppShell.jsx               # 统一侧边栏布局
 │   │   │   ├── Layout.jsx                 # → 重导出 AppShell（向后兼容）
-│   │   │   ├── ErrorBoundary.jsx           # 全局异常边界 (v1.12)
+│   │   │   ├── ErrorBoundary.jsx           # 全局异常边界
 │   │   │   ├── TrainingDurationChart.jsx  # recharts ComposedChart
-│   │   │   ├── Toast.jsx                  # Toast 通知系统 (Context + Hook)
+│   │   │   ├── Toast.jsx                  # Toast 通知系统
 │   │   │   ├── ScoreCard.jsx              # 评分结果弹窗（证据化+动画）
+│   │   │   ├── Pagination.jsx             # 统一分页组件
+│   │   │   ├── PatientPortrait.jsx        # 患者画像卡片
 │   │   │   ├── ui/                        # 设计系统组件库 (14个)
-│   │   │   │   ├── Button.jsx             #   统一按钮 (5 variant / 3 size)
-│   │   │   │   ├── Card.jsx               #   统一卡片
-│   │   │   │   ├── Badge.jsx              #   徽章 (5 variant)
-│   │   │   │   ├── ConfirmDialog.jsx      #   确认弹窗 (Context驱动)
-│   │   │   │   ├── EmptyState.jsx         #   空状态占位
-│   │   │   │   ├── LoadingState.jsx       #   加载状态
-│   │   │   │   ├── Tabs.jsx               #   Tab 导航 (v1.16)
-│   │   │   │   ├── Table.jsx              #   配置化表格 (v1.16)
-│   │   │   │   ├── PageHeader.jsx         #   统一页面标题 (v1.16)
-│   │   │   │   ├── StatCard.jsx           #   统计卡片 5色 (v1.16)
-│   │   │   │   ├── Modal.jsx              #   模态框 ESC关闭 (v1.16)
-│   │   │   │   ├── FormField.jsx          #   表单字段封装 (v1.16)
-│   │   │   │   ├── Toolbar.jsx            #   工具栏布局 (v1.16)
-│   │   │   │   └── Drawer.jsx             #   侧滑抽屉 (v1.16)
-│   │   │   └── teacher/                   # 教师端 Tab 组件 (v1.16)
-│   │   │       ├── RecordsTab.jsx         #   训练记录管理
-│   │   │       ├── UsersTab.jsx           #   用户管理
-│   │   │       ├── CasesTab.jsx           #   病例管理
-│   │   │       └── MonitorTab.jsx         #   LLM 调用监控
+│   │   │   │   ├── Button.jsx / Card.jsx / Badge.jsx
+│   │   │   │   ├── ConfirmDialog.jsx / EmptyState.jsx / LoadingState.jsx
+│   │   │   │   ├── Tabs.jsx / Table.jsx / PageHeader.jsx
+│   │   │   │   ├── StatCard.jsx / Modal.jsx / FormField.jsx
+│   │   │   │   └── Toolbar.jsx / Drawer.jsx
+│   │   │   └── teacher/                   # 教师端 Tab 组件 (9个)
+│   │   │       ├── RecordsTab.jsx / UsersTab.jsx / CasesTab.jsx
+│   │   │       ├── MonitorTab.jsx / ApiManagementTab.jsx
+│   │   │       ├── PromptManagementTab.jsx / QARecordsTab.jsx
+│   │   │       └── KeyModal.jsx / ProviderModal.jsx
 │   │   ├── styles/
-│   │   │   ├── tokens.css                 # 设计系统CSS变量 (v1.14 新增)
+│   │   │   ├── tokens.css                 # 设计系统CSS变量
 │   │   │   └── index.css                  # 全局样式
 │   │   └── __tests__/                     # 前端测试 (Vitest)
-│   │       ├── setup.js                   # 测试环境配置
-│   │       ├── api.test.js                # API模块测试 (2条)
-│   │       ├── Toast.test.jsx             # Toast通知测试 (6条)
-│   │       └── Layout.test.jsx            # 布局组件测试 (9条)
+│   │       ├── setup.js
+│   │       ├── api.test.js
+│   │       ├── Toast.test.jsx
+│   │       └── Layout.test.jsx
 │   ├── index.html
 │   ├── vite.config.js                     # Vite配置 (API代理到localhost:8000)
+│   ├── biome.json                         # Biome linter/formatter
 │   └── package.json
 │
-└── docs/                                  # 项目文档
-    ├── README.md
-    ├── 01-architecture.md
-    ├── 02-api-reference.md
-    ├── 03-database.md
-    ├── 04-frontend.md
-    ├── 05-llm-design.md
-    ├── 06-dev-log.md
-    └── 07-startup-guide.md
+├── docs/                                  # 项目文档
+│   ├── README.md
+│   ├── 01-architecture.md
+│   ├── 02-api-reference.md
+│   ├── 03-database.md
+│   ├── 04-frontend.md
+│   ├── 05-llm-design.md
+│   ├── 06-dev-log.md
+│   ├── 07-startup-guide.md
+│   └── 08-polish-handoff.md
+│
+├── .github/workflows/                     # CI/CD
+│   ├── ci.yml                             # CI: pytest + vitest + Biome + build
+│   └── cd.yml                             # CD: Docker → GHCR → VPS (v* tag 触发)
+├── docker-compose.yml                     # Docker Compose (PostgreSQL + backend + frontend)
+├── Dockerfile.backend / Dockerfile.frontend
+├── nginx.conf
+└── package.json                           # 根 npm scripts
 ```
 
 ## 两种布局系统
@@ -165,21 +176,37 @@
 ## 数据流
 
 ```
-用户浏览器 → React前端 → HTTP API → FastAPI后端 → SQLite数据库
+用户浏览器 → React前端 → HTTP API → FastAPI后端 → PostgreSQL
                                     ↓
-                            DeepSeek API (对话/评分/问答)
+                            多 Provider LLM API (对话/评分/问答)
 ```
 
 ## 并发支持
 
-- SQLite WAL 模式：写操作不阻塞读，支持 40 人同时在线训练
-- QueuePool 连接池 (pool_size=5, max_overflow=15)：连接复用，避免频繁创建/销毁
-- 共享 httpx.AsyncClient：TLS 连接复用，减少 DeepSeek API 延迟
+- PostgreSQL 支持高并发读写，无需 WAL 模式额外配置
+- SQLAlchemy QueuePool 连接池：连接复用，避免频繁创建/销毁
+- 共享 httpx.AsyncClient：TLS 连接复用，减少 LLM API 延迟
 - asyncio.Semaphore(10)：LLM 调用并发限流，防止触发 API 限流
-- uvicorn --workers 1：SQLite 不支持多进程写入，单进程 + WAL 模式足够 40 人并发
-- 事务顺序修正：LLM 调用失败时不持久化数据，支持安全重试
 - 前端 AbortController：页面离开时取消进行中请求，释放服务器资源
 - 分离超时策略：聊天 30s（512 tokens，2次重试），评分 120s（2048 tokens，3次重试）
+
+## v2026.05.31 新增特性 — 多 API 管理 + Prompt 模板 + 统一 LLM 配置
+
+- **多 API Provider 管理**: ApiProvider/ApiKey 模型，支持多 Provider（DeepSeek / OpenAI / 自定义）优先级加权路由、熔断器、健康检查、连通性测试
+- **API Key 加密存储**: Fernet 对称加密（SECRET_KEY 派生），`crypto_utils.py` 加密/解密
+- **LLM Router**: `llm_router.py` — 多 Provider 优先级加权路由 + 电路熔断 + 灰度发布
+- **Prompt 模板管理**: `prompt_manager.py` + `PromptTemplate` DB 模型 — 模板版本化、变量渲染 `{var}`、激活/停用、热重载
+- **前端 API 管理面板**: `ApiManagementTab.jsx` — Provider CRUD + Key 添加/编辑（含定价/熔断配置）+ 连通性测试
+- **前端 Prompt 管理面板**: `PromptManagementTab.jsx` — 模板 CRUD + 变量预览 + 版本激活
+- **统一 LLM 配置**: 告别环境变量碎片化，所有 LLM 参数统一在数据库 api_providers/api_keys 表中管理
+- **DeepSeek 一键添加**: 教师管理面板中仅需填写 API Key，自动拉取官方参数
+
+## v2026.05.30 新增特性 — 问答历史 + 患者画像 + 分页标准化
+
+- **问答历史**: QAHistory.jsx + QARecordsTab.jsx — 用户可查看历史问答记录，教师可全局管理
+- **患者画像**: PatientPortrait.jsx — 训练页显示患者基本信息卡片（姓名、年龄、性别、主诉）
+- **分页标准化**: Pagination.jsx — 统一分页组件，所有列表页使用一致的分页交互
+- **跳过评分按钮**: 训练结束评分等待时可选跳过，直接查看对话记录
 
 ## v1.16 新增特性 — 商业级布局优化
 

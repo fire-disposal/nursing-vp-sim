@@ -17,10 +17,10 @@
 
 ## 当前版本
 
-- **版本**: v2026.05.29
-- **最后更新**: 2026-05-29
+- **版本**: v2026.05.31
+- **最后更新**: 2026-05-31
 - **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
-- **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker + VPS），前后端测试全通过，Husky 提交规范已启用。
+- **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过，Husky 提交规范已启用。
 
 ## 快速了解
 
@@ -49,7 +49,7 @@
 - **流式对话**：SSE 逐字显示 + 闪烁光标动画，首字延迟 <1s
 - **韧性保护**：Error Boundary 全局异常边界 + beforeunload 离开守卫 + 输入恢复 + 定时器防绕过
 - **安全防护**：速率限制（登录/注册/聊天/问答）、密码强度统一（最低6位）、审计日志（JSON格式，控制台+文件，请求ID追踪）
-- 前后端测试套件（57条测试，覆盖认证/训练/CRUD/组件）
+- 前后端测试套件（57+ 条测试，覆盖认证/训练/CRUD/组件）
 
 ---
 
@@ -57,18 +57,18 @@
 
 ### 系统概览
 
-虚拟患者训练系统（Virtual Patient Training System）是一个基于大语言模型的护理学生病史采集训练平台。学生通过与 DeepSeek Chat API 驱动的虚拟患者进行自然语言对话，模拟真实临床病史采集过程。系统自动对学生的沟通技能（14项）和病史采集（5项）进行 19 项细粒度评分（100分制），并提供证据化评分和教师复核机制。
+虚拟患者训练系统（Virtual Patient Training System）是一个基于大语言模型的护理学生病史采集训练平台。学生通过与 LLM 驱动的虚拟患者进行自然语言对话，模拟真实临床病史采集过程。系统自动对学生的沟通技能（14项）和病史采集（5项）进行 19 项细粒度评分（100分制），并提供证据化评分和教师复核机制。支持多 LLM Provider 优先级加权路由、Prompt 模板管理与版本化。
 
 ### 技术栈
 
 | 层级 | 技术 |
 |------|------|
 | 后端框架 | Python FastAPI (异步) |
-| 数据库 | SQLite WAL 模式 + SQLAlchemy ORM + QueuePool(5+15) |
+| 数据库 | PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移 |
 | 前端框架 | React 19 + Vite 8 (SPA) |
 | 前端路由 | react-router-dom v7 |
 | 认证 | JWT (python-jose) + bcrypt 密码哈希 |
-| LLM API | DeepSeek Chat API (对话/评分/问答) |
+| LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义），SSE 流式 |
 | 图表 | recharts (ComposedChart) |
 | 图标 | lucide-react |
 
@@ -97,8 +97,11 @@
 - JWT 认证 + 角色权限（student/teacher）
 - 速率限制（4端点）+ 密码强度统一（≥6位）+ .env API Key 保护
 - 审计日志（JSON格式，控制台+文件，请求ID追踪）+ LLM 调用审计日志
-- /health 健康检查 + 数据库备份（教师）+ CSV 流式导出
+- /health 健康检查 + 数据库一键备份（教师）+ CSV 流式导出
 - 韧性: Error Boundary + beforeunload + AbortController + Axios 重试 + UtcDateTime 时区保护
+- **多 API 管理**: 多 Provider/Key 优先级加权路由、熔断、健康检查、API Key 加密存储
+- **Prompt 管理**: 数据库模板化，支持变量渲染、版本激活、热重载
+- **DeepSeek 一键添加**: 仅需 API Key，自动配置官方参数
 
 **测试**: 57 条（后端 pytest 40 条 + 前端 Vitest 17 条），全部通过
 
@@ -117,14 +120,17 @@ frontend/src/
 │   ├── ChatTraining.jsx                 # 训练对话 (SSE 流式 + 采集进度侧栏)
 │   ├── CaseSelect.jsx                   # 病例选择 (难度筛选 + PageHeader)
 │   ├── QA.jsx                           # 护理问答 (PageHeader)
+│   ├── QAHistory.jsx                    # 问答历史 (PageHeader)
 │   ├── Stats.jsx                        # 训练统计 + 排行榜 (PageHeader)
 │   ├── History.jsx                      # 历史记录 (PageHeader)
 │   ├── RecordDetail.jsx                 # 记录详情 + 教师复核 (PageHeader)
-│   └── Admin.jsx                        # 管理后台 (Tabs + 4个Tab组件)
+│   └── Admin.jsx                        # 管理后台 (Tabs + 6个Tab组件)
 ├── components/
 │   ├── AppShell.jsx                     # 统一侧边栏布局
 │   ├── Layout.jsx                       # → 重导出 AppShell
 │   ├── Toast.jsx                        # Toast 通知系统
+│   ├── Pagination.jsx                   # 统一分页组件
+│   ├── PatientPortrait.jsx              # 患者画像卡片
 │   ├── ScoreCard.jsx                    # 评分结果弹窗（证据化 + 动画）
 │   ├── TrainingDurationChart.jsx        # recharts ComposedChart
 │   ├── ErrorBoundary.jsx                # 全局异常边界
@@ -143,11 +149,16 @@ frontend/src/
 │   │   ├── FormField.jsx                # 表单字段 (v1.16)
 │   │   ├── Toolbar.jsx                  # 工具栏 (v1.16)
 │   │   └── Drawer.jsx                   # 侧滑抽屉 (v1.16)
-│   └── teacher/                         # 教师端 Tab 组件 (v1.16)
+│   └── teacher/                         # 教师端 Tab 组件
 │       ├── RecordsTab.jsx               # 训练记录管理
 │       ├── UsersTab.jsx                 # 用户管理
 │       ├── CasesTab.jsx                 # 病例管理
-│       └── MonitorTab.jsx               # LLM 调用监控
+│       ├── MonitorTab.jsx               # LLM 调用监控
+│       ├── ApiManagementTab.jsx         # API Provider/Key 管理
+│       ├── PromptManagementTab.jsx      # Prompt 模板管理
+│       ├── QARecordsTab.jsx             # 问答历史管理
+│       ├── KeyModal.jsx                 # API Key 编辑弹窗
+│       └── ProviderModal.jsx            # Provider 编辑弹窗
 └── styles/
     ├── tokens.css                        # CSS 变量体系
     └── index.css                         # 全局样式
@@ -160,24 +171,26 @@ frontend/src/
 | Phase 5 | 响应式优化（平板/手机适配） | 2-3h |
 | 第四梯队 | 断网检测 + 消息重试 + 病例长度校验 + Token刷新 | 1-2h |
 | 第五梯队 | 补齐导出/统计/问答/批量导入/LLM失败路径测试覆盖 (~30条) | 2-3h |
-| 部署 | 云服务器部署 / Docker 容器化 | 4-6h |
 | 清理 | 删除遗留未使用文件、清理未使用 CSS | 1h |
 
 ### 快速启动
 
 ```bash
 # 后端 (端口 8000)
-cd backend
-pip install -r requirements.txt
-python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+cd backend && uv sync && uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
-# 前端 (端口 3000/3001)
-cd frontend
-npm install
-npm run dev
+# 前端 (端口 3000)
+cd frontend && npm install && npm run dev
 ```
 
 默认账号: 教师 admin/admin123 | 学生 student1/123456 ~ student5/123456
+
+### Docker 部署
+
+```bash
+# 根目录 .env 配置 DEEPSEEK_API_KEY 和 SECRET_KEY 后
+docker compose up -d
+```
 
 ### 关键约定
 
@@ -185,4 +198,5 @@ npm run dev
 - 病例名称使用症状描述（不泄露医学诊断）
 - 所有 API 路径以 `/api/` 为前缀
 - 前端通过 Vite proxy 转发 `/api` 请求到后端 8000 端口
-- 后端 `.env` 存储敏感配置（DEEPSEEK_API_KEY 等），`.env.example` 为模板
+- 后端 `.env` 存储敏感配置，`.env.example` 为模板
+- Provider/Key/Prompt 配置在教师管理面板操作，无需修改环境变量

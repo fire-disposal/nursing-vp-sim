@@ -1,16 +1,53 @@
-# React + Vite
+# 虚拟患者训练系统 — 前端
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 SPA，为护理学生病史采集训练提供用户界面。
 
-Currently, two official plugins are available:
+## 技术栈
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19 + Vite 8
+- react-router-dom v7 (lazy loading)
+- recharts (图表) + lucide-react (图标)
+- 纯 CSS 设计系统 (tokens.css + 14 UI 组件)
+- Biome (linter/formatter)
 
-## React Compiler
+## 快速启动
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 安装依赖
+npm install
 
-## Expanding the ESLint configuration
+# 启动开发服务器
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+浏览器打开 `http://localhost:3000`
+
+## 项目结构
+
+```
+frontend/src/
+├── App.jsx                   # 路由配置 + 权限守卫
+├── main.jsx                  # React 入口
+├── api.js                    # API 客户端 (37 个函数)
+├── pages/                    # 页面组件 (10 个)
+├── components/               # 通用组件 (31 个)
+│   ├── ui/                   # 设计系统 (14 个)
+│   └── teacher/              # 教师端 Tab (9 个)
+├── styles/
+│   ├── tokens.css            # CSS 变量体系
+│   └── index.css             # 全局样式
+└── __tests__/                # Vitest 测试 (17 条)
+```
+
+## 运行测试
+
+```bash
+npx vitest run
+```
+
+## 代码检查
+
+```bash
+npx biome check src/
+npx biome format src/
+```

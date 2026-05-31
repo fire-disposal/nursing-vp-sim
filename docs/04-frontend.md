@@ -1,6 +1,6 @@
 # 04 — 前端设计
 
-> 适用版本: v1.16-stable | 最后更新: 2026-05-27
+> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
 
 ## 技术栈
 
@@ -21,10 +21,11 @@
 | /cases | CaseSelect | 学生 | Sidebar | 病例选择（难度筛选+星级徽章） |
 | /training/:recordId | **ChatTraining** | 学生 | 独立极简 (training-shell) | 训练对话 |
 | /qa | QA | 登录 | Sidebar | 护理专业问答 |
+| /qa/history | QAHistory | 登录 | Sidebar | 问答历史记录 |
 | /stats | Stats | 登录 | Sidebar | 训练统计 + 排行榜（教师） |
 | /history | History | 登录 | Sidebar | 训练记录列表 + 删除 |
 | /record/:id | RecordDetail | 登录 | Sidebar | 记录详情+对话回放 |
-| /admin | Admin | 教师 | Sidebar | 管理后台（记录/用户/病例） |
+| /admin | Admin | 教师 | Sidebar | 管理后台（6个Tab） |
 | * | → /login | - | - | 未匹配路由 |
 
 ## 组件树（当前在用）
@@ -36,39 +37,48 @@ App
 ├── ErrorBoundary                   ★ 全局异常边界
 ├── Login                           ★ (使用 Card/Button 组件)
 ├── DashboardHome                   ★ 首页仪表盘 (StudentDashboard/TeacherDashboard)
-│   ├── PageHeader                  ★ 页面标题 (v1.16)
-│   ├── StatCard ×5                 ★ 教师仪表盘统计卡片 (v1.16)
-│   ├── TrainingDurationChart       ★ recharts ComposedChart（日/周/月切换）
-│   └── Tabs                        ★ 角色分流 (v1.16)
+│   ├── PageHeader                  ★ 页面标题
+│   ├── StatCard ×5                 ★ 教师仪表盘统计卡片
+│   │   └── Tabs                        ★ 角色分流
 ├── ChatTraining                    ★ 训练页（独立布局 + 倒计时 + 语音 + 采集进度侧栏）
 │   ├── ScoreCard                   ★ 评分弹窗（证据化 + 动画）
 │   └── InquirySidebar              ★ 采集进度侧栏（关键词匹配，不调LLM）
 ├── CaseSelect                      ★ 病例选择（难度筛选 + 星级徽章 + PageHeader）
 ├── QA                              ★ 护理问答 (PageHeader)
+├── QAHistory                       ★ 问答历史 (PageHeader + Pagination)
 ├── Stats                           ★ 训练统计 + 学生排行榜 (PageHeader)
-├── History                         ★ 训练记录（含时长/删除，PageHeader + ConfirmDialog）
+├── History                         ★ 训练记录（含时长/删除，PageHeader + ConfirmDialog + Pagination）
 ├── RecordDetail                    ★ (教师复核UI: ReviewEditor + Badge + PageHeader)
 │   ├── ScoreCard
 │   └── ReviewEditor                ★ 教师复核编辑器（逐项修改分数 + 复核备注）
-├── Admin                           ★ 管理后台（Tabs + 4个Tab组件，v1.16 拆分）
-│   ├── Tabs                        ★ Tab 导航 (v1.16)
-│   ├── RecordsTab                  ★ 训练记录管理 (v1.16)
-│   ├── UsersTab                    ★ 用户管理 (v1.16)
-│   ├── CasesTab                    ★ 病例管理 (v1.16)
-│   └── MonitorTab                  ★ LLM 调用监控 (v1.16)
+├── Admin                           ★ 管理后台（Tabs + 6个Tab组件，v2026.05.31 扩展）
+│   ├── Tabs                        ★ Tab 导航
+│   ├── RecordsTab                  ★ 训练记录管理
+│   ├── UsersTab                    ★ 用户管理
+│   ├── CasesTab                    ★ 病例管理
+│   ├── MonitorTab                  ★ LLM 调用监控
+│   ├── ApiManagementTab            ★ API Provider/Key 管理 (v2026.05.31)
+│   │   ├── KeyModal                ★ Key 添加/编辑弹窗
+│   │   └── ProviderModal           ★ Provider 添加/编辑弹窗
+│   ├── PromptManagementTab         ★ Prompt 模板管理 (v2026.05.31)
+│   └── QARecordsTab                ★ 问答历史管理 (v2026.05.30)
 │
 └── Layout / AppShell               ★ Layout 重导出 AppShell
     └── (Sidebar + MainContent)
 
+新增专项组件:
+├── Pagination                      ★ 统一分页组件（页码 + 前后翻页 + 信息文本）
+├── PatientPortrait                 ★ 患者画像卡片（姓名/年龄/性别/主诉，训练页显示）
+
 UI 组件库 (14个):
-第一批 v1.14 (6个):
+第一批 (6个):
 ├── ui/Button        ★ 统一按钮（variant/size/loading/icon）
 ├── ui/Card          ★ 统一卡片（title/titleIcon/actions）
 ├── ui/Badge         ★ 徽章（success/info/warning/danger/neutral）
 ├── ui/ConfirmDialog ★ 确认弹窗（Context驱动，Promise<boolean>）
 ├── ui/EmptyState    ★ 空状态占位
 └── ui/LoadingState  ★ 加载状态（spinner + message）
-第二批 v1.16 (8个):
+第二批 (8个):
 ├── ui/Tabs          ★ Tab 导航（icon + label + count badge）
 ├── ui/Table         ★ 配置化表格（columns + rowKey + empty + hover）
 ├── ui/PageHeader    ★ 统一页面标题（title + subtitle + icon + actions + back）
@@ -81,9 +91,9 @@ UI 组件库 (14个):
 
 ## 布局详解
 
-### 1. Sidebar 布局（AppShell/Layout 组件 — v1.14 统一为 AppShell）
+### 1. Sidebar 布局（AppShell/Layout 组件）
 
-所有页面（DashboardHome、CaseSelect、QA、Stats、History、RecordDetail、Admin）均使用 AppShell 布局。Layout.jsx 保留作为重导出包装器，向后兼容。
+所有页面（DashboardHome、CaseSelect、QA、QAHistory、Stats、History、RecordDetail、Admin）均使用 AppShell 布局。Layout.jsx 保留作为重导出包装器，向后兼容。
 
 ```
 ┌────────────┬────────────────────────────────┐
@@ -100,7 +110,7 @@ UI 组件库 (14个):
 - 侧边栏固定定位，深灰(#111827)背景
 - 主内容区左边距200px，浅灰(#f5f6f8)背景
 
-### 2. Training 布局（训练页 — v1.14 新增采集进度侧栏）
+### 2. Training 布局（训练页 + 采集进度侧栏）
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -124,7 +134,7 @@ UI 组件库 (14个):
 - **输入栏**：语音按钮+输入框+发送按钮
 - **消息**：学生蓝色靠右，患者白色(带边框)靠左，hover显示朗读按钮
 
-## DashboardHome 关键交互 (v1.16 商业级布局重构)
+## DashboardHome 关键交互 (商业级布局)
 
 DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + Layout：
 
@@ -147,11 +157,11 @@ DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + L
 1. **发送消息**: Enter键发送，支持语音输入（Web Speech API）
 2. **语音朗读**: hover患者消息时显示朗读按钮（Web Speech Synthesis）
 3. **倒计时器**: 从病例 time_limit 倒计时，<5分钟琥珀色，<2分钟红色，归零自动结束训练并评分
-4. **采集进度侧栏** (v1.14 新增): 工具栏按钮显示已覆盖/总问询数，点击打开侧边面板；客户端中文 bigram 关键词匹配 `required_inquiries`，不调 LLM，不泄露病例答案；包含进度条和逐项完成/未完成状态
+4. **采集进度侧栏**: 工具栏按钮显示已覆盖/总问询数，点击打开侧边面板；客户端中文 bigram 关键词匹配 `required_inquiries`，不调 LLM，不泄露病例答案；包含进度条和逐项完成/未完成状态
 5. **结束训练**: 自定义 ConfirmDialog 确认后调用API结束并触发自动评分；倒计时归零自动触发
 6. **返回首页**: 左上角箭头返回 DashboardHome（训练进行中有 beforeunload + ConfirmDialog 离开守卫）
 
-## 设计系统（v1.14 tokens.css 升级）
+## 设计系统（tokens.css 变量体系）
 
 设计 tokens 集中在 `styles/tokens.css`，从 `index.css` 通过 `@import` 引入：
 
@@ -166,7 +176,7 @@ DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + L
 
 ### 14 个 UI 组件
 
-**v1.14 第一批（6个）:**
+**第一批（6个）:**
 | 组件 | 路径 | 用途 |
 |------|------|------|
 | Button | `ui/Button.jsx` | variant(5种)/size(3种)/icon/loading/disabled |
@@ -176,7 +186,7 @@ DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + L
 | EmptyState | `ui/EmptyState.jsx` | icon/title/description/action |
 | LoadingState | `ui/LoadingState.jsx` | spinner + message |
 
-**v1.16 第二批（8个）:**
+**第二批（8个）:**
 | 组件 | 路径 | 用途 |
 |------|------|------|
 | Tabs | `ui/Tabs.jsx` | Tab导航（icon + label + count badge），支持 activeTab/onChange |
@@ -190,8 +200,8 @@ DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + L
 
 ## 已清理的遗留文件
 
-- v1.7 删除 9 个文件：`Avatar.jsx`, `ChatBubble.jsx`, `VoiceButton.jsx`, `TrainingMainPanel.jsx`, `FeatureCard.jsx`, `CaseLibraryPanel.jsx`, `FeedbackPreviewCard.jsx`, `QuestionQuickAskCard.jsx`, `Home.jsx`
-- v1.14 删除 `Header.jsx`（零引用死代码），~103 行孤儿 CSS（`.dash-*`, `.header-*`）
+- 删除 9 个遗留文件：`Avatar.jsx`, `ChatBubble.jsx`, `VoiceButton.jsx`, `TrainingMainPanel.jsx`, `FeatureCard.jsx`, `CaseLibraryPanel.jsx`, `FeedbackPreviewCard.jsx`, `QuestionQuickAskCard.jsx`, `Home.jsx`
+- 删除 `Header.jsx`（零引用死代码），~103 行孤儿 CSS（`.dash-*`, `.header-*`）
 
 ## 数据接入说明
 
@@ -199,12 +209,12 @@ DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + L
 
 - 病例库：`GET /api/cases`（5个病例，含 difficulty 字段，用于难度分布统计：初级1/中级2/高级2）
 - 状态栏：`GET /api/training/records` + `GET /api/stats/duration`
-- 训练统计：`TrainingDurationChart.jsx` 调用 `GET /api/stats/trends`（v1.10 新增）
+- 训练统计：`TrainingDurationChart.jsx` 调用 `GET /api/stats/trends`
 - 快速提问：跳转 `/qa?q=...`
 
 仍保留的 mock/示例内容只有 Dashboard 快速提问的三个示例标签。
 
-## CaseSelect 病例选择 (v1.10 难度分级)
+## CaseSelect 病例选择 (难度分级)
 
 - **难度筛选器**: 顶部横向 chip 按钮（全部 / 初级 / 中级 / 高级），点击筛选
 - **星级徽章**: 每张病例卡右上角显示难度（★☆☆ 初级 / ★★☆ 中级 / ★★★ 高级），颜色编码
@@ -212,9 +222,9 @@ DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + L
 - **面包屑**: 「← 返回工作台」返回 DashboardHome
 - 数据来源：`GET /api/cases`（含 `difficulty` 字段）
 
-## Admin 管理后台 (v1.16 重构)
+## Admin 管理后台 (v2026.05.31 扩展为 6 Tab)
 
-Admin 从单一 1150 行文件重构为 Tabs 容器（~40行）+ 4 个独立 Tab 组件：
+Admin 从单一 1150 行文件重构为 Tabs 容器（~40行）+ 6 个独立 Tab 组件：
 
 ### 训练记录 Tab（RecordsTab.jsx，默认）
 - 多维过滤栏：学生姓名（模糊搜索）、病例下拉、状态选择、日期范围（起/止）、清除过滤
@@ -226,28 +236,38 @@ Admin 从单一 1150 行文件重构为 Tabs 容器（~40行）+ 4 个独立 Tab
 - 注册新用户表单（可折叠，含用户名/密码/角色/姓名/学号）
 - 用户列表：用户名、姓名、角色(Badge)、学号、注册时间、操作（编辑 + 删除）
 - 编辑弹窗使用 Modal 组件（姓名/学号/角色/新密码）
-- 批量导入弹窗使用 Modal 组件：
-  - 粘贴文本（每行一个用户，逗号分隔）或上传 CSV 文件
-  - 预览表格含密码脱敏显示（***）
-  - 下载 CSV 模板
-  - 导入结果反馈（创建成功/跳过数量）
+- 批量导入弹窗使用 Modal 组件：粘贴文本或上传 CSV，密码脱敏预览
 - 删除保护：不能删除自己
 
 ### 病例管理 Tab（CasesTab.jsx）
-- 病例列表：名称、患者(姓名·年龄·性别)、主诉、时限(Badge)、训练次数、操作（编辑/删除）
-- 添加/编辑弹窗使用 Modal 组件（maxWidth=800）：
-  - 结构化表单含 4 个 fieldset：基础信息、患者信息、临床信息、高级字段(可折叠)
-  - JSON 文件导入按钮
-  - 表单验证（病例名称必填）
+- 病例列表：名称、患者、主诉、时限(Badge)、训练次数、操作
+- 添加/编辑弹窗使用 Modal 组件（4 个 fieldset + JSON 导入）
 - 删除保护：有训练记录时禁用删除按钮
 
-### LLM 调用监控 Tab（MonitorTab.jsx，v1.16 新增）
-- 统计卡片：今日调用次数 + 今日费用 + 7天调用次数 + 7天费用（StatCard 组件）
+### LLM 调用监控 Tab（MonitorTab.jsx）
+- 统计卡片：今日调用次数 + 今日费用 + 7天调用次数 + 7天费用
 - 每日趋势柱状图（近7天/近30天切换）
-- 按用途分布表格（对话/评分/问答，含次数/占比/token/费用）
-- 调用日志表格（时间/用途/模型/token/费用/延迟/状态），支持分页和用途/状态过滤
+- 按用途分布表格 + 调用日志表格（支持分页和过滤）
 
-## 韧性特性 (v1.6-concurrent 新增)
+### API 管理 Tab（ApiManagementTab.jsx，v2026.05.31 新增）
+- **Provider 管理**: 列表展示所有 Provider（名称/地址/类型/Key数量/状态）+ 添加/编辑 Provider Modal
+- **Key 管理**: 展开 Provider 查看关联 Key 列表（模型/优先级/权重/用量/费用/健康状态）
+- **Key 操作**: 添加 Key Modal（含定价、熔断参数）+ 连通性测试按钮 + 编辑/删除
+- **DeepSeek 一键添加**: 仅填写 API Key，自动拉取官方默认参数
+- Provider 删除保护：有 Key 的 Provider 提示先删除 Key
+
+### Prompt 管理 Tab（PromptManagementTab.jsx，v2026.05.31 新增）
+- 模板列表：名称、用途(Badge)、版本、激活状态、更新时间
+- 创建/编辑 Modal：名称、用途(chat/scoring/qa/guard)、模板内容（含 `{变量}` 提示）、说明
+- 版本管理：编辑自动版本号+1，旧版自动停用；支持手动激活任一版本
+- 删除保护：激活版本不可删除
+
+### 问答历史 Tab（QARecordsTab.jsx，v2026.05.30 新增）
+- 所有用户的问答记录列表，支持按用户名搜索
+- 表格：用户名、问题（截断）、回答（截断）、时间、操作（删除）
+- 使用 Pagination 统一分页
+
+## 韧性特性
 
 ### AbortController 请求取消
 - `ChatTraining.jsx`：组件卸载或用户离开页面时自动取消进行中的 LLM 请求
@@ -272,7 +292,7 @@ Admin 从单一 1150 行文件重构为 Tabs 容器（~40行）+ 4 个独立 Tab
 - `sendMessage(recordId, content, signal)` — 接受 AbortController.signal
 - `endTraining(recordId, signal)` — 同上
 
-## Toast 通知系统 (v1.9 新增)
+## Toast 通知系统
 
 `components/Toast.jsx` — 基于 React Context 的全局通知：
 
@@ -282,7 +302,7 @@ Admin 从单一 1150 行文件重构为 Tabs 容器（~40行）+ 4 个独立 Tab
 - 最多同时 5 个，超出的排队等待
 - CSS 动画：滑入 + 进度条收缩
 
-## 前端测试 (v1.9 新增)
+## 前端测试
 
 - 框架: Vitest 4.1 + @testing-library/react 16 + jsdom
 - 3 个测试文件，17 条测试用例
