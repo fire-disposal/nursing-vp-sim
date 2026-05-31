@@ -1,4 +1,4 @@
-import { MessageSquare, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { useState } from "react";
 import { submitFeedback } from "../api";
 import { useToast } from "./Toast";

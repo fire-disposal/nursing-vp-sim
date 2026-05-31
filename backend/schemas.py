@@ -488,3 +488,30 @@ class PromptPreviewResponse(BaseModel):
     system_prompt_rendered: str
     user_prompt_rendered: str | None
     sample_vars: dict
+
+
+# ── 反馈系统 ──
+
+class FeedbackSubmit(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    tag: str = Field(max_length=20)
+    content: Optional[str] = None
+
+
+class FeedbackItem(BaseModel):
+    id: int
+    user_id: int
+    user_name: str = ""
+    rating: int
+    tag: str
+    content: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FeedbackListResponse(BaseModel):
+    items: list[FeedbackItem]
+    total: int
+    offset: int
+    limit: int

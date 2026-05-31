@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from database import init_db, engine, get_db
-from routers import auth, cases, training, chat, export, admin, notes, qa, stats
+from routers import auth, cases, training, chat, export, admin, notes, qa, stats, feedback
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from logger import audit_logger
@@ -199,6 +199,7 @@ app.include_router(export.router)
 app.include_router(admin.router)
 app.include_router(notes.router)
 app.include_router(qa.router)
+app.include_router(feedback.router)
 app.include_router(stats.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)

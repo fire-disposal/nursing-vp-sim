@@ -213,6 +213,24 @@ class ApiKey(Base):
     provider = relationship("ApiProvider", back_populates="keys")
 
 
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+    __table_args__ = (
+        Index("ix_feedback_user_id", "user_id"),
+        Index("ix_feedback_tag", "tag"),
+        Index("ix_feedback_created_at", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    rating = Column(Integer, nullable=False)
+    tag = Column(String(20), nullable=False)
+    content = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+
+
 class PromptTemplate(Base):
     """LLM 提示词模板"""
     __tablename__ = "prompt_templates"
