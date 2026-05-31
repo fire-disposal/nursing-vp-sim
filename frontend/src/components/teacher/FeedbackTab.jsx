@@ -188,12 +188,12 @@ function RatingPieChart({ tag, dateFrom, dateTo }) {
           totals.rating_5 += d.rating_5 || 0;
         });
         setData([
-          { name: "rating_1", value: totals.rating_1 },
-          { name: "rating_2", value: totals.rating_2 },
-          { name: "rating_3", value: totals.rating_3 },
-          { name: "rating_4", value: totals.rating_4 },
-          { name: "rating_5", value: totals.rating_5 },
-        ]);
+          { name: "rating_1", value: totals.rating_1, idx: 0 },
+          { name: "rating_2", value: totals.rating_2, idx: 1 },
+          { name: "rating_3", value: totals.rating_3, idx: 2 },
+          { name: "rating_4", value: totals.rating_4, idx: 3 },
+          { name: "rating_5", value: totals.rating_5, idx: 4 },
+        ].filter(d => d.value > 0));
       })
       .catch(() => setData([]));
   }, [tag, dateFrom, dateTo]);
@@ -220,8 +220,8 @@ function RatingPieChart({ tag, dateFrom, dateTo }) {
             label={({ name, percent }) => `${PIE_LABELS[Number(name.slice(-1)) - 1].slice(2)} ${(percent * 100).toFixed(0)}%`}
             labelLine={false}
           >
-            {data.map((_, i) => (
-              <Cell key={i} fill={PIE_COLORS[i]} />
+            {data.map((d) => (
+              <Cell key={d.name} fill={PIE_COLORS[d.idx]} />
             ))}
           </Pie>
           <Tooltip formatter={(value, name) => [value, PIE_LABELS[Number(name.slice(-1)) - 1]]} />
