@@ -27,15 +27,15 @@ SECRET_KEY = _raw_secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
-# LLM 成本估算
-LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "0"))
-LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "0"))
+# LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
+LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
+LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "2"))
 LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
 
-# [deprecated] 仅用于 seed 初始数据，API 管理已迁移到数据库（LLMRouter）
+# DeepSeek 种子数据（首次启动用，之后通过管理面板管理）
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 # LLM 调用参数
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))

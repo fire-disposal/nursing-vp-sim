@@ -88,25 +88,18 @@ docker compose up -d
 
 ```bash
 # 必填
-DEEPSEEK_API_KEY=sk-your-key            # DeepSeek API Key（也用于 seed 首个 Provider）
 SECRET_KEY=<随机字符串>                   # JWT 签名 + API Key 加密派生
-
-# DeepSeek 快捷配置（首次启动自动 seed 到数据库，之后由 API 管理面板接管）
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-v4-flash
-
-# LLM 成本估算（¥/百万token，默认 DeepSeek v4-flash 官方定价）
-LLM_PRICE_INPUT_PER_1M=1
-LLM_PRICE_OUTPUT_PER_1M=2
-LLM_COST_CURRENCY=CNY
+DEEPSEEK_API_KEY=sk-your-key            # 首次启动自动 seed 到数据库
 
 # 数据库（Docker 部署自动使用容器内地址）
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 
 # 可选调参
-LLM_CONCURRENT_LIMIT=50       # 并发上限，建议 ≥ 同时训练人数
+LLM_CONCURRENT_LIMIT=50                 # 并发上限
 LLM_MAX_RETRIES=3
 ```
+
+> Provider 配置、模型、定价等均在教师管理面板的「API 管理」中操作，无需通过环境变量。
 
 ## 仓库 Secrets（GitHub Actions）
 
