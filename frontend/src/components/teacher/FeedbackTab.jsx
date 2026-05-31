@@ -1,6 +1,6 @@
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getFeedbackStats, getFeedbacks } from "../../api";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
@@ -109,7 +109,7 @@ function FeedbackChart() {
   const labelMap = { rating_1: "😞 很差", rating_2: "😐 较差", rating_3: "🙂 一般", rating_4: "😊 满意", rating_5: "😍 很满意" };
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <h3 style={{ fontSize: "0.9rem", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
           <BarChart3 size={14} />
@@ -166,6 +166,71 @@ function FeedbackChart() {
   );
 }
 
+const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
+const PIE_LABELS = ["😞 很差", "😐 较差", "🙂 一般", "😊 满意", "😍 很满意"];
+
+function RatingPieChart({ tag, dateFrom, dateTo }) {
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const params = {};
+    if (tag) params.tag = tag;
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
+    getFeedbackStats(params)
+      .then(({ data: stats }) => {
+        const totals = { rating_1: 0, rating_2: 0, rating_3: 0, rating_4: 0, rating_5: 0 };
+        stats.forEach((d) => {
+          totals.rating_1 += d.rating_1 || 0;
+          totals.rating_2 += d.rating_2 || 0;
+          totals.rating_3 += d.rating_3 || 0;
+          totals.rating_4 += d.rating_4 || 0;
+          totals.rating_5 += d.rating_5 || 0;
+        });
+        setData([
+          { name: "rating_1", value: totals.rating_1 },
+          { name: "rating_2", value: totals.rating_2 },
+          { name: "rating_3", value: totals.rating_3 },
+          { name: "rating_4", value: totals.rating_4 },
+          { name: "rating_5", value: totals.rating_5 },
+        ]);
+      })
+      .catch(() => setData([]));
+  }, [tag, dateFrom, dateTo]);
+
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return null;
+
+  return (
+    <div style={{ flex: "0 0 280px" }}>
+      <h3 style={{ fontSize: "0.9rem", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: 6 }}>
+        <MessageSquare size={14} />
+        评价分布
+      </h3>
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={70}
+            innerRadius={35}
+            label={({ name, percent }) => `${PIE_LABELS[Number(name.slice(-1)) - 1]} ${(percent * 100).toFixed(0)}%`}
+            labelLine={false}
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value, name) => [value, PIE_LABELS[Number(name.slice(-1)) - 1]]} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export default function FeedbackTab() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [tag, setTag] = useState("");
@@ -206,7 +271,12 @@ export default function FeedbackTab() {
 
   return (
     <div className="card">
-      <FeedbackChart />
+      <div style={{ display: "flex", gap: 24, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+          <FeedbackChart />
+        </div>
+        <RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
+      </div>
 
       <div className="filter-bar" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
