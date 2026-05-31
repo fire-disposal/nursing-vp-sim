@@ -9,7 +9,7 @@ import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 
 function extractKeywords(inquiry) {
-  const cleaned = inquiry.replace(/[（）\(\)]/g, " ");
+  const cleaned = inquiry.replace(/[（）()]/g, " ");
   const tokens = [];
   for (let i = 0; i < cleaned.length - 1; i++) {
     tokens.push(cleaned.slice(i, i + 2));

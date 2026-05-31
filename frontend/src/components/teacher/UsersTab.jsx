@@ -104,7 +104,7 @@ export default function UsersTab({ currentUserId }) {
     setBatchParseError("");
     const reader = new FileReader();
     reader.onload = (e) => {
-      let text = e.target.result.replace(/^﻿/, "");
+      let text = e.target.result.replace(/^\uFEFF/, "");
       const lines = text.trim().split("\n").filter((l) => l.trim());
       if (lines.length <= 1) { parseBatchText(text); return; }
       const firstIsHeader = !/^\d/.test(lines[0]);

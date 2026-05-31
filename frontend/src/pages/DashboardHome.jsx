@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Stethoscope, BarChart3, ClipboardList, MessageCircle, Star,
+  Stethoscope, ClipboardList, MessageCircle, Star,
   Users, CheckCircle, Clock, Target, Settings, Download,
   TrendingUp, Award, ArrowRight, Play, BookOpen,
 } from "lucide-react";

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  BarChart3, ClipboardList, Clock, TrendingUp, Star,
+  BarChart3, ClipboardList, Clock, TrendingUp,
   Trophy, Medal, Activity, Target
 } from "lucide-react";
 import {
