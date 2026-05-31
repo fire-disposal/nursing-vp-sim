@@ -15,8 +15,8 @@ import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
 
-const PURPOSES = ["patient_chat", "scoring", "qa"];
-const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答" };
+const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation"];
+const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成" };
 
 export default function PromptManagementTab() {
   const toast = useToast();

@@ -270,3 +270,7 @@ export function getFeedbacks(params = {}) {
 export function getFeedbackStats(params = {}) {
   return api.get("/admin/feedback/stats", { params });
 }
+
+export function generateCase(data) {
+  return api.post("/cases/generate", data);
+}
