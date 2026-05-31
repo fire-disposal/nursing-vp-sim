@@ -169,7 +169,7 @@ export default function ApiManagementTab() {
                     </td>
                     <td style={S.td}>{p.name}</td>
                     <td style={S.td}>{p.display_name || "-"}</td>
-                    <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.base_url}</td>
+                    <td style={{ ...S.td, fontSize: "0.8rem", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.base_url}</td>
                     <td style={S.td}>{p.default_model || "-"}</td>
                     <td style={S.td}><span style={S.badge(p.is_enabled !== false ? "var(--green-100)" : "var(--red-100)", p.is_enabled !== false ? "var(--green-700)" : "var(--red-700)")}>{p.is_enabled !== false ? "Yes" : "No"}</span></td>
                     <td style={S.td}>{p.keys_count ?? "-"}</td>
