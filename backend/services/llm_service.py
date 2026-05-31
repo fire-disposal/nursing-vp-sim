@@ -70,6 +70,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
     provider_name = "unknown"
     model = "unknown"
     last_error = None
+    latency_ms = 0
     t0 = time.perf_counter()
 
     _client = client if client is not None else await _get_client()
