@@ -303,7 +303,9 @@ class LLMCallLogItem(BaseModel):
 class LLMStatsResponse(BaseModel):
     today: dict  # {count, success_rate, avg_latency_ms, total_cost}
     week: dict   # same structure
+    month: dict = {}  # same structure, current calendar month
     by_purpose: list  # [{purpose, count, avg_latency_ms, error_count}]
+    by_provider: list = []  # [{provider, count, cost, error_count}] 最近7天
     daily: list  # [{date, count, success_count, fail_count, total_cost}] 最近30天
 
 

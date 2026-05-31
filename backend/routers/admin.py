@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, Integer as SAInteger
 from database import get_db
-from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel
+from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse
 from auth import require_teacher, hash_password
 from logger import log_info
@@ -251,6 +251,8 @@ def get_llm_stats(current_user: User = Depends(require_teacher), db: Session = D
 
     today_stats = _build_llm_stats(db, today_start)
     week_stats = _build_llm_stats(db, week_start)
+    month_start_cal = today_start.replace(day=1)
+    month_stats = _build_llm_stats(db, month_start_cal)
 
     # by_purpose
     rows = db.query(
@@ -277,10 +279,24 @@ def get_llm_stats(current_user: User = Depends(require_teacher), db: Session = D
         for r in daily_rows
     ]
 
+    # by_provider: 最近7天按 Provider 统计
+    provider_rows = db.query(
+        LLMCallLog.provider_name,
+        func.count().label("count"),
+        func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("total_cost"),
+        func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
+    ).filter(LLMCallLog.created_at >= week_start, LLMCallLog.created_at < now).group_by(LLMCallLog.provider_name).all()
+    by_provider = [
+        {"provider": r[0] or "unknown", "count": r[1], "total_cost": round(float(r[2]), 4), "error_count": r[3] or 0}
+        for r in provider_rows
+    ]
+
     return LLMStatsResponse(
         today=today_stats,
         week=week_stats,
+        month=month_stats,
         by_purpose=by_purpose,
+        by_provider=by_provider,
         daily=daily,
     )
 
@@ -324,9 +340,11 @@ def get_llm_logs(
             func.max(LLMCallLog.created_at).label("created_at"),
             User.display_name.label("student_name"),
             CaseModel.name.label("case_name"),
+            ApiProvider.display_name.label("provider_display_name"),
         ).join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id, isouter=True) \
          .join(User, TrainingRecord.user_id == User.id, isouter=True) \
          .join(CaseModel, TrainingRecord.case_id == CaseModel.id, isouter=True) \
+         .join(ApiProvider, LLMCallLog.provider_name == ApiProvider.name, isouter=True) \
          .filter(
             LLMCallLog.purpose == "patient_chat",
             LLMCallLog.record_id.isnot(None),
@@ -372,14 +390,14 @@ def get_llm_logs(
     all_items = []
 
     for r in agg_rows:
-        avg_lat = round(r.latency_ms) if r.latency_ms else None
+        avg_lat = round(r.latency_ms) if r.latency_ms is not None else None
         all_items.append({
             "id": r.id,
             "user_id": r.user_id,
             "record_id": r.record_id,
             "case_id": r.case_id,
             "purpose": "patient_chat",
-            "provider_name": "deepseek",
+            "provider_name": r.provider_display_name or "deepseek",
             "model": "",
             "temperature": None,
             "max_tokens": None,
@@ -387,7 +405,7 @@ def get_llm_logs(
             "completion_tokens": r.completion_tokens,
             "total_tokens": r.total_tokens,
             "token_estimated": 1 if r.token_estimated else 0,
-            "estimated_cost": round(r.estimated_cost, 6) if r.estimated_cost else None,
+            "estimated_cost": round(r.estimated_cost, 6) if r.estimated_cost is not None else None,
             "cost_currency": None,
             "latency_ms": avg_lat,
             "status": "success" if (r.error_count or 0) == 0 else "failed",

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Activity, TrendingUp, Server, Zap, Download } from "lucide-react";
+import { Activity, TrendingUp, Server, Zap, Download, BarChart3 } from "lucide-react";
 import { getLLMStats, getLLMLogs, exportLLMLogs } from "../../api";
 import Pagination from "../Pagination";
 
@@ -52,10 +52,10 @@ export default function MonitorTab() {
   }
 
   const statCards = [
-    { label: "调用次数", value: stats.today.count, sub: `${stats.week.count} (7日)`, color: "blue" },
+    { label: "调用次数", value: stats.today.count, sub: `${stats.week.count} (7日) · ${stats.month?.count ?? 0} (本月)`, color: "blue" },
     { label: "成功率", value: `${stats.today.success_rate}%`, sub: `${stats.week.success_rate}% (7日)`, color: stats.today.success_rate >= 95 ? "green" : "amber" },
     { label: "平均延迟", value: `${stats.today.avg_latency_ms}ms`, sub: `${stats.week.avg_latency_ms}ms (7日)`, color: "blue" },
-    { label: "预估费用", value: `¥${stats.today.total_cost.toFixed(4)}`, sub: `¥${stats.week.total_cost.toFixed(4)} (7日)`, color: "amber" },
+    { label: "预估费用", value: `¥${stats.today.total_cost.toFixed(4)}`, sub: `¥${(stats.month?.total_cost ?? 0).toFixed(2)} (本月)`, color: "amber" },
   ];
 
   return (
@@ -73,6 +73,13 @@ export default function MonitorTab() {
         </div>
       </div>
 
+      {stats.by_provider?.length > 0 && (
+        <div className="card" style={{ marginBottom: 20, padding: 16 }}>
+          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}><BarChart3 size={14} /> 按 Provider 统计 (7日)</h3>
+          <table className="data-table" style={{ margin: 0 }}><thead><tr><th>Provider</th><th>次数</th><th>费用</th><th>错误</th></tr></thead><tbody>{stats.by_provider.map((p) => (<tr key={p.provider}><td style={{ fontWeight: 600 }}>{p.provider}</td><td>{p.count}</td><td style={{ color: "var(--amber-500)" }}>¥{p.total_cost.toFixed(4)}</td><td><span className={`badge ${p.error_count > 0 ? "badge-danger" : "badge-success"}`}>{p.error_count}</span></td></tr>))}</tbody></table>
+        </div>
+      )}
+
       {stats.daily.length > 0 && (
         <div className="card" style={{ marginBottom: 20, padding: 20 }}>
           <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 16, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}><TrendingUp size={16} /> 近30天每日调用趋势</h3>
@@ -82,7 +89,7 @@ export default function MonitorTab() {
               const h = Math.max(4, (d.count / maxCount) * 100);
               const failRatio = d.count > 0 ? d.fail_count / d.count : 0;
               return (
-                <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }} title={`${d.date}: ${d.count}次`}>
+                <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }} title={`${d.date}: ${d.count}次 · ¥${(d.total_cost ?? 0).toFixed(4)}`}>
                   <div style={{ fontSize: "0.55rem", color: "var(--text-tertiary)", marginBottom: 2 }}>{d.count || ""}</div>
                   <div style={{ width: "100%", height: `${h}%`, background: failRatio > 0.2 ? "var(--red-400)" : "var(--blue-400)", borderRadius: "2px 2px 0 0", opacity: 0.85, minHeight: 2 }} />
                   <div style={{ fontSize: "0.55rem", color: "var(--text-tertiary)", marginTop: 4, transform: "rotate(-45deg)", transformOrigin: "top left", whiteSpace: "nowrap" }}>{d.date.slice(5)}</div>
@@ -111,7 +118,7 @@ export default function MonitorTab() {
           {loading ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>加载中...</div> :
            logs.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-tertiary)" }}><Zap size={28} /><div style={{ fontSize: "0.85rem", marginTop: 8 }}>暂无日志记录</div></div> :
           <>
-            <table className="data-table" style={{ margin: 0 }}><thead><tr><th>时间</th><th>用途</th><th>状态</th><th>延迟</th><th>Token</th><th>费用</th></tr></thead><tbody>{logs.map((item) => (<tr key={item.id}><td style={{ fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{new Date(item.created_at).toLocaleString("zh-CN")}</td><td><span className="badge badge-info">{purposeLabel(item)}</span></td><td><span className={`badge ${item.status === "success" ? "badge-success" : "badge-danger"}`}>{item.status}{item.error_count > 0 ? ` (${item.error_count}错)` : ""}</span></td><td style={{ color: "var(--text-secondary)" }}>{item.latency_ms != null ? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}` : "-"}</td><td style={{ fontSize: "0.8rem" }}>{item.total_tokens != null ? `${item.total_tokens}${item.token_estimated ? "~" : ""}` : "-"}</td><td style={{ fontSize: "0.8rem", color: "var(--amber-500)" }}>{item.estimated_cost != null ? `¥${Number(item.estimated_cost).toFixed(4)}` : "-"}</td></tr>))}</tbody></table>
+            <table className="data-table" style={{ margin: 0 }}><thead><tr><th>时间</th><th>用途</th><th>Provider</th><th>状态</th><th>延迟</th><th>Token</th><th>费用</th></tr></thead><tbody>{logs.map((item) => (<tr key={item.id}><td style={{ fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{new Date(item.created_at).toLocaleString("zh-CN")}</td><td><span className="badge badge-info">{purposeLabel(item)}</span></td><td style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{item.provider_name || "-"}</td><td><span className={`badge ${item.status === "success" ? "badge-success" : "badge-danger"}`}>{item.status}{item.error_count > 0 ? ` (${item.error_count}错)` : ""}</span></td><td style={{ color: "var(--text-secondary)" }}>{item.latency_ms != null ? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}` : "-"}</td><td style={{ fontSize: "0.8rem" }}>{item.total_tokens != null ? `${item.total_tokens}${item.token_estimated ? "~" : ""}` : "-"}</td><td style={{ fontSize: "0.8rem", color: "var(--amber-500)" }}>{item.estimated_cost != null ? `¥${Number(item.estimated_cost).toFixed(4)}` : "-"}</td></tr>))}</tbody></table>
 <Pagination total={logTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
           </>}
         </div>
