@@ -43,29 +43,48 @@ const EMOTION_MAP = {
   5: "😍",
 };
 
-function FeedbackChart({ dateFrom, dateTo }) {
+function FeedbackChart() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const params = {};
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    monday.setHours(0, 0, 0, 0);
+
+    const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+    const dateKeys = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      dateKeys.push(d.toISOString().slice(0, 10));
+    }
+
+    const params = { date_from: dateKeys[0] };
     getFeedbackStats(params)
       .then(({ data: stats }) => {
-        if (!cancelled)
-          setData(
-            stats.map((d) => ({
-              name: d.date.slice(5),
-              rating_1: d.rating_1,
-              rating_2: d.rating_2,
-              rating_3: d.rating_3,
-              rating_4: d.rating_4,
-              rating_5: d.rating_5,
-            })),
-          );
+        if (cancelled) return;
+        const map = {};
+        stats.forEach((d) => {
+          map[d.date] = d;
+        });
+        const filled = dateKeys.map((dk, i) => {
+          const s = map[dk];
+          return {
+            name: days[i],
+            rating_1: s?.rating_1 || 0,
+            rating_2: s?.rating_2 || 0,
+            rating_3: s?.rating_3 || 0,
+            rating_4: s?.rating_4 || 0,
+            rating_5: s?.rating_5 || 0,
+          };
+        });
+        setData(filled);
       })
       .catch(() => setData([]))
       .finally(() => {
@@ -74,7 +93,7 @@ function FeedbackChart({ dateFrom, dateTo }) {
     return () => {
       cancelled = true;
     };
-  }, [dateFrom, dateTo]);
+  }, []);
 
   if (loading)
     return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)" }}>加载图表...</div>;
@@ -86,7 +105,7 @@ function FeedbackChart({ dateFrom, dateTo }) {
     <div style={{ marginBottom: 20 }}>
       <h3 style={{ fontSize: "0.95rem", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
         <BarChart3 size={16} />
-        反馈分布趋势
+        本周反馈分布
       </h3>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data}>
@@ -211,7 +230,7 @@ export default function FeedbackTab() {
 
       <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>共 {total} 条反馈</div>
 
-      <FeedbackChart dateFrom={dateFrom} dateTo={dateTo} />
+      <FeedbackChart />
 
       {loading ? (
         <LoadingState />
