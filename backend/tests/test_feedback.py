@@ -115,3 +115,50 @@ class TestFeedback:
             headers={"Authorization": f"Bearer {stu_token}"},
         )
         assert resp.status_code == 403
+
+    def test_admin_list_feedback_filter_by_date(self, client, teacher, student, db_session):
+        from models import Feedback
+        from datetime import datetime, timezone
+
+        teacher_user, teacher_token = teacher
+        stu_user, _ = student
+
+        today = datetime.now(timezone.utc)
+        db_session.add_all([
+            Feedback(user_id=stu_user.id, rating=5, tag="feature", created_at=today),
+            Feedback(user_id=teacher_user.id, rating=3, tag="bug", created_at=today),
+        ])
+        db_session.commit()
+
+        resp = client.get(
+            "/api/admin/feedback?date_from=2099-01-01",
+            headers={"Authorization": f"Bearer {teacher_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+    def test_feedback_stats(self, client, teacher, student, db_session):
+        from models import Feedback
+        from datetime import datetime, timezone
+
+        teacher_user, teacher_token = teacher
+        stu_user, _ = student
+
+        today = datetime.now(timezone.utc)
+        db_session.add_all([
+            Feedback(user_id=stu_user.id, rating=5, tag="feature", created_at=today),
+            Feedback(user_id=stu_user.id, rating=3, tag="bug", created_at=today),
+            Feedback(user_id=teacher_user.id, rating=5, tag="feature", created_at=today),
+        ])
+        db_session.commit()
+
+        resp = client.get(
+            "/api/admin/feedback/stats",
+            headers={"Authorization": f"Bearer {teacher_token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) >= 1
+        day_data = data[0]
+        assert day_data["rating_5"] == 2
+        assert day_data["rating_3"] == 1

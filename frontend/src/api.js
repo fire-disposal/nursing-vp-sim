@@ -254,3 +254,7 @@ export function submitFeedback(data) {
 export function getFeedbacks(params = {}) {
   return api.get("/admin/feedback", { params });
 }
+
+export function getFeedbackStats(params = {}) {
+  return api.get("/admin/feedback/stats", { params });
+}

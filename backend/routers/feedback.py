@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from datetime import datetime
+from collections import defaultdict
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Feedback
@@ -28,6 +30,8 @@ def admin_list_feedback(
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
     tag: str = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -44,6 +48,19 @@ def admin_list_feedback(
     if tag:
         query = query.filter(Feedback.tag == tag)
 
+    if date_from:
+        try:
+            df = datetime.fromisoformat(date_from)
+            query = query.filter(Feedback.created_at >= df)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
+    if date_to:
+        try:
+            dt = datetime.fromisoformat(date_to)
+            query = query.filter(Feedback.created_at < dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
+
     rows, total = paginate(query, offset, limit)
     items = [
         FeedbackItem(
@@ -58,3 +75,46 @@ def admin_list_feedback(
         for r in rows
     ]
     return FeedbackListResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.get("/admin/feedback/stats")
+def feedback_stats(
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
+    """Return daily count of feedback by rating level, for stacked bar chart."""
+    base = db.query(Feedback)
+    if date_from:
+        try:
+            df = datetime.fromisoformat(date_from)
+            base = base.filter(Feedback.created_at >= df)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
+    if date_to:
+        try:
+            dt = datetime.fromisoformat(date_to)
+            base = base.filter(Feedback.created_at < dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
+
+    rows = base.order_by(Feedback.created_at).all()
+
+    daily = defaultdict(lambda: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0})
+    for fb in rows:
+        day = fb.created_at.strftime("%Y-%m-%d")
+        daily[day][fb.rating] += 1
+
+    result = []
+    for day in sorted(daily.keys()):
+        d = daily[day]
+        result.append({
+            "date": day,
+            "rating_1": d[1],
+            "rating_2": d[2],
+            "rating_3": d[3],
+            "rating_4": d[4],
+            "rating_5": d[5],
+        })
+    return result
