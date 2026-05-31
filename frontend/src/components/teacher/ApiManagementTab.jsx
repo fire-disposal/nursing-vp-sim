@@ -8,7 +8,7 @@ import {
   fetchKeys,
   fetchProviders,
   reloadRouter,
-  resetKey,
+  toggleKey,
   testKey,
   updateProvider,
 } from "../../api/apiManagement";
@@ -130,14 +130,15 @@ export default function ApiManagementTab() {
     }
   };
 
-  const handleResetKey = async (k) => {
-    if (!(await confirm({ title: "Reset Key", message: `Reset daily usage for "${k.label || k.id}"?`, confirmText: "Reset" }))) return;
+  const handleToggleKey = async (k) => {
+    const action = k.status === "active" ? "禁用" : "启用";
+    if (!(await confirm({ title: `${action} Key`, message: `确定${action} "${k.label || k.id}"？`, confirmText: action }))) return;
     try {
-      await resetKey(k.id);
-      toast.success("Key reset");
+      await toggleKey(k.id);
+      toast.success(`Key 已${action}`);
       loadKeys();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Reset failed");
+      toast.error(err.response?.data?.detail || `${action}失败`);
     }
   };
 
@@ -578,8 +579,20 @@ export default function ApiManagementTab() {
                               >
                                 <Edit3 size={12} />
                               </button>
-                              <button onClick={() => handleResetKey(k)} style={{ ...S.btn, color: "var(--amber-500)" }}>
-                                <RefreshCw size={12} />
+                              <button
+                                onClick={() => handleToggleKey(k)}
+                                style={{
+                                  padding: "2px 10px",
+                                  borderRadius: "var(--radius-full)",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 600,
+                                  border: k.status === "active" ? "1px solid var(--red-300)" : "1px solid var(--green-300)",
+                                  background: k.status === "active" ? "var(--red-50)" : "var(--green-50)",
+                                  color: k.status === "active" ? "var(--red-600)" : "var(--green-600)",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {k.status === "active" ? "禁用" : "启用"}
                               </button>
                               <button onClick={() => handleTestKey(k)} style={{ ...S.btn, color: "var(--color-primary)" }}>
                                 <Activity size={12} />

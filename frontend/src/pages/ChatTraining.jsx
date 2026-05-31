@@ -692,6 +692,7 @@ export default function ChatTraining() {
                 borderRadius: 3,
                 background: "var(--gray-200)",
                 overflow: "hidden",
+                marginBottom: 24,
               }}
             >
               <div
@@ -704,6 +705,25 @@ export default function ChatTraining() {
                 }}
               />
             </div>
+            <button
+              onClick={() => {
+                scoreCancelRef.current = true;
+                setEnding(false);
+                setShowOverlay(false);
+                navigate("/home");
+              }}
+              style={{
+                padding: "8px 24px",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--bg-surface)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+              }}
+            >
+              稍后在记录中查看，先回首页
+            </button>
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>

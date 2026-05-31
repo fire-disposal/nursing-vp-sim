@@ -229,6 +229,24 @@ async def delete_key(
     await refresh_router()
     return {"ok": True}
 
+@router.post("/keys/{key_id}/toggle")
+async def toggle_key(
+    key_id: int,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    k = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    if not k:
+        raise HTTPException(404, "Key 不存在")
+    k.status = "disabled" if k.status == "active" else "active"
+    if k.status == "active":
+        k.consecutive_failures = 0
+        k.rate_limit_until = None
+    db.commit()
+    await refresh_router()
+    return {"ok": True, "status": k.status}
+
+
 @router.post("/keys/{key_id}/reset")
 async def reset_key(
     key_id: int,

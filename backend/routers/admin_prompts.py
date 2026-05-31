@@ -10,7 +10,7 @@ from schemas import (
     PromptValidateRequest, PromptValidateResponse, PromptPreviewResponse,
 )
 from auth import require_teacher
-from services.prompt_manager import refresh_prompts
+from services.prompt_manager import refresh_prompts, render_template
 from prompt_static import SAMPLE_VARS
 
 _logger = logging.getLogger("nursing")
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/admin/prompts", tags=["Prompt管理"])
 def _extract_vars(text: str | None) -> set[str]:
     if not text:
         return set()
-    return set(re.findall(r"\{(\w+)\}", text))
+    return set(re.findall(r"\{#([^}#]+)#\}", text))
 
 
 @router.get("", response_model=list[PromptTemplateResponse])
@@ -129,18 +129,16 @@ def validate_prompt(data: PromptValidateRequest):
     vars_set = _extract_vars(data.system_prompt) | _extract_vars(data.user_prompt)
     dummy = {v: f"<{v}>" for v in vars_set}
     try:
-        data.system_prompt.format(**dummy)
-    except KeyError as e:
+        render_template(data.system_prompt, **dummy)
+    except RuntimeError as e:
         errors.append(f"system_prompt 引用未声明的变量: {e}")
-    except ValueError as e:
-        errors.append(f"system_prompt 格式错误: {e}")
     except Exception as e:
         errors.append(f"system_prompt 语法错误: {e}")
 
     if data.user_prompt:
         try:
-            data.user_prompt.format(**dummy)
-        except KeyError as e:
+            render_template(data.user_prompt, **dummy)
+        except RuntimeError as e:
             errors.append(f"user_prompt 引用未声明的变量: {e}")
         except Exception as e:
             errors.append(f"user_prompt 语法错误: {e}")
@@ -179,10 +177,10 @@ async def preview_active_prompt(
     system_rendered = pt.system_prompt
     user_rendered = pt.user_prompt
     try:
-        system_rendered = pt.system_prompt.format(**sample) if sample else pt.system_prompt
+        system_rendered = render_template(pt.system_prompt, **sample) if sample else pt.system_prompt
         if pt.user_prompt:
-            user_rendered = pt.user_prompt.format(**sample) if sample else pt.user_prompt
-    except (KeyError, ValueError) as e:
+            user_rendered = render_template(pt.user_prompt, **sample) if sample else pt.user_prompt
+    except RuntimeError:
         pass
     return PromptPreviewResponse(
         purpose=pt.purpose,

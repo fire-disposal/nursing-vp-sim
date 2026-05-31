@@ -32,8 +32,8 @@ export function updateKey(id, data) {
 export function deleteKey(id) {
   return api.delete(`/admin/api/keys/${id}`);
 }
-export function resetKey(id) {
-  return api.post(`/admin/api/keys/${id}/reset`);
+export function toggleKey(id) {
+  return api.post(`/admin/api/keys/${id}/toggle`);
 }
 export function testKey(id) {
   return api.post(`/admin/api/keys/${id}/test`);

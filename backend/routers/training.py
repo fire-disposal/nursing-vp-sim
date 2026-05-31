@@ -116,7 +116,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
                 record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
                 if record:
                     record.scoring_status = "failed"
-                    record.scoring_error = str(e)[:500]
+                    record.scoring_error = str(e)[:2000]
                     db.commit()
             except Exception:
                 pass

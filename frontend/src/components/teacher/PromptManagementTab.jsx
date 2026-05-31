@@ -41,8 +41,8 @@ export default function PromptManagementTab() {
       setSavedForm({ ...form });
       const vars = sampleVars[form.purpose] || {};
       try {
-        const sp = form.system_prompt.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`);
-        const up = form.user_prompt ? form.user_prompt.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`) : form.user_prompt;
+        const sp = form.system_prompt.replace(/\{#([^}#]+)#\}/g, (_, key) => vars[key.trim()] ?? `{${key}}`);
+        const up = form.user_prompt ? form.user_prompt.replace(/\{#([^}#]+)#\}/g, (_, key) => vars[key.trim()] ?? `{${key}}`) : form.user_prompt;
         setForm((f) => ({ ...f, system_prompt: sp, user_prompt: up }));
       } catch {
         /* ignore */
@@ -208,16 +208,16 @@ export default function PromptManagementTab() {
           })()
         : null;
 
-  const extractVars = (text) => [...new Set((text.match(/\{(\w+)\}/g) || []).map((v) => v.slice(1, -1)))];
+  const extractVars = (text) => [...new Set((text.match(/\{#([^}#]+)#\}/g) || []).map((v) => v.slice(2, -2)))];
   const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt]);
   const editedPrompt = editing && editing !== "new" ? prompts.find((p) => p.id === editing) : null;
   const dbVars = editedPrompt?.variables || [];
 
   const renderHighlighted = (text) => {
     if (!text) return text;
-    const parts = text.split(/(\{\w+\})/g);
+    const parts = text.split(/(\{#[^}#]+#\})/g);
     return parts.map((part, i) =>
-      /^\{\w+\}$/.test(part) ? (
+      /\{#[^}#]+#\}/.test(part) ? (
         <span key={i} style={{ background: "var(--blue-100)", color: "var(--blue-700)", fontWeight: 700, borderRadius: 3, padding: "0 2px" }}>
           {part}
         </span>
@@ -572,7 +572,7 @@ export default function PromptManagementTab() {
                             fontFamily: "monospace",
                           }}
                         >
-                          {`{${v}}`}
+                          {`{#${v}#}`}
                         </span>
                       );
                     })}

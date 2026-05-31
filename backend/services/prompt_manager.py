@@ -1,8 +1,27 @@
 """Prompt 模板管理器 —— 从 DB 加载模板，支持热切换和硬编码兜底"""
 import logging
 import asyncio
+import re
 
 _logger = logging.getLogger("nursing")
+
+_VAR_RE = re.compile(r"\{#([^}#]+)#\}")
+
+
+def render_template(template: str, **kwargs) -> str:
+    """安全模板渲染：用 {#variable#} 语法替换变量，变量值中的任何字符（含 {}）都原样保留。"""
+    def _replace(m: re.Match) -> str:
+        var = m.group(1).strip()
+        if var not in kwargs:
+            raise RuntimeError(f"模板变量缺失: '{var}'")
+        return str(kwargs[var])
+
+    try:
+        return _VAR_RE.sub(_replace, template)
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"模板渲染异常: {e}")
 
 
 class PromptTemplateObj:
@@ -17,20 +36,18 @@ class PromptTemplateObj:
 
     def render(self, **kwargs) -> str:
         try:
-            return self.system_prompt.format(**kwargs)
-        except KeyError as e:
-            missing = str(e).strip("'")
-            raise RuntimeError(f"模板变量缺失: '{missing}' (purpose={self.purpose}, v{self.version})")
+            return render_template(self.system_prompt, **kwargs)
+        except RuntimeError as e:
+            raise RuntimeError(f"{e} (purpose={self.purpose}, v{self.version})")
 
     def render_pair(self, **kwargs) -> tuple[str, str]:
         system = self.render(**kwargs)
         user = ""
         if self.user_prompt:
             try:
-                user = self.user_prompt.format(**kwargs)
-            except KeyError as e:
-                missing = str(e).strip("'")
-                raise RuntimeError(f"模板变量缺失: '{missing}' in user_prompt (purpose={self.purpose}, v{self.version})")
+                user = render_template(self.user_prompt, **kwargs)
+            except RuntimeError as e:
+                raise RuntimeError(f"{e} in user_prompt (purpose={self.purpose}, v{self.version})")
         return system, user
 
 
@@ -140,17 +157,17 @@ _HARDCODED_PATIENT_CHAT = """你是护理病史采集训练中的虚拟患者。
 5. 不评价学生表现，不指导学生该问什么
 
 ## 患者资料
-{patient_info}
+{#patient_info#}
 
-主诉：{chief_complaint}
-现病史：{present_illness}
-过敏史：{allergy_history}
+主诉：{#chief_complaint#}
+现病史：{#present_illness#}
+过敏史：{#allergy_history#}
 
 ## 沟通风格
-{communication_style}
+{#communication_style#}
 
 ## 可透露的隐藏信息（学生已明确问到相关主题）
-{hidden_info_rules}
+{#hidden_info_rules#}
 
 ## 输出格式
 只输出患者会说的话，不要加"患者："、括号说明、动作描写或分析。不要以"根据我的病例资料""作为患者""你问得很好"等开头。
@@ -159,21 +176,12 @@ _HARDCODED_PATIENT_CHAT = """你是护理病史采集训练中的虚拟患者。
 
 _HARDCODED_SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专家，专门评估护理学生的病史采集能力。
 
-{rubric_dim_text}
-
-## 必须采集到的内容清单（参考）
-{required_inquiries}
+{#scoring_rubric#}
 
 ## 评分背景
 - 学生角色：护理学生
 - 训练目标：练习系统的护理病史采集技能
 - 评估重点：沟通技能 + 病史采集能力
-
-## 输出格式
-
-必须是严格的 JSON（不含 markdown 代码块标记）：
-
-{rubric_json_template}
 
 ## 评分要求
 
@@ -189,7 +197,7 @@ _HARDCODED_SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专�
 
 _HARDCODED_SCORING_USER = """请评估以下护理学生与患者的病史采集对话：
 
-{conversation_text}
+{#conversation_text#}
 
 请逐项评分，每项给出证据和理由。"""
 

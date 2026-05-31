@@ -353,26 +353,24 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
 
 
 def _safe_parse_json(text: str) -> dict:
-    """安全解析 LLM 返回的 JSON，处理常见格式问题"""
+    """安全解析 LLM 返回的 JSON，处理常见格式问题：markdown 围栏、尾部逗号、截断修复。"""
     text = text.strip()
-    # 清除 markdown 围栏（含语言标识）
     text = re.sub(r'^```(?:json)?\s*\n?', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\n?\s*```\s*$', '', text)
     text = text.strip()
 
-    # 提取 JSON 对象
     start = text.find('{')
     end = text.rfind('}')
     if start != -1 and end != -1 and end > start:
         text = text[start:end + 1]
 
-    # 尝试标准解析
+    # 1. 标准解析
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # 降级处理：移除尾部逗号（常见的 LLM 输出错误）
+    # 2. 移除尾部逗号后重试
     try:
         cleaned = re.sub(r',\s*}', '}', text)
         cleaned = re.sub(r',\s*]', ']', cleaned)
@@ -380,14 +378,29 @@ def _safe_parse_json(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # 最终降级：正则提取关键字段
-    result = {}
+    # 3. 截断修复：补全缺失的 } ] " 
+    try:
+        repaired = _repair_truncated_json(text)
+        if repaired:
+            return json.loads(repaired)
+    except json.JSONDecodeError:
+        pass
+
+    # 4. 最终降级：正则提取关键字段（给所有可选字段默认值）
+    result = {
+        "strengths": [],
+        "weaknesses": [],
+        "missed_content": [],
+        "suggestions": "",
+        "detail_scores": {},
+    }
     for field in ["total_score", "strengths", "weaknesses", "missed_content",
                    "suggestions", "detail_scores"]:
         if field == "total_score":
-            m = re.search(r'"total_score"\s*:\s*(\d+)', text)
+            m = re.search(r'"total_score"\s*:\s*(-?\d+(?:\.\d+)?)', text)
             if m:
-                result["total_score"] = int(m.group(1))
+                val = m.group(1)
+                result["total_score"] = float(val) if "." in val else int(val)
         elif field == "suggestions":
             m = re.search(r'"suggestions"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
             if m:
@@ -415,11 +428,40 @@ def _safe_parse_json(text: str) -> dict:
                     try:
                         result["detail_scores"] = json.loads(text[start_pos:end_pos])
                     except json.JSONDecodeError:
-                        result["detail_scores"] = {}
+                        pass
 
-    if not result:
+    if not result or ("total_score" not in result and "detail_scores" not in result):
         raise ValueError(f"无法解析LLM返回的JSON: {text[:500]}")
     return result
+
+
+def _repair_truncated_json(text: str) -> str | None:
+    """尝试修复被截断的 JSON：补全未闭合的引号、大括号、方括号。"""
+    if not text or not text.strip().startswith("{"):
+        return None
+    # 补全末尾截断的字符串值
+    if text.rstrip().endswith('"'):
+        pass  # 正常闭合
+    else:
+        last_quote = text.rfind('"')
+        if last_quote > len(text) // 2:
+            text = text[:last_quote + 1]
+    # 计数括号差，补闭合
+    open_braces = text.count("{") - text.count("}")
+    open_brackets = text.count("[") - text.count("]")
+    # 检查是否有未闭合的字符串（奇数个引号）
+    in_string = False
+    for i, ch in enumerate(text):
+        if ch == '"' and (i == 0 or text[i - 1] != '\\'):
+            in_string = not in_string
+    if in_string:
+        text += '"'
+    text += "]" * open_brackets
+    text += "}" * open_braces
+    # 仅当补了括号才返回
+    if open_braces > 0 or open_brackets > 0:
+        return text
+    return None
 
 
 async def call_llm_json(messages: list, temperature: float = 0.3, max_tokens: int = 2048,

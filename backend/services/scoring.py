@@ -5,7 +5,7 @@ from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
 from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
-from prompt_static import build_rubric_blocks
+from prompt_static import build_scoring_rubric
 from logger import log_info
 import asyncio
 import httpx
@@ -28,24 +28,17 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     conversation_text = "\n\n".join(conversation_lines)
 
     rubric = load_rubric("nursing_history_v1")
-
     all_required = case_data.get("required_inquiries", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
 
-    rubric_dim_text, rubric_json_template = build_rubric_blocks(rubric)
-    required_inquiries_str = json.dumps(all_required, ensure_ascii=False, indent=2)
+    scoring_rubric = build_scoring_rubric(rubric, all_required)
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("scoring")
 
-    def _esc(s):
-        return s.replace("{", "{{").replace("}", "}}")
-
     system_content, user_content = tmpl.render_pair(
-        rubric_dim_text=_esc(rubric_dim_text),
-        rubric_json_template=rubric_json_template,
-        required_inquiries=_esc(required_inquiries_str),
-        conversation_text=_esc(conversation_text),
+        scoring_rubric=scoring_rubric,
+        conversation_text=conversation_text,
     )
     scoring_messages = [
         {"role": "system", "content": system_content},
@@ -58,8 +51,16 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
                                    log_meta={"message_count": len(messages)},
                                    client=client, semaphore=semaphore)
 
-    # 校验 LLM 返回的评分结果完整性，避免静默写入不完整数据
-    _validate_scoring_result(result, rubric)
+    # 强制数值字段类型：LLM 可能把数字写成字符串，统一 coerce
+    _coerce_numeric_fields(result)
+
+    try:
+        _validate_scoring_result(result, rubric)
+    except ValueError as e:
+        log_info("scoring_parse_failed",
+                 extra={"record_id": record_id, "error": str(e),
+                        "raw_result": json.dumps(result, ensure_ascii=False)[:8000]})
+        raise ValueError(f"LLM评分结果不完整: {e}") from e
 
     # 将原始 57 分制转换为 100 分制
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
@@ -82,6 +83,26 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     db.commit()
     db.refresh(score)
     return score
+
+
+def _coerce_numeric_fields(obj: dict):
+    """递归强制数值字段类型：LLM 可能返回 "42" 而非 42，统一转回数字。"""
+    for key in ("total_score", "score", "max"):
+        if key in obj and isinstance(obj[key], str):
+            try:
+                if "." in obj[key]:
+                    obj[key] = float(obj[key])
+                else:
+                    obj[key] = int(obj[key])
+            except ValueError:
+                pass
+    for value in obj.values():
+        if isinstance(value, dict):
+            _coerce_numeric_fields(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _coerce_numeric_fields(item)
 
 
 def _validate_scoring_result(result: dict, rubric: dict | None = None):
