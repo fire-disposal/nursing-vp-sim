@@ -710,7 +710,12 @@ export default function ChatTraining() {
       )}
 
       {showScore && score && (
-        <ScoreCard score={score} onClose={() => setShowScore(false)} onRetry={() => navigate("/cases")} onGoHome={() => navigate("/home")} />
+        <ScoreCard
+          score={score}
+          onClose={() => setShowScore(false)}
+          onRetry={() => navigate("/cases")}
+          onGoHome={() => navigate("/home", { state: { feedbackPrompt: Date.now() } })}
+        />
       )}
     </div>
   );

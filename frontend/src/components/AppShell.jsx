@@ -1,7 +1,8 @@
-import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, Settings, Stethoscope, X } from "lucide-react";
+import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, MessageSquare, Settings, Stethoscope, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { APP_VERSION } from "../version";
+import { useFeedback } from "./FeedbackProvider";
 import Modal from "./ui/Modal";
 
 const studentLinks = [
@@ -26,6 +27,7 @@ export default function AppShell({ children, user, onLogout }) {
   const links = isTeacher ? teacherLinks : studentLinks;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const { openFeedback } = useFeedback();
 
   const closeMenu = () => setMobileMenuOpen(false);
 
@@ -74,6 +76,10 @@ export default function AppShell({ children, user, onLogout }) {
             <button className="btn-about" onClick={() => setAboutOpen(true)}>
               <Info size={14} />
               关于
+            </button>
+            <button className="btn-feedback" onClick={openFeedback}>
+              <MessageSquare size={14} />
+              意见反馈
             </button>
             <button className="btn-logout" onClick={handleLogout}>
               退出登录

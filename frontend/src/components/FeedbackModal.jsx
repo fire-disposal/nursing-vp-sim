@@ -6,7 +6,7 @@ import Modal from "./ui/Modal";
 
 const moods = [
   { value: 1, emoji: "😞", label: "很差" },
-  { value: 2, emoji: "😞", label: "较差" },
+  { value: 2, emoji: "😐", label: "较差" },
   { value: 3, emoji: "🙂", label: "一般" },
   { value: 4, emoji: "😊", label: "满意" },
   { value: 5, emoji: "😍", label: "很满意" },

@@ -16,9 +16,10 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "../api";
 import Layout from "../components/Layout";
+import { useFeedback } from "../components/FeedbackProvider";
 import { useToast } from "../components/Toast";
 import TrainingDurationChart from "../components/TrainingDurationChart";
 import Badge from "../components/ui/Badge";
@@ -81,6 +82,16 @@ export default function DashboardHome({ user, onLogout }) {
 // ═══════════════════════════════════════════
 
 function StudentDashboard({ user, onLogout, cases, records, durationStats, navigate }) {
+  const location = useLocation();
+  const { openFeedback, showPrompt } = useFeedback();
+
+  useEffect(() => {
+    if (location.state?.feedbackPrompt && showPrompt) {
+      openFeedback();
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state?.feedbackPrompt]);
+
   const inProgressRecord = records.find((r) => r.status === "in_progress");
   const latestCompleted = records.find((r) => r.status === "completed" && r.score_total != null);
   const completedCount = records.filter((r) => r.status === "completed").length;
