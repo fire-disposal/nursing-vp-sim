@@ -216,7 +216,24 @@ export default function CasesTab() {
       }
       const { data } = await generateCase(payload);
       if (field) {
-        updateField(field, data.field_value);
+        let value = data.field_value;
+        if (field === "hidden_info" || field === "required_inquiries") {
+          if (Array.isArray(value)) {
+            value = value.filter(Boolean);
+          } else if (typeof value === "string") {
+            value = value.split("\n").filter(Boolean);
+          } else {
+            value = [];
+          }
+        } else if (field === "scoring_criteria") {
+          if (typeof value === "string") {
+            try { value = JSON.parse(value); } catch { value = {}; }
+          }
+          if (typeof value !== "object" || value === null || Array.isArray(value)) {
+            value = {};
+          }
+        }
+        updateField(field, value);
         toast.success(`已生成 ${field} 建议`);
       } else {
         setCaseForm(parseCaseData(data.case_data));
