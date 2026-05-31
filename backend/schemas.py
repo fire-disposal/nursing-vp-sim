@@ -524,3 +524,20 @@ class FeedbackListResponse(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+# ── AI 病例生成 ──
+
+class CaseGenerateRequest(BaseModel):
+    mode: str = Field(default="quick", pattern="^(quick|reference)$")
+    description: str = Field(..., min_length=1, max_length=4096)
+    reference_case_ids: Optional[list[int]] = None
+    reference_text: Optional[str] = Field(None, max_length=16384)
+    field: Optional[str] = Field(None, pattern="^(scoring_criteria|hidden_info|required_inquiries)$")
+    current_case_data: Optional[dict] = None
+
+
+class CaseGenerateResponse(BaseModel):
+    case_data: Optional[dict] = None
+    field_value: Optional[dict] = None
+    field: Optional[str] = None
