@@ -214,7 +214,18 @@ export default function KeyModal({ open, keyData, onClose, onSaved }) {
           <input style={inputStyle} value={form.model} onChange={handleChange("model")} placeholder="例如: gpt-4o" />
         </div>
         <div style={fieldStyle}>
-          <label style={labelStyle}>权重 ({form.weight})</label>
+          <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6 }}>
+            权重 ({form.weight})
+            <span
+              title="同一用途下按权重比例分配流量。设为 0 则暂停使用该 key。多个 key 的权重之和为 100% 的分配基准。"
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 16, height: 16, borderRadius: "50%",
+                background: "var(--text-tertiary)", color: "#fff",
+                fontSize: "0.65rem", fontWeight: 700, cursor: "help",
+              }}
+            >i</span>
+          </label>
           <input
             type="range"
             min="0"
