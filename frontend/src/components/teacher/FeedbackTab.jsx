@@ -102,7 +102,8 @@ function FeedbackChart() {
     return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)" }}>加载图表...</div>;
   if (data.length === 0) return null;
 
-  const colors = { rating_1: "#ef4444", rating_2: "#f97316", rating_3: "#eab308", rating_4: "#22c55e", rating_5: "#3b82f6" };
+  const colorMap = { rating_1: "#ef4444", rating_2: "#f97316", rating_3: "#eab308", rating_4: "#22c55e", rating_5: "#3b82f6" };
+  const labelMap = { rating_1: "😞 很差", rating_2: "😐 较差", rating_3: "🙂 一般", rating_4: "😊 满意", rating_5: "😍 很满意" };
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -149,18 +150,13 @@ function FeedbackChart() {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
           <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--text-tertiary)" />
           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--text-tertiary)" />
-          <Tooltip />
-          <Legend
-            formatter={(value) => {
-              const map = { rating_1: "😞", rating_2: "😐", rating_3: "🙂", rating_4: "😊", rating_5: "😍" };
-              return map[value] || value;
-            }}
-          />
-          <Bar dataKey="rating_1" stackId="a" fill={colors.rating_1} name="rating_1" />
-          <Bar dataKey="rating_2" stackId="a" fill={colors.rating_2} name="rating_2" />
-          <Bar dataKey="rating_3" stackId="a" fill={colors.rating_3} name="rating_3" />
-          <Bar dataKey="rating_4" stackId="a" fill={colors.rating_4} name="rating_4" />
-          <Bar dataKey="rating_5" stackId="a" fill={colors.rating_5} name="rating_5" />
+          <Tooltip formatter={(value, name) => [value, labelMap[name] || name]} />
+          <Legend formatter={(value) => labelMap[value] || value} />
+          <Bar dataKey="rating_1" stackId="a" fill={colorMap.rating_1} name="rating_1" />
+          <Bar dataKey="rating_2" stackId="a" fill={colorMap.rating_2} name="rating_2" />
+          <Bar dataKey="rating_3" stackId="a" fill={colorMap.rating_3} name="rating_3" />
+          <Bar dataKey="rating_4" stackId="a" fill={colorMap.rating_4} name="rating_4" />
+          <Bar dataKey="rating_5" stackId="a" fill={colorMap.rating_5} name="rating_5" />
         </BarChart>
       </ResponsiveContainer>
     </div>
