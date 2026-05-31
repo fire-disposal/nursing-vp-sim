@@ -19,6 +19,7 @@ export function createDeepseekKey(rawKey, label) {
 export function updateKey(id, data) { return api.put(`/admin/api/keys/${id}`, data); }
 export function deleteKey(id) { return api.delete(`/admin/api/keys/${id}`); }
 export function resetKey(id) { return api.post(`/admin/api/keys/${id}/reset`); }
+export function testKey(id) { return api.post(`/admin/api/keys/${id}/test`); }
 export function fetchKeyStats(id) { return api.get(`/admin/api/keys/${id}/stats`); }
 export function reloadRouter() { return api.post("/admin/api/reload"); }
 export function checkHealth() { return api.get("/admin/api/health"); }

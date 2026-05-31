@@ -26,8 +26,9 @@ export default function QA({ user, onLogout }) {
     try {
       const { data } = await askQuestion(q);
       setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "抱歉，AI导师暂时无法回复，请稍后重试。" }]);
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.message || "请求失败";
+      setMessages((prev) => [...prev, { role: "assistant", content: `抱歉，AI导师暂时无法回复：${msg}` }]);
     } finally {
       setLoading(false);
     }

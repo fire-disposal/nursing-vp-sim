@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Edit3, Trash2, RefreshCw, Server, Activity, AlertTriangle, ChevronUp, ChevronDown, Zap } from "lucide-react";
 import {
   fetchProviders, updateProvider, deleteProvider,
-  fetchKeys, deleteKey, resetKey,
+  fetchKeys, deleteKey, resetKey, testKey,
   reloadRouter, checkHealth, createDeepseekKey,
 } from "../../api/apiManagement";
 import { useToast } from "../Toast";
@@ -94,6 +94,14 @@ export default function ApiManagementTab() {
   const handleResetKey = async (k) => {
     if (!await confirm({ title: "Reset Key", message: `Reset daily usage for "${k.label || k.id}"?`, confirmText: "Reset" })) return;
     try { await resetKey(k.id); toast.success("Key reset"); loadKeys(); } catch (err) { toast.error(err.response?.data?.detail || "Reset failed"); }
+  };
+
+  const handleTestKey = async (k) => {
+    try {
+      const { data } = await testKey(k.id);
+      if (data.ok) toast.success(`${k.label || 'Key'} 连接正常 · ${data.latency_ms}ms`);
+      else toast.error(data.error || "连接失败");
+    } catch (err) { toast.error("测试请求失败"); }
   };
 
   const handleReload = async () => {
@@ -299,6 +307,7 @@ export default function ApiManagementTab() {
                           <td style={S.td}>
                             <button onClick={() => { setEditingKey(k); setShowKeyModal(true); }} style={{ ...S.btn, color: "var(--color-primary)" }}><Edit3 size={12} /></button>
                             <button onClick={() => handleResetKey(k)} style={{ ...S.btn, color: "var(--amber-500)" }}><RefreshCw size={12} /></button>
+                            <button onClick={() => handleTestKey(k)} style={{ ...S.btn, color: "var(--color-primary)" }}><Activity size={12} /></button>
                             <button onClick={() => handleDeleteKey(k)} style={{ ...S.btn, color: "var(--red-400)" }}><Trash2 size={12} /></button>
                           </td>
                         </tr>

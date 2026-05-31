@@ -245,6 +245,35 @@ async def reset_key(
     await refresh_router()
     return {"ok": True}
 
+
+@router.post("/keys/{key_id}/test")
+async def test_key(
+    key_id: int,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """测试单个 Key 是否可用：调用 /v1/models 并返回延迟"""
+    k = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    if not k:
+        raise HTTPException(404, "Key 不存在")
+    provider = db.query(ApiProvider).filter(ApiProvider.id == k.provider_id).first()
+    if not provider:
+        raise HTTPException(404, "Provider 不存在")
+    from services.crypto_utils import decrypt_api_key
+    api_key = decrypt_api_key(k.encrypted_key)
+    import time
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
+            t0 = time.monotonic()
+            resp = await client.get(
+                f"{provider.base_url}/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            latency = int((time.monotonic() - t0) * 1000)
+            return {"ok": True, "status_code": resp.status_code, "latency_ms": latency}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
 # --- Key Stats ---
 
 @router.get("/keys/{key_id}/stats")
