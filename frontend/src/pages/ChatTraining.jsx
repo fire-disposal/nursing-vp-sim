@@ -616,27 +616,27 @@ export default function ChatTraining() {
                   <span />
                   <span />
                   <span />
-            </div>
-            <button
-              onClick={() => {
-                scoreCancelRef.current = true;
-                setEnding(false);
-                setShowOverlay(false);
-              }}
-              style={{
-                marginTop: 20,
-                padding: "8px 20px",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-surface)",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
-              跳过等待，稍后在记录中查看
-            </button>
-          </div>
+                </div>
+                <button
+                  onClick={() => {
+                    scoreCancelRef.current = true;
+                    setEnding(false);
+                    setShowOverlay(false);
+                  }}
+                  style={{
+                    marginTop: 20,
+                    padding: "8px 20px",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "var(--radius-md)",
+                    background: "var(--bg-surface)",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  跳过等待，稍后在记录中查看
+                </button>
+              </div>
             </div>
           )}
           {remaining === 0 && <div className="time-up-banner">训练时间已结束，系统正在自动评分...</div>}

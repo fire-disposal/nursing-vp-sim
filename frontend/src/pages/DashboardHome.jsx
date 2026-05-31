@@ -303,19 +303,15 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
                   <div className="feedback-mini-item">
                     <span className="feedback-mini-k">沟通技能</span>
                     <span className="feedback-mini-v" style={{ color: "var(--blue-600)" }}>
-                      {latestCompleted.score?.detail_scores?.["沟通技能"]?.score ?? "-"}
-                      <span style={{ fontSize: "0.64rem", color: "var(--text-tertiary)" }}>
-                        /{latestCompleted.score?.detail_scores?.["沟通技能"]?.max ?? "?"}
-                      </span>
+                      {latestCompleted.score?.detail_scores?.沟通技能?.score ?? "-"}
+                      <span style={{ fontSize: "0.64rem", color: "var(--text-tertiary)" }}>/{latestCompleted.score?.detail_scores?.沟通技能?.max ?? "?"}</span>
                     </span>
                   </div>
                   <div className="feedback-mini-item">
                     <span className="feedback-mini-k">病史采集</span>
                     <span className="feedback-mini-v" style={{ color: "var(--teal-600)" }}>
-                      {latestCompleted.score?.detail_scores?.["病史采集"]?.score ?? "-"}
-                      <span style={{ fontSize: "0.64rem", color: "var(--text-tertiary)" }}>
-                        /{latestCompleted.score?.detail_scores?.["病史采集"]?.max ?? "?"}
-                      </span>
+                      {latestCompleted.score?.detail_scores?.病史采集?.score ?? "-"}
+                      <span style={{ fontSize: "0.64rem", color: "var(--text-tertiary)" }}>/{latestCompleted.score?.detail_scores?.病史采集?.max ?? "?"}</span>
                     </span>
                   </div>
                 </div>

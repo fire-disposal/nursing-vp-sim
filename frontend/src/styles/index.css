@@ -2182,8 +2182,6 @@ body {
   display: none;
 }
 
-@media (max-width: 1100px) {
-}
 @media (max-width: 768px) {
   .mobile-menu-btn {
     display: flex;
