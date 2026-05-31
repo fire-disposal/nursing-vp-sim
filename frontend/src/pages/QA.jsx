@@ -1,7 +1,8 @@
-import { Lightbulb, Plus, Trash2 } from "lucide-react";
+import { Bot, Lightbulb, Plus, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "../api";
 import Layout from "../components/Layout";
+import { getNurseAvatar } from "../utils/avatar";
 
 const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
 
@@ -125,6 +126,8 @@ export default function QA({ user, onLogout }) {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const nurseAvatar = getNurseAvatar();
+
   return (
     <Layout user={user} onLogout={onLogout}>
       <div className="qa-layout">
@@ -150,17 +153,33 @@ export default function QA({ user, onLogout }) {
         <main className="qa-main">
           {messages.length > 0 && (
             <div className="qa-messages">
-              {messages.map((m, i) => (
-                <div key={i} className={`qa-bubble ${m.role}`}>
-                  <div className="qa-bubble-content">{m.content}</div>
-                </div>
-              ))}
+              {messages.map((m, i) => {
+                const isUser = m.role === "user";
+                return (
+                  <div key={i} className={`qa-msg-row ${isUser ? "question" : "answer"}`}>
+                    {!isUser && (
+                      <div className="qa-avatar qa-avatar-bot">
+                        <Bot size={18} />
+                      </div>
+                    )}
+                    <div className="qa-bubble">
+                      <div className="qa-bubble-content">{m.content}</div>
+                    </div>
+                    {isUser && <img className="qa-avatar qa-avatar-user" src={nurseAvatar} alt="护士" />}
+                  </div>
+                );
+              })}
               {loading && (
-                <div className="qa-bubble assistant">
-                  <div className="qa-typing">
-                    <span className="qa-typing-dot" />
-                    <span className="qa-typing-dot" />
-                    <span className="qa-typing-dot" />
+                <div className="qa-msg-row answer">
+                  <div className="qa-avatar qa-avatar-bot">
+                    <Bot size={18} />
+                  </div>
+                  <div className="qa-bubble">
+                    <div className="qa-typing">
+                      <span className="qa-typing-dot" />
+                      <span className="qa-typing-dot" />
+                      <span className="qa-typing-dot" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -192,8 +211,8 @@ export default function QA({ user, onLogout }) {
               placeholder="输入您的问题..."
               disabled={loading}
             />
-            <button onClick={() => sendMessage()} disabled={loading || !input.trim()}>
-              提问
+            <button className="qa-send-btn" onClick={() => sendMessage()} disabled={loading || !input.trim()}>
+              <Send size={16} />
             </button>
           </div>
         </main>
