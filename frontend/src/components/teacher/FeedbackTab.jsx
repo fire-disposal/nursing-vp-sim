@@ -60,12 +60,15 @@ function FeedbackChart() {
     monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
     monday.setHours(0, 0, 0, 0);
 
+    const pad = (n) => String(n).padStart(2, "0");
+    const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
     const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
     const dateKeys = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      dateKeys.push(d.toISOString().slice(0, 10));
+      dateKeys.push(fmtDate(d));
     }
 
     const params = { date_from: dateKeys[0] };
@@ -106,17 +109,17 @@ function FeedbackChart() {
   const labelMap = { rating_1: "😞 很差", rating_2: "😐 较差", rating_3: "🙂 一般", rating_4: "😊 满意", rating_5: "😍 很满意" };
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <h3 style={{ fontSize: "0.95rem", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-          <BarChart3 size={16} />
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <h3 style={{ fontSize: "0.9rem", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <BarChart3 size={14} />
           {weekLabel}反馈分布
         </h3>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 2 }}>
           <button
             onClick={() => setWeekOffset((v) => v - 1)}
             style={{
-              padding: "4px 8px",
+              padding: "3px 6px",
               border: "1px solid var(--border-color)",
               borderRadius: "var(--radius-sm)",
               background: "var(--bg-surface)",
@@ -125,13 +128,13 @@ function FeedbackChart() {
               alignItems: "center",
             }}
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={12} />
           </button>
           <button
             onClick={() => setWeekOffset((v) => v + 1)}
             disabled={weekOffset >= 0}
             style={{
-              padding: "4px 8px",
+              padding: "3px 6px",
               border: "1px solid var(--border-color)",
               borderRadius: "var(--radius-sm)",
               background: "var(--bg-surface)",
@@ -141,17 +144,17 @@ function FeedbackChart() {
               opacity: weekOffset >= 0 ? 0.4 : 1,
             }}
           >
-            <ChevronRight size={14} />
+            <ChevronRight size={12} />
           </button>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--text-tertiary)" />
-          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--text-tertiary)" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="var(--text-tertiary)" />
+          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="var(--text-tertiary)" width={24} />
           <Tooltip formatter={(value, name) => [value, labelMap[name] || name]} />
-          <Legend formatter={(value) => labelMap[value] || value} />
+          <Legend formatter={(value) => labelMap[value] || value} wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="rating_1" stackId="a" fill={colorMap.rating_1} name="rating_1" />
           <Bar dataKey="rating_2" stackId="a" fill={colorMap.rating_2} name="rating_2" />
           <Bar dataKey="rating_3" stackId="a" fill={colorMap.rating_3} name="rating_3" />
@@ -267,8 +270,6 @@ export default function FeedbackTab() {
 
       <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>共 {total} 条反馈</div>
 
-      <FeedbackChart />
-
       {loading ? (
         <LoadingState />
       ) : feedbacks.length === 0 ? (
@@ -279,26 +280,26 @@ export default function FeedbackTab() {
           <div>暂无反馈</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {feedbacks.map((fb) => (
             <div
               key={fb.id}
               style={{
-                padding: 16,
+                padding: "10px 14px",
                 border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-lg)",
+                borderRadius: "var(--radius-md)",
                 background: "var(--bg-surface)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: "1.25rem" }}>{EMOTION_MAP[fb.rating] || ""}</span>
-                  <span style={{ fontWeight: "var(--font-weight-semibold)" }}>{fb.user_name}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "1rem" }}>{EMOTION_MAP[fb.rating] || ""}</span>
+                  <span style={{ fontWeight: "var(--font-weight-semibold)", fontSize: "0.85rem" }}>{fb.user_name}</span>
                 </div>
                 <Badge variant={TAG_BADGE_VARIANT[fb.tag] || "neutral"}>{TAG_LABEL[fb.tag] || fb.tag}</Badge>
               </div>
-              {fb.content && <div style={{ fontSize: "0.88rem", color: "var(--text-primary)", marginBottom: 8, lineHeight: 1.5 }}>{fb.content}</div>}
-              <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{new Date(fb.created_at).toLocaleString("zh-CN")}</div>
+              {fb.content && <div style={{ fontSize: "0.82rem", color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.4 }}>{fb.content}</div>}
+              <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{new Date(fb.created_at).toLocaleString("zh-CN")}</div>
             </div>
           ))}
         </div>
