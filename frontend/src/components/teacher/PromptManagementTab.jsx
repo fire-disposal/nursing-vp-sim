@@ -1,6 +1,16 @@
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { activatePrompt, createPrompt, deletePrompt, fetchPrompts, fetchSampleVars, previewActivePrompt, reloadPrompts, updatePrompt, validatePrompt } from "../../api/apiManagement";
+import {
+  activatePrompt,
+  createPrompt,
+  deletePrompt,
+  fetchPrompts,
+  fetchSampleVars,
+  previewActivePrompt,
+  reloadPrompts,
+  updatePrompt,
+  validatePrompt,
+} from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
@@ -34,7 +44,9 @@ export default function PromptManagementTab() {
         const sp = form.system_prompt.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`);
         const up = form.user_prompt ? form.user_prompt.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`) : form.user_prompt;
         setForm((f) => ({ ...f, system_prompt: sp, user_prompt: up }));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     } else if (savedForm) {
       setForm({ ...savedForm });
       setSavedForm(null);
@@ -46,7 +58,9 @@ export default function PromptManagementTab() {
     setEditing("new");
     setForm({ purpose, name: "", system_prompt: "", user_prompt: purpose === "scoring" ? "" : "", remark: "", activate: true });
     setValidation(null);
-    fetchSampleVars(purpose).then(({ data }) => setSampleVars((s) => ({ ...s, [purpose]: data.vars }))).catch(() => {});
+    fetchSampleVars(purpose)
+      .then(({ data }) => setSampleVars((s) => ({ ...s, [purpose]: data.vars })))
+      .catch(() => {});
   };
   const openEdit = (p) => {
     setEditing(p.id);
@@ -60,7 +74,9 @@ export default function PromptManagementTab() {
     });
     setValidation(null);
     if (!sampleVars[p.purpose]) {
-      fetchSampleVars(p.purpose).then(({ data }) => setSampleVars((s) => ({ ...s, [p.purpose]: data.vars }))).catch(() => {});
+      fetchSampleVars(p.purpose)
+        .then(({ data }) => setSampleVars((s) => ({ ...s, [p.purpose]: data.vars })))
+        .catch(() => {});
     }
   };
 
@@ -201,9 +217,13 @@ export default function PromptManagementTab() {
     if (!text) return text;
     const parts = text.split(/(\{\w+\})/g);
     return parts.map((part, i) =>
-      /^\{\w+\}$/.test(part)
-        ? <span key={i} style={{ background: "var(--blue-100)", color: "var(--blue-700)", fontWeight: 700, borderRadius: 3, padding: "0 2px" }}>{part}</span>
-        : part
+      /^\{\w+\}$/.test(part) ? (
+        <span key={i} style={{ background: "var(--blue-100)", color: "var(--blue-700)", fontWeight: 700, borderRadius: 3, padding: "0 2px" }}>
+          {part}
+        </span>
+      ) : (
+        part
+      ),
     );
   };
 
@@ -773,9 +793,7 @@ export default function PromptManagementTab() {
                   lineHeight: 1.6,
                 }}
               >
-                {showRendered
-                  ? previewData.system_prompt_rendered
-                  : renderHighlighted(previewData.system_prompt_raw)}
+                {showRendered ? previewData.system_prompt_rendered : renderHighlighted(previewData.system_prompt_raw)}
               </pre>
             </div>
             {previewData.user_prompt_raw && (
@@ -797,15 +815,14 @@ export default function PromptManagementTab() {
                     lineHeight: 1.6,
                   }}
                 >
-                  {showRendered
-                    ? previewData.user_prompt_rendered
-                    : renderHighlighted(previewData.user_prompt_raw)}
+                  {showRendered ? previewData.user_prompt_rendered : renderHighlighted(previewData.user_prompt_raw)}
                 </pre>
               </div>
             )}
             {showRendered && previewData.sample_vars && Object.keys(previewData.sample_vars).length > 0 && (
               <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: "var(--space-2)" }}>
-                 预览替换变量: {Object.entries(previewData.sample_vars).map(([k]) => (
+                预览替换变量:{" "}
+                {Object.entries(previewData.sample_vars).map(([k]) => (
                   <code key={k} style={{ marginLeft: 6, padding: "1px 6px", background: "var(--blue-50)", borderRadius: 3, fontSize: "0.65rem" }}>
                     {k}
                   </code>
