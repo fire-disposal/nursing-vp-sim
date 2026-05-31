@@ -81,7 +81,7 @@ class TestFeedback:
         assert data["items"][0]["tag"] == "bug"
 
     def test_admin_list_feedback_pagination(self, client, teacher, student, db_session):
-        """GET /api/admin/feedback supports page + limit pagination."""
+        """GET /api/admin/feedback supports offset + limit pagination."""
         from models import Feedback
 
         teacher_user, teacher_token = teacher
@@ -92,7 +92,7 @@ class TestFeedback:
         db_session.commit()
 
         resp = client.get(
-            "/api/admin/feedback?page=2&limit=2",
+            "/api/admin/feedback?offset=2&limit=2",
             headers={"Authorization": f"Bearer {teacher_token}"},
         )
         assert resp.status_code == 200

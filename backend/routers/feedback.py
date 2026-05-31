@@ -28,10 +28,9 @@ def admin_list_feedback(
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
     tag: str = Query(None),
-    page: int = Query(1, ge=1),
+    offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
-    offset = (page - 1) * limit
     query = db.query(
         Feedback.id,
         Feedback.user_id,

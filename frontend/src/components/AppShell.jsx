@@ -31,6 +31,11 @@ export default function AppShell({ children, user, onLogout }) {
 
   const closeMenu = () => setMobileMenuOpen(false);
 
+  const handleOpenFeedback = () => {
+    setAboutOpen(false);
+    openFeedback();
+  };
+
   const handleLogout = () => {
     onLogout();
     navigate("/login");
@@ -77,10 +82,6 @@ export default function AppShell({ children, user, onLogout }) {
               <Info size={14} />
               关于
             </button>
-            <button className="btn-feedback" onClick={openFeedback}>
-              <MessageSquare size={14} />
-              意见反馈
-            </button>
             <button className="btn-logout" onClick={handleLogout}>
               退出登录
             </button>
@@ -92,6 +93,10 @@ export default function AppShell({ children, user, onLogout }) {
             <h3>虚拟患者系统</h3>
             <p>护理病史采集技能训练平台</p>
             <p className="about-version">版本 {APP_VERSION}</p>
+            <button className="btn btn-outline" onClick={handleOpenFeedback} style={{ marginTop: 12, width: "100%", justifyContent: "center" }}>
+              <MessageSquare size={14} />
+              意见反馈
+            </button>
           </div>
         </Modal>
       </aside>
