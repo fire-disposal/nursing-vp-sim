@@ -62,7 +62,8 @@ export default function FeedbackTab() {
       })
       .catch(() => toast.error("加载反馈数据失败"))
       .finally(() => setLoading(false));
-  }, [tag, offset, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tag, offset]);
 
   useEffect(() => {
     loadData();

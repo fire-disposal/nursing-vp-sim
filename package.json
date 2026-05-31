@@ -7,7 +7,10 @@
     "prepare": "husky",
     "dev": "concurrently -n BE,FE -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && .venv\\Scripts\\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
-    "dev:frontend": "cd frontend && npm run dev"
+    "dev:frontend": "cd frontend && npm run dev",
+    "db:migrate": "cd backend && .venv\\Scripts\\python -m alembic upgrade head",
+    "db:migration": "cd backend && .venv\\Scripts\\python -m alembic revision --autogenerate -m",
+    "db:downgrade": "cd backend && .venv\\Scripts\\python -m alembic downgrade -1"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
