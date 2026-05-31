@@ -174,7 +174,7 @@ class AdminStats(BaseModel):
 # ── QA 多轮对话 ──
 
 class QASessionCreate(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=4096)
 
 class QASessionItem(BaseModel):
     id: int

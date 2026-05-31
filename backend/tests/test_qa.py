@@ -128,3 +128,19 @@ class TestQAMultiTurn:
             user_contents = [m["content"] for m in messages if m["role"] == "user"]
             assert "怎么测血压？" in user_contents
             assert "有哪些注意事项？" in user_contents
+
+    def test_llm_failure_returns_500(self, client, student):
+        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm:
+            mock_llm.side_effect = RuntimeError("模拟LLM故障")
+            resp = client.post("/api/qa/sessions",
+                json={"question": "测试问题"},
+                headers={"Authorization": f"Bearer {student[1]}"},
+            )
+            assert resp.status_code == 500
+
+    def test_empty_question_rejected(self, client, student):
+        resp = client.post("/api/qa/sessions",
+            json={"question": ""},
+            headers={"Authorization": f"Bearer {student[1]}"},
+        )
+        assert resp.status_code == 422

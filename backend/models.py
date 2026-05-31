@@ -145,14 +145,13 @@ class LLMCallLog(Base):
 
 
 class QASession(Base):
-    """通用护理问答会话"""
     __tablename__ = "qa_sessions"
     __table_args__ = (
         Index("ix_qa_sessions_user_updated", "user_id", "updated_at"),
     )
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String(80), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

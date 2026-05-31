@@ -18,7 +18,7 @@ from logger import log_info
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
 
 
-def _build_llm_context(session_id: int, question: str, db: Session) -> list:
+def _build_llm_context(session_id: int, db: Session) -> list:
     history = db.query(QARecord).filter(
         QARecord.session_id == session_id
     ).order_by(QARecord.created_at.desc()).limit(16).all()
@@ -27,7 +27,6 @@ def _build_llm_context(session_id: int, question: str, db: Session) -> list:
     for r in history:
         role = "user" if r.role == "user" else "assistant"
         llm_messages.append({"role": role, "content": r.content})
-    llm_messages.append({"role": "user", "content": question})
     return llm_messages
 
 
@@ -115,7 +114,7 @@ async def ask_in_session(
     db.add(user_msg)
     db.commit()
 
-    llm_messages = _build_llm_context(session_id, req.question.strip(), db)
+    llm_messages = _build_llm_context(session_id, db)
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("qa")

@@ -61,8 +61,6 @@ def upgrade() -> None:
         conn.execute(sa.text("INSERT INTO qa_records (session_id, user_id, role, content, created_at) VALUES (:sid, :uid, 'assistant', :ans, :ts)"),
                      {"sid": sid, "uid": r.user_id, "ans": r.answer or "", "ts": r.created_at})
 
-    conn.commit()
-
     # 5. Set NOT NULL on new columns
     with op.batch_alter_table("qa_records") as batch_op:
         batch_op.alter_column("session_id", nullable=False)
@@ -91,7 +89,6 @@ def downgrade() -> None:
                          {"q": user_msg[1], "a": assistant_msg[1] if assistant_msg else "", "rid": user_msg[0]})
         if assistant_msg and user_msg and assistant_msg[0] != user_msg[0]:
             conn.execute(sa.text("DELETE FROM qa_records WHERE id = :rid"), {"rid": assistant_msg[0]})
-    conn.commit()
 
     op.drop_index("ix_qa_session_created", table_name="qa_records")
     with op.batch_alter_table("qa_records") as batch_op:
