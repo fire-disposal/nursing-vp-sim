@@ -203,55 +203,59 @@ export default function FeedbackTab() {
 
   return (
     <div className="card">
-      <div className="filter-bar" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <div>
-          <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>开始日期</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
-              setOffset(0);
-            }}
-            style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
-          />
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>结束日期</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
-              setOffset(0);
-            }}
-            style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
-          />
-        </div>
-        {(dateFrom || dateTo) && (
-          <button
-            className="btn btn-sm"
-            onClick={() => {
-              setDateFrom("");
-              setDateTo("");
-              setOffset(0);
-            }}
-            style={{
-              padding: "6px 12px",
-              background: "var(--bg-surface-subtle)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--radius-md)",
-              cursor: "pointer",
-              fontSize: "0.85rem",
-              color: "var(--text-secondary)",
-            }}
-          >
-            清除日期
-          </button>
-        )}
-      </div>
+      <FeedbackChart />
 
-      <div className="filter-bar">
+      <div className="filter-bar" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div>
+            <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>开始日期</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setOffset(0);
+              }}
+              style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
+            />
+          </div>
+          <span style={{ color: "var(--text-tertiary)", fontSize: "0.85rem", alignSelf: "flex-end", paddingBottom: 7 }}>—</span>
+          <div>
+            <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>结束日期</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setOffset(0);
+              }}
+              style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button
+              className="btn btn-sm"
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+                setOffset(0);
+              }}
+              style={{
+                padding: "6px 12px",
+                background: "var(--bg-surface-subtle)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-md)",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                color: "var(--text-secondary)",
+                alignSelf: "flex-end",
+              }}
+            >
+              清除
+            </button>
+          )}
+        </div>
+
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {TAG_OPTIONS.map((opt) => (
             <button key={opt.value} className={`difficulty-chip${tag === opt.value ? " active" : ""}`} onClick={() => setTag(opt.value)}>
