@@ -181,13 +181,17 @@ class LLMRouter:
 
 
 _router: LLMRouter | None = None
+_router_lock = asyncio.Lock()
 
 
 async def get_router() -> LLMRouter:
     global _router
-    if _router is None:
-        _router = LLMRouter()
-        await _router.load_from_db()
+    if _router is not None:
+        return _router
+    async with _router_lock:
+        if _router is None:
+            _router = LLMRouter()
+            await _router.load_from_db()
     return _router
 
 

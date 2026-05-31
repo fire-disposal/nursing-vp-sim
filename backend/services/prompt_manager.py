@@ -94,6 +94,10 @@ class PromptManager:
             await self.load_from_db()
         except Exception:
             _logger.warning("reload 失败，使用硬编码兜底 for purpose=%s", purpose)
+        async with self._lock:
+            tmpl = self._cache.get(purpose)
+        if tmpl is not None:
+            return tmpl
         return _hardcoded_fallback(purpose)
 
     async def reload(self):
@@ -195,13 +199,17 @@ def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
 # ── 全局单例 ──
 
 _manager: PromptManager | None = None
+_manager_lock = asyncio.Lock()
 
 
 async def get_prompt_manager() -> PromptManager:
     global _manager
-    if _manager is None:
-        _manager = PromptManager()
-        await _manager.load_from_db()
+    if _manager is not None:
+        return _manager
+    async with _manager_lock:
+        if _manager is None:
+            _manager = PromptManager()
+            await _manager.load_from_db()
     return _manager
 
 

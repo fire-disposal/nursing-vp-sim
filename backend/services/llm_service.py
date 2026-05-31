@@ -121,9 +121,16 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 continue
 
             resp.raise_for_status()
-            data = resp.json()
-            content = data["choices"][0]["message"]["content"]
-            latency_ms = int((time.perf_counter() - t0) * 1000)
+            try:
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                last_error = f"Invalid response: {e}"
+                router.report_result(key.id, success=False, tokens=0, latency_ms=0, error=last_error)
+                if attempt < max_retries:
+                    delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
+                    await asyncio.sleep(delay)
+                continue
             usage = data.get("usage", {})
             total_tokens = usage.get("total_tokens", 0) or len(content) // 2
 
@@ -136,6 +143,8 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 latency_ms=latency_ms, request_text=request_text,
                 response_text=content, usage=usage,
                 log_meta=log_meta, api_key_id=key.id, provider_name=provider_name, model=model,
+                key_price_input=float(key.price_input_per_1m or 0),
+                key_price_output=float(key.price_output_per_1m or 0),
             )
             return content
 
@@ -175,7 +184,8 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
 def _log_llm_success(*, purpose, user_id, record_id, case_id, temperature,
                      max_tokens, latency_ms, request_text, response_text, usage, log_meta,
-                     api_key_id=None, provider_name="deepseek", model=""):
+                     api_key_id=None, provider_name="deepseek", model="",
+                     key_price_input=None, key_price_output=None):
     from services.llm_logging import enqueue_log
     enqueue_log(
         purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
@@ -183,12 +193,14 @@ def _log_llm_success(*, purpose, user_id, record_id, case_id, temperature,
         latency_ms=latency_ms, status="success",
         request_text=request_text, response_text=response_text, usage=usage,
         meta=log_meta, api_key_id=api_key_id, provider_name=provider_name,
+        key_price_input=key_price_input, key_price_output=key_price_output,
     )
 
 
 def _log_llm_failure(*, purpose, user_id, record_id, case_id, temperature,
                      max_tokens, latency_ms, request_text, error_type, error_message, log_meta,
-                     api_key_id=None, provider_name="deepseek", model=""):
+                     api_key_id=None, provider_name="deepseek", model="",
+                     key_price_input=None, key_price_output=None):
     from services.llm_logging import enqueue_log
     enqueue_log(
         purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
@@ -197,6 +209,7 @@ def _log_llm_failure(*, purpose, user_id, record_id, case_id, temperature,
         error_type=error_type, error_message=error_message,
         request_text=request_text, meta=log_meta,
         api_key_id=api_key_id, provider_name=provider_name,
+        key_price_input=key_price_input, key_price_output=key_price_output,
     )
 
 
@@ -302,6 +315,8 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                 response_text=full_reply, usage=None,
                 log_meta=log_meta, api_key_id=key.id,
                 provider_name=provider_name, model=model_used,
+                key_price_input=float(key.price_input_per_1m or 0),
+                key_price_output=float(key.price_output_per_1m or 0),
             )
             return
 

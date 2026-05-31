@@ -22,7 +22,7 @@ async def ask_question(req: QARequest, current_user: User = Depends(get_current_
     pm = await get_prompt_manager()
     tmpl = await pm.get("qa")
     messages = [
-        {"role": "system", "content": tmpl.system_prompt},
+        {"role": "system", "content": tmpl.render()},
         {"role": "user", "content": req.question},
     ]
 

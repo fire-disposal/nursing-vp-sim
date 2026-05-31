@@ -75,8 +75,13 @@ async def update_prompt(
         raise HTTPException(404, "模板不存在")
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(pt, k, v)
+    if any(k in data.model_dump(exclude_none=True) for k in ("system_prompt", "user_prompt")):
+        pt.variables = [{"name": v, "desc": ""} for v in sorted(
+            _extract_vars(pt.system_prompt) | _extract_vars(pt.user_prompt)
+        )]
     db.commit()
     db.refresh(pt)
+    await refresh_prompts()
     return pt
 
 
