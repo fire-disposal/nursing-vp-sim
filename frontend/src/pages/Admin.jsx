@@ -1,8 +1,9 @@
-import { Settings } from "lucide-react";
+import { MessageSquare, Settings } from "lucide-react";
 import { useState } from "react";
 import Layout from "../components/Layout";
 import ApiManagementTab from "../components/teacher/ApiManagementTab";
 import CasesTab from "../components/teacher/CasesTab";
+import FeedbackTab from "../components/teacher/FeedbackTab";
 import MonitorTab from "../components/teacher/MonitorTab";
 import PromptManagementTab from "../components/teacher/PromptManagementTab";
 import QARecordsTab from "../components/teacher/QARecordsTab";
@@ -19,6 +20,7 @@ const ADMIN_TABS = [
   { key: "qa-records", label: "问答记录" },
   { key: "api", label: "API 管理" },
   { key: "prompts", label: "Prompt 管理" },
+  { key: "feedback", icon: MessageSquare, label: "用户反馈" },
 ];
 
 export default function Admin({ user, onLogout }) {
@@ -37,6 +39,7 @@ export default function Admin({ user, onLogout }) {
       {activeTab === "qa-records" && <QARecordsTab />}
       {activeTab === "api" && <ApiManagementTab />}
       {activeTab === "prompts" && <PromptManagementTab />}
+      {activeTab === "feedback" && <FeedbackTab />}
     </Layout>
   );
 }
