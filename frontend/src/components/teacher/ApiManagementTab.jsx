@@ -39,11 +39,15 @@ export default function ApiManagementTab() {
   toastRef.current = toast;
 
   const loadProviders = useCallback(() => {
-    fetchProviders().then(({ data }) => setProviders(data)).catch(() => toastRef.current.error("Failed to load providers"));
+    fetchProviders().then(({ data }) => setProviders(data)).catch((err) => {
+      toastRef.current.error(err.response?.data?.detail || err.message || "Failed to load providers");
+    });
   }, []);
   const loadKeys = useCallback(() => {
     setLoading(true);
-    fetchKeys(null, null).then(({ data }) => setKeys(data)).catch(() => toastRef.current.error("Failed to load keys")).finally(() => setLoading(false));
+    fetchKeys(null, null).then(({ data }) => setKeys(data)).catch((err) => {
+      toastRef.current.error(err.response?.data?.detail || err.message || "Failed to load keys");
+    }).finally(() => setLoading(false));
   }, []);
   const loadHealth = useCallback(() => {
     setLoading(true);
