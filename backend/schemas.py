@@ -478,3 +478,13 @@ class PromptValidateResponse(BaseModel):
     valid: bool
     errors: list[str] = []
     missing_vars: list[str] = []
+
+
+class PromptPreviewResponse(BaseModel):
+    purpose: str
+    version: int
+    system_prompt_raw: str
+    user_prompt_raw: str | None
+    system_prompt_rendered: str
+    user_prompt_rendered: str | None
+    sample_vars: dict

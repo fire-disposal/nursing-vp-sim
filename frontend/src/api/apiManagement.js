@@ -71,3 +71,9 @@ export function validatePrompt(data) {
 export function reloadPrompts() {
   return api.post("/admin/prompts/reload");
 }
+export function previewActivePrompt(purpose) {
+  return api.get("/admin/prompts/active/preview", { params: { purpose } });
+}
+export function fetchSampleVars(purpose) {
+  return api.get("/admin/prompts/sample-vars", { params: { purpose } });
+}

@@ -7,10 +7,11 @@ from database import get_db
 from models import User, PromptTemplate as PT
 from schemas import (
     PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateResponse,
-    PromptValidateRequest, PromptValidateResponse,
+    PromptValidateRequest, PromptValidateResponse, PromptPreviewResponse,
 )
 from auth import require_teacher
 from services.prompt_manager import refresh_prompts
+from prompt_static import SAMPLE_VARS
 
 _logger = logging.getLogger("nursing")
 
@@ -155,3 +156,40 @@ def validate_prompt(data: PromptValidateRequest):
 async def reload_prompts_endpoint(current_user: User = Depends(require_teacher)):
     await refresh_prompts()
     return {"ok": True}
+
+
+@router.get("/sample-vars")
+def get_sample_vars(purpose: str, current_user: User = Depends(require_teacher)):
+    sample = SAMPLE_VARS.get(purpose)
+    if sample is None:
+        raise HTTPException(404, f"未知 purpose: {purpose}")
+    return {"purpose": purpose, "vars": sample}
+
+
+@router.get("/active/preview", response_model=PromptPreviewResponse)
+async def preview_active_prompt(
+    purpose: str,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    pt = db.query(PT).filter(PT.purpose == purpose, PT.is_active == True).first()
+    if not pt:
+        raise HTTPException(404, f"「{purpose}」没有激活的模板")
+    sample = SAMPLE_VARS.get(purpose, {})
+    system_rendered = pt.system_prompt
+    user_rendered = pt.user_prompt
+    try:
+        system_rendered = pt.system_prompt.format(**sample) if sample else pt.system_prompt
+        if pt.user_prompt:
+            user_rendered = pt.user_prompt.format(**sample) if sample else pt.user_prompt
+    except (KeyError, ValueError) as e:
+        pass
+    return PromptPreviewResponse(
+        purpose=pt.purpose,
+        version=pt.version,
+        system_prompt_raw=pt.system_prompt,
+        user_prompt_raw=pt.user_prompt,
+        system_prompt_rendered=system_rendered,
+        user_prompt_rendered=user_rendered if pt.user_prompt else None,
+        sample_vars=sample,
+    )

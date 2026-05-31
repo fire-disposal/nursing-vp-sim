@@ -5,6 +5,7 @@ from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
 from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
+from prompt_static import build_rubric_blocks
 from logger import log_info
 import asyncio
 import httpx
@@ -29,64 +30,22 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     rubric = load_rubric("nursing_history_v1")
 
     all_required = case_data.get("required_inquiries", [])
-    dimensions = rubric.get("dimensions", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
 
-    dim_lines = []
-    json_template_dims = []
-    for dim in dimensions:
-        dim_name = dim["name"]
-        dim_max = dim["max"]
-        dim_lines.append(f"### {dim_name}（{len(dim['items'])}项，满分{dim_max}分）")
-        if dim.get("description"):
-            dim_lines.append(str(dim["description"]))
-        dim_lines.append("")
-
-        item_templates = []
-        for item in dim["items"]:
-            anchors = item.get("anchors", {})
-            anchor_text = " / ".join(f"{k}分: {v}" for k, v in sorted(anchors.items()))
-            dim_lines.append(f"{dim['items'].index(item) + 1}. {item['name']} — {anchor_text}")
-            item_templates.append(
-                '{{"id": "' + item['id'] + '", "name": "' + item['name']
-                + '", "score": 1-3, "evidence": "对话中的具体证据（30-80字）", "reason": "评分理由（20-50字）"}}'
-            )
-        json_template_dims.append(
-            '"' + dim_name + '": {{\n'
-            '      "score": 数字(满分' + str(dim_max) + '),\n'
-            '      "max": ' + str(dim_max) + ',\n'
-            '      "items": [\n        ' + ',\n        '.join(item_templates) + '\n      ]\n    }}'
-        )
-
-    rubric_dim_text = "\n".join(dim_lines)
-    dim_json = ",\n    ".join(json_template_dims)
-    rubric_json_template = (
-        '{\n'
-        '  "rubric_version": "' + rubric.get("id", "") + "@" + str(rubric.get("version", "")) + '",\n'
-        '  "total_score": 数字(满分' + str(raw_max) + '),\n'
-        '  "detail_scores": {\n'
-        '    ' + dim_json + '\n'
-        '  },\n'
-        '  "strengths": ["表现较好的具体行为描述1", ...],\n'
-        '  "weaknesses": ["存在不足的具体行为描述1", ...],\n'
-        '  "missed_content": ["学生漏问的关键内容1", ...],\n'
-        '  "suggestions": "个性化改进建议。需结合对话中学生的实际表现：具体指出哪些条目做得好，哪些条目需要改进，给出可操作的改进方向。200-350字"\n'
-        '}'
-    )
+    rubric_dim_text, rubric_json_template = build_rubric_blocks(rubric)
     required_inquiries_str = json.dumps(all_required, ensure_ascii=False, indent=2)
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("scoring")
-    # 防止对话中的 { } 破坏 str.format()
-    safe_rubric_dim = rubric_dim_text.replace("{", "{{").replace("}", "}}")
-    safe_json_tpl = rubric_json_template
-    safe_inquiries = required_inquiries_str.replace("{", "{{").replace("}", "}}")
-    safe_conversation = conversation_text.replace("{", "{{").replace("}", "}}")
+
+    def _esc(s):
+        return s.replace("{", "{{").replace("}", "}}")
+
     system_content, user_content = tmpl.render_pair(
-        rubric_dim_text=safe_rubric_dim,
-        rubric_json_template=safe_json_tpl,
-        required_inquiries=safe_inquiries,
-        conversation_text=safe_conversation,
+        rubric_dim_text=_esc(rubric_dim_text),
+        rubric_json_template=rubric_json_template,
+        required_inquiries=_esc(required_inquiries_str),
+        conversation_text=_esc(conversation_text),
     )
     scoring_messages = [
         {"role": "system", "content": system_content},

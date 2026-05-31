@@ -1,6 +1,6 @@
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { activatePrompt, createPrompt, deletePrompt, fetchPrompts, reloadPrompts, updatePrompt, validatePrompt } from "../../api/apiManagement";
+import { activatePrompt, createPrompt, deletePrompt, fetchPrompts, fetchSampleVars, previewActivePrompt, reloadPrompts, updatePrompt, validatePrompt } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
@@ -19,6 +19,50 @@ export default function PromptManagementTab() {
   const [saving, setSaving] = useState(false);
   const [showActiveModal, setShowActiveModal] = useState(false);
   const [activeModalPurpose, setActiveModalPurpose] = useState("patient_chat");
+  const [previewData, setPreviewData] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [showRendered, setShowRendered] = useState(true);
+  const [showEditorPreview, setShowEditorPreview] = useState(false);
+  const [savedForm, setSavedForm] = useState(null);
+  const [sampleVars, setSampleVars] = useState({});
+
+  const togglePreview = () => {
+    if (!showEditorPreview) {
+      setSavedForm({ ...form });
+      const vars = sampleVars[form.purpose] || {};
+      try {
+        const sp = form.system_prompt.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`);
+        const up = form.user_prompt ? form.user_prompt.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? `{${key}}`) : form.user_prompt;
+        setForm((f) => ({ ...f, system_prompt: sp, user_prompt: up }));
+      } catch { /* ignore */ }
+    } else if (savedForm) {
+      setForm({ ...savedForm });
+      setSavedForm(null);
+    }
+    setShowEditorPreview((v) => !v);
+  };
+
+  const openNew = (purpose) => {
+    setEditing("new");
+    setForm({ purpose, name: "", system_prompt: "", user_prompt: purpose === "scoring" ? "" : "", remark: "", activate: true });
+    setValidation(null);
+    fetchSampleVars(purpose).then(({ data }) => setSampleVars((s) => ({ ...s, [purpose]: data.vars }))).catch(() => {});
+  };
+  const openEdit = (p) => {
+    setEditing(p.id);
+    setForm({
+      purpose: p.purpose,
+      name: p.name || "",
+      system_prompt: p.system_prompt,
+      user_prompt: p.user_prompt || "",
+      remark: p.remark || "",
+      activate: false,
+    });
+    setValidation(null);
+    if (!sampleVars[p.purpose]) {
+      fetchSampleVars(p.purpose).then(({ data }) => setSampleVars((s) => ({ ...s, [p.purpose]: data.vars }))).catch(() => {});
+    }
+  };
 
   const load = useCallback(() => {
     fetchPrompts(null)
@@ -39,24 +83,6 @@ export default function PromptManagementTab() {
   });
 
   const toggle = (p) => setExpanded((e) => ({ ...e, [p]: !e[p] }));
-
-  const openNew = (purpose) => {
-    setEditing("new");
-    setForm({ purpose, name: "", system_prompt: "", user_prompt: purpose === "scoring" ? "" : "", remark: "", activate: true });
-    setValidation(null);
-  };
-  const openEdit = (p) => {
-    setEditing(p.id);
-    setForm({
-      purpose: p.purpose,
-      name: p.name || "",
-      system_prompt: p.system_prompt,
-      user_prompt: p.user_prompt || "",
-      remark: p.remark || "",
-      activate: false,
-    });
-    setValidation(null);
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -127,14 +153,34 @@ export default function PromptManagementTab() {
     }
   };
 
-  const handleShowActive = () => {
+  const handleShowActive = async () => {
     setActiveModalPurpose("patient_chat");
+    setShowRendered(true);
     setShowActiveModal(true);
+    setPreviewLoading(true);
+    try {
+      const { data } = await previewActivePrompt("patient_chat");
+      setPreviewData(data);
+    } catch {
+      setPreviewData(null);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
-  const activePromptForModal = useMemo(() => {
-    return grouped[activeModalPurpose]?.find((t) => t.is_active) || null;
-  }, [grouped, activeModalPurpose]);
+  const handleActiveModalPurposeChange = async (p) => {
+    setActiveModalPurpose(p);
+    setShowRendered(true);
+    setPreviewLoading(true);
+    try {
+      const { data } = await previewActivePrompt(p);
+      setPreviewData(data);
+    } catch {
+      setPreviewData(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const editorTitle =
     editing === "new"
@@ -150,6 +196,16 @@ export default function PromptManagementTab() {
   const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt]);
   const editedPrompt = editing && editing !== "new" ? prompts.find((p) => p.id === editing) : null;
   const dbVars = editedPrompt?.variables || [];
+
+  const renderHighlighted = (text) => {
+    if (!text) return text;
+    const parts = text.split(/(\{\w+\})/g);
+    return parts.map((part, i) =>
+      /^\{\w+\}$/.test(part)
+        ? <span key={i} style={{ background: "var(--blue-100)", color: "var(--blue-700)", fontWeight: 700, borderRadius: 3, padding: "0 2px" }}>{part}</span>
+        : part
+    );
+  };
 
   return (
     <div>
@@ -226,10 +282,22 @@ export default function PromptManagementTab() {
                       e.stopPropagation();
                       openNew(purpose);
                     }}
-                    style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 2 }}
-                    title="新建"
+                    style={{
+                      background: "var(--blue-50)",
+                      border: "1px solid var(--blue-200)",
+                      borderRadius: "var(--radius-md)",
+                      color: "var(--blue-600)",
+                      cursor: "pointer",
+                      padding: "2px 8px",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 2,
+                    }}
+                    title="新增"
                   >
-                    <Plus size={15} />
+                    <Plus size={13} /> 新增
                   </button>
                 </div>
                 {isOpen && (
@@ -385,21 +453,40 @@ export default function PromptManagementTab() {
             <div style={{ flex: 1, display: "flex", flexDirection: "column", marginBottom: "var(--space-3)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>System Prompt</label>
-                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{form.system_prompt.length} 字符</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{form.system_prompt.length} 字符</span>
+                  <button
+                    type="button"
+                    onClick={togglePreview}
+                    style={{
+                      padding: "1px 8px",
+                      border: "1px solid var(--blue-300)",
+                      borderRadius: "var(--radius-sm)",
+                      background: showEditorPreview ? "var(--blue-500)" : "var(--bg-surface)",
+                      color: showEditorPreview ? "#fff" : "var(--blue-600)",
+                      cursor: "pointer",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {showEditorPreview ? "编辑" : "预览填充"}
+                  </button>
+                </div>
               </div>
               <textarea
                 value={form.system_prompt}
                 onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
+                readOnly={showEditorPreview}
                 style={{
                   flex: 1,
                   minHeight: 200,
                   width: "100%",
                   padding: "var(--space-2) var(--space-3)",
-                  border: "1px solid var(--border-color)",
+                  border: showEditorPreview ? "1px solid var(--blue-300)" : "1px solid var(--border-color)",
                   borderRadius: "var(--radius-md)",
                   fontSize: "0.8rem",
                   fontFamily: "monospace",
-                  background: "var(--bg-surface)",
+                  background: showEditorPreview ? "var(--blue-25)" : "var(--bg-surface)",
                   color: "var(--text-primary)",
                   boxSizing: "border-box",
                   resize: "vertical",
@@ -415,15 +502,16 @@ export default function PromptManagementTab() {
                 <textarea
                   value={form.user_prompt}
                   onChange={(e) => setForm((f) => ({ ...f, user_prompt: e.target.value }))}
+                  readOnly={showEditorPreview}
                   rows={6}
                   style={{
                     width: "100%",
                     padding: "var(--space-2) var(--space-3)",
-                    border: "1px solid var(--border-color)",
+                    border: showEditorPreview ? "1px solid var(--blue-300)" : "1px solid var(--border-color)",
                     borderRadius: "var(--radius-md)",
                     fontSize: "0.8rem",
                     fontFamily: "monospace",
-                    background: "var(--bg-surface)",
+                    background: showEditorPreview ? "var(--blue-25)" : "var(--bg-surface)",
                     color: "var(--text-primary)",
                     boxSizing: "border-box",
                     resize: "vertical",
@@ -431,7 +519,6 @@ export default function PromptManagementTab() {
                 />
               </div>
             )}
-
             <div style={{ marginBottom: "var(--space-3)", display: "flex", alignItems: "flex-start", gap: "var(--space-3)", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div
@@ -530,23 +617,28 @@ export default function PromptManagementTab() {
               )}
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || showEditorPreview}
                 style={{
                   padding: "var(--space-2) var(--space-4)",
                   border: "none",
                   borderRadius: "var(--radius-md)",
                   background: "var(--color-primary)",
                   color: "#fff",
-                  cursor: saving ? "not-allowed" : "pointer",
+                  cursor: saving || showEditorPreview ? "not-allowed" : "pointer",
                   fontSize: "0.85rem",
-                  opacity: saving ? 0.6 : 1,
+                  opacity: saving || showEditorPreview ? 0.6 : 1,
                   marginLeft: "auto",
                 }}
               >
                 {saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
               </button>
               <button
-                onClick={() => setEditing(null)}
+                onClick={() => {
+                  if (showEditorPreview && savedForm) setForm({ ...savedForm });
+                  setShowEditorPreview(false);
+                  setSavedForm(null);
+                  setEditing(null);
+                }}
                 style={{
                   padding: "var(--space-2) var(--space-4)",
                   border: "1px solid var(--border-color)",
@@ -597,11 +689,11 @@ export default function PromptManagementTab() {
         )}
       </div>
 
-      <Modal open={showActiveModal} onClose={() => setShowActiveModal(false)} title={null} maxWidth={800}>
+      <Modal open={showActiveModal} onClose={() => setShowActiveModal(false)} title={null} maxWidth={900}>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
           <select
             value={activeModalPurpose}
-            onChange={(e) => setActiveModalPurpose(e.target.value)}
+            onChange={(e) => handleActiveModalPurposeChange(e.target.value)}
             style={{
               padding: "var(--space-2) var(--space-3)",
               border: "1px solid var(--border-color)",
@@ -622,10 +714,46 @@ export default function PromptManagementTab() {
               );
             })}
           </select>
-          {activePromptForModal && <span style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>{activePromptForModal.name || ""}</span>}
+          {previewData && <span style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>v{previewData.version}</span>}
+          {previewData && (
+            <div style={{ marginLeft: "auto", display: "flex", gap: 2, background: "var(--bg-surface-subtle)", borderRadius: "var(--radius-md)", padding: 2 }}>
+              <button
+                onClick={() => setShowRendered(true)}
+                style={{
+                  padding: "var(--space-1) var(--space-3)",
+                  border: "none",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: showRendered ? "var(--color-primary)" : "transparent",
+                  color: showRendered ? "#fff" : "var(--text-secondary)",
+                }}
+              >
+                渲染效果
+              </button>
+              <button
+                onClick={() => setShowRendered(false)}
+                style={{
+                  padding: "var(--space-1) var(--space-3)",
+                  border: "none",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: !showRendered ? "var(--color-primary)" : "transparent",
+                  color: !showRendered ? "#fff" : "var(--text-secondary)",
+                }}
+              >
+                原始模板
+              </button>
+            </div>
+          )}
         </div>
 
-        {activePromptForModal ? (
+        {previewLoading ? (
+          <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--text-tertiary)" }}>加载中...</div>
+        ) : previewData ? (
           <>
             <div style={{ marginBottom: "var(--space-3)" }}>
               <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>System Prompt</div>
@@ -642,12 +770,15 @@ export default function PromptManagementTab() {
                   color: "var(--text-primary)",
                   maxHeight: 400,
                   overflow: "auto",
+                  lineHeight: 1.6,
                 }}
               >
-                {activePromptForModal.system_prompt}
+                {showRendered
+                  ? previewData.system_prompt_rendered
+                  : renderHighlighted(previewData.system_prompt_raw)}
               </pre>
             </div>
-            {activePromptForModal.purpose === "scoring" && activePromptForModal.user_prompt && (
+            {previewData.user_prompt_raw && (
               <div style={{ marginBottom: "var(--space-3)" }}>
                 <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>User Prompt Template</div>
                 <pre
@@ -663,10 +794,22 @@ export default function PromptManagementTab() {
                     color: "var(--text-primary)",
                     maxHeight: 300,
                     overflow: "auto",
+                    lineHeight: 1.6,
                   }}
                 >
-                  {activePromptForModal.user_prompt}
+                  {showRendered
+                    ? previewData.user_prompt_rendered
+                    : renderHighlighted(previewData.user_prompt_raw)}
                 </pre>
+              </div>
+            )}
+            {showRendered && previewData.sample_vars && Object.keys(previewData.sample_vars).length > 0 && (
+              <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: "var(--space-2)" }}>
+                预览替换变量: {Object.entries(previewData.sample_vars).map(([k, v]) => (
+                  <code key={k} style={{ marginLeft: 6, padding: "1px 6px", background: "var(--blue-50)", borderRadius: 3, fontSize: "0.65rem" }}>
+                    {k}
+                  </code>
+                ))}
               </div>
             )}
           </>
