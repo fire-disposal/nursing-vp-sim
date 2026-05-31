@@ -25,6 +25,7 @@ export default function ApiManagementTab() {
   const [providers, setProviders] = useState([]);
   const [keys, setKeys] = useState([]);
   const [health, setHealth] = useState([]);
+  const [healthAutoRefresh, setHealthAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState(null);
@@ -47,6 +48,12 @@ export default function ApiManagementTab() {
     else if (subTab === "keys") loadKeys();
     else if (subTab === "health") loadHealth();
   }, [subTab, loadProviders, loadKeys, loadHealth]);
+
+  useEffect(() => {
+    if (!healthAutoRefresh || subTab !== "health") return;
+    const timer = setInterval(loadHealth, 30000);
+    return () => clearInterval(timer);
+  }, [healthAutoRefresh, subTab, loadHealth]);
 
   const handleMoveProvider = async (index, direction) => {
     const sorted = [...providers].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
@@ -223,6 +230,13 @@ export default function ApiManagementTab() {
           <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
             <button onClick={loadHealth} style={S.primaryBtn}><Activity size={14} /> Check Health</button>
             <button onClick={handleReload} style={S.secondaryBtn}><Server size={14} /> Reload Router</button>
+            <button
+              onClick={() => setHealthAutoRefresh((v) => !v)}
+              style={{ ...S.secondaryBtn, background: healthAutoRefresh ? "var(--green-100)" : undefined, color: healthAutoRefresh ? "var(--green-700)" : undefined }}
+            >
+              <RefreshCw size={14} style={{ animation: healthAutoRefresh ? "spin 2s linear infinite" : undefined }} />
+              {healthAutoRefresh ? "自动刷新中" : "自动刷新"}
+            </button>
           </div>
           <div className="card" style={{ overflow: "auto" }}>
             {loading ? (

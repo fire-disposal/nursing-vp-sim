@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Activity, TrendingUp, Server, Zap } from "lucide-react";
-import { getLLMStats, getLLMLogs } from "../../api";
+import { Activity, TrendingUp, Server, Zap, Download } from "lucide-react";
+import { getLLMStats, getLLMLogs, exportLLMLogs } from "../../api";
 import Pagination from "../Pagination";
 
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", summary: "总结", other: "其他" };
@@ -20,6 +20,19 @@ export default function MonitorTab() {
   const LIMIT = 20;
   const [filters, setFilters] = useState({ purpose: "", status: "", date_from: "", date_to: "" });
   const [loading, setLoading] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    try {
+      const resp = await exportLLMLogs(filters.date_from, filters.date_to);
+      const blob = new Blob([resp.data], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `llm_logs_export.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {}
+  }, [filters.date_from, filters.date_to]);
 
   const loadData = useCallback(() => {
     getLLMStats().then(({ data }) => setStats(data)).catch(() => {});
@@ -88,9 +101,12 @@ export default function MonitorTab() {
 
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}><Server size={14} /> 最近训练调用日志</h3>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            <select value={filters.purpose} onChange={(e) => { setFilters((f) => ({ ...f, purpose: e.target.value })); setOffset(0); }} style={{ fontSize: "0.8rem", padding: "4px 8px" }}><option value="">全部用途</option>{Object.entries(PURPOSE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-            <select value={filters.status} onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setOffset(0); }} style={{ fontSize: "0.8rem", padding: "4px 8px" }}><option value="">全部状态</option><option value="success">成功</option><option value="failed">失败</option><option value="timeout">超时</option></select>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <select value={filters.purpose} onChange={(e) => { setFilters((f) => ({ ...f, purpose: e.target.value })); setOffset(0); }} style={{ fontSize: "0.8rem", padding: "4px 8px" }}><option value="">全部用途</option>{Object.entries(PURPOSE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+              <select value={filters.status} onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setOffset(0); }} style={{ fontSize: "0.8rem", padding: "4px 8px" }}><option value="">全部状态</option><option value="success">成功</option><option value="failed">失败</option><option value="timeout">超时</option></select>
+            </div>
+            <button onClick={handleExport} style={{ fontSize: "0.8rem", padding: "4px 12px", display: "flex", alignItems: "center", gap: 4, border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", background: "var(--bg-surface)", color: "var(--text-secondary)", cursor: "pointer" }}><Download size={13} /> 导出CSV</button>
           </div>
           {loading ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>加载中...</div> :
            logs.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-tertiary)" }}><Zap size={28} /><div style={{ fontSize: "0.85rem", marginTop: 8 }}>暂无日志记录</div></div> :

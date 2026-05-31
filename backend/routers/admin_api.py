@@ -257,3 +257,54 @@ async def health_check(current_user: User = Depends(require_teacher), db: Sessio
                     status="error", latency_ms=None, error=str(e)[:200],
                 ))
     return results
+
+
+@router.get("/stats")
+def api_aggregate_stats(
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """API 使用聚合统计：总量概览 + 按 key/provider 细分"""
+    today = datetime.now(timezone.utc).date()
+    month = today.strftime("%Y-%m")
+
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = today_start.replace(day=1)
+
+    today_stats = db.query(
+        func.count(LLMCallLog.id),
+        func.coalesce(func.sum(LLMCallLog.total_tokens), 0),
+        func.coalesce(func.sum(LLMCallLog.estimated_cost), 0),
+        func.coalesce(func.avg(LLMCallLog.latency_ms), 0),
+    ).filter(LLMCallLog.created_at >= today_start).first()
+
+    month_stats = db.query(
+        func.count(LLMCallLog.id),
+        func.coalesce(func.sum(LLMCallLog.total_tokens), 0),
+        func.coalesce(func.sum(LLMCallLog.estimated_cost), 0),
+    ).filter(LLMCallLog.created_at >= month_start).first()
+
+    success_count = db.query(func.count(LLMCallLog.id)).filter(
+        LLMCallLog.created_at >= today_start, LLMCallLog.status == "success"
+    ).scalar() or 0
+    total_count = today_stats[0] or 0
+    success_rate = round(success_count / total_count * 100, 1) if total_count > 0 else 0
+
+    active_keys = db.query(ApiKey).filter(ApiKey.status == "active").count()
+    total_keys = db.query(ApiKey).count()
+
+    return {
+        "today": {
+            "calls": today_stats[0] or 0,
+            "tokens": int(today_stats[1]),
+            "cost": round(float(today_stats[2]), 6),
+            "avg_latency_ms": round(float(today_stats[3]), 0),
+            "success_rate": success_rate,
+        },
+        "month": {
+            "calls": month_stats[0] or 0,
+            "tokens": int(month_stats[1]),
+            "cost": round(float(month_stats[2]), 6),
+        },
+        "keys": {"active": active_keys, "total": total_keys},
+    }

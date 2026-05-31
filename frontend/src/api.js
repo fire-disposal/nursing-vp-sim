@@ -233,6 +233,13 @@ export function getLLMLogs(params = {}) {
   return api.get("/admin/llm-logs", { params: { aggregate_patient_chat: true, ...params } });
 }
 
+export function exportLLMLogs(dateFrom, dateTo) {
+  const params = {};
+  if (dateFrom) params.date_from = dateFrom;
+  if (dateTo) params.date_to = dateTo;
+  return api.get("/admin/llm-logs/export", { params, responseType: "blob" });
+}
+
 // 教师复核
 export function getScoreReview(recordId) {
   return api.get(`/training/records/${recordId}/review`);

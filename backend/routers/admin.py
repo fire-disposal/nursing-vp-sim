@@ -11,7 +11,7 @@ import shutil
 from datetime import datetime, timezone
 from datetime import timedelta
 from config import DATABASE_URL
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 import tempfile
 import zipfile
 import subprocess
@@ -423,3 +423,61 @@ def get_llm_logs(
             items.append(LLMCallLogItem.model_validate(it))
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.get("/llm-logs/export")
+def export_llm_logs_csv(
+    date_from: str | None = None,
+    date_to: str | None = None,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """导出 LLM 调用日志为 CSV 文件"""
+    import csv
+    import io
+
+    q = db.query(LLMCallLog)
+    if date_from:
+        q = q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
+    if date_to:
+        q = q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
+    logs = q.order_by(LLMCallLog.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "时间", "用户ID", "训练记录ID", "病例ID", "用途",
+        "Provider", "模型", "状态", "延迟(ms)", "PromptTokens",
+        "CompletionTokens", "TotalTokens", "估算标记", "预估费用",
+        "错误类型", "错误信息", "请求字符数", "响应字符数",
+    ])
+    for log in logs:
+        writer.writerow([
+            log.id,
+            log.created_at.isoformat() if log.created_at else "",
+            log.user_id or "",
+            log.record_id or "",
+            log.case_id or "",
+            log.purpose,
+            getattr(log, "provider_name", ""),
+            log.model,
+            log.status,
+            log.latency_ms or "",
+            log.prompt_tokens or "",
+            log.completion_tokens or "",
+            log.total_tokens or "",
+            log.token_estimated,
+            log.estimated_cost if log.estimated_cost is not None else "",
+            log.error_type or "",
+            (log.error_message or "")[:200],
+            log.request_chars or "",
+            log.response_chars or "",
+        ])
+
+    csv_content = output.getvalue()
+    output.close()
+    return Response(
+        content=csv_content.encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=llm_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"},
+    )

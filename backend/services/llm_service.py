@@ -4,10 +4,9 @@ import random
 import re
 import time
 import httpx
-from logger import log_error
 from config import (
     LLM_MAX_RETRIES,
-    LLM_CONCURRENT_LIMIT,
+    LLM_CONCURRENT_LIMIT, LLM_CONNECTION_POOL_SIZE, LLM_CONNECTION_KEEPALIVE,
     LLM_CHAT_TIMEOUT, LLM_CHAT_MAX_TOKENS,
     LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS,
 )
@@ -34,8 +33,8 @@ async def _get_client() -> httpx.AsyncClient:
                 _shared_client = httpx.AsyncClient(
                     timeout=httpx.Timeout(60, connect=15.0),
                     limits=httpx.Limits(
-                        max_connections=20,
-                        max_keepalive_connections=5,
+                        max_connections=LLM_CONNECTION_POOL_SIZE,
+                        max_keepalive_connections=LLM_CONNECTION_KEEPALIVE,
                         keepalive_expiry=30,
                     ),
                 )
@@ -202,84 +201,98 @@ def _log_llm_failure(*, purpose, user_id, record_id, case_id, temperature,
 
 
 async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: int = 512,
-                          timeout: int = 30,
+                          timeout: int = 30, max_retries: int = 2,
                           purpose: str = "other",
                           user_id: int | None = None,
                           record_id: int | None = None,
                           case_id: int | None = None,
                           log_meta: dict | None = None,
                           ):
-    """通过 LLMRouter 选择 key/provider，流式返回文本块。"""
+    """通过 LLMRouter 选择 key/provider，流式返回文本块。支持重试与故障转移。"""
     from services.llm_router import get_router
 
     router = await get_router()
-    key, provider = router.select_key(purpose)
-    api_key = router.get_decrypted_key(key.id)
-    model = key.model or provider.default_model
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "stream": True,
-    }
-
     request_text = " ".join(m.get("content", "") for m in messages)
-
-    client = await _get_client()
-    full_reply = ""
+    last_error = None
+    used_key_id = None
+    provider_name = "unknown"
+    model_used = "unknown"
     t0 = time.perf_counter()
-    error_type = None
-    error_message = None
-    try:
-        async with _rate_limiter:
-            async with client.stream(
-                "POST",
-                f"{provider.base_url}/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                timeout=httpx.Timeout(timeout, connect=15.0),
-            ) as resp:
-                if resp.status_code != 200:
-                    body = await resp.aread()
-                    raise RuntimeError(f"LLM流式调用失败 HTTP {resp.status_code}: {body[:200]}")
-                async for line in resp.aiter_lines():
-                    if line.startswith("data: "):
-                        data = line[6:]
-                        if data == "[DONE]":
-                            break
-                        try:
-                            obj = json.loads(data)
-                            delta = obj["choices"][0].get("delta", {})
-                            content = delta.get("content", "")
-                            if content:
-                                full_reply += content
-                                yield content
-                        except json.JSONDecodeError:
-                            pass
-    except Exception as e:
-        error_type = type(e).__name__
-        error_message = str(e)[:500]
-        raise
-    finally:
-        latency_ms = int((time.perf_counter() - t0) * 1000)
-        total_tokens = len(full_reply) // 2
-        if error_type:
-            router.report_result(key.id, success=False, tokens=0,
-                                 latency_ms=latency_ms, error=error_message)
-            _log_llm_failure(
-                purpose=purpose, user_id=user_id, record_id=record_id,
-                case_id=case_id, temperature=temperature, max_tokens=max_tokens,
-                latency_ms=latency_ms, request_text=request_text,
-                error_type=error_type, error_message=error_message,
-                log_meta=log_meta, api_key_id=key.id,
-                provider_name=provider.name, model=model,
-            )
-        else:
+
+    for attempt in range(max_retries + 2):
+        try:
+            key, provider = router.select_key(purpose)
+            api_key = router.get_decrypted_key(key.id)
+            used_key_id = key.id
+            provider_name = provider.name
+            model_used = key.model or provider.default_model
+        except RuntimeError as e:
+            last_error = str(e)[:200]
+            if attempt < max_retries + 1:
+                await asyncio.sleep(1)
+            continue
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {str(e)[:200]}"
+            if attempt < max_retries + 1:
+                await asyncio.sleep(1)
+            continue
+
+        payload = {
+            "model": model_used,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+
+        client = await _get_client()
+        full_reply = ""
+        try:
+            async with _rate_limiter:
+                async with client.stream(
+                    "POST",
+                    f"{provider.base_url}/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=httpx.Timeout(timeout, connect=15.0),
+                ) as resp:
+                    if resp.status_code != 200:
+                        body = await resp.aread()
+                        status_text = body.decode(errors="replace")[:200]
+                        if resp.status_code == 429:
+                            router.report_result(key.id, success=False, tokens=0,
+                                                 latency_ms=0, error=f"HTTP 429: {status_text}")
+                            last_error = "HTTP 429"
+                        elif resp.status_code in _RETRYABLE_STATUSES:
+                            last_error = f"HTTP {resp.status_code}: {status_text}"
+                            router.report_result(key.id, success=False, tokens=0,
+                                                 latency_ms=0, error=last_error)
+                        else:
+                            last_error = f"HTTP {resp.status_code}: {status_text}"
+                        if attempt < max_retries + 1:
+                            delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
+                            await asyncio.sleep(delay)
+                        continue
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data: "):
+                            data = line[6:]
+                            if data == "[DONE]":
+                                break
+                            try:
+                                obj = json.loads(data)
+                                delta = obj["choices"][0].get("delta", {})
+                                content = delta.get("content", "")
+                                if content:
+                                    full_reply += content
+                                    yield content
+                            except json.JSONDecodeError:
+                                pass
+
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            total_tokens = len(full_reply) // 2
             router.report_result(key.id, success=True, tokens=total_tokens,
                                  latency_ms=latency_ms, error=None)
             _log_llm_success(
@@ -288,8 +301,38 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                 latency_ms=latency_ms, request_text=request_text,
                 response_text=full_reply, usage=None,
                 log_meta=log_meta, api_key_id=key.id,
-                provider_name=provider.name, model=model,
+                provider_name=provider_name, model=model_used,
             )
+            return
+
+        except _RETRYABLE_EXCEPTIONS as e:
+            error_str = f"{type(e).__name__}: {str(e)[:200]}"
+            router.report_result(key.id, success=False, tokens=0,
+                                 latency_ms=0, error=error_str)
+            last_error = error_str
+            if isinstance(e, httpx.RemoteProtocolError):
+                await _reset_client()
+            if attempt < max_retries + 1:
+                delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
+                await asyncio.sleep(delay)
+        except Exception as e:
+            error_str = f"{type(e).__name__}: {str(e)[:200]}"
+            router.report_result(key.id, success=False, tokens=0,
+                                 latency_ms=0, error=error_str)
+            last_error = error_str
+            if attempt < max_retries + 1:
+                await asyncio.sleep(1)
+
+    latency_ms = int((time.perf_counter() - t0) * 1000)
+    _log_llm_failure(
+        purpose=purpose, user_id=user_id, record_id=record_id,
+        case_id=case_id, temperature=temperature, max_tokens=max_tokens,
+        latency_ms=latency_ms, request_text=request_text,
+        error_type="all_providers_failed", error_message=last_error,
+        log_meta=log_meta, api_key_id=used_key_id,
+        provider_name=provider_name, model=model_used,
+    )
+    raise RuntimeError(f"LLM流式调用失败（所有 provider 不可用）: {last_error}")
 
 
 def _safe_parse_json(text: str) -> dict:
@@ -380,6 +423,3 @@ async def call_llm_json(messages: list, temperature: float = 0.3, max_tokens: in
         client=client, semaphore=semaphore,
     )
     return _safe_parse_json(response_text)
-
-
-from prompts import build_patient_system_prompt, build_scoring_prompt, build_scoring_prompt_from_rubric

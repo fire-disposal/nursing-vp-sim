@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import random
+import threading
 from datetime import datetime, timezone, timedelta
 
 _logger = logging.getLogger("nursing")
@@ -17,6 +18,7 @@ class LLMRouter:
         self._last_valid_cache: dict | None = None
         self._global_degraded: tuple[bool, datetime | None] = (False, None)
         self._lock = asyncio.Lock()
+        self._state_lock = threading.Lock()
 
     def _load_config(self, config: dict):
         """直接设置缓存（测试用 + 内部加载用）"""
@@ -73,61 +75,62 @@ class LLMRouter:
         if self._cache is None:
             raise RuntimeError("LLMRouter 未初始化")
 
-        degraded, degraded_at = self._global_degraded
-        if degraded and degraded_at and degraded_at > datetime.now(timezone.utc):
-            raise RuntimeError("所有 API provider 不可用，全局降级中")
+        with self._state_lock:
+            degraded, degraded_at = self._global_degraded
+            if degraded and degraded_at and degraded_at > datetime.now(timezone.utc):
+                raise RuntimeError("所有 API provider 不可用，全局降级中")
 
-        # 收集所有匹配的 provider 组，按 provider.priority 升序排序
-        provider_groups = []
-        for pd in self._cache.values():
-            provider = pd["provider"]
-            group_keys = []
-            for key in pd["keys"]:
-                if key.status == "disabled":
-                    continue
-                if key.status == "rate_limited":
-                    if key.rate_limit_until is None or key.rate_limit_until > datetime.now(timezone.utc):
+            # 收集所有匹配的 provider 组，按 provider.priority 升序排序
+            provider_groups = []
+            for pd in self._cache.values():
+                provider = pd["provider"]
+                group_keys = []
+                for key in pd["keys"]:
+                    if key.status == "disabled":
                         continue
-                    key.status = "active"
-                    key.rate_limit_until = None
-                if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
-                    continue
-                if key.purpose != purpose and key.purpose != "*":
-                    continue
-                group_keys.append((key, provider))
-            if group_keys:
-                provider_groups.append((provider.priority, group_keys))
+                    if key.status == "rate_limited":
+                        if key.rate_limit_until is None or key.rate_limit_until > datetime.now(timezone.utc):
+                            continue
+                        key.status = "active"
+                        key.rate_limit_until = None
+                    if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                        continue
+                    if key.purpose != purpose and key.purpose != "*":
+                        continue
+                    group_keys.append((key, provider))
+                if group_keys:
+                    provider_groups.append((provider.priority, group_keys))
 
-        if not provider_groups:
+            if not provider_groups:
+                self._global_degraded = (
+                    True,
+                    datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+                )
+                raise RuntimeError("无可用 API key")
+
+            # 按 provider.priority 升序尝试
+            provider_groups.sort(key=lambda g: g[0])
+
+            for _, group in provider_groups:
+                exact = [k for k in group if k[0].purpose == purpose]
+                wild = [k for k in group if k[0].purpose == "*"]
+                candidates = exact if exact else wild
+                total_weight = sum(k[0].weight for k in candidates)
+                if total_weight <= 0:
+                    continue
+                r = random.uniform(0, total_weight)
+                cumulative = 0
+                for key, provider in candidates:
+                    cumulative += key.weight
+                    if r <= cumulative:
+                        key.last_used_at = datetime.now(timezone.utc)
+                        return key, provider
+
             self._global_degraded = (
                 True,
                 datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
             )
             raise RuntimeError("无可用 API key")
-
-        # 按 provider.priority 升序尝试
-        provider_groups.sort(key=lambda g: g[0])
-
-        for _, group in provider_groups:
-            exact = [k for k in group if k[0].purpose == purpose]
-            wild = [k for k in group if k[0].purpose == "*"]
-            candidates = exact if exact else wild
-            total_weight = sum(k[0].weight for k in candidates)
-            if total_weight <= 0:
-                continue
-            r = random.uniform(0, total_weight)
-            cumulative = 0
-            for key, provider in candidates:
-                cumulative += key.weight
-                if r <= cumulative:
-                    key.last_used_at = datetime.now(timezone.utc)
-                    return key, provider
-
-        self._global_degraded = (
-            True,
-            datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
-        )
-        raise RuntimeError("无可用 API key")
 
     def get_decrypted_key(self, key_id: int) -> str:
         from services.crypto_utils import decrypt_api_key
@@ -138,24 +141,25 @@ class LLMRouter:
 
     def report_result(self, key_id: int, *, success: bool, tokens: int,
                       latency_ms: int, error: str | None):
-        key = self._get_key(key_id)
-        if key is None:
-            return
-        if success:
-            key.consecutive_failures = 0
-            if key.status == "rate_limited":
-                key.status = "active"
-                key.rate_limit_until = None
-            self._update_stats(key, tokens)
-        else:
-            if error and "429" in error:
-                key.status = "rate_limited"
-                key.rate_limit_until = datetime.now(timezone.utc) + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+        with self._state_lock:
+            key = self._get_key(key_id)
+            if key is None:
+                return
+            if success:
+                key.consecutive_failures = 0
+                if key.status == "rate_limited":
+                    key.status = "active"
+                    key.rate_limit_until = None
+                self._update_stats(key, tokens)
             else:
-                key.consecutive_failures += 1
-                if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
-                    key.status = "disabled"
-                    _logger.warning("API key %d 熔断（连续%d次失败）", key_id, CIRCUIT_BREAKER_THRESHOLD)
+                if error and "429" in error:
+                    key.status = "rate_limited"
+                    key.rate_limit_until = datetime.now(timezone.utc) + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+                else:
+                    key.consecutive_failures += 1
+                    if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                        key.status = "disabled"
+                        _logger.warning("API key %d 熔断（连续%d次失败）", key_id, CIRCUIT_BREAKER_THRESHOLD)
 
     def _update_stats(self, key, tokens: int):
         today = datetime.now(timezone.utc).date()
