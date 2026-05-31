@@ -41,55 +41,58 @@ export default function QA({ user, onLogout }) {
     }
   }, []);
 
-  const sendMessage = useCallback(async () => {
-    const q = input.trim();
-    if (!q || loading) return;
-    setInput("");
-    const optimisticId = -Date.now();
+  const sendMessage = useCallback(
+    async (text) => {
+      const q = (text || input).trim();
+      if (!q || loading) return;
+      setInput("");
+      const optimisticId = -Date.now();
 
-    if (!activeSessionId) {
+      if (!activeSessionId) {
+        setLoading(true);
+        setMessages([{ id: optimisticId, role: "user", content: q }]);
+        try {
+          const res = await createQASession(q);
+          const { session_id, answer: ans } = res.data;
+          setActiveSessionId(session_id);
+          setMessages([
+            { id: optimisticId, role: "user", content: q },
+            { id: optimisticId + 1, role: "assistant", content: ans },
+          ]);
+          await loadSessions();
+        } catch (_e) {
+          setMessages([
+            { id: optimisticId, role: "user", content: q },
+            { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复，请稍后重试。" },
+          ]);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: q }]);
       setLoading(true);
-      setMessages([{ id: optimisticId, role: "user", content: q }]);
       try {
-        const res = await createQASession(q);
-        const { session_id, answer: ans } = res.data;
-        setActiveSessionId(session_id);
-        setMessages([
+        const res = await askInQASession(activeSessionId, q);
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== optimisticId),
           { id: optimisticId, role: "user", content: q },
-          { id: optimisticId + 1, role: "assistant", content: ans },
+          { id: optimisticId + 1, role: "assistant", content: res.data.answer },
         ]);
         await loadSessions();
-      } catch (_e) {
-        setMessages([
+      } catch (e) {
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== optimisticId),
           { id: optimisticId, role: "user", content: q },
-          { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复，请稍后重试。" },
+          { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复：" + (e.response?.data?.detail || e.message) },
         ]);
       } finally {
         setLoading(false);
       }
-      return;
-    }
-
-    setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: q }]);
-    setLoading(true);
-    try {
-      const res = await askInQASession(activeSessionId, q);
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== optimisticId),
-        { id: optimisticId, role: "user", content: q },
-        { id: optimisticId + 1, role: "assistant", content: res.data.answer },
-      ]);
-      await loadSessions();
-    } catch (e) {
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== optimisticId),
-        { id: optimisticId, role: "user", content: q },
-        { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复：" + (e.response?.data?.detail || e.message) },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [input, loading, activeSessionId, loadSessions]);
+    },
+    [input, loading, activeSessionId, loadSessions],
+  );
 
   const handleDeleteSession = useCallback(
     async (e, sessionId) => {
@@ -116,18 +119,17 @@ export default function QA({ user, onLogout }) {
     }
   };
 
+  const handleNewChat = () => {
+    setActiveSessionId(null);
+    setMessages([]);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   return (
     <Layout user={user} onLogout={onLogout}>
       <div className="qa-layout">
         <aside className="qa-sidebar">
-          <button
-            className="qa-new-btn"
-            onClick={() => {
-              setActiveSessionId(null);
-              setMessages([]);
-              inputRef.current?.focus();
-            }}
-          >
+          <button className="qa-new-btn" onClick={handleNewChat}>
             <Plus size={16} />
             <span>新对话</span>
           </button>
@@ -146,59 +148,54 @@ export default function QA({ user, onLogout }) {
         </aside>
 
         <main className="qa-main">
-          {!activeSessionId && messages.length === 0 ? (
+          {messages.length > 0 && (
+            <div className="qa-messages">
+              {messages.map((m, i) => (
+                <div key={i} className={`qa-bubble ${m.role}`}>
+                  <div className="qa-bubble-content">{m.content}</div>
+                </div>
+              ))}
+              {loading && (
+                <div className="qa-bubble assistant">
+                  <div className="qa-typing">
+                    <span className="qa-typing-dot" />
+                    <span className="qa-typing-dot" />
+                    <span className="qa-typing-dot" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+
+          {messages.length === 0 && (
             <div className="qa-empty-state">
               <Lightbulb size={48} className="qa-empty-icon" />
               <h2>护理问答</h2>
               <p>向AI护理导师提问，获取专业的护理学知识解答</p>
               <div className="qa-suggestions">
                 {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    className="qa-suggestion-btn"
-                    onClick={() => {
-                      setInput(s);
-                    }}
-                  >
+                  <button key={s} className="qa-suggestion-btn" onClick={() => sendMessage(s)}>
                     {s}
                   </button>
                 ))}
               </div>
             </div>
-          ) : (
-            <>
-              <div className="qa-messages">
-                {messages.map((m, i) => (
-                  <div key={i} className={`qa-bubble ${m.role}`}>
-                    <div className="qa-bubble-content">{m.content}</div>
-                  </div>
-                ))}
-                {loading && (
-                  <div className="qa-bubble assistant">
-                    <div className="qa-typing">
-                      <span className="qa-typing-dot" />
-                      <span className="qa-typing-dot" />
-                      <span className="qa-typing-dot" />
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-              <div className="qa-input-row">
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="输入您的问题..."
-                  disabled={loading}
-                />
-                <button onClick={sendMessage} disabled={loading || !input.trim()}>
-                  提问
-                </button>
-              </div>
-            </>
           )}
+
+          <div className="qa-input-row">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="输入您的问题..."
+              disabled={loading}
+            />
+            <button onClick={() => sendMessage()} disabled={loading || !input.trim()}>
+              提问
+            </button>
+          </div>
         </main>
       </div>
     </Layout>
