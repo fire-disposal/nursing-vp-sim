@@ -246,3 +246,11 @@ export function getScoreReview(recordId) {
 export function submitScoreReview(recordId, data) {
   return api.post(`/training/records/${recordId}/review`, data);
 }
+
+export function submitFeedback(data) {
+  return api.post("/feedback", data);
+}
+
+export function getFeedbacks(params = {}) {
+  return api.get("/admin/feedback", { params });
+}

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { FeedbackProvider } from "./components/FeedbackProvider";
 import { ToastProvider } from "./components/Toast";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import Login from "./pages/Login";
@@ -71,96 +72,98 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <ConfirmProvider>
-          <ErrorBoundary>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <FeedbackProvider>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/login" element={<Login onLogin={handleLogin} />} />
 
-                <Route
-                  path="/home"
-                  element={
-                    <ProtectedRoute>
-                      <DashboardHome user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/home"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardHome user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/cases"
-                  element={
-                    <ProtectedRoute role="student">
-                      <CaseSelect user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/cases"
+                    element={
+                      <ProtectedRoute role="student">
+                        <CaseSelect user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/training/:recordId"
-                  element={
-                    <ProtectedRoute role="student">
-                      <ChatTraining user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/training/:recordId"
+                    element={
+                      <ProtectedRoute role="student">
+                        <ChatTraining user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/history"
-                  element={
-                    <ProtectedRoute>
-                      <History user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/history"
+                    element={
+                      <ProtectedRoute>
+                        <History user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/record/:id"
-                  element={
-                    <ProtectedRoute>
-                      <RecordDetail user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/record/:id"
+                    element={
+                      <ProtectedRoute>
+                        <RecordDetail user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/qa"
-                  element={
-                    <ProtectedRoute>
-                      <QA user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/qa"
+                    element={
+                      <ProtectedRoute>
+                        <QA user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/qa/history"
-                  element={
-                    <ProtectedRoute>
-                      <QAHistory user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/qa/history"
+                    element={
+                      <ProtectedRoute>
+                        <QAHistory user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/stats"
-                  element={
-                    <ProtectedRoute>
-                      <Stats user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/stats"
+                    element={
+                      <ProtectedRoute>
+                        <Stats user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute role="teacher">
-                      <Admin user={user} onLogout={handleLogout} />
-                    </ProtectedRoute>
-                  }
-                />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <Admin user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                <Route path="*" element={<Navigate to="/login" replace />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
+                  <Route path="*" element={<Navigate to="/login" replace />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </FeedbackProvider>
         </ConfirmProvider>
       </ToastProvider>
     </BrowserRouter>
