@@ -97,7 +97,7 @@ export default function PromptManagementTab() {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: editing ? "340px 1fr" : "1fr", gap: "var(--space-4)", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "var(--space-4)", alignItems: "start" }}>
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {PURPOSES.map((purpose) => {
             const versions = grouped[purpose] || [];
