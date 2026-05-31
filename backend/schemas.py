@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Generic, TypeVar
+from typing import Any, Optional, List, Generic, TypeVar
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 T = TypeVar("T")
@@ -539,5 +539,5 @@ class CaseGenerateRequest(BaseModel):
 
 class CaseGenerateResponse(BaseModel):
     case_data: Optional[dict] = None
-    field_value: Optional[dict] = None
+    field_value: Optional[Any] = None
     field: Optional[str] = None
