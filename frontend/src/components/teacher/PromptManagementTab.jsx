@@ -172,7 +172,7 @@ export default function PromptManagementTab() {
                         <span style={{ flex: 1, fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {v.name || "-"}
                         </span>
-                        {v.is_active && (
+                        {v.is_active ? (
                           <span style={{
                             fontSize: "0.65rem", padding: "1px 6px", borderRadius: "var(--radius-full)",
                             background: "var(--green-100)", color: "var(--green-700)", whiteSpace: "nowrap",
@@ -180,13 +180,10 @@ export default function PromptManagementTab() {
                           }}>
                             <CheckCircle size={10} /> 激活
                           </span>
+                        ) : (
+                          <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>未激活</span>
                         )}
                         <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 1 }}>
-                          {!v.is_active && (
-                            <button onClick={() => handleActivate(v)} style={{ background: "none", border: "none", color: "var(--green-500)", cursor: "pointer", padding: 2 }} title="激活">
-                              <CheckCircle size={13} />
-                            </button>
-                          )}
                           <button onClick={() => handleDelete(v)} style={{ background: "none", border: "none", color: "var(--red-400)", cursor: "pointer", padding: 2 }} title="删除">
                             <Trash2 size={13} />
                           </button>
@@ -288,7 +285,12 @@ export default function PromptManagementTab() {
               <button onClick={handleValidate} style={{ padding: "var(--space-2) var(--space-4)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", background: "var(--bg-surface)", color: "var(--text-primary)", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4 }}>
                 <Play size={14} /> 校验语法
               </button>
-              <button onClick={handleSave} disabled={saving} style={{ padding: "var(--space-2) var(--space-4)", border: "none", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: saving ? 0.6 : 1 }}>
+              {editedPrompt && !editedPrompt.is_active && (
+                <button onClick={() => handleActivate(editedPrompt)} style={{ padding: "var(--space-2) var(--space-4)", border: "1px solid var(--green-400)", borderRadius: "var(--radius-md)", background: "var(--green-50)", color: "var(--green-700)", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
+                  <CheckCircle size={14} /> 保存并激活
+                </button>
+              )}
+              <button onClick={handleSave} disabled={saving} style={{ padding: "var(--space-2) var(--space-4)", border: "none", borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: saving ? 0.6 : 1, marginLeft: "auto" }}>
                 {saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
               </button>
               <button onClick={() => setEditing(null)} style={{ padding: "var(--space-2) var(--space-4)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", background: "var(--bg-surface)", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.85rem" }}>取消</button>
