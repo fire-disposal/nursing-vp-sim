@@ -27,18 +27,6 @@ SECRET_KEY = _raw_secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
-KEY_ENCRYPTION_KEY = os.getenv("KEY_ENCRYPTION_KEY", "")
-
-if KEY_ENCRYPTION_KEY:
-    try:
-        from cryptography.fernet import Fernet
-        Fernet(KEY_ENCRYPTION_KEY.encode())
-    except Exception:
-        raise RuntimeError(
-            "KEY_ENCRYPTION_KEY 不是有效的 Fernet 密钥（需 32 字节 base64）。\n"
-            "可使用 python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" 生成"
-        )
-
 # LLM 成本估算
 LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "0"))
 LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "0"))
