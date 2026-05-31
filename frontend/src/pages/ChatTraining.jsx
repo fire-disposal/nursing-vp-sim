@@ -333,16 +333,20 @@ export default function ChatTraining() {
     );
   };
 
+  const scoreCancelRef = useRef(false);
+
   const executeEnd = async (isAuto = false) => {
     setEnding(true);
     clearInterval(timerRef.current);
 
     const controller = new AbortController();
     abortRef.current = controller;
+    scoreCancelRef.current = false;
 
     try {
       await endTraining(Number(recordId), controller.signal);
       for (let i = 0; i < 40; i++) {
+        if (scoreCancelRef.current) break;
         await new Promise((r) => setTimeout(r, 3000));
         const detail = await getRecordDetail(recordId);
         if (detail.data.scoring_status === "completed" && detail.data.score) {
@@ -351,7 +355,7 @@ export default function ChatTraining() {
           break;
         }
         if (detail.data.scoring_status === "failed") {
-          toast.error("自动评分失败，可在训练记录中手动重试");
+          toast.error(`自动评分失败：${detail.data.scoring_error || "未知错误，可在训练记录中手动重试"}`);
           break;
         }
       }
@@ -361,6 +365,7 @@ export default function ChatTraining() {
       }
     } finally {
       setEnding(false);
+      setShowOverlay(false);
       if (abortRef.current === controller) abortRef.current = null;
     }
   };

@@ -228,6 +228,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
     router = await get_router()
     request_text = " ".join(m.get("content", "") for m in messages)
     last_error = None
+    latency_ms = 0
     used_key_id = None
     provider_name = "unknown"
     model_used = "unknown"
