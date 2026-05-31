@@ -157,6 +157,7 @@ export default function PromptManagementTab() {
                     ) : versions.map((v) => (
                       <div key={v.id}
                         onClick={() => openEdit(v)}
+                        onDoubleClick={(e) => { e.preventDefault(); if (!v.is_active) handleActivate(v); }}
                         style={{
                           display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-2) var(--space-4)",
                           borderTop: "1px solid var(--border-color)", cursor: "pointer",
