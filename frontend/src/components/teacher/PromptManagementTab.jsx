@@ -805,7 +805,7 @@ export default function PromptManagementTab() {
             )}
             {showRendered && previewData.sample_vars && Object.keys(previewData.sample_vars).length > 0 && (
               <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: "var(--space-2)" }}>
-                预览替换变量: {Object.entries(previewData.sample_vars).map(([k, v]) => (
+                 预览替换变量: {Object.entries(previewData.sample_vars).map(([k]) => (
                   <code key={k} style={{ marginLeft: 6, padding: "1px 6px", background: "var(--blue-50)", borderRadius: 3, fontSize: "0.65rem" }}>
                     {k}
                   </code>
