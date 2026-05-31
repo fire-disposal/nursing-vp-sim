@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { FeedbackProvider } from "../components/FeedbackProvider";
-import { ToastProvider } from "../components/Toast";
 import Layout from "../components/Layout";
+import { ToastProvider } from "../components/Toast";
 
 function renderLayout(user, initialRoute = "/home") {
   return render(

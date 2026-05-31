@@ -18,8 +18,8 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "../api";
-import Layout from "../components/Layout";
 import { useFeedback } from "../components/FeedbackProvider";
+import Layout from "../components/Layout";
 import { useToast } from "../components/Toast";
 import TrainingDurationChart from "../components/TrainingDurationChart";
 import Badge from "../components/ui/Badge";
