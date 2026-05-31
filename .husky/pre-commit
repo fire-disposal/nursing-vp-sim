@@ -1,0 +1,5 @@
+#!/bin/sh
+cd frontend
+npx biome format --write src/
+cd ..
+git add frontend/src/
