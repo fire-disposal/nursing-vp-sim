@@ -63,11 +63,9 @@ class PromptManager:
 
         db = SessionLocal()
         try:
+            self._upsert_v1_defaults(db)
+
             rows = db.query(PT).filter(PT.is_active == True).all()
-            if not rows:
-                _logger.info("DB 中无 active prompt 模板，seed 默认值")
-                self._seed_defaults(db)
-                rows = db.query(PT).filter(PT.is_active == True).all()
 
             new_cache = {}
             for r in rows:
@@ -90,17 +88,45 @@ class PromptManager:
         finally:
             db.close()
 
-    def _seed_defaults(self, db):
+    def _upsert_v1_defaults(self, db):
+        """强制 v1 模板始终与代码内置版本一致。每次启动 upsert，确保部署后旧语法被覆写。"""
         from models import PromptTemplate as PT
-        db.add(PT(purpose="qa", version=1, name="v1-默认QA",
-                  system_prompt=_HARDCODED_QA, is_active=True, created_by="system"))
-        db.add(PT(purpose="patient_chat", version=1, name="v1-默认患者对话",
-                  system_prompt=_HARDCODED_PATIENT_CHAT, is_active=True, created_by="system"))
-        db.add(PT(purpose="scoring", version=1, name="v1-默认评分",
-                  system_prompt=_HARDCODED_SCORING_SYSTEM,
-                  user_prompt=_HARDCODED_SCORING_USER, is_active=True, created_by="system"))
-        db.commit()
-        _logger.info("已从硬编码 seed 3 个默认 prompt 模板")
+        import re as _re
+
+        defaults = [
+            ("qa", "v1-默认QA", _HARDCODED_QA, None),
+            ("patient_chat", "v1-默认患者对话", _HARDCODED_PATIENT_CHAT, None),
+            ("scoring", "v1-默认评分", _HARDCODED_SCORING_SYSTEM, _HARDCODED_SCORING_USER),
+        ]
+        updated = 0
+        for purpose, name, system_prompt, user_prompt in defaults:
+            v1 = db.query(PT).filter(PT.purpose == purpose, PT.version == 1).first()
+            if v1:
+                old_sp = v1.system_prompt
+                v1.system_prompt = system_prompt
+                v1.user_prompt = user_prompt
+                v1.name = name
+                v1.is_active = True
+                v1.variables = [
+                    {"name": v, "desc": ""}
+                    for v in sorted(_re.findall(r"\{#([^}#]+)#\}", system_prompt + (user_prompt or "")))
+                ]
+                if old_sp != system_prompt:
+                    updated += 1
+            else:
+                db.add(PT(
+                    purpose=purpose, version=1, name=name,
+                    system_prompt=system_prompt, user_prompt=user_prompt,
+                    variables=[
+                        {"name": v, "desc": ""}
+                        for v in sorted(_re.findall(r"\{#([^}#]+)#\}", system_prompt + (user_prompt or "")))
+                    ],
+                    is_active=True, created_by="system",
+                ))
+                updated += 1
+        if updated:
+            db.commit()
+            _logger.info("v1 默认模板已同步: %d 个更新", updated)
 
     async def get(self, purpose: str) -> PromptTemplateObj:
         async with self._lock:
