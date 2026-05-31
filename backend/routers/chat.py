@@ -114,6 +114,7 @@ async def send_message(
     db.commit()
     db.refresh(patient_msg)
 
+    log_info(f"消息已记录: record_id={record_id}", user_id=current_user.id, user_role=current_user.role)
     return ChatMessageResponse(role="patient", content=sanitized)
 
 
@@ -167,6 +168,7 @@ async def send_message_stream(
             db.commit()
             db.refresh(patient_msg)
 
+            log_info(f"流式消息已记录: record_id={record_id}", user_id=current_user.id, user_role=current_user.role)
             yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"

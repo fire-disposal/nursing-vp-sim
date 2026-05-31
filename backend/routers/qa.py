@@ -8,6 +8,7 @@ from services.llm_service import call_llm
 from rate_limiter import check_qa_limit
 from services.prompt_manager import get_prompt_manager
 from pagination import paginate
+from logger import log_info
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
 
@@ -36,6 +37,8 @@ async def ask_question(req: QARequest, current_user: User = Depends(get_current_
     db.add(record)
     db.commit()
 
+    log_info(f"问答已记录: qa_record_id={record.id} q_len={len(req.question)}",
+             user_id=current_user.id, user_role=current_user.role)
     return QAResponse(answer=answer)
 
 

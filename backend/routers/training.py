@@ -68,6 +68,8 @@ def start_training(req: TrainingStartRequest, current_user: User = Depends(get_c
     db.add(greeting_msg)
     db.commit()
 
+    log_info(f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
+             user_id=current_user.id, user_role=current_user.role, action="training_start")
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
 
@@ -165,6 +167,9 @@ def end_training(
 
     background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
 
+    message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
+    log_info(f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
+             user_id=current_user.id, user_role=current_user.role, action="training_end")
     return {
         "message": "训练已结束，评分正在后台生成中",
         "record_id": record_id,

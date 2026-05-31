@@ -1,13 +1,16 @@
+import logging
 import os
 from pathlib import Path
 from urllib.parse import urlparse
+
+logger = logging.getLogger("nursing")
 
 try:
     from dotenv import load_dotenv
     env_path = Path(__file__).resolve().parent.parent / ".env"
     load_dotenv(env_path)
 except ImportError:
-    pass
+    logger.warning("python-dotenv 未安装，使用系统环境变量")
 
 ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "dev")

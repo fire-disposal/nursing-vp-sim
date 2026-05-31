@@ -1,8 +1,11 @@
 """内存滑动窗口速率限制器，单机部署无需 Redis。"""
+import logging
 import time
 import threading
 from collections import defaultdict
 from fastapi import Request, HTTPException, status
+
+_logger = logging.getLogger("nursing")
 
 
 class RateLimiter:
@@ -59,6 +62,8 @@ async def login_rate_limit(request: Request):
     """登录限流：同一 IP 5 分钟内最多 10 次失败"""
     key = f"login:{_get_client_ip(request)}"
     if not _limiter.is_allowed(key, max_requests=10, window_seconds=300):
+        ip = _get_client_ip(request)
+        _logger.warning("登录限流触发: ip=%s", ip)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="登录尝试过于频繁，请 15 分钟后再试",
@@ -69,6 +74,8 @@ async def register_rate_limit(request: Request):
     """注册限流：同一 IP 每分钟最多 5 次"""
     key = f"register:{_get_client_ip(request)}"
     if not _limiter.is_allowed(key, max_requests=5, window_seconds=60):
+        ip = _get_client_ip(request)
+        _logger.warning("注册限流触发: ip=%s", ip)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="注册请求过于频繁，请稍后再试",
@@ -79,6 +86,7 @@ def check_chat_limit(user_id: int):
     """聊天限流：同一用户每分钟最多 6 条消息"""
     key = f"chat:{user_id}"
     if not _limiter.is_allowed(key, max_requests=6, window_seconds=60):
+        _logger.warning("聊天限流触发: user_id=%s", user_id)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="消息发送过于频繁，请稍后再试",
@@ -89,6 +97,7 @@ def check_qa_limit(user_id: int):
     """问答限流：同一用户每分钟最多 5 次"""
     key = f"qa:{user_id}"
     if not _limiter.is_allowed(key, max_requests=5, window_seconds=60):
+        _logger.warning("问答限流触发: user_id=%s", user_id)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="提问过于频繁，请稍后再试",

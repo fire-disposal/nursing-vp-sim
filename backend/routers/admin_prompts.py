@@ -11,7 +11,7 @@ from schemas import (
 )
 from auth import require_teacher
 from services.prompt_manager import refresh_prompts, render_template
-from prompt_static import SAMPLE_VARS
+from prompt_static import get_sample_vars
 
 _logger = logging.getLogger("nursing")
 
@@ -158,7 +158,7 @@ async def reload_prompts_endpoint(current_user: User = Depends(require_teacher))
 
 @router.get("/sample-vars")
 def get_sample_vars(purpose: str, current_user: User = Depends(require_teacher)):
-    sample = SAMPLE_VARS.get(purpose)
+    sample = get_sample_vars().get(purpose)
     if sample is None:
         raise HTTPException(404, f"未知 purpose: {purpose}")
     return {"purpose": purpose, "vars": sample}
@@ -173,7 +173,7 @@ async def preview_active_prompt(
     pt = db.query(PT).filter(PT.purpose == purpose, PT.is_active == True).first()
     if not pt:
         raise HTTPException(404, f"「{purpose}」没有激活的模板")
-    sample = SAMPLE_VARS.get(purpose, {})
+    sample = get_sample_vars().get(purpose, {})
     system_rendered = pt.system_prompt
     user_rendered = pt.user_prompt
     try:
