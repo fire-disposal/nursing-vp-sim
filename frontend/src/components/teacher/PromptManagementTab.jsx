@@ -3,6 +3,7 @@ import { Plus, Edit3, Trash2, CheckCircle, Play, Layers, ChevronDown, ChevronRig
 import { fetchPrompts, createPrompt, updatePrompt, deletePrompt, activatePrompt, validatePrompt, reloadPrompts } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
+import Modal from "../ui/Modal";
 
 const PURPOSES = ["patient_chat", "scoring", "qa"];
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答" };
@@ -16,6 +17,8 @@ export default function PromptManagementTab() {
   const [form, setForm] = useState({ purpose: "patient_chat", name: "", system_prompt: "", user_prompt: "", remark: "", activate: true });
   const [validation, setValidation] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showActiveModal, setShowActiveModal] = useState(false);
+  const [activeModalPurpose, setActiveModalPurpose] = useState("patient_chat");
 
   const load = useCallback(() => {
     fetchPrompts(null).then(({ data }) => setPrompts(data)).catch(() => {});
@@ -88,13 +91,13 @@ export default function PromptManagementTab() {
   };
 
   const handleShowActive = () => {
-    const active = PURPOSES.map((p) => {
-      const v = grouped[p]?.find((t) => t.is_active);
-      return v ? `${PURPOSE_LABELS[p]} v${v.version}${v.name ? ` (${v.name})` : ""}` : `${PURPOSE_LABELS[p]} 未激活`;
-    }).join("  ·  ");
-    setExpanded(Object.fromEntries(PURPOSES.map((p) => [p, true])));
-    toast.success(active);
+    setActiveModalPurpose("patient_chat");
+    setShowActiveModal(true);
   };
+
+  const activePromptForModal = useMemo(() => {
+    return grouped[activeModalPurpose]?.find((t) => t.is_active) || null;
+  }, [grouped, activeModalPurpose]);
 
   const editorTitle = editing === "new"
     ? `新建「${PURPOSE_LABELS[form.purpose]}」`
@@ -312,6 +315,65 @@ export default function PromptManagementTab() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={showActiveModal}
+        onClose={() => setShowActiveModal(false)}
+        title={null}
+        maxWidth={800}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+          <select
+            value={activeModalPurpose}
+            onChange={(e) => setActiveModalPurpose(e.target.value)}
+            style={{ padding: "var(--space-2) var(--space-3)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", background: "var(--bg-surface)", color: "var(--text-primary)", fontWeight: 600 }}
+          >
+            {PURPOSES.map((p) => {
+              const av = grouped[p]?.find((t) => t.is_active);
+              return (
+                <option key={p} value={p}>
+                  {PURPOSE_LABELS[p]}{av ? ` · v${av.version}` : " · 未激活"}
+                </option>
+              );
+            })}
+          </select>
+          {activePromptForModal && (
+            <span style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>
+              {activePromptForModal.name || ""}
+            </span>
+          )}
+        </div>
+
+        {activePromptForModal ? (
+          <>
+            <div style={{ marginBottom: "var(--space-3)" }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>System Prompt</div>
+              <pre style={{
+                margin: 0, padding: "var(--space-3)", background: "var(--bg-surface-subtle)",
+                border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)",
+                fontSize: "0.8rem", fontFamily: "monospace", whiteSpace: "pre-wrap",
+                color: "var(--text-primary)", maxHeight: 400, overflow: "auto",
+              }}>{activePromptForModal.system_prompt}</pre>
+            </div>
+            {activePromptForModal.purpose === "scoring" && activePromptForModal.user_prompt && (
+              <div style={{ marginBottom: "var(--space-3)" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>User Prompt Template</div>
+                <pre style={{
+                  margin: 0, padding: "var(--space-3)", background: "var(--bg-surface-subtle)",
+                  border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)",
+                  fontSize: "0.8rem", fontFamily: "monospace", whiteSpace: "pre-wrap",
+                  color: "var(--text-primary)", maxHeight: 300, overflow: "auto",
+                }}>{activePromptForModal.user_prompt}</pre>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--text-tertiary)" }}>
+            该场景暂未激活任何版本
+          </div>
+        )}
+      </Modal>
+
     </div>
   );
 }
