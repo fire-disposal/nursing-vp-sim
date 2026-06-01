@@ -36,7 +36,7 @@ def _log_connection():
                 pg_ver = row[1].split(",")[0] if row[1] else "unknown"
                 logger.info("数据库连接成功 → %s (PostgreSQL %s)", db_name, pg_ver)
             else:
-                logger.info("数据库连接成功 → %s (SQLite)", getattr(parsed, "path", ":memory:"))
+                raise RuntimeError(f"不支持的数据库类型: {parsed.scheme}。只支持 PostgreSQL。")
     except Exception as e:
         logger.error("数据库连接失败: %s: %s", type(e).__name__, e)
         raise

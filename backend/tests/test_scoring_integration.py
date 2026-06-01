@@ -8,7 +8,6 @@ import json
 import textwrap
 
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest

@@ -1,16 +1,18 @@
 import os
 import sys
 
-# Set env vars BEFORE any app imports
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
+
+TEST_DB_URL = os.environ.get(
+    "TEST_DB_URL",
+    "postgresql://nursing:testpass@localhost:5434/nursing_test",
+)
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from auth import hash_password
@@ -19,19 +21,10 @@ from models import User, Case
 
 @pytest.fixture(scope="function")
 def engine():
-    """In-memory SQLite engine that persists per-test."""
-    eng = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    """PostgreSQL test database. Set TEST_DB_URL to override default."""
+    eng = create_engine(TEST_DB_URL)
 
-    @event.listens_for(eng, "connect")
-    def _set_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
+    Base.metadata.drop_all(bind=eng)
     Base.metadata.create_all(bind=eng)
     yield eng
     Base.metadata.drop_all(bind=eng)

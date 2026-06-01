@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  test-db:
+    image: postgres:15
+    container_name: nursing-test-db
+    environment:
+      POSTGRES_USER: nursing
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: nursing_test
+      TZ: Asia/Shanghai
+    ports:
+      - "5434:5432"
+    volumes:
+      - test_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  test_pg_data:
