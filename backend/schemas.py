@@ -571,6 +571,7 @@ class PromptTemplateResponse(BaseModel):
 
 
 class PromptValidateRequest(BaseModel):
+    purpose: str
     system_prompt: str
     user_prompt: Optional[str] = None
     variables: Optional[list[dict]] = None
@@ -580,6 +581,7 @@ class PromptValidateResponse(BaseModel):
     valid: bool
     errors: list[str] = []
     missing_vars: list[str] = []
+    warnings: list[str] = []
 
 
 class PromptPreviewResponse(BaseModel):
