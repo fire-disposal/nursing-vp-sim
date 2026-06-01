@@ -437,6 +437,83 @@ class ApiHealthResponse(BaseModel):
     latency_ms: int | None
     error: str | None
 
+# ── ApiSecret ──
+
+class ApiSecretCreate(BaseModel):
+    label: str = Field(..., max_length=80)
+    raw_key: str = Field(..., min_length=10, max_length=500)
+
+
+class ApiSecretUpdate(BaseModel):
+    label: Optional[str] = Field(None, max_length=80)
+
+
+class ApiSecretResponse(BaseModel):
+    id: int
+    label: str
+    key_suffix: str
+    config_count: int = 0
+    total_cost_today: float = 0
+    monthly_cost_used: float = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── LLMConfig ──
+
+class LLMConfigCreate(BaseModel):
+    secret_id: int
+    label: str = Field(..., max_length=80)
+    base_url: str = Field(..., max_length=200)
+    model: str = Field(..., max_length=80)
+    purpose: str = Field(..., max_length=40)
+    priority: int = Field(default=100, ge=1, le=10000)
+    price_input_per_1m: float = 0
+    price_output_per_1m: float = 0
+    monthly_cost_limit: Optional[float] = None
+
+
+class LLMConfigUpdate(BaseModel):
+    label: Optional[str] = Field(None, max_length=80)
+    base_url: Optional[str] = Field(None, max_length=200)
+    model: Optional[str] = Field(None, max_length=80)
+    purpose: Optional[str] = Field(None, max_length=40)
+    priority: Optional[int] = Field(None, ge=1, le=10000)
+    status: Optional[str] = Field(None, pattern="^(active|disabled)$")
+    price_input_per_1m: Optional[float] = None
+    price_output_per_1m: Optional[float] = None
+    monthly_cost_limit: Optional[float] = None
+
+
+class LLMConfigResponse(BaseModel):
+    id: int
+    secret_id: int
+    secret_label: str = ""
+    secret_suffix: str = ""
+    label: str
+    base_url: str
+    model: str
+    purpose: str
+    priority: int
+    status: str
+    degraded_reason: Optional[str] = None
+    degraded_until: Optional[datetime] = None
+    price_input_per_1m: float
+    price_output_per_1m: float
+    monthly_cost_limit: Optional[float] = None
+    call_count_today: int
+    total_tokens_today: int
+    total_cost_today: float
+    monthly_cost_used: float
+    consecutive_failures: int
+    last_used_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 # ── Prompt 管理 ──
 
