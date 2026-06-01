@@ -326,11 +326,11 @@ export default function CasesTab() {
           <div className="filter-row">
             <div className="filter-item">
               <label>病例名称</label>
-              <input placeholder="模糊搜索..." value={searchText} onChange={(e) => setFilterName(e.target.value)} />
+              <input placeholder="模糊搜索..." value={searchText || ""} onChange={(e) => setFilterName(e.target.value)} />
             </div>
             <div className="filter-item">
               <label>困难程度</label>
-              <select value={filters.difficulty} onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value }))}>
+              <select value={filters.difficulty || ""} onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value }))}>
                 <option value="">全部</option>
                 <option value="1">初级</option>
                 <option value="2">中级</option>
