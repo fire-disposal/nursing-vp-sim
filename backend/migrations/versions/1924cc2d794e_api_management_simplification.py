@@ -75,6 +75,7 @@ def upgrade() -> None:
     conn.execute(sa.text("""
         INSERT INTO llm_configs (
             secret_id, label, base_url, model, purpose, priority, status,
+            degraded_reason, degraded_until,
             price_input_per_1m, price_output_per_1m, monthly_cost_limit,
             call_count_today, total_tokens_today, total_cost_today,
             monthly_cost_used, stats_date, stats_month,
@@ -87,11 +88,23 @@ def upgrade() -> None:
             COALESCE(k.model, p.default_model),
             COALESCE(k.purpose, '*'),
             COALESCE(k.priority, 100),
-            k.status,
+            CASE
+                WHEN k.status = 'rate_limited' THEN 'degraded'
+                WHEN k.status = 'paused' THEN 'disabled'
+                ELSE COALESCE(k.status, 'active')
+            END,
+            CASE
+                WHEN k.status = 'rate_limited' THEN 'rate_limited'
+                ELSE NULL
+            END,
+            CASE
+                WHEN k.status = 'rate_limited' THEN k.rate_limit_until
+                ELSE NULL
+            END,
             COALESCE(k.price_input_per_1m, 0), COALESCE(k.price_output_per_1m, 0), k.monthly_cost_limit,
             COALESCE(k.call_count_today, 0), COALESCE(k.total_tokens_today, 0), COALESCE(k.total_cost_today, 0),
             COALESCE(k.monthly_cost_used, 0), k.stats_date, k.stats_month,
-            k.consecutive_failures, k.last_used_at, k.created_at, k.updated_at
+            COALESCE(k.consecutive_failures, 0), k.last_used_at, k.created_at, k.updated_at
         FROM api_keys k
         JOIN api_providers p ON k.provider_id = p.id
         JOIN api_secrets s ON s.encrypted_key = k.encrypted_key AND s.key_suffix = k.key_suffix

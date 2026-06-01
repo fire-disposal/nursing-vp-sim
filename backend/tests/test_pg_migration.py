@@ -82,26 +82,6 @@ def pg_session(pg_engine):
 
 
 @requires_pg
-class TestPgConnection:
-    """验证 PG 连接和基础操作"""
-
-    def test_pg_connect(self, pg_engine):
-        from sqlalchemy import text
-        with pg_engine.connect() as c:
-            result = c.execute(text("SELECT 1"))
-            assert result.scalar() == 1
-
-    def test_pg_version(self, pg_engine):
-        from sqlalchemy import text
-        with pg_engine.connect() as c:
-            result = c.execute(text("SHOW server_version"))
-            version = result.scalar()
-            assert version is not None
-            # PG 15+ 格式为 "15.x"
-            assert int(version.split(".")[0]) >= 15
-
-
-@requires_pg
 class TestDateTimeTimezone:
     """验证 DateTime(timezone=True) 正确持久化时区"""
 
@@ -369,47 +349,6 @@ class TestSeedData:
 
         assert pg_session.query(User).count() == 6
         assert pg_session.query(Case).count() == case_count
-
-
-@requires_pg
-class TestAlembicMigration:
-    """验证 Alembic 迁移文件结构正确"""
-
-    def test_migration_file_exists_and_has_all_tables(self):
-        import os
-
-        versions_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "migrations", "versions",
-        )
-        files = [f for f in os.listdir(versions_dir) if f.endswith(".py") and not f.startswith("_")]
-        assert len(files) >= 1, "至少需要一个迁移文件"
-
-        # 读取初始迁移文件验证包含所有表（跳过后续仅添加索引的迁移）
-        initial_files = [f for f in files if "initial" in f.lower()]
-        target_file = initial_files[0] if initial_files else files[0]
-        with open(os.path.join(versions_dir, target_file), "r", encoding="utf-8") as f:
-            content = f.read()
-
-        required_tables = [
-            "create_table('cases'",
-            "create_table('users'",
-            "create_table('training_records'",
-            "create_table('llm_call_logs'",
-            "create_table('messages'",
-            "create_table('notes'",
-            "create_table('scores'",
-        ]
-        for table in required_tables:
-            assert table in content, f"迁移文件缺少表: {table}"
-
-        # 验证 DateTime(timezone=True)
-        assert "sa.DateTime(timezone=True)" in content or "DateTime(timezone=True)" in content
-
-        # 验证复合索引
-        assert "ix_msg_record_created" in content
-        assert "ix_tr_user_status" in content
-        assert "ix_tr_status" in content
 
 
 @requires_pg

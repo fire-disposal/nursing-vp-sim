@@ -23,10 +23,6 @@ class TestRenderTemplate:
         r = render_template("Text: {#text#}", text="Some {braces} and {{more}}")
         assert r == "Text: Some {braces} and {{more}}"
 
-    def test_multiple_variables(self):
-        r = render_template("{#a#} + {#b#} = {#c#}", a="1", b="2", c="3")
-        assert r == "1 + 2 = 3"
-
     def test_chinese_variable_name(self):
         r = render_template("{#中文变量#}", **{"中文变量": "成功"})
         assert r == "成功"

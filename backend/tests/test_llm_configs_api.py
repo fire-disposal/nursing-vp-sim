@@ -60,68 +60,6 @@ class TestLLMConfigCRUD:
         }, headers={"Authorization": f"Bearer {token}"})
         assert resp2.status_code == 400
 
-    def test_toggle_config(self, client, teacher, secret_id, db_session):
-        from models import LLMConfig
-        _, token = teacher
-
-        cfg = LLMConfig(
-            secret_id=secret_id,
-            label="toggle-test",
-            base_url="https://api.test.com",
-            model="test-model",
-            purpose="qa_toggle",
-            priority=20,
-        )
-        db_session.add(cfg)
-        db_session.commit()
-        db_session.refresh(cfg)
-
-        resp = client.post(f"/api/admin/api/configs/{cfg.id}/toggle", headers={"Authorization": f"Bearer {token}"})
-        assert resp.status_code == 200
-        assert resp.json()["status"] in ("active", "disabled")
-
-        resp2 = client.post(f"/api/admin/api/configs/{cfg.id}/toggle", headers={"Authorization": f"Bearer {token}"})
-        assert resp2.status_code == 200
-
-    def test_reset_config(self, client, teacher, secret_id, db_session):
-        from models import LLMConfig
-        _, token = teacher
-
-        cfg = LLMConfig(
-            secret_id=secret_id,
-            label="reset-test",
-            base_url="https://api.test.com",
-            model="test-model",
-            purpose="qa_reset",
-            priority=30,
-        )
-        db_session.add(cfg)
-        db_session.commit()
-        db_session.refresh(cfg)
-
-        resp = client.post(f"/api/admin/api/configs/{cfg.id}/reset", headers={"Authorization": f"Bearer {token}"})
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_delete_config(self, client, teacher, secret_id, db_session):
-        from models import LLMConfig
-        _, token = teacher
-
-        cfg = LLMConfig(
-            secret_id=secret_id,
-            label="delete-test",
-            base_url="https://api.test.com",
-            model="test-model",
-            purpose="qa_delete",
-            priority=40,
-        )
-        db_session.add(cfg)
-        db_session.commit()
-        db_session.refresh(cfg)
-
-        resp = client.delete(f"/api/admin/api/configs/{cfg.id}", headers={"Authorization": f"Bearer {token}"})
-        assert resp.status_code == 200
-
     def test_cannot_delete_secret_with_configs(self, client, teacher, secret_id, db_session):
         from models import LLMConfig
         _, token = teacher

@@ -170,9 +170,37 @@ jobs:
               '  ai_vp_pg_data:' \
               > docker-compose.yml
 
+            # 部署前数据库备份
+            BACKUP_FILE="\$DEPLOY_DIR/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
+            echo ">> 备份数据库到 \$BACKUP_FILE"
+            docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BACKUP_FILE" 2>/dev/null || echo "  (无法备份，可能数据库不在本机或首次部署)"
+
             # 平滑重启
             docker compose down --timeout 30
             docker compose up -d
+
+            # 部署后健康检查：等待 backend 健康
+            echo ">> 等待服务就绪..."
+            for i in \$(seq 1 30); do
+              STATUS=\$(docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "unknown")
+              if [ "\$STATUS" = "healthy" ]; then
+                echo ">> 服务健康 (耗时 \$((i * 2))s)"
+                break
+              fi
+              if [ "\$STATUS" = "unhealthy" ]; then
+                echo "!! 后端健康检查失败！检查日志:"
+                docker logs nursing-vp-sim-backend-1 --tail 50
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # 最终健康 API 验证
+            docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health || {
+              echo "!! API 健康检查失败"
+              docker logs nursing-vp-sim-backend-1 --tail 50
+              exit 1
+            }
 
             # 清理旧镜像
             docker image prune -f

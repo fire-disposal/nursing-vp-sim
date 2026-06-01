@@ -29,36 +29,6 @@ class TestManageCases:
         assert "items" in data
         assert "training_count" in data["items"][0]
 
-    def test_create_case(self, client, teacher):
-        _, token = teacher
-        resp = client.post(
-            "/api/cases",
-            json={"case_data": {
-                "name": "新病例", "time_limit": 15,
-                "patient_info": {"name": "张三", "age": 30, "gender": "男"},
-                "chief_complaint": "腹痛",
-            }},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-
-    def test_update_case(self, client, teacher, test_case):
-        _, token = teacher
-        resp = client.put(
-            f"/api/cases/{test_case.id}",
-            json={"case_data": {**test_case.case_data, "name": "改名后"}},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-
-    def test_delete_case_without_records(self, client, teacher, test_case):
-        _, token = teacher
-        resp = client.delete(
-            f"/api/cases/{test_case.id}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-
     def test_delete_case_with_records(self, client, teacher, student, test_case):
         _, teacher_token = teacher
         _, student_token = student

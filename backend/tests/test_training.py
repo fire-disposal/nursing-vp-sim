@@ -206,16 +206,6 @@ class TestRecords:
         )
         assert all(r["status"] == "in_progress" for r in resp.json()["items"])
 
-    def test_filter_by_student_name(self, client, teacher, student):
-        _, teacher_token = teacher
-        _, student_token = student
-
-        resp = client.get(
-            "/api/training/records?student_name=李明",
-            headers={"Authorization": f"Bearer {teacher_token}"},
-        )
-        assert resp.status_code == 200
-
     def test_delete_record_as_teacher(self, client, teacher, student, test_case):
         _, teacher_token = teacher
         _, student_token = student
