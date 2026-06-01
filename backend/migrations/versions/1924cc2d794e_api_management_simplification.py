@@ -58,6 +58,10 @@ def upgrade() -> None:
     op.create_unique_constraint("uq_llmconfig_purpose_priority", "llm_configs", ["purpose", "priority"])
     op.create_index("ix_llmconfig_purpose_priority", "llm_configs", ["purpose", "priority"])
 
+    # 3. Add config_id to llm_call_logs
+    op.add_column("llm_call_logs", sa.Column("config_id", sa.Integer(), sa.ForeignKey("llm_configs.id"), nullable=True))
+    op.create_index(op.f("ix_llm_call_logs_config_id"), "llm_call_logs", ["config_id"])
+
     conn = op.get_bind()
 
     conn.execute(sa.text("""
@@ -148,7 +152,23 @@ def upgrade() -> None:
         ) sub
     """))
 
+    # 4. After data migration, backfill config_id for existing logs that match old api_key_id
+    conn.execute(sa.text("""
+        UPDATE llm_call_logs l
+        SET config_id = c.id
+        FROM llm_configs c
+        JOIN api_keys k ON k.id = l.api_key_id
+        WHERE c.secret_id = (
+            SELECT s.id FROM api_secrets s
+            WHERE s.encrypted_key = k.encrypted_key AND s.key_suffix = k.key_suffix
+        )
+        AND c.purpose = COALESCE(k.purpose, '*')
+        AND c.priority = COALESCE(k.priority, 100)
+    """))
+
 
 def downgrade() -> None:
+    op.drop_index(op.f("ix_llm_call_logs_config_id"), table_name="llm_call_logs")
+    op.drop_column("llm_call_logs", "config_id")
     op.drop_table("llm_configs")
     op.drop_table("api_secrets")

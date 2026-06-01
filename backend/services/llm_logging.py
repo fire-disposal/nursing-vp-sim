@@ -30,7 +30,8 @@ def _estimate_cost(prompt_tokens: int, completion_tokens: int,
 
 def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
                  max_tokens, latency_ms, status, error_type, error_message,
-                 request_text, response_text, usage, meta, api_key_id=None, provider_name="deepseek",
+                 request_text, response_text, usage, meta, api_key_id=None, config_id=None,
+                 provider_name="deepseek",
                  key_price_input=None, key_price_output=None):
     """构建 LLMCallLog 条目字典"""
     if usage:
@@ -70,6 +71,7 @@ def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
         "response_chars": len(response_text) if response_text else None,
         "meta": meta,
         "api_key_id": api_key_id,
+        "config_id": config_id,
     }
 
 
@@ -136,7 +138,7 @@ def enqueue_log(*, purpose, user_id=None, record_id=None, case_id=None,
                 model="", temperature=None, max_tokens=None,
                 latency_ms=0, status="success", error_type=None, error_message=None,
                 request_text="", response_text="", usage=None, meta=None,
-                api_key_id=None, provider_name="deepseek",
+                api_key_id=None, config_id=None, provider_name="deepseek",
                 key_price_input=None, key_price_output=None):
     if _log_queue is None:
         return
@@ -146,7 +148,7 @@ def enqueue_log(*, purpose, user_id=None, record_id=None, case_id=None,
         latency_ms=latency_ms, status=status, error_type=error_type,
         error_message=error_message, request_text=request_text,
         response_text=response_text, usage=usage, meta=meta,
-        api_key_id=api_key_id, provider_name=provider_name,
+        api_key_id=api_key_id, config_id=config_id, provider_name=provider_name,
         key_price_input=key_price_input, key_price_output=key_price_output,
     )
     try:

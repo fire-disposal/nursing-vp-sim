@@ -123,6 +123,7 @@ class LLMCallLog(Base):
     purpose = Column(String(40), nullable=False, index=True)  # patient_chat / scoring / qa / summary / other
     provider_name = Column(String(40), nullable=False, default="deepseek")
     api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
+    config_id = Column(Integer, ForeignKey("llm_configs.id"), nullable=True, index=True)
     model = Column(String(80), nullable=False)
     temperature = Column(Float, nullable=True)
     max_tokens = Column(Integer, nullable=True)
@@ -142,6 +143,7 @@ class LLMCallLog(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
     api_key = relationship("ApiKey")
+    config = relationship("LLMConfig")
 
 
 class QASession(Base):
