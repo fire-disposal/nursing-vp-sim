@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from models import TrainingRecord, Message, Score
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
+from services.variable_registry import get_registry
 from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
 from prompt_static import build_scoring_rubric
@@ -36,9 +37,11 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     pm = await get_prompt_manager()
     tmpl = await pm.get("scoring")
 
+    defaults = get_registry().get_defaults("scoring")
+
     system_content, user_content = tmpl.render_pair(
-        scoring_rubric=scoring_rubric,
-        conversation_text=conversation_text,
+        scoring_rubric=scoring_rubric or defaults.get("scoring_rubric", ""),
+        conversation_text=conversation_text or defaults.get("conversation_text", ""),
     )
     scoring_messages = [
         {"role": "system", "content": system_content},

@@ -7,6 +7,7 @@ from schemas import ChatMessageRequest, ChatMessageResponse
 from auth import get_current_user
 from services.llm_service import call_llm, call_llm_stream
 from services.prompt_manager import get_prompt_manager
+from services.variable_registry import get_registry
 from services.patient_guard import (
     get_allowed_hidden_info, get_revealed_topics, sanitize_patient_reply,
 )
@@ -49,13 +50,15 @@ async def _build_llm_context(case_data: dict, history_messages: list,
     pm = await get_prompt_manager()
     tmpl = await pm.get("patient_chat")
 
+    defaults = get_registry().get_defaults("patient_chat")
+
     system_prompt = tmpl.render(
-        communication_style=str(case_data.get("communication_style", "友善自然")),
-        patient_info=patient_info_str,
-        chief_complaint=str(case_data.get("chief_complaint", "未知")),
-        present_illness=str(case_data.get("present_illness", "未知")),
-        allergy_history=str(case_data.get("allergy_history", "无")),
-        hidden_info_rules=hidden_info_rules,
+        communication_style=str(case_data.get("communication_style") or defaults.get("communication_style", "")),
+        patient_info=patient_info_str or defaults.get("patient_info", ""),
+        chief_complaint=str(case_data.get("chief_complaint") or defaults.get("chief_complaint", "")),
+        present_illness=str(case_data.get("present_illness") or defaults.get("present_illness", "")),
+        allergy_history=str(case_data.get("allergy_history") or defaults.get("allergy_history", "")),
+        hidden_info_rules=hidden_info_rules or defaults.get("hidden_info_rules", ""),
     )
 
     llm_messages = [{"role": "system", "content": system_prompt}]
