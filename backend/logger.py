@@ -55,7 +55,7 @@ _nursing_logger = logging.getLogger("nursing")
 _nursing_logger.setLevel(logging.INFO)
 _nursing_logger.propagate = False
 _nursing_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-_nursing_console = logging.StreamHandler(sys.stdout)
+_nursing_console = logging.StreamHandler(open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1, closefd=False))
 _nursing_console.setFormatter(_nursing_fmt)
 _nursing_logger.addHandler(_nursing_console)
 _nursing_file = logging.FileHandler(str(LOG_DIR / "nursing.log"), encoding="utf-8")
