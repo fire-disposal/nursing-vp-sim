@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
                 db.add(secret)
                 db.flush()
 
-                purposes = ["qa", "patient_chat", "scoring", "case_generation"]
+                purposes = ["*"]
                 for p in purposes:
                     cfg = LLMConfig(
                         secret_id=secret.id,

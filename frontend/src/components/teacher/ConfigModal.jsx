@@ -4,6 +4,7 @@ import { useToast } from "../Toast";
 import Modal from "../ui/Modal";
 
 const PURPOSES = [
+  { value: "*", label: "通配 (全部)" },
   { value: "qa", label: "问答 (QA)" },
   { value: "patient_chat", label: "患者对话" },
   { value: "scoring", label: "评分" },

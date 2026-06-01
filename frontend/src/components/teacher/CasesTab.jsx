@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "../../api";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
@@ -88,6 +88,10 @@ export default function CasesTab() {
   const [aiReferenceText, setAiReferenceText] = useState("");
   const [aiError, setAiError] = useState("");
   const toast = useToast();
+  const toastRef = useRef(toast);
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
   const { confirm } = useConfirm();
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
@@ -104,9 +108,9 @@ export default function CasesTab() {
           setCases(data.items);
           setTotal(data.total);
         })
-        .catch(() => toast.error("加载病例列表失败"));
+        .catch(() => toastRef.current.error("加载病例列表失败"));
     },
-    [filters, toast],
+    [filters],
   );
 
   useEffect(() => {
@@ -335,6 +339,7 @@ export default function CasesTab() {
             <thead>
               <tr>
                 <th>病例名称</th>
+                <th>难度</th>
                 <th>患者</th>
                 <th>主诉</th>
                 <th>时限</th>
@@ -346,6 +351,7 @@ export default function CasesTab() {
               {cases.map((c) => (
                 <tr key={c.id}>
                   <td style={{ fontWeight: 500 }}>{c.name}</td>
+                  <td>{c.difficulty === 1 ? "初级" : c.difficulty === 2 ? "中级" : c.difficulty === 3 ? "高级" : "-"}</td>
                   <td>
                     {c.patient_name
                       ? `${c.patient_name}${c.patient_age ? ` · ${c.patient_age}岁` : ""}${c.patient_gender ? ` · ${c.patient_gender}` : ""}`

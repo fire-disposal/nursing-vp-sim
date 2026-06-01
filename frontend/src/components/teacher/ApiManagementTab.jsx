@@ -23,7 +23,7 @@ const STATUS_COLORS = {
   disabled: { bg: "var(--red-100)", color: "var(--red-700)" },
 };
 const STATUS_LABELS = { active: "正常", degraded: "熔断", disabled: "手动关闭" };
-const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成" };
+const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
 export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) {
   const toast = useToast();

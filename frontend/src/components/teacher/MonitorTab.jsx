@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "../../api";
 import Pagination from "../Pagination";
 
-const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", summary: "总结", other: "其他" };
+const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", summary: "总结", other: "其他", "*": "通配" };
 
 function purposeLabel(item) {
   if (item.is_aggregated && item.purpose === "patient_chat") {
