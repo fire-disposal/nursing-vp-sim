@@ -12,6 +12,22 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: nursing
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: nursing_vp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,13 +41,33 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Verify migration runs
+      - name: Verify migration runs (PostgreSQL)
         run: |
-          export DATABASE_URL="sqlite:///test_migrate.db"
+          export DATABASE_URL="postgresql://nursing:testpass@localhost:5432/nursing_vp"
           uv run python -c "
-          from database import init_db, engine
+          from database import init_db
           init_db()
           print('Migration OK')
+          "
+          # 验证迁移后表结构正确
+          uv run python -c "
+          from sqlalchemy import create_engine, inspect
+          engine = create_engine('$DATABASE_URL')
+          insp = inspect(engine)
+          tables = insp.get_table_names()
+          assert 'api_secrets' in tables, 'api_secrets table missing'
+          assert 'llm_configs' in tables, 'llm_configs table missing'
+          print('Schema verified: api_secrets + llm_configs tables exist')
+          # 验证 llm_configs 列齐全
+          cols = [c['name'] for c in insp.get_columns('llm_configs')]
+          required = ['secret_id','base_url','model','purpose','priority','status','degraded_reason','degraded_until']
+          for c in required:
+              assert c in cols, f'Missing column: {c}'
+          print('Columns verified')
+          # 验证约束
+          uq = [c['name'] for c in insp.get_unique_constraints('llm_configs')]
+          assert any('purpose_priority' in u for u in uq), 'Unique constraint missing'
+          print('Constraints verified')
           "
         env:
           SECRET_KEY: ci-test-key-not-for-production
