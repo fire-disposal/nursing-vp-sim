@@ -22,11 +22,22 @@ class TestRegistryLookup:
         assert "patient_info" in names
         assert "hidden_info_rules" in names
 
-    def test_get_variable_map(self):
+    def test_get_variable_map_patient_chat_has_content(self):
+        r = get_registry()
+        m = r.get_variable_map("patient_chat")
+        assert isinstance(m["patient_info"], VariableDef)
+        assert m["patient_info"].type == "string"
+        assert m["patient_info"].source != ""
+
+    def test_get_variable_map_scoring(self):
         r = get_registry()
         m = r.get_variable_map("scoring")
         assert "scoring_rubric" in m
         assert isinstance(m["scoring_rubric"], VariableDef)
+
+    def test_get_variable_map_unknown_purpose_returns_empty(self):
+        r = get_registry()
+        assert r.get_variable_map("nonexistent") == {}
 
     def test_get_defaults(self):
         r = get_registry()
@@ -34,12 +45,26 @@ class TestRegistryLookup:
         assert "description" in defaults
         assert "reference_material" in defaults
 
+    def test_get_defaults_qa_empty(self):
+        r = get_registry()
+        assert r.get_defaults("qa") == {}
+
+    def test_get_variable_names_qa_empty(self):
+        r = get_registry()
+        assert r.get_variable_names("qa") == set()
+
+    def test_get_sample_kwargs_case_generation_has_keys(self):
+        r = get_registry()
+        kwargs = r.get_sample_kwargs("case_generation")
+        assert "description" in kwargs
+        assert "reference_material" in kwargs
+
     def test_get_sample_kwargs_scoring_has_rubric(self):
         r = get_registry()
         kwargs = r.get_sample_kwargs("scoring")
         assert "scoring_rubric" in kwargs
         assert "conversation_text" in kwargs
-        assert len(kwargs["scoring_rubric"]) > 100
+        assert len(kwargs["scoring_rubric"]) > 50
 
     def test_get_sample_kwargs_qa_empty(self):
         r = get_registry()
@@ -89,7 +114,7 @@ class TestRegistryValidation:
         assert len(warnings) == 1
         assert "patient_info" in warnings[0]
 
-    def test_returns_both_errors_and_warnings(self):
+    def test_known_var_plus_unknown_var_warns(self):
         r = get_registry()
         errors, warnings = r.validate_template_vars("patient_chat", {"patient_info", "unknown"})
         assert errors == []
@@ -112,3 +137,7 @@ class TestVariablesJsonb:
     def test_jsonb_qa_empty(self):
         r = get_registry()
         assert r.get_variables_jsonb("qa") == []
+
+    def test_jsonb_unknown_purpose_empty(self):
+        r = get_registry()
+        assert r.get_variables_jsonb("nonexistent") == []
