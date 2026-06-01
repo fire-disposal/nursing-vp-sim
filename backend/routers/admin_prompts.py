@@ -24,6 +24,18 @@ def _extract_vars(text: str | None) -> set[str]:
     return set(re.findall(r"\{#([^}#]+)#\}", text))
 
 
+def _dedup_variables(variables: list[dict]) -> list[dict]:
+    """按 name 去重变量列表，保留首次出现的那个"""
+    seen: set[str] = set()
+    result: list[dict] = []
+    for v in variables:
+        name = v.get("name", "") if isinstance(v, dict) else str(v)
+        if name not in seen:
+            seen.add(name)
+            result.append(v if isinstance(v, dict) else {"name": name, "desc": ""})
+    return result
+
+
 @router.get("", response_model=list[PromptTemplateResponse])
 def list_prompts(
     purpose: str | None = None,
@@ -76,7 +88,7 @@ async def create_prompt(
     pt = PT(
         purpose=data.purpose, version=version, name=data.name,
         system_prompt=data.system_prompt, user_prompt=data.user_prompt,
-        variables=default_vars,
+        variables=_dedup_variables(default_vars),
         is_active=False, created_by=data.created_by or current_user.username,
         remark=data.remark,
     )
@@ -123,7 +135,7 @@ async def update_prompt(
                 })
             else:
                 new_vars.append({"name": vname, "desc": ""})
-        pt.variables = new_vars
+        pt.variables = _dedup_variables(new_vars)
     db.commit()
     db.refresh(pt)
     await refresh_prompts()
@@ -221,6 +233,12 @@ async def preview_active_prompt(
     if not pt:
         raise HTTPException(404, f"「{purpose}」没有激活的模板")
     sample = get_registry().get_sample_kwargs(purpose)
+    # 合并自定义变量（不在 registry 中但模板自带 default_value 的变量）
+    for v in (pt.variables or []):
+        name = v.get("name", "") if isinstance(v, dict) else str(v)
+        if name and name not in sample:
+            default_val = v.get("default_value", "") if isinstance(v, dict) else ""
+            sample[name] = default_val or v.get("example", "") if isinstance(v, dict) else ""
     system_rendered = pt.system_prompt
     user_rendered = pt.user_prompt
     try:

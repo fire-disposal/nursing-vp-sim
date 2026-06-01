@@ -27,16 +27,24 @@ def render_template(template: str, **kwargs) -> str:
 class PromptTemplateObj:
     """单个 prompt 模板实例，支持变量渲染"""
     def __init__(self, id: int, purpose: str, version: int, system_prompt: str,
-                 user_prompt: str | None):
+                 user_prompt: str | None, variables: list[dict] | None = None):
         self.id = id
         self.purpose = purpose
         self.version = version
         self.system_prompt = system_prompt
         self.user_prompt = user_prompt
+        self._var_defaults: dict[str, str] = {}
+        if variables:
+            for v in variables:
+                name = v.get("name", "") if isinstance(v, dict) else str(v)
+                default = v.get("default_value", "") if isinstance(v, dict) else ""
+                if name and default:
+                    self._var_defaults[name] = default
 
     def render(self, **kwargs) -> str:
+        merged = {**self._var_defaults, **kwargs}
         try:
-            return render_template(self.system_prompt, **kwargs)
+            return render_template(self.system_prompt, **merged)
         except RuntimeError as e:
             import re as _re
             expected = sorted(set(_re.findall(r"\{#([^}#]+)#\}", self.system_prompt)))
@@ -48,11 +56,12 @@ class PromptTemplateObj:
             )
 
     def render_pair(self, **kwargs) -> tuple[str, str]:
+        merged = {**self._var_defaults, **kwargs}
         system = self.render(**kwargs)
         user = ""
         if self.user_prompt:
             try:
-                user = render_template(self.user_prompt, **kwargs)
+                user = render_template(self.user_prompt, **merged)
             except RuntimeError as e:
                 raise RuntimeError(f"{e} in user_prompt (purpose={self.purpose}, v{self.version})")
         return system, user
@@ -79,6 +88,7 @@ class PromptManager:
                 new_cache[r.purpose] = PromptTemplateObj(
                     id=r.id, purpose=r.purpose, version=r.version,
                     system_prompt=r.system_prompt, user_prompt=r.user_prompt,
+                    variables=r.variables,
                 )
 
             async with self._lock:

@@ -63,21 +63,35 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             type="text",
             description="评分标准维度、条目及1-3分评分锚点",
             source="rubrics/nursing_history_v1.json + build_scoring_criteria() 自动生成",
-            default_example="(由 build_scoring_criteria 动态生成)",
+            default_example=(
+                "## 评分标准版本\n"
+                "护理病史采集训练评分标准 v1.0（原始57分制，每项1-3分，系统将自动换算为100分制）\n\n"
+                "## 评估维度与条目\n\n"
+                "### 沟通技能（14项，满分42分）\n"
+                "3分: 主动礼貌问候 / 2分: 有简单问候 / 1分: 未问候\n"
+                "...（共19项评分条目）"
+            ),
         ),
         VariableDef(
             name="required_inquiries",
             type="text",
             description="病例中必须采集到的关键内容清单（JSON数组格式）",
             source="病例数据 > required_inquiries",
-            default_example='[\n  "主诉详情",\n  "现病史详情"\n]',
+            default_example='[\n  "主诉（部位、性质、持续时间）",\n  "现病史（起病、发展、诊疗）",\n  "既往史",\n  "过敏史"\n]',
         ),
         VariableDef(
             name="scoring_json_schema",
             type="text",
             description="LLM 评分结果输出的 JSON 格式模板",
             source="rubrics/nursing_history_v1.json + build_scoring_json_schema() 自动生成",
-            default_example="(由 build_scoring_json_schema 动态生成)",
+            default_example=(
+                '## 输出格式\n\n必须是严格的 JSON：\n\n'
+                '{\n  "rubric_version": "nursing_history_v1@1.0",\n'
+                '  "total_score": 数字(满分57),\n'
+                '  "detail_scores": {\n    "沟通技能": {...},\n    "病史采集": {...}\n  },\n'
+                '  "strengths": [...], "weaknesses": [...],\n'
+                '  "missed_content": [...], "suggestions": "..."\n}'
+            ),
         ),
         VariableDef(
             name="scoring_rubric",

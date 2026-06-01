@@ -18,14 +18,23 @@ import Modal from "../ui/Modal";
 const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
-const VariableCard = ({ vName, meta, onUpdateDesc }) => {
+const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault }) => {
   const [editing, setEditing] = useState(false);
   const [descDraft, setDescDraft] = useState(meta.desc || "");
+  const [editingDefault, setEditingDefault] = useState(false);
+  const [defaultDraft, setDefaultDraft] = useState(meta.default_value || "");
 
-  const commit = () => {
+  const commitDesc = () => {
     setEditing(false);
     if (descDraft !== (meta.desc || "")) {
       onUpdateDesc(vName, descDraft);
+    }
+  };
+
+  const commitDefault = () => {
+    setEditingDefault(false);
+    if (defaultDraft !== (meta.default_value || "")) {
+      onUpdateDefault(vName, defaultDraft);
     }
   };
 
@@ -75,9 +84,9 @@ const VariableCard = ({ vName, meta, onUpdateDesc }) => {
           <input
             value={descDraft}
             onChange={(e) => setDescDraft(e.target.value)}
-            onBlur={commit}
+            onBlur={commitDesc}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commit();
+              if (e.key === "Enter") commitDesc();
             }}
             autoFocus
             placeholder="变量描述..."
@@ -127,6 +136,40 @@ const VariableCard = ({ vName, meta, onUpdateDesc }) => {
             示例：{meta.example}
           </div>
         )}
+        <div style={{ marginTop: 2 }}>
+          {editingDefault ? (
+            <input
+              value={defaultDraft}
+              onChange={(e) => setDefaultDraft(e.target.value)}
+              onBlur={commitDefault}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitDefault();
+              }}
+              autoFocus
+              placeholder="默认值..."
+              style={{
+                width: "100%",
+                fontSize: "0.68rem",
+                padding: "2px 6px",
+                border: "1px solid var(--green-300)",
+                borderRadius: 4,
+                outline: "none",
+              }}
+            />
+          ) : (
+            <div
+              onClick={() => setEditingDefault(true)}
+              style={{
+                cursor: "pointer",
+                color: meta.default_value ? "var(--text-secondary)" : "var(--text-tertiary)",
+                fontStyle: meta.default_value ? "normal" : "italic",
+              }}
+              title="点击设置默认值（自定义变量在调用点未提供值时使用）"
+            >
+              默认值：{meta.default_value || "(点击设置)"}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -274,6 +317,20 @@ export default function PromptManagementTab() {
         const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, desc: newDesc } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
           updatedVars.push({ name: varName, desc: newDesc });
+        }
+        return { ...p, variables: updatedVars };
+      }),
+    );
+  };
+
+  const handleUpdateVarDefault = (varName, newDefault) => {
+    if (!editedPrompt) return;
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== editedPrompt.id) return p;
+        const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, default_value: newDefault } : v));
+        if (!updatedVars.find((v) => v.name === varName)) {
+          updatedVars.push({ name: varName, default_value: newDefault });
         }
         return { ...p, variables: updatedVars };
       }),
@@ -687,7 +744,7 @@ export default function PromptManagementTab() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {currentVars.map((vName) => {
                       const meta = dbVars.find((d) => d.name === vName) || {};
-                      return <VariableCard key={vName} vName={vName} meta={meta} onUpdateDesc={handleUpdateVarDesc} />;
+                      return <VariableCard key={vName} vName={vName} meta={meta} onUpdateDesc={handleUpdateVarDesc} onUpdateDefault={handleUpdateVarDefault} />;
                     })}
                   </div>
                 ) : (
