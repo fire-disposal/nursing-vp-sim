@@ -37,6 +37,10 @@ export function testConfig(id) {
   return api.post(`/admin/api/configs/${id}/test`);
 }
 
+export function testAllConfigs() {
+  return api.post("/admin/api/configs/test-all");
+}
+
 export function reloadRouter() {
   return api.post("/admin/api/reload");
 }

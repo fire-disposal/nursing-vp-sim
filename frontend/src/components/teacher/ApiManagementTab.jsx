@@ -1,4 +1,4 @@
-import { Activity, Edit3, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
+import { Activity, CheckCircle, Edit3, Plus, RefreshCw, Server, Trash2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkHealth,
@@ -8,6 +8,7 @@ import {
   fetchSecrets,
   reloadRouter,
   resetConfig,
+  testAllConfigs,
   testConfig,
   toggleConfig,
 } from "../../api/apiManagement";
@@ -37,6 +38,8 @@ export default function ApiManagementTab() {
   const [editingSecret, setEditingSecret] = useState(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
+  const [testingAll, setTestingAll] = useState(false);
+  const [testResults, setTestResults] = useState(null);
   const toastRef = useRef(toast);
   useEffect(() => {
     toastRef.current = toast;
@@ -128,6 +131,21 @@ export default function ApiManagementTab() {
       else toast.error(data.error || "连接失败");
     } catch {
       toast.error("测试请求失败");
+    }
+  };
+
+  const handleTestAll = async () => {
+    setTestingAll(true);
+    setTestResults(null);
+    try {
+      const { data } = await testAllConfigs();
+      setTestResults(data.results);
+      const ok = data.results.filter((r) => r.ok).length;
+      toast.success(`${ok}/${data.results.length} 个配置连通正常`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "检查失败");
+    } finally {
+      setTestingAll(false);
     }
   };
 
@@ -269,16 +287,67 @@ export default function ApiManagementTab() {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
             <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0 }}>用途配置</h3>
-            <button
-              onClick={() => {
-                setEditingConfig(null);
-                setShowConfigModal(true);
-              }}
-              style={S.primaryBtn}
-            >
-              <Plus size={14} /> 添加配置
-            </button>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <button
+                onClick={handleTestAll}
+                disabled={testingAll}
+                style={{ ...S.primaryBtn, background: testingAll ? "var(--text-tertiary)" : "var(--color-primary)" }}
+              >
+                <Activity size={14} /> {testingAll ? "检查中..." : "一键检查存活"}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingConfig(null);
+                  setShowConfigModal(true);
+                }}
+                style={S.primaryBtn}
+              >
+                <Plus size={14} /> 添加配置
+              </button>
+            </div>
           </div>
+
+          {testResults && (
+            <div
+              style={{
+                padding: "var(--space-2) var(--space-3)",
+                marginBottom: "var(--space-3)",
+                borderRadius: "var(--radius-md)",
+                fontSize: "0.82rem",
+                background: testResults.every((r) => r.ok) ? "var(--green-50)" : "var(--amber-50)",
+                border: `1px solid ${testResults.every((r) => r.ok) ? "var(--green-200)" : "var(--amber-200)"}`,
+                color: "var(--text-primary)",
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--space-2)",
+                flexWrap: "wrap",
+              }}
+            >
+              {testResults.every((r) => r.ok) ? (
+                <CheckCircle size={14} style={{ color: "var(--green-600)" }} />
+              ) : (
+                <XCircle size={14} style={{ color: "var(--amber-600)" }} />
+              )}
+              {testResults.map((r) => (
+                <span
+                  key={r.id}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 3,
+                    padding: "1px 6px",
+                    borderRadius: "var(--radius-sm)",
+                    background: r.ok ? "" : "var(--red-50)",
+                    color: r.ok ? "var(--green-700)" : "var(--red-600)",
+                    fontWeight: r.ok ? 400 : 600,
+                  }}
+                >
+                  {r.ok ? "✓" : "✗"} {r.label || r.model}
+                  {r.latency_ms != null && <span style={{ fontSize: "0.7rem", opacity: 0.7 }}>{r.latency_ms}ms</span>}
+                </span>
+              ))}
+            </div>
+          )}
           {loading ? (
             <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>Loading...</div>
           ) : configs.length === 0 ? (

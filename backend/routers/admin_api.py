@@ -266,6 +266,34 @@ async def test_config(
         return {"ok": False, "error": str(e)[:200]}
 
 
+@router.post("/configs/test-all")
+async def test_all_configs(
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    configs = db.query(LLMConfig).order_by(LLMConfig.purpose, LLMConfig.priority).all()
+    results = []
+    seen = {}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(8)) as client:
+        for cfg in configs:
+            cache_key = (cfg.base_url, cfg.secret_id)
+            if cache_key in seen:
+                results.append({**seen[cache_key], "id": cfg.id, "purpose": cfg.purpose, "label": cfg.label, "model": cfg.model, "cached": True})
+                continue
+            secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
+            api_key = decrypt_api_key(secret.encrypted_key)
+            try:
+                t0 = time.monotonic()
+                resp = await client.get(f"{cfg.base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
+                latency = int((time.monotonic() - t0) * 1000)
+                r = {"id": cfg.id, "purpose": cfg.purpose, "label": cfg.label, "model": cfg.model, "ok": resp.status_code < 500, "latency_ms": latency, "detail": str(resp.status_code), "cached": False}
+            except Exception as e:
+                r = {"id": cfg.id, "purpose": cfg.purpose, "label": cfg.label, "model": cfg.model, "ok": False, "latency_ms": None, "detail": str(e)[:100], "cached": False}
+            seen[cache_key] = r
+            results.append(r)
+    return {"results": results}
+
+
 # ── Reload & Health ──
 
 @router.post("/reload")
