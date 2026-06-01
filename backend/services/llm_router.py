@@ -70,6 +70,7 @@ class ConfigRouter:
         self._cache_by_purpose: dict[str, list] = {}
         self._global_degraded_until: datetime | None = None
         self._state_lock = asyncio.Lock()
+        self._last_persist_ts: dict[int, float] = {}
 
     async def load_from_db(self):
         from database import SessionLocal
@@ -193,16 +194,21 @@ class ConfigRouter:
 
     def _update_stats(self, config, tokens: int):
         today = datetime.now(timezone.utc).date()
-        month = today.strftime("%Y-%m")
+        now_month = (today.year, today.month)
 
         if config.stats_date is None or config.stats_date < today:
             config.call_count_today = 0
             config.total_tokens_today = 0
             config.total_cost_today = float(0)
             config.stats_date = today
-        if config.stats_month is None or config.stats_month < month:
+        cached_month = None
+        if config.stats_month:
+            parts = config.stats_month.split("-")
+            if len(parts) == 2:
+                cached_month = (int(parts[0]), int(parts[1]))
+        if cached_month is None or cached_month < now_month:
             config.monthly_cost_used = float(0)
-            config.stats_month = month
+            config.stats_month = today.strftime("%Y-%m")
 
         config.call_count_today = (config.call_count_today or 0) + 1
         config.total_tokens_today = (config.total_tokens_today or 0) + tokens
@@ -226,7 +232,10 @@ class ConfigRouter:
                 config.degraded_until = next_month
 
         if config.call_count_today % 5 == 0:
-            self._persist_config_stats(config)
+            now_ts = time.time()
+            if now_ts - self._last_persist_ts.get(config.id, 0) > 30:
+                self._persist_config_stats(config)
+                self._last_persist_ts[config.id] = now_ts
 
     @staticmethod
     def _persist_config_stats(config):

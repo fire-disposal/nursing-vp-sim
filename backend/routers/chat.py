@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
@@ -75,6 +75,7 @@ def _cleanup_disclosed_topics(record_id: int):
 async def send_message(
     record_id: int,
     req: ChatMessageRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -94,12 +95,14 @@ async def send_message(
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
     llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
+    rid = getattr(request.state, "request_id", None)
     from logger import log
     try:
         reply = await call_llm(llm_messages, temperature=0.6,
                                 max_tokens=LLM_CHAT_MAX_TOKENS, timeout=LLM_CHAT_TIMEOUT, max_retries=2,
                                 purpose="patient_chat", user_id=current_user.id,
-                                record_id=record_id, case_id=record.case_id)
+                                record_id=record_id, case_id=record.case_id,
+                                log_meta={"request_id": rid} if rid else None)
     except Exception as e:
         log.error("patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
         raise HTTPException(status_code=500, detail=f"LLM调用失败: {str(e)}")
@@ -124,6 +127,7 @@ async def send_message(
 async def send_message_stream(
     record_id: int,
     req: ChatMessageRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -144,6 +148,8 @@ async def send_message_stream(
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
     llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
+    rid = getattr(request.state, "request_id", None)
+
     async def generate():
         full_reply = ""
         try:
@@ -152,15 +158,14 @@ async def send_message_stream(
                 max_tokens=LLM_CHAT_MAX_TOKENS, timeout=LLM_CHAT_TIMEOUT,
                 purpose="patient_chat", user_id=current_user.id,
                 record_id=record_id, case_id=record.case_id,
+                log_meta={"request_id": rid} if rid else None,
             ):
                 full_reply += chunk
                 yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-            # 全部接收完后，做完整角色守卫检查（含称谓归一化、越界检测、诊断化检测）
             sanitized, violations = sanitize_patient_reply(full_reply, case_data)
             if violations:
                 log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
-                # 通知前端用兜底内容替换已显示内容
                 yield f"data: {json.dumps({'sanitized': True, 'reply': sanitized, 'violations': violations}, ensure_ascii=False)}\n\n"
 
             student_msg = Message(record_id=record_id, role="student", content=req.content)
@@ -174,6 +179,9 @@ async def send_message_stream(
             yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
         except Exception as e:
             log.error("patient_chat 流式LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
-            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+            if full_reply:
+                yield f"data: {json.dumps({'content': full_reply, 'truncated': True, 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+            else:
+                yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

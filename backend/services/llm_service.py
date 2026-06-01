@@ -3,13 +3,31 @@ import json
 import random
 import re
 import time
+from contextlib import asynccontextmanager
+
 import httpx
+
 from config import (
     LLM_CONCURRENT_LIMIT, LLM_CONNECTION_POOL_SIZE, LLM_CONNECTION_KEEPALIVE,
 )
 
 # 并发限流
 _rate_limiter = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
+
+# 信号量获取超时（秒）—— 排队过久返回 503 让调用方重试
+_SEMAPHORE_ACQUIRE_TIMEOUT = 30
+
+
+@asynccontextmanager
+async def _acquire_sema(semaphore: asyncio.Semaphore):
+    try:
+        await asyncio.wait_for(semaphore.acquire(), timeout=_SEMAPHORE_ACQUIRE_TIMEOUT)
+    except TimeoutError:
+        raise RuntimeError("LLM 服务繁忙，请稍后重试") from None
+    try:
+        yield
+    finally:
+        semaphore.release()
 
 # 可重试的 HTTP 状态码和异常类型
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
@@ -38,14 +56,6 @@ async def _get_client() -> httpx.AsyncClient:
     return _shared_client
 
 
-async def _reset_client():
-    """连接异常时重建客户端"""
-    global _shared_client
-    async with _shared_client_lock:
-        if _shared_client is not None:
-            await _shared_client.aclose()
-            _shared_client = None
-
 
 async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 512,
                    timeout: int = 30, max_retries: int = 2,
@@ -57,6 +67,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                    log_meta: dict | None = None,
                    client: httpx.AsyncClient | None = None,
                    semaphore: asyncio.Semaphore | None = None,
+                   response_format: dict | None = None,
                    ) -> str:
     """通过 LLMRouter 选择 key/provider 调用 LLM API，返回文本回复。支持自动记录调用日志。"""
     from services.llm_router import get_router
@@ -91,8 +102,10 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
+            if response_format:
+                payload["response_format"] = response_format
 
-            async with _sema:
+            async with _acquire_sema(_sema):
                 resp = await _client.post(
                     f"{config.base_url}/v1/chat/completions",
                     headers={
@@ -156,8 +169,6 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 router.report_result(used_config, success=False, tokens=0,
                                      latency_ms=0, error=error_str)
             last_error = error_str
-            if isinstance(e, httpx.RemoteProtocolError):
-                await _reset_client()
             if attempt < max_retries + 1:
                 delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
                 await asyncio.sleep(delay)
@@ -270,7 +281,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
         client = await _get_client()
         full_reply = ""
         try:
-            async with _rate_limiter:
+            async with _acquire_sema(_rate_limiter):
                 async with client.stream(
                     "POST",
                     f"{config.base_url}/v1/chat/completions",
@@ -334,8 +345,6 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
             router.report_result(config, success=False, tokens=0,
                                  latency_ms=0, error=error_str)
             last_error = error_str
-            if isinstance(e, httpx.RemoteProtocolError):
-                await _reset_client()
             if attempt < max_retries + 1:
                 delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
                 await asyncio.sleep(delay)
@@ -348,6 +357,15 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                 await asyncio.sleep(1)
 
     latency_ms = int((time.perf_counter() - t0) * 1000)
+    if not full_reply:
+        content = await call_llm(
+            messages, temperature=temperature, max_tokens=max_tokens,
+            timeout=timeout, max_retries=1,
+            purpose=purpose, user_id=user_id, record_id=record_id,
+            case_id=case_id, log_meta=log_meta,
+        )
+        yield content
+        return
     _log_llm_failure(
         purpose=purpose, user_id=user_id, record_id=record_id,
         case_id=case_id, temperature=temperature, max_tokens=max_tokens,
@@ -487,5 +505,6 @@ async def call_llm_json(messages: list, temperature: float = 0.3, max_tokens: in
         purpose=purpose, user_id=user_id, record_id=record_id,
         case_id=case_id, log_meta=log_meta,
         client=client, semaphore=semaphore,
+        response_format={"type": "json_object"},
     )
     return _safe_parse_json(response_text)
