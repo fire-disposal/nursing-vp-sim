@@ -39,7 +39,10 @@ async def lifespan(app: FastAPI):
     from database import _log_connection
     _log_connection()
     init_db()
-    _seed_data()
+    try:
+        _seed_data()
+    except Exception as e:
+        _startup_logger.warning("种子数据初始化失败(非致命): %s", e)
     # 初始化 LLMRouter 并 seed 默认 provider
     try:
         from services.llm_router import refresh_router
