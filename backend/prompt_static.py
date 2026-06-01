@@ -78,36 +78,3 @@ def build_scoring_rubric(rubric: dict | None = None,
     return "\n".join(lines)
 
 
-# ── 预览示例变量（首次访问时延迟计算）──
-
-_sample_required = ["主诉（部位、性质、持续时间、诱因）",
-                    "现病史（起病情况、发展经过、诊疗经过）",
-                    "既往史", "过敏史", "用药史"]
-
-_SAMPLE_VARS_CACHE: dict | None = None
-
-
-def get_sample_vars() -> dict:
-    global _SAMPLE_VARS_CACHE
-    if _SAMPLE_VARS_CACHE is None:
-        rubric = load_rubric("nursing_history_v1")
-        _SAMPLE_VARS_CACHE = {
-            "scoring": {
-                "scoring_rubric": build_scoring_rubric(rubric, _sample_required),
-                "conversation_text": "护士：您好，我是今天的护理实习生，请问您哪里不舒服？\n\n患者：我最近总是头疼，大概三天了。\n\n护士：能具体说说疼的位置和感觉吗？\n\n患者：主要是前额这里，一跳一跳的疼。\n\n护士：以前有过类似情况吗？\n\n患者：以前偶尔也会，但是没这么频繁。",
-            },
-            "patient_chat": {
-                "communication_style": "友善自然，略带焦虑",
-                "patient_info": "张三，45岁，男",
-                "chief_complaint": "头痛3天，加重1天",
-                "present_illness": "3天前无明显诱因出现前额部搏动性疼痛，程度中等，伴有恶心，无呕吐，熬夜后加重",
-                "allergy_history": "青霉素过敏",
-                "hidden_info_rules": "- 患者担心自己可能患有脑部疾病，但不愿主动提及\n- 近期因工作压力大，睡眠质量差",
-            },
-            "qa": {},
-            "case_generation": {
-                "description": "糖尿病足溃疡老年患者，有10年糖尿病史，近期足部出现溃疡不愈合",
-                "reference_material": "患者长期血糖控制不佳，HbA1c 9.2%。参考标准糖尿病足护理评估流程。",
-            },
-        }
-        return _SAMPLE_VARS_CACHE

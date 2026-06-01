@@ -11,8 +11,9 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
-from prompt_static import build_scoring_rubric, get_sample_vars
+from prompt_static import build_scoring_rubric
 from services.prompt_manager import render_template
+from services.variable_registry import get_registry
 from rubrics import load_rubric
 
 
@@ -356,7 +357,7 @@ class TestScoringFlowEndToEnd:
 
     def test_sample_vars_are_renderable(self):
         """SAMPLE_VARS 中的 scoring 预览数据必须可渲染"""
-        sample = get_sample_vars().get("scoring", {})
+        sample = get_registry().get_sample_kwargs("scoring")
         assert sample, "scoring sample vars 为空"
 
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM

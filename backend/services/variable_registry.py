@@ -138,7 +138,7 @@ class VariableRegistry:
         for v in self.get_variables(purpose):
             if v.name == "scoring_rubric":
                 from prompt_static import build_scoring_rubric
-                result[v.name] = build_scoring_rubric({}, [])
+                result[v.name] = build_scoring_rubric()
             else:
                 result[v.name] = v.default_example
         return result
