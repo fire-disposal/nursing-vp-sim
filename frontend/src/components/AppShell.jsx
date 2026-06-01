@@ -17,6 +17,7 @@ const teacherLinks = [
   { to: "/home", icon: Home, label: "首页" },
   { to: "/history", icon: ClipboardList, label: "训练记录" },
   { to: "/qa", icon: HelpCircle, label: "护理问答" },
+  { to: "/stats", icon: BarChart3, label: "训练统计" },
   { to: "/admin", icon: Settings, label: "训练管理" },
   { to: "/admin/users", icon: Users, label: "用户管理" },
   { to: "/admin/cases", icon: UserSearch, label: "病例管理" },

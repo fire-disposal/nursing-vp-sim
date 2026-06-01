@@ -12,7 +12,7 @@ const ChatTraining = lazy(() => import("./pages/ChatTraining"));
 const History = lazy(() => import("./pages/History"));
 const RecordDetail = lazy(() => import("./pages/RecordDetail"));
 const QA = lazy(() => import("./pages/QA"));
-const Stats = lazy(() => import("./pages/Stats"));
+const StatsPage = lazy(() => import("./pages/Stats").then((m) => ({ default: m.StatsPage })));
 const Admin = lazy(() => import("./pages/Admin"));
 const LLMManagementPage = lazy(() => import("./pages/admin/LLMManagementPage"));
 const CasesPage = lazy(() => import("./pages/admin/CasesPage"));
@@ -140,7 +140,7 @@ export default function App() {
                     path="/stats"
                     element={
                       <ProtectedRoute>
-                        <Stats user={user} onLogout={handleLogout} />
+                        <StatsPage user={user} onLogout={handleLogout} />
                       </ProtectedRoute>
                     }
                   />
