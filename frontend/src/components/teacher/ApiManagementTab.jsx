@@ -1,68 +1,57 @@
-import { Activity, AlertTriangle, ChevronDown, ChevronUp, Edit3, Plus, RefreshCw, Server, Trash2, Zap } from "lucide-react";
+import { Activity, Edit3, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkHealth,
-  createDeepseekKey,
-  deleteKey,
-  deleteProvider,
-  fetchKeys,
-  fetchProviders,
+  deleteConfig,
+  deleteSecret,
+  fetchConfigs,
+  fetchSecrets,
   reloadRouter,
-  testKey,
-  toggleKey,
-  updateProvider,
+  resetConfig,
+  testConfig,
+  toggleConfig,
 } from "../../api/apiManagement";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
-import KeyModal from "./KeyModal";
-import ProviderModal from "./ProviderModal";
+import ConfigModal from "./ConfigModal";
+import SecretModal from "./SecretModal";
 
 const STATUS_COLORS = {
   active: { bg: "var(--green-100)", color: "var(--green-700)" },
-  rate_limited: { bg: "var(--amber-100)", color: "var(--amber-700)" },
+  degraded: { bg: "var(--amber-100)", color: "var(--amber-700)" },
   disabled: { bg: "var(--red-100)", color: "var(--red-700)" },
-  paused: { bg: "var(--amber-100)", color: "var(--amber-700)" },
 };
-const STATUS_LABELS = { active: "正常", rate_limited: "限流中", disabled: "已禁用", paused: "停用" };
-const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", "*": "默认（所有场景）" };
+const STATUS_LABELS = { active: "正常", degraded: "熔断", disabled: "手动关闭" };
+const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成" };
 
 export default function ApiManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
-  const [subTab, setSubTab] = useState("providers");
-  const [providers, setProviders] = useState([]);
-  const [keys, setKeys] = useState([]);
+  const [subTab, setSubTab] = useState("configs");
+  const [secrets, setSecrets] = useState([]);
+  const [configs, setConfigs] = useState([]);
   const [health, setHealth] = useState([]);
   const [healthAutoRefresh, setHealthAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showProviderModal, setShowProviderModal] = useState(false);
-  const [editingProvider, setEditingProvider] = useState(null);
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [editingKey, setEditingKey] = useState(null);
-  const [dsKey, setDsKey] = useState("");
-  const [dsLabel, setDsLabel] = useState("");
-  const [dsSaving, setDsSaving] = useState(false);
-
+  const [showSecretModal, setShowSecretModal] = useState(false);
+  const [editingSecret, setEditingSecret] = useState(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editingConfig, setEditingConfig] = useState(null);
   const toastRef = useRef(toast);
-
   useEffect(() => {
     toastRef.current = toast;
   }, [toast]);
 
-  const loadProviders = useCallback(() => {
-    fetchProviders()
-      .then(({ data }) => setProviders(data))
-      .catch((err) => {
-        toastRef.current.error(err.response?.data?.detail || err.message || "Failed to load providers");
-      });
+  const loadSecrets = useCallback(() => {
+    fetchSecrets()
+      .then(({ data }) => setSecrets(data))
+      .catch((err) => toastRef.current.error(err.response?.data?.detail || "加载密钥失败"));
   }, []);
-  const loadKeys = useCallback(() => {
+  const loadConfigs = useCallback(() => {
     setLoading(true);
-    fetchKeys(null, null)
-      .then(({ data }) => setKeys(data))
-      .catch((err) => {
-        toastRef.current.error(err.response?.data?.detail || err.message || "Failed to load keys");
-      })
+    fetchConfigs(null)
+      .then(({ data }) => setConfigs(data))
+      .catch((err) => toastRef.current.error(err.response?.data?.detail || "加载配置失败"))
       .finally(() => setLoading(false));
   }, []);
   const loadHealth = useCallback(() => {
@@ -73,121 +62,80 @@ export default function ApiManagementTab() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
-    if (subTab === "providers") loadProviders();
-    else if (subTab === "keys") loadKeys();
+    if (subTab === "secrets") loadSecrets();
+    else if (subTab === "configs") loadConfigs();
     else if (subTab === "health") loadHealth();
   }, [subTab]);
-
   useEffect(() => {
     if (!healthAutoRefresh || subTab !== "health") return;
     const timer = setInterval(loadHealth, 30000);
     return () => clearInterval(timer);
   }, [healthAutoRefresh, subTab]);
 
-  const handleMoveProvider = async (index, direction) => {
-    const sorted = [...providers].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
-    const ti = index + direction;
-    if (ti < 0 || ti >= sorted.length) return;
-    const a = sorted[index],
-      b = sorted[ti];
-    try {
-      await updateProvider(a.id, { ...a, priority: b.priority ?? 0 });
-      await updateProvider(b.id, { ...b, priority: a.priority ?? 0 });
-      toast.success("Priority swapped");
-      loadProviders();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Reorder failed");
-    }
-  };
-
-  const handleDeleteProvider = async (p) => {
-    if (providers.length <= 1) {
-      toastRef.current.error("至少需要保留一个 Provider");
+  const handleDeleteSecret = async (s) => {
+    if (s.config_count > 0) {
+      toastRef.current.error(`该密钥关联了 ${s.config_count} 个配置，请先删除配置`);
       return;
     }
-    if (p.keys_count > 0) {
-      toastRef.current.error(`Cannot delete provider with ${p.keys_count} active keys.`);
+    if (!(await confirm({ title: "删除密钥", message: `删除 "${s.label}"？`, confirmText: "删除", danger: true }))) return;
+    try {
+      await deleteSecret(s.id);
+      toast.success("密钥已删除");
+      loadSecrets();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "删除失败");
+    }
+  };
+  const handleDeleteConfig = async (c) => {
+    if (!(await confirm({ title: "删除配置", message: `删除 "${c.label}"？`, confirmText: "删除", danger: true }))) return;
+    try {
+      await deleteConfig(c.id);
+      toast.success("配置已删除");
+      loadConfigs();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "删除失败");
+    }
+  };
+  const handleToggle = async (c) => {
+    if (
+      !(await confirm({
+        title: c.status === "active" ? "停用" : "启用",
+        message: `${c.status === "active" ? "停用" : "启用"} "${c.label}"？`,
+        confirmText: c.status === "active" ? "停用" : "启用",
+      }))
+    )
       return;
-    }
-    if (!(await confirm({ title: "Delete Provider", message: `Delete "${p.name}"?`, confirmText: "Delete", danger: true }))) return;
     try {
-      await deleteProvider(p.id);
-      toastRef.current.success("Provider deleted");
-      loadProviders();
+      await toggleConfig(c.id);
+      loadConfigs();
     } catch (err) {
-      toastRef.current.error(err.response?.data?.detail || "Delete failed");
+      toast.error(err.response?.data?.detail || "操作失败");
     }
   };
-
-  const handleDeleteKey = async (k) => {
-    if (!(await confirm({ title: "Delete Key", message: `Delete "${k.label || k.id}"?`, confirmText: "Delete", danger: true }))) return;
+  const handleReset = async (c) => {
     try {
-      await deleteKey(k.id);
-      toast.success("Key deleted");
-      loadKeys();
+      await resetConfig(c.id);
+      toast.success("已恢复");
+      loadConfigs();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Delete failed");
+      toast.error(err.response?.data?.detail || "恢复失败");
     }
   };
-
-  const handleToggleKey = async (k) => {
-    const action = k.status === "active" ? "禁用" : "启用";
-    if (!(await confirm({ title: `${action} Key`, message: `确定${action} "${k.label || k.id}"？`, confirmText: action }))) return;
+  const handleTest = async (c) => {
     try {
-      await toggleKey(k.id);
-      toast.success(`Key 已${action}`);
-      loadKeys();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || `${action}失败`);
-    }
-  };
-
-  const handleTestKey = async (k) => {
-    try {
-      const { data } = await testKey(k.id);
-      if (data.ok) toast.success(`${k.label || "Key"} 连接正常 · ${data.latency_ms}ms`);
+      const { data } = await testConfig(c.id);
+      if (data.ok) toast.success(`${c.label} 连接正常 · ${data.latency_ms}ms`);
       else toast.error(data.error || "连接失败");
     } catch {
       toast.error("测试请求失败");
     }
   };
 
-  const handleReload = async () => {
-    try {
-      await reloadRouter();
-      toast.success("Router reloaded");
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Reload failed");
-    }
-  };
-
-  const handleQuickAddDS = async () => {
-    if (!dsKey.trim() || dsKey.trim().length < 10) {
-      toast.error("请输入有效的 DeepSeek API Key");
-      return;
-    }
-    setDsSaving(true);
-    try {
-      const resp = await createDeepseekKey(dsKey.trim(), dsLabel.trim() || undefined);
-      toast.success(`DeepSeek Key 已添加 (${resp.data.key_suffix})`);
-      setDsKey("");
-      setDsLabel("");
-      loadKeys();
-      loadProviders();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "添加失败");
-    } finally {
-      setDsSaving(false);
-    }
-  };
-
-  const weightTotals = {};
-  const groupedKeys = {};
-  keys.forEach((k) => {
-    const p = k.purpose || "*";
-    weightTotals[p] = (weightTotals[p] || 0) + (k.weight || 0);
-    if (!groupedKeys[p]) groupedKeys[p] = [];
-    groupedKeys[p].push(k);
+  const groupedConfigs = {};
+  configs.forEach((c) => {
+    const p = c.purpose;
+    if (!groupedConfigs[p]) groupedConfigs[p] = [];
+    groupedConfigs[p].push(c);
   });
 
   const S = {};
@@ -200,7 +148,6 @@ export default function ApiManagementTab() {
     borderBottom: "2px solid var(--border-color)",
     fontSize: "0.75rem",
     textTransform: "uppercase",
-    letterSpacing: "0.05em",
   };
   S.td = { padding: "var(--space-2) var(--space-3)", borderBottom: "1px solid var(--border-color)" };
   S.btn = {
@@ -239,27 +186,14 @@ export default function ApiManagementTab() {
     alignItems: "center",
     gap: "var(--space-1)",
   };
-  S.secondaryBtn = {
-    padding: "var(--space-2) var(--space-4)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "var(--radius-md)",
-    background: "var(--bg-surface)",
-    color: "var(--text-primary)",
-    cursor: "pointer",
-    fontSize: "0.85rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--space-1)",
-  };
-  S.empty = { textAlign: "center", color: "var(--text-tertiary)", padding: "var(--space-6)" };
 
   return (
     <>
       <div style={{ display: "flex", borderBottom: "1px solid var(--border-color)", marginBottom: "var(--space-5)" }}>
         {[
-          { k: "providers", l: "Providers" },
-          { k: "keys", l: "Keys" },
-          { k: "health", l: "Health" },
+          { k: "configs", l: "用途配置" },
+          { k: "secrets", l: "密钥凭证" },
+          { k: "health", l: "连通性" },
         ].map((t) => (
           <button key={t.k} onClick={() => setSubTab(t.k)} style={S.tabBtn(subTab === t.k)}>
             {t.l}
@@ -267,110 +201,63 @@ export default function ApiManagementTab() {
         ))}
       </div>
 
-      {/* Providers */}
-      {subTab === "providers" && (
+      {subTab === "secrets" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0, color: "var(--text-primary)" }}>LLM Providers</h3>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0 }}>密钥凭证</h3>
             <button
               onClick={() => {
-                setEditingProvider(null);
-                setShowProviderModal(true);
+                setEditingSecret(null);
+                setShowSecretModal(true);
               }}
               style={S.primaryBtn}
             >
-              <Plus size={14} /> Add Provider
+              <Plus size={14} /> 添加密钥
             </button>
           </div>
           <div className="card" style={{ overflow: "auto" }}>
             <table style={S.table}>
               <thead>
                 <tr>
-                  <th style={S.th}></th>
-                  <th style={S.th}>Name</th>
-                  <th style={S.th}>Display Name</th>
-                  <th style={S.th}>Base URL</th>
-                  <th style={S.th}>Default Model</th>
-                  <th style={S.th}>Enabled</th>
-                  <th style={S.th}>Keys</th>
-                  <th style={S.th}>Actions</th>
+                  <th style={S.th}>标签</th>
+                  <th style={S.th}>Key</th>
+                  <th style={S.th}>配置数</th>
+                  <th style={S.th}>今日费用</th>
+                  <th style={S.th}>本月费用</th>
+                  <th style={S.th}>操作</th>
                 </tr>
               </thead>
               <tbody>
-                {providers.length === 0 ? (
+                {secrets.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={S.empty}>
-                      No providers configured
+                    <td colSpan={6} style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-tertiary)" }}>
+                      暂无密钥
                     </td>
                   </tr>
                 ) : (
-                  [...providers]
-                    .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
-                    .map((p, i, arr) => (
-                      <tr key={p.id}>
-                        <td style={{ ...S.td, width: 48 }}>
-                          <button
-                            onClick={() => handleMoveProvider(i, -1)}
-                            disabled={i === 0}
-                            style={{ ...S.btn, color: i === 0 ? "var(--text-tertiary)" : "var(--text-secondary)", padding: 2 }}
-                          >
-                            <ChevronUp size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleMoveProvider(i, 1)}
-                            disabled={i === arr.length - 1}
-                            style={{ ...S.btn, color: i === arr.length - 1 ? "var(--text-tertiary)" : "var(--text-secondary)", padding: 2 }}
-                          >
-                            <ChevronDown size={14} />
-                          </button>
-                        </td>
-                        <td style={S.td}>{p.name}</td>
-                        <td style={S.td}>{p.display_name || "-"}</td>
-                        <td style={{ ...S.td, fontSize: "0.8rem", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {p.base_url}
-                        </td>
-                        <td style={S.td}>{p.default_model || "-"}</td>
-                        <td style={S.td}>
-                          <span
-                            style={S.badge(
-                              p.is_enabled !== false ? "var(--green-100)" : "var(--red-100)",
-                              p.is_enabled !== false ? "var(--green-700)" : "var(--red-700)",
-                            )}
-                          >
-                            {p.is_enabled !== false ? "Yes" : "No"}
-                          </span>
-                        </td>
-                        <td style={S.td}>{p.keys_count ?? "-"}</td>
-                        <td style={S.td}>
-                          <button
-                            onClick={() => {
-                              setEditingProvider(p);
-                              setShowProviderModal(true);
-                            }}
-                            style={{ ...S.btn, color: "var(--color-primary)" }}
-                          >
-                            <Edit3 size={12} /> Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (providers.length <= 1) {
-                                toastRef.current.error("至少需要保留一个 Provider");
-                                return;
-                              }
-                              handleDeleteProvider(p);
-                            }}
-                            disabled={providers.length <= 1}
-                            style={{
-                              ...S.btn,
-                              color: providers.length <= 1 ? "var(--text-tertiary)" : "var(--red-400)",
-                              cursor: providers.length <= 1 ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            <Trash2 size={12} /> Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                  secrets.map((s) => (
+                    <tr key={s.id}>
+                      <td style={S.td}>{s.label}</td>
+                      <td style={{ ...S.td, fontFamily: "monospace" }}>sk-...{s.key_suffix}</td>
+                      <td style={S.td}>{s.config_count}</td>
+                      <td style={S.td}>{s.total_cost_today ? `¥${Number(s.total_cost_today).toFixed(4)}` : "-"}</td>
+                      <td style={S.td}>{s.monthly_cost_used ? `¥${Number(s.monthly_cost_used).toFixed(4)}` : "-"}</td>
+                      <td style={S.td}>
+                        <button
+                          onClick={() => {
+                            setEditingSecret(s);
+                            setShowSecretModal(true);
+                          }}
+                          style={{ ...S.btn, color: "var(--color-primary)" }}
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                        <button onClick={() => handleDeleteSecret(s)} style={{ ...S.btn, color: "var(--red-400)" }}>
+                          <Trash2 size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -378,327 +265,201 @@ export default function ApiManagementTab() {
         </div>
       )}
 
-      {/* Keys */}
-      {subTab === "keys" && (
+      {subTab === "configs" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0, color: "var(--text-primary)" }}>API Keys</h3>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0 }}>用途配置</h3>
             <button
               onClick={() => {
-                setEditingKey(null);
-                setShowKeyModal(true);
+                setEditingConfig(null);
+                setShowConfigModal(true);
               }}
               style={S.primaryBtn}
             >
-              <Plus size={14} /> Add Key
+              <Plus size={14} /> 添加配置
             </button>
           </div>
-
-          <div
-            className="card"
-            style={{
-              padding: "var(--space-4)",
-              marginBottom: "var(--space-4)",
-              background: "linear-gradient(135deg, var(--blue-50), var(--bg-surface))",
-              border: "1px solid var(--blue-200)",
-              borderRadius: "var(--radius-md)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-              <Zap size={16} style={{ color: "var(--blue-600)" }} />
-              <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--blue-700)" }}>快速添加 DeepSeek</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginLeft: "auto" }}>自动配置官方参数（模型/价格/地址）</span>
-            </div>
-            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end" }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>API Key</label>
-                <input
-                  type="password"
-                  value={dsKey}
-                  onChange={(e) => setDsKey(e.target.value)}
-                  placeholder="sk-..."
-                  style={{
-                    width: "100%",
-                    padding: "var(--space-2) var(--space-3)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.85rem",
-                    boxSizing: "border-box",
-                    background: "var(--bg-surface)",
-                    color: "var(--text-primary)",
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleQuickAddDS();
-                  }}
-                />
-              </div>
-              <div style={{ width: 180 }}>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>标签（可选）</label>
-                <input
-                  value={dsLabel}
-                  onChange={(e) => setDsLabel(e.target.value)}
-                  placeholder="例如: 个人账号"
-                  style={{
-                    width: "100%",
-                    padding: "var(--space-2) var(--space-3)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.85rem",
-                    boxSizing: "border-box",
-                    background: "var(--bg-surface)",
-                    color: "var(--text-primary)",
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleQuickAddDS();
-                  }}
-                />
-              </div>
-              <button
-                onClick={handleQuickAddDS}
-                disabled={dsSaving}
-                style={{
-                  padding: "var(--space-2) var(--space-4)",
-                  border: "none",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--blue-600)",
-                  color: "#fff",
-                  cursor: dsSaving ? "not-allowed" : "pointer",
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  opacity: dsSaving ? 0.6 : 1,
-                  height: 38,
-                }}
-              >
-                {dsSaving ? "添加中..." : "添加 DeepSeek Key"}
-              </button>
-            </div>
-            <div style={{ marginTop: "var(--space-2)", fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
-              将自动配置：模型 deepseek-v4-flash · 价格 ¥1/¥2 每百万token（输入/输出）· 地址 api.deepseek.com
-            </div>
-          </div>
-
           {loading ? (
             <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>Loading...</div>
-          ) : keys.length === 0 ? (
-            <div className="card" style={S.empty}>
-              No keys configured
+          ) : configs.length === 0 ? (
+            <div className="card" style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-tertiary)" }}>
+              暂无配置
             </div>
           ) : (
-            ["patient_chat", "scoring", "qa", "*"].map((purpose) => {
-              const group = groupedKeys[purpose];
-              if (!group || group.length === 0) return null;
-              const total = weightTotals[purpose] || 1;
-              return (
+            Object.entries(groupedConfigs).map(([purpose, group]) => (
+              <div
+                key={purpose}
+                style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)", overflow: "hidden" }}
+              >
                 <div
-                  key={purpose}
-                  style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)", overflow: "hidden" }}
+                  style={{
+                    padding: "var(--space-3) var(--space-4)",
+                    background: "var(--bg-surface-subtle)",
+                    borderBottom: "1px solid var(--border-color)",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                  }}
                 >
-                  <div
-                    style={{
-                      padding: "var(--space-3) var(--space-4)",
-                      background: "var(--bg-surface-subtle)",
-                      borderBottom: "1px solid var(--border-color)",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {PURPOSE_LABELS[purpose] || purpose} ({group.length} 个账号)
-                  </div>
-                  <table style={S.table}>
-                    <thead>
-                      <tr>
-                        <th style={S.th}>Label</th>
-                        <th style={S.th}>Provider</th>
-                        <th style={S.th}>Key</th>
-                        <th style={S.th}>Model</th>
-                        <th style={S.th}>Weight</th>
-                        <th style={S.th}>Status</th>
-                        <th style={S.th}>Calls</th>
-                        <th style={S.th}>Cost</th>
-                        <th style={S.th}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.map((k) => {
-                        const pct = total > 0 ? ((k.weight || 0) / total) * 100 : 0;
-                        const warn = k.monthly_cost_limit && k.total_cost_today != null && Number(k.total_cost_today) >= Number(k.monthly_cost_limit) * 0.9;
-                        const displayStatus = (k.weight ?? 10) === 0 ? "paused" : k.status;
-                        const sc = STATUS_COLORS[displayStatus] || STATUS_COLORS.disabled;
+                  {PURPOSE_LABELS[purpose] || purpose} ({group.length} 个配置)
+                </div>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>优先级</th>
+                      <th style={S.th}>标签</th>
+                      <th style={S.th}>Secret</th>
+                      <th style={S.th}>模型</th>
+                      <th style={S.th}>状态</th>
+                      <th style={S.th}>调用</th>
+                      <th style={S.th}>今日费用</th>
+                      <th style={S.th}>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group
+                      .sort((a, b) => (a.priority || 0) - (b.priority || 0))
+                      .map((c) => {
+                        const sc = STATUS_COLORS[c.status] || STATUS_COLORS.disabled;
+                        const displayStatus = c.status === "degraded" ? `熔断·${c.degraded_reason || "unknown"}` : STATUS_LABELS[c.status];
                         return (
-                          <tr key={k.id}>
-                            <td style={S.td}>{k.label || `key-${k.id}`}</td>
-                            <td style={S.td}>{k.provider_name || k.provider_id}</td>
-                            <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>sk-...{k.key_suffix || "****"}</td>
-                            <td style={S.td}>{k.model || "-"}</td>
+                          <tr key={c.id}>
+                            <td style={S.td}>{c.priority}</td>
+                            <td style={S.td}>{c.label}</td>
+                            <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>{c.secret_label || `sk-...${c.secret_suffix}`}</td>
+                            <td style={S.td}>{c.model}</td>
                             <td style={S.td}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <div
-                                  style={{
-                                    flex: 1,
-                                    height: 7,
-                                    background: "var(--border-color)",
-                                    borderRadius: "var(--radius-full)",
-                                    overflow: "hidden",
-                                    minWidth: 60,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      height: "100%",
-                                      width: `${Math.max(pct, 2)}%`,
-                                      background: "var(--color-primary)",
-                                      borderRadius: "var(--radius-full)",
-                                      transition: "width 0.3s ease",
-                                    }}
-                                  />
-                                </div>
-                                <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", minWidth: 36, textAlign: "right" }}>
-                                  {Math.round(pct)}%
-                                </span>
-                              </div>
-                            </td>
-                            <td style={S.td}>
-                              <span style={S.badge(sc.bg, sc.color)}>{STATUS_LABELS[displayStatus] || displayStatus}</span>
-                            </td>
-                            <td style={S.td}>{k.call_count_today ?? "-"}</td>
-                            <td style={S.td}>
-                              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                {k.total_cost_today != null ? `¥${Number(k.total_cost_today).toFixed(4)}` : "-"}
-                                {warn && <AlertTriangle size={12} style={{ color: "var(--amber-500)" }} title="接近月度费用上限" />}
+                              <span style={S.badge(sc.bg, sc.color)} title={c.degraded_reason ? `原因: ${c.degraded_reason}\n恢复: ${c.degraded_until}` : ""}>
+                                {displayStatus}
                               </span>
                             </td>
+                            <td style={S.td}>{c.call_count_today ?? "-"}</td>
+                            <td style={S.td}>{c.total_cost_today != null ? `¥${Number(c.total_cost_today).toFixed(4)}` : "-"}</td>
                             <td style={S.td}>
                               <button
                                 onClick={() => {
-                                  setEditingKey(k);
-                                  setShowKeyModal(true);
+                                  setEditingConfig(c);
+                                  setShowConfigModal(true);
                                 }}
                                 style={{ ...S.btn, color: "var(--color-primary)" }}
                               >
                                 <Edit3 size={12} />
                               </button>
                               <button
-                                onClick={() => handleToggleKey(k)}
+                                onClick={() => handleToggle(c)}
                                 style={{
-                                  padding: "2px 10px",
+                                  padding: "2px 8px",
                                   borderRadius: "var(--radius-full)",
-                                  fontSize: "0.72rem",
+                                  fontSize: "0.7rem",
                                   fontWeight: 600,
-                                  border: k.status === "active" ? "1px solid var(--red-300)" : "1px solid var(--green-300)",
-                                  background: k.status === "active" ? "var(--red-50)" : "var(--green-50)",
-                                  color: k.status === "active" ? "var(--red-600)" : "var(--green-600)",
+                                  border: c.status === "active" ? "1px solid var(--red-300)" : "1px solid var(--green-300)",
+                                  background: c.status === "active" ? "var(--red-50)" : "var(--green-50)",
+                                  color: c.status === "active" ? "var(--red-600)" : "var(--green-600)",
                                   cursor: "pointer",
                                 }}
                               >
-                                {k.status === "active" ? "禁用" : "启用"}
+                                {c.status === "active" ? "停用" : "启用"}
                               </button>
-                              <button onClick={() => handleTestKey(k)} style={{ ...S.btn, color: "var(--color-primary)" }}>
+                              {c.status === "degraded" && (
+                                <button onClick={() => handleReset(c)} style={{ ...S.btn, color: "var(--amber-500)" }}>
+                                  <RefreshCw size={12} />
+                                </button>
+                              )}
+                              <button onClick={() => handleTest(c)} style={{ ...S.btn, color: "var(--color-primary)" }}>
                                 <Activity size={12} />
                               </button>
-                              <button onClick={() => handleDeleteKey(k)} style={{ ...S.btn, color: "var(--red-400)" }}>
+                              <button onClick={() => handleDeleteConfig(c)} style={{ ...S.btn, color: "var(--red-400)" }}>
                                 <Trash2 size={12} />
                               </button>
                             </td>
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })
+                  </tbody>
+                </table>
+              </div>
+            ))
           )}
         </div>
       )}
 
-      {/* Health */}
       {subTab === "health" && (
         <div>
           <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
             <button onClick={loadHealth} style={S.primaryBtn}>
-              <Activity size={14} /> Check Health
+              <Activity size={14} /> 检查连通性
             </button>
-            <button onClick={handleReload} style={S.secondaryBtn}>
-              <Server size={14} /> Reload Router
+            <button
+              onClick={() =>
+                reloadRouter()
+                  .then(() => toast.success("已重载"))
+                  .catch(() => toast.error("重载失败"))
+              }
+              className="btn btn-secondary"
+            >
+              <Server size={14} /> 重载路由
             </button>
             <button
               onClick={() => setHealthAutoRefresh((v) => !v)}
-              style={{
-                ...S.secondaryBtn,
-                background: healthAutoRefresh ? "var(--green-100)" : undefined,
-                color: healthAutoRefresh ? "var(--green-700)" : undefined,
-              }}
+              className="btn btn-secondary"
+              style={{ background: healthAutoRefresh ? "var(--green-100)" : undefined }}
             >
-              <RefreshCw size={14} style={{ animation: healthAutoRefresh ? "spin 2s linear infinite" : undefined }} />
-              {healthAutoRefresh ? "自动刷新中" : "自动刷新"}
+              <RefreshCw size={14} /> {healthAutoRefresh ? "自动刷新中" : "自动刷新"}
             </button>
           </div>
           <div className="card" style={{ overflow: "auto" }}>
-            {loading ? (
-              <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>Loading...</div>
-            ) : (
-              <table style={S.table}>
-                <thead>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}>端点</th>
+                  <th style={S.th}>状态</th>
+                  <th style={S.th}>延迟</th>
+                </tr>
+              </thead>
+              <tbody>
+                {health.length === 0 ? (
                   <tr>
-                    <th style={S.th}>Provider</th>
-                    <th style={S.th}>Status</th>
-                    <th style={S.th}>Latency</th>
+                    <td colSpan={3} style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-tertiary)" }}>
+                      点击"检查连通性"
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {health.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} style={S.empty}>
-                        Click "Check Health" to test providers
+                ) : (
+                  health.map((h, i) => (
+                    <tr key={i}>
+                      <td style={S.td}>{h.base_url}</td>
+                      <td style={S.td}>
+                        <span
+                          style={S.badge(h.status === "ok" ? "var(--green-100)" : "var(--red-100)", h.status === "ok" ? "var(--green-700)" : "var(--red-700)")}
+                        >
+                          {h.status}
+                        </span>
                       </td>
+                      <td style={S.td}>{h.latency_ms != null ? `${h.latency_ms}ms` : "-"}</td>
                     </tr>
-                  ) : (
-                    health.map((h, i) => (
-                      <tr key={i}>
-                        <td style={S.td}>{h.provider_name || h.id}</td>
-                        <td style={S.td}>
-                          <span
-                            style={S.badge(
-                              h.status === "ok" ? "var(--green-100)" : "var(--red-100)",
-                              h.status === "ok" ? "var(--green-700)" : "var(--red-700)",
-                            )}
-                          >
-                            {h.status || "unknown"}
-                          </span>
-                        </td>
-                        <td style={S.td}>{h.latency_ms != null ? `${h.latency_ms}ms` : "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      <ProviderModal
-        open={showProviderModal}
-        provider={editingProvider}
+      <SecretModal
+        open={showSecretModal}
+        secret={editingSecret}
         onClose={() => {
-          setShowProviderModal(false);
-          setEditingProvider(null);
+          setShowSecretModal(false);
+          setEditingSecret(null);
         }}
-        onSaved={loadProviders}
+        onSaved={loadSecrets}
       />
-      <KeyModal
-        open={showKeyModal}
-        keyData={editingKey}
+      <ConfigModal
+        open={showConfigModal}
+        configData={editingConfig}
         onClose={() => {
-          setShowKeyModal(false);
-          setEditingKey(null);
+          setShowConfigModal(false);
+          setEditingConfig(null);
         }}
-        onSaved={() => {
-          loadKeys();
-          loadProviders();
-        }}
+        onSaved={loadConfigs}
       />
     </>
   );
