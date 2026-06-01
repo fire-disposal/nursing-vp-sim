@@ -1,212 +1,127 @@
-"""tests for LLMRouter priority-based weighted routing"""
+"""tests for ConfigRouter priority-based degradation routing"""
 import pytest
-from services.llm_router import LLMRouter
-
-router = LLMRouter()
-
-
-def _make_config(keys_data):
-    """Simulate config loaded from DB: {provider_id: {provider, keys}}"""
-    providers = {}
-    for pid, pd in keys_data.items():
-        p = type("p", (), {
-            "id": pid, "name": pd["name"], "display_name": pd["name"],
-            "base_url": pd["base_url"], "default_model": pd.get("model", "gpt-4"),
-            "is_enabled": pd.get("is_enabled", True),
-            "priority": pd.get("provider_priority", 10),
-        })()
-        keys = []
-        for kd in pd["keys"]:
-            k = type("k", (), {
-                "id": kd["id"], "provider_id": pid, "label": kd.get("label", ""),
-                "model": kd.get("model"), "weight": kd.get("weight", 10),
-                "status": kd.get("status", "active"),
-                "purpose": kd.get("purpose", "*"),
-                "priority": kd.get("priority", 100),
-                "consecutive_failures": kd.get("consecutive_failures", 0),
-                "rate_limit_until": None,
-                "price_input_per_1m": 0, "price_output_per_1m": 0,
-                "encrypted_key": kd.get("encrypted_key", "enc-test"),
-            })()
-            keys.append(k)
-        p.keys = keys
-        providers[pid] = {"provider": p, "keys": keys}
-    return providers
+from datetime import datetime, timezone, timedelta
+from services.llm_router import ConfigRouter
+from models import LLMConfig, ApiSecret
 
 
-def test_select_key_single():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://api.deepseek.com",
-            "provider_priority": 10,
-            "keys": [{"id": 1, "purpose": "patient_chat", "priority": 10}]}
-    })
-    router._load_config(cfg)
-    key, provider = router.select_key("patient_chat")
-    assert key.id == 1
-    assert provider.name == "deepseek"
+def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx"):
+    s = ApiSecret(id=id, label=label, encrypted_key=key, key_suffix=suffix)
+    return s
 
 
-def test_select_key_weight_zero_never_chosen():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [
-                {"id": 1, "weight": 10, "purpose": "*"},
-                {"id": 2, "weight": 0, "purpose": "*"},
-            ]}
-    })
-    router._load_config(cfg)
-    results = [router.select_key("*")[0].id for _ in range(100)]
-    assert results.count(1) == 100
-    assert results.count(2) == 0
+def _make_config(id, secret, purpose="qa", priority=10, status="active",
+                 model="test-model", base_url="https://test.api",
+                 consecutive_failures=0, degraded_reason=None,
+                 degraded_until=None):
+    c = LLMConfig(
+        id=id, secret_id=secret.id, label=f"cfg-{id}",
+        base_url=base_url, model=model,
+        purpose=purpose, priority=priority, status=status,
+        consecutive_failures=consecutive_failures,
+        degraded_reason=degraded_reason,
+        degraded_until=degraded_until,
+        price_input_per_1m=1, price_output_per_1m=2,
+    )
+    c.secret = secret
+    return c
 
 
-def test_select_key_provider_failover():
-    """provider_priority controls failover order"""
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com", "provider_priority": 10,
-            "keys": [{"id": 1, "purpose": "scoring", "weight": 10}]},
-        2: {"name": "openai", "base_url": "https://x.com", "provider_priority": 20,
-            "keys": [{"id": 2, "purpose": "scoring", "weight": 10}]},
-    })
-    router._load_config(cfg)
-    key, provider = router.select_key("scoring")
-    assert key.id == 1
-    assert provider.name == "deepseek"
+def test_select_key_single_config():
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg = _make_config(1, secret)
+    router._cache_by_purpose = {"qa": [cfg]}
+
+    result = router.select_key("qa")
+    assert result.id == 1
 
 
-def test_select_key_disabled_skipped_then_provider_failover():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com", "provider_priority": 10,
-            "keys": [{"id": 1, "purpose": "scoring", "status": "disabled"}]},
-        2: {"name": "openai", "base_url": "https://x.com", "provider_priority": 20,
-            "keys": [{"id": 2, "purpose": "scoring"}]},
-    })
-    router._load_config(cfg)
-    key, provider = router.select_key("scoring")
-    assert key.id == 2
-    assert provider.name == "openai"
+def test_select_key_skips_disabled():
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg1 = _make_config(1, secret, priority=10, status="disabled")
+    cfg2 = _make_config(2, secret, priority=20, status="active")
+    router._cache_by_purpose = {"qa": [cfg1, cfg2]}
+
+    result = router.select_key("qa")
+    assert result.id == 2
 
 
-def test_select_key_wildcard_purpose():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [{"id": 1, "purpose": "*"}]}
-    })
-    router._load_config(cfg)
-    key, _ = router.select_key("scoring")
-    assert key.id == 1
+def test_select_key_skips_degraded_in_cooldown():
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg1 = _make_config(1, secret, priority=10, status="degraded",
+                        degraded_until=datetime.now(timezone.utc) + timedelta(minutes=5))
+    cfg2 = _make_config(2, secret, priority=20, status="active")
+    router._cache_by_purpose = {"qa": [cfg1, cfg2]}
+
+    result = router.select_key("qa")
+    assert result.id == 2
 
 
-def test_select_key_specific_purpose_preferred_over_wildcard():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [
-                {"id": 1, "purpose": "patient_chat"},
-                {"id": 2, "purpose": "*"},
-            ]}
-    })
-    router._load_config(cfg)
-    key, _ = router.select_key("scoring")
-    assert key.id == 2  # wildcard matches
-    key, _ = router.select_key("patient_chat")
-    assert key.id == 1  # specific matches
+def test_select_key_uses_degraded_after_ttl():
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg1 = _make_config(1, secret, priority=10, status="degraded",
+                        degraded_until=datetime.now(timezone.utc) - timedelta(seconds=1))
+    cfg2 = _make_config(2, secret, priority=20, status="active")
+    router._cache_by_purpose = {"qa": [cfg1, cfg2]}
+
+    result = router.select_key("qa")
+    assert result.id == 1
 
 
 def test_select_key_all_unavailable():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [{"id": 1, "purpose": "qa", "status": "disabled"}]}
-    })
-    router._load_config(cfg)
-    with pytest.raises(RuntimeError, match="无可用"):
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg = _make_config(1, secret, status="disabled")
+    router._cache_by_purpose = {"qa": [cfg]}
+
+    with pytest.raises(RuntimeError, match="无可用配置"):
         router.select_key("qa")
 
 
-def test_select_key_rate_limited_skipped_then_fallback():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com", "provider_priority": 10,
-            "keys": [{"id": 1, "purpose": "*", "status": "rate_limited"}]},
-        2: {"name": "openai", "base_url": "https://x.com", "provider_priority": 20,
-            "keys": [{"id": 2, "purpose": "*"}]},
-    })
-    router._load_config(cfg)
-    key, provider = router.select_key("*")
-    assert key.id == 2
-    assert provider.name == "openai"
+def test_report_result_consecutive_failures_circuit_break():
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg = _make_config(1, secret)
+    router._cache_by_purpose = {"qa": [cfg]}
 
-
-def test_report_result_success_resets_failures():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [{"id": 1, "purpose": "*", "consecutive_failures": 4}]}
-    })
-    router._load_config(cfg)
-    key, _ = router.select_key("*")
-    assert key.consecutive_failures == 4
-    router.report_result(1, success=True, tokens=100, latency_ms=500, error=None)
-    assert key.consecutive_failures == 0
+    for i in range(5):
+        router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="timeout")
+    assert cfg.status == "degraded"
+    assert cfg.degraded_reason == "consecutive_failures"
 
 
 def test_report_result_429_sets_rate_limited():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [{"id": 1, "purpose": "*"}]}
-    })
-    router._load_config(cfg)
-    router.report_result(1, success=False, tokens=0, latency_ms=100,
-                         error="HTTP 429: rate limited")
-    key = router._get_key(1)
-    assert key.status == "rate_limited"
-    assert key.rate_limit_until is not None
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg = _make_config(1, secret)
+    router._cache_by_purpose = {"qa": [cfg]}
+
+    router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="HTTP 429")
+    assert cfg.status == "degraded"
+    assert cfg.degraded_reason == "rate_limited"
 
 
-def test_report_result_consecutive_failures_circuit_break():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [{"id": 1, "purpose": "*"}]}
-    })
-    router._load_config(cfg)
-    key = router._get_key(1)
-    for _ in range(5):
-        router.report_result(1, success=False, tokens=0, latency_ms=100, error="500 error")
-    assert key.status == "disabled"
+def test_report_result_success_clears_degraded():
+    router = ConfigRouter()
+    secret = _make_secret()
+    cfg = _make_config(1, secret, status="degraded", degraded_reason="rate_limited",
+                       degraded_until=datetime.now(timezone.utc) + timedelta(minutes=5),
+                       consecutive_failures=3)
+    router._cache_by_purpose = {"qa": [cfg]}
+
+    router.report_result(cfg, success=True, tokens=100, latency_ms=50, error=None)
+    assert cfg.status == "active"
+    assert cfg.degraded_reason is None
+    assert cfg.consecutive_failures == 0
 
 
-def test_get_decrypted_key():
-    from services.crypto_utils import encrypt_api_key
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [{"id": 1, "purpose": "*",
-                       "encrypted_key": encrypt_api_key("sk-real-key")}]}
-    })
-    router._load_config(cfg)
-    key = router.get_decrypted_key(1)
-    assert key == "sk-real-key"
+def test_select_key_no_config_for_purpose():
+    router = ConfigRouter()
+    router._cache_by_purpose = {"qa": []}
 
-
-def test_select_key_returns_provider_info():
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://api.deepseek.com", "model": "deepseek-chat",
-            "keys": [{"id": 1, "purpose": "scoring", "model": "deepseek-reasoner"}]}
-    })
-    router._load_config(cfg)
-    key, provider = router.select_key("scoring")
-    assert key.id == 1
-    assert key.model == "deepseek-reasoner"
-    assert provider.name == "deepseek"
-    assert provider.base_url == "https://api.deepseek.com"
-
-
-def test_select_key_same_provider_weighted_distribution():
-    """Weighted random within same provider should distribute proportionally"""
-    cfg = _make_config({
-        1: {"name": "deepseek", "base_url": "https://x.com",
-            "keys": [
-                {"id": 1, "purpose": "*", "weight": 8},
-                {"id": 2, "purpose": "*", "weight": 2},
-            ]}
-    })
-    router._load_config(cfg)
-    results = [router.select_key("*")[0].id for _ in range(100)]
-    # key 1 (weight 8) should be selected much more often than key 2 (weight 2)
-    assert results.count(1) > results.count(2)
+    with pytest.raises(RuntimeError, match="无可用配置"):
+        router.select_key("scoring")
