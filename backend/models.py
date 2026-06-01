@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, Text, Float, Boolean, DateTime, Date,
-    BigInteger, Numeric, JSON, ForeignKey, Index, UniqueConstraint,
+    BigInteger, Numeric, ForeignKey, Index, UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -28,7 +29,7 @@ class Case(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
-    case_data = Column(JSON, nullable=False)  # 完整病例数据
+    case_data = Column(JSONB, nullable=False)  # 完整病例数据
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
@@ -77,10 +78,10 @@ class Score(Base):
     id = Column(Integer, primary_key=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), unique=True, nullable=False)
     total_score = Column(Float, nullable=False)
-    detail_scores = Column(JSON, nullable=True)
-    strengths = Column(JSON, nullable=True)
-    weaknesses = Column(JSON, nullable=True)
-    missed_content = Column(JSON, nullable=True)
+    detail_scores = Column(JSONB, nullable=True)
+    strengths = Column(JSONB, nullable=True)
+    weaknesses = Column(JSONB, nullable=True)
+    missed_content = Column(JSONB, nullable=True)
     suggestions = Column(Text, nullable=True)
     # 评分标准版本追踪
     rubric_version = Column(String(40), nullable=True)
@@ -91,7 +92,7 @@ class Score(Base):
     review_status = Column(String(20), nullable=True)  # null / reviewed
     reviewed_by = Column(Integer, nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
-    review_detail_scores = Column(JSON, nullable=True)
+    review_detail_scores = Column(JSONB, nullable=True)
     review_comment = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -139,7 +140,7 @@ class LLMCallLog(Base):
     error_message = Column(Text, nullable=True)
     request_chars = Column(Integer, nullable=True)
     response_chars = Column(Integer, nullable=True)
-    meta = Column(JSON, nullable=True)
+    meta = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
     api_key = relationship("ApiKey")
@@ -323,7 +324,7 @@ class PromptTemplate(Base):
     system_prompt = Column(Text, nullable=False)
     user_prompt = Column(Text, nullable=True)
     template_engine = Column(String(20), nullable=False, default="format")
-    variables = Column(JSON, nullable=True)
+    variables = Column(JSONB, nullable=True)
     is_active = Column(Boolean, nullable=False, default=False)
     created_by = Column(String(80), nullable=True)
     remark = Column(Text, nullable=True)

@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import cast, func, Integer
+from sqlalchemy import func
 from database import get_db
 from models import Case, TrainingRecord, User
 from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse
@@ -80,7 +80,7 @@ def list_cases_manage(
     if name:
         query = query.filter(Case.name.ilike(f"%{name}%"))
     if difficulty is not None:
-        query = query.filter(cast(Case.case_data["difficulty"].astext, Integer) == difficulty)
+        query = query.filter(Case.case_data["difficulty"].as_integer() == difficulty)
     total = query.order_by(None).count()
     cases = query.offset(offset).limit(limit).all()
 
