@@ -18,7 +18,11 @@ function pickVoice() {
 export default function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(() => localStorage.getItem("voiceAutoPlay") === "true");
+
+  useEffect(() => {
+    localStorage.setItem("voiceAutoPlay", autoPlay ? "true" : "false");
+  }, [autoPlay]);
   const [speechSupported, setSpeechSupported] = useState({ recognition: false, synthesis: false });
 
   const voiceRef = useRef(null);

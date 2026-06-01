@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Circle, Clock, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Clock, Ear, EarOff, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail, sendMessageStream } from "../api";
@@ -535,6 +535,15 @@ export default function ChatTraining() {
           <Clock size={16} />
           <span>{formatTime(remaining)}</span>
         </div>
+        {voice.speechSupported.synthesis && (
+          <button
+            className={`voice-auto-btn${voice.autoPlay ? " active" : ""}`}
+            onClick={() => voice.setAutoPlay(!voice.autoPlay)}
+            title={voice.autoPlay ? "关闭自动朗读" : "开启自动朗读"}
+          >
+            {voice.autoPlay ? <Ear size={16} /> : <EarOff size={16} />}
+          </button>
+        )}
         <button className="training-end-btn" onClick={handleEnd} disabled={ending || messages.length <= 1}>
           <Phone size={16} />
           <span>{ending ? "评分中..." : "结束训练"}</span>
@@ -564,7 +573,7 @@ export default function ChatTraining() {
                 </p>
               </div>
               {msg.role === "student" && <img className="msg-avatar" src={getNurseAvatar()} alt="护士" />}
-              {msg.role === "patient" && !msg.streaming && voice.speechSupported.synthesis && (
+              {msg.role === "patient" && !msg.streaming && !voice.autoPlay && voice.speechSupported.synthesis && (
                 <button className="msg-speak-btn" onClick={() => handleSpeakToggle(msg.content)} title={voice.isSpeaking ? "停止朗读" : "朗读"}>
                   {voice.isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 </button>

@@ -725,6 +725,35 @@ body {
   font-weight: 600;
 }
 
+.voice-auto-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--gray-50);
+  color: var(--gray-400);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.voice-auto-btn:hover {
+  border-color: var(--blue-300);
+  color: var(--blue-500);
+  background: var(--blue-50);
+}
+.voice-auto-btn.active {
+  border-color: var(--blue-500);
+  background: var(--blue-50);
+  color: var(--blue-600);
+}
+.voice-auto-btn.active:hover {
+  background: var(--blue-100);
+}
+
 .training-end-btn {
   display: flex;
   align-items: center;
