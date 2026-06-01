@@ -302,6 +302,36 @@ async def reload_router(current_user: User = Depends(require_teacher)):
     return {"ok": True}
 
 
+# ── 环境兜底状态 ──
+
+@router.get("/fallback")
+def get_env_fallback(
+    current_user: User = Depends(require_teacher),
+):
+    from services.llm_router import get_env_fallback_state
+    return get_env_fallback_state()
+
+
+@router.post("/fallback/test")
+async def test_env_fallback(
+    current_user: User = Depends(require_teacher),
+):
+    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+    if not DEEPSEEK_API_KEY:
+        return {"ok": False, "error": "DEEPSEEK_API_KEY 未设置"}
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
+            t0 = time.monotonic()
+            resp = await client.get(
+                f"{DEEPSEEK_BASE_URL}/v1/models",
+                headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            )
+            latency = int((time.monotonic() - t0) * 1000)
+            return {"ok": resp.status_code < 400, "status_code": resp.status_code, "latency_ms": latency}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
+
 @router.get("/health")
 async def health_check(
     current_user: User = Depends(require_teacher),

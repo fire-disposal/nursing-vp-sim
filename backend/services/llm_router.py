@@ -1,6 +1,7 @@
 """LLM 路由调度器 —— 基于 LLMConfig priority 降级 + 熔断自动恢复"""
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 
 _logger = logging.getLogger("nursing")
@@ -9,6 +10,32 @@ CIRCUIT_BREAKER_THRESHOLD = 5
 RATE_LIMIT_COOLDOWN_SECONDS = 60
 DEGRADED_TTL_SECONDS = 300
 GLOBAL_DEGRADED_TTL_SECONDS = 30
+
+# ── 环境变量密钥兜底状态（启动时由 main.py 写入，admin API 读取）──
+_env_fallback_available = False
+_env_fallback_latency_ms: int | None = None
+_env_fallback_error: str | None = None
+
+
+def set_env_fallback_state(available: bool, latency_ms: int | None = None, error: str | None = None):
+    global _env_fallback_available, _env_fallback_latency_ms, _env_fallback_error
+    _env_fallback_available = available
+    _env_fallback_latency_ms = latency_ms
+    _env_fallback_error = error
+
+
+def get_env_fallback_state() -> dict:
+    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+    return {
+        "available": _env_fallback_available,
+        "label": "环境变量兜底",
+        "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
+        "base_url": DEEPSEEK_BASE_URL,
+        "model_flash": DEEPSEEK_MODEL,
+        "model_pro": DEEPSEEK_MODEL_PRO,
+        "latency_ms": _env_fallback_latency_ms,
+        "error": _env_fallback_error,
+    }
 
 
 class _SyntheticConfig:
@@ -104,10 +131,10 @@ class ConfigRouter:
 
             return cfg
 
-        # ── 应急硬编码兜底：DB 无配置时直接用 .env 中的 DEEPSEEK_API_KEY ──
+        # ── 🚨 最后防线：DB 无可用配置时直接用 .env 的 DEEPSEEK_API_KEY ──
         from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-            _logger.warning("LLMRouter: 无DB可用配置，使用 .env DEEPSEEK 密钥应急兜底 (purpose=%s)", purpose)
+            _logger.warning("LLMRouter: 最后防线 — 使用 .env DEEPSEEK 密钥应急兜底 (purpose=%s)", purpose)
             if purpose == "scoring":
                 return _SyntheticConfig(
                     label="DeepSeek Pro (env-fallback)",

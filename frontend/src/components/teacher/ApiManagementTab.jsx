@@ -1,15 +1,17 @@
-import { Activity, CheckCircle, Edit3, Plus, RefreshCw, Server, Trash2, XCircle } from "lucide-react";
+import { Activity, CheckCircle, Edit3, Plus, RefreshCw, Server, Shield, Trash2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkHealth,
   deleteConfig,
   deleteSecret,
   fetchConfigs,
+  fetchEnvFallback,
   fetchSecrets,
   reloadRouter,
   resetConfig,
   testAllConfigs,
   testConfig,
+  testEnvFallback,
   toggleConfig,
 } from "../../api/apiManagement";
 import { useToast } from "../Toast";
@@ -45,6 +47,8 @@ export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) 
   const [editingConfig, setEditingConfig] = useState(null);
   const [testingAll, setTestingAll] = useState(false);
   const [testResults, setTestResults] = useState(null);
+  const [envFallback, setEnvFallback] = useState(null);
+  const [testingFallback, setTestingFallback] = useState(false);
   const toastRef = useRef(toast);
   useEffect(() => {
     toastRef.current = toast;
@@ -69,6 +73,27 @@ export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) 
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+  const loadFallback = useCallback(() => {
+    fetchEnvFallback()
+      .then(({ data }) => setEnvFallback(data))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadFallback();
+  }, [loadFallback]);
+  const handleTestFallback = async () => {
+    setTestingFallback(true);
+    try {
+      const { data } = await testEnvFallback();
+      if (data.ok) toast.success(`环境密钥连通正常 · ${data.latency_ms}ms`);
+      else toast.error(data.error || "连通失败");
+      loadFallback();
+    } catch {
+      toast.error("测试请求失败");
+    } finally {
+      setTestingFallback(false);
+    }
+  };
   useEffect(() => {
     if (subTab === "secrets") loadSecrets();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -231,6 +256,71 @@ export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) 
           ))}
         </div>
       )}
+
+      {/* 🚨 最后防线：环境变量兜底状态 */}
+      <div
+        className="card"
+        style={{
+          marginBottom: "var(--space-4)",
+          border: envFallback?.available ? "1px solid var(--amber-300)" : "1px solid var(--red-300)",
+          background: envFallback?.available ? "var(--amber-50)" : "var(--red-50)",
+          padding: "var(--space-3) var(--space-4)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <Shield size={18} style={{ color: envFallback?.available ? "var(--amber-600)" : "var(--red-500)" }} />
+            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>环境兜底</span>
+            <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>最后防线 · 只读</span>
+            {envFallback ? (
+              <span
+                style={{
+                  padding: "1px 8px",
+                  borderRadius: "var(--radius-full)",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  background: envFallback.available ? "var(--green-100)" : "var(--red-100)",
+                  color: envFallback.available ? "var(--green-700)" : "var(--red-700)",
+                }}
+              >
+                {envFallback.available ? "可用" : "不可用"}
+              </span>
+            ) : (
+              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>加载中...</span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+            {envFallback && (
+              <>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                  {envFallback.model_flash} / {envFallback.model_pro} @ {envFallback.base_url}
+                </span>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", fontFamily: "monospace" }}>sk-...{envFallback.key_suffix}</span>
+                {envFallback.latency_ms != null && <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{envFallback.latency_ms}ms</span>}
+              </>
+            )}
+            <button
+              onClick={handleTestFallback}
+              disabled={testingFallback}
+              style={{
+                padding: "var(--space-1) var(--space-3)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--radius-md)",
+                background: testingFallback ? "var(--text-tertiary)" : "#fff",
+                cursor: "pointer",
+                fontSize: "0.75rem",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Activity size={12} />
+              {testingFallback ? "测试中..." : "测试连通"}
+            </button>
+          </div>
+        </div>
+        {envFallback?.error && <div style={{ marginTop: "var(--space-1)", fontSize: "0.75rem", color: "var(--red-600)" }}>{envFallback.error}</div>}
+      </div>
 
       {subTab === "secrets" && (
         <div>

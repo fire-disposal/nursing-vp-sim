@@ -25,12 +25,15 @@ _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024))) 
 async def _verify_llm_key() -> bool:
     """数据库初始化前验证 LLM API Key 连通性"""
     from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+    from services.llm_router import set_env_fallback_state
 
     if not DEEPSEEK_API_KEY:
         _startup_logger.warning("DEEPSEEK_API_KEY 未设置")
+        set_env_fallback_state(False, error="DEEPSEEK_API_KEY 未设置")
         return False
     if not DEEPSEEK_API_KEY.startswith("sk-") or len(DEEPSEEK_API_KEY) < 20:
         _startup_logger.warning("DEEPSEEK_API_KEY 格式无效 (需以 sk- 开头且 >=20 字符)")
+        set_env_fallback_state(False, error="API Key 格式无效")
         return False
 
     import httpx
@@ -45,11 +48,15 @@ async def _verify_llm_key() -> bool:
         ms = int((time.perf_counter() - t0) * 1000)
         if ok:
             _startup_logger.info("DeepSeek 密钥连通性验证通过 ✓  %dms", ms)
+            set_env_fallback_state(True, latency_ms=ms)
         else:
             _startup_logger.error("DeepSeek 密钥连通性验证失败 ✗  HTTP %d, %dms", resp.status_code, ms)
+            set_env_fallback_state(False, error=f"HTTP {resp.status_code}", latency_ms=ms)
         return ok
     except Exception as e:
+        error_msg = str(e)[:200]
         _startup_logger.error("DeepSeek 密钥连通性验证异常 ✗  %s", e)
+        set_env_fallback_state(False, error=error_msg)
         return False
 
 
@@ -338,6 +345,12 @@ def _seed_llm_configs():
                 price_input_per_1m=1, price_output_per_1m=2,
             ),
             LLMConfig(
+                secret_id=secret.id, label="DeepSeek Flash (QA)",
+                base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
+                purpose="qa", priority=50,
+                price_input_per_1m=1, price_output_per_1m=2,
+            ),
+            LLMConfig(
                 secret_id=secret.id, label="DeepSeek Flash",
                 base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
                 purpose="*", priority=100,
@@ -346,7 +359,7 @@ def _seed_llm_configs():
         ]
         db.add_all(cfgs)
         db.commit()
-        _startup_logger.info("LLM seed 完成: 初始密钥 + 2 配置 (pro=scoring, flash=*)")
+        _startup_logger.info("LLM seed 完成: 初始密钥 + 3 配置 (scoring=pro, qa=flash, *=flash)")
     except Exception as e:
         _startup_logger.error("LLM seed 失败: %s", e)
         db.rollback()

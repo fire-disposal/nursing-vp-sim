@@ -48,6 +48,14 @@ export function checkHealth() {
   return api.get("/admin/api/health");
 }
 
+// 环境兜底
+export function fetchEnvFallback() {
+  return api.get("/admin/api/fallback");
+}
+export function testEnvFallback() {
+  return api.post("/admin/api/fallback/test");
+}
+
 export function fetchPrompts(purpose) {
   const params = {};
   if (purpose) params.purpose = purpose;
