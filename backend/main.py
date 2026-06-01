@@ -53,6 +53,8 @@ async def lifespan(app: FastAPI):
             if db.query(LLMConfig).count() > 0:
                 _startup_logger.info("LLMConfig 已有数据，跳过 seed")
             elif DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-") and len(DEEPSEEK_API_KEY) >= 20:
+                _startup_logger.info("初始LLM密钥有效 (key=***%s), base=%s, pro=%s, flash=%s",
+                                     DEEPSEEK_API_KEY[-4:], DEEPSEEK_BASE_URL, DEEPSEEK_MODEL_PRO, DEEPSEEK_MODEL)
                 suffix = DEEPSEEK_API_KEY[-4:]
                 secret = ApiSecret(
                     label="初始服务密钥",
