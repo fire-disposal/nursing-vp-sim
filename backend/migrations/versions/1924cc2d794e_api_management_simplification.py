@@ -82,32 +82,70 @@ def upgrade() -> None:
             consecutive_failures, last_used_at, created_at, updated_at
         )
         SELECT
-            s.id,
-            COALESCE(k.label, p.display_name || '-' || k.key_suffix),
-            p.base_url,
-            COALESCE(k.model, p.default_model),
-            COALESCE(k.purpose, '*'),
-            COALESCE(k.priority, 100),
-            CASE
-                WHEN k.status = 'rate_limited' THEN 'degraded'
-                WHEN k.status = 'paused' THEN 'disabled'
-                ELSE COALESCE(k.status, 'active')
-            END,
-            CASE
-                WHEN k.status = 'rate_limited' THEN 'rate_limited'
-                ELSE NULL
-            END,
-            CASE
-                WHEN k.status = 'rate_limited' THEN k.rate_limit_until
-                ELSE NULL
-            END,
-            COALESCE(k.price_input_per_1m, 0), COALESCE(k.price_output_per_1m, 0), k.monthly_cost_limit,
-            COALESCE(k.call_count_today, 0), COALESCE(k.total_tokens_today, 0), COALESCE(k.total_cost_today, 0),
-            COALESCE(k.monthly_cost_used, 0), k.stats_date, k.stats_month,
-            COALESCE(k.consecutive_failures, 0), k.last_used_at, k.created_at, k.updated_at
-        FROM api_keys k
-        JOIN api_providers p ON k.provider_id = p.id
-        JOIN api_secrets s ON s.encrypted_key = k.encrypted_key AND s.key_suffix = k.key_suffix
+            sub.secret_id,
+            sub.label,
+            sub.base_url,
+            sub.model,
+            sub.purpose,
+            sub.priority,
+            sub.status,
+            sub.degraded_reason,
+            sub.degraded_until,
+            sub.price_input_per_1m,
+            sub.price_output_per_1m,
+            sub.monthly_cost_limit,
+            sub.call_count_today,
+            sub.total_tokens_today,
+            sub.total_cost_today,
+            sub.monthly_cost_used,
+            sub.stats_date,
+            sub.stats_month,
+            sub.consecutive_failures,
+            sub.last_used_at,
+            sub.created_at,
+            sub.updated_at
+        FROM (
+            SELECT
+                s.id AS secret_id,
+                COALESCE(k.label, p.display_name || '-' || k.key_suffix) AS label,
+                p.base_url,
+                COALESCE(k.model, p.default_model) AS model,
+                COALESCE(k.purpose, '*') AS purpose,
+                COALESCE(k.priority, 100)
+                    + ROW_NUMBER() OVER (
+                        PARTITION BY COALESCE(k.purpose, '*')
+                        ORDER BY COALESCE(k.priority, 100), k.id
+                    ) - 1 AS priority,
+                CASE
+                    WHEN k.status = 'rate_limited' THEN 'degraded'
+                    WHEN k.status = 'paused' THEN 'disabled'
+                    ELSE COALESCE(k.status, 'active')
+                END AS status,
+                CASE
+                    WHEN k.status = 'rate_limited' THEN 'rate_limited'
+                    ELSE NULL
+                END AS degraded_reason,
+                CASE
+                    WHEN k.status = 'rate_limited' THEN k.rate_limit_until
+                    ELSE NULL
+                END AS degraded_until,
+                COALESCE(k.price_input_per_1m, 0) AS price_input_per_1m,
+                COALESCE(k.price_output_per_1m, 0) AS price_output_per_1m,
+                k.monthly_cost_limit,
+                COALESCE(k.call_count_today, 0) AS call_count_today,
+                COALESCE(k.total_tokens_today, 0) AS total_tokens_today,
+                COALESCE(k.total_cost_today, 0) AS total_cost_today,
+                COALESCE(k.monthly_cost_used, 0) AS monthly_cost_used,
+                k.stats_date,
+                k.stats_month,
+                COALESCE(k.consecutive_failures, 0) AS consecutive_failures,
+                k.last_used_at,
+                k.created_at,
+                k.updated_at
+            FROM api_keys k
+            JOIN api_providers p ON k.provider_id = p.id
+            JOIN api_secrets s ON s.encrypted_key = k.encrypted_key AND s.key_suffix = k.key_suffix
+        ) sub
     """))
 
 

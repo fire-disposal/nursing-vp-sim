@@ -163,3 +163,34 @@ purpose="scoring" 的配置（按 priority ASC）:
 3. 路由层替换 `LLMRouter.select_key()` → 基于 LLMConfig 的遍历逻辑
 4. 前端重构管理面板（Secrets 页 + Configs 页）
 5. 标记旧表（`api_providers`, `api_keys`）为 deprecated，保留数据不下线，后续版本清理
+
+## 回滚方案
+
+### 自动回滚（CD 管道）
+
+部署流水线在 `docker compose up -d` 后执行健康检查（轮询 Docker health + curl /api/health）。如健康检查失败，自动执行：
+
+1. 将 compose 文件中的 image 标签还原为部署前的版本
+2. `docker compose down && docker compose up -d`
+3. 输出告警日志
+
+### 手动恢复（数据库层面）
+
+Alembic 迁移在 PostgreSQL 上是事务性的。如果迁移失败，数据库自动回到迁移前状态（`api_secrets` 和 `llm_configs` 表不存在，`api_providers` 和 `api_keys` 保持不变）。
+
+若需手动回滚已成功的迁移：
+```bash
+docker exec nursing-vp-sim-backend-1 alembic downgrade -1
+```
+
+### 快照恢复（极端情况）
+
+部署前 CD 自动执行 `pg_dump` 备份。极端情况下手动恢复：
+```bash
+docker exec -i nursing-db psql -U nursing -d nursing_vp < /opt/nursing-vp-sim/backups/pre-deploy-XXXX.sql
+docker compose restart backend
+```
+
+### 同 Purpose 同 Priority 冲突处理
+
+迁移使用 `ROW_NUMBER()` 窗口函数去重：同一 purpose 内，第 N 个重复 key 的 priority 自动 = 原始 priority + (N-1)，确保 `UNIQUE(purpose, priority)` 约束不触发冲突。
