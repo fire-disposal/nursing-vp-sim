@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createConfig, updateConfig, fetchSecrets } from "../../api/apiManagement";
 import Modal from "../ui/Modal";
 import { useToast } from "../Toast";
@@ -30,9 +30,25 @@ const MODEL_PRESETS = [
 export default function ConfigModal({ open, configData, onClose, onSaved }) {
   const [mode, setMode] = useState("form");
   const [secrets, setSecrets] = useState([]);
+  const [secretsLoaded, setSecretsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const { success, error } = useToast();
   const isEdit = configData != null;
+
+  const newFormDefaults = useCallback(() => {
+    const sid = secrets.length > 0 ? secrets[0].id : "";
+    return {
+      secret_id: sid,
+      label: "",
+      base_url: "",
+      model: "",
+      purpose: "qa",
+      priority: 10,
+      price_input_per_1m: 1,
+      price_output_per_1m: 2,
+      monthly_cost_limit: "",
+    };
+  }, [secrets]);
 
   const [form, setForm] = useState({
     secret_id: "",
@@ -62,8 +78,11 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
   useEffect(() => {
     if (open) {
       fetchSecrets()
-        .then(({ data }) => setSecrets(data))
-        .catch(() => {});
+        .then(({ data }) => {
+          setSecrets(data);
+          setSecretsLoaded(true);
+        })
+        .catch(() => setSecretsLoaded(true));
       if (configData) {
         const f = {
           secret_id: String(configData.secret_id || ""),
@@ -79,32 +98,40 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
         setForm(f);
         setJsonText(JSON.stringify(configData, null, 2));
       } else {
-        setForm({
-          secret_id: secrets[0]?.id || "",
-          label: "",
-          base_url: "",
-          model: "",
-          purpose: "qa",
-          priority: 10,
-          price_input_per_1m: 1,
-          price_output_per_1m: 2,
-          monthly_cost_limit: "",
-        });
+        setForm(newFormDefaults());
         setJsonText("");
       }
     }
-  }, [open, configData]);
+  }, [open, configData, newFormDefaults]);
 
   const updateField = (name, value) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const sanitizePayload = (raw) => {
+    const data = { ...raw };
+    data.secret_id = Number(data.secret_id);
+    if (!data.secret_id || !Number.isFinite(data.secret_id)) return null;
+    data.priority = Number(data.priority) || 10;
+    if (data.monthly_cost_limit === "" || data.monthly_cost_limit === undefined) {
+      delete data.monthly_cost_limit;
+    } else {
+      data.monthly_cost_limit = Number(data.monthly_cost_limit);
+    }
+    return data;
+  };
+
   const handleSave = async () => {
     let data;
     try {
-      data = mode === "json" ? JSON.parse(jsonText) : { ...form };
+      const raw = mode === "json" ? JSON.parse(jsonText) : { ...form };
+      data = sanitizePayload(raw);
     } catch {
       error("JSON 格式无效");
+      return;
+    }
+    if (!data) {
+      error("请选择密钥凭证");
       return;
     }
     setSaving(true);
@@ -119,7 +146,10 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
       onSaved();
       onClose();
     } catch (e) {
-      error(e.response?.data?.detail || "保存失败");
+      const detail = e.response?.data?.detail;
+      if (typeof detail === "string") error(detail);
+      else if (detail && Array.isArray(detail)) error(detail.map((d) => d.msg || JSON.stringify(d)).join("; "));
+      else error(`保存失败 (${e.response?.status || e.message})`);
     } finally {
       setSaving(false);
     }
@@ -204,7 +234,15 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
                   {s.label} (sk-...{s.key_suffix})
                 </option>
               ))}
+              {!secretsLoaded && (
+                <option value="" disabled>
+                  加载中...
+                </option>
+              )}
             </select>
+            {!secretsLoaded && secrets.length === 0 && (
+              <div style={{ fontSize: "0.75rem", color: "var(--amber-600)", marginTop: 4 }}>未找到密钥凭证，请先在"密钥凭证"标签页添加</div>
+            )}
           </label>
           <label>
             <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>配置标签</div>

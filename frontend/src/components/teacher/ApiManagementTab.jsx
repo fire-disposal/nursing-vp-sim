@@ -301,6 +301,19 @@ export default function ApiManagementTab() {
                   }}
                 >
                   {PURPOSE_LABELS[purpose] || purpose} ({group.length} 个配置)
+                  {(() => {
+                    const sorted = [...group].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+                    const active = sorted.find((c) => c.status === "active");
+                    if (!active) {
+                      const degraded = sorted.find((c) => c.status === "degraded");
+                      if (degraded)
+                        return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--amber-600)", fontWeight: 400 }}>(全部熔断中，无可用路由)</span>;
+                      return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--red-500)", fontWeight: 400 }}>(无可用路由)</span>;
+                    }
+                    return (
+                      <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--green-600)", fontWeight: 400 }}>→ {active.label || active.model}</span>
+                    );
+                  })()}
                 </div>
                 <table style={S.table}>
                   <thead>
@@ -318,11 +331,12 @@ export default function ApiManagementTab() {
                   <tbody>
                     {group
                       .sort((a, b) => (a.priority || 0) - (b.priority || 0))
-                      .map((c) => {
+                      .map((c, idx) => {
                         const sc = STATUS_COLORS[c.status] || STATUS_COLORS.disabled;
                         const displayStatus = c.status === "degraded" ? `熔断·${c.degraded_reason || "unknown"}` : STATUS_LABELS[c.status];
+                        const isActiveRoute = idx === 0 && c.status === "active";
                         return (
-                          <tr key={c.id}>
+                          <tr key={c.id} style={isActiveRoute ? { borderLeft: "3px solid var(--green-500)" } : undefined}>
                             <td style={S.td}>{c.priority}</td>
                             <td style={S.td}>{c.label}</td>
                             <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>{c.secret_label || `sk-...${c.secret_suffix}`}</td>
@@ -450,7 +464,9 @@ export default function ApiManagementTab() {
           setShowSecretModal(false);
           setEditingSecret(null);
         }}
-        onSaved={loadSecrets}
+        onSaved={() => {
+          loadSecrets();
+        }}
       />
       <ConfigModal
         open={showConfigModal}
@@ -459,7 +475,9 @@ export default function ApiManagementTab() {
           setShowConfigModal(false);
           setEditingConfig(null);
         }}
-        onSaved={loadConfigs}
+        onSaved={() => {
+          loadConfigs().catch(() => {});
+        }}
       />
     </>
   );
