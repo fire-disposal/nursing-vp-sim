@@ -58,12 +58,16 @@ async def create_session(
     db.add(user_msg)
     db.commit()
 
-    pm = await get_prompt_manager()
-    tmpl = await pm.get("qa")
-    llm_messages = [
-        {"role": "system", "content": tmpl.render()},
-        {"role": "user", "content": req.question},
-    ]
+    try:
+        pm = await get_prompt_manager()
+        tmpl = await pm.get("qa")
+        llm_messages = [
+            {"role": "system", "content": tmpl.render()},
+            {"role": "user", "content": req.question},
+        ]
+    except Exception as e:
+        log_error("qa prompt 初始化失败", error=str(e), user_id=current_user.id)
+        raise HTTPException(status_code=500, detail=f"Prompt加载失败: {str(e)}")
 
     try:
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
