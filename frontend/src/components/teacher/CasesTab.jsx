@@ -26,6 +26,18 @@ const NEW_CASE_TEMPLATE = {
   scoring_criteria: { 沟通技能: { max: 42, description: "", items: [] }, 病史采集: { max: 15, description: "", items: [] } },
 };
 
+const IN_STYLE = {
+  width: "100%",
+  padding: "var(--space-2) var(--space-3)",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-md)",
+  fontSize: "0.85rem",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  background: "var(--bg-surface)",
+  color: "var(--text-primary)",
+};
+
 function buildCaseData(form) {
   return {
     name: form.name,
@@ -426,6 +438,7 @@ export default function CasesTab() {
                   value={aiDescription}
                   onChange={(e) => setAiDescription(e.target.value)}
                   placeholder="一句话描述，如：糖尿病足溃疡老年患者，有10年糖尿病史..."
+                  style={IN_STYLE}
                 />
               </div>
               {aiMode === "reference" && (
@@ -436,7 +449,7 @@ export default function CasesTab() {
                       multiple
                       value={aiReferenceCaseIds.map(String)}
                       onChange={(e) => setAiReferenceCaseIds(Array.from(e.target.selectedOptions, (o) => Number(o.value)))}
-                      style={{ minHeight: 100 }}
+                      style={{ ...IN_STYLE, minHeight: 100 }}
                     >
                       {cases.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -453,6 +466,7 @@ export default function CasesTab() {
                       value={aiReferenceText}
                       onChange={(e) => setAiReferenceText(e.target.value)}
                       placeholder="粘贴临床笔记、文献摘要等参考内容..."
+                      style={IN_STYLE}
                     />
                   </div>
                 </>
