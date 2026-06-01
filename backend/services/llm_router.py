@@ -47,11 +47,12 @@ class ConfigRouter:
     async def load_from_db(self):
         from database import SessionLocal
         from models import LLMConfig as LC
+        from sqlalchemy.orm import joinedload
 
         db = SessionLocal()
         try:
             now = datetime.now(timezone.utc)
-            rows = db.query(LC).order_by(LC.purpose, LC.priority).all()
+            rows = db.query(LC).options(joinedload(LC.secret)).order_by(LC.purpose, LC.priority).all()
 
             recovered = 0
             for r in rows:
