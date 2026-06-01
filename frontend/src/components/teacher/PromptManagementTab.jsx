@@ -18,6 +18,120 @@ import Modal from "../ui/Modal";
 const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
+const VariableCard = ({ vName, meta, onUpdateDesc }) => {
+  const [editing, setEditing] = useState(false);
+  const [descDraft, setDescDraft] = useState(meta.desc || "");
+
+  const commit = () => {
+    setEditing(false);
+    if (descDraft !== (meta.desc || "")) {
+      onUpdateDesc(vName, descDraft);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--border-secondary)",
+        borderRadius: "var(--radius-md)",
+        padding: "var(--space-2) var(--space-3)",
+        background: "var(--bg-secondary)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 4,
+        }}
+      >
+        <code
+          style={{
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            color: "var(--blue-700)",
+          }}
+        >
+          {"{#"}
+          {vName}
+          {"#}"}
+        </code>
+        <span
+          style={{
+            fontSize: "0.65rem",
+            color: "var(--text-tertiary)",
+            background: "var(--bg-tertiary)",
+            padding: "1px 6px",
+            borderRadius: "var(--radius-full)",
+          }}
+        >
+          {meta.type || "string"}
+        </span>
+      </div>
+
+      {editing ? (
+        <div style={{ marginBottom: 4 }}>
+          <input
+            value={descDraft}
+            onChange={(e) => setDescDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+            }}
+            autoFocus
+            placeholder="变量描述..."
+            style={{
+              width: "100%",
+              fontSize: "0.72rem",
+              padding: "2px 6px",
+              border: "1px solid var(--blue-300)",
+              borderRadius: 4,
+              outline: "none",
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          style={{
+            fontSize: "0.7rem",
+            color: meta.desc ? "var(--text-secondary)" : "var(--text-tertiary)",
+            marginBottom: 4,
+            cursor: "pointer",
+            padding: "2px 0",
+            fontStyle: meta.desc ? "normal" : "italic",
+          }}
+          title="点击编辑描述"
+        >
+          {meta.desc || "点击添加描述..."}
+        </div>
+      )}
+
+      <div
+        style={{
+          fontSize: "0.65rem",
+          color: "var(--text-tertiary)",
+          lineHeight: 1.5,
+        }}
+      >
+        {meta.source && <div>来源：{meta.source}</div>}
+        {meta.example && (
+          <div
+            style={{
+              whiteSpace: "pre-wrap",
+              maxHeight: 60,
+              overflow: "hidden",
+            }}
+          >
+            示例：{meta.example}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function PromptManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
@@ -150,6 +264,20 @@ export default function PromptManagementTab() {
     } catch (err) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
+  };
+
+  const handleUpdateVarDesc = (varName, newDesc) => {
+    if (!editedPrompt) return;
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== editedPrompt.id) return p;
+        const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, desc: newDesc } : v));
+        if (!updatedVars.find((v) => v.name === varName)) {
+          updatedVars.push({ name: varName, desc: newDesc });
+        }
+        return { ...p, variables: updatedVars };
+      }),
+    );
   };
 
   const handleValidate = async () => {
@@ -556,26 +684,10 @@ export default function PromptManagementTab() {
                   <Hash size={12} /> 模板变量 {currentVars.length > 0 && `(${currentVars.length})`}
                 </div>
                 {currentVars.length > 0 ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {currentVars.map((v) => {
-                      const desc = dbVars.find((d) => d.name === v);
-                      return (
-                        <span
-                          key={v}
-                          title={desc?.desc || ""}
-                          style={{
-                            padding: "2px 10px",
-                            borderRadius: "var(--radius-full)",
-                            fontSize: "0.7rem",
-                            background: "var(--blue-50)",
-                            color: "var(--blue-700)",
-                            border: "1px solid var(--blue-200)",
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          {`{#${v}#}`}
-                        </span>
-                      );
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {currentVars.map((vName) => {
+                      const meta = dbVars.find((d) => d.name === vName) || {};
+                      return <VariableCard key={vName} vName={vName} meta={meta} onUpdateDesc={handleUpdateVarDesc} />;
                     })}
                   </div>
                 ) : (
