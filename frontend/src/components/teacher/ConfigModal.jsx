@@ -10,6 +10,23 @@ const PURPOSES = [
   { value: "case_generation", label: "病例生成" },
 ];
 
+const MODEL_PRESETS = [
+  {
+    label: "DeepSeek V4 Pro",
+    model: "deepseek-v4-pro",
+    base_url: "https://api.deepseek.com",
+    price_input_per_1m: 1,
+    price_output_per_1m: 2,
+  },
+  {
+    label: "DeepSeek V4 Flash",
+    model: "deepseek-v4-flash",
+    base_url: "https://api.deepseek.com",
+    price_input_per_1m: 0.5,
+    price_output_per_1m: 0.5,
+  },
+];
+
 export default function ConfigModal({ open, configData, onClose, onSaved }) {
   const [mode, setMode] = useState("form");
   const [secrets, setSecrets] = useState([]);
@@ -29,6 +46,18 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
     monthly_cost_limit: "",
   });
   const [jsonText, setJsonText] = useState("");
+  const [preset, setPreset] = useState("");
+
+  const applyPreset = (key) => {
+    if (!key) return;
+    const p = MODEL_PRESETS.find((m) => m.model === key);
+    if (!p) return;
+    updateField("model", p.model);
+    updateField("base_url", p.base_url);
+    updateField("price_input_per_1m", p.price_input_per_1m);
+    updateField("price_output_per_1m", p.price_output_per_1m);
+    setPreset("");
+  };
 
   useEffect(() => {
     if (open) {
@@ -153,6 +182,19 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
 
       {mode === "form" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          {!isEdit && (
+            <label>
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>快速预设</div>
+              <select value={preset} onChange={(e) => applyPreset(e.target.value)} style={inputStyle}>
+                <option value="">自定义...</option>
+                {MODEL_PRESETS.map((p) => (
+                  <option key={p.model} value={p.model}>
+                    {p.label} — {p.base_url}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>密钥凭证</div>
             <select value={form.secret_id} onChange={(e) => updateField("secret_id", e.target.value)} style={inputStyle}>
