@@ -46,43 +46,41 @@ async def lifespan(app: FastAPI):
         from services.crypto_utils import encrypt_api_key
         from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
         from database import SessionLocal
-        from models import ApiProvider, ApiKey
+        from models import ApiSecret, LLMConfig
 
         db = SessionLocal()
         try:
-            if db.query(ApiProvider).count() == 0:
-                if DEEPSEEK_API_KEY:
-                    p = ApiProvider(
-                        name="deepseek", display_name="DeepSeek",
-                        base_url=DEEPSEEK_BASE_URL, default_model=DEEPSEEK_MODEL,
-                        api_type="openai_compatible", priority=10,
-                    )
-                    db.add(p)
-                    db.flush()
-                    suffix = DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****"
-                    k = ApiKey(
-                        provider_id=p.id,
-                        label=f"DeepSeek-{suffix}",
-                        encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
-                        key_suffix=suffix,
+            if DEEPSEEK_API_KEY and db.query(LLMConfig).count() == 0:
+                suffix = DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****"
+                secret = ApiSecret(
+                    label=f"DeepSeek-{suffix}",
+                    encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
+                    key_suffix=suffix,
+                )
+                db.add(secret)
+                db.flush()
+
+                purposes = ["qa", "patient_chat", "scoring", "case_generation"]
+                for p in purposes:
+                    cfg = LLMConfig(
+                        secret_id=secret.id,
+                        label=f"DeepSeek - {p}",
+                        base_url=DEEPSEEK_BASE_URL,
                         model=DEEPSEEK_MODEL,
-                        weight=10,
-                        status="active",
+                        purpose=p,
+                        priority=10,
+                        price_input_per_1m=1,
+                        price_output_per_1m=2,
                     )
-                    db.add(k)
-                    db.flush()
-                    k.purpose = "*"
-                    k.priority = 10
-                    db.commit()
-                    _startup_logger.info("已从 .env seed 默认 DeepSeek provider + key")
-                else:
-                    _startup_logger.info("DEEPSEEK_API_KEY 未设置，跳过 seed")
+                    db.add(cfg)
+                db.commit()
+                _startup_logger.info("已从 .env seed 默认 DeepSeek Secret + 4用途 Config")
         finally:
             db.close()
 
         await refresh_router()
     except Exception as e:
-        _startup_logger.error("LLMRouter 初始化失败: %s", e)
+        _startup_logger.error("ConfigRouter 初始化失败: %s", e)
     # 初始化 PromptManager 并 seed 默认模板
     try:
         from services.prompt_manager import get_prompt_manager
