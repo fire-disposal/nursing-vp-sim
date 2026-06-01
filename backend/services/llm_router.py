@@ -84,6 +84,7 @@ class ConfigRouter:
     def report_result(self, config, *, success: bool, tokens: int,
                       latency_ms: int, error: str | None):
         now = datetime.now(timezone.utc)
+        degraded = False
 
         if success:
             config.consecutive_failures = 0
@@ -91,12 +92,14 @@ class ConfigRouter:
                 config.status = "active"
                 config.degraded_reason = None
                 config.degraded_until = None
+                degraded = True
             self._update_stats(config, tokens)
         else:
             if error and "429" in error:
                 config.status = "degraded"
                 config.degraded_reason = "rate_limited"
                 config.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+                degraded = True
                 _logger.warning("LLMConfig %d rate limited, degraded for %ds",
                                config.id, RATE_LIMIT_COOLDOWN_SECONDS)
             else:
@@ -105,8 +108,12 @@ class ConfigRouter:
                     config.status = "degraded"
                     config.degraded_reason = "consecutive_failures"
                     config.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
+                    degraded = True
                     _logger.warning("LLMConfig %d circuit broken: %d failures, degraded %ds",
                                    config.id, CIRCUIT_BREAKER_THRESHOLD, DEGRADED_TTL_SECONDS)
+
+        if degraded:
+            self._persist_config_stats(config)
 
     def _update_stats(self, config, tokens: int):
         today = datetime.now(timezone.utc).date()

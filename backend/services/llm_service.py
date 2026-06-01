@@ -105,6 +105,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                     json=payload,
                     timeout=httpx.Timeout(timeout, connect=15.0),
                 )
+            latency_ms = int((time.perf_counter() - t0) * 1000)
 
             if resp.status_code == 429:
                 router.report_result(config, success=False, tokens=0,
@@ -164,7 +165,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
                 await asyncio.sleep(delay)
         except RuntimeError as e:
-            if "无可用" in str(e):
+            if "可用" in str(e):
                 raise
             last_error = str(e)[:200]
             if used_config:
@@ -249,6 +250,8 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
             provider_name = config.label
             model_used = config.model
         except RuntimeError as e:
+            if "可用" in str(e):
+                raise
             last_error = str(e)[:200]
             if attempt < max_retries + 1:
                 await asyncio.sleep(1)

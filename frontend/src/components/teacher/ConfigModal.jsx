@@ -110,10 +110,14 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
 
   const sanitizePayload = (raw) => {
     const data = { ...raw };
-    data.secret_id = Number(data.secret_id);
-    if (!data.secret_id || !Number.isFinite(data.secret_id)) return null;
-    data.priority = Number(data.priority) || 10;
-    if (data.monthly_cost_limit === "" || data.monthly_cost_limit === undefined) {
+    const sid = Number(data.secret_id);
+    if (!Number.isFinite(sid) || sid <= 0) return null;
+    data.secret_id = sid;
+    data.priority = Number(data.priority);
+    if (!Number.isFinite(data.priority) || data.priority < 1) data.priority = 10;
+    if (typeof data.price_input_per_1m !== "number") data.price_input_per_1m = Number(data.price_input_per_1m) || 0;
+    if (typeof data.price_output_per_1m !== "number") data.price_output_per_1m = Number(data.price_output_per_1m) || 0;
+    if (data.monthly_cost_limit === "" || data.monthly_cost_limit === undefined || data.monthly_cost_limit === null) {
       delete data.monthly_cost_limit;
     } else {
       data.monthly_cost_limit = Number(data.monthly_cost_limit);

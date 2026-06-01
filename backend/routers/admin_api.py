@@ -106,9 +106,10 @@ def list_configs(
     if purpose:
         q = q.filter(LLMConfig.purpose == purpose)
     configs = q.order_by(LLMConfig.purpose, LLMConfig.priority).all()
+    secrets_map = {s.id: s for s in db.query(ApiSecret).all()}
     result = []
     for c in configs:
-        secret = db.query(ApiSecret).filter(ApiSecret.id == c.secret_id).first()
+        secret = secrets_map.get(c.secret_id)
         result.append(LLMConfigResponse(
             id=c.id, secret_id=c.secret_id,
             secret_label=secret.label if secret else "",
@@ -307,23 +308,31 @@ async def health_check(
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    configs = db.query(LLMConfig).distinct(LLMConfig.base_url).all()
+    configs = db.query(LLMConfig).all()
+    # 按 base_url 去重，取每个端点的第一个 config 关联的 key
+    seen = {}
+    for c in configs:
+        if c.base_url not in seen:
+            seen[c.base_url] = c
     results = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(5)) as client:
-        for c in configs:
+        for base_url, cfg in seen.items():
+            secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
+            api_key = decrypt_api_key(secret.encrypted_key) if secret else None
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
             try:
                 t0 = time.monotonic()
-                resp = await client.get(f"{c.base_url}/v1/models")
+                resp = await client.get(f"{base_url}/v1/models", headers=headers)
                 latency = int((time.monotonic() - t0) * 1000)
                 results.append({
-                    "base_url": c.base_url,
+                    "base_url": base_url,
                     "status": "ok" if resp.status_code < 500 else "error",
                     "latency_ms": latency,
                     "error": None,
                 })
             except Exception as e:
                 results.append({
-                    "base_url": c.base_url,
+                    "base_url": base_url,
                     "status": "error",
                     "latency_ms": None,
                     "error": str(e)[:200],
