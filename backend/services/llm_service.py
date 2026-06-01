@@ -4,12 +4,72 @@ import random
 import re
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 import httpx
 
 from config import (
     LLM_CONCURRENT_LIMIT, LLM_CONNECTION_POOL_SIZE, LLM_CONNECTION_KEEPALIVE,
 )
+from services.llm_router import get_router
+
+# ── 基础设施 ──
+
+def _backoff(attempt: int) -> float:
+    """指数退避 + 抖动，上限 4.5 秒。用于 LLM 调用重试间隔。"""
+    return min(2 ** attempt, 4) + random.uniform(0, 0.5)
+
+
+@dataclass
+class _CallContext:
+    """LLM 调用上下文 —— 统一收集路由选择和日志所需的元数据"""
+    purpose: str
+    user_id: int | None = None
+    record_id: int | None = None
+    case_id: int | None = None
+    log_meta: dict | None = None
+    temperature: float = 0.7
+    max_tokens: int = 512
+    request_text: str = ""
+    provider_name: str = "unknown"
+    model: str = "unknown"
+    config_id: int | None = None
+
+    def apply_config(self, config) -> None:
+        self.provider_name = config.label
+        self.model = config.model
+        self.config_id = config.id
+
+    def pricing(self, config) -> tuple[float, float]:
+        return (float(config.price_input_per_1m or 0),
+                float(config.price_output_per_1m or 0))
+
+    def log_success(self, latency_ms: int, response_text: str,
+                    usage: dict | None = None,
+                    price_input: float = 0, price_output: float = 0):
+        from services.llm_logging import enqueue_log
+        enqueue_log(
+            purpose=self.purpose, user_id=self.user_id, record_id=self.record_id,
+            case_id=self.case_id, model=self.model, temperature=self.temperature,
+            max_tokens=self.max_tokens, latency_ms=latency_ms, status="success",
+            request_text=self.request_text, response_text=response_text, usage=usage,
+            meta=self.log_meta, api_key_id=None, config_id=self.config_id,
+            provider_name=self.provider_name,
+            key_price_input=price_input, key_price_output=price_output,
+        )
+
+    def log_failure(self, latency_ms: int, error_type: str, error_message: str | None):
+        from services.llm_logging import enqueue_log
+        enqueue_log(
+            purpose=self.purpose, user_id=self.user_id, record_id=self.record_id,
+            case_id=self.case_id, model=self.model, temperature=self.temperature,
+            max_tokens=self.max_tokens, latency_ms=latency_ms, status="failed",
+            error_type=error_type, error_message=error_message,
+            request_text=self.request_text, meta=self.log_meta,
+            api_key_id=None, config_id=self.config_id,
+            provider_name=self.provider_name,
+        )
+
 
 # 并发限流
 _rate_limiter = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
@@ -59,7 +119,6 @@ async def _get_client() -> httpx.AsyncClient:
 
 async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 512,
                    timeout: int = 30, max_retries: int = 2,
-                   # 日志上下文（可选）
                    purpose: str = "other",
                    user_id: int | None = None,
                    record_id: int | None = None,
@@ -70,34 +129,28 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                    response_format: dict | None = None,
                    ) -> str:
     """通过 LLMRouter 选择 key/provider 调用 LLM API，返回文本回复。支持自动记录调用日志。"""
-    from services.llm_router import get_router
-
     router = await get_router()
 
-    used_config_id = None
-    used_config = None
-    provider_name = "unknown"
-    model = "unknown"
+    ctx = _CallContext(
+        purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
+        log_meta=log_meta, temperature=temperature, max_tokens=max_tokens,
+        request_text=" ".join(m.get("content", "") for m in messages),
+    )
+
     last_error = None
     latency_ms = 0
     t0 = time.perf_counter()
-
     _client = client if client is not None else await _get_client()
     _sema = semaphore if semaphore is not None else _rate_limiter
-
-    request_text = " ".join(m.get("content", "") for m in messages)
 
     for attempt in range(max_retries + 2):
         try:
             config = router.select_key(purpose)
             api_key = router.get_decrypted_key(config)
-            used_config = config
-            used_config_id = config.id
-            provider_name = config.label
-            model = config.model
+            ctx.apply_config(config)
 
             payload = {
-                "model": model,
+                "model": ctx.model,
                 "messages": messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
@@ -122,16 +175,15 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                                      latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
                 last_error = "HTTP 429"
                 if attempt < max_retries + 1:
-                    delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-                    await asyncio.sleep(delay)
+                    await asyncio.sleep(_backoff(attempt))
                 continue
 
             if resp.status_code in _RETRYABLE_STATUSES:
                 last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+                router.report_result(config, success=False, tokens=0,
+                                     latency_ms=0, error=last_error)
                 if attempt < max_retries:
-                    delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-                    await asyncio.sleep(delay)
+                    await asyncio.sleep(_backoff(attempt))
                 continue
 
             resp.raise_for_status()
@@ -140,92 +192,45 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 content = data["choices"][0]["message"]["content"]
             except (json.JSONDecodeError, KeyError, IndexError) as e:
                 last_error = f"Invalid response: {e}"
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+                router.report_result(config, success=False, tokens=0,
+                                     latency_ms=0, error=last_error)
                 if attempt < max_retries:
-                    delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-                    await asyncio.sleep(delay)
+                    await asyncio.sleep(_backoff(attempt))
                 continue
+
             usage = data.get("usage", {})
             total_tokens = usage.get("total_tokens", 0) or len(content) // 2
 
             router.report_result(config, success=True, tokens=total_tokens,
                                  latency_ms=latency_ms, error=None)
 
-            _log_llm_success(
-                purpose=purpose, user_id=user_id, record_id=record_id,
-                case_id=case_id, temperature=temperature, max_tokens=max_tokens,
-                latency_ms=latency_ms, request_text=request_text,
-                response_text=content, usage=usage,
-                log_meta=log_meta, api_key_id=None, config_id=config.id,
-                provider_name=provider_name, model=model,
-                key_price_input=float(config.price_input_per_1m or 0),
-                key_price_output=float(config.price_output_per_1m or 0),
-            )
+            pi, po = ctx.pricing(config)
+            ctx.log_success(latency_ms, content, usage,
+                            price_input=pi, price_output=po)
             return content
 
         except _RETRYABLE_EXCEPTIONS as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            if used_config:
-                router.report_result(used_config, success=False, tokens=0,
+            if ctx.config_id:
+                router.report_result(config, success=False, tokens=0,
                                      latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
-                delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-                await asyncio.sleep(delay)
+                await asyncio.sleep(_backoff(attempt))
         except RuntimeError as e:
             if "可用" in str(e):
                 raise
             last_error = str(e)[:200]
-            if used_config:
-                router.report_result(used_config, success=False, tokens=0,
+            if ctx.config_id:
+                router.report_result(config, success=False, tokens=0,
                                      latency_ms=0, error=last_error)
             if attempt < max_retries:
                 await asyncio.sleep(1)
             continue
 
     latency_ms = int((time.perf_counter() - t0) * 1000)
-    _log_llm_failure(
-        purpose=purpose, user_id=user_id, record_id=record_id,
-        case_id=case_id, temperature=temperature, max_tokens=max_tokens,
-        latency_ms=latency_ms, request_text=request_text,
-        error_type="all_providers_failed", error_message=last_error,
-        log_meta=log_meta, api_key_id=None, config_id=used_config_id,
-        provider_name=provider_name, model=model,
-    )
+    ctx.log_failure(latency_ms, "all_providers_failed", last_error)
     raise RuntimeError(f"LLM调用失败（所有 provider 不可用）: {last_error}")
-
-
-def _log_llm_success(*, purpose, user_id, record_id, case_id, temperature,
-                     max_tokens, latency_ms, request_text, response_text, usage, log_meta,
-                     api_key_id=None, config_id=None, provider_name="deepseek", model="",
-                     key_price_input=None, key_price_output=None):
-    from services.llm_logging import enqueue_log
-    enqueue_log(
-        purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
-        model=model, temperature=temperature, max_tokens=max_tokens,
-        latency_ms=latency_ms, status="success",
-        request_text=request_text, response_text=response_text, usage=usage,
-        meta=log_meta, api_key_id=api_key_id, config_id=config_id,
-        provider_name=provider_name,
-        key_price_input=key_price_input, key_price_output=key_price_output,
-    )
-
-
-def _log_llm_failure(*, purpose, user_id, record_id, case_id, temperature,
-                     max_tokens, latency_ms, request_text, error_type, error_message, log_meta,
-                     api_key_id=None, config_id=None, provider_name="deepseek", model="",
-                     key_price_input=None, key_price_output=None):
-    from services.llm_logging import enqueue_log
-    enqueue_log(
-        purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
-        model=model, temperature=temperature, max_tokens=max_tokens,
-        latency_ms=latency_ms, status="failed",
-        error_type=error_type, error_message=error_message,
-        request_text=request_text, meta=log_meta,
-        api_key_id=api_key_id, config_id=config_id,
-        provider_name=provider_name,
-        key_price_input=key_price_input, key_price_output=key_price_output,
-    )
 
 
 async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: int = 512,
@@ -237,26 +242,23 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                           log_meta: dict | None = None,
                           ):
     """通过 LLMRouter 选择 key/provider，流式返回文本块。支持重试与故障转移。"""
-    from services.llm_router import get_router
-
     router = await get_router()
-    request_text = " ".join(m.get("content", "") for m in messages)
+
+    ctx = _CallContext(
+        purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
+        log_meta=log_meta, temperature=temperature, max_tokens=max_tokens,
+        request_text=" ".join(m.get("content", "") for m in messages),
+    )
+
     last_error = None
-    latency_ms = 0
-    used_config_id = None
-    used_config = None
-    provider_name = "unknown"
-    model_used = "unknown"
     t0 = time.perf_counter()
+    full_reply = ""
 
     for attempt in range(max_retries + 2):
         try:
             config = router.select_key(purpose)
             api_key = router.get_decrypted_key(config)
-            used_config = config
-            used_config_id = config.id
-            provider_name = config.label
-            model_used = config.model
+            ctx.apply_config(config)
         except RuntimeError as e:
             if "可用" in str(e):
                 raise
@@ -271,7 +273,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
             continue
 
         payload = {
-            "model": model_used,
+            "model": ctx.model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -279,7 +281,6 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
         }
 
         client = await _get_client()
-        full_reply = ""
         try:
             async with _acquire_sema(_rate_limiter):
                 async with client.stream(
@@ -306,8 +307,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                         else:
                             last_error = f"HTTP {resp.status_code}: {status_text}"
                         if attempt < max_retries + 1:
-                            delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-                            await asyncio.sleep(delay)
+                            await asyncio.sleep(_backoff(attempt))
                         continue
                     async for line in resp.aiter_lines():
                         if line.startswith("data: "):
@@ -328,16 +328,8 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
             total_tokens = len(full_reply) // 2
             router.report_result(config, success=True, tokens=total_tokens,
                                  latency_ms=latency_ms, error=None)
-            _log_llm_success(
-                purpose=purpose, user_id=user_id, record_id=record_id,
-                case_id=case_id, temperature=temperature, max_tokens=max_tokens,
-                latency_ms=latency_ms, request_text=request_text,
-                response_text=full_reply, usage=None,
-                log_meta=log_meta, api_key_id=None, config_id=config.id,
-                provider_name=provider_name, model=model_used,
-                key_price_input=float(config.price_input_per_1m or 0),
-                key_price_output=float(config.price_output_per_1m or 0),
-            )
+            pi, po = ctx.pricing(config)
+            ctx.log_success(latency_ms, full_reply, price_input=pi, price_output=po)
             return
 
         except _RETRYABLE_EXCEPTIONS as e:
@@ -346,8 +338,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                                  latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
-                delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
-                await asyncio.sleep(delay)
+                await asyncio.sleep(_backoff(attempt))
         except Exception as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
             router.report_result(config, success=False, tokens=0,
@@ -366,14 +357,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
         )
         yield content
         return
-    _log_llm_failure(
-        purpose=purpose, user_id=user_id, record_id=record_id,
-        case_id=case_id, temperature=temperature, max_tokens=max_tokens,
-        latency_ms=latency_ms, request_text=request_text,
-        error_type="all_providers_failed", error_message=last_error,
-        log_meta=log_meta, api_key_id=None, config_id=used_config_id,
-        provider_name=provider_name, model=model_used,
-    )
+    ctx.log_failure(latency_ms, "all_providers_failed", last_error)
     raise RuntimeError(f"LLM流式调用失败（所有 provider 不可用）: {last_error}")
 
 
