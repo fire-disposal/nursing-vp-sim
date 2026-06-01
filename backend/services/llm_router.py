@@ -58,6 +58,9 @@ class ConfigRouter:
     def select_key(self, purpose: str):
         configs = self._cache_by_purpose.get(purpose, [])
 
+        if not configs and purpose != "*":
+            configs = self._cache_by_purpose.get("*", [])
+
         if self._global_degraded_until and datetime.now(timezone.utc) < self._global_degraded_until:
             raise RuntimeError("所有配置不可用，全局降级中")
 

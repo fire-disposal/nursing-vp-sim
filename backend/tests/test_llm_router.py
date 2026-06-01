@@ -125,3 +125,30 @@ def test_select_key_no_config_for_purpose():
 
     with pytest.raises(RuntimeError, match="无可用配置"):
         router.select_key("scoring")
+
+
+def test_select_key_falls_back_to_wildcard():
+    from models import LLMConfig
+
+    wildcard_cfg = LLMConfig(
+        id=99, secret_id=1, label="catch-all",
+        base_url="https://api.wildcard.com", model="gpt-4",
+        purpose="*", priority=100,
+    )
+
+    router = ConfigRouter()
+    router._cache_by_purpose = {
+        "patient_chat": [],
+        "*": [wildcard_cfg],
+    }
+
+    result = router.select_key("patient_chat")
+    assert result is wildcard_cfg
+
+
+def test_select_key_wildcard_no_fallback_for_star_itself():
+    router = ConfigRouter()
+    router._cache_by_purpose = {}
+
+    with pytest.raises(RuntimeError, match="无可用配置"):
+        router.select_key("*")
