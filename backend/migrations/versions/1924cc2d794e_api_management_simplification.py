@@ -55,6 +55,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_unique_constraint("uq_api_secret_key", "api_secrets", ["encrypted_key", "key_suffix"])
     op.create_unique_constraint("uq_llmconfig_purpose_priority", "llm_configs", ["purpose", "priority"])
     op.create_index("ix_llmconfig_purpose_priority", "llm_configs", ["purpose", "priority"])
 

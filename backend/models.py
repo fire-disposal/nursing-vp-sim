@@ -183,6 +183,9 @@ class QARecord(Base):
 class ApiSecret(Base):
     """API 密钥凭证（纯认证容器，不参与路由）"""
     __tablename__ = "api_secrets"
+    __table_args__ = (
+        UniqueConstraint("encrypted_key", "key_suffix", name="uq_api_secret_key"),
+    )
 
     id = Column(Integer, primary_key=True)
     label = Column(String(80), nullable=False)
