@@ -14,12 +14,43 @@ from database import init_db, engine, get_db
 from routers import auth, cases, training, chat, export, admin, notes, qa, stats, feedback
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
-from logger import audit_logger
+from logger import log
 from config import APP_VERSION, log_config
 
 _startup_logger = logging.getLogger("nursing")
 
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))  # 默认 10MB
+
+
+async def _verify_llm_key() -> bool:
+    """数据库初始化前验证 LLM API Key 连通性"""
+    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+
+    if not DEEPSEEK_API_KEY:
+        _startup_logger.warning("DEEPSEEK_API_KEY 未设置")
+        return False
+    if not DEEPSEEK_API_KEY.startswith("sk-") or len(DEEPSEEK_API_KEY) < 20:
+        _startup_logger.warning("DEEPSEEK_API_KEY 格式无效 (需以 sk- 开头且 >=20 字符)")
+        return False
+
+    import httpx
+    t0 = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{DEEPSEEK_BASE_URL}/v1/models",
+                headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            )
+            ok = resp.status_code < 400
+        ms = int((time.perf_counter() - t0) * 1000)
+        if ok:
+            _startup_logger.info("DeepSeek 密钥连通性验证通过 ✓  %dms", ms)
+        else:
+            _startup_logger.error("DeepSeek 密钥连通性验证失败 ✗  HTTP %d, %dms", resp.status_code, ms)
+        return ok
+    except Exception as e:
+        _startup_logger.error("DeepSeek 密钥连通性验证异常 ✗  %s", e)
+        return False
 
 
 @asynccontextmanager
@@ -36,6 +67,9 @@ async def lifespan(app: FastAPI):
         "                        |___/    虚拟患者训练系统"
     )
     log_config(_startup_logger)
+
+    llm_key_valid = await _verify_llm_key()
+
     from database import _log_connection
     _log_connection()
     init_db()
@@ -43,72 +77,10 @@ async def lifespan(app: FastAPI):
         _seed_data()
     except Exception as e:
         _startup_logger.warning("种子数据初始化失败(非致命): %s", e)
-    # 初始化 LLMRouter 并 seed 默认 provider
+    if llm_key_valid:
+        _seed_llm_configs()
     try:
         from services.llm_router import refresh_router
-        from services.crypto_utils import encrypt_api_key
-        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
-        from database import SessionLocal
-        from models import ApiSecret, LLMConfig
-
-        db = SessionLocal()
-        try:
-            if db.query(LLMConfig).count() > 0:
-                _startup_logger.info("LLMConfig 已有数据，跳过 seed")
-            elif DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-") and len(DEEPSEEK_API_KEY) >= 20:
-                import httpx, time as _time
-                t0 = _time.perf_counter()
-                key_ok = False
-                try:
-                    async with httpx.AsyncClient(timeout=10) as _client:
-                        resp = await _client.get(
-                            f"{DEEPSEEK_BASE_URL}/v1/models",
-                            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
-                        )
-                        key_ok = resp.status_code < 400
-                    ms = int((_time.perf_counter() - t0) * 1000)
-                    if key_ok:
-                        _startup_logger.info("DeepSeek 密钥有效 ✓  %dms", ms)
-                except Exception as _e:
-                    _startup_logger.error("DeepSeek 密钥无效 ✗  %s", _e)
-
-                if not key_ok:
-                    pass  # skip seed
-                else:
-                    suffix = DEEPSEEK_API_KEY[-4:]
-                    secret = ApiSecret(
-                        label="初始服务密钥",
-                        encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
-                        key_suffix=suffix,
-                    )
-                    db.add(secret)
-                    db.flush()
-
-                    cfgs = [
-                        LLMConfig(
-                            secret_id=secret.id, label="DeepSeek Pro",
-                            base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
-                            purpose="scoring", priority=10,
-                            price_input_per_1m=1, price_output_per_1m=2,
-                        ),
-                        LLMConfig(
-                            secret_id=secret.id, label="DeepSeek Flash",
-                            base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
-                            purpose="*", priority=100,
-                            price_input_per_1m=1, price_output_per_1m=2,
-                        ),
-                    ]
-                    db.add_all(cfgs)
-                    db.commit()
-                    _startup_logger.info("已 seed 初始服务密钥 + 2 配置 (pro=评分, flash=通配)")
-            else:
-                if not DEEPSEEK_API_KEY:
-                    _startup_logger.warning("DEEPSEEK_API_KEY 未设置，跳过 seed")
-                else:
-                    _startup_logger.warning("DEEPSEEK_API_KEY 格式无效 (需以 sk- 开头且 >=20 字符)，跳过 seed")
-        finally:
-            db.close()
-
         await refresh_router()
     except Exception as e:
         _startup_logger.error("ConfigRouter 初始化失败: %s", e)
@@ -194,7 +166,7 @@ async def request_id_and_audit_middleware(request: Request, call_next):
         def __exit__(self, exc_type, exc_val, exc_tb):
             duration_ms = round((time.time() - t0) * 1000)
             user_id, user_role = _try_extract_user(self.req)
-            audit_logger.info(
+            log.info(
                 "%s %s → %s (%.0fms)%s",
                 self.req.method, self.req.url.path,
                 self.status or (500 if exc_type else 0),
@@ -332,6 +304,52 @@ def _seed_data():
                 db.add(case)
 
         db.commit()
-        audit_logger.info("种子数据初始化完成")
+        log.info("种子数据初始化完成")
+    finally:
+        db.close()
+
+
+def _seed_llm_configs():
+    """将 .env 中的 DEEPSEEK_API_KEY 写入 DB (仅首次，密钥连通性已验证)"""
+    from services.crypto_utils import encrypt_api_key
+    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+    from database import SessionLocal
+    from models import ApiSecret, LLMConfig
+
+    db = SessionLocal()
+    try:
+        if db.query(LLMConfig).count() > 0:
+            _startup_logger.info("LLMConfig 已有数据，跳过 LLM seed")
+            return
+
+        suffix = DEEPSEEK_API_KEY[-4:]
+        secret = ApiSecret(
+            label="初始服务密钥",
+            encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
+            key_suffix=suffix,
+        )
+        db.add(secret)
+        db.flush()
+
+        cfgs = [
+            LLMConfig(
+                secret_id=secret.id, label="DeepSeek Pro",
+                base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
+                purpose="scoring", priority=10,
+                price_input_per_1m=1, price_output_per_1m=2,
+            ),
+            LLMConfig(
+                secret_id=secret.id, label="DeepSeek Flash",
+                base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
+                purpose="*", priority=100,
+                price_input_per_1m=1, price_output_per_1m=2,
+            ),
+        ]
+        db.add_all(cfgs)
+        db.commit()
+        _startup_logger.info("LLM seed 完成: 初始密钥 + 2 配置 (pro=scoring, flash=*)")
+    except Exception as e:
+        _startup_logger.error("LLM seed 失败: %s", e)
+        db.rollback()
     finally:
         db.close()
