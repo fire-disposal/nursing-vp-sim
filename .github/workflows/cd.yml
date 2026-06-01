@@ -116,7 +116,7 @@ jobs:
             fi
 
             # 登录 GHCR（使用 GitHub token）
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
+            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
 
             # 保存当前镜像标签（用于回滚）
             OLD_BACKEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
