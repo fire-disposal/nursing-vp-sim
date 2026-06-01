@@ -2,9 +2,9 @@ import asyncio
 import threading
 import httpx
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from database import get_db, SessionLocal
 from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog
 from schemas import (
@@ -15,7 +15,7 @@ from schemas import (
 from pagination import paginate
 from auth import get_current_user, require_teacher
 from config import LLM_CONCURRENT_LIMIT
-from logger import log_info, audit_logger
+from logger import log
 
 router = APIRouter(prefix="/api/training", tags=["训练"])
 
@@ -68,8 +68,8 @@ def start_training(req: TrainingStartRequest, current_user: User = Depends(get_c
     db.add(greeting_msg)
     db.commit()
 
-    log_info(f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
-             user_id=current_user.id, user_role=current_user.role, action="training_start")
+    log.info(f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
+             extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_start"})
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
 
@@ -102,7 +102,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
             record.scoring_status = "completed"
             record.scoring_error = None
             db.commit()
-            audit_logger.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
+            log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
         except asyncio.TimeoutError:
             try:
                 record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -112,7 +112,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
                     db.commit()
             except Exception:
                 pass
-            audit_logger.error("评分超时", extra={"record_id": record_id})
+            log.error("评分超时", extra={"record_id": record_id})
         except Exception as e:
             try:
                 record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -122,7 +122,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
                     db.commit()
             except Exception:
                 pass
-            audit_logger.error("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
+            log.error("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
         finally:
             db.close()
             await local_client.aclose()
@@ -168,8 +168,8 @@ def end_training(
     background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
-    log_info(f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
-             user_id=current_user.id, user_role=current_user.role, action="training_end")
+    log.info(f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
+             extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_end"})
     return {
         "message": "训练已结束，评分正在后台生成中",
         "record_id": record_id,
@@ -346,8 +346,8 @@ def delete_record(record_id: int, current_user: User = Depends(get_current_user)
     db.delete(record)
     db.commit()
 
-    log_info(f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return {"message": "训练记录已删除"}
 
 
@@ -407,8 +407,8 @@ def submit_score_review(
     db.commit()
     db.refresh(score)
 
-    log_info(f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
 
     reviewer_name = current_user.display_name
     return ScoreReviewResponse(

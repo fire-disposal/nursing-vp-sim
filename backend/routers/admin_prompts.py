@@ -11,7 +11,7 @@ from schemas import (
 )
 from auth import require_teacher
 from services.prompt_manager import refresh_prompts, render_template
-from prompt_static import get_sample_vars
+from prompt_static import get_sample_vars as _get_sample_vars
 
 _logger = logging.getLogger("nursing")
 
@@ -158,7 +158,7 @@ async def reload_prompts_endpoint(current_user: User = Depends(require_teacher))
 
 @router.get("/sample-vars")
 def get_sample_vars(purpose: str, current_user: User = Depends(require_teacher)):
-    sample = get_sample_vars().get(purpose)
+    sample = _get_sample_vars().get(purpose)
     if sample is None:
         raise HTTPException(404, f"未知 purpose: {purpose}")
     return {"purpose": purpose, "vars": sample}

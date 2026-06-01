@@ -13,7 +13,7 @@ from services.llm_service import call_llm
 from rate_limiter import check_qa_limit
 from services.prompt_manager import get_prompt_manager
 from pagination import paginate
-from logger import log_info, log_error
+from logger import log
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
 
@@ -66,14 +66,14 @@ async def create_session(
             {"role": "user", "content": req.question},
         ]
     except Exception as e:
-        log_error("qa prompt 初始化失败", error=str(e), user_id=current_user.id)
+        log.error("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=500, detail=f"Prompt加载失败: {str(e)}")
 
     try:
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
                                 purpose="qa", user_id=current_user.id)
     except Exception as e:
-        log_error("qa LLM调用失败", error=str(e), user_id=current_user.id)
+        log.error("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
 
     assistant_msg = QARecord(
@@ -86,8 +86,8 @@ async def create_session(
     session.updated_at = func.now()
     db.commit()
 
-    log_info(f"新会话创建: session_id={session.id} q_len={len(req.question)}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"新会话创建: session_id={session.id} q_len={len(req.question)}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return QAAskResponse(session_id=session.id, answer=answer)
 
 
@@ -129,7 +129,7 @@ async def ask_in_session(
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
                                 purpose="qa", user_id=current_user.id)
     except Exception as e:
-        log_error("qa 追问LLM调用失败", error=str(e), user_id=current_user.id, session_id=session_id)
+        log.error("qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id})
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
 
     assistant_msg = QARecord(
@@ -142,8 +142,8 @@ async def ask_in_session(
     session.updated_at = func.now()
     db.commit()
 
-    log_info(f"会话追问: session_id={session_id} q_len={len(req.question)}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"会话追问: session_id={session_id} q_len={len(req.question)}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return QAAskResponse(session_id=session.id, answer=answer)
 
 
@@ -175,8 +175,8 @@ def delete_session(
     db.delete(session)
     db.commit()
 
-    log_info(f"会话删除: session_id={session_id}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"会话删除: session_id={session_id}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return {"detail": "删除成功"}
 
 

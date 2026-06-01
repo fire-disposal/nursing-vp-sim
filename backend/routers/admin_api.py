@@ -11,7 +11,6 @@ from schemas import (
 from auth import require_teacher
 from services.llm_router import refresh_router
 from services.crypto_utils import encrypt_api_key, decrypt_api_key
-from datetime import datetime, timezone
 import httpx
 import time
 

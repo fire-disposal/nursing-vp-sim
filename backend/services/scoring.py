@@ -6,7 +6,7 @@ from services.prompt_manager import get_prompt_manager
 from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
 from prompt_static import build_scoring_rubric
-from logger import log_info
+from logger import log
 import asyncio
 import httpx
 
@@ -57,7 +57,7 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     try:
         _validate_scoring_result(result, rubric)
     except ValueError as e:
-        log_info("scoring_parse_failed",
+        log.info("scoring_parse_failed",
                  extra={"record_id": record_id, "error": str(e),
                         "raw_result": json.dumps(result, ensure_ascii=False)[:8000]})
         raise ValueError(f"LLM评分结果不完整: {e}") from e
@@ -153,7 +153,7 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
                 if item.get("evidence"):
                     items_with_evidence += 1
         if total_items > 0 and items_with_evidence / total_items < 0.5:
-            log_info("scoring_evidence_warning",
+            log.info("scoring_evidence_warning",
                      extra={"items_with_evidence": items_with_evidence, "total_items": total_items})
 
 

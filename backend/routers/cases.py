@@ -9,7 +9,7 @@ from database import get_db
 from models import Case, TrainingRecord, User
 from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse
 from auth import get_current_user, require_teacher
-from logger import log_info
+from logger import log
 from pagination import paginate
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
@@ -215,8 +215,8 @@ def create_case(
     db.add(case)
     db.commit()
     db.refresh(case)
-    log_info(f"病例创建: case_id={case.id} case_name={case.name}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"病例创建: case_id={case.id} case_name={case.name}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return _to_manage_item(case, 0)
 
 
@@ -239,8 +239,8 @@ def update_case(
     case.case_data = cd
     db.commit()
     db.refresh(case)
-    log_info(f"病例编辑: case_id={case_id} case_name={case.name}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"病例编辑: case_id={case_id} case_name={case.name}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     count = db.query(func.count(TrainingRecord.id)).filter(
         TrainingRecord.case_id == case_id
     ).scalar() or 0
@@ -268,6 +268,6 @@ def delete_case(
     case_name = case.name
     db.delete(case)
     db.commit()
-    log_info(f"病例删除: case_id={case_id} case_name={case_name}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"病例删除: case_id={case_id} case_name={case_name}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return {"message": "病例已删除"}

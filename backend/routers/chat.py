@@ -12,7 +12,7 @@ from services.patient_guard import (
 )
 from config import LLM_CHAT_TIMEOUT, LLM_CHAT_MAX_TOKENS
 from rate_limiter import check_chat_limit
-from logger import log_info
+from logger import log
 import json
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])
@@ -94,20 +94,20 @@ async def send_message(
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
     llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
-    from logger import log_info
+    from logger import log
     try:
         reply = await call_llm(llm_messages, temperature=0.6,
                                 max_tokens=LLM_CHAT_MAX_TOKENS, timeout=LLM_CHAT_TIMEOUT, max_retries=2,
                                 purpose="patient_chat", user_id=current_user.id,
                                 record_id=record_id, case_id=record.case_id)
     except Exception as e:
-        log_error("patient_chat LLM调用失败", error=str(e), user_id=current_user.id, record_id=record_id)
+        log.error("patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
         raise HTTPException(status_code=500, detail=f"LLM调用失败: {str(e)}")
 
     # 角色守卫：检测越界并替换
     sanitized, violations = sanitize_patient_reply(reply, case_data)
     if violations:
-        log_info("patient_guard", extra={"record_id": record_id, "violations": violations})
+        log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
 
     student_msg = Message(record_id=record_id, role="student", content=req.content)
     db.add(student_msg)
@@ -116,7 +116,7 @@ async def send_message(
     db.commit()
     db.refresh(patient_msg)
 
-    log_info(f"消息已记录: record_id={record_id}", user_id=current_user.id, user_role=current_user.role)
+    log.info(f"消息已记录: record_id={record_id}", extra={"user_id": current_user.id, "user_role": current_user.role})
     return ChatMessageResponse(role="patient", content=sanitized)
 
 
@@ -159,7 +159,7 @@ async def send_message_stream(
             # 全部接收完后，做完整角色守卫检查（含称谓归一化、越界检测、诊断化检测）
             sanitized, violations = sanitize_patient_reply(full_reply, case_data)
             if violations:
-                log_info("patient_guard", extra={"record_id": record_id, "violations": violations})
+                log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
                 # 通知前端用兜底内容替换已显示内容
                 yield f"data: {json.dumps({'sanitized': True, 'reply': sanitized, 'violations': violations}, ensure_ascii=False)}\n\n"
 
@@ -170,10 +170,10 @@ async def send_message_stream(
             db.commit()
             db.refresh(patient_msg)
 
-            log_info(f"流式消息已记录: record_id={record_id}", user_id=current_user.id, user_role=current_user.role)
+            log.info(f"流式消息已记录: record_id={record_id}", extra={"user_id": current_user.id, "user_role": current_user.role})
             yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
         except Exception as e:
-            log_error("patient_chat 流式LLM调用失败", error=str(e), user_id=current_user.id, record_id=record_id)
+            log.error("patient_chat 流式LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

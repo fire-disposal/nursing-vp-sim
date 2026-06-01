@@ -69,7 +69,6 @@ def export_record_detail(record_id: int, current_user: User = Depends(get_curren
 
     lines = []
     user = db.query(User).filter(User.id == record.user_id).first()
-    from models import Case
     case = db.query(Case).filter(Case.id == record.case_id).first()
     score = db.query(Score).filter(Score.record_id == record_id).first()
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()

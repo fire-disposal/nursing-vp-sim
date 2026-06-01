@@ -182,7 +182,6 @@ async def request_id_and_audit_middleware(request: Request, call_next):
             )
             if not exc_type:
                 try:
-                    from starlette.responses import Response
                     if hasattr(self, "_response"):
                         self._response.headers["X-Request-ID"] = self.rid
                 except Exception:

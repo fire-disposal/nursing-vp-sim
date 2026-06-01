@@ -6,11 +6,9 @@ from database import get_db
 from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse, StudentDetail, TrainingRecordBrief
 from auth import require_teacher, hash_password
-from logger import log_info
+from logger import log
 import os
 import shutil
-from datetime import datetime, timezone
-from datetime import timedelta
 from config import DATABASE_URL
 from fastapi.responses import FileResponse, Response
 import tempfile
@@ -74,8 +72,8 @@ def update_user(
 
     db.commit()
     db.refresh(user)
-    log_info(f"用户更新: target_id={user_id} target_name={user.username}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"用户更新: target_id={user_id} target_name={user.username}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return user
 
 
@@ -178,8 +176,8 @@ def delete_user(
     target_name = user.username
     db.delete(user)
     db.commit()
-    log_info(f"用户删除: target_id={user_id} target_name={target_name}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"用户删除: target_id={user_id} target_name={target_name}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return {"message": "用户已删除"}
 
 
@@ -219,8 +217,8 @@ def batch_create_users(
         ))
         created += 1
     db.commit()
-    log_info(f"批量导入: created={created} skipped={skipped}",
-             user_id=current_user.id, user_role=current_user.role)
+    log.info(f"批量导入: created={created} skipped={skipped}",
+             extra={"user_id": current_user.id, "user_role": current_user.role})
     return {"created": created, "skipped": skipped, "errors": errors}
 
 
@@ -287,8 +285,8 @@ def backup_database(current_user: User = Depends(require_teacher)):
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(dump_path, arcname=os.path.basename(dump_path))
 
-        log_info(f"数据库备份: backup_{timestamp}.zip",
-                 user_id=current_user.id, user_role=current_user.role)
+        log.info(f"数据库备份: backup_{timestamp}.zip",
+                 extra={"user_id": current_user.id, "user_role": current_user.role})
 
         def cleanup():
             import time
