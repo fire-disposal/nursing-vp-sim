@@ -3,14 +3,10 @@ import json
 from rubrics import load_rubric
 
 
-def build_scoring_rubric(rubric: dict | None = None,
-                         required_inquiries: list | None = None) -> str:
-    """构建评分 rubric 完整内容（评分标准 + 必须采集清单 + JSON 输出模板）。
-    一次返回完整字符串，模板中只需一个 {#scoring_rubric#} 变量。"""
+def build_scoring_criteria(rubric: dict | None = None) -> str:
+    """构建评分标准文本（维度、条目、锚点），不含必须采集清单和 JSON 模板"""
     if rubric is None:
         rubric = load_rubric("nursing_history_v1")
-    if required_inquiries is None:
-        required_inquiries = []
 
     dimensions = rubric.get("dimensions", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
@@ -26,7 +22,6 @@ def build_scoring_rubric(rubric: dict | None = None,
     lines.append("## 评估维度与条目")
     lines.append("")
 
-    item_objs = []
     for dim in dimensions:
         dim_name = dim["name"]
         dim_max = dim["max"]
@@ -35,11 +30,31 @@ def build_scoring_rubric(rubric: dict | None = None,
             lines.append(str(dim["description"]))
         lines.append("")
 
-        items = []
-        for item in dim["items"]:
+        for i, item in enumerate(dim["items"]):
             anchors = item.get("anchors", {})
             anchor_text = " / ".join(f"{k}分: {v}" for k, v in sorted(anchors.items()))
-            lines.append(f"{dim['items'].index(item) + 1}. {item['name']} — {anchor_text}")
+            lines.append(f"{i + 1}. {item['name']} — {anchor_text}")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def build_scoring_json_schema(rubric: dict | None = None) -> str:
+    """构建 LLM 评分输出的 JSON 格式模板"""
+    if rubric is None:
+        rubric = load_rubric("nursing_history_v1")
+
+    dimensions = rubric.get("dimensions", [])
+    raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
+    rubric_version = rubric.get("version", "")
+
+    item_objs = []
+    for dim in dimensions:
+        dim_name = dim["name"]
+        dim_max = dim["max"]
+        items = []
+        for item in dim["items"]:
             items.append({
                 "id": item["id"],
                 "name": item["name"],
@@ -48,11 +63,6 @@ def build_scoring_rubric(rubric: dict | None = None,
                 "reason": "评分理由（20-50字）",
             })
         item_objs.append({dim_name: {"score": "N_DIM_SCORE", "max": dim_max, "items": items}})
-
-    lines.append("")
-    lines.append("## 必须采集到的内容清单（参考）")
-    lines.append(json.dumps(required_inquiries, ensure_ascii=False, indent=2))
-    lines.append("")
 
     json_obj = {
         "rubric_version": f"{rubric.get('id', '')}@{rubric_version}",
@@ -69,11 +79,31 @@ def build_scoring_rubric(rubric: dict | None = None,
     json_template = json_template.replace('"N_DIM_SCORE"', f'数字(满分{raw_max})')
     json_template = json_template.replace('"N_ITEM_SCORE"', '1-3')
 
+    lines = []
     lines.append("## 输出格式")
     lines.append("")
     lines.append("必须是严格的 JSON（不含 markdown 代码块标记），所有数字字段不要加引号：")
     lines.append("")
     lines.append(json_template)
+
+    return "\n".join(lines)
+
+
+def build_scoring_rubric(rubric: dict | None = None,
+                         required_inquiries: list | None = None) -> str:
+    """[兼容] 构建完整评分 rubric（评分标准 + 必须采集清单 + JSON 模板）。
+    新代码请使用 build_scoring_criteria() + build_scoring_json_schema() + required_inquiries 分拆方案。"""
+    if rubric is None:
+        rubric = load_rubric("nursing_history_v1")
+    if required_inquiries is None:
+        required_inquiries = []
+
+    lines = [build_scoring_criteria(rubric)]
+    lines.append("")
+    lines.append("## 必须采集到的内容清单（参考）")
+    lines.append(json.dumps(required_inquiries, ensure_ascii=False, indent=2))
+    lines.append("")
+    lines.append(build_scoring_json_schema(rubric))
 
     return "\n".join(lines)
 

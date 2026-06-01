@@ -59,11 +59,33 @@ _REGISTRY: dict[str, list[VariableDef]] = {
     ],
     "scoring": [
         VariableDef(
+            name="scoring_criteria",
+            type="text",
+            description="评分标准维度、条目及1-3分评分锚点",
+            source="rubrics/nursing_history_v1.json + build_scoring_criteria() 自动生成",
+            default_example="(由 build_scoring_criteria 动态生成)",
+        ),
+        VariableDef(
+            name="required_inquiries",
+            type="text",
+            description="病例中必须采集到的关键内容清单（JSON数组格式）",
+            source="病例数据 > required_inquiries",
+            default_example='[\n  "主诉详情",\n  "现病史详情"\n]',
+        ),
+        VariableDef(
+            name="scoring_json_schema",
+            type="text",
+            description="LLM 评分结果输出的 JSON 格式模板",
+            source="rubrics/nursing_history_v1.json + build_scoring_json_schema() 自动生成",
+            default_example="(由 build_scoring_json_schema 动态生成)",
+        ),
+        VariableDef(
             name="scoring_rubric",
             type="text",
-            description="评分标准（维度、条目、锚点、必需询问项、JSON输出模板）",
-            source="prompt_static.build_scoring_rubric() 自动生成",
-            default_example="(由 build_scoring_rubric 动态生成)",
+            description="[已废弃] 完整评分标准文本（含标准+清单+输出格式）。请改用 scoring_criteria / required_inquiries / scoring_json_schema 三个独立变量",
+            source="[已废弃] prompt_static.build_scoring_rubric()",
+            required=False,
+            default_example="(已废弃，请使用分拆后的三个独立变量)",
         ),
         VariableDef(
             name="conversation_text",
@@ -133,10 +155,16 @@ class VariableRegistry:
 
     def get_sample_kwargs(self, purpose: str) -> dict[str, str]:
         """获取某 purpose 的示例变量值，供预览使用。
-        scoring_rubric 特殊处理：调用 build_scoring_rubric 动态生成。"""
+        scoring_criteria / scoring_json_schema 特殊处理：调用 build 函数动态生成。"""
         result: dict[str, str] = {}
         for v in self.get_variables(purpose):
-            if v.name == "scoring_rubric":
+            if v.name == "scoring_criteria":
+                from prompt_static import build_scoring_criteria
+                result[v.name] = build_scoring_criteria()
+            elif v.name == "scoring_json_schema":
+                from prompt_static import build_scoring_json_schema
+                result[v.name] = build_scoring_json_schema()
+            elif v.name == "scoring_rubric":
                 from prompt_static import build_scoring_rubric
                 result[v.name] = build_scoring_rubric()
             else:

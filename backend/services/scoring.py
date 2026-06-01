@@ -3,10 +3,9 @@ from sqlalchemy.orm import Session
 from models import TrainingRecord, Message, Score
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
-from services.variable_registry import get_registry
 from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
-from prompt_static import build_scoring_rubric
+from prompt_static import build_scoring_criteria, build_scoring_json_schema
 from logger import log
 import asyncio
 import httpx
@@ -32,16 +31,18 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     all_required = case_data.get("required_inquiries", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
 
-    scoring_rubric = build_scoring_rubric(rubric, all_required)
+    scoring_criteria_text = build_scoring_criteria(rubric)
+    scoring_json_schema_text = build_scoring_json_schema(rubric)
+    required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("scoring")
 
-    defaults = get_registry().get_defaults("scoring")
-
     system_content, user_content = tmpl.render_pair(
-        scoring_rubric=scoring_rubric or defaults.get("scoring_rubric", ""),
-        conversation_text=conversation_text or defaults.get("conversation_text", ""),
+        scoring_criteria=scoring_criteria_text,
+        required_inquiries=required_inquiries_text,
+        scoring_json_schema=scoring_json_schema_text,
+        conversation_text=conversation_text,
     )
     scoring_messages = [
         {"role": "system", "content": system_content},

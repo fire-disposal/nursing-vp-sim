@@ -205,7 +205,10 @@ _HARDCODED_PATIENT_CHAT = """你是护理病史采集训练中的虚拟患者。
 
 _HARDCODED_SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专家，专门评估护理学生的病史采集能力。
 
-{#scoring_rubric#}
+{#scoring_criteria#}
+
+## 必须采集到的内容清单（参考）
+{#required_inquiries#}
 
 ## 评分背景
 - 学生角色：护理学生
@@ -221,6 +224,8 @@ _HARDCODED_SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专�
 3. **漏问内容精准**：missed_content 列出学生确实没有问到的重要信息。
 
 4. **suggestions 个性化**：结合对话实际内容反馈，格式为"你在XX方面表现得很好，但在XX方面还有提升空间，建议下次训练时注意..."。
+
+{#scoring_json_schema#}
 
 评分要客观公正，结果要能帮助护理学生明确知道自己的优势和待改进之处。"""
 
