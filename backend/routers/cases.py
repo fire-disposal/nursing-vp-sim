@@ -1,8 +1,10 @@
 import logging
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import cast, func, Integer
 from database import get_db
 from models import Case, TrainingRecord, User
 from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse
@@ -68,11 +70,17 @@ def list_cases(
 def list_cases_manage(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    name: Optional[str] = Query(None, description="病例名称模糊搜索"),
+    difficulty: Optional[int] = Query(None, ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级"),
     db: Session = Depends(get_db),
     _=Depends(require_teacher),
 ):
     """教师查看所有病例（含训练次数统计）"""
     query = db.query(Case).order_by(Case.created_at.desc())
+    if name:
+        query = query.filter(Case.name.ilike(f"%{name}%"))
+    if difficulty is not None:
+        query = query.filter(cast(Case.case_data["difficulty"].astext, Integer) == difficulty)
     total = query.order_by(None).count()
     cases = query.offset(offset).limit(limit).all()
 
