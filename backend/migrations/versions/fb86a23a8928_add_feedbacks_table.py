@@ -34,7 +34,10 @@ def upgrade() -> None:
     op.create_index('ix_feedback_created_at', 'feedbacks', ['created_at'], unique=False)
     op.create_index('ix_feedback_tag', 'feedbacks', ['tag'], unique=False)
     op.create_index('ix_feedback_user_id', 'feedbacks', ['user_id'], unique=False)
-    op.create_index('idx_api_keys_purpose', 'api_keys', ['purpose'], unique=False)
+    conn = op.get_bind()
+    result = conn.execute(sa.text("SELECT 1 FROM pg_indexes WHERE indexname = 'idx_api_keys_purpose'")).fetchone()
+    if not result:
+        op.create_index('idx_api_keys_purpose', 'api_keys', ['purpose'], unique=False)
     # ### end Alembic commands ###
 
 
