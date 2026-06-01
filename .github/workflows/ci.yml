@@ -76,6 +76,7 @@ jobs:
       - name: Run tests
         run: uv run pytest -v --tb=short
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nursing_test
           TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/nursing_test
 
   frontend:
