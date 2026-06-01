@@ -1,7 +1,7 @@
 """tests for ConfigRouter priority-based degradation routing"""
 import pytest
 from datetime import datetime, timezone, timedelta
-from services.llm_router import ConfigRouter
+from services.llm_router import ConfigRouter, _SyntheticConfig
 from models import LLMConfig, ApiSecret
 
 
@@ -73,13 +73,16 @@ def test_select_key_uses_degraded_after_ttl():
 
 
 def test_select_key_all_unavailable():
+    """所有配置不可用时，应走 env 应急兜底返回 _SyntheticConfig"""
     router = ConfigRouter()
     secret = _make_secret()
     cfg = _make_config(1, secret, status="disabled")
     router._cache_by_purpose = {"qa": [cfg]}
 
-    with pytest.raises(RuntimeError, match="无可用配置"):
-        router.select_key("qa")
+    result = router.select_key("qa")
+    assert isinstance(result, _SyntheticConfig)
+    assert result.label == "DeepSeek Flash (env-fallback)"
+    assert len(result._raw_key) > 0
 
 
 def test_report_result_consecutive_failures_circuit_break():
@@ -120,11 +123,14 @@ def test_report_result_success_clears_degraded():
 
 
 def test_select_key_no_config_for_purpose():
+    """无配置时走 env 应急兜底，scoring 用 Pro 模型"""
     router = ConfigRouter()
     router._cache_by_purpose = {"qa": []}
 
-    with pytest.raises(RuntimeError, match="无可用配置"):
-        router.select_key("scoring")
+    result = router.select_key("scoring")
+    assert isinstance(result, _SyntheticConfig)
+    assert "Pro" in result.label
+    assert len(result._raw_key) > 0
 
 
 def test_select_key_falls_back_to_wildcard():
@@ -147,8 +153,10 @@ def test_select_key_falls_back_to_wildcard():
 
 
 def test_select_key_wildcard_no_fallback_for_star_itself():
+    """* purpose 无配置时走 env 应急兜底"""
     router = ConfigRouter()
     router._cache_by_purpose = {}
 
-    with pytest.raises(RuntimeError, match="无可用配置"):
-        router.select_key("*")
+    result = router.select_key("*")
+    assert isinstance(result, _SyntheticConfig)
+    assert len(result._raw_key) > 0

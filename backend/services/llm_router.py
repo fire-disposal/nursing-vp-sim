@@ -11,6 +11,32 @@ DEGRADED_TTL_SECONDS = 300
 GLOBAL_DEGRADED_TTL_SECONDS = 30
 
 
+class _SyntheticConfig:
+    """应急硬编码配置 —— 当 DB 无 LLMConfig 时，直接用 .env 的 DEEPSEEK_API_KEY 兜底"""
+    def __init__(self, label="", base_url="", model="", raw_key=""):
+        self.id = 0
+        self.label = label
+        self.base_url = base_url
+        self.model = model
+        self._raw_key = raw_key
+        self.purpose = "*"
+        self.priority = 999
+        self.status = "active"
+        self.consecutive_failures = 0
+        self.degraded_reason = None
+        self.degraded_until = None
+        self.price_input_per_1m = 1.0
+        self.price_output_per_1m = 2.0
+        self.monthly_cost_limit = 0.0
+        self.call_count_today = 0
+        self.total_tokens_today = 0
+        self.total_cost_today = 0.0
+        self.monthly_cost_used = 0.0
+        self.stats_date = None
+        self.stats_month = None
+        self.last_used_at = None
+
+
 class ConfigRouter:
     def __init__(self):
         self._cache: list | None = None
@@ -77,10 +103,29 @@ class ConfigRouter:
 
             return cfg
 
+        # ── 应急硬编码兜底：DB 无配置时直接用 .env 中的 DEEPSEEK_API_KEY ──
+        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+        if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+            _logger.warning("LLMRouter: 无DB可用配置，使用 .env DEEPSEEK 密钥应急兜底 (purpose=%s)", purpose)
+            if purpose == "scoring":
+                return _SyntheticConfig(
+                    label="DeepSeek Pro (env-fallback)",
+                    base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
+                    raw_key=DEEPSEEK_API_KEY,
+                )
+            else:
+                return _SyntheticConfig(
+                    label="DeepSeek Flash (env-fallback)",
+                    base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
+                    raw_key=DEEPSEEK_API_KEY,
+                )
+
         self._global_degraded_until = datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
         raise RuntimeError(f"purpose={purpose} 无可用配置")
 
     def get_decrypted_key(self, config) -> str:
+        if isinstance(config, _SyntheticConfig):
+            return config._raw_key
         from services.crypto_utils import decrypt_api_key
         return decrypt_api_key(config.secret.encrypted_key)
 
