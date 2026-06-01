@@ -1,46 +1,42 @@
 import { api } from "../api.js";
 
-export function fetchProviders() {
-  return api.get("/admin/api/providers");
+export function fetchSecrets() {
+  return api.get("/admin/api/secrets");
 }
-export function createProvider(data) {
-  return api.post("/admin/api/providers", data);
+export function createSecret(data) {
+  return api.post("/admin/api/secrets", data);
 }
-export function updateProvider(id, data) {
-  return api.put(`/admin/api/providers/${id}`, data);
+export function updateSecret(id, data) {
+  return api.put(`/admin/api/secrets/${id}`, data);
 }
-export function deleteProvider(id) {
-  return api.delete(`/admin/api/providers/${id}`);
+export function deleteSecret(id) {
+  return api.delete(`/admin/api/secrets/${id}`);
 }
-export function fetchKeys(providerId, status) {
+
+export function fetchConfigs(purpose) {
   const params = {};
-  if (providerId) params.provider_id = providerId;
-  if (status) params.status = status;
-  return api.get("/admin/api/keys", { params });
+  if (purpose) params.purpose = purpose;
+  return api.get("/admin/api/configs", { params });
 }
-export function createKey(data) {
-  return api.post("/admin/api/keys", data);
+export function createConfig(data) {
+  return api.post("/admin/api/configs", data);
 }
-export function createDeepseekKey(rawKey, label) {
-  const params = { raw_key: rawKey };
-  if (label) params.label = label;
-  return api.post("/admin/api/keys/deepseek", null, { params });
+export function updateConfig(id, data) {
+  return api.put(`/admin/api/configs/${id}`, data);
 }
-export function updateKey(id, data) {
-  return api.put(`/admin/api/keys/${id}`, data);
+export function deleteConfig(id) {
+  return api.delete(`/admin/api/configs/${id}`);
 }
-export function deleteKey(id) {
-  return api.delete(`/admin/api/keys/${id}`);
+export function toggleConfig(id) {
+  return api.post(`/admin/api/configs/${id}/toggle`);
 }
-export function toggleKey(id) {
-  return api.post(`/admin/api/keys/${id}/toggle`);
+export function resetConfig(id) {
+  return api.post(`/admin/api/configs/${id}/reset`);
 }
-export function testKey(id) {
-  return api.post(`/admin/api/keys/${id}/test`);
+export function testConfig(id) {
+  return api.post(`/admin/api/configs/${id}/test`);
 }
-export function fetchKeyStats(id) {
-  return api.get(`/admin/api/keys/${id}/stats`);
-}
+
 export function reloadRouter() {
   return api.post("/admin/api/reload");
 }
