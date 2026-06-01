@@ -1,5 +1,6 @@
-import { AlertCircle, Download, Edit3, FileText, Plus, Trash2, Upload, Users } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { batchCreateUsers, deleteUser, getUsers, register, updateUser } from "../../api";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
@@ -11,6 +12,9 @@ export default function UsersTab({ currentUserId }) {
   const [userTotal, setUserTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const LIMIT = 50;
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const searchRef = useRef(null);
   const [showRegister, setShowRegister] = useState(false);
   const [regForm, setRegForm] = useState({ username: "", password: "", role: "student", display_name: "", student_id: "" });
   const [regMsg, setRegMsg] = useState("");
@@ -26,22 +30,31 @@ export default function UsersTab({ currentUserId }) {
   const [batchImporting, setBatchImporting] = useState(false);
   const toast = useToast();
   const { confirm } = useConfirm();
+  const navigate = useNavigate();
 
   const loadUsers = useCallback(
     (_offset) => {
-      getUsers({ offset: _offset != null ? _offset : offset, limit: LIMIT })
+      const params = { offset: _offset != null ? _offset : offset, limit: LIMIT };
+      if (search) params.search = search;
+      if (roleFilter) params.role = roleFilter;
+      getUsers(params)
         .then(({ data }) => {
           setUsers(data.items);
           setUserTotal(data.total);
         })
         .catch(() => toast.error("加载用户列表失败"));
     },
-    [offset, toast],
+    [offset, search, roleFilter, toast],
   );
 
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOffset(0);
+  }, [search, roleFilter]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -250,6 +263,43 @@ export default function UsersTab({ currentUserId }) {
       )}
 
       <div className="card">
+        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ position: "relative", flex: 1, maxWidth: 320 }}>
+            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--gray-400)" }} />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="搜索用户名、姓名或学号..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "7px 10px 7px 30px",
+                border: "1px solid var(--gray-200)",
+                borderRadius: "var(--radius-md)",
+                fontSize: "0.82rem",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            style={{
+              padding: "7px 10px",
+              border: "1px solid var(--gray-200)",
+              borderRadius: "var(--radius-md)",
+              fontSize: "0.82rem",
+              fontFamily: "inherit",
+              background: "#fff",
+            }}
+          >
+            <option value="">全部角色</option>
+            <option value="student">学生</option>
+            <option value="teacher">教师</option>
+          </select>
+          <span style={{ fontSize: "0.78rem", color: "var(--gray-500)", whiteSpace: "nowrap" }}>共 {userTotal} 人</span>
+        </div>
         <table className="data-table">
           <thead>
             <tr>
@@ -263,7 +313,7 @@ export default function UsersTab({ currentUserId }) {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id}>
+              <tr key={u.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/admin/users/${u.id}`)}>
                 <td>{u.username}</td>
                 <td>{u.display_name}</td>
                 <td>
@@ -273,10 +323,24 @@ export default function UsersTab({ currentUserId }) {
                 <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(u.created_at).toLocaleString("zh-CN")}</td>
                 <td>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button className="btn btn-sm" onClick={() => openEditUser(u)} title="编辑">
+                    <button
+                      className="btn btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditUser(u);
+                      }}
+                      title="编辑"
+                    >
                       <Edit3 size={14} />
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteUser(u)} title="删除">
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteUser(u);
+                      }}
+                      title="删除"
+                    >
                       <Trash2 size={14} />
                     </button>
                   </div>

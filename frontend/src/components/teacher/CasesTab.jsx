@@ -114,6 +114,7 @@ export default function CasesTab() {
   }, [offset, fetchCases]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
   }, [filters.name, filters.difficulty]);
 

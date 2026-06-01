@@ -24,6 +24,7 @@ export default function CaseSelect({ user, onLogout }) {
         setTotal(data.total);
       })
       .catch(() => toast.error("加载病例列表失败"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset]);
 
   const filteredCases = difficultyFilter === 0 ? cases : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);

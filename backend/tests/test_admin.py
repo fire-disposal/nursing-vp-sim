@@ -338,10 +338,93 @@ class TestUserManagement:
         )
         assert resp.status_code == 200
 
-    def test_delete_self_forbidden(self, client, teacher):
+    def test_get_users_search(self, client, teacher, db_session):
+        from models import User
+        from auth import hash_password
+        db_session.add(User(username="zhangsan", password_hash=hash_password("123"), role="student", display_name="张三", student_id="202401"))
+        db_session.add(User(username="lisi", password_hash=hash_password("123"), role="teacher", display_name="李四", student_id="202402"))
+        db_session.add(User(username="wangwu", password_hash=hash_password("123"), role="student", display_name="王五", student_id="202403"))
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get("/api/admin/users?search=zhang", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 1
+        assert resp.json()["items"][0]["username"] == "zhangsan"
+
+        resp2 = client.get("/api/admin/users?role=student", headers={"Authorization": f"Bearer {token}"})
+        assert resp2.status_code == 200
+        assert resp2.json()["total"] == 2  # zhangsan, wangwu + existing student fixture
+
+        resp3 = client.get("/api/admin/users?search=李&role=teacher", headers={"Authorization": f"Bearer {token}"})
+        assert resp3.status_code == 200
+        assert resp3.json()["total"] == 1
+        assert resp3.json()["items"][0]["display_name"] == "李四"
+
+
+class TestStudentDetail:
+    def test_get_detail_not_found(self, client, teacher):
+        _, token = teacher
+        resp = client.get("/api/admin/users/99999/detail", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 404
+
+    def test_get_detail_teacher_not_student(self, client, teacher):
         user, token = teacher
-        resp = client.delete(
-            f"/api/admin/users/{user.id}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 400
+        resp = client.get(f"/api/admin/users/{user.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 404
+
+    def test_get_detail_forbidden_for_student(self, client, student):
+        user, token = student
+        resp = client.get(f"/api/admin/users/{user.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
+    def test_get_detail_empty(self, client, teacher, db_session):
+        from models import User
+        from auth import hash_password
+        s = User(username="emptystudent", password_hash=hash_password("123"), role="student", display_name="空学生", student_id="S000")
+        db_session.add(s)
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get(f"/api/admin/users/{s.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["display_name"] == "空学生"
+        assert data["student_id"] == "S000"
+        assert data["total_sessions"] == 0
+        assert data["total_minutes"] == 0
+        assert data["avg_score"] is None
+        assert data["daily"] == []
+
+    def test_get_detail_with_records(self, client, teacher, db_session, test_case):
+        from models import User, TrainingRecord, Score
+        from auth import hash_password
+        from datetime import datetime, timezone
+
+        s = User(username="activestudent", password_hash=hash_password("123"), role="student", display_name="学霸", student_id="TOP001")
+        db_session.add(s)
+        db_session.commit()
+
+        now = datetime.now(timezone.utc)
+        for i in range(3):
+            r = TrainingRecord(
+                user_id=s.id, case_id=test_case.id,
+                status="completed",
+                start_time=now - timedelta(days=i),
+                end_time=now - timedelta(days=i, minutes=-20),
+            )
+            db_session.add(r)
+            db_session.flush()
+            db_session.add(Score(record_id=r.id, total_score=80 + i * 5, detail_scores={}, rubric_version="v2"))
+        db_session.commit()
+
+        _, token = teacher
+        resp = client.get(f"/api/admin/users/{s.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["display_name"] == "学霸"
+        assert data["total_sessions"] == 3
+        assert data["total_minutes"] >= 60
+        assert data["avg_score"] is not None
+        assert len(data["recent_records"]) == 3
+        assert len(data["daily"]) > 0

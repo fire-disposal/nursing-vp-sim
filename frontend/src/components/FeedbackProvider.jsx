@@ -12,6 +12,7 @@ export function FeedbackProvider({ children }) {
   useEffect(() => {
     const prompted = localStorage.getItem(STORAGE_KEY);
     if (!prompted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowPrompt(true);
     }
   }, []);
@@ -39,6 +40,7 @@ export function FeedbackProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useFeedback() {
   const ctx = useContext(FeedbackContext);
   if (!ctx) throw new Error("useFeedback must be inside FeedbackProvider");

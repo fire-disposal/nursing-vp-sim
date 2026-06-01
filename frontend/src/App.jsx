@@ -14,6 +14,11 @@ const RecordDetail = lazy(() => import("./pages/RecordDetail"));
 const QA = lazy(() => import("./pages/QA"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Admin = lazy(() => import("./pages/Admin"));
+const LLMManagementPage = lazy(() => import("./pages/admin/LLMManagementPage"));
+const CasesPage = lazy(() => import("./pages/admin/CasesPage"));
+const FeedbackPage = lazy(() => import("./pages/admin/FeedbackPage"));
+const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
+const UserDetailPage = lazy(() => import("./pages/admin/UserDetailPage"));
 
 function PageLoader() {
   return (
@@ -145,6 +150,51 @@ export default function App() {
                     element={
                       <ProtectedRoute role="teacher">
                         <Admin user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/llm"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <LLMManagementPage user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/cases"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <CasesPage user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/users/:userId"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <UserDetailPage user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/users"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <UsersPage user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/feedback"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <FeedbackPage user={user} onLogout={handleLogout} />
                       </ProtectedRoute>
                     }
                   />

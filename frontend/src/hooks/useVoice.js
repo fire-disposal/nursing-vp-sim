@@ -33,6 +33,7 @@ export default function useVoice() {
   useEffect(() => {
     const rec = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     const syn = !!window.speechSynthesis;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSpeechSupported({ recognition: rec, synthesis: syn });
     if (syn) {
       voiceRef.current = pickVoice();

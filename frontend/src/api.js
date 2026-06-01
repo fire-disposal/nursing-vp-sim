@@ -217,6 +217,10 @@ export function deleteUser(id) {
   return api.delete(`/admin/users/${id}`);
 }
 
+export function getStudentDetail(userId) {
+  return api.get(`/admin/users/${userId}/detail`);
+}
+
 // 病例管理
 export function getManageCases(params = {}) {
   return api.get("/cases/manage/list", { params });

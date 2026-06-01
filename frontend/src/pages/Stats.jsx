@@ -7,7 +7,7 @@ import Pagination from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import PageHeader from "../components/ui/PageHeader";
 
-export default function Stats({ user, onLogout }) {
+export default function Stats({ user }) {
   const [period, setPeriod] = useState("month");
   const [trends, setTrends] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -37,31 +37,55 @@ export default function Stats({ user, onLogout }) {
         })
         .catch(() => toast.error("加载排行榜失败"));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, user, summaryOffset, rankingOffset]);
 
+  return (
+    <StatsContent
+      period={period}
+      setPeriod={setPeriod}
+      trends={trends}
+      summary={summary}
+      summaryOffset={summaryOffset}
+      setSummaryOffset={setSummaryOffset}
+      summaryTotal={summaryTotal}
+      ranking={ranking}
+      rankingOffset={rankingOffset}
+      setRankingOffset={setRankingOffset}
+      rankingTotal={rankingTotal}
+      user={user}
+    />
+  );
+}
+
+export function StatsPage({ user, onLogout }) {
+  return (
+    <Layout user={user} onLogout={onLogout}>
+      <Stats user={user} onLogout={onLogout} />
+    </Layout>
+  );
+}
+
+export function StatsContent({
+  period,
+  setPeriod,
+  trends,
+  summary,
+  summaryOffset,
+  setSummaryOffset,
+  summaryTotal,
+  ranking,
+  rankingOffset,
+  setRankingOffset,
+  rankingTotal,
+  user,
+  LIMIT = 50,
+}) {
   const daily = trends?.daily || [];
   const hasData = daily.length > 0;
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="chart-tooltip">
-        <div className="chart-tooltip-date">{label}</div>
-        {payload.map((p, i) => (
-          <div key={i} style={{ color: p.color, fontSize: "0.82rem" }}>
-            {p.name}:{" "}
-            <strong>
-              {p.value}
-              {p.name.includes("得分") ? "分" : p.name.includes("时长") ? "分钟" : "次"}
-            </strong>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <>
       <PageHeader
         title="训练统计"
         subtitle={user?.role === "teacher" ? "查看所有学生的训练趋势、时长和得分统计" : "查看你的训练投入与效果趋势"}
@@ -269,7 +293,25 @@ export default function Stats({ user, onLogout }) {
           <Pagination total={rankingTotal} offset={rankingOffset} limit={LIMIT} onChange={setRankingOffset} />
         </div>
       )}
-    </Layout>
+    </>
+  );
+}
+
+function CustomTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      <div className="chart-tooltip-date">{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ color: p.color, fontSize: "0.82rem" }}>
+          {p.name}:{" "}
+          <strong>
+            {p.value}
+            {p.name.includes("得分") ? "分" : p.name.includes("时长") ? "分钟" : "次"}
+          </strong>
+        </div>
+      ))}
+    </div>
   );
 }
 

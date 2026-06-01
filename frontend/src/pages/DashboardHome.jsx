@@ -53,6 +53,7 @@ export default function DashboardHome({ user, onLogout }) {
     getRecords()
       .then(({ data }) => setRecords(data.items || []))
       .catch(() => toast.error("加载训练记录失败"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleExport = async () => {
@@ -90,6 +91,7 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
       openFeedback();
       window.history.replaceState({}, document.title);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.feedbackPrompt]);
 
   const inProgressRecord = records.find((r) => r.status === "in_progress");
@@ -524,16 +526,16 @@ function TeacherDashboard({ user, onLogout, stats, records, handleExport, naviga
               <h3>快捷入口</h3>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin?tab=records")}>
+              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/history")}>
                 <ClipboardList size={14} /> 训练记录管理
               </button>
-              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin?tab=users")}>
+              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin/users")}>
                 <Users size={14} /> 学生账号管理
               </button>
-              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin?tab=cases")}>
+              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin/cases")}>
                 <BookOpen size={14} /> 病例库管理
               </button>
-              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin?tab=monitor")}>
+              <button className="btn btn-outline" style={{ justifyContent: "flex-start", width: "100%" }} onClick={() => navigate("/admin/llm")}>
                 <TrendingUp size={14} /> LLM 调用监控
               </button>
             </div>

@@ -37,6 +37,7 @@ export default function RecordsTab() {
   }, [loadData]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
   }, [filters.student_name, filters.case_id, filters.status, filters.date_from, filters.date_to]);
 

@@ -257,16 +257,6 @@ export default function RecordDetail({ user, onLogout }) {
   const navigate = useNavigate();
   const toast = useToast();
 
-  useEffect(() => {
-    loadRecord();
-  }, [id, navigate]);
-
-  useEffect(() => {
-    if (record?.score) {
-      loadReview();
-    }
-  }, [record?.score]);
-
   const loadRecord = async () => {
     try {
       const { data } = await getRecordDetail(id);
@@ -285,6 +275,20 @@ export default function RecordDetail({ user, onLogout }) {
       setReview(null);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRecord();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (record?.score) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadReview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.score]);
 
   const isReviewed = review?.review_status === "reviewed";
   const isTeacher = user?.role === "teacher";

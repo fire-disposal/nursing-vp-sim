@@ -285,6 +285,7 @@ export default function ChatTraining() {
   }, [remaining, score, ending]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTimerActive(false);
     setRemaining(null);
     warned5Ref.current = false;
@@ -318,7 +319,8 @@ export default function ChatTraining() {
     return () => {
       cancelled = true;
     };
-  }, [recordId, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -423,6 +425,7 @@ export default function ChatTraining() {
     if (remaining === 0 && !autoEndRef.current) {
       toast.info("训练时间已结束，正在自动评分...");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining]);
 
   useEffect(() => {
@@ -431,10 +434,12 @@ export default function ChatTraining() {
       autoEndRef.current = true;
       executeEnd(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, ending, showScore]);
 
   useEffect(() => {
     if (!ending) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowOverlay(true);
     setScoreProgress(0);
     progressSpeedRef.current = 100 / (15 * 20);

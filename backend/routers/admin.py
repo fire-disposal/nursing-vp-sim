@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, Integer as SAInteger
+from sqlalchemy import func, or_, Integer as SAInteger
+from datetime import datetime, timedelta, timezone
 from database import get_db
 from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider
-from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse
+from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse, StudentDetail, TrainingRecordBrief
 from auth import require_teacher, hash_password
 from logger import log_info
 import os
@@ -25,11 +26,25 @@ router = APIRouter(prefix="/api/admin", tags=["管理"])
 def list_users(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    search: str = Query(None, description="搜索用户名/姓名/学号"),
+    role: str = Query(None, description="角色筛选 student/teacher"),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
-    total = db.query(User).count()
-    users = db.query(User).order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    q = db.query(User)
+    if search:
+        search_term = f"%{search}%"
+        q = q.filter(
+            or_(
+                User.username.ilike(search_term),
+                User.display_name.ilike(search_term),
+                User.student_id.ilike(search_term),
+            )
+        )
+    if role:
+        q = q.filter(User.role == role)
+    total = q.count()
+    users = q.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
     return PaginatedResponse(items=users, total=total, offset=offset, limit=limit)
 
 
@@ -62,6 +77,80 @@ def update_user(
     log_info(f"用户更新: target_id={user_id} target_name={user.username}",
              user_id=current_user.id, user_role=current_user.role)
     return user
+
+
+@router.get("/users/{user_id}/detail", response_model=StudentDetail)
+def get_user_detail(
+    user_id: int,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id, User.role == "student").first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在或不是学生")
+
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=30)
+
+    stats = db.query(
+        func.count(TrainingRecord.id).label("total_sessions"),
+        func.coalesce(
+            func.sum(func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60),
+            0,
+        ).label("total_minutes"),
+        func.coalesce(func.avg(Score.total_score), 0).label("avg_score"),
+    ).outerjoin(Score, Score.record_id == TrainingRecord.id).filter(
+        TrainingRecord.user_id == user_id,
+        TrainingRecord.status == "completed",
+    ).first()
+
+    daily_rows = db.query(
+        func.date(TrainingRecord.start_time).label("d"),
+        func.count().label("sessions"),
+        func.sum(
+            func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60
+        ).label("minutes"),
+        func.avg(Score.total_score).label("avg_score"),
+    ).outerjoin(Score, Score.record_id == TrainingRecord.id).filter(
+        TrainingRecord.user_id == user_id,
+        TrainingRecord.status == "completed",
+        TrainingRecord.start_time >= since,
+    ).group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
+
+    daily = [
+        {"date": str(r.d), "sessions": r.sessions,
+         "minutes": round(float(r.minutes or 0), 1),
+         "avg_score": round(float(r.avg_score), 1) if r.avg_score is not None else None}
+        for r in daily_rows
+    ]
+
+    recent = db.query(TrainingRecord).options(
+        joinedload(TrainingRecord.case),
+        joinedload(TrainingRecord.score),
+    ).filter(
+        TrainingRecord.user_id == user_id,
+    ).order_by(TrainingRecord.start_time.desc()).limit(20).all()
+
+    recent_records = [
+        TrainingRecordBrief(
+            id=r.id, case_id=r.case_id, case_name=r.case.name if r.case else "",
+            user_display_name=user.display_name, user_student_id=user.student_id,
+            status=r.status, scoring_status=r.scoring_status, scoring_error=r.scoring_error,
+            start_time=r.start_time, end_time=r.end_time,
+            score_total=r.score.total_score if r.score else None,
+        ) for r in recent
+    ]
+
+    return StudentDetail(
+        id=user.id, username=user.username, role=user.role,
+        display_name=user.display_name, student_id=user.student_id,
+        created_at=user.created_at,
+        total_sessions=stats.total_sessions or 0,
+        total_minutes=round(float(stats.total_minutes or 0)),
+        avg_score=round(float(stats.avg_score), 1) if stats.avg_score else None,
+        recent_records=recent_records,
+        daily=daily,
+    )
 
 
 @router.delete("/users/{user_id}")

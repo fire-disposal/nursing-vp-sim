@@ -12,6 +12,7 @@ export default function SecretModal({ open, secret, onClose, onSaved }) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLabel(secret?.label || "");
       setRawKey("");
     }

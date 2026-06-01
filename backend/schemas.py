@@ -222,6 +222,22 @@ class TrendStats(BaseModel):
     avg_score: Optional[float] = None
 
 
+class StudentDetail(BaseModel):
+    id: int
+    username: str
+    role: str
+    display_name: str
+    student_id: Optional[str]
+    created_at: datetime
+    total_sessions: int = 0
+    total_minutes: int = 0
+    avg_score: Optional[float] = None
+    recent_records: list = []
+    daily: list = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ── 病例管理 ──
 
 class CaseCreateRequest(BaseModel):

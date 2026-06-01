@@ -25,10 +25,15 @@ const STATUS_COLORS = {
 const STATUS_LABELS = { active: "正常", degraded: "熔断", disabled: "手动关闭" };
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成" };
 
-export default function ApiManagementTab() {
+export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) {
   const toast = useToast();
   const { confirm } = useConfirm();
-  const [subTab, setSubTab] = useState("configs");
+  const [subTab, setSubTab] = useState(activeSubTab || "configs");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (hideSubTabs && activeSubTab) setSubTab(activeSubTab);
+  }, [hideSubTabs, activeSubTab]);
   const [secrets, setSecrets] = useState([]);
   const [configs, setConfigs] = useState([]);
   const [health, setHealth] = useState([]);
@@ -66,13 +71,16 @@ export default function ApiManagementTab() {
   }, []);
   useEffect(() => {
     if (subTab === "secrets") loadSecrets();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     else if (subTab === "configs") loadConfigs();
     else if (subTab === "health") loadHealth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab]);
   useEffect(() => {
     if (!healthAutoRefresh || subTab !== "health") return;
     const timer = setInterval(loadHealth, 30000);
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [healthAutoRefresh, subTab]);
 
   const handleDeleteSecret = async (s) => {
@@ -207,17 +215,19 @@ export default function ApiManagementTab() {
 
   return (
     <>
-      <div style={{ display: "flex", borderBottom: "1px solid var(--border-color)", marginBottom: "var(--space-5)" }}>
-        {[
-          { k: "configs", l: "用途配置" },
-          { k: "secrets", l: "密钥凭证" },
-          { k: "health", l: "连通性" },
-        ].map((t) => (
-          <button key={t.k} onClick={() => setSubTab(t.k)} style={S.tabBtn(subTab === t.k)}>
-            {t.l}
-          </button>
-        ))}
-      </div>
+      {!hideSubTabs && (
+        <div style={{ display: "flex", borderBottom: "1px solid var(--border-color)", marginBottom: "var(--space-5)" }}>
+          {[
+            { k: "configs", l: "用途配置" },
+            { k: "secrets", l: "密钥凭证" },
+            { k: "health", l: "连通性" },
+          ].map((t) => (
+            <button key={t.k} onClick={() => setSubTab(t.k)} style={S.tabBtn(subTab === t.k)}>
+              {t.l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {subTab === "secrets" && (
         <div>
@@ -428,6 +438,7 @@ export default function ApiManagementTab() {
                                 <Edit3 size={12} />
                               </button>
                               <button
+                                // eslint-disable-next-line react-hooks/refs
                                 onClick={() => handleToggle(c)}
                                 style={{
                                   padding: "2px 8px",

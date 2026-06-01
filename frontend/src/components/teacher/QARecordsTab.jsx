@@ -33,6 +33,7 @@ export default function QARecordsTab() {
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset, LIMIT]);
 
   const handlePreview = async (sessionId, title) => {

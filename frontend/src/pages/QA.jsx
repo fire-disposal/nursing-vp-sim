@@ -63,7 +63,7 @@ export default function QA({ user, onLogout }) {
             { id: optimisticId + 1, role: "assistant", content: ans },
           ]);
           await loadSessions();
-        } catch (_e) {
+        } catch {
           setMessages([
             { id: optimisticId, role: "user", content: q },
             { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复，请稍后重试。" },

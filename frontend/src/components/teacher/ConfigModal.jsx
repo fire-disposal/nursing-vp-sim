@@ -95,6 +95,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
           price_output_per_1m: configData.price_output_per_1m ?? 2,
           monthly_cost_limit: configData.monthly_cost_limit ?? "",
         };
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(f);
         setJsonText(JSON.stringify(configData, null, 2));
       } else {

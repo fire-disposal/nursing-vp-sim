@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, MessageSquare, Settings, Stethoscope, X } from "lucide-react";
+import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, MessageSquare, Server, Settings, Stethoscope, UserSearch, Users, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { APP_VERSION } from "../version";
@@ -17,8 +17,11 @@ const teacherLinks = [
   { to: "/home", icon: Home, label: "首页" },
   { to: "/history", icon: ClipboardList, label: "训练记录" },
   { to: "/qa", icon: HelpCircle, label: "护理问答" },
-  { to: "/stats", icon: BarChart3, label: "训练统计" },
-  { to: "/admin", icon: Settings, label: "管理后台" },
+  { to: "/admin", icon: Settings, label: "训练管理" },
+  { to: "/admin/users", icon: Users, label: "用户管理" },
+  { to: "/admin/cases", icon: UserSearch, label: "病例管理" },
+  { to: "/admin/llm", icon: Server, label: "LLM 管理" },
+  { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈" },
 ];
 
 export default function AppShell({ children, user, onLogout }) {
@@ -58,7 +61,7 @@ export default function AppShell({ children, user, onLogout }) {
               <NavLink
                 key={link.to}
                 to={link.to}
-                end={link.to === "/home"}
+                end={link.to === "/home" || link.to === "/admin"}
                 onClick={closeMenu}
                 className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
               >

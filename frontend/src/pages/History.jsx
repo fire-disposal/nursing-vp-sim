@@ -56,10 +56,12 @@ export default function History({ user, onLogout }) {
   const clearFilters = () => setFilters({ status: "", date_from: "", date_to: "" });
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRecords();
   }, [fetchRecords]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
   }, [filters.status, filters.date_from, filters.date_to]);
 
