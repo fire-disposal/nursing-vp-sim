@@ -62,12 +62,12 @@ describe("Layout", () => {
   it("shows student navigation links", () => {
     renderLayout(studentUser);
     expect(screen.getByText("病例训练")).toBeInTheDocument();
-    expect(screen.queryByText("管理后台")).not.toBeInTheDocument();
+    expect(screen.queryByText("训练管理")).not.toBeInTheDocument();
   });
 
   it("shows teacher navigation links", () => {
     renderLayout(teacherUser);
-    expect(screen.getByText("管理后台")).toBeInTheDocument();
+    expect(screen.getByText("训练管理")).toBeInTheDocument();
     expect(screen.queryByText("病例训练")).not.toBeInTheDocument();
   });
 

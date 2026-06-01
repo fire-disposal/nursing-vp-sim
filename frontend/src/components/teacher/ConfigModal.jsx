@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { createConfig, updateConfig, fetchSecrets } from "../../api/apiManagement";
-import Modal from "../ui/Modal";
+import { createConfig, fetchSecrets, updateConfig } from "../../api/apiManagement";
 import { useToast } from "../Toast";
+import Modal from "../ui/Modal";
 
 const PURPOSES = [
   { value: "qa", label: "问答 (QA)" },
@@ -276,7 +276,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
             <label style={{ flex: 1 }}>
               <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先级 (越小越优先)</div>
-              <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value) || 10)} style={inputStyle} />
+              <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value, 10) || 10)} style={inputStyle} />
             </label>
             <label style={{ flex: 1 }}>
               <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>月度费用上限 (¥)</div>

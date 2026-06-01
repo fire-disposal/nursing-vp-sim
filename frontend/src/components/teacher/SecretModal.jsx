@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createSecret, updateSecret } from "../../api/apiManagement";
-import Modal from "../ui/Modal";
 import { useToast } from "../Toast";
+import Modal from "../ui/Modal";
 
 export default function SecretModal({ open, secret, onClose, onSaved }) {
   const [label, setLabel] = useState("");

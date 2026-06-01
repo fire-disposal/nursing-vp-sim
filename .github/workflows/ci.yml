@@ -39,7 +39,9 @@ jobs:
           cache-dependency-glob: "backend/uv.lock"
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync
+        env:
+          UV_DEFAULT_INDEX: https://pypi.org/simple/
 
       - name: Verify migration runs (PostgreSQL)
         run: |

@@ -1,9 +1,18 @@
 import { PanelLeftClose, PanelLeftOpen, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { getPatientAvatar } from "../utils/avatar";
 
 export default function PatientPortrait({ patientInfo, collapsed, onToggle }) {
   const avatarSrc = getPatientAvatar(patientInfo);
   const name = patientInfo?.name || "患者";
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 800);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   return (
     <>
@@ -32,6 +41,12 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }) {
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
       </div>
+
+      {isMobile && collapsed && (
+        <button className="portrait-toggle-fab" onClick={onToggle} title="展开患者信息">
+          <PanelLeftOpen size={16} />
+        </button>
+      )}
 
       {!collapsed && <div className="portrait-overlay" onClick={onToggle} />}
     </>

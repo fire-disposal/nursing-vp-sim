@@ -451,7 +451,7 @@ function TeacherDashboard({ user, onLogout, stats, records, handleExport, naviga
       <TrainingDurationChart />
 
       {/* 最近动态 + 快捷入口 */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "var(--space-4)", marginTop: "var(--space-5)" }}>
+      <div className="dashboard-grid" style={{ marginTop: "var(--space-5)" }}>
         <div className="card">
           <div className="card-header">
             <h3>

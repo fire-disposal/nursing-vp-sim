@@ -1,6 +1,7 @@
 export default function Tabs({ tabs, activeTab, onChange, style }) {
   return (
     <div
+      className="tabs-scroll"
       style={{
         display: "flex",
         borderBottom: "1px solid var(--border-color)",

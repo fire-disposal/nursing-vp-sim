@@ -1,4 +1,4 @@
-import { Bot, Lightbulb, Plus, Send, Trash2 } from "lucide-react";
+import { Bot, Lightbulb, Menu, Plus, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,6 +14,7 @@ export default function QA({ user, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -133,7 +134,8 @@ export default function QA({ user, onLogout }) {
   return (
     <Layout user={user} onLogout={onLogout}>
       <div className="qa-layout">
-        <aside className="qa-sidebar">
+        {showSidebar && <div className="sidebar-overlay" onClick={() => setShowSidebar(false)} style={{ zIndex: 199 }} />}
+        <aside className={`qa-sidebar${showSidebar ? " show" : ""}`}>
           <button className="qa-new-btn" onClick={handleNewChat}>
             <Plus size={16} />
             <span>新对话</span>
@@ -153,6 +155,9 @@ export default function QA({ user, onLogout }) {
         </aside>
 
         <main className="qa-main">
+          <button className="qa-sidebar-toggle" onClick={() => setShowSidebar(true)} title="会话列表">
+            <Menu size={18} />
+          </button>
           {messages.length > 0 && (
             <div className="qa-messages">
               {messages.map((m, i) => {
