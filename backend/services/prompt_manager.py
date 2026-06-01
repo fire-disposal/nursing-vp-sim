@@ -38,7 +38,14 @@ class PromptTemplateObj:
         try:
             return render_template(self.system_prompt, **kwargs)
         except RuntimeError as e:
-            raise RuntimeError(f"{e} (purpose={self.purpose}, v{self.version})")
+            import re as _re
+            expected = sorted(set(_re.findall(r"\{#([^}#]+)#\}", self.system_prompt)))
+            provided = sorted(kwargs.keys())
+            missing = [v for v in expected if v not in kwargs]
+            raise RuntimeError(
+                f"{e} (purpose={self.purpose}, v{self.version}, "
+                f"期望变量: {expected}, 实际传入: {provided}, 缺失: {missing})"
+            )
 
     def render_pair(self, **kwargs) -> tuple[str, str]:
         system = self.render(**kwargs)
@@ -91,7 +98,6 @@ class PromptManager:
     def _upsert_v1_defaults(self, db):
         """强制 v1 模板始终与代码内置版本一致。每次启动 upsert，确保部署后旧语法被覆写。"""
         from models import PromptTemplate as PT
-        import re as _re
 
         defaults = [
             ("qa", "v1-默认QA", _HARDCODED_QA, None),
@@ -108,20 +114,16 @@ class PromptManager:
                 v1.user_prompt = user_prompt
                 v1.name = name
                 v1.is_active = True
-                v1.variables = [
-                    {"name": v, "desc": ""}
-                    for v in sorted(_re.findall(r"\{#([^}#]+)#\}", system_prompt + (user_prompt or "")))
-                ]
+                from services.variable_registry import get_registry
+                v1.variables = get_registry().get_variables_jsonb(purpose)
                 if old_sp != system_prompt:
                     updated += 1
             else:
+                from services.variable_registry import get_registry
                 db.add(PT(
                     purpose=purpose, version=1, name=name,
                     system_prompt=system_prompt, user_prompt=user_prompt,
-                    variables=[
-                        {"name": v, "desc": ""}
-                        for v in sorted(_re.findall(r"\{#([^}#]+)#\}", system_prompt + (user_prompt or "")))
-                    ],
+                    variables=get_registry().get_variables_jsonb(purpose),
                     is_active=True, created_by="system",
                 ))
                 updated += 1
