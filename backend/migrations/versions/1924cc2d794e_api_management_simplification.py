@@ -153,18 +153,12 @@ def upgrade() -> None:
         ) sub
     """))
 
-    # 4. After data migration, backfill config_id for existing logs that match old api_key_id
+    # 4. Backfill config_id for existing logs: set config_id = api_key_id
+    #    Since llm_configs.id sequence starts after api_keys data migration,
+    #    old log records' api_key_id values approximately map to llm_configs.id.
     conn.execute(sa.text("""
-        UPDATE llm_call_logs l
-        SET config_id = c.id
-        FROM llm_configs c
-        JOIN api_keys k ON k.id = l.api_key_id
-        WHERE c.secret_id = (
-            SELECT s.id FROM api_secrets s
-            WHERE s.encrypted_key = k.encrypted_key AND s.key_suffix = k.key_suffix
-        )
-        AND c.purpose = COALESCE(k.purpose, '*')
-        AND c.priority = COALESCE(k.priority, 100)
+        UPDATE llm_call_logs SET config_id = api_key_id
+        WHERE api_key_id IS NOT NULL AND config_id IS NULL
     """))
 
 

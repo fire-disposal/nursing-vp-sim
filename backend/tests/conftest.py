@@ -6,7 +6,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 TEST_DB_URL = os.environ.get(
     "TEST_DB_URL",
-    "postgresql://nursing:testpass@localhost:5434/nursing_test",
+    "postgresql://postgres:postgres@localhost:5432/nursing_test",
 )
 
 import pytest

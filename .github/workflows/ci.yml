@@ -17,9 +17,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: nursing
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: nursing_vp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nursing_test
         ports:
           - 5432:5432
         options: >-
@@ -43,7 +43,7 @@ jobs:
 
       - name: Verify migration runs (PostgreSQL)
         run: |
-          export DATABASE_URL="postgresql://nursing:testpass@localhost:5432/nursing_vp"
+          export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nursing_test"
           uv run python -c "
           from database import init_db
           init_db()
@@ -75,6 +75,8 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -v --tb=short
+        env:
+          TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/nursing_test
 
   frontend:
     runs-on: ubuntu-latest

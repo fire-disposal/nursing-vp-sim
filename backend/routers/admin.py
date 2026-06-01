@@ -355,7 +355,7 @@ def get_llm_logs(
         if date_to:
             agg_q = agg_q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
 
-        agg_q = agg_q.group_by(LLMCallLog.record_id)
+        agg_q = agg_q.group_by(LLMCallLog.record_id, User.display_name, CaseModel.name, ApiProvider.display_name)
 
         if status == "success":
             agg_q = agg_q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) == 0)
