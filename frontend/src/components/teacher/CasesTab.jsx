@@ -9,6 +9,7 @@ import Modal from "../ui/Modal";
 const NEW_CASE_TEMPLATE = {
   name: "",
   time_limit: 20,
+  difficulty: 1,
   description: "",
   patient_info: { name: "", age: 0, gender: "" },
   chief_complaint: "",
@@ -29,6 +30,7 @@ function buildCaseData(form) {
   return {
     name: form.name,
     time_limit: form.time_limit,
+    difficulty: form.difficulty,
     description: form.description,
     patient_info: { name: form.patient_name, age: form.patient_age, gender: form.patient_gender },
     chief_complaint: form.chief_complaint,
@@ -51,6 +53,7 @@ function parseCaseData(cd) {
   return {
     name: cd?.name || "",
     time_limit: cd?.time_limit || 20,
+    difficulty: cd?.difficulty || 1,
     description: cd?.description || "",
     patient_name: info.name || "",
     patient_age: info.age || 0,
@@ -89,22 +92,30 @@ export default function CasesTab() {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const LIMIT = 50;
+  const [filters, setFilters] = useState({ name: "", difficulty: "" });
 
   const fetchCases = useCallback(
     (off) => {
-      getManageCases({ offset: off, limit: LIMIT })
+      const params = { offset: off, limit: LIMIT };
+      if (filters.name) params.name = filters.name;
+      if (filters.difficulty) params.difficulty = filters.difficulty;
+      getManageCases(params)
         .then(({ data }) => {
           setCases(data.items);
           setTotal(data.total);
         })
         .catch(() => toast.error("加载病例列表失败"));
     },
-    [toast],
+    [filters, toast],
   );
 
   useEffect(() => {
     fetchCases(offset);
   }, [offset, fetchCases]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [filters.name, filters.difficulty]);
 
   const openNew = () => {
     setEditingCase(null);
@@ -285,6 +296,32 @@ export default function CasesTab() {
       </div>
 
       <div className="card">
+        <div className="filter-bar">
+          <div className="filter-row">
+            <div className="filter-item">
+              <label>病例名称</label>
+              <input placeholder="模糊搜索..." value={filters.name} onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="filter-item">
+              <label>困难程度</label>
+              <select value={filters.difficulty} onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value }))}>
+                <option value="">全部</option>
+                <option value="1">初级</option>
+                <option value="2">中级</option>
+                <option value="3">高级</option>
+              </select>
+            </div>
+            <div className="filter-item" style={{ alignSelf: "flex-end" }}>
+              <button className="btn btn-sm" onClick={() => setFilters({ name: "", difficulty: "" })}>
+                清除过滤
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {total} 条</span>
+        </div>
         {cases.length === 0 ? (
           <div className="empty-state">
             <div className="icon">
@@ -447,6 +484,14 @@ export default function CasesTab() {
               <div className="form-group" style={{ flex: 1 }}>
                 <label>训练时限 (分钟)</label>
                 <input type="number" min={5} max={120} value={caseForm.time_limit} onChange={(e) => updateField("time_limit", Number(e.target.value))} />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>困难程度</label>
+                <select value={caseForm.difficulty} onChange={(e) => updateField("difficulty", Number(e.target.value))}>
+                  <option value={1}>初级</option>
+                  <option value={2}>中级</option>
+                  <option value={3}>高级</option>
+                </select>
               </div>
             </div>
             <div className="form-group">
