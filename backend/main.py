@@ -160,23 +160,50 @@ async def request_id_and_audit_middleware(request: Request, call_next):
     request.state.request_id = rid
     t0 = time.time()
 
-    response = await call_next(request)
+    class _audit_scope:
+        def __init__(self, rid, req):
+            self.rid = rid
+            self.req = req
+            self.status = 0
 
-    duration_ms = round((time.time() - t0) * 1000)
-    user_id, user_role = _try_extract_user(request)
+        def __enter__(self):
+            return self
 
-    audit_logger.info(
-        "%s %s → %s (%.0fms)",
-        request.method, request.url.path, response.status_code, duration_ms,
-        extra={
-            "request_id": rid,
-            "user_id": user_id,
-            "user_role": user_role,
-            "client_ip": _get_client_ip(request),
-        },
-    )
-    response.headers["X-Request-ID"] = rid
-    return response
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            duration_ms = round((time.time() - t0) * 1000)
+            user_id, user_role = _try_extract_user(self.req)
+            audit_logger.info(
+                "%s %s → %s (%.0fms)%s",
+                self.req.method, self.req.url.path,
+                self.status or (500 if exc_type else 0),
+                duration_ms,
+                f" | {exc_val}" if exc_type else "",
+                extra={
+                    "request_id": self.rid,
+                    "user_id": user_id,
+                    "user_role": user_role,
+                    "client_ip": _get_client_ip(self.req),
+                    "error": str(exc_val) if exc_type else None,
+                },
+            )
+            if not exc_type:
+                try:
+                    from starlette.responses import Response
+                    if hasattr(self, "_response"):
+                        self._response.headers["X-Request-ID"] = self.rid
+                except Exception:
+                    pass
+            return False
+
+    with _audit_scope(rid, request) as ctx:
+        try:
+            response = await call_next(request)
+            ctx.status = response.status_code
+            ctx._response = response
+            return response
+        except Exception:
+            ctx.status = 500
+            raise
 
 
 @app.middleware("http")

@@ -94,12 +94,14 @@ async def send_message(
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
     llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
+    from logger import log_info
     try:
         reply = await call_llm(llm_messages, temperature=0.6,
                                 max_tokens=LLM_CHAT_MAX_TOKENS, timeout=LLM_CHAT_TIMEOUT, max_retries=2,
                                 purpose="patient_chat", user_id=current_user.id,
                                 record_id=record_id, case_id=record.case_id)
     except Exception as e:
+        log_error("patient_chat LLM调用失败", error=str(e), user_id=current_user.id, record_id=record_id)
         raise HTTPException(status_code=500, detail=f"LLM调用失败: {str(e)}")
 
     # 角色守卫：检测越界并替换
@@ -171,6 +173,7 @@ async def send_message_stream(
             log_info(f"流式消息已记录: record_id={record_id}", user_id=current_user.id, user_role=current_user.role)
             yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
         except Exception as e:
+            log_error("patient_chat 流式LLM调用失败", error=str(e), user_id=current_user.id, record_id=record_id)
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

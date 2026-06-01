@@ -13,7 +13,7 @@ from services.llm_service import call_llm
 from rate_limiter import check_qa_limit
 from services.prompt_manager import get_prompt_manager
 from pagination import paginate
-from logger import log_info
+from logger import log_info, log_error
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
 
@@ -69,6 +69,7 @@ async def create_session(
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
                                 purpose="qa", user_id=current_user.id)
     except Exception as e:
+        log_error("qa LLM调用失败", error=str(e), user_id=current_user.id)
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
 
     assistant_msg = QARecord(
@@ -124,6 +125,7 @@ async def ask_in_session(
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
                                 purpose="qa", user_id=current_user.id)
     except Exception as e:
+        log_error("qa 追问LLM调用失败", error=str(e), user_id=current_user.id, session_id=session_id)
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
 
     assistant_msg = QARecord(

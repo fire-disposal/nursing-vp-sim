@@ -51,6 +51,17 @@ def _setup_logger() -> logging.Logger:
 
 audit_logger = _setup_logger()
 
+_nursing_logger = logging.getLogger("nursing")
+_nursing_logger.setLevel(logging.INFO)
+_nursing_logger.propagate = False
+_nursing_fmt = _StructuredFormatter()
+_nursing_console = logging.StreamHandler(sys.stdout)
+_nursing_console.setFormatter(_nursing_fmt)
+_nursing_logger.addHandler(_nursing_console)
+_nursing_file = logging.FileHandler(str(LOG_DIR / "nursing.log"), encoding="utf-8")
+_nursing_file.setFormatter(_nursing_fmt)
+_nursing_logger.addHandler(_nursing_file)
+
 
 # ── 辅助函数 ──
 
