@@ -66,7 +66,8 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
     router = await get_router()
 
-    used_key_id = None
+    used_config_id = None
+    used_config = None
     provider_name = "unknown"
     model = "unknown"
     last_error = None
@@ -80,11 +81,12 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
     for attempt in range(max_retries + 2):
         try:
-            key, provider = router.select_key(purpose)
-            api_key = router.get_decrypted_key(key.id)
-            used_key_id = key.id
-            provider_name = provider.name
-            model = key.model or provider.default_model
+            config = router.select_key(purpose)
+            api_key = router.get_decrypted_key(config)
+            used_config = config
+            used_config_id = config.id
+            provider_name = config.label
+            model = config.model
 
             payload = {
                 "model": model,
@@ -95,7 +97,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
             async with _sema:
                 resp = await _client.post(
-                    f"{provider.base_url}/v1/chat/completions",
+                    f"{config.base_url}/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
@@ -105,7 +107,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 )
 
             if resp.status_code == 429:
-                router.report_result(key.id, success=False, tokens=0,
+                router.report_result(config, success=False, tokens=0,
                                      latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
                 last_error = "HTTP 429"
                 if attempt < max_retries + 1:
@@ -115,7 +117,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
             if resp.status_code in _RETRYABLE_STATUSES:
                 last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-                router.report_result(key.id, success=False, tokens=0, latency_ms=0, error=last_error)
+                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
                 if attempt < max_retries:
                     delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
                     await asyncio.sleep(delay)
@@ -127,7 +129,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 content = data["choices"][0]["message"]["content"]
             except (json.JSONDecodeError, KeyError, IndexError) as e:
                 last_error = f"Invalid response: {e}"
-                router.report_result(key.id, success=False, tokens=0, latency_ms=0, error=last_error)
+                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
                 if attempt < max_retries:
                     delay = min(2 ** attempt, 4) + random.uniform(0, 0.5)
                     await asyncio.sleep(delay)
@@ -135,7 +137,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
             usage = data.get("usage", {})
             total_tokens = usage.get("total_tokens", 0) or len(content) // 2
 
-            router.report_result(key.id, success=True, tokens=total_tokens,
+            router.report_result(config, success=True, tokens=total_tokens,
                                  latency_ms=latency_ms, error=None)
 
             _log_llm_success(
@@ -143,16 +145,16 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                 case_id=case_id, temperature=temperature, max_tokens=max_tokens,
                 latency_ms=latency_ms, request_text=request_text,
                 response_text=content, usage=usage,
-                log_meta=log_meta, api_key_id=key.id, provider_name=provider_name, model=model,
-                key_price_input=float(key.price_input_per_1m or 0),
-                key_price_output=float(key.price_output_per_1m or 0),
+                log_meta=log_meta, api_key_id=config.id, provider_name=provider_name, model=model,
+                key_price_input=float(config.price_input_per_1m or 0),
+                key_price_output=float(config.price_output_per_1m or 0),
             )
             return content
 
         except _RETRYABLE_EXCEPTIONS as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            if used_key_id:
-                router.report_result(used_key_id, success=False, tokens=0,
+            if used_config:
+                router.report_result(used_config, success=False, tokens=0,
                                      latency_ms=0, error=error_str)
             last_error = error_str
             if isinstance(e, httpx.RemoteProtocolError):
@@ -164,8 +166,8 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
             if "无可用" in str(e):
                 raise
             last_error = str(e)[:200]
-            if used_key_id:
-                router.report_result(used_key_id, success=False, tokens=0,
+            if used_config:
+                router.report_result(used_config, success=False, tokens=0,
                                      latency_ms=0, error=last_error)
             if attempt < max_retries:
                 await asyncio.sleep(1)
@@ -177,7 +179,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
         case_id=case_id, temperature=temperature, max_tokens=max_tokens,
         latency_ms=latency_ms, request_text=request_text,
         error_type="all_providers_failed", error_message=last_error,
-        log_meta=log_meta, api_key_id=used_key_id,
+        log_meta=log_meta, api_key_id=used_config_id,
         provider_name=provider_name, model=model,
     )
     raise RuntimeError(f"LLM调用失败（所有 provider 不可用）: {last_error}")
@@ -229,18 +231,20 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
     request_text = " ".join(m.get("content", "") for m in messages)
     last_error = None
     latency_ms = 0
-    used_key_id = None
+    used_config_id = None
+    used_config = None
     provider_name = "unknown"
     model_used = "unknown"
     t0 = time.perf_counter()
 
     for attempt in range(max_retries + 2):
         try:
-            key, provider = router.select_key(purpose)
-            api_key = router.get_decrypted_key(key.id)
-            used_key_id = key.id
-            provider_name = provider.name
-            model_used = key.model or provider.default_model
+            config = router.select_key(purpose)
+            api_key = router.get_decrypted_key(config)
+            used_config = config
+            used_config_id = config.id
+            provider_name = config.label
+            model_used = config.model
         except RuntimeError as e:
             last_error = str(e)[:200]
             if attempt < max_retries + 1:
@@ -266,7 +270,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
             async with _rate_limiter:
                 async with client.stream(
                     "POST",
-                    f"{provider.base_url}/v1/chat/completions",
+                    f"{config.base_url}/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
@@ -278,12 +282,12 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                         body = await resp.aread()
                         status_text = body.decode(errors="replace")[:200]
                         if resp.status_code == 429:
-                            router.report_result(key.id, success=False, tokens=0,
+                            router.report_result(config, success=False, tokens=0,
                                                  latency_ms=0, error=f"HTTP 429: {status_text}")
                             last_error = "HTTP 429"
                         elif resp.status_code in _RETRYABLE_STATUSES:
                             last_error = f"HTTP {resp.status_code}: {status_text}"
-                            router.report_result(key.id, success=False, tokens=0,
+                            router.report_result(config, success=False, tokens=0,
                                                  latency_ms=0, error=last_error)
                         else:
                             last_error = f"HTTP {resp.status_code}: {status_text}"
@@ -308,23 +312,23 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
 
             latency_ms = int((time.perf_counter() - t0) * 1000)
             total_tokens = len(full_reply) // 2
-            router.report_result(key.id, success=True, tokens=total_tokens,
+            router.report_result(config, success=True, tokens=total_tokens,
                                  latency_ms=latency_ms, error=None)
             _log_llm_success(
                 purpose=purpose, user_id=user_id, record_id=record_id,
                 case_id=case_id, temperature=temperature, max_tokens=max_tokens,
                 latency_ms=latency_ms, request_text=request_text,
                 response_text=full_reply, usage=None,
-                log_meta=log_meta, api_key_id=key.id,
+                log_meta=log_meta, api_key_id=config.id,
                 provider_name=provider_name, model=model_used,
-                key_price_input=float(key.price_input_per_1m or 0),
-                key_price_output=float(key.price_output_per_1m or 0),
+                key_price_input=float(config.price_input_per_1m or 0),
+                key_price_output=float(config.price_output_per_1m or 0),
             )
             return
 
         except _RETRYABLE_EXCEPTIONS as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            router.report_result(key.id, success=False, tokens=0,
+            router.report_result(config, success=False, tokens=0,
                                  latency_ms=0, error=error_str)
             last_error = error_str
             if isinstance(e, httpx.RemoteProtocolError):
@@ -334,7 +338,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                 await asyncio.sleep(delay)
         except Exception as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            router.report_result(key.id, success=False, tokens=0,
+            router.report_result(config, success=False, tokens=0,
                                  latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
@@ -346,7 +350,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
         case_id=case_id, temperature=temperature, max_tokens=max_tokens,
         latency_ms=latency_ms, request_text=request_text,
         error_type="all_providers_failed", error_message=last_error,
-        log_meta=log_meta, api_key_id=used_key_id,
+        log_meta=log_meta, api_key_id=used_config_id,
         provider_name=provider_name, model=model_used,
     )
     raise RuntimeError(f"LLM流式调用失败（所有 provider 不可用）: {last_error}")

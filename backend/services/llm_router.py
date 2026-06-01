@@ -1,205 +1,169 @@
-"""LLM API 路由调度器 —— 基于 priority + weight 的 key 选择与熔断"""
+"""LLM 路由调度器 —— 基于 LLMConfig priority 降级 + 熔断自动恢复"""
 import asyncio
 import logging
-import random
-import threading
 from datetime import datetime, timezone, timedelta
 
 _logger = logging.getLogger("nursing")
 
 CIRCUIT_BREAKER_THRESHOLD = 5
 RATE_LIMIT_COOLDOWN_SECONDS = 60
+DEGRADED_TTL_SECONDS = 300
 GLOBAL_DEGRADED_TTL_SECONDS = 30
 
 
-class LLMRouter:
+class ConfigRouter:
     def __init__(self):
-        self._cache: dict | None = None
-        self._last_valid_cache: dict | None = None
-        self._global_degraded: tuple[bool, datetime | None] = (False, None)
-        self._lock = asyncio.Lock()
-        self._state_lock = threading.Lock()
-
-    def _load_config(self, config: dict):
-        """直接设置缓存（测试用 + 内部加载用）"""
-        self._cache = config
-        self._global_degraded = (False, None)
+        self._cache: list | None = None
+        self._cache_by_purpose: dict[str, list] = {}
+        self._global_degraded_until: datetime | None = None
+        self._state_lock = asyncio.Lock()
 
     async def load_from_db(self):
-        """从数据库加载配置到内存"""
         from database import SessionLocal
-        from models import ApiProvider, ApiKey
+        from models import LLMConfig as LC
 
         db = SessionLocal()
         try:
-            providers = db.query(ApiProvider).filter(ApiProvider.is_enabled == True).all()
-            config = {}
-            for p in providers:
-                keys = db.query(ApiKey).filter(
-                    ApiKey.provider_id == p.id,
-                    ApiKey.status.in_(["active", "rate_limited"]),
-                ).all()
-                config[p.id] = {"provider": p, "keys": keys}
-            total_active = sum(1 for c in config.values() for k in c["keys"] if k.status == "active")
-            if total_active == 0:
-                if self._last_valid_cache:
-                    _logger.error("加载配置失败：无可用 API key，保留上次缓存")
-                    return
-                raise RuntimeError("无可用 API key，无法启动 LLMRouter")
-            async with self._lock:
-                self._last_valid_cache = self._cache
-                self._cache = config
-                self._global_degraded = (False, None)
-            _logger.info("LLMRouter 配置加载: %d providers, %d keys",
-                         len(config), sum(len(c["keys"]) for c in config.values()))
+            now = datetime.now(timezone.utc)
+            rows = db.query(LC).order_by(LC.purpose, LC.priority).all()
+
+            recovered = 0
+            for r in rows:
+                if r.status == "degraded" and r.degraded_until and r.degraded_until <= now:
+                    r.status = "active"
+                    r.degraded_reason = None
+                    r.degraded_until = None
+                    r.consecutive_failures = 0
+                    recovered += 1
+            if recovered:
+                db.commit()
+
+            by_purpose: dict[str, list] = {}
+            for r in rows:
+                by_purpose.setdefault(r.purpose, []).append(r)
+
+            async with self._state_lock:
+                self._cache = rows
+                self._cache_by_purpose = by_purpose
+                self._global_degraded_until = None
+
+            _logger.info("ConfigRouter loaded: %d configs across %d purposes",
+                         len(rows), len(by_purpose))
         except Exception:
-            _logger.exception("LLMRouter 配置加载失败")
-            if self._last_valid_cache:
-                async with self._lock:
-                    self._cache = self._last_valid_cache
-                _logger.warning("保留上次有效配置")
+            _logger.exception("ConfigRouter load failed")
             raise
         finally:
             db.close()
 
-    def _get_key(self, key_id: int):
-        if self._cache is None:
-            return None
-        for pd in self._cache.values():
-            for k in pd["keys"]:
-                if k.id == key_id:
-                    return k
-        return None
-
     def select_key(self, purpose: str):
-        if self._cache is None:
-            raise RuntimeError("LLMRouter 未初始化")
+        configs = self._cache_by_purpose.get(purpose, [])
 
-        with self._state_lock:
-            degraded, degraded_at = self._global_degraded
-            if degraded and degraded_at and degraded_at > datetime.now(timezone.utc):
-                raise RuntimeError("所有 API provider 不可用，全局降级中")
+        if self._global_degraded_until and datetime.now(timezone.utc) < self._global_degraded_until:
+            raise RuntimeError("所有配置不可用，全局降级中")
 
-            # 收集所有匹配的 provider 组，按 provider.priority 升序排序
-            provider_groups = []
-            for pd in self._cache.values():
-                provider = pd["provider"]
-                group_keys = []
-                for key in pd["keys"]:
-                    if key.status == "disabled":
-                        continue
-                    if key.status == "rate_limited":
-                        if key.rate_limit_until is None or key.rate_limit_until > datetime.now(timezone.utc):
-                            continue
-                        key.status = "active"
-                        key.rate_limit_until = None
-                    if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
-                        continue
-                    if key.purpose != purpose and key.purpose != "*":
-                        continue
-                    group_keys.append((key, provider))
-                if group_keys:
-                    provider_groups.append((provider.priority, group_keys))
-
-            if not provider_groups:
-                self._global_degraded = (
-                    True,
-                    datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
-                )
-                raise RuntimeError("无可用 API key")
-
-            # 按 provider.priority 升序尝试
-            provider_groups.sort(key=lambda g: g[0])
-
-            for _, group in provider_groups:
-                exact = [k for k in group if k[0].purpose == purpose]
-                wild = [k for k in group if k[0].purpose == "*"]
-                candidates = exact if exact else wild
-                total_weight = sum(k[0].weight for k in candidates)
-                if total_weight <= 0:
+        for cfg in configs:
+            if cfg.status == "disabled":
+                continue
+            if cfg.status == "degraded":
+                if cfg.degraded_until and datetime.now(timezone.utc) < cfg.degraded_until:
                     continue
-                r = random.uniform(0, total_weight)
-                cumulative = 0
-                for key, provider in candidates:
-                    cumulative += key.weight
-                    if r <= cumulative:
-                        key.last_used_at = datetime.now(timezone.utc)
-                        return key, provider
+                cfg.status = "active"
+                cfg.degraded_reason = None
+                cfg.degraded_until = None
+                cfg.consecutive_failures = 0
 
-            self._global_degraded = (
-                True,
-                datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
-            )
-            raise RuntimeError("无可用 API key")
+            return cfg
 
-    def get_decrypted_key(self, key_id: int) -> str:
+        self._global_degraded_until = datetime.now(timezone.utc) + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+        raise RuntimeError(f"purpose={purpose} 无可用配置")
+
+    def get_decrypted_key(self, config) -> str:
         from services.crypto_utils import decrypt_api_key
-        key = self._get_key(key_id)
-        if key is None:
-            raise ValueError(f"API key {key_id} not found")
-        return decrypt_api_key(key.encrypted_key)
+        return decrypt_api_key(config.secret.encrypted_key)
 
-    def report_result(self, key_id: int, *, success: bool, tokens: int,
+    def report_result(self, config, *, success: bool, tokens: int,
                       latency_ms: int, error: str | None):
-        with self._state_lock:
-            key = self._get_key(key_id)
-            if key is None:
-                return
-            if success:
-                key.consecutive_failures = 0
-                if key.status == "rate_limited":
-                    key.status = "active"
-                    key.rate_limit_until = None
-                self._update_stats(key, tokens)
-            else:
-                if error and "429" in error:
-                    key.status = "rate_limited"
-                    key.rate_limit_until = datetime.now(timezone.utc) + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
-                else:
-                    key.consecutive_failures += 1
-                    if key.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
-                        key.status = "disabled"
-                        _logger.warning("API key %d 熔断（连续%d次失败）", key_id, CIRCUIT_BREAKER_THRESHOLD)
+        now = datetime.now(timezone.utc)
 
-    def _update_stats(self, key, tokens: int):
+        if success:
+            config.consecutive_failures = 0
+            if config.status == "degraded":
+                config.status = "active"
+                config.degraded_reason = None
+                config.degraded_until = None
+            self._update_stats(config, tokens)
+        else:
+            if error and "429" in error:
+                config.status = "degraded"
+                config.degraded_reason = "rate_limited"
+                config.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+                _logger.warning("LLMConfig %d rate limited, degraded for %ds",
+                               config.id, RATE_LIMIT_COOLDOWN_SECONDS)
+            else:
+                config.consecutive_failures += 1
+                if config.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                    config.status = "degraded"
+                    config.degraded_reason = "consecutive_failures"
+                    config.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
+                    _logger.warning("LLMConfig %d circuit broken: %d failures, degraded %ds",
+                                   config.id, CIRCUIT_BREAKER_THRESHOLD, DEGRADED_TTL_SECONDS)
+
+    def _update_stats(self, config, tokens: int):
         today = datetime.now(timezone.utc).date()
         month = today.strftime("%Y-%m")
-        stats_date = getattr(key, 'stats_date', None)
-        if stats_date is None or stats_date < today:
-            key.call_count_today = 0
-            key.total_tokens_today = 0
-            key.total_cost_today = float(0)
-            key.stats_date = today
-        stats_month = getattr(key, 'stats_month', None)
-        if stats_month is None or stats_month < month:
-            key.monthly_cost_used = float(0)
-            key.stats_month = month
-        key.call_count_today = (key.call_count_today or 0) + 1
-        key.total_tokens_today = (key.total_tokens_today or 0) + tokens
-        avg_price = (float(getattr(key, 'price_input_per_1m', 0) or 0) + float(getattr(key, 'price_output_per_1m', 0) or 0)) / 2
-        cost = avg_price * tokens / 1_000_000
-        key.total_cost_today = float(key.total_cost_today or 0) + cost
-        key.monthly_cost_used = float(key.monthly_cost_used or 0) + cost
 
-        # 每隔 5 次调用持久化一次到 DB，避免每次请求写 DB
-        if key.call_count_today % 5 == 0:
-            self._persist_key_stats(key)
+        if config.stats_date is None or config.stats_date < today:
+            config.call_count_today = 0
+            config.total_tokens_today = 0
+            config.total_cost_today = float(0)
+            config.stats_date = today
+        if config.stats_month is None or config.stats_month < month:
+            config.monthly_cost_used = float(0)
+            config.stats_month = month
+
+        config.call_count_today = (config.call_count_today or 0) + 1
+        config.total_tokens_today = (config.total_tokens_today or 0) + tokens
+        avg_price = (float(config.price_input_per_1m or 0) + float(config.price_output_per_1m or 0)) / 2
+        cost = avg_price * tokens / 1_000_000
+        config.total_cost_today = float(config.total_cost_today or 0) + cost
+        config.monthly_cost_used = float(config.monthly_cost_used or 0) + cost
+        config.last_used_at = datetime.now(timezone.utc)
+
+        limit = float(config.monthly_cost_limit or 0)
+        if limit > 0 and float(config.monthly_cost_used) >= limit:
+            config.status = "degraded"
+            config.degraded_reason = "cost_exceeded"
+            if config.degraded_until is None:
+                now = datetime.now(timezone.utc)
+                next_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                if now.month == 12:
+                    next_month = next_month.replace(year=now.year + 1, month=1)
+                else:
+                    next_month = next_month.replace(month=now.month + 1)
+                config.degraded_until = next_month
+
+        if config.call_count_today % 5 == 0:
+            self._persist_config_stats(config)
 
     @staticmethod
-    def _persist_key_stats(key):
+    def _persist_config_stats(config):
         from database import SessionLocal
-        from models import ApiKey
+        from models import LLMConfig as LC
         db = SessionLocal()
         try:
-            db_key = db.query(ApiKey).filter(ApiKey.id == key.id).first()
-            if db_key:
-                db_key.call_count_today = key.call_count_today
-                db_key.total_tokens_today = key.total_tokens_today
-                db_key.total_cost_today = float(key.total_cost_today or 0)
-                db_key.monthly_cost_used = float(key.monthly_cost_used or 0)
-                db_key.stats_date = key.stats_date
-                db_key.stats_month = key.stats_month
-                db_key.last_used_at = datetime.now(timezone.utc)
+            db_cfg = db.query(LC).filter(LC.id == config.id).first()
+            if db_cfg:
+                db_cfg.call_count_today = config.call_count_today
+                db_cfg.total_tokens_today = config.total_tokens_today
+                db_cfg.total_cost_today = float(config.total_cost_today or 0)
+                db_cfg.monthly_cost_used = float(config.monthly_cost_used or 0)
+                db_cfg.stats_date = config.stats_date
+                db_cfg.stats_month = config.stats_month
+                db_cfg.last_used_at = config.last_used_at
+                db_cfg.status = config.status
+                db_cfg.degraded_reason = config.degraded_reason
+                db_cfg.degraded_until = config.degraded_until
+                db_cfg.consecutive_failures = config.consecutive_failures
                 db.commit()
         except Exception:
             db.rollback()
@@ -207,17 +171,17 @@ class LLMRouter:
             db.close()
 
 
-_router: LLMRouter | None = None
+_router: ConfigRouter | None = None
 _router_lock = asyncio.Lock()
 
 
-async def get_router() -> LLMRouter:
+async def get_router() -> ConfigRouter:
     global _router
     if _router is not None:
         return _router
     async with _router_lock:
         if _router is None:
-            _router = LLMRouter()
+            _router = ConfigRouter()
             await _router.load_from_db()
     return _router
 
@@ -225,5 +189,5 @@ async def get_router() -> LLMRouter:
 async def refresh_router():
     global _router
     if _router is None:
-        _router = LLMRouter()
+        _router = ConfigRouter()
     await _router.load_from_db()
