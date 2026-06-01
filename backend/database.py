@@ -67,18 +67,15 @@ def init_db():
         logger.info("数据库迁移完成")
     except Exception as e:
         logger.error("=" * 60)
-        logger.error("数据库迁移失败！错误详情：")
-        logger.error("  %s: %s", type(e).__name__, e)
-        logger.error("完整堆栈：")
+        logger.error("数据库迁移失败，服务无法启动。")
+        logger.error("create_all 回退已禁用 —— 它会跳过已存在但结构过时的表，")
+        logger.error("导致代码期望的新字段缺失，产生难以排查的运行时错误。")
+        logger.error("请检查迁移脚本并修复后重新部署。")
+        logger.error("=" * 60)
+        logger.error("错误: %s: %s", type(e).__name__, e)
+        logger.error("堆栈:")
         for line in traceback.format_exc().strip().split("\n"):
             logger.error("  %s", line)
         logger.error("=" * 60)
-
-        try:
-            Base.metadata.create_all(bind=engine)
-            logger.warning("已从模型创建所有表（作为回退方案）")
-            logger.warning("⚠ 请尽快排查并修复迁移问题后重启，避免 schema 漂移")
-        except Exception as e2:
-            logger.error("create_all 也失败: %s", e2)
-            raise
+        raise
 
