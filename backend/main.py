@@ -44,37 +44,46 @@ async def lifespan(app: FastAPI):
     try:
         from services.llm_router import refresh_router
         from services.crypto_utils import encrypt_api_key
-        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
         from database import SessionLocal
         from models import ApiSecret, LLMConfig
 
         db = SessionLocal()
         try:
-            if DEEPSEEK_API_KEY and db.query(LLMConfig).count() == 0:
-                suffix = DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****"
+            if db.query(LLMConfig).count() > 0:
+                _startup_logger.info("LLMConfig 已有数据，跳过 seed")
+            elif DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-") and len(DEEPSEEK_API_KEY) >= 20:
+                suffix = DEEPSEEK_API_KEY[-4:]
                 secret = ApiSecret(
-                    label=f"DeepSeek-{suffix}",
+                    label="初始服务密钥",
                     encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
                     key_suffix=suffix,
                 )
                 db.add(secret)
                 db.flush()
 
-                purposes = ["*"]
-                for p in purposes:
-                    cfg = LLMConfig(
-                        secret_id=secret.id,
-                        label=f"DeepSeek - {p}",
-                        base_url=DEEPSEEK_BASE_URL,
-                        model=DEEPSEEK_MODEL,
-                        purpose=p,
-                        priority=10,
-                        price_input_per_1m=1,
-                        price_output_per_1m=2,
-                    )
-                    db.add(cfg)
+                cfgs = [
+                    LLMConfig(
+                        secret_id=secret.id, label="DeepSeek Pro",
+                        base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
+                        purpose="scoring", priority=10,
+                        price_input_per_1m=1, price_output_per_1m=2,
+                    ),
+                    LLMConfig(
+                        secret_id=secret.id, label="DeepSeek Flash",
+                        base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
+                        purpose="*", priority=100,
+                        price_input_per_1m=1, price_output_per_1m=2,
+                    ),
+                ]
+                db.add_all(cfgs)
                 db.commit()
-                _startup_logger.info("已从 .env seed 默认 DeepSeek Secret + 4用途 Config")
+                _startup_logger.info("已 seed 初始服务密钥 + 2 配置 (pro=评分, flash=通配)")
+            else:
+                if not DEEPSEEK_API_KEY:
+                    _startup_logger.warning("DEEPSEEK_API_KEY 未设置，跳过 seed")
+                else:
+                    _startup_logger.warning("DEEPSEEK_API_KEY 格式无效 (需以 sk- 开头且 >=20 字符)，跳过 seed")
         finally:
             db.close()
 

@@ -109,6 +109,16 @@ export default function CasesTab() {
   const [total, setTotal] = useState(0);
   const LIMIT = 50;
   const [filters, setFilters] = useState({ name: "", difficulty: "" });
+  const [searchText, setSearchText] = useState("");
+  const debounceRef = useRef(null);
+
+  const setFilterName = (value) => {
+    setSearchText(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setFilters((f) => ({ ...f, name: value }));
+    }, 300);
+  };
 
   const fetchCases = useCallback(
     (off) => {
@@ -130,7 +140,6 @@ export default function CasesTab() {
   }, [offset, fetchCases]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
   }, [filters.name, filters.difficulty]);
 
@@ -317,7 +326,7 @@ export default function CasesTab() {
           <div className="filter-row">
             <div className="filter-item">
               <label>病例名称</label>
-              <input placeholder="模糊搜索..." value={filters.name} onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))} />
+              <input placeholder="模糊搜索..." value={searchText} onChange={(e) => setFilterName(e.target.value)} />
             </div>
             <div className="filter-item">
               <label>困难程度</label>
@@ -327,11 +336,6 @@ export default function CasesTab() {
                 <option value="2">中级</option>
                 <option value="3">高级</option>
               </select>
-            </div>
-            <div className="filter-item" style={{ alignSelf: "flex-end" }}>
-              <button className="btn btn-sm" onClick={() => setFilters({ name: "", difficulty: "" })}>
-                清除过滤
-              </button>
             </div>
           </div>
         </div>

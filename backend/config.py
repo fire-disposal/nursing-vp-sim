@@ -39,6 +39,7 @@ LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+DEEPSEEK_MODEL_PRO = os.getenv("DEEPSEEK_MODEL_PRO", "deepseek-v4-pro")
 
 # LLM 调用参数
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))

@@ -157,8 +157,11 @@ export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) 
     }
   };
 
+  const ALL_PURPOSES = ["patient_chat", "scoring", "qa", "case_generation"];
+  const wildcardConfigs = configs.filter((c) => c.purpose === "*");
   const groupedConfigs = {};
   configs.forEach((c) => {
+    if (c.purpose === "*") return;
     const p = c.purpose;
     if (!groupedConfigs[p]) groupedConfigs[p] = [];
     groupedConfigs[p].push(c);
@@ -365,113 +368,132 @@ export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) 
               暂无配置
             </div>
           ) : (
-            Object.entries(groupedConfigs).map(([purpose, group]) => (
-              <div
-                key={purpose}
-                style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)", overflow: "hidden" }}
-              >
+            ALL_PURPOSES.map((purpose) => {
+              const dedicated = (groupedConfigs[purpose] || []).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+              const wildcards = wildcardConfigs.map((c) => ({ ...c, _wildcard: true }));
+              const group = [...dedicated, ...wildcards];
+              return (
                 <div
-                  style={{
-                    padding: "var(--space-3) var(--space-4)",
-                    background: "var(--bg-surface-subtle)",
-                    borderBottom: "1px solid var(--border-color)",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                  }}
+                  key={purpose}
+                  style={{ border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)", overflow: "hidden" }}
                 >
-                  {PURPOSE_LABELS[purpose] || purpose} ({group.length} 个配置)
-                  {(() => {
-                    const sorted = [...group].sort((a, b) => (a.priority || 0) - (b.priority || 0));
-                    const active = sorted.find((c) => c.status === "active");
-                    if (!active) {
-                      const degraded = sorted.find((c) => c.status === "degraded");
-                      if (degraded)
-                        return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--amber-600)", fontWeight: 400 }}>(全部熔断中，无可用路由)</span>;
-                      return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--red-500)", fontWeight: 400 }}>(无可用路由)</span>;
-                    }
-                    return (
-                      <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--green-600)", fontWeight: 400 }}>→ {active.label || active.model}</span>
-                    );
-                  })()}
-                </div>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>优先级</th>
-                      <th style={S.th}>标签</th>
-                      <th style={S.th}>Secret</th>
-                      <th style={S.th}>模型</th>
-                      <th style={S.th}>状态</th>
-                      <th style={S.th}>调用</th>
-                      <th style={S.th}>今日费用</th>
-                      <th style={S.th}>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group
-                      .sort((a, b) => (a.priority || 0) - (b.priority || 0))
-                      .map((c, idx) => {
-                        const sc = STATUS_COLORS[c.status] || STATUS_COLORS.disabled;
-                        const displayStatus = c.status === "degraded" ? `熔断·${c.degraded_reason || "unknown"}` : STATUS_LABELS[c.status];
-                        const isActiveRoute = idx === 0 && c.status === "active";
-                        return (
-                          <tr key={c.id} style={isActiveRoute ? { borderLeft: "3px solid var(--green-500)" } : undefined}>
-                            <td style={S.td}>{c.priority}</td>
-                            <td style={S.td}>{c.label}</td>
-                            <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>{c.secret_label || `sk-...${c.secret_suffix}`}</td>
-                            <td style={S.td}>{c.model}</td>
-                            <td style={S.td}>
-                              <span style={S.badge(sc.bg, sc.color)} title={c.degraded_reason ? `原因: ${c.degraded_reason}\n恢复: ${c.degraded_until}` : ""}>
-                                {displayStatus}
-                              </span>
-                            </td>
-                            <td style={S.td}>{c.call_count_today ?? "-"}</td>
-                            <td style={S.td}>{c.total_cost_today != null ? `¥${Number(c.total_cost_today).toFixed(4)}` : "-"}</td>
-                            <td style={S.td}>
-                              <button
-                                onClick={() => {
-                                  setEditingConfig(c);
-                                  setShowConfigModal(true);
-                                }}
-                                style={{ ...S.btn, color: "var(--color-primary)" }}
-                              >
-                                <Edit3 size={12} />
-                              </button>
-                              <button
-                                // eslint-disable-next-line react-hooks/refs
-                                onClick={() => handleToggle(c)}
-                                style={{
-                                  padding: "2px 8px",
-                                  borderRadius: "var(--radius-full)",
-                                  fontSize: "0.7rem",
-                                  fontWeight: 600,
-                                  border: c.status === "active" ? "1px solid var(--red-300)" : "1px solid var(--green-300)",
-                                  background: c.status === "active" ? "var(--red-50)" : "var(--green-50)",
-                                  color: c.status === "active" ? "var(--red-600)" : "var(--green-600)",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                {c.status === "active" ? "停用" : "启用"}
-                              </button>
-                              {c.status === "degraded" && (
-                                <button onClick={() => handleReset(c)} style={{ ...S.btn, color: "var(--amber-500)" }}>
-                                  <RefreshCw size={12} />
+                  <div
+                    style={{
+                      padding: "var(--space-3) var(--space-4)",
+                      background: "var(--bg-surface-subtle)",
+                      borderBottom: "1px solid var(--border-color)",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {PURPOSE_LABELS[purpose] || purpose} ({dedicated.length} 专用
+                    {wildcards.length > 0 ? ` + ${wildcards.length} 通配` : ""}){(() => {
+                      const sorted = [...group].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+                      const active = sorted.find((c) => c.status === "active");
+                      if (!active) {
+                        const degraded = sorted.find((c) => c.status === "degraded");
+                        if (degraded)
+                          return (
+                            <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--amber-600)", fontWeight: 400 }}>(全部熔断中，无可用路由)</span>
+                          );
+                        return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--red-500)", fontWeight: 400 }}>(无可用路由)</span>;
+                      }
+                      return (
+                        <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--green-600)", fontWeight: 400 }}>
+                          → {active._wildcard ? `${active.label || active.model} (通配)` : active.label || active.model}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <table style={S.table}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>优先级</th>
+                        <th style={S.th}>标签</th>
+                        <th style={S.th}>Secret</th>
+                        <th style={S.th}>模型</th>
+                        <th style={S.th}>状态</th>
+                        <th style={S.th}>调用</th>
+                        <th style={S.th}>今日费用</th>
+                        <th style={S.th}>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group
+                        .sort((a, b) => (a.priority || 0) - (b.priority || 0))
+                        .map((c, idx) => {
+                          const sc = STATUS_COLORS[c.status] || STATUS_COLORS.disabled;
+                          const displayStatus = c.status === "degraded" ? `熔断·${c.degraded_reason || "unknown"}` : STATUS_LABELS[c.status];
+                          const isActiveRoute = idx === 0 && c.status === "active";
+                          const isWildcard = c._wildcard;
+                          return (
+                            <tr
+                              key={c.id}
+                              style={{
+                                ...(isActiveRoute ? { borderLeft: "3px solid var(--green-500)" } : {}),
+                                ...(isWildcard ? { opacity: 0.6, background: "var(--bg-surface-subtle)" } : {}),
+                              }}
+                            >
+                              <td style={S.td}>
+                                {isWildcard && <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)", marginRight: 4 }}>通配</span>}
+                                {c.priority}
+                              </td>
+                              <td style={S.td}>{c.label}</td>
+                              <td style={{ ...S.td, fontFamily: "monospace", fontSize: "0.8rem" }}>{c.secret_label || `sk-...${c.secret_suffix}`}</td>
+                              <td style={S.td}>{c.model}</td>
+                              <td style={S.td}>
+                                <span style={S.badge(sc.bg, sc.color)} title={c.degraded_reason ? `原因: ${c.degraded_reason}\n恢复: ${c.degraded_until}` : ""}>
+                                  {displayStatus}
+                                </span>
+                              </td>
+                              <td style={S.td}>{c.call_count_today ?? "-"}</td>
+                              <td style={S.td}>{c.total_cost_today != null ? `¥${Number(c.total_cost_today).toFixed(4)}` : "-"}</td>
+                              <td style={S.td}>
+                                <button
+                                  onClick={() => {
+                                    setEditingConfig(c);
+                                    setShowConfigModal(true);
+                                  }}
+                                  style={{ ...S.btn, color: "var(--color-primary)" }}
+                                >
+                                  <Edit3 size={12} />
                                 </button>
-                              )}
-                              <button onClick={() => handleTest(c)} style={{ ...S.btn, color: "var(--color-primary)" }}>
-                                <Activity size={12} />
-                              </button>
-                              <button onClick={() => handleDeleteConfig(c)} style={{ ...S.btn, color: "var(--red-400)" }}>
-                                <Trash2 size={12} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            ))
+                                <button
+                                  // eslint-disable-next-line react-hooks/refs
+                                  onClick={() => handleToggle(c)}
+                                  style={{
+                                    padding: "2px 8px",
+                                    borderRadius: "var(--radius-full)",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 600,
+                                    border: c.status === "active" ? "1px solid var(--red-300)" : "1px solid var(--green-300)",
+                                    background: c.status === "active" ? "var(--red-50)" : "var(--green-50)",
+                                    color: c.status === "active" ? "var(--red-600)" : "var(--green-600)",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {c.status === "active" ? "停用" : "启用"}
+                                </button>
+                                {c.status === "degraded" && (
+                                  <button onClick={() => handleReset(c)} style={{ ...S.btn, color: "var(--amber-500)" }}>
+                                    <RefreshCw size={12} />
+                                  </button>
+                                )}
+                                <button onClick={() => handleTest(c)} style={{ ...S.btn, color: "var(--color-primary)" }}>
+                                  <Activity size={12} />
+                                </button>
+                                <button onClick={() => handleDeleteConfig(c)} style={{ ...S.btn, color: "var(--red-400)" }}>
+                                  <Trash2 size={12} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })
           )}
         </div>
       )}
