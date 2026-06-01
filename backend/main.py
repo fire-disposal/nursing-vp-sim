@@ -223,6 +223,10 @@ if os.path.isdir(FRONTEND_DIST):
 
 def _seed_data():
     """初始化种子数据：管理员账号和病例"""
+    import os as _os
+    if _os.environ.get("SKIP_SEED"):
+        return
+
     from database import SessionLocal
     from models import User, Case
     from auth import hash_password
