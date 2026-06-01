@@ -1,5 +1,4 @@
 """Auth API tests: login, register, token validation, role-based access."""
-import pytest
 
 
 class TestLogin:

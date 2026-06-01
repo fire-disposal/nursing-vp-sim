@@ -1,6 +1,5 @@
 """静态模板辅助 —— rubric 文本构建 + 预览示例变量"""
 import json
-import re
 from rubrics import load_rubric
 
 

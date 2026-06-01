@@ -28,6 +28,7 @@ dev = [
     "httpx2>=2.2.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.15",
 ]
 
 [tool.pytest.ini_options]
@@ -37,3 +38,36 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "pg: tests requiring local PostgreSQL connection",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN",    # type annotations (too noisy for existing code)
+    "ARG001", # unused function arguments (FastAPI Depends auth guards are intentional)
+    "ARG002", # unused method arguments (same)
+    "D",      # docstrings
+    "EM",     # empty lines in f-strings
+    "PLC0415",# import at function level (intentional for circular import avoidance)
+    "PLC1901",# compare-to-empty-string too aggressive
+    "PLR0913",# too-many-arguments
+    "PLR0912",# too-many-branches
+    "PLR0915",# too-many-statements
+    "PLR2004",# magic-value-comparison
+    "PLR6301",# no-self-use
+    "S101",   # assert (tests use it)
+    "SLF001", # private-member-access
+    "T201",   # print
+    "TRY003", # raise-vanilla-args
+    "PERF401",# manual-list-comprehension (often less readable)
+]
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

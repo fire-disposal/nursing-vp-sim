@@ -1,5 +1,4 @@
 """Feedback API tests."""
-import pytest
 
 
 class TestFeedback:

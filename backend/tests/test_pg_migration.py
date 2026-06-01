@@ -276,7 +276,7 @@ class TestCompositeIndexes:
     """验证复合索引在 PG 中正常创建"""
 
     def test_ix_msg_record_created_exists(self, pg_engine):
-        from sqlalchemy import text, inspect
+        from sqlalchemy import inspect
         inspector = inspect(pg_engine)
         indexes = inspector.get_indexes("messages")
         index_names = [idx["name"] for idx in indexes]

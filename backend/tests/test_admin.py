@@ -1,5 +1,4 @@
 """Admin API tests: user management, stats, role-based access control, LLM monitoring."""
-import pytest
 from datetime import datetime, timezone, timedelta
 
 

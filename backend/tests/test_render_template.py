@@ -1,6 +1,5 @@
 """Test the new render_template function and {#var#} syntax."""
 import os
-import sys
 
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"

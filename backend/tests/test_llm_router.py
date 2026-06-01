@@ -1,5 +1,4 @@
 """tests for ConfigRouter priority-based degradation routing"""
-import pytest
 from datetime import datetime, timezone, timedelta
 from services.llm_router import ConfigRouter, _SyntheticConfig
 from models import LLMConfig, ApiSecret

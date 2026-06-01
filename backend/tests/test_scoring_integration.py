@@ -12,7 +12,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 from prompt_static import build_scoring_rubric, get_sample_vars
-from services.prompt_manager import render_template, PromptTemplateObj
+from services.prompt_manager import render_template
 from rubrics import load_rubric
 
 
