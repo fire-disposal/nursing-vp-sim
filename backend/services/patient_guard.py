@@ -1,26 +1,38 @@
 """患者角色守卫模块
 
 纯 Python 规则检测 —— 不增加 LLM 调用，不拖慢回复速度。
+五层安全：称谓归一化 → 角色越界 → 诊断泄露 → 教学反馈 → 长回复截断
 """
 
 import re
 
-# 角色越界关键词（患者不应使用）
 ROLE_LEAK_PATTERNS = [
     "作为护士", "作为医生", "作为老师", "作为AI", "我是AI",
+    "我是人工智能", "我是语言模型", "作为语言模型", "由AI", "由人工智能",
+    "我是虚拟患者", "我是病例", "根据系统", "根据设定",
     "你应该问", "你可以询问", "你可以继续问", "建议你询问",
-    "评分标准", "我建议你", "正确的问诊", "护理学生应该",
-    "你问得很好", "下一个该问", "请继续问诊",
-    "根据病例", "根据我的病历", "作为患者角色",
+    "你漏掉了", "你还没有问", "你忘了问", "你遗漏了",
+    "评分标准", "教学反馈", "我建议你", "正确的问诊", "护理学生应该",
+    "你问得很好", "你问得不错", "下一个该问", "请继续问诊",
+    "根据病例", "根据我的病历", "作为患者角色"
 ]
 
-# 诊断化关键词（患者不应主动说出的诊断术语）
 DIAGNOSIS_PATTERNS = [
-    "诊断为", "我判断", "应该是", "急性加重",
+    "诊断为", "我判断", "应该是", "急性加重", "护理诊断为",
     "糖尿病足", "感染扩散", "需要抗生素",
+    "你患有", "你得了", "你可能得了", "这属于", "并发症是",
+    "治疗方案", "需要住院",
 ]
 
-# 资料不存在时的兜底回复
+# 教学反馈关键词——患者不应评价学生表现
+TEACHING_LEAK_PATTERNS = [
+    "你应该继续", "你还需要问", "建议你", "这次训练",
+    "你的表现", "不完整", "不正确", "该问的",
+]
+
+# 长回复阈值（超此字符数触发截断，防止患者长篇大论）
+LONG_OUTPUT_LIMIT = 400
+
 UNKNOWN_FALLBACKS = [
     "这个我不太清楚，平时也没太注意。",
     "这个我记不太清了。",
@@ -30,7 +42,6 @@ UNKNOWN_FALLBACKS = [
 
 
 def check_role_leak(reply: str) -> str | None:
-    """检测患者回复是否越界。返回违规片段或 None。"""
     for pattern in ROLE_LEAK_PATTERNS:
         if pattern in reply:
             return pattern
@@ -38,11 +49,23 @@ def check_role_leak(reply: str) -> str | None:
 
 
 def check_diagnosis_leak(reply: str) -> str | None:
-    """检测患者是否主动做出诊断性陈述。返回违规片段或 None。"""
     for pattern in DIAGNOSIS_PATTERNS:
         if pattern in reply:
             return pattern
     return None
+
+
+def check_teaching_leak(reply: str) -> str | None:
+    """检测患者是否以教师/评估者口吻回复——患者不应评价学生表现"""
+    for pattern in TEACHING_LEAK_PATTERNS:
+        if pattern in reply:
+            return pattern
+    return None
+
+
+def check_long_output(reply: str) -> bool:
+    """检测回复是否过长（可能包含完整病史泄露）"""
+    return len(reply) > LONG_OUTPUT_LIMIT
 
 
 def get_fallback_reply() -> str:
@@ -155,26 +178,35 @@ def normalize_addressing_to_nurse(reply: str) -> tuple[str, bool]:
 
 
 def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str]]:
-    """后处理患者回复：称谓归一化 → 检测越界并兜底替换。返回 (sanitized_reply, violations)"""
+    """五层安全后处理：称谓归一化 → 角色越界 → 诊断泄露 → 教学反馈 → 长回复截断"""
     violations = []
 
-    # Step 1: 称谓归一化（Section 19 Step 3 — 先于越界检测）
     normalized, was_normalized = normalize_addressing_to_nurse(reply)
     if was_normalized:
         violations.append("称谓归一化: 医生/大夫/医师 -> 护士")
 
-    # Step 2: 角色越界检测
     leak = check_role_leak(normalized)
     if leak:
         violations.append(f"角色越界: {leak}")
 
-    # Step 3: 诊断化检测
     diag = check_diagnosis_leak(normalized)
     if diag:
         violations.append(f"诊断化: {diag}")
 
-    # 只有严重越界（非称谓问题）才替换为兜底回复
-    if leak or diag:
+    teach = check_teaching_leak(normalized)
+    if teach:
+        violations.append(f"教学反馈: {teach}")
+
+    is_long = check_long_output(normalized)
+    if is_long:
+        violations.append(f"回复过长: {len(normalized)}字 (上限{LONG_OUTPUT_LIMIT})")
+
+    # 严重越界 → 替换为兜底回复
+    if leak or diag or teach:
         return get_fallback_reply(), violations
+
+    # 仅过长 → 截断
+    if is_long:
+        return normalized[:300] + "...", violations
 
     return normalized, violations

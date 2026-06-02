@@ -39,15 +39,6 @@ async def _get_client() -> httpx.AsyncClient:
     return _shared_client
 
 
-async def _reset_client():
-    """连接异常时重建客户端"""
-    global _shared_client
-    async with _shared_client_lock:
-        if _shared_client is not None:
-            await _shared_client.aclose()
-            _shared_client = None
-
-
 async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 512,
                    timeout: int = 30, max_retries: int = 2,
                    # 日志上下文（可选）
