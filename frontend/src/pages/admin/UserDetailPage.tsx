@@ -1,10 +1,9 @@
 ﻿import { Activity, Clock, FileText, Medal, Target, TrendingUp, User as UserIcon } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentDetail } from "@/api/api-client";
 import Layout from "@/components/Layout";
-import { useToast } from "@/components/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import type { components } from "@/api/api-types.gen";
 
@@ -52,37 +51,32 @@ function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
 
 export default function UserDetailPage() {
   const { userId } = useParams<{ userId: string }>();
-  const [data, setData] = useState<StudentDetail | null>(null);
-  const toast = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    getStudentDetail(Number(userId))
-      .then(({ data: d }) => setData(d))
-      .catch(() => toast.error("加载学生详情失败"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  const { data: student, isLoading } = useQuery({
+    queryKey: ["studentDetail", userId],
+    queryFn: () => getStudentDetail(Number(userId)).then((r) => r.data),
+    enabled: !!userId,
+  });
 
-  if (!data) {
+  if (isLoading || !student) {
     return (
       <Layout>
-        <div className="empty-state" style={{ padding: "48px 0" }}>
-          加载中...
-        </div>
+        <div className="empty-state" style={{ padding: "48px 0" }}>加载中...</div>
       </Layout>
     );
   }
 
-  const daily = (data.daily || []) as DailyItem[];
+  const daily = (student.daily || []) as DailyItem[];
   const hasChartData = daily.length > 0;
   const formatDate = (d: StudentDetail) => new Date(d.created_at).toLocaleDateString("zh-CN");
-  const recentRecords = (data.recent_records || []) as RecentRecord[];
+  const recentRecords = (student.recent_records || []) as RecentRecord[];
 
   return (
     <Layout>
       <PageHeader
-        title={data.display_name}
-        subtitle={`学生详情 · 学号: ${data.student_id || "-"} · 注册: ${formatDate(data)}`}
+        title={student.display_name}
+        subtitle={`学生详情 · 学号: ${student.student_id || "-"} · 注册: ${formatDate(student)}`}
         icon={UserIcon}
         backTo="/admin/users"
       />
@@ -93,7 +87,7 @@ export default function UserDetailPage() {
             <Activity size={22} />
           </div>
           <div>
-            <div className="stat-value">{data.total_sessions}</div>
+            <div className="stat-value">{student.total_sessions}</div>
             <div className="stat-label">总训练次数</div>
           </div>
         </div>
@@ -102,7 +96,7 @@ export default function UserDetailPage() {
             <Clock size={22} />
           </div>
           <div>
-            <div className="stat-value">{data.total_minutes}</div>
+            <div className="stat-value">{student.total_minutes}</div>
             <div className="stat-label">总训练时长（分钟）</div>
           </div>
         </div>
@@ -111,7 +105,7 @@ export default function UserDetailPage() {
             <Target size={22} />
           </div>
           <div>
-            <div className="stat-value">{data.avg_score != null ? `${data.avg_score}分` : "-"}</div>
+            <div className="stat-value">{student.avg_score != null ? `${student.avg_score}分` : "-"}</div>
             <div className="stat-label">平均得分</div>
           </div>
         </div>
@@ -120,7 +114,7 @@ export default function UserDetailPage() {
             <Medal size={22} />
           </div>
           <div>
-            <div className="stat-value">{data.total_sessions > 0 ? `${Math.round(data.total_minutes / data.total_sessions)}分钟` : "-"}</div>
+            <div className="stat-value">{student.total_sessions > 0 ? `${Math.round(student.total_minutes / student.total_sessions)}分钟` : "-"}</div>
             <div className="stat-label">平均每次训练时长</div>
           </div>
         </div>

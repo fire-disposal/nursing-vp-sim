@@ -8,17 +8,10 @@
   TrendingUp,
   Trophy,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+  Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { getStudentRanking, getTeacherSummary, getTrends } from "@/api/api-client";
 import useAuthStore from "@/stores/authStore";
@@ -50,7 +43,7 @@ interface ChartDataItem {
 interface StatsContentProps {
   period: string;
   setPeriod: (p: string) => void;
-  trends: TrendStats | null;
+  trends: TrendStats | null | undefined;
   summary: TeacherSummaryItem[] | null;
   summaryOffset: number;
   setSummaryOffset: (n: number) => void;
@@ -65,36 +58,33 @@ interface StatsContentProps {
 
 export default function Stats() {
   const [period, setPeriod] = useState("month");
-  const [trends, setTrends] = useState<TrendStats | null>(null);
-  const [summary, setSummary] = useState<TeacherSummaryItem[] | null>(null);
-  const [ranking, setRanking] = useState<RankingItem[] | null>(null);
+  const [summaryOffset, setSummaryOffset] = useState(0);
+  const [rankingOffset, setRankingOffset] = useState(0);
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
-  const [summaryOffset, setSummaryOffset] = useState(0);
-  const [summaryTotal, setSummaryTotal] = useState(0);
-  const [rankingOffset, setRankingOffset] = useState(0);
-  const [rankingTotal, setRankingTotal] = useState(0);
   const LIMIT = 50;
 
-  useEffect(() => {
-    getTrends(period)
-      .then(({ data }) => setTrends(data))
-      .catch(() => toast.error("加载趋势数据失败"));
-    if (user?.role === "teacher") {
-      getTeacherSummary({ offset: summaryOffset, limit: LIMIT })
-        .then(({ data }) => {
-          setSummary(data.items ?? []);
-          setSummaryTotal(data.total ?? 0);
-        })
-        .catch(() => toast.error("加载教师概览失败"));
-      getStudentRanking({ offset: rankingOffset, limit: LIMIT })
-        .then(({ data }) => {
-          setRanking(data.items ?? []);
-          setRankingTotal(data.total ?? 0);
-        })
-        .catch(() => toast.error("加载排行榜失败"));
-    }
-  }, [period, user, summaryOffset, rankingOffset]);
+  const { data: trends } = useQuery({
+    queryKey: ["trends", period],
+    queryFn: () => getTrends(period).then((r) => r.data),
+  });
+
+  const { data: summaryData } = useQuery({
+    queryKey: ["teacherSummary", summaryOffset],
+    queryFn: () => getTeacherSummary({ offset: summaryOffset, limit: LIMIT }).then((r) => r.data),
+    enabled: user?.role === "teacher",
+  });
+
+  const { data: rankingData } = useQuery({
+    queryKey: ["studentRanking", rankingOffset],
+    queryFn: () => getStudentRanking({ offset: rankingOffset, limit: LIMIT }).then((r) => r.data),
+    enabled: user?.role === "teacher",
+  });
+
+  const summary = summaryData?.items ?? null;
+  const summaryTotal = summaryData?.total ?? 0;
+  const ranking = rankingData?.items ?? null;
+  const rankingTotal = rankingData?.total ?? 0;
 
   return (
     <StatsContent
