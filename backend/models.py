@@ -8,6 +8,64 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+class Role(Base):
+    __tablename__ = "roles"
+
+    name = Column(String(20), primary_key=True)
+    display_name = Column(String(40), nullable=False)
+    is_system = Column(Boolean, nullable=False, default=False)
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+    __table_args__ = (
+        UniqueConstraint("role_name", "permission", name="ix_rp_role_perm"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    role_name = Column(String(20), ForeignKey("roles.name", ondelete="CASCADE"), nullable=False)
+    permission = Column(String(40), nullable=False)
+
+
+class Grade(Base):
+    __tablename__ = "grades"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(40), unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    classes = relationship("Class", back_populates="grade", cascade="all, delete-orphan")
+
+
+class Class(Base):
+    __tablename__ = "classes"
+    __table_args__ = (
+        UniqueConstraint("grade_id", "name"),
+        Index("ix_classes_grade_id", "grade_id"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    grade_id = Column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(60), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    grade = relationship("Grade", back_populates="classes")
+    user_classes = relationship("UserClass", back_populates="class_", cascade="all, delete-orphan")
+
+
+class UserClass(Base):
+    __tablename__ = "user_class"
+    __table_args__ = (
+        Index("ix_user_class_class_id", "class_id"),
+    )
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
+    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="user_class")
+    class_ = relationship("Class", back_populates="user_classes")
+
 
 class User(Base):
     __tablename__ = "users"
@@ -15,12 +73,22 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(10), nullable=False, default="student")  # student / teacher
+    role = Column(String(20), ForeignKey("roles.name", ondelete="RESTRICT"), nullable=False, default="student")
     display_name = Column(String(50), nullable=False)
     student_id = Column(String(30), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     training_records = relationship("TrainingRecord", back_populates="user")
+    user_class = relationship("UserClass", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+    def has_permission(self, permission: str) -> bool:
+        cache = getattr(self, "_permissions_cache", None)
+        if cache is None:
+            return False
+        return permission in cache
+
+    def set_permissions_cache(self, permissions: set[str]) -> None:
+        self._permissions_cache = permissions
 
 
 class Case(Base):
