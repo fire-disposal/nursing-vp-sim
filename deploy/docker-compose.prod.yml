@@ -24,6 +24,7 @@ services:
 
   backend:
     image: ghcr.io/fire-disposal/nursing-vp-sim-backend:${IMAGE_VERSION}
+    container_name: nursing-vp-sim-backend-1
     ports:
       - "127.0.0.1:9001:8000"
     env_file:

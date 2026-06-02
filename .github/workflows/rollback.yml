@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '要回滚到的版本号 (e.g. 1.2.2)'
+        description: '要回滚到的版本号 (e.g. 2026.06.02-2)'
         required: true
         type: string
 
