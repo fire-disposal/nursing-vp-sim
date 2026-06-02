@@ -42,7 +42,7 @@ export interface EndTrainingResponse {
   status: "completed";
 }
 
-export interface RecordsResponse extends PaginatedResponse<TrainingRecord> {}
+export type RecordsResponse = PaginatedResponse<TrainingRecord>;
 
 export interface QASessionsResponse {
   sessions: QASession[];
