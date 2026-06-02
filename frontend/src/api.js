@@ -329,3 +329,9 @@ export async function getClassSummary(params) {
   const res = await api.get("/stats/class-summary", { params });
   return res.data;
 }
+
+// ── 备份管理 ──
+
+export function downloadBackup() {
+  return api.post("/admin/backup", null, { responseType: "blob" });
+}
