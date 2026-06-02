@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createClass, createGrade, deleteClass, deleteGrade, getClasses, getGrades, updateClass, updateGrade } from "../../api";
+import useGradesClassesStore from "../../stores/gradesClassesStore";
 import { useToast } from "../../components/Toast";
 import Button from "../../components/ui/Button";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
@@ -22,10 +22,8 @@ const CLASS_COLUMNS = [
   { key: "created_at", label: "创建时间", render: (v) => (v ? new Date(v).toLocaleDateString("zh-CN") : "") },
 ];
 
-export default function GradesClassesPage({ user, onLogout }) {
+export default function GradesClassesPage() {
   const [tab, setTab] = useState("grades");
-  const [grades, setGrades] = useState([]);
-  const [classes, setClasses] = useState([]);
   const [gradeFilter, setGradeFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -34,22 +32,15 @@ export default function GradesClassesPage({ user, onLogout }) {
   const [formGradeId, setFormGradeId] = useState("");
   const toast = useToast();
 
-  const loadGrades = () =>
-    getGrades()
-      .then(setGrades)
-      .catch(() => toast.error("加载年级列表失败"));
-  const loadClasses = () => {
-    const params = gradeFilter ? { grade_id: Number(gradeFilter) } : {};
-    getClasses(params)
-      .then(setClasses)
-      .catch(() => toast.error("加载班级列表失败"));
-  };
+  const { grades, classes, fetchGrades, fetchClasses, createGrade, updateGrade, deleteGrade, createClass, updateClass, deleteClass } = useGradesClassesStore();
 
   useEffect(() => {
-    loadGrades();
+    fetchGrades();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    loadClasses();
+    fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradeFilter]);
 
   const openCreate = () => {
@@ -75,23 +66,22 @@ export default function GradesClassesPage({ user, onLogout }) {
     try {
       if (tab === "grades") {
         if (editId) {
-          await updateGrade(editId, { name: formName.trim() });
+          await updateGrade(editId, formName.trim());
         } else {
-          await createGrade({ name: formName.trim() });
+          await createGrade(formName.trim());
         }
-        loadGrades();
+        fetchGrades();
       } else {
         if (!formGradeId) {
           toast.error("请选择所属年级");
           return;
         }
-        const data = { name: formName.trim(), grade_id: Number(formGradeId) };
         if (editId) {
-          await updateClass(editId, data);
+          await updateClass(editId, { name: formName.trim(), grade_id: Number(formGradeId) });
         } else {
-          await createClass(data);
+          await createClass(Number(formGradeId), formName.trim());
         }
-        loadClasses();
+        fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
       }
       setModalOpen(false);
       toast.success(editId ? "已更新" : "已创建");
@@ -105,15 +95,15 @@ export default function GradesClassesPage({ user, onLogout }) {
     try {
       if (tab === "grades") {
         await deleteGrade(deleteTarget.id);
-        loadGrades();
-        loadClasses();
+        fetchGrades();
+        fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
       } else {
         await deleteClass(deleteTarget.id);
-        loadClasses();
+        fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
       }
       toast.success("已删除");
     } catch (e) {
-      toast.error(e.response?.data?.detail || "删除失败");
+      toast.error(e.response?.data?.detail || "操作失败");
     }
     setDeleteTarget(null);
   };
@@ -124,7 +114,7 @@ export default function GradesClassesPage({ user, onLogout }) {
   ];
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <div>
         <PageHeader
           title="班级管理"

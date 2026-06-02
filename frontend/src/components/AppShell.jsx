@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { APP_VERSION } from "../version";
+import useAuthStore from "../stores/authStore";
 import { useFeedback } from "./FeedbackProvider";
 import Modal from "./ui/Modal";
 
@@ -43,8 +44,10 @@ const teacherLinks = [
   { to: "/admin/backup", icon: HardDrive, label: "备份管理" },
 ];
 
-export default function AppShell({ children, user, onLogout }) {
+export default function AppShell({ children }) {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const isTeacher = user?.role === "teacher";
   const links = isTeacher ? teacherLinks : studentLinks;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -59,7 +62,7 @@ export default function AppShell({ children, user, onLogout }) {
   };
 
   const handleLogout = () => {
-    onLogout();
+    logout();
     navigate("/login");
   };
 

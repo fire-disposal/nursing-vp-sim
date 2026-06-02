@@ -8,7 +8,7 @@ import { getNurseAvatar } from "../utils/avatar";
 
 const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
 
-export default function QA({ user, onLogout }) {
+export default function QA() {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -132,7 +132,7 @@ export default function QA({ user, onLogout }) {
   const nurseAvatar = getNurseAvatar();
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <div className="qa-layout">
         {showSidebar && <div className="sidebar-overlay" onClick={() => setShowSidebar(false)} style={{ zIndex: 199 }} />}
         <aside className={`qa-sidebar${showSidebar ? " show" : ""}`}>

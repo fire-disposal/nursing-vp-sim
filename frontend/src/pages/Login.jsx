@@ -1,14 +1,15 @@
 import { Activity } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../api";
+import useAuthStore from "../stores/authStore";
 
-export default function Login({ onLogin }) {
+export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const login = useAuthStore((s) => s.login);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,9 +17,7 @@ export default function Login({ onLogin }) {
     setLoading(true);
 
     try {
-      const { data } = await login(username, password);
-      localStorage.setItem("token", data.access_token);
-      onLogin({ role: data.role, display_name: data.display_name, user_id: data.user_id });
+      await login(username, password);
       navigate("/home");
     } catch (err) {
       setError(err.response?.data?.detail || "登录失败，请检查账号密码");

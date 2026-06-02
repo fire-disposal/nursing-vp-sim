@@ -8,7 +8,7 @@ import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import PageHeader from "../components/ui/PageHeader";
 
-export default function History({ user, onLogout }) {
+export default function History() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,7 +66,7 @@ export default function History({ user, onLogout }) {
   }, [filters.status, filters.date_from, filters.date_to]);
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader title="训练记录" subtitle={user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"} icon={ClipboardList} />
 
       <div className="card">
