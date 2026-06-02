@@ -254,7 +254,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
           <Tooltip
             formatter={(value, name) => {
               const n = String(name);
-              return [String(value), PIE_LABELS[Number(n.slice(-1)) - 1] || n] as [React.ReactNode, unknown];
+              return [String(value), PIE_LABELS[Number(n.slice(-1)) - 1] || n] as [React.ReactNode, string];
             }}
           />
         </PieChart>

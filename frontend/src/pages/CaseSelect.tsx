@@ -1,6 +1,7 @@
 ﻿import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { getCases, startTraining } from "@/api/api-client";
 import Layout from "@/components/Layout";
 import Pagination from "@/components/ui/Pagination";
@@ -9,53 +10,41 @@ import PageHeader from "@/components/ui/PageHeader";
 import type { components } from "@/api/api-types.gen";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
-type CasePatientSummary = Record<string, unknown> | null | undefined;
 
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
+const LIMIT = 50;
 
-interface PatientSummary {
-  gender?: string;
-  age?: number;
-  chief_complaint?: string;
+function getPatientSummary(ps: unknown) {
+  if (ps && typeof ps === "object") return ps as Record<string, unknown>;
+  return {};
 }
 
 export default function CaseSelect() {
-  const [cases, setCases] = useState<CaseBrief[]>([]);
   const [difficultyFilter, setDifficultyFilter] = useState(0);
-  const [startingId, setStartingId] = useState<number | null>(null);
+  const [offset, setOffset] = useState(0);
   const navigate = useNavigate();
   const toast = useToast();
-  const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const LIMIT = 50;
 
-  useEffect(() => {
-    getCases({ offset, limit: LIMIT })
-      .then(({ data }) => {
-        setCases(data.items ?? []);
-        setTotal(data.total ?? 0);
-      })
-      .catch(() => toast.error("加载病例列表失败"));
-  }, [offset]);
+  const { data: casesData, isLoading } = useQuery({
+    queryKey: ["cases", offset],
+    queryFn: () => getCases({ offset, limit: LIMIT }).then((r) => r.data),
+  });
 
-  const filteredCases =
-    difficultyFilter === 0 ? cases : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);
+  const startMutation = useMutation({
+    mutationFn: (caseId: number) => startTraining(caseId),
+    onSuccess: (res) => navigate(`/training/${res.data.record_id}`),
+    onError: () => toast.error("开始训练失败，请重试"),
+  });
 
-  const handleStart = async (caseId: number) => {
-    setStartingId(caseId);
-    try {
-      const { data } = await startTraining(caseId);
-      navigate(`/training/${data.record_id}`);
-    } catch {
-      toast.error("开始训练失败，请重试");
-    } finally {
-      setStartingId(null);
-    }
-  };
+  const cases = casesData?.items ?? [];
+  const total = casesData?.total ?? 0;
+  const filteredCases = difficultyFilter === 0 ? cases : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);
 
-  const getPatientSummary = (ps: CasePatientSummary): PatientSummary => {
-    if (ps && typeof ps === "object") return ps as PatientSummary;
-    return {};
+  const getDifficultyStars = (d?: number | null) => {
+    const level = d && DIFFICULTY_LABELS[d] ? d : 1;
+    return Array.from({ length: 3 }, (_, i) => (
+      <Star key={i} size={12} fill={i < level ? "#f59e0b" : "none"} color={i < level ? "#f59e0b" : "#d1d5db"} />
+    ));
   };
 
   return (
@@ -67,138 +56,95 @@ export default function CaseSelect() {
         backTo="/home"
       />
 
-      <div
-        className="card"
-        style={{
-          marginBottom: 24,
-          background: "linear-gradient(135deg, #fef3c7, #fffbeb)",
-          border: "1px solid #fde68a",
-        }}
-      >
+      <div className="card" style={{ marginBottom: 24, background: "linear-gradient(135deg, #fef3c7, #fffbeb)", border: "1px solid #fde68a" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           <Lightbulb size={24} color="#f59e0b" />
           <div style={{ flex: 1 }}>
-            <h3 style={{ marginBottom: 8 }}>护理病史采集训练指导</h3>
-            <p
-              style={{
-                fontSize: "0.85rem",
-                color: "var(--text-secondary)",
-                lineHeight: 1.8,
-                marginBottom: 8,
-              }}
-            >
-              本训练旨在帮助护理学生掌握<strong>系统化的护理病史采集技能</strong>。请按照护理评估框架进行问诊：
-            </p>
-            <div
-              style={{
-                fontSize: "0.82rem",
-                color: "var(--text-secondary)",
-                lineHeight: 1.7,
-                marginBottom: 8,
-              }}
-            >
-              <strong>① 主诉与现病史评估</strong> — 了解患者就诊的主要原因，症状的发生、发展和演变过程
-              <br />
-              <strong>② 既往史与用药史</strong> — 了解慢性病史、用药情况、依从性和药物不良反应
-              <br />
-              <strong>③ 个人史与家族史</strong> — 评估生活方式、环境暴露、家族疾病风险
-              <br />
-              <strong>④ 功能与心理社会评估</strong> — 评估日常生活能力、情绪状态、家庭支持、健康认知
-            </div>
-            <p
-              style={{
-                fontSize: "0.8rem",
-                color: "var(--primary)",
-                borderTop: "1px solid #fde68a",
-                paddingTop: 8,
-              }}
-            >
-              <AlertTriangle size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-              请勿直接询问"你得了什么病"，而是通过开放式提问引导患者描述。训练结束后系统将自动评分。
-            </p>
+            <strong>提示：</strong>每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
           </div>
         </div>
       </div>
 
-      <div className="difficulty-filter">
-        {[0, 1, 2, 3].map((d) => (
-          <button
-            key={d}
-            className={`difficulty-chip ${difficultyFilter === d ? "active" : ""}`}
-            onClick={() => setDifficultyFilter(d)}
-          >
-            {d === 0 ? "全部" : DIFFICULTY_LABELS[d]}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" className={`btn ${difficultyFilter === 0 ? "btn-primary" : ""}`} onClick={() => { setDifficultyFilter(0); setOffset(0); }}>
+            全部
           </button>
-        ))}
+          {[1, 2, 3].map((d) => (
+            <button
+              type="button"
+              key={d}
+              className={`btn ${difficultyFilter === d ? "btn-primary" : ""}`}
+              onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+            >
+              {DIFFICULTY_LABELS[d]}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="case-grid">
-        {filteredCases.map((c) => {
-          const p = getPatientSummary(c.patient_summary);
-          const d = c.difficulty || 1;
-          return (
-            <div key={c.id} className="case-card">
-              <div className="case-badge">
-                <User size={14} /> {p.gender ?? "未知"}性 · {p.age ?? "?"}岁
-                <span className={`difficulty-badge d-${d}`}>
-                  {Array.from({ length: d }, (_, i) => (
-                    <Star key={i} size={10} fill="currentColor" />
-                  ))}{" "}
-                  {DIFFICULTY_LABELS[d]}
-                </span>
-              </div>
-              <h3>{c.name}</h3>
-              {p.chief_complaint && (
-                <div
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: 8,
-                    padding: "10px 14px",
-                    margin: "12px 0",
-                    borderLeft: "3px solid var(--primary)",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "0.7rem",
-                      color: "var(--text-light)",
-                      marginBottom: 2,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    主诉
-                  </div>
-                  <div style={{ fontSize: "0.875rem", color: "var(--text)", fontWeight: 500 }}>
-                    {p.chief_complaint}
-                  </div>
+      {isLoading ? (
+        <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中...</div>
+      ) : filteredCases.length === 0 ? (
+        <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>
+          <AlertTriangle size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
+          <p>暂无病例</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+          {filteredCases.map((c) => {
+            const summary = getPatientSummary((c as Record<string, unknown>).patient_summary);
+            return (
+              <div
+                key={c.id}
+                className="card"
+                style={{
+                  cursor: "pointer",
+                  transition: "box-shadow 0.2s, transform 0.2s",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-lg)";
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-sm)";
+                  (e.currentTarget as HTMLElement).style.transform = "none";
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 600, margin: 0 }}>{c.name}</h3>
+                  <span style={{ display: "flex", gap: 2 }}>{getDifficultyStars(c.difficulty)}</span>
                 </div>
-              )}
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                {c.description}
-              </p>
-              <div style={{ marginTop: 20 }}>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0, lineHeight: 1.6 }}>
+                  {c.description}
+                </p>
+                {typeof summary.gender === "string" && (
+                  <div style={{ display: "flex", gap: 16, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <User size={14} />
+                      {summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}
+                    </span>
+                    {typeof summary.age === "number" && <span>{summary.age}岁</span>}
+                    {typeof summary.chief_complaint === "string" && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>主诉：{summary.chief_complaint}</span>}
+                  </div>
+                )}
                 <button
+                  type="button"
                   className="btn btn-primary"
-                  style={{ width: "100%" }}
-                  onClick={() => handleStart(c.id)}
-                  disabled={startingId === c.id}
+                  style={{ marginTop: "auto" }}
+                  onClick={() => startMutation.mutate(c.id)}
+                  disabled={startMutation.isPending}
                 >
-                  {startingId === c.id ? "加载中..." : "开始训练 →"}
+                  {startMutation.isPending && startMutation.variables === c.id ? "启动中..." : "开始训练"}
                 </button>
               </div>
-            </div>
-          );
-        })}
-        {filteredCases.length === 0 && (
-          <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-            <div className="icon">
-              <ClipboardList size={42} />
-            </div>
-            <div>暂无可用的病例</div>
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
     </Layout>

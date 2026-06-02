@@ -1,9 +1,14 @@
 import type { ReactNode } from "react";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { ToastProvider } from "@/components/Toast";
 import useAuthStore from "@/stores/authStore";
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+});
 
 const Login = lazy(() => import("@/pages/Login"));
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
@@ -42,6 +47,7 @@ function ProtectedRoute({ children, role }: { children: ReactNode; role?: "stude
 export default function App() {
   return (
     <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <ConfirmProvider>
           <Suspense fallback={<PageLoader />}>
@@ -67,6 +73,7 @@ export default function App() {
           </Suspense>
         </ConfirmProvider>
       </ToastProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   );
 }
