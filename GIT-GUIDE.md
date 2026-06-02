@@ -78,10 +78,15 @@ fix scoring bug         （缺少 emoji）
 | ♻️ | refactor | 重构代码（功能不变） |
 | 🔧 | chore | 改了配置、依赖 |
 | ✅ | test | 加了测试 |
-| 💄 | style | 改了 UI 样式 |
+| 🎨 | style | 改了 UI 样式 |
 | 🚀 | ci | 改了部署流程 |
 | 📦 | build | 改了构建配置 |
 | ⚡ | perf | 性能优化 |
+| 🔀 | merge | 合并分支 |
+| 🔒 | security | 安全相关修改 |
+| 🗃️ | db | 数据库/迁移 |
+| ⏪ | revert | 回退变更 |
+| 🔥 | remove | 删除功能/代码 |
 
 > 提交前会自动运行 Biome 格式化前端代码，不用手动 format。
 

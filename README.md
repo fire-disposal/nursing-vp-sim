@@ -136,28 +136,27 @@ Actions 页面 → Emergency Rollback → 输入版本号 → Run。
 
 Husky + commitlint 强制校验格式：`<emoji> <type>: <描述>`
 
-| Emoji | Type     | 说明       |
-|-------|----------|-----------|
-| ✨     | feat     | 新功能     |
-| 🐛     | fix      | 修复       |
-| 🚑     | hotfix   | 紧急线上修复 |
-| 📝     | docs     | 文档       |
-| ♻️     | refactor | 重构       |
-| 🔧     | chore    | 杂项       |
-| ✅     | test     | 测试       |
-| 💄     | style    | 样式/UI    |
-| 🎨     | ux       | 交互/体验   |
-| 🚀     | ci       | 部署/CI    |
-| 📦     | build    | 构建       |
-| ⚡     | perf     | 性能       |
-| 🔒     | security | 安全加固   |
-| 🗃️     | db       | 数据库/迁移 |
-| 🌐     | i18n    | 国际化     |
-| 🔥     | revert   | 回滚/移除  |
-| 🔀     | merge    | 分支合并   |
-| ♿     | a11y    | 无障碍     |
+| Emoji | Type     | 说明         |
+|-------|----------|-------------|
+| ✨     | feat     | 新功能        |
+| 🐛     | fix      | 修复 bug     |
+| 📝     | docs     | 文档         |
+| ♻️     | refactor | 重构         |
+| 🔧     | chore    | 杂项/配置     |
+| ✅     | test     | 测试         |
+| 🎨     | style    | UI/样式      |
+| 🚀     | ci       | 部署/CI      |
+| 📦     | build    | 构建         |
+| ⚡     | perf     | 性能优化      |
+| 🔀     | merge    | 分支合并      |
+| 🔒     | security | 安全加固      |
+| 🗃️     | db       | 数据库/迁移   |
+| ⏪     | revert   | 回退         |
+| 🔥     | remove   | 删除功能      |
 
 示例：`✨ feat: 添加患者评分模块`
+
+> 完整规范见 [Git/Husky/CI/CD 快速入门](GIT-GUIDE.md)
 
 ## 文档
 
