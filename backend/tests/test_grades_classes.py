@@ -24,11 +24,8 @@ def test_list_grades(client, teacher):
 
 def test_create_class(client, teacher):
     _, token = teacher
-    resp = client.get("/api/admin/grades", headers={"Authorization": f"Bearer {token}"})
-    grades = resp.json()
-    if not grades:
-        pytest.skip("No grades available")
-    grade_id = grades[0]["id"]
+    resp = client.post("/api/admin/grades", json={"name": "2024级"}, headers={"Authorization": f"Bearer {token}"})
+    grade_id = resp.json()["id"]
 
     resp = client.post("/api/admin/classes", json={
         "grade_id": grade_id, "name": "护理1班"
