@@ -208,6 +208,8 @@ class LLMCallLog(Base):
     error_message = Column(Text, nullable=True)
     request_chars = Column(Integer, nullable=True)
     response_chars = Column(Integer, nullable=True)
+    request_text = Column(Text, nullable=True)   # LLM 请求全文（调试用）
+    response_text = Column(Text, nullable=True)  # LLM 回复全文（调试用）
     meta = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 

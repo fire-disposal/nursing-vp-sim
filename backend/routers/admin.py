@@ -598,6 +598,19 @@ def get_llm_logs(
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
+@router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
+def get_llm_log_detail(
+    log_id: int,
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    """查看单条 LLM 调用日志详情（含请求/响应全文）"""
+    log = db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
+    if not log:
+        raise HTTPException(404, "日志不存在")
+    return log
+
+
 @router.get("/llm-logs/export")
 def export_llm_logs_csv(
     date_from: str | None = None,

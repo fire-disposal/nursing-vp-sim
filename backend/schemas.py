@@ -317,6 +317,8 @@ class LLMCallLogItem(BaseModel):
     error_message: Optional[str] = None
     request_chars: Optional[int] = None
     response_chars: Optional[int] = None
+    request_text: Optional[str] = None
+    response_text: Optional[str] = None
     created_at: datetime
     # 聚合字段（v1.17）
     call_count: int = 1
