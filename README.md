@@ -111,6 +111,27 @@ POSTGRES_PASSWORD=postgres              # Docker PostgreSQL 密码
 | `SSH_USER`        | 部署服务器用户名              |
 | `SSH_PRIVATE_KEY` | SSH 私钥（用于部署认证）       |
 
+## 部署与回滚
+
+### CD 流水线
+
+推送 `v*` tag 触发 Docker Build → GHCR → VPS 自动部署。部署前自动备份数据库，部署后健康检查，失败自动退回旧版本。
+
+### 紧急回滚
+
+**方式一：SSH 交互式回滚**（推荐，无需 GitHub 可用）
+
+```bash
+ssh <user>@<host> "cd /opt/nursing-vp-sim && bash rollback.sh"
+# 交互界面列出最近 5 次部署，数字选择 → y/n 确认
+```
+
+**方式二：GitHub Actions**
+
+Actions 页面 → Emergency Rollback → 输入版本号 → Run。
+
+详见 [运维安全指南](docs/10-operations.md)。
+
 ## 提交规范
 
 Husky + commitlint 强制校验格式：`<emoji> <type>: <描述>`
@@ -146,6 +167,7 @@ Husky + commitlint 强制校验格式：`<emoji> <type>: <描述>`
 - [前端设计](docs/04-frontend.md)
 - [LLM 与评分](docs/05-llm-design.md)
 - [启动指南](docs/07-startup-guide.md)
+- [运维安全指南](docs/10-operations.md)
 
 ## 许可
 
