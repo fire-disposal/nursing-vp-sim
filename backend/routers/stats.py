@@ -179,7 +179,7 @@ def student_ranking(
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
-@router.get("/class-summary", response_model=list\[dict\])
+@router.get("/class-summary", response_model=list[dict])
 def class_summary(
     grade_id: int | None = Query(None),
     current_user: User = Depends(require_teacher),

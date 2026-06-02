@@ -1,6 +1,95 @@
 import { AlertTriangle, X } from "lucide-react";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 
+export default function ConfirmDialog({ open, onConfirm, onCancel, title, message, confirmLabel = "确定", cancelLabel = "取消", danger = false }) {
+  if (!open) return null;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.4)",
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          boxShadow: "0 20px 48px rgba(15,23,42,0.16)",
+          width: "100%",
+          maxWidth: 420,
+          margin: 16,
+          overflow: "hidden",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ padding: "24px 24px 8px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 9999,
+                background: danger ? "#fef2f2" : "#fffbeb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <AlertTriangle size={20} style={{ color: danger ? "#ef4444" : "#f59e0b" }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h3 style={{ fontSize: "1.05rem", fontWeight: 600, color: "#111827", marginBottom: 4 }}>{title}</h3>
+              <p style={{ fontSize: "0.875rem", color: "#6b7280", lineHeight: 1.7 }}>{message}</p>
+            </div>
+            <button onClick={onCancel} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, flexShrink: 0 }}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "16px 24px 20px" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "7px 18px",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              background: "#fff",
+              color: "#374151",
+              cursor: "pointer",
+            }}
+          >
+            {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              padding: "7px 18px",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              background: danger ? "#ef4444" : "#2563eb",
+              color: "#fff",
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ConfirmContext = createContext(null);
 
 // eslint-disable-next-line react-refresh/only-export-components
