@@ -38,7 +38,7 @@ def _fk_exists(table_name: str, fk_name: str) -> bool:
     conn = op.get_bind()
     rows = conn.execute(sa.text(
         "SELECT conname FROM pg_constraint "
-        "WHERE conrelid=:tbl::regclass AND contype='f' AND conname=:name"
+        "WHERE conrelid=CAST(:tbl AS regclass) AND contype='f' AND conname=:name"
     ), {"tbl": table_name, "name": fk_name}).fetchall()
     return len(rows) > 0
 
