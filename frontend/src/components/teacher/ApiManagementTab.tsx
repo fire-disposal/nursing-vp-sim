@@ -52,13 +52,13 @@ export default function ApiManagementTab() {
   const loadSecrets = useCallback(() => {
     fetchSecrets()
       .then(({ data }) => setSecrets(data))
-      .catch((err) => toastRef.current.error(err.response?.data?.detail || "加载密钥失败"));
+      .catch((err: unknown) => toastRef.current.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载密钥失败"));
   }, []);
   const loadConfigs = useCallback(() => {
     setLoading(true);
-    fetchConfigs(null)
+    fetchConfigs()
       .then(({ data }) => setConfigs(data))
-      .catch((err) => toastRef.current.error(err.response?.data?.detail || "加载配置失败"))
+      .catch((err: unknown) => toastRef.current.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载配置失败"))
       .finally(() => setLoading(false));
   }, []);
   const loadHealth = useCallback(() => {
@@ -103,8 +103,8 @@ export default function ApiManagementTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [healthAutoRefresh, subTab]);
 
-  const handleDeleteSecret = async (s) => {
-    if (s.config_count > 0) {
+  const handleDeleteSecret = async (s: { config_count?: number; label?: string; id: number }) => {
+    if ((s.config_count ?? 0) > 0) {
       toastRef.current.error(`该密钥关联了 ${s.config_count} 个配置，请先删除配置`);
       return;
     }
@@ -114,20 +114,20 @@ export default function ApiManagementTab() {
       toast.success("密钥已删除");
       loadSecrets();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
-  const handleDeleteConfig = async (c) => {
+  const handleDeleteConfig = async (c: { label?: string; id: number }) => {
     if (!(await confirm({ title: "删除配置", message: `删除 "${c.label}"？`, confirmText: "删除", danger: true }))) return;
     try {
       await deleteConfig(c.id);
       toast.success("配置已删除");
       loadConfigs();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
-  const handleToggle = async (c) => {
+  const handleToggle = async (c: { status?: string; label?: string; id: number }) => {
     if (
       !(await confirm({
         title: c.status === "active" ? "停用" : "启用",
@@ -140,19 +140,19 @@ export default function ApiManagementTab() {
       await toggleConfig(c.id);
       loadConfigs();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "操作失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "操作失败");
     }
   };
-  const handleReset = async (c) => {
+  const handleReset = async (c: { id: number }) => {
     try {
       await resetConfig(c.id);
       toast.success("已恢复");
       loadConfigs();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "恢复失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "恢复失败");
     }
   };
-  const handleTest = async (c) => {
+  const handleTest = async (c: { id: number; label?: string }) => {
     try {
       const { data } = await testConfig(c.id);
       if (data.ok) toast.success(`${c.label} 连接正常 · ${data.latency_ms}ms`);
@@ -171,7 +171,7 @@ export default function ApiManagementTab() {
       const ok = data.results.filter((r) => r.ok).length;
       toast.success(`${ok}/${data.results.length} 个配置连通正常`);
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "检查失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "检查失败");
     } finally {
       setTestingAll(false);
     }
@@ -179,7 +179,7 @@ export default function ApiManagementTab() {
 
   const ALL_PURPOSES = ["patient_chat", "scoring", "qa", "case_generation"];
   const wildcardConfigs = configs.filter((c) => c.purpose === "*");
-  const groupedConfigs = {};
+  const groupedConfigs: Record<string, typeof configs> = {};
   configs.forEach((c) => {
     if (c.purpose === "*") return;
     const p = c.purpose;
@@ -187,7 +187,7 @@ export default function ApiManagementTab() {
     groupedConfigs[p].push(c);
   });
 
-  const S = {};
+  const S: Record<string, any> = {};
   S.table = { width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" };
   S.th = {
     padding: "var(--space-2) var(--space-3)",
@@ -210,8 +210,8 @@ export default function ApiManagementTab() {
     alignItems: "center",
     gap: 4,
   };
-  S.badge = (bg, c) => ({ padding: "2px 8px", borderRadius: "var(--radius-full)", fontSize: "0.75rem", background: bg, color: c });
-  S.tabBtn = (active) => ({
+  S.badge = (bg: string, c: string) => ({ padding: "2px 8px", borderRadius: "var(--radius-full)", fontSize: "0.75rem", background: bg, color: c });
+  S.tabBtn = (active: boolean) => ({
     padding: "var(--space-2) var(--space-4)",
     border: "none",
     background: "none",
@@ -235,6 +235,8 @@ export default function ApiManagementTab() {
     alignItems: "center",
     gap: "var(--space-1)",
   };
+
+  const hideSubTabs = false;
 
   return (
     <>
@@ -412,8 +414,8 @@ export default function ApiManagementTab() {
                 marginBottom: "var(--space-3)",
                 borderRadius: "var(--radius-md)",
                 fontSize: "0.82rem",
-                background: testResults.every((r) => r.ok) ? "var(--green-50)" : "var(--amber-50)",
-                border: `1px solid ${testResults.every((r) => r.ok) ? "var(--green-200)" : "var(--amber-200)"}`,
+                background: testResults.every((r: { ok: boolean }) => r.ok) ? "var(--green-50)" : "var(--amber-50)",
+                border: `1px solid ${testResults.every((r: { ok: boolean }) => r.ok) ? "var(--green-200)" : "var(--amber-200)"}`,
                 color: "var(--text-primary)",
                 display: "flex",
                 alignItems: "center",
@@ -421,12 +423,12 @@ export default function ApiManagementTab() {
                 flexWrap: "wrap",
               }}
             >
-              {testResults.every((r) => r.ok) ? (
+              {testResults.every((r: { ok: boolean }) => r.ok) ? (
                 <CheckCircle size={14} style={{ color: "var(--green-600)" }} />
               ) : (
                 <XCircle size={14} style={{ color: "var(--amber-600)" }} />
               )}
-              {testResults.map((r) => (
+              {testResults.map((r: { id: number; ok: boolean; label?: string; model?: string; latency_ms?: number }) => (
                 <span
                   key={r.id}
                   style={{
@@ -471,7 +473,7 @@ export default function ApiManagementTab() {
                       fontWeight: 600,
                     }}
                   >
-                    {PURPOSE_LABELS[purpose] || purpose} ({dedicated.length} 专用
+                    {PURPOSE_LABELS[purpose as keyof typeof PURPOSE_LABELS] || purpose} ({dedicated.length} 专用
                     {wildcards.length > 0 ? ` + ${wildcards.length} 通配` : ""}){(() => {
                       const sorted = [...group].sort((a, b) => (a.priority || 0) - (b.priority || 0));
                       const active = sorted.find((c) => c.status === "active");
@@ -507,8 +509,8 @@ export default function ApiManagementTab() {
                       {group
                         .sort((a, b) => (a.priority || 0) - (b.priority || 0))
                         .map((c, idx) => {
-                          const sc = STATUS_COLORS[c.status] || STATUS_COLORS.disabled;
-                          const displayStatus = c.status === "degraded" ? `熔断·${c.degraded_reason || "unknown"}` : STATUS_LABELS[c.status];
+          const sc = STATUS_COLORS[c.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.disabled;
+          const displayStatus = c.status === "degraded" ? `熔断·${c.degraded_reason || "unknown"}` : STATUS_LABELS[c.status as keyof typeof STATUS_LABELS];
                           const isActiveRoute = idx === 0 && c.status === "active";
                           const isWildcard = c._wildcard;
                           return (
@@ -663,7 +665,7 @@ export default function ApiManagementTab() {
           setEditingConfig(null);
         }}
         onSaved={() => {
-          loadConfigs().catch(() => {});
+          loadConfigs();
         }}
       />
     </>

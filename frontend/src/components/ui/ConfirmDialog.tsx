@@ -108,6 +108,7 @@ interface ConfirmState {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  confirmText?: string;
 }
 
 interface ConfirmContextType {
