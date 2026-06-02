@@ -67,7 +67,6 @@ async def send_message(
     llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
     rid = getattr(request.state, "request_id", None)
-    from logger import log
     try:
         reply = await call_llm(llm_messages,
                                 purpose="patient_chat", user_id=current_user.id,
@@ -76,7 +75,7 @@ async def send_message(
                                 **get_llm_config("patient_chat"))
     except Exception as e:
         log.error("patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
-        raise HTTPException(status_code=500, detail=f"LLM调用失败: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {str(e)}")
 
     # 角色守卫：检测越界并替换
     sanitized, violations = sanitize_patient_reply(reply, case_data)

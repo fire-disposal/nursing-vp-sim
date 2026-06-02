@@ -136,7 +136,7 @@ class TestQAMultiTurn:
                 json={"question": "测试问题"},
                 headers={"Authorization": f"Bearer {student[1]}"},
             )
-            assert resp.status_code == 500
+            assert resp.status_code == 502
 
     def test_empty_question_rejected(self, client, student):
         resp = client.post("/api/qa/sessions",

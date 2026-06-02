@@ -179,7 +179,7 @@ async def _activate(prompt_id: int, db: Session):
 
 
 @router.post("/validate", response_model=PromptValidateResponse)
-def validate_prompt(data: PromptValidateRequest):
+def validate_prompt(data: PromptValidateRequest, current_user: User = Depends(require_teacher)):
     errors = []
     missing = []
     vars_set = _extract_vars(data.system_prompt) | _extract_vars(data.user_prompt)

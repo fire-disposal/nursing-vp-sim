@@ -58,7 +58,7 @@ async def create_session(
         ]
     except Exception as e:
         log.error("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
-        raise HTTPException(status_code=500, detail=f"Prompt加载失败: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {str(e)}")
 
     rid = getattr(request.state, "request_id", None)
     try:
@@ -68,7 +68,7 @@ async def create_session(
                                 **get_llm_config("qa"))
     except Exception as e:
         log.error("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
-        raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {str(e)}")
 
     assistant_msg = QARecord(
         session_id=session.id,
@@ -200,8 +200,13 @@ def get_session_messages(
 # ── 兼容旧端点 ──
 
 @router.post("/ask", response_model=QAAskResponse)
-async def ask_question_legacy(req: QASessionCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return await create_session(req, current_user=current_user, db=db)
+async def ask_question_legacy(
+    req: QASessionCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return await create_session(req, request=request, current_user=current_user, db=db)
 
 
 @router.get("/history/all", response_model=PaginatedResponse[QASessionAdminItem])
