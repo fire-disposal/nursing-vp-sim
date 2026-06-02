@@ -340,7 +340,7 @@ export default function PromptManagementTab() {
       setEditing(null);
       load();
     } catch (err: unknown) {
-      const detail = err.response?.data?.detail;
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       const msg = Array.isArray(detail) ? detail.map((e) => e.msg || e.type || "未知错误").join("; ") : detail || "保存失败";
       toast.error(msg);
     } finally {
@@ -356,7 +356,7 @@ export default function PromptManagementTab() {
       toast.success(`已切换到 v${p.version}`);
       load();
     } catch (err: unknown) {
-      const d = err.response?.data?.detail;
+      const d = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       toast.error(Array.isArray(d) ? d.map((e) => e.msg).join("; ") : d || "激活失败");
     }
   };
@@ -374,7 +374,7 @@ export default function PromptManagementTab() {
       toast.success("已删除");
       load();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
 

@@ -75,7 +75,7 @@ export default function RecordsTab() {
       toast.success("训练记录已删除");
       loadData();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
 

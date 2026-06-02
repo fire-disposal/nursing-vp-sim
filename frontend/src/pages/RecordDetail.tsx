@@ -313,7 +313,7 @@ export default function RecordDetail() {
         }
       }
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "重试评分失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "重试评分失败");
     } finally {
       setRetrying(false);
     }
@@ -345,7 +345,7 @@ export default function RecordDetail() {
       await loadRecord();
       await loadReview();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "提交复核失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "提交复核失败");
     } finally {
       setSubmittingReview(false);
     }

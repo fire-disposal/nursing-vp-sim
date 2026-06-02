@@ -91,7 +91,7 @@ export default function UsersTab({ currentUserId }) {
       setOffset(0);
       loadUsers(0);
     } catch (err: unknown) {
-      setRegMsg(err.response?.data?.detail || "注册失败");
+      setRegMsg((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "注册失败");
     }
   };
 
@@ -132,7 +132,7 @@ export default function UsersTab({ currentUserId }) {
       setOffset(0);
       loadUsers(0);
     } catch (err: unknown) {
-      setEditUserMsg(err.response?.data?.detail || "保存失败");
+      setEditUserMsg((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "保存失败");
     }
   };
 
@@ -154,7 +154,7 @@ export default function UsersTab({ currentUserId }) {
       setOffset(0);
       loadUsers(0);
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
 
@@ -229,7 +229,7 @@ export default function UsersTab({ currentUserId }) {
       }
       if (data.skipped > 0) toast.warning(`跳过 ${data.skipped} 名用户`);
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "批量导入失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "批量导入失败");
     } finally {
       setBatchImporting(false);
     }

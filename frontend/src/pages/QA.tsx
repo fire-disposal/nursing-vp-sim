@@ -15,8 +15,8 @@ export default function QA() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -35,7 +35,7 @@ export default function QA() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const switchSession = useCallback(async (sessionId) => {
+  const switchSession = useCallback(async (sessionId: number) => {
     try {
       const res = await getQASessionMessages(sessionId);
       setActiveSessionId(sessionId);
@@ -46,7 +46,7 @@ export default function QA() {
   }, []);
 
   const sendMessage = useCallback(
-    async (text) => {
+    async (text: string) => {
       const q = (text || input).trim();
       if (!q || loading) return;
       setInput("");
@@ -89,7 +89,7 @@ export default function QA() {
         setMessages((prev) => [
           ...prev.filter((m) => m.id !== optimisticId),
           { id: optimisticId, role: "user", content: q },
-          { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复：" + (e.response?.data?.detail || e.message) },
+          { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复：" + ((e as { response?: { data?: { detail?: string } }; message?: string }).response?.data?.detail || (e as { message?: string }).message) },
         ]);
       } finally {
         setLoading(false);
@@ -99,7 +99,7 @@ export default function QA() {
   );
 
   const handleDeleteSession = useCallback(
-    async (e, sessionId) => {
+    async (e: React.MouseEvent, sessionId: number) => {
       e.stopPropagation();
       if (!confirm("确定要删除此会话？")) return;
       try {
@@ -116,7 +116,7 @@ export default function QA() {
     [activeSessionId, loadSessions],
   );
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -160,7 +160,7 @@ export default function QA() {
           </button>
           {messages.length > 0 && (
             <div className="qa-messages">
-              {messages.map((m, i) => {
+              {messages.map((m: { id: number; role: string; content: string }, i: number) => {
                 const isUser = m.role === "user";
                 return (
                   <div key={i} className={`qa-msg-row ${isUser ? "question" : "answer"}`}>

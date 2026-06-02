@@ -6,6 +6,7 @@ import Layout from "../components/Layout";
 import Pagination from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ui/ConfirmDialog";
+import useAuthStore from "../stores/authStore";
 import PageHeader from "../components/ui/PageHeader";
 
 export default function History() {
@@ -19,6 +20,7 @@ export default function History() {
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
+  const user = useAuthStore((s) => s.user);
 
   const fetchRecords = useCallback(() => {
     setLoading(true);
@@ -32,11 +34,11 @@ export default function History() {
         setRecords(data.items);
         setTotal(data.total);
       })
-      .catch((err) => setError(err.response?.data?.detail || "加载记录失败"))
+      .catch((err: unknown) => setError((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载记录失败"))
       .finally(() => setLoading(false));
   }, [filters, offset]);
 
-  const handleDeleteRecord = async (r) => {
+  const handleDeleteRecord = async (r: { case_name?: string; id: number }) => {
     const ok = await confirm({
       title: "删除记录",
       message: `确定删除「${r.case_name}」的训练记录吗？此操作不可撤销。`,
@@ -49,7 +51,7 @@ export default function History() {
       toast.success("训练记录已删除");
       fetchRecords();
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
 

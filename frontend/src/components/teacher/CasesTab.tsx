@@ -192,7 +192,7 @@ export default function CasesTab() {
         setOffset(0);
       }
     } catch (err: unknown) {
-      setCaseMsg(err.response?.data?.detail || "保存失败");
+      setCaseMsg((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "保存失败");
     }
   };
 
@@ -212,7 +212,7 @@ export default function CasesTab() {
         setOffset(0);
       }
     } catch (err: unknown) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
     }
   };
 
@@ -281,7 +281,7 @@ export default function CasesTab() {
         toast.success("病例生成成功，请检查并保存");
       }
     } catch (err: unknown) {
-      const detail = err.response?.data?.detail || "AI 生成失败";
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "AI 生成失败";
       setAiError(field ? `生成「${field}」失败: ${detail}` : detail);
     } finally {
       setAiGenerating(false);

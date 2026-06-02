@@ -392,7 +392,7 @@ export default function ChatTraining() {
       }
     } catch (err: unknown) {
       if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
-        if (!isAuto) toast.error(err.response?.data?.detail || "结束训练失败，请重试");
+        if (!isAuto) toast.error((err as { response?: { data?: { detail?: string } }; name?: string; code?: string })?.response?.data?.detail || "结束训练失败，请重试");
       }
     } finally {
       setEnding(false);

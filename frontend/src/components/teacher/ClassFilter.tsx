@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import useGradesClassesStore from "../../stores/gradesClassesStore";
 
-export default function ClassFilter({ gradeId, classId, onChange, className = "" }) {
+interface ClassFilterProps {
+  gradeId?: string;
+  classId?: string;
+  onChange?: (params: { grade_id: string | null; class_id: number | null }) => void;
+  className?: string;
+}
+
+export default function ClassFilter({ gradeId, classId, onChange, className = "" }: ClassFilterProps) {
   const { grades, classes, fetchGrades, fetchClasses } = useGradesClassesStore();
   const [selGrade, setSelGrade] = useState(gradeId || "");
   const [selClass, setSelClass] = useState(classId || "");
@@ -20,7 +27,7 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
     setSelClass("");
   }, [selGrade]);
 
-  const handleGradeChange = (e) => {
+  const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const gid = e.target.value;
     setSelGrade(gid);
     if (gid) {
@@ -28,7 +35,7 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
     }
   };
 
-  const handleClassChange = (e) => {
+  const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const cid = e.target.value;
     setSelClass(cid);
     onChange?.({ grade_id: selGrade || null, class_id: cid ? Number(cid) : null });

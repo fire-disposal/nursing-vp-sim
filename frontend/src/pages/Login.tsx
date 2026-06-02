@@ -11,7 +11,7 @@ export default function Login() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -20,7 +20,7 @@ export default function Login() {
       await login(username, password);
       navigate("/home");
     } catch (err: unknown) {
-      setError(err.response?.data?.detail || "登录失败，请检查账号密码");
+      setError((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "登录失败，请检查账号密码");
     } finally {
       setLoading(false);
     }
