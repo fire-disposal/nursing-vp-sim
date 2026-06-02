@@ -582,3 +582,118 @@ class ClassResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Generic responses ──
+class MessageResponse(BaseModel):
+    message: str
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+class ToggleStatusResponse(BaseModel):
+    ok: bool = True
+    status: str
+
+# ── Create short responses ──
+class SecretCreateResponse(BaseModel):
+    id: int
+    key_suffix: str
+
+class ConfigCreateResponse(BaseModel):
+    id: int
+
+class FeedbackSubmitResponse(BaseModel):
+    id: int
+    created_at: datetime
+
+# ── Training trigger ──
+class ScoringTriggerResponse(BaseModel):
+    message: str
+    record_id: int
+    scoring_status: str
+
+# ── Feedback stats ──
+class FeedbackDailyItem(BaseModel):
+    date: str
+    rating_1: int = 0
+    rating_2: int = 0
+    rating_3: int = 0
+    rating_4: int = 0
+    rating_5: int = 0
+
+# ── Rubric ──
+class RubricDimensionItem(BaseModel):
+    name: str = ""
+    weight: int = 0
+    criteria: str = ""
+
+class RubricResponse(BaseModel):
+    id: int
+    name: str
+    version: str = ""
+    description: Optional[str] = None
+    total_max: int = 100
+    raw_max: int = 57
+    raw_scale: int = 3
+    dimensions: list = []
+    is_active: bool = False
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class RubricBrief(BaseModel):
+    id: int
+    name: str
+    is_active: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+# ── Prompt misc ──
+class SampleVarsResponse(BaseModel):
+    purpose: str
+    vars: dict
+
+# ── Health / Test ──
+class HealthCheckItem(BaseModel):
+    base_url: str
+    status: str
+    latency_ms: Optional[int] = None
+    error: Optional[str] = None
+
+class TestResultItem(BaseModel):
+    base_url: str
+    ok: bool
+    status_code: Optional[int] = None
+    latency_ms: Optional[int] = None
+    error: Optional[str] = None
+
+class TestAllResultsResponse(BaseModel):
+    results: list[TestResultItem]
+
+# ── Stats item schemas (replace PaginatedResponse[dict]) ──
+class TeacherSummaryItem(BaseModel):
+    user_id: int
+    display_name: str
+    student_code: Optional[str] = None
+    total_sessions: int = 0
+    total_minutes: int = 0
+
+class RankingItem(BaseModel):
+    user_id: int
+    display_name: str
+    student_id: Optional[str] = None
+    total_sessions: int = 0
+    avg_score: Optional[float] = None
+    total_score: float = 0
+    total_minutes: int = 0
+    rank: int = 0
+
+class ClassSummaryItemSchema(BaseModel):
+    class_id: int
+    class_name: str
+    grade_name: str
+    student_count: int = 0
+    avg_score: Optional[float] = None
+    completion_rate: float = 0
+    total_sessions: int = 0
+    total_minutes: int = 0
