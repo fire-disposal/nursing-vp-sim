@@ -92,6 +92,10 @@ jobs:
           # 添加服务器 host key
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
+          # 同步回滚脚本到服务器
+          scp rollback.sh "$USER@$HOST:$DEPLOY_DIR/rollback.sh"
+          ssh "$USER@$HOST" chmod +x "$DEPLOY_DIR/rollback.sh"
+
           # 展开本地变量后通过 SSH 执行
           ssh "$USER@$HOST" << DEPLOY
             set -e
@@ -216,6 +220,10 @@ jobs:
               fi
               exit 1
             }
+
+            # 写入版本历史（用于紧急回滚）
+            echo "${{ needs.build.outputs.version }}|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|$IMG_BACKEND|$IMG_FRONTEND" >> "\$DEPLOY_DIR/.version-history"
+            tail -n 5 "\$DEPLOY_DIR/.version-history" > "\$DEPLOY_DIR/.version-history.tmp" && mv "\$DEPLOY_DIR/.version-history.tmp" "\$DEPLOY_DIR/.version-history"
 
             # 清理旧镜像
             docker image prune -f
