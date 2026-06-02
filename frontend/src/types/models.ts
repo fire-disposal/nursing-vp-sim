@@ -1,6 +1,6 @@
 export interface User {
   user_id: number;
-  username: string;
+  username?: string;
   role: "student" | "teacher";
   display_name: string;
   avatar?: string;
