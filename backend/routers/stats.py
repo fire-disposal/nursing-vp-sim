@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import User, TrainingRecord, Score
+from models import User, TrainingRecord, Score, UserClass, Class, Grade
 from schemas import DurationStats, TrendStats, PaginatedResponse
 from auth import get_current_user, require_teacher
 from pagination import paginate
@@ -97,6 +97,7 @@ def get_trends(
 def teacher_summary(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    class_id: int | None = Query(None),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -114,7 +115,12 @@ def teacher_summary(
         (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed")
     ).filter(
         User.role == "student"
-    ).group_by(User.id).order_by(User.id)
+    )
+    if class_id is not None:
+        base = base.filter(User.id.in_(
+            db.query(UserClass.user_id).filter(UserClass.class_id == class_id)
+        ))
+    base = base.group_by(User.id).order_by(User.id)
 
     items, total = paginate(base, offset, limit)
 
@@ -130,6 +136,7 @@ def teacher_summary(
 def student_ranking(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    class_id: int | None = Query(None),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -152,7 +159,12 @@ def student_ranking(
         Score, Score.record_id == TrainingRecord.id
     ).filter(
         User.role == "student"
-    ).group_by(User.id).subquery()
+    )
+    if class_id is not None:
+        sub = sub.filter(User.id.in_(
+            db.query(UserClass.user_id).filter(UserClass.class_id == class_id)
+        ))
+    sub = sub.group_by(User.id).subquery()
 
     total = db.query(func.count()).select_from(sub).scalar()
     rows = db.query(sub).order_by(sub.c.rank).offset(offset).limit(limit).all()
@@ -165,3 +177,56 @@ def student_ranking(
         for r in rows
     ]
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.get("/class-summary", response_model=list[dict])
+def class_summary(
+    grade_id: int | None = Query(None),
+    current_user: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Class, Grade.name.label("grade_name"))
+    q = q.join(Grade, Grade.id == Class.grade_id)
+    if grade_id is not None:
+        q = q.filter(Class.grade_id == grade_id)
+    rows = q.order_by(Grade.name, Class.name).all()
+
+    result = []
+    for cls, grade_name in rows:
+        student_count = db.query(func.count(UserClass.user_id)).filter(
+            UserClass.class_id == cls.id
+        ).scalar() or 0
+
+        sub = db.query(TrainingRecord).join(
+            UserClass, UserClass.user_id == TrainingRecord.user_id
+        ).filter(
+            UserClass.class_id == cls.id,
+            TrainingRecord.status == "completed",
+        )
+        total_sessions = sub.count()
+        total_minutes = sub.filter(
+            TrainingRecord.end_time.isnot(None),
+            TrainingRecord.start_time.isnot(None),
+        ).with_entities(
+            func.sum(
+                func.extract('epoch', TrainingRecord.end_time - TrainingRecord.start_time) / 60
+            )
+        ).scalar() or 0
+
+        avg_score = sub.join(Score, Score.record_id == TrainingRecord.id).with_entities(
+            func.avg(Score.total_score)
+        ).scalar()
+
+        completion_rate = total_sessions / student_count if student_count > 0 else 0
+
+        result.append({
+            "class_id": cls.id,
+            "class_name": cls.name,
+            "grade_name": grade_name,
+            "student_count": student_count,
+            "avg_score": round(float(avg_score), 1) if avg_score else None,
+            "completion_rate": round(float(completion_rate), 1),
+            "total_sessions": total_sessions,
+            "total_minutes": round(float(total_minutes)),
+        })
+    return result

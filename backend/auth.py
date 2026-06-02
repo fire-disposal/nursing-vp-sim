@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from database import get_db
-from models import User
+from models import User, RolePermission
 
 security = HTTPBearer()
 
@@ -43,16 +43,22 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+
+    rows = db.query(RolePermission.permission).filter(
+        RolePermission.role_name == user.role
+    ).all()
+    user.set_permissions_cache({r.permission for r in rows})
+
     return user
 
 
 def require_teacher(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "teacher":
+    if not current_user.has_permission("teacher_access"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要教师权限")
     return current_user
 
 
 def require_student(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "student":
+    if not current_user.has_permission("training_access"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要学生权限")
     return current_user

@@ -23,6 +23,7 @@ class RegisterRequest(BaseModel):
     role: str = "student"
     display_name: str
     student_id: Optional[str] = None
+    class_id: Optional[int] = None
 
 
 class TokenResponse(BaseModel):
@@ -157,6 +158,9 @@ class UserBrief(BaseModel):
     role: str
     display_name: str
     student_id: Optional[str]
+    class_id: Optional[int] = None
+    class_name: Optional[str] = None
+    grade_name: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -267,6 +271,7 @@ class CaseManageItem(BaseModel):
 class UserUpdateRequest(BaseModel):
     display_name: Optional[str] = None
     student_id: Optional[str] = None
+    class_id: Optional[int] = None
     role: Optional[str] = None
     password: Optional[str] = None
 
@@ -279,6 +284,7 @@ class BatchUserItem(BaseModel):
     display_name: str
     role: str = "student"
     student_id: Optional[str] = None
+    class_id: Optional[int] = None
 
 
 class BatchCreateResult(BaseModel):
@@ -634,3 +640,42 @@ class CaseGenerateResponse(BaseModel):
     case_data: Optional[dict] = None
     field_value: Optional[Any] = None
     field: Optional[str] = None
+
+
+# ── 年级管理 ──
+
+class GradeCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=40)
+
+class GradeUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=40)
+
+class GradeResponse(BaseModel):
+    id: int
+    name: str
+    class_count: int = 0
+    student_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── 班级管理 ──
+
+class ClassCreate(BaseModel):
+    grade_id: int
+    name: str = Field(..., min_length=1, max_length=60)
+
+class ClassUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=60)
+    grade_id: Optional[int] = None
+
+class ClassResponse(BaseModel):
+    id: int
+    grade_id: int
+    grade_name: str = ""
+    name: str
+    student_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

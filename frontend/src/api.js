@@ -278,3 +278,54 @@ export function getFeedbackStats(params = {}) {
 export function generateCase(data) {
   return api.post("/cases/generate", data);
 }
+
+// ── 年级管理 ──
+
+export async function getGrades() {
+  const res = await api.get("/admin/grades");
+  return res.data;
+}
+
+export async function createGrade(data) {
+  const res = await api.post("/admin/grades", data);
+  return res.data;
+}
+
+export async function updateGrade(id, data) {
+  const res = await api.put(`/admin/grades/${id}`, data);
+  return res.data;
+}
+
+export async function deleteGrade(id) {
+  const res = await api.delete(`/admin/grades/${id}`);
+  return res.data;
+}
+
+// ── 班级管理 ──
+
+export async function getClasses(params) {
+  const res = await api.get("/admin/classes", { params });
+  return res.data;
+}
+
+export async function createClass(data) {
+  const res = await api.post("/admin/classes", data);
+  return res.data;
+}
+
+export async function updateClass(id, data) {
+  const res = await api.put(`/admin/classes/${id}`, data);
+  return res.data;
+}
+
+export async function deleteClass(id) {
+  const res = await api.delete(`/admin/classes/${id}`);
+  return res.data;
+}
+
+// ── 班级统计 ──
+
+export async function getClassSummary(params) {
+  const res = await api.get("/stats/class-summary", { params });
+  return res.data;
+}

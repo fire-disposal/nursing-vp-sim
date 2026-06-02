@@ -26,6 +26,25 @@ def engine():
 
     Base.metadata.drop_all(bind=eng)
     Base.metadata.create_all(bind=eng)
+
+    with eng.connect() as conn:
+        conn.execute(Base.metadata.tables["roles"].insert().values(
+            [{"name": "teacher", "display_name": "教师", "is_system": True},
+             {"name": "student", "display_name": "学生", "is_system": True}]
+        ))
+        conn.execute(Base.metadata.tables["role_permissions"].insert().values([
+            {"role_name": "teacher", "permission": p} for p in [
+                "teacher_access", "user_manage", "case_manage", "score_review",
+                "llm_monitor", "api_manage", "prompt_manage",
+                "grade_class_manage", "backup_manage",
+            ]
+        ] + [
+            {"role_name": "student", "permission": p} for p in [
+                "training_access", "qa_access",
+            ]
+        ]))
+        conn.commit()
+
     yield eng
     Base.metadata.drop_all(bind=eng)
     eng.dispose()

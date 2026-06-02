@@ -19,6 +19,7 @@ const CasesPage = lazy(() => import("./pages/admin/CasesPage"));
 const FeedbackPage = lazy(() => import("./pages/admin/FeedbackPage"));
 const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
 const UserDetailPage = lazy(() => import("./pages/admin/UserDetailPage"));
+const GradesClassesPage = lazy(() => import("./pages/admin/GradesClassesPage"));
 
 function PageLoader() {
   return (
@@ -186,6 +187,15 @@ export default function App() {
                     element={
                       <ProtectedRoute role="teacher">
                         <UsersPage user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/grades-classes"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <GradesClassesPage user={user} onLogout={handleLogout} />
                       </ProtectedRoute>
                     }
                   />

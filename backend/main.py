@@ -12,6 +12,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from database import init_db, engine, get_db
 from routers import auth, cases, training, chat, export, admin, notes, qa, stats, feedback
+from routers import admin_grades
+from routers import admin_classes
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from logger import log
@@ -229,6 +231,8 @@ app.include_router(feedback.router)
 app.include_router(stats.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)
+app.include_router(admin_grades.router)
+app.include_router(admin_classes.router)
 
 
 @app.get("/api")
@@ -271,6 +275,24 @@ def _seed_data():
 
     db = SessionLocal()
     try:
+        from models import Role, RolePermission
+
+        if db.query(Role).count() == 0:
+            db.add(Role(name="teacher", display_name="教师", is_system=True))
+            db.add(Role(name="student", display_name="学生", is_system=True))
+            db.flush()
+
+            teacher_perms = [
+                "teacher_access", "user_manage", "case_manage", "score_review",
+                "llm_monitor", "api_manage", "prompt_manage",
+                "grade_class_manage", "backup_manage",
+            ]
+            student_perms = ["training_access", "qa_access"]
+            for p in teacher_perms:
+                db.add(RolePermission(role_name="teacher", permission=p))
+            for p in student_perms:
+                db.add(RolePermission(role_name="student", permission=p))
+
         # 检查是否已初始化
         if db.query(User).count() > 0:
             return
