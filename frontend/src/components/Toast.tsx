@@ -1,29 +1,48 @@
+import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle, Info, X, XCircle } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-const ToastContext = createContext(null);
+type ToastType = "success" | "error" | "warning" | "info";
+
+interface ToastItem {
+  id: number;
+  message: string;
+  type: ToastType;
+  duration: number;
+  entering: boolean;
+}
+
+interface ToastContextType {
+  toast: (message: string, type?: ToastType, duration?: number) => number;
+  success: (msg: string) => void;
+  error: (msg: string) => void;
+  warning: (msg: string) => void;
+  info: (msg: string) => void;
+}
+
+const ToastContext = createContext<ToastContextType | null>(null);
 
 let _nextId = 0;
 
-const icons = {
+const icons: Record<ToastType, ReactNode> = {
   success: <CheckCircle size={18} />,
   error: <XCircle size={18} />,
   warning: <AlertTriangle size={18} />,
   info: <Info size={18} />,
 };
 
-const colors = {
+const colors: Record<ToastType, { bg: string; border: string; text: string; icon: string }> = {
   success: { bg: "#f0fdf4", border: "#86efac", text: "#166534", icon: "#16a34a" },
   error: { bg: "#fef2f2", border: "#fca5a5", text: "#991b1b", icon: "#dc2626" },
   warning: { bg: "#fffbeb", border: "#fcd34d", text: "#92400e", icon: "#d97706" },
   info: { bg: "#eff6ff", border: "#93c5fd", text: "#1e40af", icon: "#2563eb" },
 };
 
-export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([]);
-  const timersRef = useRef({});
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const timersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  const remove = useCallback((id) => {
+  const remove = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
     if (timersRef.current[id]) {
       clearTimeout(timersRef.current[id]);
@@ -32,10 +51,10 @@ export function ToastProvider({ children }) {
   }, []);
 
   const toast = useCallback(
-    (message, type = "info", duration = 4000) => {
+    (message: string, type: ToastType = "info", duration = 4000) => {
       const id = ++_nextId;
       setToasts((prev) => {
-        if (prev.length >= 5) return prev; // 最多5个
+        if (prev.length >= 5) return prev;
         return [...prev, { id, message, type, duration, entering: true }];
       });
       if (duration > 0) {
@@ -46,15 +65,13 @@ export function ToastProvider({ children }) {
     [remove],
   );
 
-  // 便捷方法
-  const success = useCallback((msg) => toast(msg, "success"), [toast]);
-  const error = useCallback((msg) => toast(msg, "error", 6000), [toast]);
-  const warning = useCallback((msg) => toast(msg, "warning", 5000), [toast]);
-  const info = useCallback((msg) => toast(msg, "info"), [toast]);
+  const success = useCallback((msg: string) => toast(msg, "success"), [toast]);
+  const error = useCallback((msg: string) => toast(msg, "error", 6000), [toast]);
+  const warning = useCallback((msg: string) => toast(msg, "warning", 5000), [toast]);
+  const info = useCallback((msg: string) => toast(msg, "info"), [toast]);
 
-  // 清除进入动画
   useEffect(() => {
-    const ids = [];
+    const ids: number[] = [];
     toasts.forEach((t) => {
       if (t.entering) {
         ids.push(t.id);
@@ -104,8 +121,7 @@ export function ToastProvider({ children }) {
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function useToast() {
+export function useToast(): ToastContextType {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be inside ToastProvider");
   return ctx;

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider, useToast } from "../components/Toast";
 
 // Helper component to trigger toasts
-function ToastTester({ onToast }) {
+function ToastTester({ onToast }: { onToast?: (id: number) => void }) {
   const { toast, success, error, warning, info } = useToast();
 
   const handleToast = () => {

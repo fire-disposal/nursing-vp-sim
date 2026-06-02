@@ -5,12 +5,20 @@ import { FeedbackProvider } from "../components/FeedbackProvider";
 import Layout from "../components/Layout";
 import { ToastProvider } from "../components/Toast";
 
+interface TestUser {
+  id: number;
+  username: string;
+  display_name: string;
+  role: string;
+  user_id: number;
+}
+
 const mockUseAuthStore = vi.fn();
 vi.mock("../stores/authStore", () => ({
-  default: (selector) => selector(mockUseAuthStore()),
+  default: (selector: (fn: () => unknown) => unknown) => selector(mockUseAuthStore()),
 }));
 
-function renderLayout(user, initialRoute = "/home") {
+function renderLayout(user: TestUser, initialRoute = "/home") {
   mockUseAuthStore.mockReturnValue({ user, token: "test-token", logout: vi.fn() });
 
   return render(
