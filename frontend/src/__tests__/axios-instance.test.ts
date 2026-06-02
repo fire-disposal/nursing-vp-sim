@@ -53,7 +53,7 @@ describe("API axios instance", () => {
 
     await import("@/api/axios-instance");
     expect(capturedConfig).not.toBeNull();
-    expect((capturedConfig as Record<string, unknown>).headers).toEqual(expect.objectContaining({ Authorization: "Bearer test-token-abc" }));
+    expect(capturedConfig!.headers).toEqual(expect.objectContaining({ Authorization: "Bearer test-token-abc" }));
   });
 
   it("request interceptor does not add header when no token", async () => {
@@ -75,6 +75,6 @@ describe("API axios instance", () => {
 
     await import("@/api/axios-instance");
     expect(capturedConfig).not.toBeNull();
-    expect((capturedConfig as Record<string, unknown>).headers).toEqual({});
+    expect(capturedConfig!.headers).toEqual({});
   });
 });
