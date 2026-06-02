@@ -25,7 +25,7 @@ export default function History() {
   const fetchRecords = useCallback(() => {
     setLoading(true);
     setError(null);
-    const params = { offset, limit: LIMIT };
+    const params: Record<string, string | number> = { offset, limit: LIMIT };
     if (filters.status) params.status = filters.status;
     if (filters.date_from) params.date_from = filters.date_from;
     if (filters.date_to) params.date_to = filters.date_to;
@@ -136,7 +136,7 @@ export default function History() {
             </thead>
             <tbody>
               {records.map((r) => {
-                const durMins = r.end_time ? Math.round((new Date(r.end_time) - new Date(r.start_time)) / 60000) : null;
+                const durMins = r.end_time ? Math.round((new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / 60000) : null;
                 return (
                   <tr key={r.id}>
                     {user?.role === "teacher" && <td>{r.user_display_name}</td>}

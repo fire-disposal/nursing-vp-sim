@@ -46,7 +46,7 @@ export default function QA() {
   }, []);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text?: string) => {
       const q = (text || input).trim();
       if (!q || loading) return;
       setInput("");

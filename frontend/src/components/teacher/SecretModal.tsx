@@ -3,7 +3,14 @@ import { createSecret, updateSecret } from "@/api/api-client";
 import { useToast } from "../Toast";
 import Modal from "../ui/Modal";
 
-export default function SecretModal({ open, secret, onClose, onSaved }) {
+interface SecretModalProps {
+  open: boolean;
+  secret: { id?: number; label?: string } | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+export default function SecretModal({ open, secret, onClose, onSaved }: SecretModalProps) {
   const [label, setLabel] = useState("");
   const [rawKey, setRawKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -33,7 +40,7 @@ export default function SecretModal({ open, secret, onClose, onSaved }) {
       onSaved();
       onClose();
     } catch (e: unknown) {
-      error(e.response?.data?.detail || "保存失败");
+      error((e as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "保存失败");
     } finally {
       setSaving(false);
     }

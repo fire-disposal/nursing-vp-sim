@@ -28,7 +28,7 @@ export default function LLMManagementPage() {
     }
   }, []);
 
-  const handleTabChange = (key) => {
+  const handleTabChange = (key: string) => {
     setTab(key);
     setSearchParams({ tab: key }, { replace: true });
   };

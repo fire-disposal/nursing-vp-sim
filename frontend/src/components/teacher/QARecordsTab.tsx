@@ -5,7 +5,7 @@ import Pagination from "../../components/Pagination";
 import { useToast } from "../Toast";
 import Modal from "../ui/Modal";
 
-function truncate(text, maxLen) {
+function truncate(text: string, maxLen: number) {
   if (!text) return "";
   return text.length > maxLen ? text.slice(0, maxLen) + "..." : text;
 }
@@ -36,7 +36,7 @@ export default function QARecordsTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset, LIMIT]);
 
-  const handlePreview = async (sessionId, title) => {
+  const handlePreview = async (sessionId: number, title: string) => {
     setPreviewTitle(title);
     setLoadingPreview(true);
     setShowPreview(true);

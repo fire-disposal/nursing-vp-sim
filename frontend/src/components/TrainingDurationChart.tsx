@@ -3,7 +3,7 @@ import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip
 import { getTrends } from "@/api/api-client";
 
 interface TrendData {
-  daily?: { date?: string; sessions: number; minutes: number; avg_score: number }[];
+  daily?: { date?: string; sessions: number; minutes: number; avg_score?: number }[];
   total_sessions: number;
   total_minutes: number;
   avg_score: number | null;
@@ -27,7 +27,7 @@ export default function TrainingDurationChart() {
     });
     getTrends(period)
       .then(({ data }) => {
-        if (!cancelled) setTrends(data);
+        if (!cancelled) setTrends(data as TrendData);
       })
       .catch(() => {
         if (!cancelled) setTrends(null);
@@ -42,7 +42,7 @@ export default function TrainingDurationChart() {
 
   const chartData = useMemo(() => {
       const daily = trends?.daily || [];
-    return daily.map((item: TrendData["daily"][number]) => ({
+    return daily.map((item) => ({
       name: item.date?.slice(5) || item.date,
       sessions: item.sessions,
       minutes: item.minutes,

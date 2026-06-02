@@ -61,7 +61,7 @@ export default function Button({ variant = "primary", size = "md", icon: Icon, l
     ...ss,
     ...vs.base,
     ...style,
-  };
+  } as React.CSSProperties;
 
   return (
     <button

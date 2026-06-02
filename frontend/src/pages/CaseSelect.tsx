@@ -29,9 +29,9 @@ export default function CaseSelect() {
 
   const filteredCases = difficultyFilter === 0 ? cases : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);
 
-  const DIFFICULTY_LABELS = { 1: "初级", 2: "中级", 3: "高级" };
+  const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 
-  const handleStart = async (caseId) => {
+  const handleStart = async (caseId: number) => {
     setStartingId(caseId);
     try {
       const { data } = await startTraining(caseId);
@@ -82,7 +82,7 @@ export default function CaseSelect() {
       <div className="difficulty-filter">
         {[0, 1, 2, 3].map((d) => (
           <button key={d} className={`difficulty-chip ${difficultyFilter === d ? "active" : ""}`} onClick={() => setDifficultyFilter(d)}>
-            {d === 0 ? "全部" : DIFFICULTY_LABELS[d]}
+            {d === 0 ? "全部" : DIFFICULTY_LABELS[d as keyof typeof DIFFICULTY_LABELS]}
           </button>
         ))}
       </div>
@@ -99,7 +99,7 @@ export default function CaseSelect() {
                   {Array.from({ length: d }, (_, i) => (
                     <Star key={i} size={10} fill="currentColor" />
                   ))}{" "}
-                  {DIFFICULTY_LABELS[d]}
+                  {DIFFICULTY_LABELS[d as keyof typeof DIFFICULTY_LABELS]}
                 </span>
               </div>
               <h3>{c.name}</h3>
