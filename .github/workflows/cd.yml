@@ -1,232 +1,140 @@
-name: Docker Build & Deploy
+name: Deploy to Production
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g. 2026.06.02-2)'
+        required: true
+        type: string
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.meta.outputs.version }}
-      owner_lc: ${{ steps.owner.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Normalize owner (lowercase)
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
-          tags: type=match,pattern=v(.*),group=1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & push backend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.backend
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.meta.outputs.version }}
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: false
-
-      - name: Build & push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.frontend
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.meta.outputs.version }}
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: false
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: success()
-    env:
-      DEPLOY_DIR: /opt/nursing-vp-sim
-      IMG_BACKEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/nursing-vp-sim-backend:${{ needs.build.outputs.version }}
-      IMG_FRONTEND: ghcr.io/${{ needs.build.outputs.owner_lc }}/nursing-vp-sim-frontend:${{ needs.build.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Deploy to server
+      - name: Deploy to Production
         run: |
           set -e
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
+          VER="${{ inputs.version }}"
+          IMG_BACKEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER"
+          IMG_FRONTEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER"
+          DEPLOY_DIR="/opt/nursing-vp-sim"
 
-          # 添加服务器 host key
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          # 同步回滚脚本到服务器
-          scp rollback.sh "$USER@$HOST:$DEPLOY_DIR/rollback.sh"
-          ssh "$USER@$HOST" chmod +x "$DEPLOY_DIR/rollback.sh"
-
-          # 展开本地变量后通过 SSH 执行
           ssh "$USER@$HOST" << DEPLOY
             set -e
-            DEPLOY_DIR="/opt/nursing-vp-sim"
 
-            # 首次部署：自动创建目录结构
-            sudo mkdir -p "\$DEPLOY_DIR/backups"
-            sudo chown -R "\$USER:\$USER" "\$DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
 
-            cd "\$DEPLOY_DIR"
-
-            # 创建 .env（如果不存在）
-            if [ ! -f .env ]; then
-              PG_PASS=\$(openssl rand -hex 16)
-              echo "# 请填入 DeepSeek API Key" > .env
-              echo "DEEPSEEK_API_KEY=sk-your-key-here" >> .env
-              echo "SECRET_KEY=\$(openssl rand -hex 32)" >> .env
-              echo "CORS_ORIGINS=http://localhost" >> .env
-              echo "POSTGRES_PASSWORD=\$PG_PASS" >> .env
-              echo "DATABASE_URL=postgresql://nursing:\$PG_PASS@db:5432/nursing_vp" >> .env
-              echo ">> 已生成 .env 模板，请编辑填入 DEEPSEEK_API_KEY 和 CORS_ORIGINS"
-            fi
-
-            # 登录 GHCR（使用 GitHub token）
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
 
-            # 保存当前镜像标签（用于回滚）
-            OLD_BACKEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
-            OLD_FRONTEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-frontend-1 2>/dev/null || echo "")
-            echo ">> 当前版本: \$OLD_BACKEND / \$OLD_FRONTEND"
-
-            # 拉取新镜像
-            docker pull "$IMG_BACKEND" 2>/dev/null || true
-            docker pull "$IMG_FRONTEND" 2>/dev/null || true
-
-            # 生成部署 compose 文件（自动填入镜像标签）
-            printf '%s\n' \
-              'services:' \
-              '  db:' \
-              '    image: postgres:15' \
-              '    container_name: nursing-db' \
-              '    restart: unless-stopped' \
-              '    environment:' \
-              '      POSTGRES_USER: nursing' \
-              '      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}' \
-              '      POSTGRES_DB: nursing_vp' \
-              '      TZ: Asia/Shanghai' \
-              '    volumes:' \
-              '      - ai_vp_pg_data:/var/lib/postgresql/data' \
-              '    ports: ["127.0.0.1:5433:5432"]' \
-              '    healthcheck:' \
-              '      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]' \
-              '      interval: 10s' \
-              '      timeout: 5s' \
-              '      retries: 5' \
-              '      start_period: 20s' \
-              '  backend:' \
-              "    image: $IMG_BACKEND" \
-              '    ports: ["127.0.0.1:9001:8000"]' \
-              '    env_file: [.env]' \
-              '    environment:' \
-              '      DATABASE_URL: postgresql://nursing:\${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
-              '    depends_on:' \
-              '      db:' \
-              '        condition: service_healthy' \
-              '    restart: unless-stopped' \
-              '    healthcheck:' \
-              '      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]' \
-              '      interval: 30s' \
-              '      timeout: 5s' \
-              '      retries: 3' \
-               '      start_period: 10s' \
-              '  frontend:' \
-              "    image: $IMG_FRONTEND" \
-              '    ports: ["9000:80"]' \
-              '    depends_on:' \
-              '      backend:' \
-              '        condition: service_healthy' \
-              '    restart: unless-stopped' \
-              'volumes:' \
-              '  ai_vp_pg_data:' \
-              > docker-compose.yml
-
-            # 部署前数据库备份
+            # 部署前备份
             BACKUP_FILE="\$DEPLOY_DIR/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
             echo ">> 备份数据库到 \$BACKUP_FILE"
-            docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BACKUP_FILE" 2>/dev/null || echo "  (无法备份，可能数据库不在本机或首次部署)"
+            docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BACKUP_FILE" 2>/dev/null || echo "  (跳过备份)"
 
-            # 部署（up -d 自动重建变更的容器，无需手动 down）
-            docker compose up -d
+            # 保存当前版本（用于回滚）
+            OLD_BACKEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+            OLD_FRONTEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-frontend-1 2>/dev/null || echo "")
+            echo ">> 当前版本: \$OLD_BACKEND"
 
-            # 部署后健康检查：等待 backend 健康
-            echo ">> 等待服务就绪..."
+            # 拉取生产镜像
+            echo ">> 拉取 v$VER"
+            docker pull $IMG_BACKEND
+            docker pull $IMG_FRONTEND
+
+            # 更新 compose 并部署
+            sed -i "s|image: $IMG_BACKEND:.*|image: $IMG_BACKEND|g; s|image: $IMG_FRONTEND:.*|image: $IMG_FRONTEND|g" docker-compose.yml 2>/dev/null || {
+              # 首次部署或 compose 格式不同，重新生成
+              printf '%s\n' \
+                'services:' \
+                '  db:' \
+                '    image: postgres:15' \
+                '    container_name: nursing-db' \
+                '    restart: unless-stopped' \
+                '    environment:' \
+                '      POSTGRES_USER: nursing' \
+                '      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}' \
+                '      POSTGRES_DB: nursing_vp' \
+                '      TZ: Asia/Shanghai' \
+                '    volumes:' \
+                '      - ai_vp_pg_data:/var/lib/postgresql/data' \
+                '    ports: ["127.0.0.1:5433:5432"]' \
+                '    healthcheck:' \
+                '      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]' \
+                '      interval: 10s' \
+                '      timeout: 5s' \
+                '      retries: 5' \
+                '      start_period: 20s' \
+                '  backend:' \
+                "    image: $IMG_BACKEND" \
+                '    ports: ["127.0.0.1:9001:8000"]' \
+                '    env_file: [.env]' \
+                '    environment:' \
+                '      DATABASE_URL: postgresql://nursing:\${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
+                '    depends_on:' \
+                '      db:' \
+                '        condition: service_healthy' \
+                '    restart: unless-stopped' \
+                '    healthcheck:' \
+                '      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]' \
+                '      interval: 30s' \
+                '      timeout: 5s' \
+                '      retries: 3' \
+                '      start_period: 10s' \
+                '  frontend:' \
+                "    image: $IMG_FRONTEND" \
+                '    ports: ["9000:80"]' \
+                '    depends_on:' \
+                '      backend:' \
+                '        condition: service_healthy' \
+                '    restart: unless-stopped' \
+                'volumes:' \
+                '  ai_vp_pg_data:' \
+                > docker-compose.yml
+            }
+
+            docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
+
+            echo ">> 等待生产就绪..."
             for i in \$(seq 1 30); do
               STATUS=\$(docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "unknown")
               if [ "\$STATUS" = "healthy" ]; then
-                echo ">> 服务健康 (耗时 \$((i * 2))s)"
+                echo ">> 生产健康 (\$((i * 2))s)"
                 break
               fi
               if [ "\$STATUS" = "unhealthy" ]; then
-                echo "!! 后端健康检查失败！检查日志:"
-                docker logs nursing-vp-sim-backend-1 --tail 50
+                echo "!! 后端不健康，回滚..."
+                [ -n "\$OLD_BACKEND" ] && { sed -i "s|image: $IMG_BACKEND|image: \$OLD_BACKEND|" docker-compose.yml; docker compose -f docker-compose.yml --env-file .env up -d; echo "!! 已回滚"; }
                 exit 1
               fi
               sleep 2
             done
 
-            # 最终健康 API 验证
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health || {
-              echo "!! API 健康检查失败"
-              docker logs nursing-vp-sim-backend-1 --tail 50
-
-              # 自动回滚到旧版本
-              if [ -n "\$OLD_BACKEND" ] && [ -n "\$OLD_FRONTEND" ]; then
-                echo "!! 正在回滚到旧版本: \$OLD_BACKEND / \$OLD_FRONTEND"
-                sed -i "s|image: $IMG_BACKEND|image: \$OLD_BACKEND|" docker-compose.yml
-                sed -i "s|image: $IMG_FRONTEND|image: \$OLD_FRONTEND|" docker-compose.yml
-                docker compose up -d
-                echo "!! 已回滚"
-              else
-                echo "!! 无旧版本可回滚，请手动处理"
-              fi
+              echo "!! API 检查失败，回滚..."
+              [ -n "\$OLD_BACKEND" ] && { sed -i "s|image: $IMG_BACKEND|image: \$OLD_BACKEND|" docker-compose.yml; docker compose -f docker-compose.yml --env-file .env up -d; echo "!! 已回滚"; }
               exit 1
             }
 
-            # 写入版本历史（用于紧急回滚）
-            echo "${{ needs.build.outputs.version }}|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|$IMG_BACKEND|$IMG_FRONTEND" >> "\$DEPLOY_DIR/.version-history"
-            tail -n 5 "\$DEPLOY_DIR/.version-history" > "\$DEPLOY_DIR/.version-history.tmp" && mv "\$DEPLOY_DIR/.version-history.tmp" "\$DEPLOY_DIR/.version-history"
-
-            # 清理旧镜像
-            docker image prune -f
+            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "\$DEPLOY_DIR/.version-history"
+            echo ">> 生产部署完成: v$VER"
           DEPLOY
-
-          echo ">> 部署完成: $IMG_BACKEND / $IMG_FRONTEND"

@@ -2,7 +2,7 @@ name: Build & Deploy to Staging
 
 on:
   push:
-    branches: [staging]
+    tags: ["v*"]
 
 permissions:
   contents: read
@@ -21,9 +21,12 @@ jobs:
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Set image tag (git SHA)
-        id: tag
-        run: echo "value=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
+          tags: type=match,pattern=v(.*),group=1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -41,9 +44,9 @@ jobs:
           context: .
           file: Dockerfile.backend
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:staging
-            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:sha-${{ steps.tag.outputs.value }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.meta.outputs.version }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -54,9 +57,9 @@ jobs:
           context: .
           file: Dockerfile.frontend
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:staging
-            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:sha-${{ steps.tag.outputs.value }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.meta.outputs.version }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -66,15 +69,14 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Deploy to server
+      - name: Deploy to Staging
         run: |
           set -e
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
-          SHA="${{ steps.tag.outputs.value }}"
-          IMG_BACKEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:sha-$SHA"
-          IMG_FRONTEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:sha-$SHA"
-          DEPLOY_DIR="/opt/nursing-vp-sim"
+          VER="${{ steps.meta.outputs.version }}"
+          IMG_BACKEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER"
+          IMG_FRONTEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER"
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
@@ -82,22 +84,65 @@ jobs:
             set -e
             cd /opt/nursing-vp-sim
 
-            # 登录 GHCR
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
 
-            echo ">> 拉取 staging 镜像 ($SHA)"
+            echo ">> Staging 部署 v$VER"
             docker pull $IMG_BACKEND
             docker pull $IMG_FRONTEND
 
-            # 更新 compose 中的镜像 tag
-            cp docker-compose.staging.yml docker-compose.staging.tmp.yml
-            sed -i "s|image: ghcr.io/.*/nursing-vp-sim-backend:.*|image: $IMG_BACKEND|" docker-compose.staging.tmp.yml
-            sed -i "s|image: ghcr.io/.*/nursing-vp-sim-frontend:.*|image: $IMG_FRONTEND|" docker-compose.staging.tmp.yml
+            # 生成 staging compose（带上精确版本号）
+            printf '%s\n' \
+              'services:' \
+              '  db:' \
+              '    image: postgres:15' \
+              '    container_name: nursing-db-staging' \
+              '    restart: unless-stopped' \
+              '    environment:' \
+              '      POSTGRES_USER: nursing' \
+              '      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}' \
+              '      POSTGRES_DB: nursing_vp' \
+              '      TZ: Asia/Shanghai' \
+              '    volumes:' \
+              '      - nursing_staging_pg_data:/var/lib/postgresql/data' \
+              '    ports: ["127.0.0.1:5434:5432"]' \
+              '    healthcheck:' \
+              '      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]' \
+              '      interval: 10s' \
+              '      timeout: 5s' \
+              '      retries: 5' \
+              '      start_period: 20s' \
+              '  backend:' \
+              "    image: $IMG_BACKEND" \
+              '    container_name: nursing-backend-staging' \
+              '    ports: ["127.0.0.1:9081:8000"]' \
+              '    env_file: [.env]' \
+              '    environment:' \
+              '      DATABASE_URL: postgresql://nursing:\${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
+              '    depends_on:' \
+              '      db:' \
+              '        condition: service_healthy' \
+              '    restart: unless-stopped' \
+              '    healthcheck:' \
+              '      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]' \
+              '      interval: 30s' \
+              '      timeout: 5s' \
+              '      retries: 3' \
+              '      start_period: 10s' \
+              '  frontend:' \
+              "    image: $IMG_FRONTEND" \
+              '    container_name: nursing-frontend-staging' \
+              '    ports: ["9080:80"]' \
+              '    depends_on:' \
+              '      backend:' \
+              '        condition: service_healthy' \
+              '    restart: unless-stopped' \
+              'volumes:' \
+              '  nursing_staging_pg_data:' \
+              > docker-compose.staging.yml
 
-            echo ">> 部署 staging"
-            docker compose -f docker-compose.staging.tmp.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
+            docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
 
-            echo ">> 等待健康检查..."
+            echo ">> 等待 Staging 就绪..."
             for i in \$(seq 1 30); do
               STATUS=\$(docker inspect --format='{{.State.Health.Status}}' nursing-backend-staging 2>/dev/null || echo "unknown")
               if [ "\$STATUS" = "healthy" ]; then
@@ -107,11 +152,5 @@ jobs:
               sleep 2
             done
 
-            # 验证 API
-            curl -sf http://127.0.0.1:9081/api/health && echo ">> API 正常" || echo "!! API 检查失败"
-
-            # 更新 compose 文件
-            mv docker-compose.staging.tmp.yml docker-compose.staging.yml
-
-            echo ">> Staging 部署完成: $SHA"
+            curl -sf http://127.0.0.1:9081/api/health && echo ">> Staging 就绪: v$VER" || echo "!! 检查失败"
           DEPLOY
