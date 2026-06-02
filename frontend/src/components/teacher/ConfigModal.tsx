@@ -30,7 +30,7 @@ const MODEL_PRESETS = [
 
 export default function ConfigModal({ open, configData, onClose, onSaved }) {
   const [mode, setMode] = useState("form");
-  const [secrets, setSecrets] = useState([]);
+  const [secrets, setSecrets] = useState<any[]>([]);
   const [secretsLoaded, setSecretsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const { success, error } = useToast();
@@ -151,7 +151,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
       }
       onSaved();
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       const detail = e.response?.data?.detail;
       if (typeof detail === "string") error(detail);
       else if (detail && Array.isArray(detail)) error(detail.map((d) => d.msg || JSON.stringify(d)).join("; "));

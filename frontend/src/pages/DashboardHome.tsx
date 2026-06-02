@@ -30,10 +30,10 @@ import StatCard from "../components/ui/StatCard";
 const QUICK_QA_HINTS = ["如何询问患者既往病史？", "糖尿病患者病史采集重点是什么？", "如何评估疼痛程度？"];
 
 export default function DashboardHome() {
-  const [cases, setCases] = useState([]);
-  const [records, setRecords] = useState([]);
-  const [durationStats, setDurationStats] = useState(null);
-  const [stats, setStats] = useState(null);
+  const [cases, setCases] = useState<any[]>([]);
+  const [records, setRecords] = useState<any[]>([]);
+  const [durationStats, setDurationStats] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);

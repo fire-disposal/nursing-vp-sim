@@ -86,9 +86,9 @@ function parseCaseData(cd) {
 }
 
 export default function CasesTab() {
-  const [cases, setCases] = useState([]);
+  const [cases, setCases] = useState<any[]>([]);
   const [showEditor, setShowEditor] = useState(false);
-  const [editingCase, setEditingCase] = useState(null);
+  const [editingCase, setEditingCase] = useState<any>(null);
   const [caseForm, setCaseForm] = useState(parseCaseData(NEW_CASE_TEMPLATE));
   const [caseMsg, setCaseMsg] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -96,7 +96,7 @@ export default function CasesTab() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiMode, setAiMode] = useState("quick");
   const [aiDescription, setAiDescription] = useState("");
-  const [aiReferenceCaseIds, setAiReferenceCaseIds] = useState([]);
+  const [aiReferenceCaseIds, setAiReferenceCaseIds] = useState<any[]>([]);
   const [aiReferenceText, setAiReferenceText] = useState("");
   const [aiError, setAiError] = useState("");
   const toast = useToast();
@@ -191,7 +191,7 @@ export default function CasesTab() {
       } else {
         setOffset(0);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setCaseMsg(err.response?.data?.detail || "保存失败");
     }
   };
@@ -211,7 +211,7 @@ export default function CasesTab() {
       } else {
         setOffset(0);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };
@@ -280,7 +280,7 @@ export default function CasesTab() {
         setCaseForm(parseCaseData(data.case_data));
         toast.success("病例生成成功，请检查并保存");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       const detail = err.response?.data?.detail || "AI 生成失败";
       setAiError(field ? `生成「${field}」失败: ${detail}` : detail);
     } finally {

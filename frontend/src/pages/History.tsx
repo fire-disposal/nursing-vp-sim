@@ -9,9 +9,9 @@ import { useConfirm } from "../components/ui/ConfirmDialog";
 import PageHeader from "../components/ui/PageHeader";
 
 export default function History() {
-  const [records, setRecords] = useState([]);
+  const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const LIMIT = 50;
@@ -48,7 +48,7 @@ export default function History() {
       await deleteRecord(r.id);
       toast.success("训练记录已删除");
       fetchRecords();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };

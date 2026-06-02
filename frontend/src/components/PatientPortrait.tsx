@@ -2,7 +2,11 @@ import { PanelLeftClose, PanelLeftOpen, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getPatientAvatar } from "../utils/avatar";
 
-export default function PatientPortrait({ patientInfo, collapsed, onToggle }) {
+export default function PatientPortrait({ patientInfo, collapsed, onToggle }: {
+  patientInfo?: { name?: string; gender?: string; age?: number };
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const avatarSrc = getPatientAvatar(patientInfo);
   const name = patientInfo?.name || "患者";
   const [isMobile, setIsMobile] = useState(false);

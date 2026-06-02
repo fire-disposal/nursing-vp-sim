@@ -1,4 +1,20 @@
-export default function Tabs({ tabs, activeTab, onChange, style }) {
+import type { CSSProperties, ElementType } from "react";
+
+interface TabItem {
+  key: string;
+  label: string;
+  icon?: ElementType;
+  count?: number;
+}
+
+interface TabsProps {
+  tabs: TabItem[];
+  activeTab: string;
+  onChange: (key: string) => void;
+  style?: CSSProperties;
+}
+
+export default function Tabs({ tabs, activeTab, onChange, style }: TabsProps) {
   return (
     <div
       className="tabs-scroll"

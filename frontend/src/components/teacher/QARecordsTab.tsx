@@ -11,10 +11,10 @@ function truncate(text, maxLen) {
 }
 
 export default function QARecordsTab() {
-  const [records, setRecords] = useState([]);
+  const [records, setRecords] = useState<any[]>([]);
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
-  const [previewMessages, setPreviewMessages] = useState([]);
+  const [previewMessages, setPreviewMessages] = useState<any[]>([]);
   const [previewTitle, setPreviewTitle] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);

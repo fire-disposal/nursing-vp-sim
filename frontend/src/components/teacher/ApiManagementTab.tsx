@@ -31,18 +31,18 @@ export default function ApiManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
   const [subTab, setSubTab] = useState("configs");
-  const [secrets, setSecrets] = useState([]);
-  const [configs, setConfigs] = useState([]);
-  const [health, setHealth] = useState([]);
+  const [secrets, setSecrets] = useState<any[]>([]);
+  const [configs, setConfigs] = useState<any[]>([]);
+  const [health, setHealth] = useState<any[]>([]);
   const [healthAutoRefresh, setHealthAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSecretModal, setShowSecretModal] = useState(false);
-  const [editingSecret, setEditingSecret] = useState(null);
+  const [editingSecret, setEditingSecret] = useState<any>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [editingConfig, setEditingConfig] = useState(null);
+  const [editingConfig, setEditingConfig] = useState<any>(null);
   const [testingAll, setTestingAll] = useState(false);
-  const [testResults, setTestResults] = useState(null);
-  const [envFallback, setEnvFallback] = useState(null);
+  const [testResults, setTestResults] = useState<any>(null);
+  const [envFallback, setEnvFallback] = useState<any>(null);
   const [testingFallback, setTestingFallback] = useState(false);
   const toastRef = useRef(toast);
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function ApiManagementTab() {
       await deleteSecret(s.id);
       toast.success("密钥已删除");
       loadSecrets();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };
@@ -123,7 +123,7 @@ export default function ApiManagementTab() {
       await deleteConfig(c.id);
       toast.success("配置已删除");
       loadConfigs();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };
@@ -139,7 +139,7 @@ export default function ApiManagementTab() {
     try {
       await toggleConfig(c.id);
       loadConfigs();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "操作失败");
     }
   };
@@ -148,7 +148,7 @@ export default function ApiManagementTab() {
       await resetConfig(c.id);
       toast.success("已恢复");
       loadConfigs();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "恢复失败");
     }
   };
@@ -170,7 +170,7 @@ export default function ApiManagementTab() {
       setTestResults(data.results);
       const ok = data.results.filter((r) => r.ok).length;
       toast.success(`${ok}/${data.results.length} 个配置连通正常`);
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "检查失败");
     } finally {
       setTestingAll(false);

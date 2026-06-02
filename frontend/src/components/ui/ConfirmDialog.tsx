@@ -1,7 +1,19 @@
 import { AlertTriangle, X } from "lucide-react";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
-export default function ConfirmDialog({ open, onConfirm, onCancel, title, message, confirmLabel = "确定", cancelLabel = "取消", danger = false }) {
+interface ConfirmDialogProps {
+  open: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}
+
+export default function ConfirmDialog({ open, onConfirm, onCancel, title, message, confirmLabel = "确定", cancelLabel = "取消", danger = false }: ConfirmDialogProps) {
   if (!open) return null;
   return (
     <div
@@ -90,20 +102,31 @@ export default function ConfirmDialog({ open, onConfirm, onCancel, title, messag
   );
 }
 
-const ConfirmContext = createContext(null);
+interface ConfirmState {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function useConfirm() {
+interface ConfirmContextType {
+  confirm: (opts: ConfirmState) => Promise<boolean>;
+}
+
+const ConfirmContext = createContext<ConfirmContextType | null>(null);
+
+export function useConfirm(): ConfirmContextType {
   const ctx = useContext(ConfirmContext);
   if (!ctx) throw new Error("useConfirm must be used within ConfirmProvider");
   return ctx;
 }
 
-export function ConfirmProvider({ children }) {
-  const [state, setState] = useState(null);
-  const resolveRef = useRef(null);
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<ConfirmState | null>(null);
+  const resolveRef = useRef<((val: boolean) => void) | null>(null);
 
-  const confirm = useCallback(({ title, message, confirmLabel = "确定", cancelLabel = "取消", danger = false }) => {
+  const confirm = useCallback(({ title, message, confirmLabel = "确定", cancelLabel = "取消", danger = false }: ConfirmState): Promise<boolean> => {
     return new Promise((resolve) => {
       resolveRef.current = resolve;
       setState({ title, message, confirmLabel, cancelLabel, danger });

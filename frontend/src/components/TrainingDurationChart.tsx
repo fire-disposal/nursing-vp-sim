@@ -2,16 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getTrends } from "@/api/api-client";
 
-const PERIODS = [
+interface TrendData {
+  daily?: { date?: string; sessions: number; minutes: number; avg_score: number }[];
+  total_sessions: number;
+  total_minutes: number;
+  avg_score: number | null;
+}
+
+const PERIODS: { key: string; label: string }[] = [
   { key: "week", label: "近7天" },
   { key: "month", label: "近30天" },
   { key: "all", label: "全部" },
 ];
 
 export default function TrainingDurationChart() {
-  const [period, setPeriod] = useState("month");
-  const [trends, setTrends] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [period, setPeriod] = useState<string>("month");
+  const [trends, setTrends] = useState<TrendData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,8 +41,8 @@ export default function TrainingDurationChart() {
   }, [period]);
 
   const chartData = useMemo(() => {
-    const daily = trends?.daily || [];
-    return daily.map((item) => ({
+      const daily = trends?.daily || [];
+    return daily.map((item: TrendData["daily"][number]) => ({
       name: item.date?.slice(5) || item.date,
       sessions: item.sessions,
       minutes: item.minutes,

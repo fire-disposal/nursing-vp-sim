@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -32,7 +33,7 @@ function PageLoader() {
   );
 }
 
-function ProtectedRoute({ children, role }) {
+function ProtectedRoute({ children, role }: { children: ReactNode; role?: "student" | "teacher" }) {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
 

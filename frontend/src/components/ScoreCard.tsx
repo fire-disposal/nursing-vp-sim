@@ -1,10 +1,34 @@
 import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lightbulb, MessageSquare, X } from "lucide-react";
 import { useState } from "react";
 
-function ScoreBar({ label, score, max, variant }) {
+interface ScoreItemData {
+  id?: number;
+  name: string;
+  score: number;
+  evidence?: string;
+  reason?: string;
+}
+
+interface CategoryData {
+  score?: number;
+  max?: number;
+  items?: ScoreItemData[];
+}
+
+interface ScoreData {
+  total_score: number;
+  rubric_version?: string;
+  detail_scores?: Record<string, CategoryData>;
+  strengths?: string[];
+  weaknesses?: string[];
+  missed_content?: string[];
+  suggestions?: string;
+}
+
+function ScoreBar({ label, score, max, variant }: { label: string; score: number; max: number; variant: string }) {
   const pct = Math.min((score / max) * 100, 100);
-  const colorMap = { blue: "#2563eb", teal: "#14b8a6" };
-  const bgMap = { blue: "#eff6ff", teal: "#f0fdfa" };
+  const colorMap: Record<string, string> = { blue: "#2563eb", teal: "#14b8a6" };
+  const bgMap: Record<string, string> = { blue: "#eff6ff", teal: "#f0fdfa" };
   const color = colorMap[variant] || "#2563eb";
   const bg = bgMap[variant] || "#eff6ff";
 
@@ -24,7 +48,7 @@ function ScoreBar({ label, score, max, variant }) {
   );
 }
 
-function ScoreItem({ item }) {
+function ScoreItem({ item }: { item: ScoreItemData }) {
   const [expanded, setExpanded] = useState(item.score < 2);
   const hasEvidence = item.evidence || item.reason;
 
@@ -102,14 +126,21 @@ function ScoreItem({ item }) {
   );
 }
 
-export default function ScoreCard({ score, onClose, onRetry, onGoHome }) {
+interface ScoreCardProps {
+  score?: ScoreData;
+  onClose?: () => void;
+  onRetry?: () => void;
+  onGoHome?: () => void;
+}
+
+export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCardProps) {
   if (!score) return null;
 
   const detailScores = score.detail_scores || {};
-  const categories = Object.entries(detailScores);
-  const hasItems = categories.some(([, v]) => v && typeof v === "object" && Array.isArray(v.items) && v.items.length > 0);
+  const categories = Object.entries(detailScores) as [string, CategoryData][];
+  const hasItems = categories.some(([, v]) => Array.isArray(v.items) && v.items.length > 0);
 
-  const maxTotal = categories.reduce((sum, [, v]) => sum + (v && typeof v === "object" ? v.max || 0 : 0), 0) || 100;
+  const maxTotal = categories.reduce((sum, [, v]) => sum + (v.max || 0), 0) || 100;
 
   const rubricLabel = score.rubric_version ? `评分标准: ${score.rubric_version}` : null;
 

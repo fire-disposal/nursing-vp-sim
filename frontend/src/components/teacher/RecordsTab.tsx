@@ -7,8 +7,8 @@ import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 
 export default function RecordsTab() {
-  const [records, setRecords] = useState([]);
-  const [caseOptions, setCaseOptions] = useState([]);
+  const [records, setRecords] = useState<any[]>([]);
+  const [caseOptions, setCaseOptions] = useState<any[]>([]);
   const [filters, setFilters] = useState({ student_name: "", case_id: "", status: "", date_from: "", date_to: "" });
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
@@ -74,7 +74,7 @@ export default function RecordsTab() {
       await deleteRecord(r.id);
       toast.success("训练记录已删除");
       loadData();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };

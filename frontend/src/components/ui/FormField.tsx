@@ -1,4 +1,15 @@
-export default function FormField({ label, required, error, help, children, style }) {
+import type { CSSProperties, InputHTMLAttributes, ReactNode } from "react";
+
+interface FormFieldProps {
+  label?: string;
+  required?: boolean;
+  error?: string;
+  help?: string;
+  children?: ReactNode;
+  style?: CSSProperties;
+}
+
+export default function FormField({ label, required, error, help, children, style }: FormFieldProps) {
   return (
     <div style={{ marginBottom: "var(--space-4)", ...style }}>
       {label && (
@@ -41,7 +52,9 @@ const focusStyle = {
   boxShadow: "0 0 0 2px rgba(59,130,246,0.1)",
 };
 
-export function Input(props) {
+
+
+export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       style={inputStyle}
@@ -57,7 +70,7 @@ export function Input(props) {
   );
 }
 
-export function Select({ options, placeholder, ...props }) {
+export function Select({ options, placeholder, ...props }: { options: { value: string; label: string }[]; placeholder?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       style={{ ...inputStyle, cursor: "pointer" }}
@@ -80,7 +93,7 @@ export function Select({ options, placeholder, ...props }) {
   );
 }
 
-export function Textarea(props) {
+export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       style={{

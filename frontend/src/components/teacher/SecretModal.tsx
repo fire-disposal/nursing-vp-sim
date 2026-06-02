@@ -32,7 +32,7 @@ export default function SecretModal({ open, secret, onClose, onSaved }) {
       }
       onSaved();
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       error(e.response?.data?.detail || "保存失败");
     } finally {
       setSaving(false);

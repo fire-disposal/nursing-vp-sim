@@ -9,7 +9,7 @@ import PageHeader from "../../components/ui/PageHeader";
 
 export default function UserDetailPage() {
   const { userId } = useParams();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<any>(null);
   const toast = useToast();
   const navigate = useNavigate();
 

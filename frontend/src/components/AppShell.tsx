@@ -1,3 +1,4 @@
+import type { ElementType, ReactNode } from "react";
 import {
   BarChart3,
   ClipboardList,
@@ -22,7 +23,13 @@ import useAuthStore from "../stores/authStore";
 import { useFeedback } from "./FeedbackProvider";
 import Modal from "./ui/Modal";
 
-const studentLinks = [
+interface NavLinkItem {
+  to: string;
+  icon: ElementType;
+  label: string;
+}
+
+const studentLinks: NavLinkItem[] = [
   { to: "/home", icon: Home, label: "首页" },
   { to: "/cases", icon: Stethoscope, label: "病例训练" },
   { to: "/history", icon: ClipboardList, label: "训练记录" },
@@ -30,7 +37,7 @@ const studentLinks = [
   { to: "/stats", icon: BarChart3, label: "训练统计" },
 ];
 
-const teacherLinks = [
+const teacherLinks: NavLinkItem[] = [
   { to: "/home", icon: Home, label: "首页" },
   { to: "/history", icon: ClipboardList, label: "训练记录" },
   { to: "/qa", icon: HelpCircle, label: "护理问答" },
@@ -44,7 +51,7 @@ const teacherLinks = [
   { to: "/admin/backup", icon: HardDrive, label: "备份管理" },
 ];
 
-export default function AppShell({ children }) {
+export default function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);

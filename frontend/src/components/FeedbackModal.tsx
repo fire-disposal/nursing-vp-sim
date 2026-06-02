@@ -31,7 +31,13 @@ const btnBase = {
   transition: "background var(--transition-fast)",
 };
 
-export default function FeedbackModal({ open, onClose, onSubmitted }) {
+interface FeedbackModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmitted?: () => void;
+}
+
+export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackModalProps) {
   const [rating, setRating] = useState(0);
   const [tag, setTag] = useState("");
   const [content, setContent] = useState("");
@@ -49,7 +55,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }) {
       setContent("");
       onClose();
       if (onSubmitted) onSubmitted();
-    } catch {
+    } catch (err: unknown) {
       toast.error("提交失败，请重试");
     } finally {
       setSubmitting(false);

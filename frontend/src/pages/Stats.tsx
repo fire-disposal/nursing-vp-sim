@@ -10,9 +10,9 @@ import PageHeader from "../components/ui/PageHeader";
 
 export default function Stats() {
   const [period, setPeriod] = useState("month");
-  const [trends, setTrends] = useState(null);
-  const [summary, setSummary] = useState(null);
-  const [ranking, setRanking] = useState(null);
+  const [trends, setTrends] = useState<any>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [ranking, setRanking] = useState<any>(null);
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
   const [summaryOffset, setSummaryOffset] = useState(0);

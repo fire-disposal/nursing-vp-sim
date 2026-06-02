@@ -1,7 +1,17 @@
+import type { CSSProperties, ElementType, ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function PageHeader({ title, subtitle, icon: Icon, actions, backTo, style }) {
+interface PageHeaderProps {
+  title: string;
+  subtitle?: string;
+  icon?: ElementType;
+  actions?: ReactNode;
+  backTo?: string;
+  style?: CSSProperties;
+}
+
+export default function PageHeader({ title, subtitle, icon: Icon, actions, backTo, style }: PageHeaderProps) {
   const navigate = useNavigate();
 
   return (

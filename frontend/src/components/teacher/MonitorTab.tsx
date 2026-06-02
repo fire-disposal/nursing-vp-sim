@@ -13,8 +13,8 @@ function purposeLabel(item) {
 }
 
 export default function MonitorTab() {
-  const [stats, setStats] = useState(null);
-  const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
   const [logTotal, setLogTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const LIMIT = 20;

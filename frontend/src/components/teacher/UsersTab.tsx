@@ -9,33 +9,33 @@ import Modal from "../ui/Modal";
 import ClassFilter from "./ClassFilter";
 
 export default function UsersTab({ currentUserId }) {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [userTotal, setUserTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const LIMIT = 50;
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
-  const [classParam, setClassParam] = useState(null);
+  const [classParam, setClassParam] = useState<any>(null);
   const searchRef = useRef(null);
   const [showRegister, setShowRegister] = useState(false);
   const [regForm, setRegForm] = useState({ username: "", password: "", role: "student", display_name: "", student_id: "", class_id: "" });
   const [regGrade, setRegGrade] = useState("");
   const [regMsg, setRegMsg] = useState("");
   const [showEditUser, setShowEditUser] = useState(false);
-  const [editUser, setEditUser] = useState(null);
+  const [editUser, setEditUser] = useState<any>(null);
   const [editUserForm, setEditUserForm] = useState({ display_name: "", student_id: "", role: "", password: "", class_id: "" });
   const [editGrade, setEditGrade] = useState("");
   const [editUserMsg, setEditUserMsg] = useState("");
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [batchText, setBatchText] = useState("");
-  const [batchPreview, setBatchPreview] = useState([]);
+  const [batchPreview, setBatchPreview] = useState<any[]>([]);
   const [batchParseError, setBatchParseError] = useState("");
-  const [batchResult, setBatchResult] = useState(null);
+  const [batchResult, setBatchResult] = useState<any>(null);
   const [batchImporting, setBatchImporting] = useState(false);
-  const [grades, setGrades] = useState([]);
-  const [regClasses, setRegClasses] = useState([]);
-  const [editClasses, setEditClasses] = useState([]);
-  const [allClasses, setAllClasses] = useState([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [regClasses, setRegClasses] = useState<any[]>([]);
+  const [editClasses, setEditClasses] = useState<any[]>([]);
+  const [allClasses, setAllClasses] = useState<any[]>([]);
   const toast = useToast();
   const { confirm } = useConfirm();
   const navigate = useNavigate();
@@ -90,7 +90,7 @@ export default function UsersTab({ currentUserId }) {
       setRegClasses([]);
       setOffset(0);
       loadUsers(0);
-    } catch (err) {
+    } catch (err: unknown) {
       setRegMsg(err.response?.data?.detail || "注册失败");
     }
   };
@@ -131,7 +131,7 @@ export default function UsersTab({ currentUserId }) {
       setShowEditUser(false);
       setOffset(0);
       loadUsers(0);
-    } catch (err) {
+    } catch (err: unknown) {
       setEditUserMsg(err.response?.data?.detail || "保存失败");
     }
   };
@@ -153,7 +153,7 @@ export default function UsersTab({ currentUserId }) {
       toast.success("用户已删除");
       setOffset(0);
       loadUsers(0);
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };
@@ -228,7 +228,7 @@ export default function UsersTab({ currentUserId }) {
         loadUsers(0);
       }
       if (data.skipped > 0) toast.warning(`跳过 ${data.skipped} 名用户`);
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "批量导入失败");
     } finally {
       setBatchImporting(false);

@@ -8,9 +8,9 @@ import { useToast } from "../Toast";
 
 export default function RubricTab() {
   const toast = useToast();
-  const [rubrics, setRubrics] = useState([]);
+  const [rubrics, setRubrics] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
   const [formName, setFormName] = useState("");
   const [formVersion, setFormVersion] = useState("1.0");
   const [formDesc, setFormDesc] = useState("");
@@ -19,8 +19,8 @@ export default function RubricTab() {
   const [formRawScale, setFormRawScale] = useState(3);
   const [formDims, setFormDims] = useState("[]");
   const [dimError, setDimError] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [expandedId, setExpandedId] = useState<any>(null);
 
   const load = () =>
     fetchRubrics()
@@ -86,7 +86,7 @@ export default function RubricTab() {
       setShowModal(false);
       load();
       toast.success(editId ? "已更新" : "已创建");
-    } catch (e) {
+    } catch (e: unknown) {
       toast.error(e.response?.data?.detail || "保存失败");
     }
   };
@@ -96,7 +96,7 @@ export default function RubricTab() {
       await activateRubric(id);
       load();
       toast.success("已激活");
-    } catch (e) {
+    } catch (e: unknown) {
       toast.error("激活失败");
     }
   };
@@ -107,7 +107,7 @@ export default function RubricTab() {
       await deleteRubric(deleteTarget.id);
       load();
       toast.success("已删除");
-    } catch (e) {
+    } catch (e: unknown) {
       toast.error(e.response?.data?.detail || "删除失败");
     }
     setDeleteTarget(null);

@@ -1,12 +1,23 @@
+import type { CSSProperties, ReactNode } from "react";
 import { X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-export default function Modal({ open, onClose, title, children, footer, maxWidth = 560, style }) {
-  const overlayRef = useRef(null);
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children?: ReactNode;
+  footer?: ReactNode;
+  maxWidth?: number;
+  style?: CSSProperties;
+}
+
+export default function Modal({ open, onClose, title, children, footer, maxWidth = 560, style }: ModalProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handler);

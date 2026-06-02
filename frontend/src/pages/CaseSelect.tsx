@@ -8,9 +8,9 @@ import { useToast } from "../components/Toast";
 import PageHeader from "../components/ui/PageHeader";
 
 export default function CaseSelect() {
-  const [cases, setCases] = useState([]);
+  const [cases, setCases] = useState<any[]>([]);
   const [difficultyFilter, setDifficultyFilter] = useState(0);
-  const [startingId, setStartingId] = useState(null);
+  const [startingId, setStartingId] = useState<any>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const [offset, setOffset] = useState(0);

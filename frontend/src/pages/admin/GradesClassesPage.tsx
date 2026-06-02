@@ -26,8 +26,8 @@ export default function GradesClassesPage() {
   const [tab, setTab] = useState("grades");
   const [gradeFilter, setGradeFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editId, setEditId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [editId, setEditId] = useState<any>(null);
   const [formName, setFormName] = useState("");
   const [formGradeId, setFormGradeId] = useState("");
   const toast = useToast();
@@ -85,7 +85,7 @@ export default function GradesClassesPage() {
       }
       setModalOpen(false);
       toast.success(editId ? "已更新" : "已创建");
-    } catch (e) {
+    } catch (e: unknown) {
       toast.error(e.response?.data?.detail || "操作失败");
     }
   };
@@ -102,7 +102,7 @@ export default function GradesClassesPage() {
         fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
       }
       toast.success("已删除");
-    } catch (e) {
+    } catch (e: unknown) {
       toast.error(e.response?.data?.detail || "操作失败");
     }
     setDeleteTarget(null);

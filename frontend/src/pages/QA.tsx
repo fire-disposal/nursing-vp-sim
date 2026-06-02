@@ -9,9 +9,9 @@ import { getNurseAvatar } from "../utils/avatar";
 const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
 
 export default function QA() {
-  const [sessions, setSessions] = useState([]);
-  const [activeSessionId, setActiveSessionId] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -22,7 +22,7 @@ export default function QA() {
     try {
       const res = await getQASessions();
       setSessions(res.data || []);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("加载会话列表失败", e);
     }
   }, []);
@@ -40,7 +40,7 @@ export default function QA() {
       const res = await getQASessionMessages(sessionId);
       setActiveSessionId(sessionId);
       setMessages(res.data || []);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("加载会话消息失败", e);
     }
   }, []);
@@ -85,7 +85,7 @@ export default function QA() {
           { id: optimisticId + 1, role: "assistant", content: res.data.answer },
         ]);
         await loadSessions();
-      } catch (e) {
+      } catch (e: unknown) {
         setMessages((prev) => [
           ...prev.filter((m) => m.id !== optimisticId),
           { id: optimisticId, role: "user", content: q },
@@ -109,7 +109,7 @@ export default function QA() {
           setMessages([]);
         }
         await loadSessions();
-      } catch (e) {
+      } catch (e: unknown) {
         console.error("删除会话失败", e);
       }
     },

@@ -197,21 +197,21 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }) {
 
 export default function ChatTraining() {
   const { recordId } = useParams();
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [ending, setEnding] = useState(false);
-  const [score, setScore] = useState(null);
+  const [score, setScore] = useState<any>(null);
   const [showScore, setShowScore] = useState(false);
   const [scoreProgress, setScoreProgress] = useState(0);
   const [showOverlay, setShowOverlay] = useState(false);
   const [patientName, setPatientName] = useState("");
   const [caseTitle, setCaseTitle] = useState("");
-  const [remaining, setRemaining] = useState(null);
+  const [remaining, setRemaining] = useState<any>(null);
   const [timerActive, setTimerActive] = useState(false);
-  const [requiredInquiries, setRequiredInquiries] = useState([]);
+  const [requiredInquiries, setRequiredInquiries] = useState<any[]>([]);
   const [showInquirySidebar, setShowInquirySidebar] = useState(false);
-  const [patientInfo, setPatientInfo] = useState(null);
+  const [patientInfo, setPatientInfo] = useState<any>(null);
   const [showPortrait, setShowPortrait] = useState(true);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
@@ -390,7 +390,7 @@ export default function ChatTraining() {
           break;
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
         if (!isAuto) toast.error(err.response?.data?.detail || "结束训练失败，请重试");
       }

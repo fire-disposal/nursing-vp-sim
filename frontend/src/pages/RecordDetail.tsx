@@ -248,10 +248,10 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }) {
 
 export default function RecordDetail() {
   const { id } = useParams();
-  const [record, setRecord] = useState(null);
+  const [record, setRecord] = useState<any>(null);
   const [showScore, setShowScore] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [review, setReview] = useState(null);
+  const [review, setReview] = useState<any>(null);
   const [showReviewEditor, setShowReviewEditor] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
   const navigate = useNavigate();
@@ -312,7 +312,7 @@ export default function RecordDetail() {
           break;
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "重试评分失败");
     } finally {
       setRetrying(false);
@@ -344,7 +344,7 @@ export default function RecordDetail() {
       setShowReviewEditor(false);
       await loadRecord();
       await loadReview();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "提交复核失败");
     } finally {
       setSubmittingReview(false);

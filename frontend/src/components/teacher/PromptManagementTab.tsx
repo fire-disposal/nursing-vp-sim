@@ -247,19 +247,19 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
 export default function PromptManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
-  const [prompts, setPrompts] = useState([]);
+  const [prompts, setPrompts] = useState<any[]>([]);
   const [expanded, setExpanded] = useState({});
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ purpose: "patient_chat", name: "", system_prompt: "", user_prompt: "", remark: "", activate: true });
-  const [validation, setValidation] = useState(null);
+  const [validation, setValidation] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [showActiveModal, setShowActiveModal] = useState(false);
   const [activeModalPurpose, setActiveModalPurpose] = useState("patient_chat");
-  const [previewData, setPreviewData] = useState(null);
+  const [previewData, setPreviewData] = useState<any>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showRendered, setShowRendered] = useState(true);
   const [showEditorPreview, setShowEditorPreview] = useState(false);
-  const [savedForm, setSavedForm] = useState(null);
+  const [savedForm, setSavedForm] = useState<any>(null);
   const [sampleVars, setSampleVars] = useState({});
 
   const togglePreview = () => {
@@ -339,7 +339,7 @@ export default function PromptManagementTab() {
       }
       setEditing(null);
       load();
-    } catch (err) {
+    } catch (err: unknown) {
       const detail = err.response?.data?.detail;
       const msg = Array.isArray(detail) ? detail.map((e) => e.msg || e.type || "未知错误").join("; ") : detail || "保存失败";
       toast.error(msg);
@@ -355,7 +355,7 @@ export default function PromptManagementTab() {
       await activatePrompt(p.id);
       toast.success(`已切换到 v${p.version}`);
       load();
-    } catch (err) {
+    } catch (err: unknown) {
       const d = err.response?.data?.detail;
       toast.error(Array.isArray(d) ? d.map((e) => e.msg).join("; ") : d || "激活失败");
     }
@@ -373,7 +373,7 @@ export default function PromptManagementTab() {
       if (editing === p.id) setEditing(null);
       toast.success("已删除");
       load();
-    } catch (err) {
+    } catch (err: unknown) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
   };

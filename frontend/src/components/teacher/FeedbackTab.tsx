@@ -44,7 +44,7 @@ const EMOTION_MAP = {
 };
 
 function FeedbackChart() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -171,7 +171,7 @@ const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
 const PIE_LABELS = ["😞 很差", "😐 较差", "🙂 一般", "😊 满意", "😍 很满意"];
 
 function RatingPieChart({ tag, dateFrom, dateTo }) {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<any[]>([]);
 
   useEffect(() => {
     const params = {};
@@ -235,7 +235,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }) {
 }
 
 export default function FeedbackTab() {
-  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [tag, setTag] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");

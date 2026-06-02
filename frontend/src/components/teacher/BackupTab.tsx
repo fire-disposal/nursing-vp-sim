@@ -29,7 +29,7 @@ export default function BackupTab() {
       window.URL.revokeObjectURL(url);
 
       toast.success("备份下载成功");
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err.response?.data?.detail || err.message || "未知错误";
       toast.error(`备份下载失败: ${msg}`);
     } finally {

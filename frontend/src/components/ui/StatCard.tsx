@@ -1,4 +1,8 @@
-const colorMap = {
+import type { CSSProperties, ElementType, ReactNode } from "react";
+
+type StatColor = "blue" | "green" | "amber" | "red" | "teal";
+
+const colorMap: Record<StatColor, { bg: string; color: string }> = {
   blue: { bg: "var(--color-primary-soft)", color: "var(--color-primary)" },
   green: { bg: "var(--color-success-soft)", color: "var(--color-success)" },
   amber: { bg: "var(--color-warning-soft)", color: "var(--color-warning)" },
@@ -6,7 +10,17 @@ const colorMap = {
   teal: { bg: "var(--color-clinical-soft)", color: "var(--color-clinical)" },
 };
 
-export default function StatCard({ icon: Icon, value, label, color = "blue", trend, onClick, style }) {
+interface StatCardProps {
+  icon?: ElementType;
+  value?: ReactNode;
+  label: string;
+  color?: StatColor;
+  trend?: number;
+  onClick?: () => void;
+  style?: CSSProperties;
+}
+
+export default function StatCard({ icon: Icon, value, label, color = "blue", trend, onClick, style }: StatCardProps) {
   const c = colorMap[color] || colorMap.blue;
 
   return (

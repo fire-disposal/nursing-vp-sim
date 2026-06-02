@@ -19,7 +19,7 @@ export default function Login() {
     try {
       await login(username, password);
       navigate("/home");
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err.response?.data?.detail || "登录失败，请检查账号密码");
     } finally {
       setLoading(false);
