@@ -1,17 +1,14 @@
 import { Database, DownloadCloud } from "lucide-react";
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { downloadBackup } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 
 export default function BackupTab() {
-  const [downloading, setDownloading] = useState(false);
   const toast = useToast();
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const response = await downloadBackup();
-
+  const downloadMutation = useMutation({
+    mutationFn: () => downloadBackup(),
+    onSuccess: (response) => {
       const contentDisposition = response.headers["content-disposition"] as string | undefined;
       let filename = "backup.zip";
       if (contentDisposition) {
@@ -29,14 +26,13 @@ export default function BackupTab() {
       window.URL.revokeObjectURL(url);
 
       toast.success("备份下载成功");
-    } catch (err: unknown) {
+    },
+    onError: (err: unknown) => {
       const e = err as { response?: { data?: { detail?: string } }; message?: string };
       const msg = e.response?.data?.detail || e.message || "未知错误";
       toast.error(`备份下载失败: ${msg}`);
-    } finally {
-      setDownloading(false);
-    }
-  };
+    },
+  });
 
   return (
     <div className="card">
@@ -50,11 +46,11 @@ export default function BackupTab() {
         </div>
         <button
           className="btn btn-primary"
-          onClick={handleDownload}
-          disabled={downloading}
+          onClick={() => downloadMutation.mutate()}
+          disabled={downloadMutation.isPending}
           style={{ marginTop: "var(--space-4)", display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}
         >
-          {downloading ? (
+          {downloadMutation.isPending ? (
             <>
               <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
               正在导出备份...
