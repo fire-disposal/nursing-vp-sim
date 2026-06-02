@@ -1,6 +1,7 @@
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
 import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/Toast";
@@ -60,42 +61,36 @@ interface FeedbackChartData {
 }
 
 function FeedbackChart() {
-  const [data, setData] = useState<FeedbackChartData[]>([]);
-  const [loading, setLoading] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
 
   const weekLabel = weekOffset === 0 ? "本周" : weekOffset === -1 ? "上周" : `${-weekOffset}周前`;
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
+  monday.setHours(0, 0, 0, 0);
 
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
-    monday.setHours(0, 0, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmtDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const fmtDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+  const dateKeys: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    dateKeys.push(fmtDate(d));
+  }
 
-    const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-    const dateKeys: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      dateKeys.push(fmtDate(d));
-    }
-
-    const params: Record<string, unknown> = { date_from: dateKeys[0] };
-    getFeedbackStats(params)
-      .then(({ data: stats }) => {
-        if (cancelled) return;
+  const { data, isLoading } = useQuery({
+    queryKey: ["feedbackStats", "weekly", weekOffset],
+    queryFn: () =>
+      getFeedbackStats({ date_from: dateKeys[0] }).then(({ data: stats }) => {
         const map: Record<string, FeedbackDailyItem> = {};
         (stats as FeedbackDailyItem[]).forEach((d) => {
           map[d.date] = d;
         });
-        const filled = dateKeys.map((dk, i) => {
+        return dateKeys.map((dk, i) => {
           const s = map[dk];
           return {
             name: days[i],
@@ -106,18 +101,11 @@ function FeedbackChart() {
             rating_5: s?.rating_5 || 0,
           };
         });
-        setData(filled);
-      })
-      .catch(() => setData([]))
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [weekOffset]);
+      }),
+    initialData: [],
+  });
 
-  if (loading)
+  if (isLoading)
     return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)" }}>加载图表...</div>;
   if (data.length === 0) return null;
 
@@ -195,15 +183,15 @@ interface RatingPieChartProps {
 }
 
 function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
-  const [data, setData] = useState<PieDataItem[]>([]);
+  const params: Record<string, unknown> = {};
+  if (tag) params.tag = tag;
+  if (dateFrom) params.date_from = dateFrom;
+  if (dateTo) params.date_to = dateTo;
 
-  useEffect(() => {
-    const params: Record<string, unknown> = {};
-    if (tag) params.tag = tag;
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    getFeedbackStats(params)
-      .then(({ data: stats }) => {
+  const { data } = useQuery({
+    queryKey: ["feedbackStats", "pie", tag, dateFrom, dateTo],
+    queryFn: () =>
+      getFeedbackStats(params).then(({ data: stats }) => {
         const totals: Record<string, number> = { rating_1: 0, rating_2: 0, rating_3: 0, rating_4: 0, rating_5: 0 };
         (stats as FeedbackDailyItem[]).forEach((d) => {
           totals.rating_1 += d.rating_1 || 0;
@@ -212,18 +200,16 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
           totals.rating_4 += d.rating_4 || 0;
           totals.rating_5 += d.rating_5 || 0;
         });
-        setData(
-          [
-            { name: "rating_1", value: totals.rating_1, idx: 0 },
-            { name: "rating_2", value: totals.rating_2, idx: 1 },
-            { name: "rating_3", value: totals.rating_3, idx: 2 },
-            { name: "rating_4", value: totals.rating_4, idx: 3 },
-            { name: "rating_5", value: totals.rating_5, idx: 4 },
-          ].filter((d) => d.value > 0),
-        );
-      })
-      .catch(() => setData([]));
-  }, [tag, dateFrom, dateTo]);
+        return [
+          { name: "rating_1", value: totals.rating_1, idx: 0 },
+          { name: "rating_2", value: totals.rating_2, idx: 1 },
+          { name: "rating_3", value: totals.rating_3, idx: 2 },
+          { name: "rating_4", value: totals.rating_4, idx: 3 },
+          { name: "rating_5", value: totals.rating_5, idx: 4 },
+        ].filter((d) => d.value > 0);
+      }),
+    initialData: [],
+  });
 
   const total = data.reduce((s, d) => s + d.value, 0);
   if (total === 0) return null;
@@ -264,43 +250,32 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 }
 
 export default function FeedbackTab() {
-  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [tag, setTag] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const LIMIT = 20;
   const toast = useToast();
 
-  const loadData = useCallback(() => {
-    setLoading(true);
-    const params: Record<string, unknown> = { offset, limit: LIMIT };
-    if (tag) params.tag = tag;
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    getFeedbacks(params)
-      .then(({ data }) => {
-        setFeedbacks(data.items);
-        setTotal(data.total);
-      })
-      .catch(() => toast.error("加载反馈数据失败"))
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tag, dateFrom, dateTo, offset]);
+  const params: Record<string, unknown> = { offset, limit: LIMIT };
+  if (tag) params.tag = tag;
+  if (dateFrom) params.date_from = dateFrom;
+  if (dateTo) params.date_to = dateTo;
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const { data: feedbacksData, isLoading } = useQuery({
+    queryKey: ["feedbacks", tag, dateFrom, dateTo, offset],
+    queryFn: () => getFeedbacks(params).then((r) => r.data),
+    placeholderData: (prev) => prev,
+  });
 
-  useEffect(() => {
+  const feedbacks = feedbacksData?.items ?? [];
+  const total = feedbacksData?.total ?? 0;
+
+  const handleFilterChange = (key: "dateFrom" | "dateTo", value: string) => {
+    if (key === "dateFrom") setDateFrom(value);
+    else setDateTo(value);
     setOffset(0);
-  }, [tag]);
-
-  useEffect(() => {
-    setOffset(0);
-  }, [dateFrom, dateTo]);
+  };
 
   return (
     <div className="card">
@@ -318,10 +293,7 @@ export default function FeedbackTab() {
             <input
               type="date"
               value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setOffset(0);
-              }}
+              onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
               style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
             />
           </div>
@@ -331,10 +303,7 @@ export default function FeedbackTab() {
             <input
               type="date"
               value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setOffset(0);
-              }}
+              onChange={(e) => handleFilterChange("dateTo", e.target.value)}
               style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
             />
           </div>
@@ -373,7 +342,7 @@ export default function FeedbackTab() {
 
       <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>共 {total} 条反馈</div>
 
-      {loading ? (
+      {isLoading ? (
         <LoadingState />
       ) : feedbacks.length === 0 ? (
         <div className="empty-state">
