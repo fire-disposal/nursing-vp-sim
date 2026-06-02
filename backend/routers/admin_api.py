@@ -367,3 +367,94 @@ async def health_check(
                     "error": str(e)[:200],
                 })
     return results
+
+
+# ── Rubric CRUD ──
+
+@router.get("/rubrics")
+def list_rubrics(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+    from models import Rubric
+    return db.query(Rubric).order_by(Rubric.created_at.desc()).all()
+
+
+@router.get("/rubrics/active")
+def get_active_rubric(current_user: User = Depends(require_teacher)):
+    from services.rubric_service import load_active_rubric
+    active = load_active_rubric()
+    if not active:
+        raise HTTPException(404, "没有激活的评分标准")
+    return active
+
+
+@router.post("/rubrics", status_code=201)
+def create_rubric(data: dict, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+    from models import Rubric
+    from services.rubric_service import validate_dimensions
+
+    dims = data.get("dimensions")
+    if not dims:
+        raise HTTPException(400, "dimensions 不能为空")
+    errors = validate_dimensions(dims)
+    if errors:
+        raise HTTPException(400, "; ".join(errors))
+
+    rubric = Rubric(
+        name=data.get("name", ""),
+        version=data.get("version", "1.0"),
+        description=data.get("description"),
+        total_max=data.get("total_max", 100),
+        raw_max=data.get("raw_max", 57),
+        raw_scale=data.get("raw_scale", 3),
+        dimensions=dims,
+    )
+    db.add(rubric)
+    db.commit()
+    db.refresh(rubric)
+    return rubric
+
+
+@router.put("/rubrics/{rubric_id}")
+def update_rubric(rubric_id: int, data: dict, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+    from models import Rubric
+    from services.rubric_service import validate_dimensions
+
+    rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
+    if not rubric:
+        raise HTTPException(404, "评分标准不存在")
+
+    if "dimensions" in data:
+        errors = validate_dimensions(data["dimensions"])
+        if errors:
+            raise HTTPException(400, "; ".join(errors))
+        rubric.dimensions = data["dimensions"]
+    for field in ("name", "version", "description", "total_max", "raw_max", "raw_scale"):
+        if field in data:
+            setattr(rubric, field, data[field])
+
+    db.commit()
+    return rubric
+
+
+@router.delete("/rubrics/{rubric_id}")
+def delete_rubric(rubric_id: int, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+    from models import Rubric
+    rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
+    if not rubric:
+        raise HTTPException(404, "评分标准不存在")
+    if rubric.is_active:
+        raise HTTPException(400, "不能删除当前激活的评分标准")
+    db.delete(rubric)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/rubrics/{rubric_id}/activate")
+def activate_rubric(rubric_id: int, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+    from models import Rubric
+    rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
+    if not rubric:
+        raise HTTPException(404, "评分标准不存在")
+    db.query(Rubric).update({"is_active": False})
+    rubric.is_active = True
+    db.commit()
+    return {"ok": True}

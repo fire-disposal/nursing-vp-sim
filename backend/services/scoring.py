@@ -4,7 +4,8 @@ from models import TrainingRecord, Message, Score
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
 from config import get_llm_config, DEEPSEEK_MODEL
-from rubrics import load_rubric, get_rubric_version_id
+from rubrics import load_rubric
+from services.rubric_service import load_rubric_dict, get_rubric_version_id
 from prompt_static import build_scoring_criteria, build_scoring_json_schema
 from logger import log
 import asyncio
@@ -27,9 +28,9 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
         conversation_lines.append(f"{role_label}：{msg.content}")
     conversation_text = "\n\n".join(conversation_lines)
 
-    rubric = load_rubric("nursing_history_v1")
+    rubric = load_rubric_dict()
     all_required = case_data.get("required_inquiries", [])
-    raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
+    raw_max = rubric.get("raw_max", 57)
 
     scoring_criteria_text = build_scoring_criteria(rubric)
     scoring_json_schema_text = build_scoring_json_schema(rubric)

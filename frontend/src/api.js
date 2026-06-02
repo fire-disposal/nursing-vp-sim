@@ -335,3 +335,29 @@ export async function getClassSummary(params) {
 export function downloadBackup() {
   return api.post("/admin/backup", null, { responseType: "blob" });
 }
+
+// ── 评分标准（Rubric）──
+
+export function fetchRubrics() {
+  return api.get("/admin/api/rubrics").then((res) => res.data);
+}
+
+export function getActiveRubric() {
+  return api.get("/admin/api/rubrics/active").then((res) => res.data);
+}
+
+export function createRubric(data) {
+  return api.post("/admin/api/rubrics", data).then((res) => res.data);
+}
+
+export function updateRubric(id, data) {
+  return api.put(`/admin/api/rubrics/${id}`, data).then((res) => res.data);
+}
+
+export function deleteRubric(id) {
+  return api.delete(`/admin/api/rubrics/${id}`).then((res) => res.data);
+}
+
+export function activateRubric(id) {
+  return api.post(`/admin/api/rubrics/${id}/activate`).then((res) => res.data);
+}

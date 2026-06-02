@@ -12,7 +12,7 @@ from services.variable_registry import get_registry
 from services.patient_guard import (
     get_allowed_hidden_info, sanitize_patient_reply,
 )
-from services.chat_session import restore_topics, add_topic, cleanup_topics
+from services.chat_session import restore_topics, add_topic
 from config import get_llm_config
 from rate_limiter import check_chat_limit
 from logger import log

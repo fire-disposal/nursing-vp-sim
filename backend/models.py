@@ -178,8 +178,28 @@ class Note(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
 
+
+# ── 评分标准（Rubric）──
+
+class Rubric(Base):
+    """评分标准定义 —— 维度、条目、锚点，可从管理面板编辑"""
+    __tablename__ = "rubrics"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(80), nullable=False, unique=True)
+    version = Column(String(40), nullable=False)
+    description = Column(Text, nullable=True)
+    total_max = Column(Integer, nullable=False, default=100)
+    raw_max = Column(Integer, nullable=False, default=57)
+    raw_scale = Column(Integer, nullable=False, default=3)
+    dimensions = Column(JSONB, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
 
 class LLMCallLog(Base):
     """记录每次 LLM 调用的元数据，用于成本监控和稳定性分析"""
@@ -189,7 +209,7 @@ class LLMCallLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=True, index=True)
     case_id = Column(Integer, ForeignKey("cases.id"), nullable=True, index=True)
-    purpose = Column(String(40), nullable=False, index=True)  # patient_chat / scoring / qa / summary / other
+    purpose = Column(String(40), nullable=False, index=True)  # patient_chat / scoring / qa / other
     provider_name = Column(String(40), nullable=False, default="deepseek")
     api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
     config_id = Column(Integer, ForeignKey("llm_configs.id"), nullable=True, index=True)

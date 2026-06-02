@@ -309,6 +309,25 @@ def _seed_data():
             for p in student_perms:
                 db.add(RolePermission(role_name="student", permission=p))
 
+        # 种子评分标准（idempotent — 首次启动从 JSON 导入到 DB，后续从 DB 读取）
+        from models import Rubric
+        if db.query(Rubric).count() == 0:
+            import json, os as _os
+            rubric_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "rubrics", "nursing_history_v1.json")
+            if _os.path.isfile(rubric_path):
+                with open(rubric_path, "r", encoding="utf-8") as f:
+                    rubric_data = json.load(f)
+                db.add(Rubric(
+                    name=rubric_data.get("id", "nursing_history_v1"),
+                    version=rubric_data.get("version", "1.0"),
+                    description=rubric_data.get("name", ""),
+                    total_max=rubric_data.get("total_max", 100),
+                    raw_max=rubric_data.get("raw_max", 57),
+                    raw_scale=rubric_data.get("raw_scale", 3),
+                    dimensions=rubric_data.get("dimensions", []),
+                    is_active=True,
+                ))
+
         # 检查是否已初始化
         if db.query(User).count() > 0:
             return

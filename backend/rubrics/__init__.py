@@ -23,14 +23,6 @@ def load_rubric(version: str = "nursing_history_v1") -> dict:
     return rubric
 
 
-def get_rubric_versions() -> list[str]:
-    """列出所有可用的评分标准版本"""
-    versions = []
-    for f in sorted(_RUBRIC_DIR.glob("nursing_history_*.json")):
-        versions.append(f.stem)
-    return versions
-
-
 def get_rubric_version_id(rubric: dict) -> str:
     """生成格式化的版本标识，如 'nursing_history_v1@1.0'"""
     return f"{rubric.get('id', 'unknown')}@{rubric.get('version', '0')}"
