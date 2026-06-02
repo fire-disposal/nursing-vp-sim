@@ -4,7 +4,7 @@ from sqlalchemy import func, or_, Integer as SAInteger
 from datetime import datetime, timedelta, timezone
 from database import get_db
 from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider, UserClass, Class, Grade
-from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse, StudentDetail, TrainingRecordBrief
+from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse, StudentDetail, TrainingRecordBrief, MessageResponse
 from auth import require_teacher, hash_password
 from logger import log
 import os
@@ -209,7 +209,7 @@ def get_user_detail(
     )
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", response_model=MessageResponse)
 def delete_user(
     user_id: int,
     current_user: User = Depends(require_teacher),

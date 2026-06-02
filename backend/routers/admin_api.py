@@ -3,10 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import User, ApiSecret, LLMConfig
+from models import User, ApiSecret, LLMConfig, Rubric
 from schemas import (
     ApiSecretCreate, ApiSecretUpdate, ApiSecretResponse,
     LLMConfigCreate, LLMConfigUpdate, LLMConfigResponse,
+    OkResponse, ToggleStatusResponse,
+    SecretCreateResponse, ConfigCreateResponse,
+    TestResultItem, TestAllResultsResponse,
+    HealthCheckItem,
+    RubricResponse, RubricBrief,
 )
 from auth import require_teacher
 from services.llm_router import refresh_router
@@ -42,7 +47,7 @@ def list_secrets(
     return result
 
 
-@router.post("/secrets", status_code=201)
+@router.post("/secrets", status_code=201, response_model=SecretCreateResponse)
 async def create_secret(
     data: ApiSecretCreate,
     current_user: User = Depends(require_teacher),
@@ -60,7 +65,7 @@ async def create_secret(
     return {"id": s.id, "key_suffix": s.key_suffix}
 
 
-@router.put("/secrets/{secret_id}")
+@router.put("/secrets/{secret_id}", response_model=OkResponse)
 def update_secret(
     secret_id: int,
     data: ApiSecretUpdate,
@@ -76,7 +81,7 @@ def update_secret(
     return {"ok": True}
 
 
-@router.delete("/secrets/{secret_id}")
+@router.delete("/secrets/{secret_id}", response_model=OkResponse)
 async def delete_secret(
     secret_id: int,
     current_user: User = Depends(require_teacher),
@@ -132,7 +137,7 @@ def list_configs(
     return result
 
 
-@router.post("/configs", status_code=201)
+@router.post("/configs", status_code=201, response_model=ConfigCreateResponse)
 async def create_config(
     data: LLMConfigCreate,
     current_user: User = Depends(require_teacher),
@@ -167,7 +172,7 @@ async def create_config(
     return {"id": cfg.id}
 
 
-@router.put("/configs/{config_id}")
+@router.put("/configs/{config_id}", response_model=OkResponse)
 async def update_config(
     config_id: int,
     data: LLMConfigUpdate,
@@ -187,7 +192,7 @@ async def update_config(
     return {"ok": True}
 
 
-@router.delete("/configs/{config_id}")
+@router.delete("/configs/{config_id}", response_model=OkResponse)
 async def delete_config(
     config_id: int,
     current_user: User = Depends(require_teacher),
@@ -202,7 +207,7 @@ async def delete_config(
     return {"ok": True}
 
 
-@router.post("/configs/{config_id}/toggle")
+@router.post("/configs/{config_id}/toggle", response_model=ToggleStatusResponse)
 async def toggle_config(
     config_id: int,
     current_user: User = Depends(require_teacher),
@@ -223,7 +228,7 @@ async def toggle_config(
     return {"ok": True, "status": cfg.status}
 
 
-@router.post("/configs/{config_id}/reset")
+@router.post("/configs/{config_id}/reset", response_model=OkResponse)
 async def reset_config(
     config_id: int,
     current_user: User = Depends(require_teacher),
@@ -241,7 +246,7 @@ async def reset_config(
     return {"ok": True}
 
 
-@router.post("/configs/{config_id}/test")
+@router.post("/configs/{config_id}/test", response_model=TestResultItem)
 async def test_config(
     config_id: int,
     current_user: User = Depends(require_teacher),
@@ -261,12 +266,12 @@ async def test_config(
                 headers={"Authorization": f"Bearer {api_key}"},
             )
             latency = int((time.monotonic() - t0) * 1000)
-            return {"ok": True, "status_code": resp.status_code, "latency_ms": latency}
+            return {"base_url": cfg.base_url, "ok": True, "status_code": resp.status_code, "latency_ms": latency}
     except Exception as e:
-        return {"ok": False, "error": str(e)[:200]}
+        return {"base_url": cfg.base_url, "ok": False, "error": str(e)[:200]}
 
 
-@router.post("/configs/test-all")
+@router.post("/configs/test-all", response_model=TestAllResultsResponse)
 async def test_all_configs(
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
@@ -278,7 +283,8 @@ async def test_all_configs(
         for cfg in configs:
             cache_key = (cfg.base_url, cfg.secret_id)
             if cache_key in seen:
-                results.append({**seen[cache_key], "id": cfg.id, "purpose": cfg.purpose, "label": cfg.label, "model": cfg.model, "cached": True})
+                seen[cache_key].update({"base_url": cfg.base_url})
+                results.append(seen[cache_key].copy())
                 continue
             secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
             api_key = decrypt_api_key(secret.encrypted_key)
@@ -286,9 +292,9 @@ async def test_all_configs(
                 t0 = time.monotonic()
                 resp = await client.get(f"{cfg.base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
                 latency = int((time.monotonic() - t0) * 1000)
-                r = {"id": cfg.id, "purpose": cfg.purpose, "label": cfg.label, "model": cfg.model, "ok": resp.status_code < 500, "latency_ms": latency, "detail": str(resp.status_code), "cached": False}
+                r = {"base_url": cfg.base_url, "ok": resp.status_code < 500, "status_code": resp.status_code, "latency_ms": latency}
             except Exception as e:
-                r = {"id": cfg.id, "purpose": cfg.purpose, "label": cfg.label, "model": cfg.model, "ok": False, "latency_ms": None, "detail": str(e)[:100], "cached": False}
+                r = {"base_url": cfg.base_url, "ok": False, "latency_ms": None, "error": str(e)[:100]}
             seen[cache_key] = r
             results.append(r)
     return {"results": results}
@@ -296,7 +302,7 @@ async def test_all_configs(
 
 # ── Reload & Health ──
 
-@router.post("/reload")
+@router.post("/reload", response_model=OkResponse)
 async def reload_router(current_user: User = Depends(require_teacher)):
     await refresh_router()
     return {"ok": True}
@@ -312,13 +318,13 @@ def get_env_fallback(
     return get_env_fallback_state()
 
 
-@router.post("/fallback/test")
+@router.post("/fallback/test", response_model=TestResultItem)
 async def test_env_fallback(
     current_user: User = Depends(require_teacher),
 ):
     from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
     if not DEEPSEEK_API_KEY:
-        return {"ok": False, "error": "DEEPSEEK_API_KEY 未设置"}
+        return {"base_url": DEEPSEEK_BASE_URL, "ok": False, "error": "DEEPSEEK_API_KEY 未设置"}
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
             t0 = time.monotonic()
@@ -327,12 +333,12 @@ async def test_env_fallback(
                 headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
             )
             latency = int((time.monotonic() - t0) * 1000)
-            return {"ok": resp.status_code < 400, "status_code": resp.status_code, "latency_ms": latency}
+            return {"base_url": DEEPSEEK_BASE_URL, "ok": resp.status_code < 400, "status_code": resp.status_code, "latency_ms": latency}
     except Exception as e:
-        return {"ok": False, "error": str(e)[:200]}
+        return {"base_url": DEEPSEEK_BASE_URL, "ok": False, "error": str(e)[:200]}
 
 
-@router.get("/health")
+@router.get("/health", response_model=list[HealthCheckItem])
 async def health_check(
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
@@ -371,13 +377,13 @@ async def health_check(
 
 # ── Rubric CRUD ──
 
-@router.get("/rubrics")
+@router.get("/rubrics", response_model=list[RubricBrief])
 def list_rubrics(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     from models import Rubric
     return db.query(Rubric).order_by(Rubric.created_at.desc()).all()
 
 
-@router.get("/rubrics/active")
+@router.get("/rubrics/active", response_model=RubricResponse)
 def get_active_rubric(current_user: User = Depends(require_teacher)):
     from services.rubric_service import load_active_rubric
     active = load_active_rubric()
@@ -386,7 +392,7 @@ def get_active_rubric(current_user: User = Depends(require_teacher)):
     return active
 
 
-@router.post("/rubrics", status_code=201)
+@router.post("/rubrics", status_code=201, response_model=RubricResponse)
 def create_rubric(data: dict, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     from models import Rubric
     from services.rubric_service import validate_dimensions
@@ -413,7 +419,7 @@ def create_rubric(data: dict, current_user: User = Depends(require_teacher), db:
     return rubric
 
 
-@router.put("/rubrics/{rubric_id}")
+@router.put("/rubrics/{rubric_id}", response_model=RubricResponse)
 def update_rubric(rubric_id: int, data: dict, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     from models import Rubric
     from services.rubric_service import validate_dimensions
@@ -435,7 +441,7 @@ def update_rubric(rubric_id: int, data: dict, current_user: User = Depends(requi
     return rubric
 
 
-@router.delete("/rubrics/{rubric_id}")
+@router.delete("/rubrics/{rubric_id}", response_model=OkResponse)
 def delete_rubric(rubric_id: int, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     from models import Rubric
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
@@ -448,7 +454,7 @@ def delete_rubric(rubric_id: int, current_user: User = Depends(require_teacher),
     return {"ok": True}
 
 
-@router.post("/rubrics/{rubric_id}/activate")
+@router.post("/rubrics/{rubric_id}/activate", response_model=OkResponse)
 def activate_rubric(rubric_id: int, current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
     from models import Rubric
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
