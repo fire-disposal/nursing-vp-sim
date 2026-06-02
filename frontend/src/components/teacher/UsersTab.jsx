@@ -1,7 +1,7 @@
 import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "../../api";
+import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "@/api/api-client";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";

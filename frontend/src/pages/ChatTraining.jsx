@@ -1,7 +1,7 @@
 import { ArrowLeft, CheckCircle2, Circle, Clock, Ear, EarOff, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { endTraining, getRecordDetail, sendMessageStream } from "../api";
+import { endTraining, getRecordDetail, sendMessageStream } from "@/api/api-client";
 import PatientPortrait from "../components/PatientPortrait";
 import ScoreCard from "../components/ScoreCard";
 import { useToast } from "../components/Toast";

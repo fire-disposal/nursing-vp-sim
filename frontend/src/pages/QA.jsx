@@ -2,7 +2,7 @@ import { Bot, Lightbulb, Menu, Plus, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "../api";
+import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
 import Layout from "../components/Layout";
 import { getNurseAvatar } from "../utils/avatar";
 

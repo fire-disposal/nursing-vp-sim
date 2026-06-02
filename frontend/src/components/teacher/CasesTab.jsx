@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "../../api";
+import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "@/api/api-client";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";

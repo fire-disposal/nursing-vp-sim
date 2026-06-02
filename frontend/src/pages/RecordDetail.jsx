@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "../api";
+import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
 import Layout from "../components/Layout";
 import ScoreCard from "../components/ScoreCard";
 import { useToast } from "../components/Toast";

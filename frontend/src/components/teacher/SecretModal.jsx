@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createSecret, updateSecret } from "../../api/apiManagement";
+import { createSecret, updateSecret } from "@/api/api-client";
 import { useToast } from "../Toast";
 import Modal from "../ui/Modal";
 

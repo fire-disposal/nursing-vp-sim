@@ -1,7 +1,7 @@
 import { ClipboardList, Download, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteRecord, exportRecords, getManageCases, getRecords } from "../../api";
+import { deleteRecord, exportRecords, getManageCases, getRecords } from "@/api/api-client";
 import Pagination from "../../components/Pagination";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";

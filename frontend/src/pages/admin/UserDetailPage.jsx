@@ -2,7 +2,7 @@ import { Activity, Clock, FileText, Medal, Target, TrendingUp, User as UserIcon 
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getStudentDetail } from "../../api";
+import { getStudentDetail } from "@/api/api-client";
 import Layout from "../../components/Layout";
 import { useToast } from "../../components/Toast";
 import PageHeader from "../../components/ui/PageHeader";

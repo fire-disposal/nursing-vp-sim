@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getTrends } from "../api";
+import { getTrends } from "@/api/api-client";
 
 const PERIODS = [
   { key: "week", label: "近7天" },

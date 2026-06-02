@@ -1,6 +1,6 @@
 import { Eye, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getQAHistoryAll, getQASessionMessagesAdmin } from "../../api";
+import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import Pagination from "../../components/Pagination";
 import { useToast } from "../Toast";
 import Modal from "../ui/Modal";

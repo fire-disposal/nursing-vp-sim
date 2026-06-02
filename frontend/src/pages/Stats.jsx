@@ -1,7 +1,7 @@
 import { Activity, BarChart3, ClipboardList, Clock, Medal, Target, TrendingUp, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getStudentRanking, getTeacherSummary, getTrends } from "../api";
+import { getStudentRanking, getTeacherSummary, getTrends } from "@/api/api-client";
 import useAuthStore from "../stores/authStore";
 import Layout from "../components/Layout";
 import Pagination from "../components/Pagination";

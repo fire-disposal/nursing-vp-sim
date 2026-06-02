@@ -10,7 +10,7 @@ import {
   reloadPrompts,
   updatePrompt,
   validatePrompt,
-} from "../../api/apiManagement";
+} from "@/api/api-client";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "../api";
+import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "@/api/api-client";
 import { useFeedback } from "../components/FeedbackProvider";
 import Layout from "../components/Layout";
 import useAuthStore from "../stores/authStore";

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { createConfig, fetchSecrets, updateConfig } from "../../api/apiManagement";
+import { createConfig, fetchSecrets, updateConfig } from "@/api/api-client";
 import { useToast } from "../Toast";
 import Modal from "../ui/Modal";
 

@@ -1,6 +1,6 @@
 import { Database, DownloadCloud } from "lucide-react";
 import { useState } from "react";
-import { downloadBackup } from "../../api";
+import { downloadBackup } from "@/api/api-client";
 import { useToast } from "../Toast";
 
 export default function BackupTab() {

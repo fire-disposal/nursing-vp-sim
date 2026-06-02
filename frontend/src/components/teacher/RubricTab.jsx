@@ -1,6 +1,6 @@
 import { Award, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "../../api";
+import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
 import Button from "../ui/Button";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";

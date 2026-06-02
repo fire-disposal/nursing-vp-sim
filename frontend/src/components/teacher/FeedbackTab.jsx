@@ -1,7 +1,7 @@
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { getFeedbackStats, getFeedbacks } from "../../api";
+import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
 import Badge from "../ui/Badge";
