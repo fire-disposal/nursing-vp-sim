@@ -275,6 +275,24 @@ def _seed_data():
 
     db = SessionLocal()
     try:
+        from models import Role, RolePermission
+
+        if db.query(Role).count() == 0:
+            db.add(Role(name="teacher", display_name="教师", is_system=True))
+            db.add(Role(name="student", display_name="学生", is_system=True))
+            db.flush()
+
+            teacher_perms = [
+                "teacher_access", "user_manage", "case_manage", "score_review",
+                "llm_monitor", "api_manage", "prompt_manage",
+                "grade_class_manage", "backup_manage",
+            ]
+            student_perms = ["training_access", "qa_access"]
+            for p in teacher_perms:
+                db.add(RolePermission(role_name="teacher", permission=p))
+            for p in student_perms:
+                db.add(RolePermission(role_name="student", permission=p))
+
         # 检查是否已初始化
         if db.query(User).count() > 0:
             return
