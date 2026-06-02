@@ -10,7 +10,9 @@
     "dev:frontend": "cd frontend && npm run dev",
     "db:migrate": "cd backend && .venv\\Scripts\\python -m alembic upgrade head",
     "db:migration": "cd backend && .venv\\Scripts\\python -m alembic revision --autogenerate -m",
-    "db:downgrade": "cd backend && .venv\\Scripts\\python -m alembic downgrade -1"
+    "db:downgrade": "cd backend && .venv\\Scripts\\python -m alembic downgrade -1",
+    "tag": "node .husky/_/auto-tag.mjs --push",
+    "tag:local": "node .husky/_/auto-tag.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
