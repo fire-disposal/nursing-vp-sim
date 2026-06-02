@@ -10,6 +10,7 @@
     "lint": "biome check src/",
     "lint:fix": "biome check --fix src/",
     "format": "biome format --write src/",
+    "generate:api": "npx openapi-typescript http://localhost:8000/openapi.json -o src/api/api-types.gen.ts",
     "test": "vitest run",
     "preview": "vite preview"
   },
@@ -33,6 +34,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.1.1",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.8.0",
     "vite": "^8.0.12",
     "vitest": "^4.1.7"
