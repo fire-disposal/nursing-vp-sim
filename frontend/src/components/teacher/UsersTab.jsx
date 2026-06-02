@@ -6,6 +6,7 @@ import Pagination from "../Pagination";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
+import ClassFilter from "./ClassFilter";
 
 export default function UsersTab({ currentUserId }) {
   const [users, setUsers] = useState([]);
@@ -14,13 +15,14 @@ export default function UsersTab({ currentUserId }) {
   const LIMIT = 50;
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [classParam, setClassParam] = useState(null);
   const searchRef = useRef(null);
   const [showRegister, setShowRegister] = useState(false);
-  const [regForm, setRegForm] = useState({ username: "", password: "", role: "student", display_name: "", student_id: "" });
+  const [regForm, setRegForm] = useState({ username: "", password: "", role: "student", display_name: "", student_id: "", class_id: "" });
   const [regMsg, setRegMsg] = useState("");
   const [showEditUser, setShowEditUser] = useState(false);
   const [editUser, setEditUser] = useState(null);
-  const [editUserForm, setEditUserForm] = useState({ display_name: "", student_id: "", role: "", password: "" });
+  const [editUserForm, setEditUserForm] = useState({ display_name: "", student_id: "", role: "", password: "", class_id: "" });
   const [editUserMsg, setEditUserMsg] = useState("");
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [batchText, setBatchText] = useState("");
@@ -37,6 +39,8 @@ export default function UsersTab({ currentUserId }) {
       const params = { offset: _offset != null ? _offset : offset, limit: LIMIT };
       if (search) params.search = search;
       if (roleFilter) params.role = roleFilter;
+      if (classParam?.class_id) params.class_id = classParam.class_id;
+      else if (classParam?.grade_id) params.grade_id = classParam.grade_id;
       getUsers(params)
         .then(({ data }) => {
           setUsers(data.items);
@@ -44,7 +48,7 @@ export default function UsersTab({ currentUserId }) {
         })
         .catch(() => toast.error("加载用户列表失败"));
     },
-    [offset, search, roleFilter, toast],
+    [offset, search, roleFilter, classParam, toast],
   );
 
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function UsersTab({ currentUserId }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
-  }, [search, roleFilter]);
+  }, [search, roleFilter, classParam]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -62,6 +66,7 @@ export default function UsersTab({ currentUserId }) {
     try {
       const payload = { ...regForm };
       if (!payload.student_id) payload.student_id = null;
+      if (regForm.class_id) payload.class_id = Number(regForm.class_id);
       await register(payload);
       setRegMsg("注册成功！");
       setRegForm({ username: "", password: "", role: "student", display_name: "", student_id: "" });
@@ -74,7 +79,7 @@ export default function UsersTab({ currentUserId }) {
 
   const openEditUser = (u) => {
     setEditUser(u);
-    setEditUserForm({ display_name: u.display_name, student_id: u.student_id || "", role: u.role, password: "" });
+    setEditUserForm({ display_name: u.display_name, student_id: u.student_id || "", role: u.role, password: "", class_id: u.class_id || "" });
     setEditUserMsg("");
     setShowEditUser(true);
   };
@@ -88,6 +93,7 @@ export default function UsersTab({ currentUserId }) {
     else payload.student_id = null;
     if (editUserForm.role) payload.role = editUserForm.role;
     if (editUserForm.password) payload.password = editUserForm.password;
+    if (editUserForm.class_id !== undefined && editUserForm.class_id !== "") payload.class_id = Number(editUserForm.class_id);
     try {
       await updateUser(editUser.id, payload);
       setShowEditUser(false);
@@ -139,7 +145,14 @@ export default function UsersTab({ currentUserId }) {
         setBatchPreview([]);
         return;
       }
-      users.push({ username: parts[0], password: parts[1], display_name: parts[2], role: parts[3] || "student", student_id: parts[4] || null });
+      users.push({
+        username: parts[0],
+        password: parts[1],
+        display_name: parts[2],
+        role: parts[3] || "student",
+        student_id: parts[4] || null,
+        class_id: parts[5] ? Number(parts[5]) : null,
+      });
     }
     setBatchPreview(users);
   }
@@ -184,7 +197,7 @@ export default function UsersTab({ currentUserId }) {
   }
 
   function handleDownloadTemplate() {
-    const csvContent = "﻿用户名,密码,姓名,角色,学号\nstudent6,123456,赵六,student,2024006\nstudent7,123456,钱七,student,2024007";
+    const csvContent = "﻿用户名,密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,\nstudent7,123456,钱七,student,2024007,";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -255,6 +268,10 @@ export default function UsersTab({ currentUserId }) {
               <label>学号</label>
               <input value={regForm.student_id} onChange={(e) => setRegForm({ ...regForm, student_id: e.target.value })} />
             </div>
+            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
+              <label>班级ID（可选）</label>
+              <input value={regForm.class_id} onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })} placeholder="数字ID" />
+            </div>
             <button type="submit" className="btn btn-primary" style={{ height: 42 }}>
               注册
             </button>
@@ -298,6 +315,7 @@ export default function UsersTab({ currentUserId }) {
             <option value="student">学生</option>
             <option value="teacher">教师</option>
           </select>
+          <ClassFilter onChange={setClassParam} />
           <span style={{ fontSize: "0.78rem", color: "var(--gray-500)", whiteSpace: "nowrap" }}>共 {userTotal} 人</span>
         </div>
         <table className="data-table">
@@ -306,6 +324,7 @@ export default function UsersTab({ currentUserId }) {
               <th>用户名</th>
               <th>姓名</th>
               <th>角色</th>
+              <th>班级</th>
               <th>学号</th>
               <th>注册时间</th>
               <th>操作</th>
@@ -376,6 +395,10 @@ export default function UsersTab({ currentUserId }) {
             </select>
           </div>
           <div className="form-group">
+            <label>班级ID（数字，0表示清除）</label>
+            <input value={editUserForm.class_id} onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))} placeholder="数字ID或0" />
+          </div>
+          <div className="form-group">
             <label>新密码（留空不修改）</label>
             <input
               type="password"
@@ -415,7 +438,7 @@ export default function UsersTab({ currentUserId }) {
           </label>
           <textarea
             rows={5}
-            placeholder="用户名,密码,姓名,角色,学号\nstudent6,123456,赵六,student,2024006"
+            placeholder="用户名,密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,1"
             value={batchText}
             onChange={(e) => {
               setBatchText(e.target.value);
@@ -424,7 +447,7 @@ export default function UsersTab({ currentUserId }) {
             style={{ width: "100%", fontFamily: "monospace", fontSize: "0.8rem" }}
             disabled={batchImporting}
           />
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>格式：用户名,密码,姓名,角色,学号</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>格式：用户名,密码,姓名,角色,学号,班级ID（可选）</div>
         </div>
         <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <label className="btn btn-sm" style={{ cursor: "pointer" }}>
@@ -466,6 +489,7 @@ export default function UsersTab({ currentUserId }) {
                     <th>姓名</th>
                     <th>角色</th>
                     <th>学号</th>
+                    <th>班级ID</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -478,6 +502,7 @@ export default function UsersTab({ currentUserId }) {
                         <span className={`badge ${u.role === "teacher" ? "badge-info" : "badge-success"}`}>{u.role === "teacher" ? "教师" : "学生"}</span>
                       </td>
                       <td style={{ color: "var(--text-secondary)" }}>{u.student_id || "-"}</td>
+                      <td style={{ color: "var(--text-secondary)" }}>{u.class_id || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
