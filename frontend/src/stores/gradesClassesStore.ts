@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { getGrades, createGrade, updateGrade, deleteGrade, getClasses, createClass, updateClass, deleteClass } from "../api";
+import type { GradesClassesState, Grade, ClassItem } from "../types/store";
 
-const useGradesClassesStore = create((set, get) => ({
-  grades: [],
-  classes: [],
+const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
+  grades: [] as Grade[],
+  classes: [] as ClassItem[],
   loading: false,
 
-  fetchGrades: async () => {
+  fetchGrades: async (): Promise<void> => {
     const { grades, loading } = get();
     if (loading) return;
     set({ loading: true });
@@ -18,24 +19,24 @@ const useGradesClassesStore = create((set, get) => ({
     }
   },
 
-  createGrade: async (name) => {
+  createGrade: async (name: string): Promise<Grade> => {
     const data = await createGrade({ name });
     set((s) => ({ grades: [...s.grades, data] }));
     return data;
   },
 
-  updateGrade: async (id, name) => {
+  updateGrade: async (id: number, name: string): Promise<Grade> => {
     const data = await updateGrade(id, { name });
     set((s) => ({ grades: s.grades.map((g) => (g.id === id ? data : g)) }));
     return data;
   },
 
-  deleteGrade: async (id) => {
+  deleteGrade: async (id: number): Promise<void> => {
     await deleteGrade(id);
     set((s) => ({ grades: s.grades.filter((g) => g.id !== id), classes: [] }));
   },
 
-  fetchClasses: async (gradeId) => {
+  fetchClasses: async (gradeId?: number): Promise<ClassItem[]> => {
     try {
       const params = gradeId ? { grade_id: gradeId } : {};
       const data = await getClasses(params);
@@ -46,19 +47,19 @@ const useGradesClassesStore = create((set, get) => ({
     }
   },
 
-  createClass: async (gradeId, name) => {
+  createClass: async (gradeId: number, name: string): Promise<ClassItem> => {
     const data = await createClass({ grade_id: gradeId, name });
     set((s) => ({ classes: [...s.classes, data] }));
     return data;
   },
 
-  updateClass: async (id, body) => {
+  updateClass: async (id: number, body: Partial<ClassItem>): Promise<ClassItem> => {
     const data = await updateClass(id, body);
     set((s) => ({ classes: s.classes.map((c) => (c.id === id ? data : c)) }));
     return data;
   },
 
-  deleteClass: async (id) => {
+  deleteClass: async (id: number): Promise<void> => {
     await deleteClass(id);
     set((s) => ({ classes: s.classes.filter((c) => c.id !== id) }));
   },

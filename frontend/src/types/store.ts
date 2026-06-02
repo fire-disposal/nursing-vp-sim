@@ -1,4 +1,24 @@
-import type { User, Grade, ClassItem } from "./models";
+export interface User {
+  user_id: number;
+  username?: string;
+  role: "student" | "teacher";
+  display_name: string;
+  avatar?: string;
+  grade?: string;
+  className?: string;
+}
+
+export interface Grade {
+  id: number;
+  name: string;
+}
+
+export interface ClassItem {
+  id: number;
+  name: string;
+  grade_id: number;
+  grade_name?: string;
+}
 
 export interface AuthState {
   user: User | null;

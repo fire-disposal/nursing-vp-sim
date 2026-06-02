@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const SENTENCE_RE = /[^。！？；\n]*[。！？；\n]/g;
 
-function pickVoice() {
+function pickVoice(): SpeechSynthesisVoice | null {
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
   if (voices.length === 0) return null;
@@ -15,25 +15,45 @@ function pickVoice() {
   return voices[0];
 }
 
-export default function useVoice() {
+interface SpeechSupport {
+  recognition: boolean;
+  synthesis: boolean;
+}
+
+export interface UseVoiceReturn {
+  speechSupported: SpeechSupport;
+  isSpeaking: boolean;
+  isListening: boolean;
+  autoPlay: boolean;
+  setAutoPlay: (v: boolean) => void;
+  speak: (text: string) => void;
+  speakRaw: (text: string) => Promise<void>;
+  speakStreamChunk: (chunk: string) => void;
+  flushStreamSpeak: () => void;
+  stopSpeak: () => void;
+  resetSpeakState: () => void;
+  startListening: () => Promise<string>;
+  stopListening: () => void;
+}
+
+export default function useVoice(): UseVoiceReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(() => localStorage.getItem("voiceAutoPlay") === "true");
+  const [autoPlay, setAutoPlay] = useState<boolean>(() => localStorage.getItem("voiceAutoPlay") === "true");
 
   useEffect(() => {
     localStorage.setItem("voiceAutoPlay", autoPlay ? "true" : "false");
   }, [autoPlay]);
-  const [speechSupported, setSpeechSupported] = useState({ recognition: false, synthesis: false });
+  const [speechSupported, setSpeechSupported] = useState<SpeechSupport>({ recognition: false, synthesis: false });
 
-  const voiceRef = useRef(null);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const bufferRef = useRef("");
   const spokenLenRef = useRef(0);
-  const speakPromRef = useRef(Promise.resolve());
+  const speakPromRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     const rec = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     const syn = !!window.speechSynthesis;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSpeechSupported({ recognition: rec, synthesis: syn });
     if (syn) {
       voiceRef.current = pickVoice();
@@ -54,10 +74,10 @@ export default function useVoice() {
     bufferRef.current = "";
   }, []);
 
-  const speakRaw = useCallback((text) => {
+  const speakRaw = useCallback((text: string): Promise<void> => {
     if (!window.speechSynthesis || !text.trim()) return Promise.resolve();
     window.speechSynthesis.cancel();
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "zh-CN";
       u.rate = 0.9;
@@ -76,7 +96,7 @@ export default function useVoice() {
   }, []);
 
   const speak = useCallback(
-    (text) => {
+    (text: string): void => {
       if (!autoPlay) return;
       const portion = text.slice(spokenLenRef.current);
       if (!portion.trim()) return;
@@ -87,7 +107,7 @@ export default function useVoice() {
   );
 
   const speakStreamChunk = useCallback(
-    (chunk) => {
+    (chunk: string): void => {
       if (!autoPlay) return;
       bufferRef.current += chunk;
       const buf = bufferRef.current;
@@ -115,20 +135,20 @@ export default function useVoice() {
     bufferRef.current = "";
   }, []);
 
-  const startListening = useCallback(() => {
-    return new Promise((resolve, reject) => {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
+  const startListening = useCallback((): Promise<string> => {
+    return new Promise<string>((resolve, reject) => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
         reject(new Error("浏览器不支持语音输入"));
         return;
       }
-      const recognition = new SpeechRecognition();
+      const recognition = new SR();
       recognition.lang = "zh-CN";
       recognition.interimResults = false;
       recognition.continuous = false;
       recognition.onresult = (e) => {
         setIsListening(false);
-        resolve(e.results[0][0].transcript);
+        resolve(e.results[0]![0]!.transcript);
       };
       recognition.onerror = (e) => {
         setIsListening(false);
