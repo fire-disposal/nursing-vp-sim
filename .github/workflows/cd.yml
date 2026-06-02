@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to deploy (e.g. 2026.06.02-2)'
+        description: 'Version to deploy (e.g. 2026.06.02-3)'
         required: true
         type: string
 
@@ -18,9 +18,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Normalize owner (lowercase)
-        id: owner
-        run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
@@ -29,112 +27,57 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          set -e
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
           VER="${{ inputs.version }}"
-          IMG_BACKEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER"
-          IMG_FRONTEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER"
           DEPLOY_DIR="/opt/nursing-vp-sim"
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
+          scp rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
 
           ssh "$USER@$HOST" << DEPLOY
             set -e
+            cd /opt/nursing-vp-sim
+            chmod +x rollback.sh
+            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            cd "$DEPLOY_DIR"
+            BAK="/opt/nursing-vp-sim/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
+            echo ">> Backup DB"
+            docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null || echo "  (skip)"
 
-            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
+            OLD_BACKEND=\$(docker inspect --format '{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+            echo ">> Current: \$OLD_BACKEND"
 
-            # 部署前备份
-            BACKUP_FILE="\$DEPLOY_DIR/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
-            echo ">> 备份数据库到 \$BACKUP_FILE"
-            docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BACKUP_FILE" 2>/dev/null || echo "  (跳过备份)"
+            echo ">> Deploy v$VER"
+            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull
+            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
 
-            # 保存当前版本（用于回滚）
-            OLD_BACKEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
-            OLD_FRONTEND=\$(docker inspect --format='{{.Config.Image}}' nursing-vp-sim-frontend-1 2>/dev/null || echo "")
-            echo ">> 当前版本: \$OLD_BACKEND"
-
-            # 拉取生产镜像
-            echo ">> 拉取 v$VER"
-            docker pull $IMG_BACKEND
-            docker pull $IMG_FRONTEND
-
-            # 更新 compose 并部署
-            sed -i "s|image: $IMG_BACKEND:.*|image: $IMG_BACKEND|g; s|image: $IMG_FRONTEND:.*|image: $IMG_FRONTEND|g" docker-compose.yml 2>/dev/null || {
-              # 首次部署或 compose 格式不同，重新生成
-              printf '%s\n' \
-                'services:' \
-                '  db:' \
-                '    image: postgres:15' \
-                '    container_name: nursing-db' \
-                '    restart: unless-stopped' \
-                '    environment:' \
-                '      POSTGRES_USER: nursing' \
-                '      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}' \
-                '      POSTGRES_DB: nursing_vp' \
-                '      TZ: Asia/Shanghai' \
-                '    volumes:' \
-                '      - ai_vp_pg_data:/var/lib/postgresql/data' \
-                '    ports: ["127.0.0.1:5433:5432"]' \
-                '    healthcheck:' \
-                '      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]' \
-                '      interval: 10s' \
-                '      timeout: 5s' \
-                '      retries: 5' \
-                '      start_period: 20s' \
-                '  backend:' \
-                "    image: $IMG_BACKEND" \
-                '    ports: ["127.0.0.1:9001:8000"]' \
-                '    env_file: [.env]' \
-                '    environment:' \
-                '      DATABASE_URL: postgresql://nursing:\${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
-                '    depends_on:' \
-                '      db:' \
-                '        condition: service_healthy' \
-                '    restart: unless-stopped' \
-                '    healthcheck:' \
-                '      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]' \
-                '      interval: 30s' \
-                '      timeout: 5s' \
-                '      retries: 3' \
-                '      start_period: 10s' \
-                '  frontend:' \
-                "    image: $IMG_FRONTEND" \
-                '    ports: ["9000:80"]' \
-                '    depends_on:' \
-                '      backend:' \
-                '        condition: service_healthy' \
-                '    restart: unless-stopped' \
-                'volumes:' \
-                '  ai_vp_pg_data:' \
-                > docker-compose.yml
-            }
-
-            docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
-
-            echo ">> 等待生产就绪..."
+            echo ">> Health check..."
+            OK=false
             for i in \$(seq 1 30); do
-              STATUS=\$(docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "unknown")
-              if [ "\$STATUS" = "healthy" ]; then
-                echo ">> 生产健康 (\$((i * 2))s)"
-                break
-              fi
-              if [ "\$STATUS" = "unhealthy" ]; then
-                echo "!! 后端不健康，回滚..."
-                [ -n "\$OLD_BACKEND" ] && { sed -i "s|image: $IMG_BACKEND|image: \$OLD_BACKEND|" docker-compose.yml; docker compose -f docker-compose.yml --env-file .env up -d; echo "!! 已回滚"; }
-                exit 1
-              fi
+              S=\$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+              case "\$S" in
+                healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
+                unhealthy)
+                  echo "  ✗ unhealthy! Rolling back..."
+                  if [ -n "\$OLD_BACKEND" ]; then
+                    OLD_VER=\$(echo "\$OLD_BACKEND" | rev | cut -d: -f1 | rev)
+                    IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
+                    echo "  ⚠ rolled back to \$OLD_VER"
+                  fi
+                  exit 1 ;;
+              esac
               sleep 2
             done
+            [ "\$OK" = true ] || { echo "  ✗ timeout"; exit 1; }
 
-            docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health || {
-              echo "!! API 检查失败，回滚..."
-              [ -n "\$OLD_BACKEND" ] && { sed -i "s|image: $IMG_BACKEND|image: \$OLD_BACKEND|" docker-compose.yml; docker compose -f docker-compose.yml --env-file .env up -d; echo "!! 已回滚"; }
-              exit 1
-            }
-
-            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "\$DEPLOY_DIR/.version-history"
-            echo ">> 生产部署完成: v$VER"
+            docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
+            echo "\$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .version-history
+            tail -5 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
+            echo ">> Production v$VER ✓"
+            docker image prune -f
           DEPLOY
+
+      - name: "✅ Production"
+        run: echo "v${{ inputs.version }} → iomt.205716.xyz 🚀"

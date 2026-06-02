@@ -12,12 +12,12 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build-and-deploy:
+  staging:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Normalize owner (lowercase)
+      - name: Normalize owner
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
@@ -45,8 +45,7 @@ jobs:
           file: Dockerfile.backend
           push: true
           tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.meta.outputs.version }}
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -58,8 +57,7 @@ jobs:
           file: Dockerfile.frontend
           push: true
           tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.meta.outputs.version }}
-          build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
@@ -71,86 +69,42 @@ jobs:
 
       - name: Deploy to Staging
         run: |
-          set -e
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
           VER="${{ steps.meta.outputs.version }}"
-          IMG_BACKEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER"
-          IMG_FRONTEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER"
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          scp deploy/docker-compose.staging.yml "$USER@$HOST":/opt/nursing-vp-sim/docker-compose.staging.yml
 
           ssh "$USER@$HOST" << DEPLOY
             set -e
             cd /opt/nursing-vp-sim
-
-            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
-
-            echo ">> Staging 部署 v$VER"
-            docker pull $IMG_BACKEND
-            docker pull $IMG_FRONTEND
-
-            # 生成 staging compose（带上精确版本号）
-            printf '%s\n' \
-              'services:' \
-              '  db:' \
-              '    image: postgres:15' \
-              '    container_name: nursing-db-staging' \
-              '    restart: unless-stopped' \
-              '    environment:' \
-              '      POSTGRES_USER: nursing' \
-              '      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}' \
-              '      POSTGRES_DB: nursing_vp' \
-              '      TZ: Asia/Shanghai' \
-              '    volumes:' \
-              '      - nursing_staging_pg_data:/var/lib/postgresql/data' \
-              '    ports: ["127.0.0.1:5434:5432"]' \
-              '    healthcheck:' \
-              '      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]' \
-              '      interval: 10s' \
-              '      timeout: 5s' \
-              '      retries: 5' \
-              '      start_period: 20s' \
-              '  backend:' \
-              "    image: $IMG_BACKEND" \
-              '    container_name: nursing-backend-staging' \
-              '    ports: ["127.0.0.1:9081:8000"]' \
-              '    env_file: [.env]' \
-              '    environment:' \
-              '      DATABASE_URL: postgresql://nursing:\${POSTGRES_PASSWORD}@db:5432/nursing_vp' \
-              '    depends_on:' \
-              '      db:' \
-              '        condition: service_healthy' \
-              '    restart: unless-stopped' \
-              '    healthcheck:' \
-              '      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]' \
-              '      interval: 30s' \
-              '      timeout: 5s' \
-              '      retries: 3' \
-              '      start_period: 10s' \
-              '  frontend:' \
-              "    image: $IMG_FRONTEND" \
-              '    container_name: nursing-frontend-staging' \
-              '    ports: ["9080:80"]' \
-              '    depends_on:' \
-              '      backend:' \
-              '        condition: service_healthy' \
-              '    restart: unless-stopped' \
-              'volumes:' \
-              '  nursing_staging_pg_data:' \
-              > docker-compose.staging.yml
-
-            docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
-
-            echo ">> 等待 Staging 就绪..."
+            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            OLD_IMG=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null || echo "")
+            echo ">> Staging v$VER"
+            IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging pull
+            IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
+            echo ">> Health check..."
+            OK=false
             for i in \$(seq 1 30); do
-              STATUS=\$(docker inspect --format='{{.State.Health.Status}}' nursing-backend-staging 2>/dev/null || echo "unknown")
-              if [ "\$STATUS" = "healthy" ]; then
-                echo ">> Staging 健康 (\$((i * 2))s)"
-                break
-              fi
+              S=\$(docker inspect --format '{{.State.Health.Status}}' nursing-backend-staging 2>/dev/null || echo "")
+              case "\$S" in
+                healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
+                unhealthy)
+                  echo "  ✗ unhealthy! Rolling back..."
+                  if [ -n "\$OLD_IMG" ]; then
+                    OLD_VER=\$(echo "\$OLD_IMG" | rev | cut -d: -f1 | rev)
+                    IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d
+                    echo "  ⚠ rolled back to \$OLD_VER"
+                  fi
+                  exit 1 ;;
+              esac
               sleep 2
             done
-
-            curl -sf http://127.0.0.1:9081/api/health && echo ">> Staging 就绪: v$VER" || echo "!! 检查失败"
+            [ "\$OK" = true ] || { echo "  ✗ timeout"; exit 1; }
+            curl -sf http://127.0.0.1:9081/api/health && echo ">> Staging v$VER ✓"
+            docker image prune -f
           DEPLOY
+
+      - name: "✅ Staging"
+        run: echo "v${{ steps.meta.outputs.version }} → test.205716.xyz 🧪"

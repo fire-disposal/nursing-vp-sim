@@ -1,6 +1,5 @@
-# Nursing-VP Staging Compose
-# 与生产环境分离：独立端口、独立DB、独立卷
-# 用法：docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+# Staging Compose — 部署时通过 IMAGE_VERSION 环境变量注入镜像 tag
+# 用法: IMAGE_VERSION=2026.06.02-3 docker compose -f deploy/docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d
 
 services:
   db:
@@ -24,7 +23,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ghcr.io/fire-disposal/nursing-vp-sim-backend:staging
+    image: ghcr.io/fire-disposal/nursing-vp-sim-backend:${IMAGE_VERSION}
     container_name: nursing-backend-staging
     restart: unless-stopped
     ports:
@@ -44,7 +43,7 @@ services:
       start_period: 10s
 
   frontend:
-    image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:staging
+    image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:${IMAGE_VERSION}
     container_name: nursing-frontend-staging
     restart: unless-stopped
     ports:
