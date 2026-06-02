@@ -1,0 +1,57 @@
+# Nursing-VP Staging Compose
+# 与生产环境分离：独立端口、独立DB、独立卷
+# 用法：docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+
+services:
+  db:
+    image: postgres:15
+    container_name: nursing-db-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nursing
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: nursing_vp
+      TZ: Asia/Shanghai
+    volumes:
+      - nursing_staging_pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nursing -d nursing_vp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    image: ghcr.io/fire-disposal/nursing-vp-sim-backend:latest
+    container_name: nursing-backend-staging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9081:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://nursing:${POSTGRES_PASSWORD}@db:5432/nursing_vp
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:latest
+    container_name: nursing-frontend-staging
+    restart: unless-stopped
+    ports:
+      - "9080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  nursing_staging_pg_data:
