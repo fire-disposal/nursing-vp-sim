@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from database import get_db, SessionLocal
-from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog
+from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog, UserClass
 from schemas import (
     TrainingStartRequest, TrainingStartResponse, TrainingRecordBrief,
     TrainingRecordDetail, ScoreReviewRequest, ScoreReviewResponse,
@@ -226,6 +226,7 @@ def get_records(
     status: str | None = Query(None, description="按状态筛选(in_progress/completed)"),
     date_from: str | None = Query(None, description="开始日期 ISO 格式 (含)"),
     date_to: str | None = Query(None, description="结束日期 ISO 格式 (含)"),
+    class_id: int | None = Query(None),
 ):
     """获取训练记录列表。学生只看自己的，教师看全部并支持多维过滤。"""
     base = db.query(TrainingRecord)
@@ -239,6 +240,10 @@ def get_records(
             )
         if case_id is not None:
             base = base.filter(TrainingRecord.case_id == case_id)
+        if class_id is not None:
+            base = base.join(UserClass, UserClass.user_id == TrainingRecord.user_id).filter(
+                UserClass.class_id == class_id
+            )
 
     if status:
         base = base.filter(TrainingRecord.status == status)

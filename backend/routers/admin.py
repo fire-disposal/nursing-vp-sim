@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, Integer as SAInteger
 from datetime import datetime, timedelta, timezone
 from database import get_db
-from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider
+from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider, UserClass, Class, Grade
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse, StudentDetail, TrainingRecordBrief
 from auth import require_teacher, hash_password
 from logger import log
@@ -26,10 +26,19 @@ def list_users(
     limit: int = Query(50, ge=1, le=100),
     search: str = Query(None, description="搜索用户名/姓名/学号"),
     role: str = Query(None, description="角色筛选 student/teacher"),
+    class_id: int | None = Query(None),
+    grade_id: int | None = Query(None),
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
     q = db.query(User)
+    if class_id is not None or grade_id is not None:
+        q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
+        if class_id is not None:
+            q = q.filter(UserClass.class_id == class_id)
+        elif grade_id is not None:
+            q = q.join(Class, Class.id == UserClass.class_id)
+            q = q.filter(Class.grade_id == grade_id)
     if search:
         search_term = f"%{search}%"
         q = q.filter(
@@ -43,7 +52,25 @@ def list_users(
         q = q.filter(User.role == role)
     total = q.count()
     users = q.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
-    return PaginatedResponse(items=users, total=total, offset=offset, limit=limit)
+
+    items = []
+    for u in users:
+        uc = db.query(UserClass).filter(UserClass.user_id == u.id).first()
+        class_name = None; grade_name = None; cid = None
+        if uc and uc.class_id:
+            cls = db.query(Class).filter(Class.id == uc.class_id).first()
+            if cls:
+                cid = cls.id
+                class_name = cls.name
+                grade = db.query(Grade).filter(Grade.id == cls.grade_id).first()
+                grade_name = grade.name if grade else None
+        items.append(UserBrief(
+            id=u.id, username=u.username, role=u.role,
+            display_name=u.display_name, student_id=u.student_id,
+            created_at=u.created_at,
+            class_id=cid, class_name=class_name, grade_name=grade_name,
+        ))
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)
@@ -69,6 +96,17 @@ def update_user(
         if len(req.password) < 6:
             raise HTTPException(status_code=400, detail="密码长度不能少于6位")
         user.password_hash = hash_password(req.password)
+
+    if req.class_id is not None:
+        uc = db.query(UserClass).filter(UserClass.user_id == user_id).first()
+        if req.class_id == 0:
+            if uc:
+                db.delete(uc)
+        else:
+            if not uc:
+                uc = UserClass(user_id=user_id)
+                db.add(uc)
+            uc.class_id = req.class_id
 
     db.commit()
     db.refresh(user)
@@ -208,13 +246,17 @@ def batch_create_users(
             errors.append(f"跳过 {u.username}: 用户名已存在")
             skipped += 1
             continue
-        db.add(User(
+        user = User(
             username=u.username,
             password_hash=hash_password(u.password),
             display_name=u.display_name,
             role=u.role,
             student_id=u.student_id if u.student_id else None,
-        ))
+        )
+        db.add(user)
+        db.flush()
+        if u.class_id:
+            db.add(UserClass(user_id=user.id, class_id=u.class_id))
         created += 1
     db.commit()
     log.info(f"批量导入: created={created} skipped={skipped}",
