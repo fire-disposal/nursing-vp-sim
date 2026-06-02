@@ -1,0 +1,117 @@
+name: Build & Deploy to Staging
+
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize owner (lowercase)
+        id: owner
+        run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Set image tag (git SHA)
+        id: tag
+        run: echo "value=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:staging
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:sha-${{ steps.tag.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:staging
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:sha-${{ steps.tag.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to server
+        run: |
+          set -e
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          SHA="${{ steps.tag.outputs.value }}"
+          IMG_BACKEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:sha-$SHA"
+          IMG_FRONTEND="${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:sha-$SHA"
+          DEPLOY_DIR="/opt/nursing-vp-sim"
+
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          ssh "$USER@$HOST" << DEPLOY
+            set -e
+            cd /opt/nursing-vp-sim
+
+            # 登录 GHCR
+            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin 2>/dev/null || true
+
+            echo ">> 拉取 staging 镜像 ($SHA)"
+            docker pull $IMG_BACKEND
+            docker pull $IMG_FRONTEND
+
+            # 更新 compose 中的镜像 tag
+            cp docker-compose.staging.yml docker-compose.staging.tmp.yml
+            sed -i "s|image: ghcr.io/.*/nursing-vp-sim-backend:.*|image: $IMG_BACKEND|" docker-compose.staging.tmp.yml
+            sed -i "s|image: ghcr.io/.*/nursing-vp-sim-frontend:.*|image: $IMG_FRONTEND|" docker-compose.staging.tmp.yml
+
+            echo ">> 部署 staging"
+            docker compose -f docker-compose.staging.tmp.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
+
+            echo ">> 等待健康检查..."
+            for i in \$(seq 1 30); do
+              STATUS=\$(docker inspect --format='{{.State.Health.Status}}' nursing-backend-staging 2>/dev/null || echo "unknown")
+              if [ "\$STATUS" = "healthy" ]; then
+                echo ">> Staging 健康 (\$((i * 2))s)"
+                break
+              fi
+              sleep 2
+            done
+
+            # 验证 API
+            curl -sf http://127.0.0.1:9081/api/health && echo ">> API 正常" || echo "!! API 检查失败"
+
+            # 更新 compose 文件
+            mv docker-compose.staging.tmp.yml docker-compose.staging.yml
+
+            echo ">> Staging 部署完成: $SHA"
+          DEPLOY
