@@ -2,17 +2,19 @@ import { Activity, BarChart3, ClipboardList, Clock, Medal, Target, TrendingUp, T
 import { useEffect, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentRanking, getTeacherSummary, getTrends } from "../api";
+import useAuthStore from "../stores/authStore";
 import Layout from "../components/Layout";
 import Pagination from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import PageHeader from "../components/ui/PageHeader";
 
-export default function Stats({ user }) {
+export default function Stats() {
   const [period, setPeriod] = useState("month");
   const [trends, setTrends] = useState(null);
   const [summary, setSummary] = useState(null);
   const [ranking, setRanking] = useState(null);
   const toast = useToast();
+  const user = useAuthStore((s) => s.user);
   const [summaryOffset, setSummaryOffset] = useState(0);
   const [summaryTotal, setSummaryTotal] = useState(0);
   const [rankingOffset, setRankingOffset] = useState(0);
@@ -58,10 +60,10 @@ export default function Stats({ user }) {
   );
 }
 
-export function StatsPage({ user, onLogout }) {
+export function StatsPage() {
   return (
-    <Layout user={user} onLogout={onLogout}>
-      <Stats user={user} onLogout={onLogout} />
+    <Layout>
+      <Stats />
     </Layout>
   );
 }

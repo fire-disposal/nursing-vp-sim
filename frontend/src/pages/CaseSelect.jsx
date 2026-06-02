@@ -7,7 +7,7 @@ import Pagination from "../components/Pagination";
 import { useToast } from "../components/Toast";
 import PageHeader from "../components/ui/PageHeader";
 
-export default function CaseSelect({ user, onLogout }) {
+export default function CaseSelect() {
   const [cases, setCases] = useState([]);
   const [difficultyFilter, setDifficultyFilter] = useState(0);
   const [startingId, setStartingId] = useState(null);
@@ -44,7 +44,7 @@ export default function CaseSelect({ user, onLogout }) {
   };
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader
         title="病例库"
         subtitle="选择一位虚拟患者开始病史采集训练。系统将模拟真实患者与你对话，训练结束后自动评分。"

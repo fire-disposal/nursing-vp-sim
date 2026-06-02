@@ -7,7 +7,7 @@ import Layout from "../../components/Layout";
 import { useToast } from "../../components/Toast";
 import PageHeader from "../../components/ui/PageHeader";
 
-export default function UserDetailPage({ user, onLogout }) {
+export default function UserDetailPage() {
   const { userId } = useParams();
   const [data, setData] = useState(null);
   const toast = useToast();
@@ -22,7 +22,7 @@ export default function UserDetailPage({ user, onLogout }) {
 
   if (!data) {
     return (
-      <Layout user={user} onLogout={onLogout}>
+      <Layout>
         <div className="empty-state" style={{ padding: "48px 0" }}>
           加载中...
         </div>
@@ -35,7 +35,7 @@ export default function UserDetailPage({ user, onLogout }) {
   const formatDate = (d) => new Date(d.created_at).toLocaleDateString("zh-CN");
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader
         title={data.display_name}
         subtitle={`学生详情 · 学号: ${data.student_id || "-"} · 注册: ${formatDate(data)}`}

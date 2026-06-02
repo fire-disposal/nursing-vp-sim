@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { getClasses, getGrades } from "../../api";
+import useGradesClassesStore from "../../stores/gradesClassesStore";
 
 export default function ClassFilter({ gradeId, classId, onChange, className = "" }) {
-  const [grades, setGrades] = useState([]);
-  const [classes, setClasses] = useState([]);
+  const { grades, classes, fetchGrades, fetchClasses } = useGradesClassesStore();
   const [selGrade, setSelGrade] = useState(gradeId || "");
   const [selClass, setSelClass] = useState(classId || "");
   const firstRun = useRef(true);
 
   useEffect(() => {
-    getGrades()
-      .then(setGrades)
-      .catch(() => {});
+    fetchGrades();
   }, []);
 
   useEffect(() => {
@@ -21,16 +18,13 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
     }
     onChange?.({ grade_id: selGrade || null, class_id: null });
     setSelClass("");
-    setClasses([]);
   }, [selGrade]);
 
   const handleGradeChange = (e) => {
     const gid = e.target.value;
     setSelGrade(gid);
     if (gid) {
-      getClasses({ grade_id: Number(gid) })
-        .then(setClasses)
-        .catch(() => {});
+      fetchClasses(Number(gid));
     }
   };
 

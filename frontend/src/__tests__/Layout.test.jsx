@@ -5,12 +5,19 @@ import { FeedbackProvider } from "../components/FeedbackProvider";
 import Layout from "../components/Layout";
 import { ToastProvider } from "../components/Toast";
 
+const mockUseAuthStore = vi.fn();
+vi.mock("../stores/authStore", () => ({
+  default: (selector) => selector(mockUseAuthStore()),
+}));
+
 function renderLayout(user, initialRoute = "/home") {
+  mockUseAuthStore.mockReturnValue({ user, token: "test-token", logout: vi.fn() });
+
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
       <ToastProvider>
         <FeedbackProvider>
-          <Layout user={user} onLogout={vi.fn()}>
+          <Layout>
             <div data-testid="child">Content</div>
           </Layout>
         </FeedbackProvider>
@@ -25,6 +32,7 @@ describe("Layout", () => {
     username: "s1",
     display_name: "李明",
     role: "student",
+    user_id: 1,
   };
 
   const teacherUser = {
@@ -32,6 +40,7 @@ describe("Layout", () => {
     username: "t1",
     display_name: "张老师",
     role: "teacher",
+    user_id: 2,
   };
 
   it("renders children content", () => {
@@ -79,7 +88,6 @@ describe("Layout", () => {
   it("highlights active nav link", () => {
     renderLayout(studentUser, "/history");
     const historyLinks = screen.getAllByText("训练记录");
-    // One in nav, one could be in sidebar header
     expect(historyLinks.length).toBeGreaterThanOrEqual(1);
   });
 });

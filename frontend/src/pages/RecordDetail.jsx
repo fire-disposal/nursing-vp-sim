@@ -246,7 +246,7 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }) {
   );
 }
 
-export default function RecordDetail({ user, onLogout }) {
+export default function RecordDetail() {
   const { id } = useParams();
   const [record, setRecord] = useState(null);
   const [showScore, setShowScore] = useState(false);
@@ -353,7 +353,7 @@ export default function RecordDetail({ user, onLogout }) {
 
   if (!record) {
     return (
-      <Layout user={user} onLogout={onLogout}>
+      <Layout>
         <div className="empty-state">加载中...</div>
       </Layout>
     );
@@ -371,7 +371,7 @@ export default function RecordDetail({ user, onLogout }) {
       : 100;
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader title="记录详情" subtitle={`训练记录 #${record.id}`} icon={FileText} backTo="/history" />
 
       {/* 元信息 */}

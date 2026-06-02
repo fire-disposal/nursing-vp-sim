@@ -20,6 +20,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "../api";
 import { useFeedback } from "../components/FeedbackProvider";
 import Layout from "../components/Layout";
+import useAuthStore from "../stores/authStore";
 import { useToast } from "../components/Toast";
 import TrainingDurationChart from "../components/TrainingDurationChart";
 import Badge from "../components/ui/Badge";
@@ -28,13 +29,14 @@ import StatCard from "../components/ui/StatCard";
 
 const QUICK_QA_HINTS = ["如何询问患者既往病史？", "糖尿病患者病史采集重点是什么？", "如何评估疼痛程度？"];
 
-export default function DashboardHome({ user, onLogout }) {
+export default function DashboardHome() {
   const [cases, setCases] = useState([]);
   const [records, setRecords] = useState([]);
   const [durationStats, setDurationStats] = useState(null);
   const [stats, setStats] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (user?.role === "student") {
@@ -72,19 +74,20 @@ export default function DashboardHome({ user, onLogout }) {
   };
 
   if (user?.role === "teacher") {
-    return <TeacherDashboard user={user} onLogout={onLogout} stats={stats} records={records} handleExport={handleExport} navigate={navigate} />;
+    return <TeacherDashboard stats={stats} records={records} handleExport={handleExport} navigate={navigate} />;
   }
 
-  return <StudentDashboard user={user} onLogout={onLogout} cases={cases} records={records} durationStats={durationStats} navigate={navigate} />;
+  return <StudentDashboard cases={cases} records={records} durationStats={durationStats} navigate={navigate} />;
 }
 
 // ═══════════════════════════════════════════
 // 学生端工作台
 // ═══════════════════════════════════════════
 
-function StudentDashboard({ user, onLogout, cases, records, durationStats, navigate }) {
+function StudentDashboard({ cases, records, durationStats, navigate }) {
   const location = useLocation();
   const { openFeedback, showPrompt } = useFeedback();
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (location.state?.feedbackPrompt && showPrompt) {
@@ -113,7 +116,7 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
   const recentCases = cases.slice(0, 3);
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader
         title={`欢迎回来，${user?.display_name || "同学"}`}
         subtitle="选择病例，开始护理病史采集训练"
@@ -417,11 +420,12 @@ function StudentDashboard({ user, onLogout, cases, records, durationStats, navig
 // 教师端仪表盘
 // ═══════════════════════════════════════════
 
-function TeacherDashboard({ user, onLogout, stats, records, handleExport, navigate }) {
+function TeacherDashboard({ stats, records, handleExport, navigate }) {
   const recentRecords = records.slice(0, 5);
+  const user = useAuthStore((s) => s.user);
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader
         title="教学仪表盘"
         subtitle="全局概览：学生训练情况、系统数据、快捷管理入口"

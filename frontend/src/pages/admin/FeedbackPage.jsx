@@ -3,9 +3,9 @@ import Layout from "../../components/Layout";
 import FeedbackTab from "../../components/teacher/FeedbackTab";
 import PageHeader from "../../components/ui/PageHeader";
 
-export default function FeedbackPage({ user, onLogout }) {
+export default function FeedbackPage() {
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader title="用户反馈" subtitle="查看用户满意度评分与反馈详情" icon={MessageSquare} />
       <FeedbackTab />
     </Layout>

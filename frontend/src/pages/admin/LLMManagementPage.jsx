@@ -16,7 +16,7 @@ const TABS = [
   { key: "prompts", icon: Palette, label: "Prompt 管理" },
 ];
 
-export default function LLMManagementPage({ user, onLogout }) {
+export default function LLMManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "monitor");
 
@@ -25,7 +25,7 @@ export default function LLMManagementPage({ user, onLogout }) {
   }, [activeTab, setSearchParams]);
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <Layout>
       <PageHeader title="LLM 管理" subtitle="LLM 调用监控、接口配置、密钥凭证、连通性检查与 Prompt 模板管理" icon={Activity} />
 
       <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
