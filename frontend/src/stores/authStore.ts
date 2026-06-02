@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { login as apiLogin, getMe } from "../api";
+import { login as apiLogin, getMe } from "@/api/api-client";
 import type { AuthState, User } from "../types/store";
 
 const useAuthStore = create<AuthState>((set, get) => ({

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getGrades, createGrade, updateGrade, deleteGrade, getClasses, createClass, updateClass, deleteClass } from "../api";
+import { getGrades, createGrade, updateGrade, deleteGrade, getClasses, createClass, updateClass, deleteClass } from "@/api/api-client";
 import type { GradesClassesState, Grade, ClassItem } from "../types/store";
 
 const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
