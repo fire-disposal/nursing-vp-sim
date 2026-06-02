@@ -26,8 +26,7 @@ export default function LLMManagementPage() {
     if (urlTab && TABS.some((t) => t.key === urlTab)) {
       setTab(urlTab);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, setTab]);
 
   const handleTabChange = (key: string) => {
     setTab(key);

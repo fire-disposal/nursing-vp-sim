@@ -9,7 +9,7 @@ export default function UsersPage() {
   return (
     <Layout>
       <PageHeader title="用户管理" subtitle="搜索、注册、编辑和管理所有用户账号" icon={Users} />
-      <UsersTab currentUserId={userId} />
+      {userId != null && <UsersTab currentUserId={userId} />}
     </Layout>
   );
 }
