@@ -57,6 +57,31 @@ npm run tag → v2026.06.02-N
 - `DEEPSEEK_API_KEY=sk-xxx`（替换占位符）
 - `CORS_ORIGINS=https://你的域名`（替换 `http://localhost`）
 
+### Staging 测试服
+
+独立于生产的数据和端口，但共用同一台服务器：
+
+| 项目 | 生产 | Staging |
+|------|------|---------|
+| 目录 | `/opt/nursing-vp-sim/` | `/opt/nursing-vp-staging/` |
+| Compose | `docker-compose.yml` | `docker-compose.staging.yml` |
+| 前端端口 | 9000 | 9080 |
+| 后端端口 | 9001 | 9081 |
+| DB 端口 | 5433 | 5434 |
+| DB 卷 | `ai_vp_pg_data` | `nursing_staging_pg_data` |
+
+手动部署（当 CD 不可用时）：
+```bash
+cd /opt/nursing-vp-staging
+IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env up -d
+```
+
+清理重建（数据库重置）：
+```bash
+docker compose -f docker-compose.staging.yml --env-file .env down -v
+IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env up -d
+```
+
 ---
 
 ## 紧急回滚

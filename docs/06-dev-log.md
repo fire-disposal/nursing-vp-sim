@@ -990,3 +990,57 @@
 - [x] 数据库迁移到 PostgreSQL ✓ (v2026.05.28)
 - [x] Docker 容器化部署 ✓ (v2026.05.28)
 - [ ] 前端构建产物部署到 Nginx
+
+---
+
+### v2026.06.01 — 反馈系统 + 评分/RBAC 重构
+
+**新增:**
+- 反馈系统（模型、API、弹窗、教师面板、图表统计）
+- RBAC 角色权限体系（roles/permissions 表，teacher/student 权限集）
+- 年级/班级管理（CRUD API + 前端页面 + 统计筛选）
+- AI 病例生成（字段级 + 完整病例）
+- QA 重构为多轮会话（sessions 模型 + 追问 + 历史管理 + Markdown 渲染）
+- ApiSecret/LLMConfig 简化 API 管理模型
+- Prompt 模板 `{#var#}` 语法引擎 + DB 管理 + 热重载 + V1 强制同步
+- Patient guard 角色泄露检测增强（15→26 patterns）
+- 紧急回滚流水线（rollback.yml + rollback.sh）
+
+### v2026.06.02 — LLM 优化 + Prompt Variable Registry
+
+**LLM 核心优化:**
+- 移除全局客户端重置（避免单请求异常炸全部并发）
+- 信号量超时 30s（排队过长返回报错）
+- 月度成本跨年 bug 修复（字符串比较 → 元组比较）
+- 评分 JSON mode（`response_format: json_object`）
+- 流式部分恢复（`truncated` 标记）+ 非流式 fallback
+- stats 持久化节流（30s 最小间隔）
+- request-id 传播到 LLM 日志
+
+**LLM 基础设施标准化:**
+- `_backoff(attempt)` 统一退避（消除 6 处重复）
+- `_CallContext` dataclass 统一日志传递
+- 顶层 router 导入一致性
+
+**Prompt 变量系统工程化:**
+- `VariableRegistry` — 集中定义 10 变量 × 4 purpose
+- Admin API 创建/更新即时校验变量合法性
+- `render()` 默认值兜底（`variables[].default_value`）
+- 变量去重 `_dedup_variables()`
+- 前端 VariableCard（desc/source/type/example/default_value 可编辑）
+- 评分标准拆分：`scoring_criteria` + `required_inquiries` + `scoring_json_schema`
+
+**部署体系:**
+- Staging 独立部署（`test.205716.xyz`，独立 DB + 端口）
+- `tag→staging` 自动 + `workflow_dispatch→production` 手动
+- 生产部署强校验：版本必须等于 staging 当前版本
+- 自动健康检查 + 失败回滚（IMAGE_VERSION 环境变量方式）
+- Compose 变量替换 `${IMAGE_VERSION}`，消除 heredoc 内联生成
+
+**工具链:**
+- Husky emoji 升级（💄→🎨，新增 🔀merge 🔒security 🗃️db ⏪revert 🔥remove，共 15 种）
+- `npm run tag` 自动日期版本号生成
+- `GIT-GUIDE.md` 面向零基础入门
+- SECURITY-AUDIT 精简（12→6 项待处理）
+
+**EmoGuard 优化:** Gunicorn 3→1 worker, Celery solo pool + embedded beat, -53% 内存（741→352 MB）
