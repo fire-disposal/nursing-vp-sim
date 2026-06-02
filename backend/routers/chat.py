@@ -6,6 +6,7 @@ from models import User, Case, TrainingRecord, Message
 from schemas import ChatMessageRequest, ChatMessageResponse
 from auth import get_current_user
 from services.llm_service import call_llm, call_llm_stream
+from services.virtual_patient_prompt import build_patient_context_kwargs, build_patient_chat_messages
 from services.prompt_manager import get_prompt_manager
 from services.patient_guard import (
     get_allowed_hidden_info, get_revealed_topics, sanitize_patient_reply,
@@ -23,7 +24,7 @@ _disclosed_topics: dict[int, set] = {}
 
 async def _build_llm_context(case_data: dict, history_messages: list,
                                student_content: str, record_id: int) -> list:
-    """构建 LLM 消息列表，含隐藏信息筛选"""
+    """构建 LLM 消息列表。编排角色：恢复已泄露主题 → 筛选隐藏信息 → 构建渲染变量 → 渲染模板 → 组装消息。"""
     # 从历史对话中恢复已泄露主题
     history_text = " ".join(m.content for m in history_messages)
     if record_id not in _disclosed_topics:
@@ -37,32 +38,13 @@ async def _build_llm_context(case_data: dict, history_messages: list,
         if h.get("triggered") and h.get("topic"):
             _disclosed_topics[record_id].add(h["topic"])
 
-    pi = case_data.get("patient_info", {})
-    patient_info_str = f"{pi.get('name', '患者')}，{pi.get('age', '')}岁，{pi.get('gender', '')}"
-
-    hidden_items = []
-    for detail in allowed:
-        if detail.get("triggered"):
-            hidden_items.append(f"- {detail.get('content', detail)}")
-    hidden_info_rules = "\n".join(hidden_items) if hidden_items else "暂无额外信息"
+    kwargs = build_patient_context_kwargs(case_data, allowed)
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("patient_chat")
+    system_prompt = tmpl.render(**kwargs)
 
-    system_prompt = tmpl.render(
-        communication_style=str(case_data.get("communication_style", "友善自然")),
-        patient_info=patient_info_str,
-        chief_complaint=str(case_data.get("chief_complaint", "未知")),
-        present_illness=str(case_data.get("present_illness", "未知")),
-        allergy_history=str(case_data.get("allergy_history", "无")),
-        hidden_info_rules=hidden_info_rules,
-    )
-
-    llm_messages = [{"role": "system", "content": system_prompt}]
-    for msg in history_messages[-16:]:  # 最近 16 条（8 轮对话）
-        role = "user" if msg.role == "student" else "assistant"
-        llm_messages.append({"role": role, "content": msg.content})
-    llm_messages.append({"role": "user", "content": student_content})
+    llm_messages = build_patient_chat_messages(system_prompt, history_messages, student_content)
     return llm_messages, allowed
 
 

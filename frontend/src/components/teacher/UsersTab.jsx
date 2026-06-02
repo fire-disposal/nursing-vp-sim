@@ -1,7 +1,7 @@
 import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { batchCreateUsers, deleteUser, getUsers, register, updateUser } from "../../api";
+import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "../../api";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
 import { useConfirm } from "../ui/ConfirmDialog";
@@ -19,10 +19,12 @@ export default function UsersTab({ currentUserId }) {
   const searchRef = useRef(null);
   const [showRegister, setShowRegister] = useState(false);
   const [regForm, setRegForm] = useState({ username: "", password: "", role: "student", display_name: "", student_id: "", class_id: "" });
+  const [regGrade, setRegGrade] = useState("");
   const [regMsg, setRegMsg] = useState("");
   const [showEditUser, setShowEditUser] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [editUserForm, setEditUserForm] = useState({ display_name: "", student_id: "", role: "", password: "", class_id: "" });
+  const [editGrade, setEditGrade] = useState("");
   const [editUserMsg, setEditUserMsg] = useState("");
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [batchText, setBatchText] = useState("");
@@ -30,6 +32,10 @@ export default function UsersTab({ currentUserId }) {
   const [batchParseError, setBatchParseError] = useState("");
   const [batchResult, setBatchResult] = useState(null);
   const [batchImporting, setBatchImporting] = useState(false);
+  const [grades, setGrades] = useState([]);
+  const [regClasses, setRegClasses] = useState([]);
+  const [editClasses, setEditClasses] = useState([]);
+  const [allClasses, setAllClasses] = useState([]);
   const toast = useToast();
   const { confirm } = useConfirm();
   const navigate = useNavigate();
@@ -56,6 +62,15 @@ export default function UsersTab({ currentUserId }) {
   }, [loadUsers]);
 
   useEffect(() => {
+    getGrades()
+      .then(setGrades)
+      .catch(() => {});
+    getClasses({})
+      .then(setAllClasses)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
   }, [search, roleFilter, classParam]);
@@ -67,9 +82,12 @@ export default function UsersTab({ currentUserId }) {
       const payload = { ...regForm };
       if (!payload.student_id) payload.student_id = null;
       if (regForm.class_id) payload.class_id = Number(regForm.class_id);
+      else delete payload.class_id;
       await register(payload);
       setRegMsg("注册成功！");
-      setRegForm({ username: "", password: "", role: "student", display_name: "", student_id: "" });
+      setRegForm({ username: "", password: "", role: "student", display_name: "", student_id: "", class_id: "" });
+      setRegGrade("");
+      setRegClasses([]);
       setOffset(0);
       loadUsers(0);
     } catch (err) {
@@ -81,6 +99,19 @@ export default function UsersTab({ currentUserId }) {
     setEditUser(u);
     setEditUserForm({ display_name: u.display_name, student_id: u.student_id || "", role: u.role, password: "", class_id: u.class_id || "" });
     setEditUserMsg("");
+    if (u.class_id) {
+      const found = allClasses.find((c) => c.id === u.class_id);
+      if (found) {
+        setEditGrade(String(found.grade_id));
+        loadClassesForGrade(found.grade_id, setEditClasses);
+      } else {
+        setEditGrade("");
+        setEditClasses([]);
+      }
+    } else {
+      setEditGrade("");
+      setEditClasses([]);
+    }
     setShowEditUser(true);
   };
 
@@ -94,6 +125,7 @@ export default function UsersTab({ currentUserId }) {
     if (editUserForm.role) payload.role = editUserForm.role;
     if (editUserForm.password) payload.password = editUserForm.password;
     if (editUserForm.class_id !== undefined && editUserForm.class_id !== "") payload.class_id = Number(editUserForm.class_id);
+    else if (editUserForm.class_id === "") payload.class_id = 0;
     try {
       await updateUser(editUser.id, payload);
       setShowEditUser(false);
@@ -145,13 +177,20 @@ export default function UsersTab({ currentUserId }) {
         setBatchPreview([]);
         return;
       }
+      const classIdRaw = parts[5] ? parts[5].trim() : "";
+      const classId = classIdRaw && /^\d+$/.test(classIdRaw) ? Number(classIdRaw) : null;
+      if (classIdRaw && !/^\d+$/.test(classIdRaw)) {
+        setBatchParseError(`第 ${i + 1} 行班级ID "${classIdRaw}" 无效，应为数字`);
+        setBatchPreview([]);
+        return;
+      }
       users.push({
         username: parts[0],
         password: parts[1],
         display_name: parts[2],
         role: parts[3] || "student",
         student_id: parts[4] || null,
-        class_id: parts[5] ? Number(parts[5]) : null,
+        class_id: classId,
       });
     }
     setBatchPreview(users);
@@ -197,7 +236,7 @@ export default function UsersTab({ currentUserId }) {
   }
 
   function handleDownloadTemplate() {
-    const csvContent = "﻿用户名,密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,\nstudent7,123456,钱七,student,2024007,";
+    const csvContent = "\uFEFF用户名,密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,\nstudent7,123456,钱七,student,2024007,";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -205,6 +244,16 @@ export default function UsersTab({ currentUserId }) {
     a.download = "用户导入模板.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function loadClassesForGrade(gradeId, setter) {
+    if (!gradeId) {
+      setter([]);
+      return;
+    }
+    getClasses({ grade_id: Number(gradeId) })
+      .then(setter)
+      .catch(() => setter([]));
   }
 
   return (
@@ -269,8 +318,33 @@ export default function UsersTab({ currentUserId }) {
               <input value={regForm.student_id} onChange={(e) => setRegForm({ ...regForm, student_id: e.target.value })} />
             </div>
             <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>班级ID（可选）</label>
-              <input value={regForm.class_id} onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })} placeholder="数字ID" />
+              <label>年级</label>
+              <select
+                value={regGrade}
+                onChange={(e) => {
+                  setRegGrade(e.target.value);
+                  setRegForm({ ...regForm, class_id: "" });
+                  loadClassesForGrade(e.target.value, setRegClasses);
+                }}
+              >
+                <option value="">不指定</option>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
+              <label>班级</label>
+              <select value={regForm.class_id} onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })} disabled={!regGrade}>
+                <option value="">不指定</option>
+                {regClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <button type="submit" className="btn btn-primary" style={{ height: 42 }}>
               注册
@@ -338,6 +412,9 @@ export default function UsersTab({ currentUserId }) {
                 <td>
                   <span className={`badge ${u.role === "teacher" ? "badge-info" : "badge-success"}`}>{u.role === "teacher" ? "教师" : "学生"}</span>
                 </td>
+                <td style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>
+                  {u.grade_name && u.class_name ? `${u.grade_name} ${u.class_name}` : u.class_name || "-"}
+                </td>
                 <td style={{ color: "var(--text-secondary)" }}>{u.student_id || "-"}</td>
                 <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(u.created_at).toLocaleString("zh-CN")}</td>
                 <td>
@@ -395,8 +472,33 @@ export default function UsersTab({ currentUserId }) {
             </select>
           </div>
           <div className="form-group">
-            <label>班级ID（数字，0表示清除）</label>
-            <input value={editUserForm.class_id} onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))} placeholder="数字ID或0" />
+            <label>年级</label>
+            <select
+              value={editGrade}
+              onChange={(e) => {
+                setEditGrade(e.target.value);
+                setEditUserForm((f) => ({ ...f, class_id: "" }));
+                loadClassesForGrade(e.target.value, setEditClasses);
+              }}
+            >
+              <option value="">不指定</option>
+              {grades.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>班级</label>
+            <select value={editUserForm.class_id} onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))} disabled={!editGrade}>
+              <option value="">不指定</option>
+              {editClasses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label>新密码（留空不修改）</label>

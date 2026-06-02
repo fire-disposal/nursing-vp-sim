@@ -106,6 +106,7 @@ export default function GradesClassesPage({ user, onLogout }) {
       if (tab === "grades") {
         await deleteGrade(deleteTarget.id);
         loadGrades();
+        loadClasses();
       } else {
         await deleteClass(deleteTarget.id);
         loadClasses();

@@ -98,6 +98,10 @@ def update_user(
         user.password_hash = hash_password(req.password)
 
     if req.class_id is not None:
+        if req.class_id != 0:
+            cls = db.query(Class).filter(Class.id == req.class_id).first()
+            if not cls:
+                raise HTTPException(status_code=400, detail="班级不存在")
         uc = db.query(UserClass).filter(UserClass.user_id == user_id).first()
         if req.class_id == 0:
             if uc:
@@ -110,9 +114,25 @@ def update_user(
 
     db.commit()
     db.refresh(user)
+
+    uc = db.query(UserClass).filter(UserClass.user_id == user_id).first()
+    class_name = None; grade_name = None; cid = None
+    if uc and uc.class_id:
+        cls = db.query(Class).filter(Class.id == uc.class_id).first()
+        if cls:
+            cid = cls.id
+            class_name = cls.name
+            grade = db.query(Grade).filter(Grade.id == cls.grade_id).first()
+            grade_name = grade.name if grade else None
+
     log.info(f"用户更新: target_id={user_id} target_name={user.username}",
              extra={"user_id": current_user.id, "user_role": current_user.role})
-    return user
+    return UserBrief(
+        id=user.id, username=user.username, role=user.role,
+        display_name=user.display_name, student_id=user.student_id,
+        created_at=user.created_at,
+        class_id=cid, class_name=class_name, grade_name=grade_name,
+    )
 
 
 @router.get("/users/{user_id}/detail", response_model=StudentDetail)
@@ -228,24 +248,30 @@ def batch_create_users(
     created = 0
     skipped = 0
     errors = []
-    for u in users:
+    for i, u in enumerate(users, 1):
         if not u.username.strip() or not u.password or not u.display_name.strip():
-            errors.append(f"跳过: 用户名/密码/姓名不能为空")
+            errors.append(f"第{i}行跳过: 用户名/密码/姓名不能为空")
             skipped += 1
             continue
         if len(u.password) < 6:
-            errors.append(f"跳过 {u.username}: 密码长度不能少于6位")
+            errors.append(f"第{i}行跳过 {u.username}: 密码长度不能少于6位")
             skipped += 1
             continue
         if u.role not in ("student", "teacher"):
-            errors.append(f"跳过 {u.username}: 角色无效")
+            errors.append(f"第{i}行跳过 {u.username}: 角色无效")
             skipped += 1
             continue
         existing = db.query(User).filter(User.username == u.username).first()
         if existing:
-            errors.append(f"跳过 {u.username}: 用户名已存在")
+            errors.append(f"第{i}行跳过 {u.username}: 用户名已存在")
             skipped += 1
             continue
+        if u.class_id:
+            cls = db.query(Class).filter(Class.id == u.class_id).first()
+            if not cls:
+                errors.append(f"第{i}行跳过 {u.username}: 班级ID {u.class_id} 不存在")
+                skipped += 1
+                continue
         user = User(
             username=u.username,
             password_hash=hash_password(u.password),
