@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import User, TrainingRecord, Score, UserClass, Class, Grade
-from schemas import DurationStats, TrendStats, PaginatedResponse
+from schemas import DurationStats, TrendStats, PaginatedResponse, TeacherSummaryItem, RankingItem, ClassSummaryItemSchema
 from auth import get_current_user, require_teacher
 from pagination import paginate
 
@@ -93,7 +93,7 @@ def get_trends(
     return TrendStats(daily=daily, total_sessions=total_sessions, total_minutes=total_minutes, avg_score=overall_avg)
 
 
-@router.get("/teacher-summary", response_model=PaginatedResponse[dict])
+@router.get("/teacher-summary", response_model=PaginatedResponse[TeacherSummaryItem])
 def teacher_summary(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
@@ -132,7 +132,7 @@ def teacher_summary(
     return PaginatedResponse(items=data, total=total, offset=offset, limit=limit)
 
 
-@router.get("/ranking", response_model=PaginatedResponse[dict])
+@router.get("/ranking", response_model=PaginatedResponse[RankingItem])
 def student_ranking(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
@@ -179,7 +179,7 @@ def student_ranking(
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
-@router.get("/class-summary", response_model=list[dict])
+@router.get("/class-summary", response_model=list[ClassSummaryItemSchema])
 def class_summary(
     grade_id: int | None = Query(None),
     current_user: User = Depends(require_teacher),

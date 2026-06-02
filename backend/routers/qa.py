@@ -6,7 +6,7 @@ from models import User, QASession, QARecord
 from schemas import (
     QASessionCreate, QASessionItem, QAMessageItem,
     QAAskResponse, QASessionAdminItem,
-    PaginatedResponse,
+    PaginatedResponse, MessageResponse,
 )
 from auth import get_current_user, require_teacher
 from services.llm_service import call_llm
@@ -156,7 +156,7 @@ def list_sessions(
     return sessions
 
 
-@router.delete("/sessions/{session_id}")
+@router.delete("/sessions/{session_id}", response_model=MessageResponse)
 def delete_session(
     session_id: int,
     current_user: User = Depends(get_current_user),
@@ -175,7 +175,7 @@ def delete_session(
 
     log.info(f"会话删除: session_id={session_id}",
              extra={"user_id": current_user.id, "user_role": current_user.role})
-    return {"detail": "删除成功"}
+    return {"message": "删除成功"}
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[QAMessageItem])

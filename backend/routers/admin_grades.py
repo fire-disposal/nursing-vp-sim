@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import User, Grade, Class, UserClass
-from schemas import GradeCreate, GradeUpdate, GradeResponse
+from schemas import GradeCreate, GradeUpdate, GradeResponse, MessageResponse
 from auth import require_teacher
 
 router = APIRouter(prefix="/api/admin/grades", tags=["年级管理"])
@@ -83,7 +83,7 @@ def update_grade(
     )
 
 
-@router.delete("/{grade_id}")
+@router.delete("/{grade_id}", response_model=MessageResponse)
 def delete_grade(
     grade_id: int,
     current_user: User = Depends(require_teacher),

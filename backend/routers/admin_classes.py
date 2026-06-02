@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import User, Grade, Class, UserClass
-from schemas import ClassCreate, ClassUpdate, ClassResponse
+from schemas import ClassCreate, ClassUpdate, ClassResponse, MessageResponse
 from auth import require_teacher
 
 router = APIRouter(prefix="/api/admin/classes", tags=["班级管理"])
@@ -93,7 +93,7 @@ def update_class(
     )
 
 
-@router.delete("/{class_id}")
+@router.delete("/{class_id}", response_model=MessageResponse)
 def delete_class(
     class_id: int,
     current_user: User = Depends(require_teacher),

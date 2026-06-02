@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, TrainingRecord, Note
-from schemas import NoteItem, NoteCreateRequest
+from schemas import NoteItem, NoteCreateRequest, MessageResponse
 from auth import get_current_user
 
 router = APIRouter(prefix="/api/notes", tags=["笔记"])
@@ -57,7 +57,7 @@ def update_note(note_id: int, req: NoteCreateRequest, current_user: User = Depen
     return note
 
 
-@router.delete("/{note_id}")
+@router.delete("/{note_id}", response_model=MessageResponse)
 def delete_note(note_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     note = db.query(Note).filter(Note.id == note_id).first()
     if not note:

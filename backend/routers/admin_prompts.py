@@ -8,6 +8,7 @@ from models import User, PromptTemplate as PT
 from schemas import (
     PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateResponse,
     PromptValidateRequest, PromptValidateResponse, PromptPreviewResponse,
+    OkResponse, SampleVarsResponse,
 )
 from auth import require_teacher
 from services.prompt_manager import refresh_prompts, render_template
@@ -142,7 +143,7 @@ async def update_prompt(
     return pt
 
 
-@router.delete("/{prompt_id}")
+@router.delete("/{prompt_id}", response_model=OkResponse)
 async def delete_prompt(
     prompt_id: int,
     current_user: User = Depends(require_teacher),
@@ -158,7 +159,7 @@ async def delete_prompt(
     return {"ok": True}
 
 
-@router.post("/{prompt_id}/activate")
+@router.post("/{prompt_id}/activate", response_model=OkResponse)
 async def activate_prompt(
     prompt_id: int,
     current_user: User = Depends(require_teacher),
@@ -215,7 +216,7 @@ async def reload_prompts_endpoint(current_user: User = Depends(require_teacher))
     return {"ok": True}
 
 
-@router.get("/sample-vars")
+@router.get("/sample-vars", response_model=SampleVarsResponse)
 def get_sample_vars(purpose: str, current_user: User = Depends(require_teacher)):
     known = {"patient_chat", "scoring", "qa", "case_generation"}
     if purpose not in known:
