@@ -8,13 +8,7 @@ from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, Bat
 from auth import require_teacher, hash_password
 from logger import log
 import os
-import shutil
-from config import DATABASE_URL
-from fastapi.responses import FileResponse, Response
-import tempfile
-import zipfile
-import subprocess
-import threading
+from fastapi.responses import Response
 from urllib.parse import urlparse
 
 router = APIRouter(prefix="/api/admin", tags=["管理"])
@@ -318,60 +312,6 @@ def get_stats(current_user: User = Depends(require_teacher), db: Session = Depen
         avg_duration_min=round(float(avg_duration), 1) if avg_duration else None,
         today_records=today_records,
     )
-
-
-@router.post("/backup")
-def backup_database(current_user: User = Depends(require_teacher)):
-    """创建数据库备份，返回 zip 文件下载。教师权限。"""
-    parsed = urlparse(DATABASE_URL)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    tmpdir = tempfile.mkdtemp()
-
-    try:
-        env = os.environ.copy()
-        if parsed.password:
-            env["PGPASSWORD"] = parsed.password
-
-        cmd = [
-            "pg_dump",
-            "-h", parsed.hostname or "localhost",
-            "-p", str(parsed.port or 5432),
-            "-U", parsed.username or "postgres",
-            "-d", parsed.path.lstrip("/"),
-            "-f", os.path.join(tmpdir, f"dump_{timestamp}.sql"),
-            "--no-owner",
-            "--no-acl",
-        ]
-
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"pg_dump 失败: {result.stderr}")
-
-        dump_path = os.path.join(tmpdir, f"dump_{timestamp}.sql")
-
-        zip_path = os.path.join(tmpdir, f"backup_{timestamp}.zip")
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.write(dump_path, arcname=os.path.basename(dump_path))
-
-        log.info(f"数据库备份: backup_{timestamp}.zip",
-                 extra={"user_id": current_user.id, "user_role": current_user.role})
-
-        def cleanup():
-            import time
-            time.sleep(5)
-            shutil.rmtree(tmpdir, ignore_errors=True)
-        threading.Thread(target=cleanup, daemon=True).start()
-
-        return FileResponse(
-            zip_path,
-            media_type="application/zip",
-            filename=f"nursing_backup_{timestamp}.zip",
-        )
-
-    except HTTPException:
-        shutil.rmtree(tmpdir, ignore_errors=True)
-        raise
-
 
 
 # ── LLM 调用监控 ──

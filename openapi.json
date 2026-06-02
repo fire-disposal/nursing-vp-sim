@@ -1547,31 +1547,6 @@
         ]
       }
     },
-    "/api/admin/backup": {
-      "post": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Backup Database",
-        "description": "创建数据库备份，返回 zip 文件下载。教师权限。",
-        "operationId": "backup_database_api_admin_backup_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/admin/llm-stats": {
       "get": {
         "tags": [

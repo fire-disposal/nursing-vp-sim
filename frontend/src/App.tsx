@@ -25,7 +25,6 @@ const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
 const AdminLLM = lazy(() => import("@/pages/admin/LLMManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
 const AdminGradesClasses = lazy(() => import("@/pages/admin/GradesClassesPage"));
-const AdminBackup = lazy(() => import("@/pages/admin/BackupPage"));
 
 function PageLoader() {
   return (
@@ -162,14 +161,6 @@ export default function App() {
                   element={
                     <ProtectedRoute role="teacher">
                       <AdminFeedback />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/backup"
-                  element={
-                    <ProtectedRoute role="teacher">
-                      <AdminBackup />
                     </ProtectedRoute>
                   }
                 />

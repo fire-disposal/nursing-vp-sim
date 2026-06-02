@@ -12,7 +12,10 @@
     "db:migration": "cd backend && .venv\\Scripts\\python -m alembic revision --autogenerate -m",
     "db:downgrade": "cd backend && .venv\\Scripts\\python -m alembic downgrade -1",
     "tag": "node .husky/_/auto-tag.mjs --push",
-    "tag:local": "node .husky/_/auto-tag.mjs"
+    "tag:local": "node .husky/_/auto-tag.mjs",
+    "api:spec": "cd backend && .venv\\Scripts\\python -c \"from main import app; import json; json.dump(app.openapi(), open('../openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2); print('spec written')\"",
+    "api:generate": "cd frontend && npx openapi-typescript ../openapi.json -o src/api/api-types.gen.ts",
+    "api:update": "npm run api:spec && npm run api:generate"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
