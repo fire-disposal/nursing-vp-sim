@@ -135,15 +135,106 @@ docker compose down
 docker compose up -d
 ```
 
-### 数据库备份
+### 数据库管理
+
+#### 数据卷与持久化
+
+PostgreSQL 数据存储在 Docker 命名卷 `ai_vp_pg_data` 中，位于宿主机 `/var/lib/docker/volumes/` 下。容器删除重建后数据保留。
 
 ```bash
-# 手动备份（SSH 到服务器）
-cd /opt/nursing-vp-sim
-docker exec nursing-db pg_dump -U nursing -d nursing_vp > "backups/manual-$(date +%Y%m%d-%H%M%S).sql"
+# 查看卷信息
+docker volume inspect nursing-vp-sim_ai_vp_pg_data
 
-# 通过教师后台触发备份
-# 登录 → 管理后台 → 数据库备份按钮
+# 检查磁盘占用
+docker system df -v | grep ai_vp_pg_data
+```
+
+#### 连接信息
+
+| 项目 | 值 |
+|------|-----|
+| 容器名 | `nursing-db` |
+| 用户/数据库 | `nursing / nursing_vp` |
+| 宿主机端口 | `127.0.0.1:5433` |
+| 容器内端口 | `5432` |
+| 密码来源 | `.env` 中 `POSTGRES_PASSWORD` |
+
+```bash
+# 从宿主机直连
+docker exec -it nursing-db psql -U nursing -d nursing_vp
+
+# 从宿主机端口连接（需 psql 客户端）
+psql -h 127.0.0.1 -p 5433 -U nursing -d nursing_vp
+```
+
+#### 备份与恢复
+
+**备份（SQL 转储）**
+
+```bash
+cd /opt/nursing-vp-sim
+docker exec nursing-db pg_dump -U nursing -d nursing_vp > "backups/backup-$(date +%Y%m%d-%H%M%S).sql"
+
+# 备份到远程（拉回本地）
+rsync -avz 用户名@服务器:/opt/nursing-vp-sim/backups/ ./local-backups/
+```
+
+CD 流水线每次部署前也会自动执行备份，存放在 `backups/pre-deploy-*.sql`。
+
+**恢复**
+
+```bash
+# 前提：目标数据库为空。如果已有数据，先清空
+docker exec -i nursing-db psql -U nursing -d nursing_vp < backups/backup-20260602-143000.sql
+```
+
+**通过教师后台触发**
+
+登录 → 管理后台 → 数据库备份（完整 admin.py:168）。
+
+#### 迁移机制
+
+后端启动时自动执行 Alembic 迁移（`main.py` 启动事件）。Schema 变更通过代码中的模型定义自动同步，无需手动运行迁移命令。
+
+```bash
+# 查看当前迁移版本
+docker exec nursing-vp-sim-backend-1 bash -c "cd /app && alembic current"
+
+# 手动生成迁移（开发时在本地执行）
+cd backend && uv run alembic revision --autogenerate -m "描述"
+cd backend && uv run alembic upgrade head
+```
+
+#### 常用诊断命令
+
+```sql
+-- 进入 psql
+docker exec -it nursing-db psql -U nursing -d nursing_vp
+
+-- 查看所有表
+\dt
+
+-- 各表行数
+SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY n_live_tup DESC;
+
+-- 数据库大小
+SELECT pg_size_pretty(pg_database_size('nursing_vp'));
+
+-- 表大小排名
+SELECT tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
+FROM pg_tables WHERE schemaname='public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+-- 当前连接
+SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname='nursing_vp';
+```
+
+#### 数据库重置（危险）
+
+```bash
+cd /opt/nursing-vp-sim
+docker compose down -v   # 删除数据卷（含所有数据）
+docker compose up -d      # 重新创建 → 触发 seed 数据 → 默认账号恢复
 ```
 
 ### 健康检查
@@ -154,14 +245,6 @@ curl -s http://localhost:8000/api/health
 
 # 通过 Docker healthcheck
 docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1
-```
-
-### 数据库重置（危险）
-
-```bash
-cd /opt/nursing-vp-sim
-docker compose down -v   # 删除数据卷
-docker compose up -d      # 重新创建（触发 seed 数据）
 ```
 
 ---
