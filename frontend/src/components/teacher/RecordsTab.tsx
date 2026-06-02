@@ -1,6 +1,7 @@
 import { ClipboardList, Download, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteRecord, exportRecords, getManageCases, getRecords } from "@/api/api-client";
 import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/Toast";
@@ -20,59 +21,60 @@ interface Filters {
 }
 
 export default function RecordsTab() {
-  const [records, setRecords] = useState<TrainingRecordBrief[]>([]);
-  const [caseOptions, setCaseOptions] = useState<{ id: number; name: string }[]>([]);
   const [filters, setFilters] = useState<Filters>({ student_name: "", case_id: "", status: "", date_from: "", date_to: "" });
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
   const LIMIT = 50;
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
+  const queryClient = useQueryClient();
 
-  const loadData = useCallback(() => {
-    const params: Record<string, unknown> = { offset, limit: LIMIT };
-    if (filters.student_name) params.student_name = filters.student_name;
-    if (filters.case_id) params.case_id = filters.case_id;
-    if (filters.status) params.status = filters.status;
-    if (filters.date_from) params.date_from = filters.date_from;
-    if (filters.date_to) params.date_to = filters.date_to;
-    getRecords(params)
-      .then(({ data }) => {
-        setRecords(data.items);
-        setTotal(data.total);
-      })
-      .catch(() => toast.error("加载训练记录失败"));
-  }, [filters, offset, toast]);
+  const params: Record<string, unknown> = { offset, limit: LIMIT };
+  if (filters.student_name) params.student_name = filters.student_name;
+  if (filters.case_id) params.case_id = filters.case_id;
+  if (filters.status) params.status = filters.status;
+  if (filters.date_from) params.date_from = filters.date_from;
+  if (filters.date_to) params.date_to = filters.date_to;
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const { data: recordsData, isLoading } = useQuery({
+    queryKey: ["adminRecords", offset, filters],
+    queryFn: () => getRecords(params).then((r) => r.data),
+  });
 
-  useEffect(() => {
-    setOffset(0);
-  }, [filters.student_name, filters.case_id, filters.status, filters.date_from, filters.date_to]);
+  const { data: casesData } = useQuery({
+    queryKey: ["manageCases"],
+    queryFn: () => getManageCases().then((r) => r.data),
+  });
 
-  useEffect(() => {
-    getManageCases()
-      .then(({ data }) => setCaseOptions(data.items.map((c) => ({ id: c.id, name: c.name }))))
-      .catch(() => {});
-  }, []);
+  const records = recordsData?.items ?? [];
+  const total = recordsData?.total ?? 0;
+  const caseOptions = casesData?.items.map((c: CaseManageItem) => ({ id: c.id, name: c.name })) ?? [];
 
-  const handleExport = async () => {
-    try {
-      const { data } = await exportRecords();
-      const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "text/csv" }));
+  const exportMutation = useMutation({
+    mutationFn: () => exportRecords(),
+    onSuccess: (resp) => {
+      const url = URL.createObjectURL(new Blob([resp.data as BlobPart], { type: "text/csv" }));
       const a = document.createElement("a");
       a.href = url;
       a.download = `training_records_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("导出成功");
-    } catch {
-      toast.error("导出失败");
-    }
-  };
+    },
+    onError: () => toast.error("导出失败"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteRecord(id),
+    onSuccess: () => {
+      toast.success("训练记录已删除");
+      queryClient.invalidateQueries({ queryKey: ["adminRecords"] });
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { detail?: string } } };
+      toast.error(e.response?.data?.detail || "删除失败");
+    },
+  });
 
   const handleDelete = async (r: TrainingRecordBrief) => {
     const ok = await confirm({
@@ -82,17 +84,15 @@ export default function RecordsTab() {
       danger: true,
     });
     if (!ok) return;
-    try {
-      await deleteRecord(r.id);
-      toast.success("训练记录已删除");
-      loadData();
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      toast.error(e.response?.data?.detail || "删除失败");
-    }
+    deleteMutation.mutate(r.id);
   };
 
   const clearFilters = () => setFilters({ student_name: "", case_id: "", status: "", date_from: "", date_to: "" });
+
+  const handleFilterChange = (key: keyof Filters, value: string) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setOffset(0);
+  };
 
   return (
     <div className="card">
@@ -100,11 +100,11 @@ export default function RecordsTab() {
         <div className="filter-row">
           <div className="filter-item">
             <label>学生姓名</label>
-            <input placeholder="模糊搜索..." value={filters.student_name} onChange={(e) => setFilters((f) => ({ ...f, student_name: e.target.value }))} />
+            <input placeholder="模糊搜索..." value={filters.student_name} onChange={(e) => handleFilterChange("student_name", e.target.value)} />
           </div>
           <div className="filter-item">
             <label>病例</label>
-            <select value={filters.case_id} onChange={(e) => setFilters((f) => ({ ...f, case_id: e.target.value }))}>
+            <select value={filters.case_id} onChange={(e) => handleFilterChange("case_id", e.target.value)}>
               <option value="">全部</option>
               {caseOptions.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -115,7 +115,7 @@ export default function RecordsTab() {
           </div>
           <div className="filter-item">
             <label>状态</label>
-            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
+            <select value={filters.status} onChange={(e) => handleFilterChange("status", e.target.value)}>
               <option value="">全部</option>
               <option value="in_progress">进行中</option>
               <option value="completed">已完成</option>
@@ -123,11 +123,11 @@ export default function RecordsTab() {
           </div>
           <div className="filter-item">
             <label>开始日期(起)</label>
-            <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} />
+            <input type="date" value={filters.date_from} onChange={(e) => handleFilterChange("date_from", e.target.value)} />
           </div>
           <div className="filter-item">
             <label>开始日期(止)</label>
-            <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} />
+            <input type="date" value={filters.date_to} onChange={(e) => handleFilterChange("date_to", e.target.value)} />
           </div>
           <div className="filter-item" style={{ alignSelf: "flex-end" }}>
             <button className="btn btn-sm" onClick={clearFilters}>
@@ -139,13 +139,20 @@ export default function RecordsTab() {
 
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {total} 条记录</span>
-        <button className="btn btn-primary" onClick={handleExport}>
+        <button className="btn btn-primary" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
           <Download size={16} />
           导出CSV
         </button>
       </div>
 
-      {records.length === 0 ? (
+      {isLoading ? (
+        <div className="empty-state">
+          <div className="icon">
+            <ClipboardList size={42} />
+          </div>
+          <div>加载中...</div>
+        </div>
+      ) : records.length === 0 ? (
         <div className="empty-state">
           <div className="icon">
             <ClipboardList size={42} />
