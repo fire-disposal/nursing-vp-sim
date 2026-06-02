@@ -3,7 +3,9 @@
 职责：
 - build_patient_context_kwargs: 从 case_data 提取模板渲染所需的 6 个变量值
 - build_patient_chat_messages: 组装 OpenAI-compatible messages 列表
+- format_case_for_prompt: 将病例 JSON 格式化为 LLM 可读的文本块
 """
+
 
 
 def build_patient_context_kwargs(case_data: dict,
@@ -58,3 +60,26 @@ def build_patient_chat_messages(
 
     llm_messages.append({"role": "user", "content": student_content})
     return llm_messages
+
+
+def format_case_for_prompt(case_data: dict) -> str:
+    """将病例数据格式化为 LLM 可读的文本块，用于病例生成等场景的上下文"""
+    info = case_data.get("patient_info", {})
+    lines = [
+        f"名称: {case_data.get('name', '')}",
+        f"患者: {info.get('name', '')}, {info.get('age', '')}岁, {info.get('gender', '')}",
+        f"主诉: {case_data.get('chief_complaint', '')}",
+        f"开场白: {case_data.get('opening_line', '')}",
+        f"现病史: {case_data.get('present_illness', '')}",
+        f"既往史: {case_data.get('past_history', '')}",
+        f"用药史: {case_data.get('medication_history', '')}",
+        f"过敏史: {case_data.get('allergy_history', '')}",
+        f"家族史: {case_data.get('family_history', '')}",
+        f"社会史: {case_data.get('social_history', '')}",
+        f"沟通风格: {case_data.get('communication_style', '')}",
+    ]
+    if hidden_info := case_data.get("hidden_info", []):
+        lines.append(f"隐藏信息: {'; '.join(hidden_info)}")
+    if required := case_data.get("required_inquiries", []):
+        lines.append(f"必须采集: {'; '.join(required)}")
+    return "\n".join(lines)

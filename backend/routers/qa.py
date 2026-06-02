@@ -12,22 +12,12 @@ from auth import get_current_user, require_teacher
 from services.llm_service import call_llm
 from rate_limiter import check_qa_limit
 from services.prompt_manager import get_prompt_manager
+from services.qa_service import build_qa_history
 from pagination import paginate
 from logger import log
+from config import get_llm_config
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
-
-
-def _build_llm_context(session_id: int, db: Session) -> list:
-    history = db.query(QARecord).filter(
-        QARecord.session_id == session_id
-    ).order_by(QARecord.created_at.desc()).limit(16).all()
-    history.reverse()
-    llm_messages = []
-    for r in history:
-        role = "user" if r.role == "user" else "assistant"
-        llm_messages.append({"role": role, "content": r.content})
-    return llm_messages
 
 
 @router.post("/sessions", response_model=QAAskResponse)
@@ -72,9 +62,10 @@ async def create_session(
 
     rid = getattr(request.state, "request_id", None)
     try:
-        answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
+        answer = await call_llm(llm_messages,
                                 purpose="qa", user_id=current_user.id,
-                                log_meta={"request_id": rid} if rid else None)
+                                log_meta={"request_id": rid} if rid else None,
+                                **get_llm_config("qa"))
     except Exception as e:
         log.error("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
@@ -123,7 +114,7 @@ async def ask_in_session(
     db.add(user_msg)
     db.commit()
 
-    llm_messages = _build_llm_context(session_id, db)
+    llm_messages = build_qa_history(session_id, db)
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("qa")
@@ -131,9 +122,10 @@ async def ask_in_session(
 
     rid = getattr(request.state, "request_id", None)
     try:
-        answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
+        answer = await call_llm(llm_messages,
                                 purpose="qa", user_id=current_user.id,
-                                log_meta={"request_id": rid} if rid else None)
+                                log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+                                **get_llm_config("qa"))
     except Exception as e:
         log.error("qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id})
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from models import TrainingRecord, Message, Score
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
-from config import LLM_SCORING_TIMEOUT, LLM_SCORING_MAX_TOKENS, DEEPSEEK_MODEL
+from config import get_llm_config, DEEPSEEK_MODEL
 from rubrics import load_rubric, get_rubric_version_id
 from prompt_static import build_scoring_criteria, build_scoring_json_schema
 from logger import log
@@ -48,12 +48,12 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_content},
     ]
-    result = await call_llm_json(scoring_messages, temperature=0,
-                                   max_tokens=LLM_SCORING_MAX_TOKENS, timeout=LLM_SCORING_TIMEOUT, max_retries=3,
+    result = await call_llm_json(scoring_messages,
                                    purpose="scoring", user_id=record.user_id,
                                    record_id=record_id, case_id=record.case_id,
                                    log_meta={"message_count": len(messages)},
-                                   client=client, semaphore=semaphore)
+                                   client=client, semaphore=semaphore,
+                                   **get_llm_config("scoring"))
 
     # 强制数值字段类型：LLM 可能把数字写成字符串，统一 coerce
     _coerce_numeric_fields(result)
@@ -80,7 +80,7 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
         suggestions=result["suggestions"],
         rubric_version=get_rubric_version_id(rubric),
         model_name=DEEPSEEK_MODEL,
-        prompt_version=2,  # 证据化评分
+        prompt_version=tmpl.version,
         score_scale=100,
     )
     db.add(score)

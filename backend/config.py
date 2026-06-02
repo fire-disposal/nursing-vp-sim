@@ -48,11 +48,27 @@ LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))  # 全局并
 LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))      # HTTP 连接池大小
 LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))      # 空闲连接存活时间（秒）
 
-# 聊天和评分使用不同的超时和 token 限制 —— 评分需要更长时间和更大输出
-LLM_CHAT_TIMEOUT = int(os.getenv("LLM_CHAT_TIMEOUT", "30"))          # 对话超时（秒）
-LLM_CHAT_MAX_TOKENS = int(os.getenv("LLM_CHAT_MAX_TOKENS", "512"))   # 对话最大 token
-LLM_SCORING_TIMEOUT = int(os.getenv("LLM_SCORING_TIMEOUT", "120"))   # 评分超时（秒）
-LLM_SCORING_MAX_TOKENS = int(os.getenv("LLM_SCORING_MAX_TOKENS", "4096"))  # 评分最大 token
+# LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
+_LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
+    "patient_chat":    {"timeout": 30,  "max_tokens": 512,  "temperature": 0.6, "max_retries": 2},
+    "qa":              {"timeout": 30,  "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
+    "scoring":         {"timeout": 120, "max_tokens": 4096, "temperature": 0,   "max_retries": 3},
+    "case_generation": {"timeout": 120, "max_tokens": 4096, "temperature": 0.3, "max_retries": 3},
+}
+
+def get_llm_config(purpose: str) -> dict:
+    """返回某 purpose 的 LLM 调用参数。环境变量 LLM_CONFIG_JSON 可覆盖。"""
+    import json as _json
+    import os as _os
+    override = _os.getenv("LLM_CONFIG_JSON")
+    if override:
+        try:
+            overrides = _json.loads(override)
+            if purpose in overrides:
+                return overrides[purpose]
+        except _json.JSONDecodeError:
+            pass
+    return _LLM_PURPOSE_DEFAULTS.get(purpose, _LLM_PURPOSE_DEFAULTS["patient_chat"])
 
 
 def log_config(logger):

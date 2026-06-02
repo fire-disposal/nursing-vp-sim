@@ -161,9 +161,8 @@ def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    # 清理隐藏主题缓存
-    from routers.chat import _cleanup_disclosed_topics
-    _cleanup_disclosed_topics(record_id)
+    from services.chat_session import cleanup_topics
+    cleanup_topics(record_id)
 
     background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
 

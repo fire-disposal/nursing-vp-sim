@@ -10,34 +10,27 @@ from services.virtual_patient_prompt import build_patient_context_kwargs, build_
 from services.prompt_manager import get_prompt_manager
 from services.variable_registry import get_registry
 from services.patient_guard import (
-    get_allowed_hidden_info, get_revealed_topics, sanitize_patient_reply,
+    get_allowed_hidden_info, sanitize_patient_reply,
 )
-from config import LLM_CHAT_TIMEOUT, LLM_CHAT_MAX_TOKENS
+from services.chat_session import restore_topics, add_topic, cleanup_topics
+from config import get_llm_config
 from rate_limiter import check_chat_limit
 from logger import log
 import json
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])
 
-# 已泄露主题缓存（按 record_id 记录已触发的隐藏信息主题）
-_disclosed_topics: dict[int, set] = {}
-
 
 async def _build_llm_context(case_data: dict, history_messages: list,
                                student_content: str, record_id: int) -> list:
     """构建 LLM 消息列表。编排角色：恢复已泄露主题 → 筛选隐藏信息 → 构建渲染变量 → 渲染模板 → 组装消息。"""
-    # 从历史对话中恢复已泄露主题
     history_text = " ".join(m.content for m in history_messages)
-    if record_id not in _disclosed_topics:
-        _disclosed_topics[record_id] = get_revealed_topics(history_text, case_data)
+    topics = restore_topics(record_id, history_text, case_data)
+    allowed = get_allowed_hidden_info(case_data, student_content, topics)
 
-    # 本轮允许的隐藏信息
-    allowed = get_allowed_hidden_info(case_data, student_content, _disclosed_topics[record_id])
-
-    # 更新已泄露主题
     for h in allowed:
         if h.get("triggered") and h.get("topic"):
-            _disclosed_topics[record_id].add(h["topic"])
+            add_topic(record_id, h["topic"])
 
     kwargs = build_patient_context_kwargs(case_data, allowed)
 
@@ -47,11 +40,6 @@ async def _build_llm_context(case_data: dict, history_messages: list,
 
     llm_messages = build_patient_chat_messages(system_prompt, history_messages, student_content)
     return llm_messages, allowed
-
-
-def _cleanup_disclosed_topics(record_id: int):
-    """清理已泄露主题缓存"""
-    _disclosed_topics.pop(record_id, None)
 
 
 @router.post("/{record_id}/message", response_model=ChatMessageResponse)
@@ -81,11 +69,11 @@ async def send_message(
     rid = getattr(request.state, "request_id", None)
     from logger import log
     try:
-        reply = await call_llm(llm_messages, temperature=0.6,
-                                max_tokens=LLM_CHAT_MAX_TOKENS, timeout=LLM_CHAT_TIMEOUT, max_retries=2,
+        reply = await call_llm(llm_messages,
                                 purpose="patient_chat", user_id=current_user.id,
                                 record_id=record_id, case_id=record.case_id,
-                                log_meta={"request_id": rid} if rid else None)
+                                log_meta={"request_id": rid} if rid else None,
+                                **get_llm_config("patient_chat"))
     except Exception as e:
         log.error("patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
         raise HTTPException(status_code=500, detail=f"LLM调用失败: {str(e)}")
@@ -137,11 +125,11 @@ async def send_message_stream(
         full_reply = ""
         try:
             async for chunk in call_llm_stream(
-                llm_messages, temperature=0.6,
-                max_tokens=LLM_CHAT_MAX_TOKENS, timeout=LLM_CHAT_TIMEOUT,
+                llm_messages,
                 purpose="patient_chat", user_id=current_user.id,
                 record_id=record_id, case_id=record.case_id,
                 log_meta={"request_id": rid} if rid else None,
+                **get_llm_config("patient_chat"),
             ):
                 full_reply += chunk
                 yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
