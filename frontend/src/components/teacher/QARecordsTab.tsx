@@ -1,5 +1,6 @@
 import { Eye, MessageCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/Toast";
@@ -16,44 +17,45 @@ function truncate(text: string, maxLen: number): string {
 }
 
 export default function QARecordsTab() {
-  const [records, setRecords] = useState<QASessionAdminItem[]>([]);
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [previewMessages, setPreviewMessages] = useState<QAMessageItem[]>([]);
+  const [previewSessionId, setPreviewSessionId] = useState<number | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
   const [showPreview, setShowPreview] = useState(false);
-  const [loadingPreview, setLoadingPreview] = useState(false);
   const LIMIT = 20;
 
   const { error } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await getQAHistoryAll({ offset, limit: LIMIT });
-        setRecords(res.data.items || []);
-        setTotal(res.data.total || 0);
-      } catch {
-        error("加载问答记录失败");
-      }
-    };
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset, LIMIT]);
+  const { data: recordsData, isLoading } = useQuery({
+    queryKey: ["qaHistory", offset],
+    queryFn: () => getQAHistoryAll({ offset, limit: LIMIT }).then((r) => r.data),
+    placeholderData: (prev) => prev,
+  });
 
-  const handlePreview = async (sessionId: number, title: string) => {
+  const { data: previewMessages, isLoading: loadingPreview } = useQuery({
+    queryKey: ["qaSessionMessages", previewSessionId],
+    queryFn: () => getQASessionMessagesAdmin(previewSessionId!).then((r) => r.data ?? []),
+    enabled: previewSessionId !== null,
+  });
+
+  const messages = previewMessages ?? [];
+
+  const records = recordsData?.items ?? [];
+  const total = recordsData?.total ?? 0;
+
+  const handlePreview = (sessionId: number, title: string) => {
     setPreviewTitle(title);
-    setLoadingPreview(true);
+    setPreviewSessionId(sessionId);
     setShowPreview(true);
-    try {
-      const res = await getQASessionMessagesAdmin(sessionId);
-      setPreviewMessages(res.data || []);
-    } catch {
-      error("加载对话详情失败");
-    } finally {
-      setLoadingPreview(false);
-    }
   };
+
+  if (isLoading && offset === 0) {
+    return (
+      <div className="empty-state" style={{ padding: "48px 0" }}>
+        <MessageCircle size={48} />
+        <p style={{ marginTop: 12, color: "var(--gray-500)" }}>加载中...</p>
+      </div>
+    );
+  }
 
   if (records.length === 0 && offset === 0) {
     return (
@@ -103,7 +105,7 @@ export default function QARecordsTab() {
             <p style={{ textAlign: "center", color: "#9ca3af" }}>加载中...</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {previewMessages.map((m, i) => (
+              {messages.map((m, i) => (
                 <div
                   key={m.id || i}
                   style={{
