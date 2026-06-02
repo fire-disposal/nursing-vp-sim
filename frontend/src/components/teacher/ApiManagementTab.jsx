@@ -27,15 +27,10 @@ const STATUS_COLORS = {
 const STATUS_LABELS = { active: "正常", degraded: "熔断", disabled: "手动关闭" };
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
-export default function ApiManagementTab({ activeSubTab, hideSubTabs = false }) {
+export default function ApiManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
-  const [subTab, setSubTab] = useState(activeSubTab || "configs");
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (hideSubTabs && activeSubTab) setSubTab(activeSubTab);
-  }, [hideSubTabs, activeSubTab]);
+  const [subTab, setSubTab] = useState("configs");
   const [secrets, setSecrets] = useState([]);
   const [configs, setConfigs] = useState([]);
   const [health, setHealth] = useState([]);

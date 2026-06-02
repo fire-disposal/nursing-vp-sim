@@ -26,6 +26,14 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
   const [editingSource, setEditingSource] = useState(false);
   const [sourceDraft, setSourceDraft] = useState(meta.source || "");
 
+  const isSystem =
+    meta.source &&
+    (meta.source.includes("病例数据") ||
+      meta.source.includes("运行时") ||
+      meta.source.includes("prompt_static") ||
+      meta.source.includes("自动生成") ||
+      meta.source.includes("Message 表"));
+
   const commitDesc = () => {
     setEditing(false);
     if (descDraft !== (meta.desc || "")) {
@@ -75,17 +83,34 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
           {vName}
           {"#}"}
         </code>
-        <span
-          style={{
-            fontSize: "0.65rem",
-            color: "var(--text-tertiary)",
-            background: "var(--bg-tertiary)",
-            padding: "1px 6px",
-            borderRadius: "var(--radius-full)",
-          }}
-        >
-          {meta.type || "string"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {isSystem && (
+            <span
+              style={{
+                fontSize: "0.6rem",
+                background: "var(--amber-100)",
+                color: "var(--amber-700)",
+                padding: "0px 5px",
+                borderRadius: "var(--radius-full)",
+                lineHeight: "17px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              系统注入
+            </span>
+          )}
+          <span
+            style={{
+              fontSize: "0.65rem",
+              color: "var(--text-tertiary)",
+              background: "var(--bg-tertiary)",
+              padding: "1px 6px",
+              borderRadius: "var(--radius-full)",
+            }}
+          >
+            {meta.type || "string"}
+          </span>
+        </div>
       </div>
 
       {editing ? (
@@ -179,7 +204,9 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
           </div>
         )}
         <div style={{ marginTop: 2 }}>
-          {editingDefault ? (
+          {isSystem ? (
+            <div style={{ fontSize: "0.65rem", color: "var(--text-tertiary)", fontStyle: "italic" }}>默认值：由系统运行时注入，不可编辑</div>
+          ) : editingDefault ? (
             <input
               value={defaultDraft}
               onChange={(e) => setDefaultDraft(e.target.value)}

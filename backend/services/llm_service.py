@@ -509,6 +509,5 @@ async def call_llm_json(messages: list, temperature: float = 0.3, max_tokens: in
         purpose=purpose, user_id=user_id, record_id=record_id,
         case_id=case_id, log_meta=log_meta,
         client=client, semaphore=semaphore,
-        response_format={"type": "json_object"},
     )
     return _safe_parse_json(response_text)
