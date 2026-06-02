@@ -20,6 +20,7 @@ const FeedbackPage = lazy(() => import("./pages/admin/FeedbackPage"));
 const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
 const UserDetailPage = lazy(() => import("./pages/admin/UserDetailPage"));
 const GradesClassesPage = lazy(() => import("./pages/admin/GradesClassesPage"));
+const BackupPage = lazy(() => import("./pages/admin/BackupPage"));
 
 function PageLoader() {
   return (
@@ -205,6 +206,15 @@ export default function App() {
                     element={
                       <ProtectedRoute role="teacher">
                         <FeedbackPage user={user} onLogout={handleLogout} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/admin/backup"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <BackupPage user={user} onLogout={handleLogout} />
                       </ProtectedRoute>
                     }
                   />

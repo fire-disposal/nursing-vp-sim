@@ -2,6 +2,7 @@ import {
   BarChart3,
   ClipboardList,
   GraduationCap,
+  HardDrive,
   HelpCircle,
   Home,
   Info,
@@ -39,6 +40,7 @@ const teacherLinks = [
   { to: "/admin/cases", icon: UserSearch, label: "病例管理" },
   { to: "/admin/llm", icon: Server, label: "LLM 管理" },
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈" },
+  { to: "/admin/backup", icon: HardDrive, label: "备份管理" },
 ];
 
 export default function AppShell({ children, user, onLogout }) {
