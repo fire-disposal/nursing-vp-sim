@@ -32,25 +32,48 @@ def render_template(template: str, **kwargs) -> str:
 class PromptTemplateObj:
     """单个 prompt 模板实例，支持变量渲染"""
     def __init__(self, id: int, purpose: str, version: int, system_prompt: str,
-                 user_prompt: str | None):
+                 user_prompt: str | None, variables: list[dict] | None = None):
         self.id = id
         self.purpose = purpose
         self.version = version
         self.system_prompt = system_prompt
         self.user_prompt = user_prompt
+        self._var_defaults: dict[str, str] = {}
+        if variables:
+            for v in variables:
+                name = v.get("name", "") if isinstance(v, dict) else str(v)
+                default = v.get("default_value", "") if isinstance(v, dict) else ""
+                if name and default:
+                    self._var_defaults[name] = default
 
     def render(self, **kwargs) -> str:
+        merged = {**self._var_defaults, **kwargs}
+        if self._var_defaults:
+            used_defaults = [k for k in self._var_defaults if k not in kwargs]
+            if used_defaults:
+                _logger.info(
+                    "prompt render using default_value for %s: %s",
+                    self.purpose, used_defaults,
+                )
         try:
-            return render_template(self.system_prompt, **kwargs)
+            return render_template(self.system_prompt, **merged)
         except RuntimeError as e:
-            raise RuntimeError(f"{e} (purpose={self.purpose}, v{self.version})")
+            import re as _re
+            expected = sorted(set(_re.findall(r"\{#([^}#]+)#\}", self.system_prompt)))
+            provided = sorted(kwargs.keys())
+            missing = [v for v in expected if v not in kwargs]
+            raise RuntimeError(
+                f"{e} (purpose={self.purpose}, v{self.version}, "
+                f"期望变量: {expected}, 实际传入: {provided}, 缺失: {missing})"
+            )
 
     def render_pair(self, **kwargs) -> tuple[str, str]:
+        merged = {**self._var_defaults, **kwargs}
         system = self.render(**kwargs)
         user = ""
         if self.user_prompt:
             try:
-                user = render_template(self.user_prompt, **kwargs)
+                user = render_template(self.user_prompt, **merged)
             except RuntimeError as e:
                 raise RuntimeError(f"{e} in user_prompt (purpose={self.purpose}, v{self.version})")
         return system, user
@@ -77,6 +100,7 @@ class PromptManager:
                 new_cache[r.purpose] = PromptTemplateObj(
                     id=r.id, purpose=r.purpose, version=r.version,
                     system_prompt=r.system_prompt, user_prompt=r.user_prompt,
+                    variables=r.variables,
                 )
 
             async with self._lock:
@@ -96,7 +120,6 @@ class PromptManager:
     def _upsert_v1_defaults(self, db):
         """强制 v1 模板始终与代码内置版本一致。每次启动 upsert，确保部署后旧语法被覆写。"""
         from models import PromptTemplate as PT
-        import re as _re
 
         defaults = [
             ("qa", "v1-默认QA", _HARDCODED_QA, None),
@@ -113,20 +136,16 @@ class PromptManager:
                 v1.user_prompt = user_prompt
                 v1.name = name
                 v1.is_active = True
-                v1.variables = [
-                    {"name": v, "desc": ""}
-                    for v in sorted(_re.findall(r"\{#([^}#]+)#\}", system_prompt + (user_prompt or "")))
-                ]
+                from services.variable_registry import get_registry
+                v1.variables = get_registry().get_variables_jsonb(purpose)
                 if old_sp != system_prompt:
                     updated += 1
             else:
+                from services.variable_registry import get_registry
                 db.add(PT(
                     purpose=purpose, version=1, name=name,
                     system_prompt=system_prompt, user_prompt=user_prompt,
-                    variables=[
-                        {"name": v, "desc": ""}
-                        for v in sorted(_re.findall(r"\{#([^}#]+)#\}", system_prompt + (user_prompt or "")))
-                    ],
+                    variables=get_registry().get_variables_jsonb(purpose),
                     is_active=True, created_by="system",
                 ))
                 updated += 1
@@ -217,7 +236,10 @@ _HARDCODED_PATIENT_CHAT = """你是护理病史采集训练中的虚拟患者。
 
 _HARDCODED_SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专家，专门评估护理学生的病史采集能力。
 
-{#scoring_rubric#}
+{#scoring_criteria#}
+
+## 必须采集到的内容清单（参考）
+{#required_inquiries#}
 
 ## 评分背景
 - 学生角色：护理学生
@@ -233,6 +255,8 @@ _HARDCODED_SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专�
 3. **漏问内容精准**：missed_content 列出学生确实没有问到的重要信息。
 
 4. **suggestions 个性化**：结合对话实际内容反馈，格式为"你在XX方面表现得很好，但在XX方面还有提升空间，建议下次训练时注意..."。
+
+{#scoring_json_schema#}
 
 评分要客观公正，结果要能帮助护理学生明确知道自己的优势和待改进之处。"""
 

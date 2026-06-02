@@ -11,8 +11,9 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
-from prompt_static import build_scoring_rubric, get_sample_vars
+from prompt_static import build_scoring_criteria, build_scoring_json_schema, build_scoring_rubric
 from services.prompt_manager import render_template
+from services.variable_registry import get_registry
 from rubrics import load_rubric
 
 
@@ -39,9 +40,18 @@ _MOCK_REQUIRED_INQUIRIES = [
     "现病史（起病情况、发展经过、诊疗经过）",
     "既往史",
     "过敏史",
-    "吸烟饮酒史",
+    "用药史",
     "家族史",
 ]
+_MOCK_REQUIRED_INQUIRIES_TEXT = json.dumps(_MOCK_REQUIRED_INQUIRIES, ensure_ascii=False, indent=2)
+
+def _make_scoring_kwargs():
+    rubric = load_rubric("nursing_history_v1")
+    return {
+        "scoring_criteria": build_scoring_criteria(rubric),
+        "required_inquiries": _MOCK_REQUIRED_INQUIRIES_TEXT,
+        "scoring_json_schema": build_scoring_json_schema(rubric),
+    }
 
 
 class TestScoringPromptSanity:
@@ -68,12 +78,8 @@ class TestScoringPromptSanity:
 
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
-        rubric = load_rubric("nursing_history_v1")
-        rubric_text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
-
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
-        system = render_template(_HARDCODED_SCORING_SYSTEM,
-                                 scoring_rubric=rubric_text)
+        system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
 
         assert "{{" not in system, "发现双左大括号 - LLM 会被误导"
         assert "}}" not in system, "发现双右大括号 - LLM 会被误导"
@@ -96,10 +102,10 @@ class TestScoringPromptSanity:
     def test_json_template_is_valid_json_structure(self):
         """输出格式部分必须能被 json.loads 解析（去掉占位符后）"""
         rubric = load_rubric("nursing_history_v1")
-        rubric_text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
+        schema_text = build_scoring_json_schema(rubric)
 
-        system = render_template("{#scoring_rubric#}",
-                                 scoring_rubric=rubric_text)
+        system = render_template("{#scoring_json_schema#}",
+                                 scoring_json_schema=schema_text)
 
         start = system.find("{")
         end = system.rfind("}")
@@ -126,29 +132,25 @@ class TestScoringPromptSanity:
     def test_variable_name_match(self):
         """模板 {#var#} 与传入变量名一致"""
         rubric = load_rubric("nursing_history_v1")
-        rubric_text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
+        criteria_text = build_scoring_criteria(rubric)
 
         s, u = render_template(
-            "{#scoring_rubric#}\nEND",
-            scoring_rubric=rubric_text,
+            "{#scoring_criteria#}\nEND",
+            scoring_criteria=criteria_text,
         ), render_template(
             "{#conversation_text#}\nEND",
             conversation_text=_MOCK_CONVERSATION,
         )
 
-        assert rubric_text in s
+        assert criteria_text in s
         assert _MOCK_CONVERSATION in u
         assert s.endswith("END")
         assert u.endswith("END")
 
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
-        rubric = load_rubric("nursing_history_v1")
-        rubric_text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
-
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
-        system = render_template(_HARDCODED_SCORING_SYSTEM,
-                                 scoring_rubric=rubric_text)
+        system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
 
         checks = [
             ("版本信息", "护理病史采集训练评分标准"),
@@ -277,15 +279,11 @@ class TestScoringFlowEndToEnd:
     """模拟完整评分数据流"""
 
     def test_full_prompt_rendering(self):
-        rubric = load_rubric("nursing_history_v1")
-        rubric_text = build_scoring_rubric(rubric, _MOCK_REQUIRED_INQUIRIES)
-
         from services.prompt_manager import (
             _HARDCODED_SCORING_SYSTEM,
             _HARDCODED_SCORING_USER,
         )
-        system = render_template(_HARDCODED_SCORING_SYSTEM,
-                                 scoring_rubric=rubric_text)
+        system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
         user = render_template(_HARDCODED_SCORING_USER,
                                conversation_text=_MOCK_CONVERSATION)
 
@@ -356,7 +354,7 @@ class TestScoringFlowEndToEnd:
 
     def test_sample_vars_are_renderable(self):
         """SAMPLE_VARS 中的 scoring 预览数据必须可渲染"""
-        sample = get_sample_vars().get("scoring", {})
+        sample = get_registry().get_sample_kwargs("scoring")
         assert sample, "scoring sample vars 为空"
 
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM

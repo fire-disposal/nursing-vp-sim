@@ -18,6 +18,205 @@ import Modal from "../ui/Modal";
 const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
+const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSource }) => {
+  const [editing, setEditing] = useState(false);
+  const [descDraft, setDescDraft] = useState(meta.desc || "");
+  const [editingDefault, setEditingDefault] = useState(false);
+  const [defaultDraft, setDefaultDraft] = useState(meta.default_value || "");
+  const [editingSource, setEditingSource] = useState(false);
+  const [sourceDraft, setSourceDraft] = useState(meta.source || "");
+
+  const commitDesc = () => {
+    setEditing(false);
+    if (descDraft !== (meta.desc || "")) {
+      onUpdateDesc(vName, descDraft);
+    }
+  };
+
+  const commitDefault = () => {
+    setEditingDefault(false);
+    if (defaultDraft !== (meta.default_value || "")) {
+      onUpdateDefault(vName, defaultDraft);
+    }
+  };
+
+  const commitSource = () => {
+    setEditingSource(false);
+    if (sourceDraft !== (meta.source || "")) {
+      onUpdateSource(vName, sourceDraft);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--border-secondary)",
+        borderRadius: "var(--radius-md)",
+        padding: "var(--space-2) var(--space-3)",
+        background: "var(--bg-secondary)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 4,
+        }}
+      >
+        <code
+          style={{
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            color: "var(--blue-700)",
+          }}
+        >
+          {"{#"}
+          {vName}
+          {"#}"}
+        </code>
+        <span
+          style={{
+            fontSize: "0.65rem",
+            color: "var(--text-tertiary)",
+            background: "var(--bg-tertiary)",
+            padding: "1px 6px",
+            borderRadius: "var(--radius-full)",
+          }}
+        >
+          {meta.type || "string"}
+        </span>
+      </div>
+
+      {editing ? (
+        <div style={{ marginBottom: 4 }}>
+          <input
+            value={descDraft}
+            onChange={(e) => setDescDraft(e.target.value)}
+            onBlur={commitDesc}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitDesc();
+            }}
+            autoFocus
+            placeholder="变量描述..."
+            style={{
+              width: "100%",
+              fontSize: "0.72rem",
+              padding: "2px 6px",
+              border: "1px solid var(--blue-300)",
+              borderRadius: 4,
+              outline: "none",
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          style={{
+            fontSize: "0.7rem",
+            color: meta.desc ? "var(--text-secondary)" : "var(--text-tertiary)",
+            marginBottom: 4,
+            cursor: "pointer",
+            padding: "2px 0",
+            fontStyle: meta.desc ? "normal" : "italic",
+          }}
+          title="点击编辑描述"
+        >
+          {meta.desc || "点击添加描述..."}
+        </div>
+      )}
+
+      <div
+        style={{
+          fontSize: "0.65rem",
+          color: "var(--text-tertiary)",
+          lineHeight: 1.5,
+        }}
+      >
+        {editingSource ? (
+          <div style={{ marginBottom: 2 }}>
+            <input
+              value={sourceDraft}
+              onChange={(e) => setSourceDraft(e.target.value)}
+              onBlur={commitSource}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitSource();
+              }}
+              autoFocus
+              placeholder="变量来源..."
+              style={{
+                width: "100%",
+                fontSize: "0.68rem",
+                padding: "2px 6px",
+                border: "1px solid var(--amber-300)",
+                borderRadius: 4,
+                outline: "none",
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            onClick={() => setEditingSource(true)}
+            style={{
+              cursor: "pointer",
+              color: meta.source ? "var(--text-secondary)" : "var(--text-tertiary)",
+              fontStyle: meta.source ? "normal" : "italic",
+            }}
+            title="点击编辑来源说明"
+          >
+            {meta.source ? `来源：${meta.source}` : "点击添加来源说明..."}
+          </div>
+        )}
+        {meta.example && (
+          <div
+            style={{
+              whiteSpace: "pre-wrap",
+              maxHeight: 60,
+              overflow: "hidden",
+            }}
+          >
+            示例：{meta.example}
+          </div>
+        )}
+        <div style={{ marginTop: 2 }}>
+          {editingDefault ? (
+            <input
+              value={defaultDraft}
+              onChange={(e) => setDefaultDraft(e.target.value)}
+              onBlur={commitDefault}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitDefault();
+              }}
+              autoFocus
+              placeholder="默认值..."
+              style={{
+                width: "100%",
+                fontSize: "0.68rem",
+                padding: "2px 6px",
+                border: "1px solid var(--green-300)",
+                borderRadius: 4,
+                outline: "none",
+              }}
+            />
+          ) : (
+            <div
+              onClick={() => setEditingDefault(true)}
+              style={{
+                cursor: "pointer",
+                color: meta.default_value ? "var(--text-secondary)" : "var(--text-tertiary)",
+                fontStyle: meta.default_value ? "normal" : "italic",
+              }}
+              title="点击设置默认值（自定义变量在调用点未提供值时使用）"
+            >
+              默认值：{meta.default_value || "(点击设置)"}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function PromptManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
@@ -150,6 +349,48 @@ export default function PromptManagementTab() {
     } catch (err) {
       toast.error(err.response?.data?.detail || "删除失败");
     }
+  };
+
+  const handleUpdateVarDesc = (varName, newDesc) => {
+    if (!editedPrompt) return;
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== editedPrompt.id) return p;
+        const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, desc: newDesc } : v));
+        if (!updatedVars.find((v) => v.name === varName)) {
+          updatedVars.push({ name: varName, desc: newDesc });
+        }
+        return { ...p, variables: updatedVars };
+      }),
+    );
+  };
+
+  const handleUpdateVarDefault = (varName, newDefault) => {
+    if (!editedPrompt) return;
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== editedPrompt.id) return p;
+        const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, default_value: newDefault } : v));
+        if (!updatedVars.find((v) => v.name === varName)) {
+          updatedVars.push({ name: varName, default_value: newDefault });
+        }
+        return { ...p, variables: updatedVars };
+      }),
+    );
+  };
+
+  const handleUpdateVarSource = (varName, newSource) => {
+    if (!editedPrompt) return;
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== editedPrompt.id) return p;
+        const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, source: newSource } : v));
+        if (!updatedVars.find((v) => v.name === varName)) {
+          updatedVars.push({ name: varName, source: newSource });
+        }
+        return { ...p, variables: updatedVars };
+      }),
+    );
   };
 
   const handleValidate = async () => {
@@ -556,25 +797,18 @@ export default function PromptManagementTab() {
                   <Hash size={12} /> 模板变量 {currentVars.length > 0 && `(${currentVars.length})`}
                 </div>
                 {currentVars.length > 0 ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {currentVars.map((v) => {
-                      const desc = dbVars.find((d) => d.name === v);
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {currentVars.map((vName) => {
+                      const meta = dbVars.find((d) => d.name === vName) || {};
                       return (
-                        <span
-                          key={v}
-                          title={desc?.desc || ""}
-                          style={{
-                            padding: "2px 10px",
-                            borderRadius: "var(--radius-full)",
-                            fontSize: "0.7rem",
-                            background: "var(--blue-50)",
-                            color: "var(--blue-700)",
-                            border: "1px solid var(--blue-200)",
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          {`{#${v}#}`}
-                        </span>
+                        <VariableCard
+                          key={vName}
+                          vName={vName}
+                          meta={meta}
+                          onUpdateDesc={handleUpdateVarDesc}
+                          onUpdateDefault={handleUpdateVarDefault}
+                          onUpdateSource={handleUpdateVarSource}
+                        />
                       );
                     })}
                   </div>

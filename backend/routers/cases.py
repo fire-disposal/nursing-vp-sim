@@ -13,6 +13,7 @@ from logger import log
 from pagination import paginate
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
+from services.variable_registry import get_registry
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
@@ -137,9 +138,10 @@ async def generate_case(
 
     pm = await get_prompt_manager()
     tmpl = await pm.get("case_generation")
+    defaults = get_registry().get_defaults("case_generation")
     system_content = tmpl.render(
-        description=data.description,
-        reference_material=reference_material or "无",
+        description=data.description or defaults.get("description", ""),
+        reference_material=reference_material or defaults.get("reference_material", "无"),
     )
 
     if data.field:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
@@ -33,6 +33,7 @@ def _build_llm_context(session_id: int, db: Session) -> list:
 @router.post("/sessions", response_model=QAAskResponse)
 async def create_session(
     req: QASessionCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -69,9 +70,11 @@ async def create_session(
         log.error("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=500, detail=f"Prompt加载失败: {str(e)}")
 
+    rid = getattr(request.state, "request_id", None)
     try:
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
-                                purpose="qa", user_id=current_user.id)
+                                purpose="qa", user_id=current_user.id,
+                                log_meta={"request_id": rid} if rid else None)
     except Exception as e:
         log.error("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
@@ -95,6 +98,7 @@ async def create_session(
 async def ask_in_session(
     session_id: int,
     req: QASessionCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -125,9 +129,11 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render()})
 
+    rid = getattr(request.state, "request_id", None)
     try:
         answer = await call_llm(llm_messages, temperature=0.7, max_tokens=1024,
-                                purpose="qa", user_id=current_user.id)
+                                purpose="qa", user_id=current_user.id,
+                                log_meta={"request_id": rid} if rid else None)
     except Exception as e:
         log.error("qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id})
         raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")

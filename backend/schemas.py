@@ -579,6 +579,7 @@ class PromptTemplateResponse(BaseModel):
 
 
 class PromptValidateRequest(BaseModel):
+    purpose: str
     system_prompt: str
     user_prompt: Optional[str] = None
     variables: Optional[list[dict]] = None
@@ -588,16 +589,18 @@ class PromptValidateResponse(BaseModel):
     valid: bool
     errors: list[str] = []
     missing_vars: list[str] = []
+    warnings: list[str] = []
 
 
 class PromptPreviewResponse(BaseModel):
     purpose: str
     version: int
     system_prompt_raw: str
-    user_prompt_raw: str | None
+    user_prompt_raw: Optional[str]
     system_prompt_rendered: str
-    user_prompt_rendered: str | None
+    user_prompt_rendered: Optional[str]
     sample_vars: dict
+    render_error: Optional[str] = None
 
 
 # ── 反馈系统 ──

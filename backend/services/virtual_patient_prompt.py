@@ -12,8 +12,11 @@ def build_patient_context_kwargs(case_data: dict,
 
     返回 6 个键：communication_style, patient_info, chief_complaint,
     present_illness, allergy_history, hidden_info_rules。
-    缺字段自动回退到默认值，不会抛异常。
+    支持 VariableRegistry 默认值回退，确保模板变量始终有值。
     """
+    from services.variable_registry import get_registry
+    defaults = get_registry().get_defaults("patient_chat")
+
     pi = case_data.get("patient_info", {})
     patient_info_str = (
         f"{pi.get('name', '患者')}，{pi.get('age', '')}岁，{pi.get('gender', '')}"
@@ -26,12 +29,12 @@ def build_patient_context_kwargs(case_data: dict,
     hidden_info_rules = "\n".join(hidden_items) if hidden_items else "暂无额外信息"
 
     return {
-        "communication_style": str(case_data.get("communication_style", "友善自然")),
-        "patient_info": patient_info_str,
-        "chief_complaint": str(case_data.get("chief_complaint", "未知")),
-        "present_illness": str(case_data.get("present_illness", "未知")),
-        "allergy_history": str(case_data.get("allergy_history", "无")),
-        "hidden_info_rules": hidden_info_rules,
+        "communication_style": str(case_data.get("communication_style") or defaults.get("communication_style", "友善自然")),
+        "patient_info": patient_info_str or defaults.get("patient_info", ""),
+        "chief_complaint": str(case_data.get("chief_complaint") or defaults.get("chief_complaint", "未知")),
+        "present_illness": str(case_data.get("present_illness") or defaults.get("present_illness", "未知")),
+        "allergy_history": str(case_data.get("allergy_history") or defaults.get("allergy_history", "无")),
+        "hidden_info_rules": hidden_info_rules or defaults.get("hidden_info_rules", ""),
     }
 
 
