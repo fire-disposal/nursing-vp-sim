@@ -107,14 +107,11 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }) {
 
   const detailScores = score.detail_scores || {};
   const categories = Object.entries(detailScores);
-  const isNewFormat = categories.length > 0 && categories[0][1] && typeof categories[0][1] === "object" && "items" in categories[0][1];
+  const hasItems = categories.some(([, v]) => v && typeof v === "object" && Array.isArray(v.items) && v.items.length > 0);
 
-  let maxTotal = 100;
-  if (isNewFormat) {
-    maxTotal = categories.reduce((sum, [, v]) => sum + (v.max || 0), 0);
-  }
+  const maxTotal = categories.reduce((sum, [, v]) => sum + (v && typeof v === "object" ? v.max || 0 : 0), 0) || 100;
 
-  const rubricLabel = score.rubric_version ? (score.rubric_version.startsWith("legacy") ? "旧版评分标准" : `评分标准: ${score.rubric_version}`) : null;
+  const rubricLabel = score.rubric_version ? `评分标准: ${score.rubric_version}` : null;
 
   return (
     <div className="score-overlay" onClick={onClose}>
@@ -147,27 +144,29 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }) {
           <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>总分 (满分{maxTotal})</div>
         </div>
 
-        {isNewFormat ? (
-          categories.map(([catName, catData]) => (
-            <ScoreBar key={catName} label={catName} score={catData.score} max={catData.max} variant={catName.includes("沟通") ? "blue" : "teal"} />
-          ))
-        ) : (
-          <div style={{ fontSize: "0.8rem", color: "#9ca3af", textAlign: "center", marginBottom: 12 }}>旧版评分标准，仅总分有效</div>
-        )}
+        {categories.map(([catName, catData]) => {
+          if (!catData || typeof catData !== "object") return null;
+          return (
+            <ScoreBar key={catName} label={catName} score={catData.score || 0} max={catData.max || 30} variant={catName.includes("沟通") ? "blue" : "teal"} />
+          );
+        })}
 
-        {isNewFormat &&
-          categories.map(([catName, catData]) => (
-            <div key={catName} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                {catName} · 逐项评分（点击展开证据）
+        {hasItems &&
+          categories.map(([catName, catData]) => {
+            if (!catData || !Array.isArray(catData.items)) return null;
+            return (
+              <div key={catName} style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                  {catName} · 逐项评分（点击展开证据）
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {catData.items.map((item, i) => (
+                    <ScoreItem key={item.id || i} item={item} />
+                  ))}
+                </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {catData.items.map((item, i) => (
-                  <ScoreItem key={item.id || i} item={item} />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
         {score.strengths && score.strengths.length > 0 && (
           <div className="score-section">

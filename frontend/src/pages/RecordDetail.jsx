@@ -360,15 +360,12 @@ export default function RecordDetail() {
   }
 
   const duration = record.end_time ? Math.round((new Date(record.end_time) - new Date(record.start_time)) / 60000) : null;
-  const isLegacyScore = record.score?.rubric_version?.startsWith("legacy");
-  const scoreMax = isLegacyScore
-    ? 100
-    : record.score?.detail_scores
-      ? Object.values(record.score.detail_scores).reduce((sum, value) => {
-          if (value && typeof value === "object" && "max" in value) return sum + (value.max || 0);
-          return sum + 30;
-        }, 0)
-      : 100;
+  const scoreMax = record.score?.detail_scores
+    ? Object.values(record.score.detail_scores).reduce((sum, value) => {
+        if (value && typeof value === "object" && "max" in value) return sum + (value.max || 0);
+        return sum + 30;
+      }, 0)
+    : 100;
 
   return (
     <Layout>
