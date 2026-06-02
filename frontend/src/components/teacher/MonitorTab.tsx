@@ -1,5 +1,6 @@
 import { Activity, BarChart3, Download, Server, TrendingUp, Zap } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
 import Pagination from "@/components/ui/Pagination";
 import type { components } from "@/api/api-types.gen";
@@ -34,17 +35,31 @@ interface LLMStats {
 }
 
 export default function MonitorTab() {
-  const [stats, setStats] = useState<LLMStats | null>(null);
-  const [logs, setLogs] = useState<LLMCallLogItem[]>([]);
-  const [logTotal, setLogTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const LIMIT = 20;
   const [filters, setFilters] = useState({ purpose: "", status: "", date_from: "", date_to: "" });
-  const [loading, setLoading] = useState(false);
 
-  const handleExport = useCallback(async () => {
-    try {
-      const resp = await exportLLMLogs(filters.date_from || undefined, filters.date_to || undefined);
+  const { data: stats } = useQuery({
+    queryKey: ["llmStats"],
+    queryFn: () => getLLMStats().then((r) => r.data as LLMStats),
+  });
+
+  const logParams: Record<string, unknown> = { offset, limit: LIMIT };
+  if (filters.purpose) logParams.purpose = filters.purpose;
+  if (filters.status) logParams.status = filters.status;
+  if (filters.date_from) logParams.date_from = filters.date_from;
+  if (filters.date_to) logParams.date_to = filters.date_to;
+
+  const { data: logData, isLoading } = useQuery({
+    queryKey: ["llmLogs", offset, filters],
+    queryFn: () => getLLMLogs(logParams).then((r) => r.data),
+  });
+  const logs = logData?.items ?? [];
+  const logTotal = logData?.total ?? 0;
+
+  const exportMutation = useMutation({
+    mutationFn: () => exportLLMLogs(filters.date_from || undefined, filters.date_to || undefined),
+    onSuccess: (resp) => {
       const blob = new Blob([resp.data as BlobPart], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -52,33 +67,8 @@ export default function MonitorTab() {
       a.download = "llm_logs_export.csv";
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      /* ignore export errors */
-    }
-  }, [filters.date_from, filters.date_to]);
-
-  const loadData = useCallback(() => {
-    getLLMStats()
-      .then(({ data }) => setStats(data as LLMStats))
-      .catch(() => {});
-    setLoading(true);
-    const params: Record<string, unknown> = { offset, limit: LIMIT };
-    if (filters.purpose) params.purpose = filters.purpose;
-    if (filters.status) params.status = filters.status;
-    if (filters.date_from) params.date_from = filters.date_from;
-    if (filters.date_to) params.date_to = filters.date_to;
-    getLLMLogs(params)
-      .then(({ data }) => {
-        setLogs(data.items);
-        setLogTotal(data.total);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [offset, filters]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    },
+  });
 
   if (!stats) {
     return (
@@ -267,7 +257,7 @@ export default function MonitorTab() {
               </select>
             </div>
             <button
-              onClick={handleExport}
+              onClick={() => exportMutation.mutate()}
               style={{
                 fontSize: "0.8rem",
                 padding: "4px 12px",
@@ -284,7 +274,7 @@ export default function MonitorTab() {
               <Download size={13} /> 导出CSV
             </button>
           </div>
-          {loading ? (
+          {isLoading ? (
             <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>加载中...</div>
           ) : logs.length === 0 ? (
             <div style={{ textAlign: "center", padding: 24, color: "var(--text-tertiary)" }}>
