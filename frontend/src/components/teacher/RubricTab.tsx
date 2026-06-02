@@ -2,7 +2,7 @@ import { Award, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide
 import { useEffect, useState } from "react";
 import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
 import Button from "@/components/ui/Button";
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/Toast";
 import type { components } from "@/api/api-types.gen";

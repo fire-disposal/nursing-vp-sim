@@ -83,13 +83,13 @@ export default function Stats() {
     if (user?.role === "teacher") {
       getTeacherSummary({ offset: summaryOffset, limit: LIMIT })
         .then(({ data }) => {
-          setSummary((data.items ?? []) as TeacherSummaryItem[]);
+          setSummary(data.items ?? []);
           setSummaryTotal(data.total ?? 0);
         })
         .catch(() => toast.error("加载教师概览失败"));
       getStudentRanking({ offset: rankingOffset, limit: LIMIT })
         .then(({ data }) => {
-          setRanking((data.items ?? []) as RankingItem[]);
+          setRanking(data.items ?? []);
           setRankingTotal(data.total ?? 0);
         })
         .catch(() => toast.error("加载排行榜失败"));

@@ -2,7 +2,7 @@
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import FormField from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";

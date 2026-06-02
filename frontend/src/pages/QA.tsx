@@ -10,6 +10,8 @@ import {
   getQASessions,
 } from "@/api/api-client";
 import Layout from "@/components/Layout";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/components/Toast";
 import { getNurseAvatar } from "@/utils/avatar";
 import type { components } from "@/api/api-types.gen";
 
@@ -39,15 +41,17 @@ export default function QA() {
   const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { confirm } = useConfirm();
+  const toast = useToast();
 
   const loadSessions = useCallback(async () => {
     try {
       const res = await getQASessions();
       setSessions(res.data || []);
     } catch {
-      // silent
+      toast.error("加载会话列表失败");
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     loadSessions();
@@ -63,9 +67,9 @@ export default function QA() {
       setActiveSessionId(sessionId);
       setMessages(res.data || []);
     } catch {
-      // silent
+      toast.error("加载会话消息失败");
     }
-  }, []);
+  }, [toast]);
 
   const sendMessage = useCallback(
     async (text?: string) => {
@@ -133,7 +137,8 @@ export default function QA() {
   const handleDeleteSession = useCallback(
     async (e: React.MouseEvent, sessionId: number) => {
       e.stopPropagation();
-      if (!confirm("确定要删除此会话？")) return;
+      const ok = await confirm({ title: "删除会话", message: "确定要删除此会话？", danger: true });
+      if (!ok) return;
       try {
         await deleteQASession(sessionId);
         if (activeSessionId === sessionId) {
@@ -142,10 +147,10 @@ export default function QA() {
         }
         await loadSessions();
       } catch {
-        // silent
+        toast.error("删除会话失败");
       }
     },
-    [activeSessionId, loadSessions],
+    [activeSessionId, loadSessions, confirm, toast],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -90,14 +90,15 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export default function ConfirmDialog({
+export function ConfirmDialog({
   open, onConfirm, onCancel, title, message, confirmLabel = "确定", cancelLabel = "取消", danger = false,
 }: {
   open: boolean; onConfirm: () => void; onCancel: () => void;
   title: string; message: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean;
 }) {
+  if (!open) return null;
   return (
-    <D.Root open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <D.Root open onOpenChange={() => onCancel()}>
       <D.Portal>
         <D.Overlay style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 2000 }} />
         <D.Content style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 420, maxWidth: "90vw", background: "#fff", borderRadius: 12, boxShadow: "0 20px 48px rgba(15,23,42,0.16)", zIndex: 2001, overflow: "hidden" }}>
@@ -110,18 +111,14 @@ export default function ConfirmDialog({
                 <D.Title style={{ fontSize: "1.05rem", fontWeight: 600, color: "#111827", margin: "0 0 4px" }}>{title}</D.Title>
                 <D.Description style={{ fontSize: "0.875rem", color: "#6b7280", lineHeight: 1.7 }}>{message}</D.Description>
               </div>
-              <button onClick={onCancel} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, flexShrink: 0 }}>
+              <button type="button" onClick={onCancel} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, flexShrink: 0 }}>
                 <X size={18} />
               </button>
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "16px 24px 20px" }}>
-            <D.Cancel asChild>
-              <button onClick={onCancel} style={{ padding: "7px 18px", fontSize: "0.875rem", fontWeight: 500, borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", color: "#374151", cursor: "pointer" }}>{cancelLabel}</button>
-            </D.Cancel>
-            <D.Action asChild>
-              <button onClick={onConfirm} style={{ padding: "7px 18px", fontSize: "0.875rem", fontWeight: 500, borderRadius: 8, border: "none", cursor: "pointer", background: danger ? "#ef4444" : "#2563eb", color: "#fff" }}>{confirmLabel}</button>
-            </D.Action>
+            <D.Cancel asChild><button type="button" onClick={onCancel} style={{ padding: "7px 18px", fontSize: "0.875rem", fontWeight: 500, borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", color: "#374151", cursor: "pointer" }}>{cancelLabel}</button></D.Cancel>
+            <D.Action asChild><button type="button" onClick={onConfirm} style={{ padding: "7px 18px", fontSize: "0.875rem", fontWeight: 500, borderRadius: 8, border: "none", cursor: "pointer", background: danger ? "#ef4444" : "#2563eb", color: "#fff" }}>{confirmLabel}</button></D.Action>
           </div>
         </D.Content>
       </D.Portal>

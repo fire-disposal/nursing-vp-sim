@@ -48,7 +48,7 @@ export default function History() {
     if (filters.date_to) params.date_to = filters.date_to;
     getRecords(params)
       .then(({ data }) => {
-        setRecords((data.items ?? []) as TrainingRecordBrief[]);
+        setRecords(data.items ?? []);
         setTotal(data.total ?? 0);
       })
       .catch((err: unknown) => {

@@ -94,7 +94,7 @@ export default function DashboardHome() {
   useEffect(() => {
     if (user?.role === "student") {
       getCases()
-        .then(({ data }) => setCases((data.items ?? []) as CaseBrief[]))
+        .then(({ data }) => setCases(data.items ?? []))
         .catch(() => toast.error("加载病例列表失败"));
       getDurationStats()
         .then(({ data }) => setDurationStats(data))
