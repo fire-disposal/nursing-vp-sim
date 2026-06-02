@@ -48,7 +48,7 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_content},
     ]
-    result = await call_llm_json(scoring_messages, temperature=0.3,
+    result = await call_llm_json(scoring_messages, temperature=0,
                                    max_tokens=LLM_SCORING_MAX_TOKENS, timeout=LLM_SCORING_TIMEOUT, max_retries=3,
                                    purpose="scoring", user_id=record.user_id,
                                    record_id=record_id, case_id=record.case_id,
