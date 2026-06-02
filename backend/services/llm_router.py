@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta
 
 _logger = logging.getLogger("nursing")
 
-CIRCUIT_BREAKER_THRESHOLD = 5
-RATE_LIMIT_COOLDOWN_SECONDS = 60
-DEGRADED_TTL_SECONDS = 300
-GLOBAL_DEGRADED_TTL_SECONDS = 30
+CIRCUIT_BREAKER_THRESHOLD = 5       # 连续失败 N 次 → 熔断（DEGRADED_TTL 秒后自动恢复）
+RATE_LIMIT_COOLDOWN_SECONDS = 60   # 收到 429 → 冷却 N 秒
+DEGRADED_TTL_SECONDS = 300          # 熔断恢复时间
+GLOBAL_DEGRADED_TTL_SECONDS = 30   # 所有 key 全挂 → 全局降级 N 秒
 
 # ── 环境变量密钥兜底状态（启动时由 main.py 写入，admin API 读取）──
 _env_fallback_available = False
@@ -110,6 +110,15 @@ class ConfigRouter:
             db.close()
 
     def select_key(self, purpose: str):
+        """根据用途和优先级选择最佳可用配置。
+        
+        选择逻辑：
+        1. 查 purpose 对应配置，按 priority 升序
+        2. 跳过 disabled / 冷却中的 degraded
+        3. purpose 无匹配时回退到通配符 "*"
+        4. 全部不可用 → 最后防线：.env DEEPSEEK_API_KEY
+        5. .env 也没有 → 全局降级（30s）
+        """
         configs = self._cache_by_purpose.get(purpose, [])
 
         if not configs and purpose != "*":
@@ -159,6 +168,14 @@ class ConfigRouter:
 
     def report_result(self, config, *, success: bool, tokens: int,
                       latency_ms: int, error: str | None):
+        """向 Router 报告一次调用的结果，触发熔断/恢复/成本统计。
+        
+        三种熔断路径：
+        - 成功 → 重置计数器，累计成本
+        - 429 → 立即冷却 60s（API 限流）
+        - 其他失败 → 累计连续失败次数，≥5 次熔断 300s
+        - 月度成本超限 → 熔断至下月
+        """
         now = datetime.now(timezone.utc)
         degraded = False
 

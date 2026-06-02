@@ -64,6 +64,20 @@ async def _verify_llm_key() -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """应用生命周期 —— 按顺序启动核心服务，关闭时优雅清理。
+
+    启动链路：
+    1. 验证 DeepSeek API Key 连通性
+    2. 初始化数据库 + 运行 Alembic 迁移
+    3. 种子数据（首次启动创建管理员账号 + 默认病例）
+    4. 种子 LLM 配置（首次启动将 .env key 写入 DB）
+    5. 加载 ConfigRouter（API key 路由+熔断）
+    6. 加载 PromptManager（模板热重载）
+    7. 启动 LLM 日志消费者（异步批量写 DB）
+    8. 启动限流器定期清理
+
+    关闭链路：取消清理任务 → 刷写剩余日志 → 关闭 DB 连接池
+    """
     _startup_logger.info(
         "\n"
         "  _   __              _               __      ______  _____ \n"
@@ -262,7 +276,9 @@ if os.path.isdir(FRONTEND_DIST):
 
 
 def _seed_data():
-    """初始化种子数据：管理员账号和病例"""
+    """首次启动种子数据：RBAC角色权限 → 管理员账号 → 测试学生 → 内置病例。
+    幂等安全：已有数据时自动跳过。SKIP_SEED=1 环境变量可跳过全流程。
+    """
     import os as _os
     if _os.environ.get("SKIP_SEED"):
         return

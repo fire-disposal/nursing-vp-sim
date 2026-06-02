@@ -9,7 +9,12 @@ _VAR_RE = re.compile(r"\{#([^}#]+)#\}")
 
 
 def render_template(template: str, **kwargs) -> str:
-    """安全模板渲染：用 {#variable#} 语法替换变量，变量值中的任何字符（含 {}）都原样保留。"""
+    """安全模板渲染 —— 用 {#variable#} 语法替换变量。
+    
+    与 Python format() 不同：花括号 {} 在值中原样保留，不会被误解析。
+    仅替换 {#name#} 模式，缺失变量抛 RuntimeError。
+    设计原因：Prompt 模板可能包含 JSON 示例（带 {}），format() 会误伤。
+    """
     def _replace(m: re.Match) -> str:
         var = m.group(1).strip()
         if var not in kwargs:
@@ -129,7 +134,13 @@ class PromptManager:
             db.commit()
             _logger.info("v1 默认模板已同步: %d 个更新", updated)
 
-    async def get(self, purpose: str) -> PromptTemplateObj:
+    async     def get(self, purpose: str) -> PromptTemplateObj:
+        """获取激活模板。三层降级保障：
+        1. 内存缓存命中 → 直接返回（最快）
+        2. 缓存未命中 → 从 DB 重新加载
+        3. DB 加载失败 → 使用上次有效缓存
+        4. 最终兜底 → 硬编码模板（永不返回 None）
+        """
         async with self._lock:
             tmpl = self._cache.get(purpose)
         if tmpl is not None:

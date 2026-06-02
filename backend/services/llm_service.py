@@ -8,7 +8,7 @@ from config import (
     LLM_CONCURRENT_LIMIT, LLM_CONNECTION_POOL_SIZE, LLM_CONNECTION_KEEPALIVE,
 )
 
-# 并发限流
+# 并发限流 —— 控制同时进行的 LLM API 调用数，防止打爆 API 配额
 _rate_limiter = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
 
 # 可重试的 HTTP 状态码和异常类型
@@ -16,7 +16,8 @@ _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 _RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError,
                           httpx.RemoteProtocolError, httpx.ReadError)
 
-# 模块级共享客户端 —— 使用 HTTP/2 多路复用，避免连接池问题
+# 模块级共享 HTTP/2 客户端 —— 复用 TCP 连接，避免每次请求都握手
+# 注意：切勿在外部调用 _reset_client()，会断开所有进行中的请求
 _shared_client: httpx.AsyncClient | None = None
 _shared_client_lock = asyncio.Lock()
 
@@ -58,7 +59,12 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
                    client: httpx.AsyncClient | None = None,
                    semaphore: asyncio.Semaphore | None = None,
                    ) -> str:
-    """通过 LLMRouter 选择 key/provider 调用 LLM API，返回文本回复。支持自动记录调用日志。"""
+    """通过 LLMRouter 选择 key/provider 调用 LLM API，返回文本回复。支持自动记录调用日志。
+    
+    调用链路：Router选key → 构造payload → HTTP POST → 解析响应 → 记录日志
+    重试策略：429立即降解+退避 / 5xx退避重试 / 网络异常重建客户端后重试
+    降级兜底：所有DB配置不可用时，回退到 .env 的 DEEPSEEK_API_KEY
+    """
     from services.llm_router import get_router
 
     router = await get_router()
@@ -105,6 +111,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
             latency_ms = int((time.perf_counter() - t0) * 1000)
 
             if resp.status_code == 429:
+                # 429 Rate Limited → 立即降解当前配置 60s，让 Router 选下一个 key
                 router.report_result(config, success=False, tokens=0,
                                      latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
                 last_error = "HTTP 429"
@@ -225,7 +232,12 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
                           case_id: int | None = None,
                           log_meta: dict | None = None,
                           ):
-    """通过 LLMRouter 选择 key/provider，流式返回文本块。支持重试与故障转移。"""
+    """通过 LLMRouter 选择 key/provider，流式返回文本块（SSE 逐 token 推送）。
+    
+    与 call_llm 不同：响应通过 yield 逐块返回，前端可实时显示。
+    重试策略：整条流失败后重新开始，不做断点续传。
+    兜底机制：全部重试耗尽且未产出任何内容时，自动降级为 call_llm（非流式）获取完整结果。
+    """
     from services.llm_router import get_router
 
     router = await get_router()
@@ -360,7 +372,15 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
 
 
 def _safe_parse_json(text: str) -> dict:
-    """安全解析 LLM 返回的 JSON，处理常见格式问题：markdown 围栏、尾部逗号、截断修复。"""
+    """安全解析 LLM 返回的 JSON —— 四级降级策略：
+
+    1. 标准解析（去markdown围栏、首尾花括号定位）
+    2. 移除尾部逗号后重试
+    3. 截断修复（补全未闭合的引号、括号）
+    4. 正则兜底提取关键字段（评分必须的总分+维度分）
+    
+    最后防线：total_score 或 detail_scores 至少有一个存在，否则抛异常告知上游。
+    """
     text = text.strip()
     text = re.sub(r'^```(?:json)?\s*\n?', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\n?\s*```\s*$', '', text)

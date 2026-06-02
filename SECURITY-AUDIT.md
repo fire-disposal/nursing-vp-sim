@@ -1,85 +1,51 @@
 # Security Audit Report
 
-> Generated 2026-06-01 — comprehensive review of environment injection, secrets handling, and deployment pipeline.
+> 2026-06-01 — 2026-06-02 更新。标注 `[已解决]` / `[开发环境]` / `[待处理]`。
 
-## CRITICAL
+## 待处理
 
 ### 1. Hardcoded Seed Credentials on First Run
-**File:** `backend/main.py:239-252, 224-273`
+**File:** `backend/main.py:264-335`
 
-`_seed_data()` auto-creates accounts when DB is empty:
-- `admin / admin123` (teacher)
-- `student1..5 / 123456` (student)
+`_seed_data()` 在空数据库自动创建 `admin/admin123` + `student1..5/123456`。若生产 DB 被重建，攻击者可立即获取管理员权限。**建议：** 生产环境设 `SKIP_SEED=1` 或 `ENV=production` 时跳过。
 
-If production DB is recreated, attacker gains immediate admin access. **Mitigation:** Gate seed behind `ENV != "production"` or require first-run password setup.
-
-### 2. SSH Heredoc Expands GitHub Secrets Unquoted
-**File:** `.github/workflows/cd.yml:96,119`
-
-`ssh "$USER@$HOST" << DEPLOY` (unquoted delimiter) expands `${{ secrets.GITHUB_TOKEN }}` before sending to server. Although GITHUB_TOKEN is alphanumeric, any secrets with shell metacharacters could inject commands. **Mitigation:** Quote heredoc delimiter and pass secrets via environment variables.
-
-### 3. Test DB Port Exposed on 0.0.0.0
-**Files:** `docker-compose.test.yml:13`, `.github/workflows/ci.yml:24`
-
-`ports: "5432:5432"` binds PostgreSQL to all interfaces. In non-isolated networks, this allows external connections using hardcoded `postgres:postgres` credentials. **Mitigation:** Bind to `127.0.0.1:5432:5432` or remove port mapping in CI (healthcheck runs in same Docker network).
-
----
-
-## IMPORTANT
-
-### 4. SECRET_KEY Accepts Weak Keys
+### 2. SECRET_KEY Accepts Weak Keys
 **File:** `backend/config.py:21-28`
 
-Only 3 exact placeholder strings are rejected. Short keys like `test` or `dev` are accepted, making HS256 JWT signatures trivially brute-forceable. **Mitigation:** Add minimum length check (`len(key) >= 32`).
+仅拒绝 3 个占位符字符串。`test`、`dev` 等短密钥通过校验，使 JWT 签名可暴力破解。**建议：** `len(SECRET_KEY) >= 32`。
 
-### 5. CORS Allows Arbitrary Origins with Credentials
-**File:** `backend/main.py:121-128`
+### 3. CORS Allows Arbitrary Origins with Credentials
+**File:** `backend/main.py:134-140`
 
-`allow_credentials=True` with `allow_origins` from user-configured env var. If CORS_ORIGINS includes attacker domain, JavaScript on that domain can carry cookies and read Authorization headers. **Mitigation:** Validate origins against a known allowlist in production.
+`allow_credentials=True` + env 配置 `CORS_ORIGINS`。若 CORS_ORIGINS 配置错误，攻击者域名可携带 Cookie 读取请求。**建议：** 生产环境使用白名单验证。
 
-### 6. SSH Host Key Errors Silently Suppressed
-**File:** `.github/workflows/cd.yml:93`
+### 4. All Environment Variables Leaked to pg_dump
+**File:** `backend/routers/admin.py:305`
 
-`ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null` — if `ssh-keyscan` fails (DNS resolution, network), stderr is discarded, and SSH may fall back to interactive host key prompt or accept unknown keys. **Mitigation:** Remove `2>/dev/null` and handle failure explicitly, or pre-configure known host keys.
+`os.environ.copy()` 将所有 env（含 SECRET_KEY、DEEPSEEK_API_KEY）传给 `pg_dump` 子进程。**建议：** 仅传 `PGPASSWORD` + `PATH`。
 
-### 7. All Environment Variables Leaked to Subprocess
-**File:** `backend/routers/admin.py:176`
+### 5. Backup Endpoint Unthrottled
+**File:** `backend/routers/admin.py:297-342`
 
-`os.environ.copy()` passes every env var (including SECRET_KEY, DEEPSEEK_API_KEY) to `pg_dump` subprocess. Process monitoring tools can read `/proc/<pid>/environ`. **Mitigation:** Construct minimal env dict with only `PGPASSWORD` + `PATH`.
+备份端点无频率限制，重复调用可填满磁盘。**建议：** 加冷却时间或去重。
 
----
+### 6. SLSA Provenance Disabled
+**File:** `.github/workflows/staging.yml`
 
-## MINOR
-
-### 8. Default Credentials in Multiple Locations
-**Files:** `config.py:19`, `conftest.py:9`, `ci.yml:79`
-
-`postgresql://postgres:postgres@...` used as default DATABASE_URL/TEST_DB_URL. If deployed without override, connects to default credentials. **Mitigation:** Remove defaults in production paths.
-
-### 9. Development Compose Exposes Ports on 0.0.0.0
-**File:** `docker-compose.yml:27,48`
-
-Backend (8000) and frontend (80) ports bound to all interfaces. The CD pipeline correctly re-binds to 127.0.0.1, but the checked-in file is unsafe for direct use. **Mitigation:** Bind to `127.0.0.1` or add warning comment.
-
-### 10. LLMConfig URL Lacks Format Validation
-**File:** `backend/schemas.py:466-475`
-
-`LLMConfigCreate.base_url` has no URL validation. `ApiProviderCreate` had a `@field_validator` for the same field. **Mitigation:** Add the same `http://`/`https://` prefix check.
-
-### 11. Database Backup Endpoint Unthrottled
-**File:** `backend/routers/admin.py:168-199`
-
-Backup endpoint (teacher-only) has no rate limiting. Repeated calls could fill `/tmp` with concurrent backup operations. **Mitigation:** Add cooldown or request deduplication.
-
-### 12. SLSA Provenance Disabled
-**File:** `.github/workflows/cd.yml:55,68`
-
-`provenance: false` prevents build attestation. Cannot verify artifact integrity from runtime to source commit. **Mitigation:** Enable `provenance: true` (MediaType compatibility is now resolved).
+`provenance: false` 阻止构建认证。**建议：** 启用 `provenance: true`。
 
 ---
 
-## No Findings
+## 已解决 / 可忽略
 
-- **No eval/exec injection:** No dynamic code execution from environment variables found.
-- **No SQL injection in raw queries:** `sa.text()` usage in migrations operates on DB data, not user input.
-- **Encryption key derivation secure:** `crypto_utils.py` uses `hashlib.sha256(SECRET_KEY.encode()).digest()` for Fernet key derivation.
+### ~~DB Port Exposed on 0.0.0.0~~ → 已处理
+DB 端口已绑定 `127.0.0.1:5433`，生产 + staging 均正确隔离。
+
+### ~~Dev Compose Ports on 0.0.0.0~~ → 开发环境
+`docker-compose.yml` 是本地开发文件，CD 部署使用 `deploy/docker-compose.prod.yml`，端口已绑定 127.0.0.1。
+
+### ~~Default Credentials~~ → 仅开发/测试使用
+`DATABASE_URL` 和 `TEST_DB_URL` 默认值仅用于本地开发，生产由 compose 覆盖。
+
+### ~~LLMConfig URL Validation~~ → 低优先级
+`LLMConfigCreate.base_url` 仅有 `max_length=200`，无 URL 格式校验。管理面板仅供教师访问，风险极低。

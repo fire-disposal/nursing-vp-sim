@@ -42,17 +42,17 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 DEEPSEEK_MODEL_PRO = os.getenv("DEEPSEEK_MODEL_PRO", "deepseek-v4-pro")
 
 # LLM 调用参数
-LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
-LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))
-LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))
-LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))
-LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))            # 单次调用最大重试次数
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))    # 单次 HTTP 请求超时（秒）
+LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))  # 全局并发 LLM 调用数上限
+LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))      # HTTP 连接池大小
+LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))      # 空闲连接存活时间（秒）
 
-# 聊天和评分使用不同的超时和 token 限制
-LLM_CHAT_TIMEOUT = int(os.getenv("LLM_CHAT_TIMEOUT", "30"))
-LLM_CHAT_MAX_TOKENS = int(os.getenv("LLM_CHAT_MAX_TOKENS", "512"))
-LLM_SCORING_TIMEOUT = int(os.getenv("LLM_SCORING_TIMEOUT", "120"))
-LLM_SCORING_MAX_TOKENS = int(os.getenv("LLM_SCORING_MAX_TOKENS", "4096"))
+# 聊天和评分使用不同的超时和 token 限制 —— 评分需要更长时间和更大输出
+LLM_CHAT_TIMEOUT = int(os.getenv("LLM_CHAT_TIMEOUT", "30"))          # 对话超时（秒）
+LLM_CHAT_MAX_TOKENS = int(os.getenv("LLM_CHAT_MAX_TOKENS", "512"))   # 对话最大 token
+LLM_SCORING_TIMEOUT = int(os.getenv("LLM_SCORING_TIMEOUT", "120"))   # 评分超时（秒）
+LLM_SCORING_MAX_TOKENS = int(os.getenv("LLM_SCORING_MAX_TOKENS", "4096"))  # 评分最大 token
 
 
 def log_config(logger):
