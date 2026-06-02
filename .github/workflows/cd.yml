@@ -47,16 +47,20 @@ jobs:
             docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null || echo "  (skip)"
 
             OLD_BACKEND=\$(docker inspect --format '{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
-            echo ">> Current: \$OLD_BACKEND"
+            OLD_VER=\$(echo "\$OLD_BACKEND" | rev | cut -d: -f1 | rev)
+            echo ">> Current production: v\$OLD_VER"
 
             echo ">> Deploy v$VER"
-            STAGING_VER=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null | rev | cut -d: -f1 | rev || echo "")
-            if [ "\$STAGING_VER" != "$VER" ]; then
-              echo "✗ Staging mismatch: requested=$VER, staging=\$STAGING_VER"
-              echo "  Deploy to Staging first, verify, THEN deploy to Production."
+            STAGING_VER=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null | rev | cut -d: -f1 | rev || echo "none")
+
+            if [ "\$STAGING_VER" = "none" ]; then
+              echo "⚠ no staging running, allowing direct deploy"
+            elif [ "\$STAGING_VER" != "$VER" ]; then
+              echo "✗ v$VER ≠ staging (v\$STAGING_VER). Must match exactly. Deploy to Staging first."
               exit 1
             fi
-            echo "✓ Staging confirmed: v$VER"
+            echo "✓ v$VER matches staging. Promoting to production..."
+
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
 
@@ -68,16 +72,17 @@ jobs:
                 healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
                 unhealthy)
                   echo "  ✗ unhealthy! Rolling back..."
-                  if [ -n "\$OLD_BACKEND" ]; then
-                    OLD_VER=\$(echo "\$OLD_BACKEND" | rev | cut -d: -f1 | rev)
+                  if [ -n "\$OLD_VER" ]; then
                     IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
-                    echo "  ⚠ rolled back to \$OLD_VER"
+                    echo "  ⚠ rolled back to v\$OLD_VER"
+                  else
+                    echo "  ✗ no previous version to roll back to"
                   fi
                   exit 1 ;;
               esac
               sleep 2
             done
-            [ "\$OK" = true ] || { echo "  ✗ timeout"; exit 1; }
+            [ "\$OK" = true ] || { echo "  ✗ timeout (unhealthy?)"; exit 1; }
 
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
             echo "\$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .version-history
