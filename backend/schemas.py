@@ -588,10 +588,11 @@ class PromptPreviewResponse(BaseModel):
     purpose: str
     version: int
     system_prompt_raw: str
-    user_prompt_raw: str | None
+    user_prompt_raw: Optional[str]
     system_prompt_rendered: str
-    user_prompt_rendered: str | None
+    user_prompt_rendered: Optional[str]
     sample_vars: dict
+    render_error: Optional[str] = None
 
 
 # ── 反馈系统 ──

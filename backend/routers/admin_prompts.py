@@ -241,12 +241,14 @@ async def preview_active_prompt(
             sample[name] = default_val or v.get("example", "") if isinstance(v, dict) else ""
     system_rendered = pt.system_prompt
     user_rendered = pt.user_prompt
+    render_error = None
     try:
         system_rendered = render_template(pt.system_prompt, **sample) if sample else pt.system_prompt
         if pt.user_prompt:
             user_rendered = render_template(pt.user_prompt, **sample) if sample else pt.user_prompt
-    except RuntimeError:
-        pass
+    except RuntimeError as e:
+        render_error = str(e)
+        _logger.warning("preview render failed purpose=%s v%d: %s", purpose, pt.version, e)
     return PromptPreviewResponse(
         purpose=pt.purpose,
         version=pt.version,
@@ -255,4 +257,5 @@ async def preview_active_prompt(
         system_prompt_rendered=system_rendered,
         user_prompt_rendered=user_rendered if pt.user_prompt else None,
         sample_vars=sample,
+        render_error=render_error,
     )

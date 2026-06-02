@@ -43,6 +43,13 @@ class PromptTemplateObj:
 
     def render(self, **kwargs) -> str:
         merged = {**self._var_defaults, **kwargs}
+        if self._var_defaults:
+            used_defaults = [k for k in self._var_defaults if k not in kwargs]
+            if used_defaults:
+                _logger.info(
+                    "prompt render using default_value for %s: %s",
+                    self.purpose, used_defaults,
+                )
         try:
             return render_template(self.system_prompt, **merged)
         except RuntimeError as e:

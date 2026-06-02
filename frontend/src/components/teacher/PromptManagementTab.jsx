@@ -18,11 +18,13 @@ import Modal from "../ui/Modal";
 const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
 const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
-const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault }) => {
+const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSource }) => {
   const [editing, setEditing] = useState(false);
   const [descDraft, setDescDraft] = useState(meta.desc || "");
   const [editingDefault, setEditingDefault] = useState(false);
   const [defaultDraft, setDefaultDraft] = useState(meta.default_value || "");
+  const [editingSource, setEditingSource] = useState(false);
+  const [sourceDraft, setSourceDraft] = useState(meta.source || "");
 
   const commitDesc = () => {
     setEditing(false);
@@ -35,6 +37,13 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault }) => {
     setEditingDefault(false);
     if (defaultDraft !== (meta.default_value || "")) {
       onUpdateDefault(vName, defaultDraft);
+    }
+  };
+
+  const commitSource = () => {
+    setEditingSource(false);
+    if (sourceDraft !== (meta.source || "")) {
+      onUpdateSource(vName, sourceDraft);
     }
   };
 
@@ -124,7 +133,40 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault }) => {
           lineHeight: 1.5,
         }}
       >
-        {meta.source && <div>来源：{meta.source}</div>}
+        {editingSource ? (
+          <div style={{ marginBottom: 2 }}>
+            <input
+              value={sourceDraft}
+              onChange={(e) => setSourceDraft(e.target.value)}
+              onBlur={commitSource}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitSource();
+              }}
+              autoFocus
+              placeholder="变量来源..."
+              style={{
+                width: "100%",
+                fontSize: "0.68rem",
+                padding: "2px 6px",
+                border: "1px solid var(--amber-300)",
+                borderRadius: 4,
+                outline: "none",
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            onClick={() => setEditingSource(true)}
+            style={{
+              cursor: "pointer",
+              color: meta.source ? "var(--text-secondary)" : "var(--text-tertiary)",
+              fontStyle: meta.source ? "normal" : "italic",
+            }}
+            title="点击编辑来源说明"
+          >
+            {meta.source ? `来源：${meta.source}` : "点击添加来源说明..."}
+          </div>
+        )}
         {meta.example && (
           <div
             style={{
@@ -331,6 +373,20 @@ export default function PromptManagementTab() {
         const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, default_value: newDefault } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
           updatedVars.push({ name: varName, default_value: newDefault });
+        }
+        return { ...p, variables: updatedVars };
+      }),
+    );
+  };
+
+  const handleUpdateVarSource = (varName, newSource) => {
+    if (!editedPrompt) return;
+    setPrompts((prev) =>
+      prev.map((p) => {
+        if (p.id !== editedPrompt.id) return p;
+        const updatedVars = (p.variables || []).map((v) => (v.name === varName ? { ...v, source: newSource } : v));
+        if (!updatedVars.find((v) => v.name === varName)) {
+          updatedVars.push({ name: varName, source: newSource });
         }
         return { ...p, variables: updatedVars };
       }),
@@ -744,7 +800,16 @@ export default function PromptManagementTab() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {currentVars.map((vName) => {
                       const meta = dbVars.find((d) => d.name === vName) || {};
-                      return <VariableCard key={vName} vName={vName} meta={meta} onUpdateDesc={handleUpdateVarDesc} onUpdateDefault={handleUpdateVarDefault} />;
+                      return (
+                        <VariableCard
+                          key={vName}
+                          vName={vName}
+                          meta={meta}
+                          onUpdateDesc={handleUpdateVarDesc}
+                          onUpdateDefault={handleUpdateVarDefault}
+                          onUpdateSource={handleUpdateVarSource}
+                        />
+                      );
                     })}
                   </div>
                 ) : (
