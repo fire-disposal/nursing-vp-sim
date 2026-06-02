@@ -12,7 +12,7 @@
  *   ♻️ refactor:   🔧 chore:      ✅ test:
  *   🎨 style:      🚀 ci:         📦 build:
  *   ⚡ perf:       🔀 merge:      🔒 security:
- *   🗃️ db:
+ *   🗃️ db:         ⏪ revert:     🔥 remove:
  *
  * 版本号: vYYYY.MM.DD 或 vYYYY.MM.DD-N (e.g. v2026.06.02, v2026.06.02-3)
  */
@@ -34,6 +34,8 @@ const EMOJI_TYPES = {
   '🔀': 'merge',
   '🔒': 'security',
   '🗃️': 'db',
+  '⏪': 'revert',
+  '🔥': 'remove',
 };
 
 const msgFile = process.argv[2];
