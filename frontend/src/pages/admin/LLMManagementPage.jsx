@@ -1,7 +1,6 @@
 import { Activity, Award, BarChart3, Cpu, Palette } from "lucide-react";
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { create } from "zustand";
 import Layout from "../../components/Layout";
 import ApiManagementTab from "../../components/teacher/ApiManagementTab";
 import MonitorTab from "../../components/teacher/MonitorTab";
@@ -9,6 +8,7 @@ import PromptManagementTab from "../../components/teacher/PromptManagementTab";
 import RubricTab from "../../components/teacher/RubricTab";
 import PageHeader from "../../components/ui/PageHeader";
 import Tabs from "../../components/ui/Tabs";
+import useLLMStore from "../../stores/llmStore";
 
 const TABS = [
   { key: "monitor", icon: BarChart3, label: "调用监控" },
@@ -19,7 +19,7 @@ const TABS = [
 
 export default function LLMManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { tab, setTab } = useLLMTab();
+  const { tab, setTab } = useLLMStore();
 
   useEffect(() => {
     const urlTab = searchParams.get("tab");
