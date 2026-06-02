@@ -187,7 +187,7 @@ export default function GradesClassesPage() {
                 <tr key={item.id}>
                   {(tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS).map((col) => (
                     <td key={col.key} style={col.key === "created_at" ? { fontSize: "0.8rem", color: "var(--text-secondary)" } : {}}>
-                      {col.render ? col.render(String((item as unknown as Record<string, unknown>)[col.key])) : String((item as unknown as Record<string, unknown>)[col.key] || "")}
+                      {col.render ? col.render(String(item[col.key])) : String(item[col.key] || "")}
                     </td>
                   ))}
                   <td>

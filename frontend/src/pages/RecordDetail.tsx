@@ -777,12 +777,12 @@ export default function RecordDetail() {
       </div>
 
       {showScore && record.score && (
-        <ScoreCard score={record.score as unknown as ScoreData} onClose={() => setShowScore(false)} />
+        <ScoreCard score={record.score as ScoreData} onClose={() => setShowScore(false)} />
       )}
 
       {showReviewEditor && record.score && (
         <ReviewEditor
-          score={record.score as unknown as ScoreData}
+          score={record.score as ScoreData}
           review={review}
           onSubmit={handleSubmitReview}
           onClose={() => setShowReviewEditor(false)}

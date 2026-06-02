@@ -46,6 +46,7 @@ interface CaseForm {
 }
 
 interface CaseData {
+  [key: string]: unknown;
   name: string;
   time_limit: number;
   difficulty: number;
@@ -119,28 +120,29 @@ function buildCaseData(form: CaseForm): CaseData {
   };
 }
 
-function parseCaseData(cd: Record<string, unknown> | null): CaseForm {
-  const info = (cd?.patient_info as Record<string, unknown>) || {};
+function parseCaseData(cd: unknown): CaseForm {
+  const rec = cd as Record<string, unknown> | null;
+  const info = (rec?.patient_info as Record<string, unknown>) || {};
   return {
-    name: (cd?.name as string) || "",
-    time_limit: (cd?.time_limit as number) || 20,
-    difficulty: (cd?.difficulty as number) || 1,
-    description: (cd?.description as string) || "",
+    name: (rec?.name as string) || "",
+    time_limit: (rec?.time_limit as number) || 20,
+    difficulty: (rec?.difficulty as number) || 1,
+    description: (rec?.description as string) || "",
     patient_name: (info.name as string) || "",
     patient_age: (info.age as number) || 0,
     patient_gender: (info.gender as string) || "",
-    chief_complaint: (cd?.chief_complaint as string) || "",
-    opening_line: (cd?.opening_line as string) || "",
-    present_illness: (cd?.present_illness as string) || "",
-    past_history: (cd?.past_history as string) || "",
-    medication_history: (cd?.medication_history as string) || "",
-    allergy_history: (cd?.allergy_history as string) || "",
-    family_history: (cd?.family_history as string) || "",
-    social_history: (cd?.social_history as string) || "",
-    communication_style: (cd?.communication_style as string) || "",
-    hidden_info: (cd?.hidden_info as string[]) || [],
-    required_inquiries: (cd?.required_inquiries as string[]) || [],
-    scoring_criteria: (cd?.scoring_criteria as Record<string, ScoringDimension>) || {},
+    chief_complaint: (rec?.chief_complaint as string) || "",
+    opening_line: (rec?.opening_line as string) || "",
+    present_illness: (rec?.present_illness as string) || "",
+    past_history: (rec?.past_history as string) || "",
+    medication_history: (rec?.medication_history as string) || "",
+    allergy_history: (rec?.allergy_history as string) || "",
+    family_history: (rec?.family_history as string) || "",
+    social_history: (rec?.social_history as string) || "",
+    communication_style: (rec?.communication_style as string) || "",
+    hidden_info: (rec?.hidden_info as string[]) || [],
+    required_inquiries: (rec?.required_inquiries as string[]) || [],
+    scoring_criteria: (rec?.scoring_criteria as Record<string, ScoringDimension>) || {},
   };
 }
 
@@ -148,7 +150,7 @@ export default function CasesTab() {
   const [cases, setCases] = useState<CaseManageItem[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [editingCase, setEditingCase] = useState<CaseManageItem | null>(null);
-  const [caseForm, setCaseForm] = useState<CaseForm>(parseCaseData(NEW_CASE_TEMPLATE as unknown as Record<string, unknown>));
+  const [caseForm, setCaseForm] = useState<CaseForm>(parseCaseData(NEW_CASE_TEMPLATE));
   const [caseMsg, setCaseMsg] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -204,7 +206,7 @@ export default function CasesTab() {
 
   const openNew = () => {
     setEditingCase(null);
-    setCaseForm(parseCaseData(NEW_CASE_TEMPLATE as unknown as Record<string, unknown>));
+    setCaseForm(parseCaseData(NEW_CASE_TEMPLATE));
     setCaseMsg("");
     setShowAdvanced(false);
     setShowAiPanel(false);
@@ -218,7 +220,7 @@ export default function CasesTab() {
   const openEdit = (c: CaseManageItem) => {
     setEditingCase(c);
     getCaseDetail(c.id)
-      .then(({ data }) => setCaseForm(parseCaseData(data.case_data as Record<string, unknown>)))
+      .then(({ data }) => setCaseForm(parseCaseData(data.case_data)))
       .catch(() => toast.error("加载病例数据失败"));
     setCaseMsg("");
     setShowAdvanced(false);
@@ -240,9 +242,9 @@ export default function CasesTab() {
     }
     try {
       if (editingCase) {
-        await updateCase(editingCase.id, caseData as unknown as Record<string, unknown>);
+        await updateCase(editingCase.id, { case_data: caseData });
       } else {
-        await createCase(caseData as unknown as Record<string, unknown>);
+        await createCase({ case_data: caseData });
       }
       setShowEditor(false);
       if (offset === 0) {
@@ -302,7 +304,7 @@ export default function CasesTab() {
     }
     setAiGenerating(true);
     try {
-      const payload: Record<string, unknown> = {
+      const payload: Schemas["CaseGenerateRequest"] = {
         mode: aiMode,
         description: aiDescription || caseForm.chief_complaint || caseForm.description || "护理病史采集训练病例",
         reference_case_ids: aiMode === "reference" ? aiReferenceCaseIds : undefined,
@@ -310,7 +312,7 @@ export default function CasesTab() {
         field: field || null,
       };
       if (field) {
-        payload.current_case_data = buildCaseData(caseForm) as unknown as Record<string, unknown>;
+        payload.current_case_data = buildCaseData(caseForm);
       }
       const { data } = await generateCase(payload);
       if (field) {
@@ -335,10 +337,10 @@ export default function CasesTab() {
             value = {};
           }
         }
-        updateField(field, value as unknown as string[] & Record<string, ScoringDimension>);
+        updateField(field, value as string | number | string[] | Record<string, ScoringDimension>);
         toast.success(`已生成 ${field} 建议`);
       } else {
-        setCaseForm(parseCaseData((data.case_data || {}) as Record<string, unknown>));
+        setCaseForm(parseCaseData(data.case_data || {}));
         toast.success("病例生成成功，请检查并保存");
       }
     } catch (err: unknown) {

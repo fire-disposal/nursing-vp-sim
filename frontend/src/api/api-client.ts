@@ -7,7 +7,7 @@ type Schemas = components["schemas"];
 export const login = (username: string, password: string) =>
   api.post<Schemas["TokenResponse"]>("/auth/login", { username, password });
 
-export const register = (data: Record<string, unknown>) =>
+export const register = (data: Schemas["RegisterRequest"]) =>
   api.post<Schemas["TokenResponse"]>("/auth/register", data);
 
 export const getMe = () =>
@@ -152,10 +152,10 @@ export const getStudentRanking = (params: Record<string, unknown> = {}) =>
   api.get<Schemas["PaginatedResponse_RankingItem_"]>("/stats/ranking", { params });
 
 // User management
-export const updateUser = (id: number | string, data: Record<string, unknown>) =>
+export const updateUser = (id: number | string, data: Schemas["UserUpdateRequest"]) =>
   api.put<Schemas["UserBrief"]>(`/admin/users/${id}`, data);
 
-export const batchCreateUsers = (users: Record<string, unknown>[]) =>
+export const batchCreateUsers = (users: Schemas["BatchUserItem"][]) =>
   api.post<Schemas["BatchCreateResult"]>("/admin/users/batch", users);
 
 export const deleteUser = (id: number | string) =>
@@ -168,11 +168,11 @@ export const getStudentDetail = (userId: number | string) =>
 export const getManageCases = (params: Record<string, unknown> = {}) =>
   api.get<Schemas["PaginatedResponse_CaseManageItem_"]>("/cases/manage/list", { params });
 
-export const createCase = (caseData: Record<string, unknown>) =>
-  api.post<Schemas["CaseManageItem"]>("/cases", { case_data: caseData });
+export const createCase = (data: Schemas["CaseCreateRequest"]) =>
+  api.post<Schemas["CaseManageItem"]>("/cases", data);
 
-export const updateCase = (id: number | string, caseData: Record<string, unknown>) =>
-  api.put<Schemas["CaseManageItem"]>(`/cases/${id}`, { case_data: caseData });
+export const updateCase = (id: number | string, data: Schemas["CaseUpdateRequest"]) =>
+  api.put<Schemas["CaseManageItem"]>(`/cases/${id}`, data);
 
 export const deleteCase = (id: number | string) =>
   api.delete<Schemas["MessageResponse"]>(`/cases/${id}`);
@@ -197,11 +197,11 @@ export const exportLLMLogs = (dateFrom?: string, dateTo?: string) => {
 export const getScoreReview = (recordId: number | string) =>
   api.get<Schemas["ScoreReviewResponse"]>(`/training/records/${recordId}/review`);
 
-export const submitScoreReview = (recordId: number | string, data: Record<string, unknown>) =>
+export const submitScoreReview = (recordId: number | string, data: Schemas["ScoreReviewRequest"]) =>
   api.post<Schemas["ScoreReviewResponse"]>(`/training/records/${recordId}/review`, data);
 
 // Feedback
-export const submitFeedback = (data: Record<string, unknown>) =>
+export const submitFeedback = (data: Schemas["FeedbackSubmit"]) =>
   api.post<Schemas["FeedbackSubmitResponse"]>("/feedback", data);
 
 export const getFeedbacks = (params: Record<string, unknown> = {}) =>
@@ -210,7 +210,7 @@ export const getFeedbacks = (params: Record<string, unknown> = {}) =>
 export const getFeedbackStats = (params: Record<string, unknown> = {}) =>
   api.get<Schemas["FeedbackDailyItem"][]>("/admin/feedback/stats", { params });
 
-export const generateCase = (data: Record<string, unknown>) =>
+export const generateCase = (data: Schemas["CaseGenerateRequest"]) =>
   api.post<Schemas["CaseGenerateResponse"]>("/cases/generate", data);
 
 // Grade management
@@ -219,12 +219,12 @@ export async function getGrades() {
   return res.data;
 }
 
-export async function createGrade(data: Record<string, unknown>) {
+export async function createGrade(data: Schemas["GradeCreate"]) {
   const res = await api.post<Schemas["GradeResponse"]>("/admin/grades", data);
   return res.data;
 }
 
-export async function updateGrade(id: number | string, data: Record<string, unknown>) {
+export async function updateGrade(id: number | string, data: Schemas["GradeUpdate"]) {
   const res = await api.put<Schemas["GradeResponse"]>(`/admin/grades/${id}`, data);
   return res.data;
 }
@@ -240,12 +240,12 @@ export async function getClasses(params: Record<string, unknown> = {}) {
   return res.data;
 }
 
-export async function createClass(data: Record<string, unknown>) {
+export async function createClass(data: Schemas["ClassCreate"]) {
   const res = await api.post<Schemas["ClassResponse"]>("/admin/classes", data);
   return res.data;
 }
 
-export async function updateClass(id: number | string, data: Record<string, unknown>) {
+export async function updateClass(id: number | string, data: Schemas["ClassUpdate"]) {
   const res = await api.put<Schemas["ClassResponse"]>(`/admin/classes/${id}`, data);
   return res.data;
 }
@@ -289,10 +289,10 @@ export const activateRubric = (id: number | string) =>
 export const fetchSecrets = () =>
   api.get<Schemas["ApiSecretResponse"][]>("/admin/api/secrets");
 
-export const createSecret = (data: Record<string, unknown>) =>
+export const createSecret = (data: Schemas["ApiSecretCreate"]) =>
   api.post<Schemas["SecretCreateResponse"]>("/admin/api/secrets", data);
 
-export const updateSecret = (id: number | string, data: Record<string, unknown>) =>
+export const updateSecret = (id: number | string, data: Schemas["ApiSecretUpdate"]) =>
   api.put<Schemas["ApiSecretResponse"]>(`/admin/api/secrets/${id}`, data);
 
 export const deleteSecret = (id: number | string) =>
@@ -304,10 +304,10 @@ export const fetchConfigs = (purpose?: string) => {
   return api.get<Schemas["LLMConfigResponse"][]>("/admin/api/configs", { params });
 };
 
-export const createConfig = (data: Record<string, unknown>) =>
+export const createConfig = (data: Schemas["LLMConfigCreate"]) =>
   api.post<Schemas["ConfigCreateResponse"]>("/admin/api/configs", data);
 
-export const updateConfig = (id: number | string, data: Record<string, unknown>) =>
+export const updateConfig = (id: number | string, data: Schemas["LLMConfigUpdate"]) =>
   api.put<Schemas["LLMConfigResponse"]>(`/admin/api/configs/${id}`, data);
 
 export const deleteConfig = (id: number | string) =>
@@ -345,10 +345,10 @@ export const fetchPrompts = (purpose?: string) => {
   return api.get<Schemas["PromptTemplateResponse"][]>("/admin/prompts", { params });
 };
 
-export const createPrompt = (data: Record<string, unknown>) =>
+export const createPrompt = (data: Schemas["PromptTemplateCreate"]) =>
   api.post<Schemas["PromptTemplateResponse"]>("/admin/prompts", data);
 
-export const updatePrompt = (id: number | string, data: Record<string, unknown>) =>
+export const updatePrompt = (id: number | string, data: Schemas["PromptTemplateUpdate"]) =>
   api.put<Schemas["PromptTemplateResponse"]>(`/admin/prompts/${id}`, data);
 
 export const deletePrompt = (id: number | string) =>
@@ -357,7 +357,7 @@ export const deletePrompt = (id: number | string) =>
 export const activatePrompt = (id: number | string) =>
   api.post<Schemas["PromptTemplateResponse"]>(`/admin/prompts/${id}/activate`);
 
-export const validatePrompt = (data: Record<string, unknown>) =>
+export const validatePrompt = (data: Schemas["PromptValidateRequest"]) =>
   api.post<Schemas["PromptValidateResponse"]>("/admin/prompts/validate", data);
 
 export const reloadPrompts = () =>

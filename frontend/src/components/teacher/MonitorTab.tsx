@@ -59,7 +59,7 @@ export default function MonitorTab() {
 
   const loadData = useCallback(() => {
     getLLMStats()
-      .then(({ data }) => setStats(data as unknown as LLMStats))
+      .then(({ data }) => setStats(data as LLMStats))
       .catch(() => {});
     setLoading(true);
     const params: Record<string, unknown> = { offset, limit: LIMIT };

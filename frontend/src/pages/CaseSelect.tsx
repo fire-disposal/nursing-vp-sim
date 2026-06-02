@@ -54,7 +54,7 @@ export default function CaseSelect() {
   };
 
   const getPatientSummary = (ps: CasePatientSummary): PatientSummary => {
-    if (ps && typeof ps === "object") return ps as unknown as PatientSummary;
+    if (ps && typeof ps === "object") return ps as PatientSummary;
     return {};
   };
 

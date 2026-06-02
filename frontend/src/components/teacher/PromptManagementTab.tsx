@@ -365,7 +365,7 @@ export default function PromptManagementTab() {
         await updatePrompt(editing, { name: form.name, system_prompt: form.system_prompt, user_prompt: form.user_prompt || null, remark: form.remark });
         toast.success("已保存");
       } else {
-        await createPrompt(form as unknown as Record<string, unknown>);
+        await createPrompt(form);
         toast.success("已创建");
       }
       setEditing(null);
@@ -459,7 +459,7 @@ export default function PromptManagementTab() {
   const handleValidate = async () => {
     try {
       const { data } = await validatePrompt({ system_prompt: form.system_prompt, user_prompt: form.user_prompt || null, purpose: form.purpose });
-      setValidation(data as unknown as PromptValidateResponse);
+      setValidation(data);
     } catch {
       toast.error("校验失败");
     }
@@ -481,7 +481,7 @@ export default function PromptManagementTab() {
     setPreviewLoading(true);
     try {
       const { data } = await previewActivePrompt("patient_chat");
-      setPreviewData(data as unknown as PromptPreviewResponse);
+      setPreviewData(data);
     } catch {
       setPreviewData(null);
     } finally {
@@ -495,7 +495,7 @@ export default function PromptManagementTab() {
     setPreviewLoading(true);
     try {
       const { data } = await previewActivePrompt(p);
-      setPreviewData(data as unknown as PromptPreviewResponse);
+      setPreviewData(data);
     } catch {
       setPreviewData(null);
     } finally {

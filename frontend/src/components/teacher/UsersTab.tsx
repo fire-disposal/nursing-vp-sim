@@ -119,10 +119,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
     e.preventDefault();
     setRegMsg("");
     try {
-      const payload: Record<string, unknown> = { ...regForm };
-      if (!payload.student_id) payload.student_id = null;
-      if (regForm.class_id) payload.class_id = Number(regForm.class_id);
-      else delete payload.class_id;
+      const payload: Schemas["RegisterRequest"] = {
+        username: regForm.username,
+        password: regForm.password,
+        role: regForm.role,
+        display_name: regForm.display_name,
+        student_id: regForm.student_id || null,
+        class_id: regForm.class_id ? Number(regForm.class_id) : undefined,
+      };
       await register(payload);
       setRegMsg("注册成功！");
       setRegForm({ username: "", password: "", role: "student", display_name: "", student_id: "", class_id: "" });
@@ -269,7 +273,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
     setBatchImporting(true);
     setBatchResult(null);
     try {
-      const { data } = await batchCreateUsers(batchPreview as unknown as Record<string, unknown>[]);
+      const { data } = await batchCreateUsers(batchPreview);
       setBatchResult(data);
       if (data.created > 0) {
         toast.success(`成功创建 ${data.created} 名用户`);

@@ -33,9 +33,9 @@ type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type MessageItem = components["schemas"]["MessageItem"];
 
 interface ChatMessage {
+  id: number;
   role: string;
   content: string;
-  id: number;
   streaming?: boolean;
 }
 
@@ -402,7 +402,7 @@ export default function ChatTraining() {
         if (cancelled) return;
         const detail = data as TrainingRecordDetail;
         setMessages(
-          ((detail.messages || []) as unknown as ChatMessage[]).map((m) => ({
+          ((detail.messages || []) as ChatMessage[]).map((m) => ({
             ...m,
             streaming: false,
           })),
@@ -410,7 +410,7 @@ export default function ChatTraining() {
         if (detail.case_name) setCaseTitle(detail.case_name);
         if (detail.required_inquiries)
           setRequiredInquiries(detail.required_inquiries as string[]);
-        if (detail.patient_info) setPatientInfo(detail.patient_info as unknown as PatientInfo);
+        if (detail.patient_info) setPatientInfo(detail.patient_info as PatientInfo);
         const r =
           detail.remaining_seconds != null
             ? detail.remaining_seconds
@@ -520,7 +520,7 @@ export default function ChatTraining() {
           detail.data.scoring_status === "completed" &&
           detail.data.score
         ) {
-          setScore(detail.data.score as unknown as ScoreData);
+          setScore(detail.data.score as ScoreData);
           setShowScore(true);
           break;
         }

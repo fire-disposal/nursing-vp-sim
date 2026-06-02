@@ -133,7 +133,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const sanitizePayload = (raw: Record<string, unknown>) => {
+  const sanitizePayload = (raw: Record<string, unknown>): Schemas["LLMConfigCreate"] | null => {
     const data = { ...raw };
     const sid = Number(data.secret_id);
     if (!Number.isFinite(sid) || sid <= 0) return null;
@@ -147,7 +147,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
     } else {
       data.monthly_cost_limit = Number(data.monthly_cost_limit);
     }
-    return data;
+    return data as Schemas["LLMConfigCreate"];
   };
 
   const handleSave = async () => {

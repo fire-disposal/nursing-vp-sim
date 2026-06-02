@@ -93,7 +93,7 @@ export default function ApiManagementTab() {
   }, []);
   const loadFallback = useCallback(() => {
     fetchEnvFallback()
-      .then(({ data }) => setEnvFallback(data as unknown as EnvFallback))
+      .then(({ data }) => setEnvFallback(data as EnvFallback))
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -103,9 +103,8 @@ export default function ApiManagementTab() {
     setTestingFallback(true);
     try {
       const { data } = await testEnvFallback();
-      const result = data as unknown as TestResultItem & { latency_ms?: number; error?: string };
-      if (result.ok) toast.success(`环境密钥连通正常 · ${result.latency_ms}ms`);
-      else toast.error(result.error || "连通失败");
+      if (data.ok) toast.success(`环境密钥连通正常 · ${data.latency_ms}ms`);
+      else toast.error(data.error || "连通失败");
       loadFallback();
     } catch {
       toast.error("测试请求失败");
@@ -182,9 +181,8 @@ export default function ApiManagementTab() {
   const handleTest = async (c: LLMConfigResponse) => {
     try {
       const { data } = await testConfig(c.id);
-      const result = data as unknown as TestResultItem & { latency_ms?: number; error?: string };
-      if (result.ok) toast.success(`${c.label} 连接正常 · ${result.latency_ms}ms`);
-      else toast.error(result.error || "连接失败");
+      if (data.ok) toast.success(`${c.label} 连接正常 · ${data.latency_ms}ms`);
+      else toast.error(data.error || "连接失败");
     } catch {
       toast.error("测试请求失败");
     }

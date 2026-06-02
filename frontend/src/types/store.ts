@@ -9,15 +9,22 @@ export interface User {
 }
 
 export interface Grade {
+  [key: string]: unknown;
   id: number;
   name: string;
+  class_count?: number;
+  student_count?: number;
+  created_at?: string;
 }
 
 export interface ClassItem {
+  [key: string]: unknown;
   id: number;
   name: string;
   grade_id: number;
   grade_name?: string;
+  student_count?: number;
+  created_at?: string;
 }
 
 export interface AuthState {
