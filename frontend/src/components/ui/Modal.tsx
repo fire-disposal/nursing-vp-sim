@@ -1,116 +1,83 @@
-import type { CSSProperties, ReactNode } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 
 interface ModalProps {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
   maxWidth?: number;
-  style?: CSSProperties;
+  style?: React.CSSProperties;
 }
 
 export default function Modal({ open, onClose, title, children, footer, maxWidth = 560, style }: ModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handler);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div
-      ref={overlayRef}
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: "var(--z-modal)",
-        background: "var(--bg-overlay)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "var(--space-5)",
-        backdropFilter: "blur(2px)",
-      }}
-    >
-      <div
-        style={{
-          background: "var(--bg-surface)",
-          borderRadius: "var(--radius-xl)",
-          width: "100%",
-          maxWidth,
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: "var(--shadow-xl)",
-          ...style,
-        }}
-      >
-        <div
+    <DialogPrimitive.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "var(--space-5) var(--space-6)",
-            borderBottom: "1px solid var(--border-color)",
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 1000,
+            animation: "fadeIn 0.15s ease",
+          }}
+        />
+        <DialogPrimitive.Content
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: maxWidth,
+            maxWidth: "90vw",
+            maxHeight: "85vh",
+            overflow: "auto",
+            background: "#fff",
+            borderRadius: "var(--radius-lg, 12px)",
+            boxShadow: "var(--shadow-xl, 0 20px 60px rgba(0,0,0,0.15))",
+            zIndex: 1001,
+            padding: 0,
+            ...style,
           }}
         >
-          <h2 style={{ fontSize: "var(--font-size-lg)", fontWeight: "var(--font-weight-semibold)", margin: 0 }}>{title}</h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-tertiary)",
-              padding: 4,
-              borderRadius: "var(--radius-sm)",
-              display: "flex",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--bg-surface-subtle)";
-              e.currentTarget.style.color = "var(--text-primary)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "";
-              e.currentTarget.style.color = "var(--text-tertiary)";
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div style={{ padding: "var(--space-6)" }}>{children}</div>
-
-        {footer && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: "var(--space-2)",
-              padding: "var(--space-4) var(--space-6)",
-              borderTop: "1px solid var(--border-color)",
-              background: "var(--bg-surface-subtle)",
-            }}
-          >
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>
+          {title && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "20px 24px 0",
+              }}
+            >
+              <DialogPrimitive.Title style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>
+                {title}
+              </DialogPrimitive.Title>
+              <DialogPrimitive.Close
+                onClick={onClose}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--gray-400)",
+                  padding: 4,
+                  display: "flex",
+                }}
+              >
+                <X size={20} />
+              </DialogPrimitive.Close>
+            </div>
+          )}
+          <div style={{ padding: "12px 24px" }}>{children}</div>
+          {footer && (
+            <div style={{ padding: "0 24px 20px", display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              {footer}
+            </div>
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
