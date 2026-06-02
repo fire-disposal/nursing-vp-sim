@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to deploy (e.g. 2026.06.02-3)'
+        description: 'Deploy version (copy from Staging — same version already verified there)'
         required: true
         type: string
 
@@ -50,6 +50,13 @@ jobs:
             echo ">> Current: \$OLD_BACKEND"
 
             echo ">> Deploy v$VER"
+            STAGING_VER=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null | rev | cut -d: -f1 | rev || echo "")
+            if [ "\$STAGING_VER" != "$VER" ]; then
+              echo "✗ Staging mismatch: requested=$VER, staging=\$STAGING_VER"
+              echo "  Deploy to Staging first, verify, THEN deploy to Production."
+              exit 1
+            fi
+            echo "✓ Staging confirmed: v$VER"
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
 
