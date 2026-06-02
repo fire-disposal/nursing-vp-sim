@@ -6,7 +6,7 @@ import Modal from "../ui/Modal";
 const PURPOSES = [
   { value: "*", label: "通配 (全部)" },
   { value: "qa", label: "问答 (QA)" },
-  { value: "patient_chat", label: "患者对话" },
+  { value: "patient_chat", label: "患者对�? },
   { value: "scoring", label: "评分" },
   { value: "case_generation", label: "病例生成" },
 ];
@@ -144,10 +144,10 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
     try {
       if (isEdit) {
         await updateConfig(configData.id, data);
-        success("配置已更新");
+        success("配置已更�?);
       } else {
         await createConfig(data);
-        success("配置已创建");
+        success("配置已创�?);
       }
       onSaved();
       onClose();
@@ -171,7 +171,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
       setForm((prev) => ({ ...prev, ...parsed }));
       setMode("form");
     } catch {
-      error("当前 JSON 格式无效，无法切换");
+      error("当前 JSON 格式无效，无法切�?);
     }
   };
 
@@ -185,7 +185,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? "编辑用途配置" : "添加用途配置"}>
+    <Modal open={open} onClose={onClose} title={isEdit ? "编辑用途配�? : "添加用途配�?}>
       <div style={{ marginBottom: "var(--space-3)" }}>
         <button
           onClick={switchToForm}
@@ -220,12 +220,12 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
           {!isEdit && (
             <label>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>快速预设</div>
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>快速预�?/div>
               <select value={preset} onChange={(e) => applyPreset(e.target.value)} style={inputStyle}>
-                <option value="">自定义...</option>
+                <option value="">自定�?..</option>
                 {MODEL_PRESETS.map((p) => (
                   <option key={p.model} value={p.model}>
-                    {p.label} — {p.base_url}
+                    {p.label} �?{p.base_url}
                   </option>
                 ))}
               </select>
@@ -242,17 +242,17 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
               ))}
               {!secretsLoaded && (
                 <option value="" disabled>
-                  加载中...
+                  加载�?..
                 </option>
               )}
             </select>
             {!secretsLoaded && secrets.length === 0 && (
-              <div style={{ fontSize: "0.75rem", color: "var(--amber-600)", marginTop: 4 }}>未找到密钥凭证，请先在"密钥凭证"标签页添加</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--amber-600)", marginTop: 4 }}>未找到密钥凭证，请先�?密钥凭证"标签页添�?/div>
             )}
           </label>
           <label>
             <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>配置标签</div>
-            <input value={form.label} onChange={(e) => updateField("label", e.target.value)} placeholder="如: QA用Pro模型" style={inputStyle} />
+            <input value={form.label} onChange={(e) => updateField("label", e.target.value)} placeholder="�? QA用Pro模型" style={inputStyle} />
           </label>
           <label>
             <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>Base URL</div>
@@ -264,7 +264,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
               <input value={form.model} onChange={(e) => updateField("model", e.target.value)} placeholder="deepseek-v4-pro" style={inputStyle} />
             </label>
             <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>用途</div>
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>用�?/div>
               <select value={form.purpose} onChange={(e) => updateField("purpose", e.target.value)} style={inputStyle}>
                 {PURPOSES.map((p) => (
                   <option key={p.value} value={p.value}>
@@ -276,7 +276,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
           </div>
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
             <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先级 (越小越优先)</div>
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先�?(越小越优�?</div>
               <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value, 10) || 10)} style={inputStyle} />
             </label>
             <label style={{ flex: 1 }}>
@@ -338,7 +338,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }) {
           取消
         </button>
         <button onClick={handleSave} disabled={saving} className="btn btn-primary">
-          {saving ? "保存中..." : "保存"}
+          {saving ? "保存�?.." : "保存"}
         </button>
       </div>
     </Modal>

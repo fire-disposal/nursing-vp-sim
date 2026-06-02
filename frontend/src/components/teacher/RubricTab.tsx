@@ -66,7 +66,7 @@ export default function RubricTab() {
       return;
     }
     if (!Array.isArray(dims) || dims.length === 0) {
-      setDimError("dimensions 必须是非空数组");
+      setDimError("dimensions 必须是非空数�?);
       return;
     }
     setDimError("");
@@ -85,7 +85,7 @@ export default function RubricTab() {
       else await createRubric(data);
       setShowModal(false);
       load();
-      toast.success(editId ? "已更新" : "已创建");
+      toast.success(editId ? "已更�? : "已创�?);
     } catch (e: unknown) {
       toast.error(e.response?.data?.detail || "保存失败");
     }
@@ -95,9 +95,9 @@ export default function RubricTab() {
     try {
       await activateRubric(id);
       load();
-      toast.success("已激活");
+      toast.success("已激�?);
     } catch (e: unknown) {
-      toast.error("激活失败");
+      toast.error("激活失�?);
     }
   };
 
@@ -106,7 +106,7 @@ export default function RubricTab() {
     try {
       await deleteRubric(deleteTarget.id);
       load();
-      toast.success("已删除");
+      toast.success("已删�?);
     } catch (e: unknown) {
       toast.error(e.response?.data?.detail || "删除失败");
     }
@@ -117,7 +117,7 @@ export default function RubricTab() {
     if (!r.dimensions) return 0;
     let items = 0;
     for (const d of r.dimensions) items += (d.items || []).length;
-    return `${r.dimensions.length}个维度 · ${items}项条目`;
+    return `${r.dimensions.length}个维�?· ${items}项条目`;
   };
 
   return (
@@ -166,7 +166,7 @@ export default function RubricTab() {
                 <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                   {!r.is_active && (
                     <Button size="sm" onClick={() => handleActivate(r.id)}>
-                      <CheckCircle size={12} /> 激活
+                      <CheckCircle size={12} /> 激�?
                     </Button>
                   )}
                   <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
@@ -181,7 +181,7 @@ export default function RubricTab() {
                 {(r.dimensions || []).map((dim, i) => (
                   <div key={i} style={{ marginBottom: 8 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.8rem", marginBottom: 4 }}>
-                      {dim.name}（{dim.items?.length || 0}项 · 满分{dim.max}分）
+                      {dim.name}（{dim.items?.length || 0}�?· 满分{dim.max}分）
                     </div>
                     <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", paddingLeft: 8 }}>
                       {(dim.items || []).map((item, j) => (
@@ -191,7 +191,7 @@ export default function RubricTab() {
                             <span style={{ color: "var(--text-tertiary)", marginLeft: 6 }}>
                               [
                               {Object.entries(item.anchors)
-                                .map(([k, v]) => `${k}分:${v}`)
+                                .map(([k, v]) => `${k}�?${v}`)
                                 .join(" / ")}
                               ]
                             </span>
@@ -266,7 +266,7 @@ export default function RubricTab() {
             </div>
           </div>
           <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>dimensions（JSON 数组）</label>
+            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>dimensions（JSON 数组�?/label>
             <textarea
               className="form-input"
               value={formDims}
@@ -287,7 +287,7 @@ export default function RubricTab() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
         title="删除评分标准"
-        message={`确定要删除「${deleteTarget?.name}」吗？`}
+        message={`确定要删除�?{deleteTarget?.name}」吗？`}
         danger
       />
     </div>

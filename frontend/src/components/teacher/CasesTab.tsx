@@ -23,7 +23,7 @@ const NEW_CASE_TEMPLATE = {
   communication_style: "",
   hidden_info: [],
   required_inquiries: [],
-  scoring_criteria: { 沟通技能: { max: 42, description: "", items: [] }, 病史采集: { max: 15, description: "", items: [] } },
+  scoring_criteria: { 沟通技�? { max: 42, description: "", items: [] }, 病史采集: { max: 15, description: "", items: [] } },
 };
 
 const IN_STYLE = {
@@ -176,7 +176,7 @@ export default function CasesTab() {
     setCaseMsg("");
     const caseData = buildCaseData(caseForm);
     if (!caseData.name.trim()) {
-      setCaseMsg("请输入病例名称");
+      setCaseMsg("请输入病例名�?);
       return;
     }
     try {
@@ -198,14 +198,14 @@ export default function CasesTab() {
 
   const handleDelete = async (c) => {
     if (c.training_count > 0) {
-      toast.warning(`该病例已有 ${c.training_count} 条训练记录，无法删除`);
+      toast.warning(`该病例已�?${c.training_count} 条训练记录，无法删除`);
       return;
     }
     const ok = await confirm({ title: "删除病例", message: `确定删除病例"${c.name}"吗？`, confirmLabel: "确定删除", danger: true });
     if (!ok) return;
     try {
       await deleteCase(c.id);
-      toast.success("病例已删除");
+      toast.success("病例已删�?);
       if (offset === 0) {
         fetchCases(0);
       } else {
@@ -236,7 +236,7 @@ export default function CasesTab() {
   const handleAiGenerate = async (field) => {
     setAiError("");
     if (!field && !aiDescription.trim()) {
-      setAiError("请输入病例描述");
+      setAiError("请输入病例描�?);
       return;
     }
     setAiGenerating(true);
@@ -275,14 +275,14 @@ export default function CasesTab() {
           }
         }
         updateField(field, value);
-        toast.success(`已生成 ${field} 建议`);
+        toast.success(`已生�?${field} 建议`);
       } else {
         setCaseForm(parseCaseData(data.case_data));
         toast.success("病例生成成功，请检查并保存");
       }
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "AI 生成失败";
-      setAiError(field ? `生成「${field}」失败: ${detail}` : detail);
+      setAiError(field ? `生成�?{field}」失�? ${detail}` : detail);
     } finally {
       setAiGenerating(false);
     }
@@ -341,14 +341,14 @@ export default function CasesTab() {
         </div>
 
         <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {total} 条</span>
+          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>�?{total} �?/span>
         </div>
         {cases.length === 0 ? (
           <div className="empty-state">
             <div className="icon">
               <ClipboardList size={42} />
             </div>
-            <div>暂无病例，点击上方按钮添加</div>
+            <div>暂无病例，点击上方按钮添�?/div>
           </div>
         ) : (
           <table className="data-table">
@@ -356,7 +356,7 @@ export default function CasesTab() {
               <tr>
                 <th>病例名称</th>
                 <th>难度</th>
-                <th>患者</th>
+                <th>患�?/th>
                 <th>主诉</th>
                 <th>时限</th>
                 <th>训练次数</th>
@@ -401,7 +401,7 @@ export default function CasesTab() {
         <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
 
-      <Modal open={showEditor} onClose={() => setShowEditor(false)} title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"} maxWidth={800}>
+      <Modal open={showEditor} onClose={() => setShowEditor(false)} title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病�?} maxWidth={800}>
         {caseMsg && <div className={caseMsg.includes("成功") || caseMsg.includes("导入成功") ? "success-msg" : "error-msg"}>{caseMsg}</div>}
         <div style={{ marginBottom: "var(--space-4)" }}>
           <button
@@ -429,10 +429,10 @@ export default function CasesTab() {
             >
               <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
                 <button type="button" className={`btn btn-sm ${aiMode === "quick" ? "btn-primary" : ""}`} onClick={() => setAiMode("quick")}>
-                  快速生成
+                  快速生�?
                 </button>
                 <button type="button" className={`btn btn-sm ${aiMode === "reference" ? "btn-primary" : ""}`} onClick={() => setAiMode("reference")}>
-                  参考资料生成
+                  参考资料生�?
                 </button>
               </div>
               <div className="form-group">
@@ -441,7 +441,7 @@ export default function CasesTab() {
                   rows={2}
                   value={aiDescription}
                   onChange={(e) => setAiDescription(e.target.value)}
-                  placeholder="一句话描述，如：糖尿病足溃疡老年患者，有10年糖尿病史..."
+                  placeholder="一句话描述，如：糖尿病足溃疡老年患者，�?0年糖尿病�?.."
                   style={IN_STYLE}
                 />
               </div>
@@ -458,18 +458,18 @@ export default function CasesTab() {
                       {cases.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
-                          {c.chief_complaint ? ` — ${c.chief_complaint}` : ""}
+                          {c.chief_complaint ? ` �?${c.chief_complaint}` : ""}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>自由参考资料</label>
+                    <label>自由参考资�?/label>
                     <textarea
                       rows={3}
                       value={aiReferenceText}
                       onChange={(e) => setAiReferenceText(e.target.value)}
-                      placeholder="粘贴临床笔记、文献摘要等参考内容..."
+                      placeholder="粘贴临床笔记、文献摘要等参考内�?.."
                       style={IN_STYLE}
                     />
                   </div>
@@ -488,7 +488,7 @@ export default function CasesTab() {
                 style={{ display: "flex", alignItems: "center", gap: 6 }}
               >
                 {aiGenerating ? (
-                  <>⟳ 生成中...</>
+                  <>�?生成�?..</>
                 ) : (
                   <>
                     <Sparkles size={14} /> 生成完整病例
@@ -525,7 +525,7 @@ export default function CasesTab() {
             </div>
           </fieldset>
           <fieldset>
-            <legend>患者信息</legend>
+            <legend>患者信�?/legend>
             <div className="form-row">
               <div className="form-group" style={{ flex: 2 }}>
                 <label>姓名</label>
@@ -539,8 +539,8 @@ export default function CasesTab() {
                 <label>性别</label>
                 <select value={caseForm.patient_gender} onChange={(e) => updateField("patient_gender", e.target.value)}>
                   <option value="">--</option>
-                  <option value="男">男</option>
-                  <option value="女">女</option>
+                  <option value="�?>�?/option>
+                  <option value="�?>�?/option>
                 </select>
               </div>
             </div>
@@ -556,31 +556,31 @@ export default function CasesTab() {
               <textarea rows={2} value={caseForm.opening_line} onChange={(e) => updateField("opening_line", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>现病史</label>
+              <label>现病�?/label>
               <textarea rows={3} value={caseForm.present_illness} onChange={(e) => updateField("present_illness", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>既往史</label>
+              <label>既往�?/label>
               <textarea rows={2} value={caseForm.past_history} onChange={(e) => updateField("past_history", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>用药史</label>
+              <label>用药�?/label>
               <textarea rows={2} value={caseForm.medication_history} onChange={(e) => updateField("medication_history", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>过敏史</label>
+              <label>过敏�?/label>
               <input value={caseForm.allergy_history} onChange={(e) => updateField("allergy_history", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>家族史</label>
+              <label>家族�?/label>
               <textarea rows={2} value={caseForm.family_history} onChange={(e) => updateField("family_history", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>社会史 / 生活习惯</label>
+              <label>社会�?/ 生活习惯</label>
               <textarea rows={2} value={caseForm.social_history} onChange={(e) => updateField("social_history", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>沟通风格描述</label>
+              <label>沟通风格描�?/label>
               <textarea rows={2} value={caseForm.communication_style} onChange={(e) => updateField("communication_style", e.target.value)} />
             </div>
           </fieldset>
@@ -695,7 +695,7 @@ export default function CasesTab() {
           </fieldset>
           <div className="form-group">
             <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: "fit-content" }}>
-              <Upload size={14} /> 从 JSON 文件导入
+              <Upload size={14} /> �?JSON 文件导入
               <input type="file" accept=".json" onChange={handleJsonImport} style={{ display: "none" }} />
             </label>
           </div>

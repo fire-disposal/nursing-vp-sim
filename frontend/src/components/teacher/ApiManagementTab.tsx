@@ -25,7 +25,7 @@ const STATUS_COLORS = {
   disabled: { bg: "var(--red-100)", color: "var(--red-700)" },
 };
 const STATUS_LABELS = { active: "正常", degraded: "熔断", disabled: "手动关闭" };
-const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
+const PURPOSE_LABELS = { patient_chat: "患者对�?, scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
 export default function ApiManagementTab() {
   const toast = useToast();
@@ -80,8 +80,8 @@ export default function ApiManagementTab() {
     setTestingFallback(true);
     try {
       const { data } = await testEnvFallback();
-      if (data.ok) toast.success(`环境密钥连通正常 · ${data.latency_ms}ms`);
-      else toast.error(data.error || "连通失败");
+      if (data.ok) toast.success(`环境密钥连通正�?· ${data.latency_ms}ms`);
+      else toast.error(data.error || "连通失�?);
       loadFallback();
     } catch {
       toast.error("测试请求失败");
@@ -111,7 +111,7 @@ export default function ApiManagementTab() {
     if (!(await confirm({ title: "删除密钥", message: `删除 "${s.label}"？`, confirmText: "删除", danger: true }))) return;
     try {
       await deleteSecret(s.id);
-      toast.success("密钥已删除");
+      toast.success("密钥已删�?);
       loadSecrets();
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
@@ -121,7 +121,7 @@ export default function ApiManagementTab() {
     if (!(await confirm({ title: "删除配置", message: `删除 "${c.label}"？`, confirmText: "删除", danger: true }))) return;
     try {
       await deleteConfig(c.id);
-      toast.success("配置已删除");
+      toast.success("配置已删�?);
       loadConfigs();
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
@@ -146,7 +146,7 @@ export default function ApiManagementTab() {
   const handleReset = async (c: { id: number }) => {
     try {
       await resetConfig(c.id);
-      toast.success("已恢复");
+      toast.success("已恢�?);
       loadConfigs();
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "恢复失败");
@@ -171,7 +171,7 @@ export default function ApiManagementTab() {
       const ok = data.results.filter((r) => r.ok).length;
       toast.success(`${ok}/${data.results.length} 个配置连通正常`);
     } catch (err: unknown) {
-      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "检查失败");
+      toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "检查失�?);
     } finally {
       setTestingAll(false);
     }
@@ -243,9 +243,9 @@ export default function ApiManagementTab() {
       {!hideSubTabs && (
         <div style={{ display: "flex", borderBottom: "1px solid var(--border-color)", marginBottom: "var(--space-5)" }}>
           {[
-            { k: "configs", l: "用途配置" },
+            { k: "configs", l: "用途配�? },
             { k: "secrets", l: "密钥凭证" },
-            { k: "health", l: "连通性" },
+            { k: "health", l: "连通�? },
           ].map((t) => (
             <button key={t.k} onClick={() => setSubTab(t.k)} style={S.tabBtn(subTab === t.k)}>
               {t.l}
@@ -254,7 +254,7 @@ export default function ApiManagementTab() {
         </div>
       )}
 
-      {/* 🚨 最后防线：环境变量兜底状态 */}
+      {/* 🚨 最后防线：环境变量兜底状�?*/}
       <div
         className="card"
         style={{
@@ -268,7 +268,7 @@ export default function ApiManagementTab() {
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <Shield size={18} style={{ color: envFallback?.available ? "var(--amber-600)" : "var(--red-500)" }} />
             <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>环境兜底</span>
-            <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>最后防线 · 只读</span>
+            <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>最后防�?· 只读</span>
             {envFallback ? (
               <span
                 style={{
@@ -280,10 +280,10 @@ export default function ApiManagementTab() {
                   color: envFallback.available ? "var(--green-700)" : "var(--red-700)",
                 }}
               >
-                {envFallback.available ? "可用" : "不可用"}
+                {envFallback.available ? "可用" : "不可�?}
               </span>
             ) : (
-              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>加载中...</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>加载�?..</span>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
@@ -312,7 +312,7 @@ export default function ApiManagementTab() {
               }}
             >
               <Activity size={12} />
-              {testingFallback ? "测试中..." : "测试连通"}
+              {testingFallback ? "测试�?.." : "测试连�?}
             </button>
           </div>
         </div>
@@ -339,7 +339,7 @@ export default function ApiManagementTab() {
                 <tr>
                   <th style={S.th}>标签</th>
                   <th style={S.th}>Key</th>
-                  <th style={S.th}>配置数</th>
+                  <th style={S.th}>配置�?/th>
                   <th style={S.th}>今日费用</th>
                   <th style={S.th}>本月费用</th>
                   <th style={S.th}>操作</th>
@@ -386,14 +386,14 @@ export default function ApiManagementTab() {
       {subTab === "configs" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0 }}>用途配置</h3>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0 }}>用途配�?/h3>
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
               <button
                 onClick={handleTestAll}
                 disabled={testingAll}
                 style={{ ...S.primaryBtn, background: testingAll ? "var(--text-tertiary)" : "var(--color-primary)" }}
               >
-                <Activity size={14} /> {testingAll ? "检查中..." : "一键检查存活"}
+                <Activity size={14} /> {testingAll ? "检查中..." : "一键检查存�?}
               </button>
               <button
                 onClick={() => {
@@ -442,7 +442,7 @@ export default function ApiManagementTab() {
                     fontWeight: r.ok ? 400 : 600,
                   }}
                 >
-                  {r.ok ? "✓" : "✗"} {r.label || r.model}
+                  {r.ok ? "�? : "�?} {r.label || r.model}
                   {r.latency_ms != null && <span style={{ fontSize: "0.7rem", opacity: 0.7 }}>{r.latency_ms}ms</span>}
                 </span>
               ))}
@@ -481,13 +481,13 @@ export default function ApiManagementTab() {
                         const degraded = sorted.find((c) => c.status === "degraded");
                         if (degraded)
                           return (
-                            <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--amber-600)", fontWeight: 400 }}>(全部熔断中，无可用路由)</span>
+                            <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--amber-600)", fontWeight: 400 }}>(全部熔断中，无可用路�?</span>
                           );
-                        return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--red-500)", fontWeight: 400 }}>(无可用路由)</span>;
+                        return <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--red-500)", fontWeight: 400 }}>(无可用路�?</span>;
                       }
                       return (
                         <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--green-600)", fontWeight: 400 }}>
-                          → {active._wildcard ? `${active.label || active.model} (通配)` : active.label || active.model}
+                          �?{active._wildcard ? `${active.label || active.model} (通配)` : active.label || active.model}
                         </span>
                       );
                     })()}
@@ -495,11 +495,11 @@ export default function ApiManagementTab() {
                   <table style={S.table}>
                     <thead>
                       <tr>
-                        <th style={S.th}>优先级</th>
+                        <th style={S.th}>优先�?/th>
                         <th style={S.th}>标签</th>
                         <th style={S.th}>Secret</th>
                         <th style={S.th}>模型</th>
-                        <th style={S.th}>状态</th>
+                        <th style={S.th}>状�?/th>
                         <th style={S.th}>调用</th>
                         <th style={S.th}>今日费用</th>
                         <th style={S.th}>操作</th>
@@ -589,12 +589,12 @@ export default function ApiManagementTab() {
         <div>
           <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
             <button onClick={loadHealth} style={S.primaryBtn}>
-              <Activity size={14} /> 检查连通性
+              <Activity size={14} /> 检查连通�?
             </button>
             <button
               onClick={() =>
                 reloadRouter()
-                  .then(() => toast.success("已重载"))
+                  .then(() => toast.success("已重�?))
                   .catch(() => toast.error("重载失败"))
               }
               className="btn btn-secondary"
@@ -606,7 +606,7 @@ export default function ApiManagementTab() {
               className="btn btn-secondary"
               style={{ background: healthAutoRefresh ? "var(--green-100)" : undefined }}
             >
-              <RefreshCw size={14} /> {healthAutoRefresh ? "自动刷新中" : "自动刷新"}
+              <RefreshCw size={14} /> {healthAutoRefresh ? "自动刷新�? : "自动刷新"}
             </button>
           </div>
           <div className="card" style={{ overflow: "auto" }}>
@@ -614,7 +614,7 @@ export default function ApiManagementTab() {
               <thead>
                 <tr>
                   <th style={S.th}>端点</th>
-                  <th style={S.th}>状态</th>
+                  <th style={S.th}>状�?/th>
                   <th style={S.th}>延迟</th>
                 </tr>
               </thead>
@@ -622,7 +622,7 @@ export default function ApiManagementTab() {
                 {health.length === 0 ? (
                   <tr>
                     <td colSpan={3} style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-tertiary)" }}>
-                      点击"检查连通性"
+                      点击"检查连通�?
                     </td>
                   </tr>
                 ) : (

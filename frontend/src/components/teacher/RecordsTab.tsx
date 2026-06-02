@@ -65,14 +65,14 @@ export default function RecordsTab() {
   const handleDelete = async (r) => {
     const ok = await confirm({
       title: "删除记录",
-      message: `确定删除"${r.user_display_name}"对"${r.case_name}"的训练记录吗？此操作不可恢复。`,
+      message: `确定删除"${r.user_display_name}"�?${r.case_name}"的训练记录吗？此操作不可恢复。`,
       confirmLabel: "确定删除",
       danger: true,
     });
     if (!ok) return;
     try {
       await deleteRecord(r.id);
-      toast.success("训练记录已删除");
+      toast.success("训练记录已删�?);
       loadData();
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
@@ -101,19 +101,19 @@ export default function RecordsTab() {
             </select>
           </div>
           <div className="filter-item">
-            <label>状态</label>
+            <label>状�?/label>
             <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
               <option value="">全部</option>
-              <option value="in_progress">进行中</option>
-              <option value="completed">已完成</option>
+              <option value="in_progress">进行�?/option>
+              <option value="completed">已完�?/option>
             </select>
           </div>
           <div className="filter-item">
-            <label>开始日期(起)</label>
+            <label>开始日�?�?</label>
             <input type="date" value={filters.date_from} onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))} />
           </div>
           <div className="filter-item">
-            <label>开始日期(止)</label>
+            <label>开始日�?�?</label>
             <input type="date" value={filters.date_to} onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))} />
           </div>
           <div className="filter-item" style={{ alignSelf: "flex-end" }}>
@@ -125,7 +125,7 @@ export default function RecordsTab() {
       </div>
 
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {total} 条记录</span>
+        <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>�?{total} 条记�?/span>
         <button className="btn btn-primary" onClick={handleExport}>
           <Download size={16} />
           导出CSV
@@ -146,8 +146,8 @@ export default function RecordsTab() {
               <th>学生</th>
               <th>学号</th>
               <th>病例</th>
-              <th>状态</th>
-              <th>开始时间</th>
+              <th>状�?/th>
+              <th>开始时�?/th>
               <th>时长</th>
               <th>得分</th>
               <th>操作</th>
@@ -163,12 +163,12 @@ export default function RecordsTab() {
                   <td>{r.case_name}</td>
                   <td>
                     <span className={`badge ${r.status === "completed" ? "badge-success" : "badge-info"}`}>
-                      {r.status === "completed" ? "已完成" : "进行中"}
+                      {r.status === "completed" ? "已完�? : "进行�?}
                     </span>
                   </td>
                   <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(r.start_time).toLocaleString("zh-CN")}</td>
                   <td style={{ color: durMins != null ? "var(--text-secondary)" : "var(--text-tertiary)" }}>
-                    {durMins != null ? `${durMins} 分钟` : "进行中"}
+                    {durMins != null ? `${durMins} 分钟` : "进行�?}
                   </td>
                   <td>
                     {r.score_total != null ? (
@@ -185,7 +185,7 @@ export default function RecordsTab() {
                                   : "var(--color-danger)",
                         }}
                       >
-                        {r.score_total}分
+                        {r.score_total}�?
                       </span>
                     ) : (
                       <span style={{ color: "var(--text-tertiary)" }}>-</span>

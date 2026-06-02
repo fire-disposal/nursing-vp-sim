@@ -107,7 +107,7 @@ function FeedbackChart() {
   if (data.length === 0) return null;
 
   const colorMap = { rating_1: "#ef4444", rating_2: "#f97316", rating_3: "#eab308", rating_4: "#22c55e", rating_5: "#3b82f6" };
-  const labelMap = { rating_1: "😞 很差", rating_2: "😐 较差", rating_3: "🙂 一般", rating_4: "😊 满意", rating_5: "😍 很满意" };
+  const labelMap = { rating_1: "😞 很差", rating_2: "😐 较差", rating_3: "🙂 一�?, rating_4: "😊 满意", rating_5: "😍 很满�? };
 
   return (
     <div>
@@ -168,7 +168,7 @@ function FeedbackChart() {
 }
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
-const PIE_LABELS = ["😞 很差", "😐 较差", "🙂 一般", "😊 满意", "😍 很满意"];
+const PIE_LABELS = ["😞 很差", "😐 较差", "🙂 一�?, "😊 满意", "😍 很满�?];
 
 function RatingPieChart({ tag, dateFrom, dateTo }) {
   const [data, setData] = useState<any[]>([]);
@@ -288,7 +288,7 @@ export default function FeedbackTab() {
       <div className="filter-bar" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
-            <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>开始日期</label>
+            <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>开始日�?/label>
             <input
               type="date"
               value={dateFrom}
@@ -299,7 +299,7 @@ export default function FeedbackTab() {
               style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
             />
           </div>
-          <span style={{ color: "var(--text-tertiary)", fontSize: "0.85rem", alignSelf: "flex-end", paddingBottom: 7 }}>—</span>
+          <span style={{ color: "var(--text-tertiary)", fontSize: "0.85rem", alignSelf: "flex-end", paddingBottom: 7 }}>�?/span>
           <div>
             <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>结束日期</label>
             <input
@@ -345,7 +345,7 @@ export default function FeedbackTab() {
         </div>
       </div>
 
-      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>共 {total} 条反馈</div>
+      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>�?{total} 条反�?/div>
 
       {loading ? (
         <LoadingState />

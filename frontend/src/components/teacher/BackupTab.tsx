@@ -43,9 +43,9 @@ export default function BackupTab() {
         <div className="icon">
           <Database size={48} />
         </div>
-        <div style={{ fontSize: "var(--font-size-base)", fontWeight: "var(--font-weight-semibold)", marginTop: "var(--space-3)" }}>下载数据库备份</div>
+        <div style={{ fontSize: "var(--font-size-base)", fontWeight: "var(--font-weight-semibold)", marginTop: "var(--space-3)" }}>下载数据库备�?/div>
         <div style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)", marginTop: "var(--space-1)", maxWidth: 380, lineHeight: 1.5 }}>
-          使用 pg_dump 导出完整数据库，生成 .zip 压缩包下载到本地。可用于数据安全备份或迁移。
+          使用 pg_dump 导出完整数据库，生成 .zip 压缩包下载到本地。可用于数据安全备份或迁移�?
         </div>
         <button
           className="btn btn-primary"
@@ -61,7 +61,7 @@ export default function BackupTab() {
           ) : (
             <>
               <DownloadCloud size={16} />
-              下载数据库备份
+              下载数据库备�?
             </>
           )}
         </button>

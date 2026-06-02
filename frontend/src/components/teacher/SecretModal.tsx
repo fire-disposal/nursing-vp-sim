@@ -32,10 +32,10 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
     try {
       if (isEdit) {
         await updateSecret(secret.id, { label: label.trim() });
-        success("Secret 已更新");
+        success("Secret 已更�?);
       } else {
         await createSecret({ label: label.trim(), raw_key: rawKey.trim() });
-        success("Secret 已创建");
+        success("Secret 已创�?);
       }
       onSaved();
       onClose();
@@ -54,7 +54,7 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="如: DeepSeek 个人账号"
+            placeholder="�? DeepSeek 个人账号"
             style={{
               width: "100%",
               padding: "var(--space-2) var(--space-3)",
@@ -89,7 +89,7 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
             取消
           </button>
           <button onClick={handleSave} disabled={saving} className="btn btn-primary">
-            {saving ? "保存中..." : "保存"}
+            {saving ? "保存�?.." : "保存"}
           </button>
         </div>
       </div>

@@ -16,7 +16,7 @@ import { useConfirm } from "../ui/ConfirmDialog";
 import Modal from "../ui/Modal";
 
 const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
-const PURPOSE_LABELS = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
+const PURPOSE_LABELS = { patient_chat: "患者对�?, scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
 
 const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSource }) => {
   const [editing, setEditing] = useState(false);
@@ -29,10 +29,10 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
   const isSystem =
     meta.source &&
     (meta.source.includes("病例数据") ||
-      meta.source.includes("运行时") ||
+      meta.source.includes("运行�?) ||
       meta.source.includes("prompt_static") ||
       meta.source.includes("自动生成") ||
-      meta.source.includes("Message 表"));
+      meta.source.includes("Message �?));
 
   const commitDesc = () => {
     setEditing(false);
@@ -189,7 +189,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
             }}
             title="点击编辑来源说明"
           >
-            {meta.source ? `来源：${meta.source}` : "点击添加来源说明..."}
+            {meta.source ? `来源�?{meta.source}` : "点击添加来源说明..."}
           </div>
         )}
         {meta.example && (
@@ -205,7 +205,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
         )}
         <div style={{ marginTop: 2 }}>
           {isSystem ? (
-            <div style={{ fontSize: "0.65rem", color: "var(--text-tertiary)", fontStyle: "italic" }}>默认值：由系统运行时注入，不可编辑</div>
+            <div style={{ fontSize: "0.65rem", color: "var(--text-tertiary)", fontStyle: "italic" }}>默认值：由系统运行时注入，不可编�?/div>
           ) : editingDefault ? (
             <input
               value={defaultDraft}
@@ -215,7 +215,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
                 if (e.key === "Enter") commitDefault();
               }}
               autoFocus
-              placeholder="默认值..."
+              placeholder="默认�?.."
               style={{
                 width: "100%",
                 fontSize: "0.68rem",
@@ -233,7 +233,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
                 color: meta.default_value ? "var(--text-secondary)" : "var(--text-tertiary)",
                 fontStyle: meta.default_value ? "normal" : "italic",
               }}
-              title="点击设置默认值（自定义变量在调用点未提供值时使用）"
+              title="点击设置默认值（自定义变量在调用点未提供值时使用�?
             >
               默认值：{meta.default_value || "(点击设置)"}
             </div>
@@ -332,10 +332,10 @@ export default function PromptManagementTab() {
     try {
       if (editing && editing !== "new") {
         await updatePrompt(editing, { name: form.name, system_prompt: form.system_prompt, user_prompt: form.user_prompt || null, remark: form.remark });
-        toast.success("已保存");
+        toast.success("已保�?);
       } else {
         await createPrompt(form);
-        toast.success("已创建");
+        toast.success("已创�?);
       }
       setEditing(null);
       load();
@@ -349,7 +349,7 @@ export default function PromptManagementTab() {
   };
 
   const handleActivate = async (p) => {
-    const ok = await confirm({ title: "切换版本", message: `「${PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ""}"？`, confirmText: "切换" });
+    const ok = await confirm({ title: "切换版本", message: `�?{PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ""}"？`, confirmText: "切换" });
     if (!ok) return;
     try {
       await activatePrompt(p.id);
@@ -357,7 +357,7 @@ export default function PromptManagementTab() {
       load();
     } catch (err: unknown) {
       const d = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-      toast.error(Array.isArray(d) ? d.map((e) => e.msg).join("; ") : d || "激活失败");
+      toast.error(Array.isArray(d) ? d.map((e) => e.msg).join("; ") : d || "激活失�?);
     }
   };
 
@@ -366,12 +366,12 @@ export default function PromptManagementTab() {
       toast.error("不能删除当前激活的版本");
       return;
     }
-    const ok = await confirm({ title: "删除", message: `删除「${PURPOSE_LABELS[p.purpose]}」v${p.version}?`, confirmText: "删除", danger: true });
+    const ok = await confirm({ title: "删除", message: `删除�?{PURPOSE_LABELS[p.purpose]}」v${p.version}?`, confirmText: "删除", danger: true });
     if (!ok) return;
     try {
       await deletePrompt(p.id);
       if (editing === p.id) setEditing(null);
-      toast.success("已删除");
+      toast.success("已删�?);
       load();
     } catch (err: unknown) {
       toast.error((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "删除失败");
@@ -434,7 +434,7 @@ export default function PromptManagementTab() {
       await reloadPrompts();
       toast.success("模板已热加载");
     } catch {
-      toast.error("热加载失败");
+      toast.error("热加载失�?);
     }
   };
 
@@ -469,11 +469,11 @@ export default function PromptManagementTab() {
 
   const editorTitle =
     editing === "new"
-      ? `新建「${PURPOSE_LABELS[form.purpose]}」`
+      ? `新建�?{PURPOSE_LABELS[form.purpose]}」`
       : editing
         ? (() => {
             const t = prompts.find((p) => p.id === editing);
-            return t ? `编辑「${PURPOSE_LABELS[t.purpose]}」v${t.version}` : "编辑";
+            return t ? `编辑�?{PURPOSE_LABELS[t.purpose]}」v${t.version}` : "编辑";
           })()
         : null;
 
@@ -515,7 +515,7 @@ export default function PromptManagementTab() {
             gap: "var(--space-1)",
           }}
         >
-          <RefreshCw size={13} /> 热加载
+          <RefreshCw size={13} /> 热加�?
         </button>
         <button
           onClick={handleShowActive}
@@ -644,10 +644,10 @@ export default function PromptManagementTab() {
                                 gap: 2,
                               }}
                             >
-                              <CheckCircle size={10} /> 激活
+                              <CheckCircle size={10} /> 激�?
                             </span>
                           ) : (
-                            <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>未激活</span>
+                            <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>未激�?/span>
                           )}
                           <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 1 }}>
                             <button
@@ -673,7 +673,7 @@ export default function PromptManagementTab() {
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
               <h4 style={{ margin: 0, fontSize: "0.95rem", flex: 1 }}>{editorTitle}</h4>
               {editedPrompt && (
-                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>更新于 {new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}</span>
+                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>更新�?{new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}</span>
               )}
             </div>
 
@@ -707,7 +707,7 @@ export default function PromptManagementTab() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="v2-优化版"
+                  placeholder="v2-优化�?
                   style={{
                     width: "100%",
                     padding: "var(--space-2) var(--space-3)",
@@ -840,7 +840,7 @@ export default function PromptManagementTab() {
                     })}
                   </div>
                 ) : (
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>无变量（纯静态 prompt）</span>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>无变量（纯静�?prompt�?/span>
                 )}
               </div>
             </div>
@@ -856,7 +856,7 @@ export default function PromptManagementTab() {
                 }}
               >
                 {validation.valid ? "校验通过" : validation.errors.join("; ")}
-                {validation.missing_vars?.length > 0 && <div style={{ marginTop: 4 }}>变量未声明: {validation.missing_vars.join(", ")}</div>}
+                {validation.missing_vars?.length > 0 && <div style={{ marginTop: 4 }}>变量未声�? {validation.missing_vars.join(", ")}</div>}
               </div>
             )}
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
@@ -894,7 +894,7 @@ export default function PromptManagementTab() {
                     fontWeight: 600,
                   }}
                 >
-                  <CheckCircle size={14} /> 保存并激活
+                  <CheckCircle size={14} /> 保存并激�?
                 </button>
               )}
               <button
@@ -912,7 +912,7 @@ export default function PromptManagementTab() {
                   marginLeft: "auto",
                 }}
               >
-                {saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
+                {saving ? "保存�?.." : editing === "new" ? "创建版本" : "保存修改"}
               </button>
               <button
                 onClick={() => {
@@ -945,7 +945,7 @@ export default function PromptManagementTab() {
             <Layers size={40} style={{ color: "var(--text-tertiary)", opacity: 0.5, marginBottom: "var(--space-4)" }} />
             <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "var(--space-1)" }}>选择左侧版本进行编辑</div>
             <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginBottom: "var(--space-4)" }}>
-              点击版本名打开编辑器，或点击左侧 <Plus size={12} style={{ verticalAlign: "middle", color: "var(--color-primary)" }} /> 为场景创建新版本
+              点击版本名打开编辑器，或点击左�?<Plus size={12} style={{ verticalAlign: "middle", color: "var(--color-primary)" }} /> 为场景创建新版本
             </div>
             {!prompts.length && (
               <button
@@ -964,7 +964,7 @@ export default function PromptManagementTab() {
                   gap: "var(--space-1)",
                 }}
               >
-                <Plus size={14} /> 创建第一个版本
+                <Plus size={14} /> 创建第一个版�?
               </button>
             )}
           </div>
@@ -991,7 +991,7 @@ export default function PromptManagementTab() {
               return (
                 <option key={p} value={p}>
                   {PURPOSE_LABELS[p]}
-                  {av ? ` · v${av.version}` : " · 未激活"}
+                  {av ? ` · v${av.version}` : " · 未激�?}
                 </option>
               );
             })}
@@ -1034,7 +1034,7 @@ export default function PromptManagementTab() {
         </div>
 
         {previewLoading ? (
-          <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--text-tertiary)" }}>加载中...</div>
+          <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--text-tertiary)" }}>加载�?..</div>
         ) : previewData ? (
           <>
             <div style={{ marginBottom: "var(--space-3)" }}>
@@ -1093,7 +1093,7 @@ export default function PromptManagementTab() {
             )}
           </>
         ) : (
-          <div style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--text-tertiary)" }}>该场景暂未激活任何版本</div>
+          <div style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--text-tertiary)" }}>该场景暂未激活任何版�?/div>
         )}
       </Modal>
     </div>

@@ -61,15 +61,15 @@ export default function QARecordsTab() {
 
   return (
     <div className="card">
-      <div style={{ marginBottom: 12, color: "var(--gray-500)", fontSize: "0.88rem" }}>共 {total} 条问答会话</div>
+      <div style={{ marginBottom: 12, color: "var(--gray-500)", fontSize: "0.88rem" }}>�?{total} 条问答会�?/div>
       <table className="data-table">
         <thead>
           <tr>
             <th>学生</th>
             <th>学号</th>
             <th>会话标题</th>
-            <th>消息数</th>
-            <th>最后活跃</th>
+            <th>消息�?/th>
+            <th>最后活�?/th>
             <th>操作</th>
           </tr>
         </thead>
@@ -92,10 +92,10 @@ export default function QARecordsTab() {
       </table>
       <Pagination offset={offset} limit={LIMIT} total={total} onChange={setOffset} />
 
-      <Modal open={showPreview} onClose={() => setShowPreview(false)} title={`对话预览：${previewTitle}`}>
+      <Modal open={showPreview} onClose={() => setShowPreview(false)} title={`对话预览�?{previewTitle}`}>
         <div style={{ maxHeight: "60vh", overflowY: "auto", padding: "8px 0" }}>
           {loadingPreview ? (
-            <p style={{ textAlign: "center", color: "#9ca3af" }}>加载中...</p>
+            <p style={{ textAlign: "center", color: "#9ca3af" }}>加载�?..</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {previewMessages.map((m, i) => (

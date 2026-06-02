@@ -75,7 +75,7 @@ export default function UsersTab({ currentUserId }) {
     setOffset(0);
   }, [search, roleFilter, classParam]);
 
-  const handleRegister = async (e) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegMsg("");
     try {
@@ -84,7 +84,7 @@ export default function UsersTab({ currentUserId }) {
       if (regForm.class_id) payload.class_id = Number(regForm.class_id);
       else delete payload.class_id;
       await register(payload);
-      setRegMsg("注册成功！");
+      setRegMsg("注册成功�?);
       setRegForm({ username: "", password: "", role: "student", display_name: "", student_id: "", class_id: "" });
       setRegGrade("");
       setRegClasses([]);
@@ -115,10 +115,10 @@ export default function UsersTab({ currentUserId }) {
     setShowEditUser(true);
   };
 
-  const handleSaveUser = async (e) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditUserMsg("");
-    const payload = {};
+    const payload: Record<string, unknown> = {};
     if (editUserForm.display_name) payload.display_name = editUserForm.display_name;
     if (editUserForm.student_id) payload.student_id = editUserForm.student_id;
     else payload.student_id = null;
@@ -138,7 +138,7 @@ export default function UsersTab({ currentUserId }) {
 
   const handleDeleteUser = async (u) => {
     if (u.id === currentUserId) {
-      toast.warning("不能删除自己的账号");
+      toast.warning("不能删除自己的账�?);
       return;
     }
     const ok = await confirm({
@@ -150,7 +150,7 @@ export default function UsersTab({ currentUserId }) {
     if (!ok) return;
     try {
       await deleteUser(u.id);
-      toast.success("用户已删除");
+      toast.success("用户已删�?);
       setOffset(0);
       loadUsers(0);
     } catch (err: unknown) {
@@ -158,7 +158,7 @@ export default function UsersTab({ currentUserId }) {
     }
   };
 
-  function parseBatchText(text) {
+  function parseBatchText(text: string) {
     setBatchParseError("");
     setBatchPreview([]);
     if (!text.trim()) {
@@ -173,14 +173,14 @@ export default function UsersTab({ currentUserId }) {
     for (let i = 0; i < lines.length; i++) {
       const parts = lines[i].split(",").map((s) => s.trim());
       if (parts.length < 4) {
-        setBatchParseError(`第 ${i + 1} 行格式不正确，需要至少4列（用户名,密码,姓名,角色）`);
+        setBatchParseError(`�?${i + 1} 行格式不正确，需要至�?列（用户�?密码,姓名,角色）`);
         setBatchPreview([]);
         return;
       }
       const classIdRaw = parts[5] ? parts[5].trim() : "";
       const classId = classIdRaw && /^\d+$/.test(classIdRaw) ? Number(classIdRaw) : null;
       if (classIdRaw && !/^\d+$/.test(classIdRaw)) {
-        setBatchParseError(`第 ${i + 1} 行班级ID "${classIdRaw}" 无效，应为数字`);
+        setBatchParseError(`�?${i + 1} 行班级ID "${classIdRaw}" 无效，应为数字`);
         setBatchPreview([]);
         return;
       }
@@ -236,7 +236,7 @@ export default function UsersTab({ currentUserId }) {
   }
 
   function handleDownloadTemplate() {
-    const csvContent = "\uFEFF用户名,密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,\nstudent7,123456,钱七,student,2024007,";
+    const csvContent = "\uFEFF用户�?密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,\nstudent7,123456,钱七,student,2024007,";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -264,7 +264,7 @@ export default function UsersTab({ currentUserId }) {
             "取消"
           ) : (
             <>
-              <Plus size={16} /> 注册新用户
+              <Plus size={16} /> 注册新用�?
             </>
           )}
         </button>
@@ -288,7 +288,7 @@ export default function UsersTab({ currentUserId }) {
           {regMsg && <div className={regMsg.includes("成功") ? "success-msg" : "error-msg"}>{regMsg}</div>}
           <form onSubmit={handleRegister} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>用户名</label>
+              <label>用户�?/label>
               <input value={regForm.username} onChange={(e) => setRegForm({ ...regForm, username: e.target.value })} required />
             </div>
             <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
@@ -299,7 +299,7 @@ export default function UsersTab({ currentUserId }) {
                 onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
                 required
                 minLength="6"
-                placeholder="至少6位"
+                placeholder="至少6�?
               />
             </div>
             <div className="form-group" style={{ flex: "1 1 100px", marginBottom: 0 }}>
@@ -327,7 +327,7 @@ export default function UsersTab({ currentUserId }) {
                   loadClassesForGrade(e.target.value, setRegClasses);
                 }}
               >
-                <option value="">不指定</option>
+                <option value="">不指�?/option>
                 {grades.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
@@ -338,7 +338,7 @@ export default function UsersTab({ currentUserId }) {
             <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
               <label>班级</label>
               <select value={regForm.class_id} onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })} disabled={!regGrade}>
-                <option value="">不指定</option>
+                <option value="">不指�?/option>
                 {regClasses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -390,12 +390,12 @@ export default function UsersTab({ currentUserId }) {
             <option value="teacher">教师</option>
           </select>
           <ClassFilter onChange={setClassParam} />
-          <span style={{ fontSize: "0.78rem", color: "var(--gray-500)", whiteSpace: "nowrap" }}>共 {userTotal} 人</span>
+          <span style={{ fontSize: "0.78rem", color: "var(--gray-500)", whiteSpace: "nowrap" }}>�?{userTotal} �?/span>
         </div>
         <table className="data-table">
           <thead>
             <tr>
-              <th>用户名</th>
+              <th>用户�?/th>
               <th>姓名</th>
               <th>角色</th>
               <th>班级</th>
@@ -481,7 +481,7 @@ export default function UsersTab({ currentUserId }) {
                 loadClassesForGrade(e.target.value, setEditClasses);
               }}
             >
-              <option value="">不指定</option>
+              <option value="">不指�?/option>
               {grades.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
@@ -492,7 +492,7 @@ export default function UsersTab({ currentUserId }) {
           <div className="form-group">
             <label>班级</label>
             <select value={editUserForm.class_id} onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))} disabled={!editGrade}>
-              <option value="">不指定</option>
+              <option value="">不指�?/option>
               {editClasses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -506,7 +506,7 @@ export default function UsersTab({ currentUserId }) {
               type="password"
               value={editUserForm.password}
               onChange={(e) => setEditUserForm((f) => ({ ...f, password: e.target.value }))}
-              placeholder="至少6位"
+              placeholder="至少6�?
               minLength="6"
             />
           </div>
@@ -536,11 +536,11 @@ export default function UsersTab({ currentUserId }) {
       >
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontWeight: 600, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-            <FileText size={14} /> 粘贴文本（每行一个用户，逗号分隔）
+            <FileText size={14} /> 粘贴文本（每行一个用户，逗号分隔�?
           </label>
           <textarea
             rows={5}
-            placeholder="用户名,密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,1"
+            placeholder="用户�?密码,姓名,角色,学号,班级ID\nstudent6,123456,赵六,student,2024006,1"
             value={batchText}
             onChange={(e) => {
               setBatchText(e.target.value);
@@ -586,7 +586,7 @@ export default function UsersTab({ currentUserId }) {
               <table className="data-table" style={{ margin: 0 }}>
                 <thead>
                   <tr>
-                    <th>用户名</th>
+                    <th>用户�?/th>
                     <th>密码</th>
                     <th>姓名</th>
                     <th>角色</th>
@@ -624,10 +624,10 @@ export default function UsersTab({ currentUserId }) {
             }}
           >
             <div>
-              创建成功: <strong style={{ color: "var(--green-500)" }}>{batchResult.created}</strong> 名
+              创建成功: <strong style={{ color: "var(--green-500)" }}>{batchResult.created}</strong> �?
             </div>
             <div>
-              跳过: <strong style={{ color: "var(--amber-500)" }}>{batchResult.skipped}</strong> 名
+              跳过: <strong style={{ color: "var(--amber-500)" }}>{batchResult.skipped}</strong> �?
             </div>
           </div>
         )}
@@ -636,7 +636,7 @@ export default function UsersTab({ currentUserId }) {
             取消
           </button>
           <button className="btn btn-primary" disabled={batchPreview.length === 0 || batchImporting} onClick={handleBatchImport}>
-            {batchImporting ? "导入中..." : `导入 ${batchPreview.length} 名用户`}
+            {batchImporting ? "导入�?.." : `导入 ${batchPreview.length} 名用户`}
           </button>
         </div>
       </Modal>
