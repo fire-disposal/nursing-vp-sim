@@ -4,16 +4,17 @@
  * 格式: <emoji> <type>: <描述>
  * 示例: ✨ feat: 添加患者评分模块
  *       🐛 fix: 修复 SSE 流式断连问题
- *       🔧 chore: 版本号统一为日期风格
+ *       🎨 style: 优化登录页布局
+ *       🔀 merge: feature/rbac-classes-management
  *
  * 快速复制前缀 (Quick Copy):
  *   ✨ feat:       🐛 fix:        📝 docs:
  *   ♻️ refactor:   🔧 chore:      ✅ test:
- *   💄 style:      🚀 ci:         📦 build:
- *   ⚡ perf:
+ *   🎨 style:      🚀 ci:         📦 build:
+ *   ⚡ perf:       🔀 merge:      🔒 security:
+ *   🗃️ db:
  *
- * 版本号: vYYYY.MM.DD 或 vYYYY.MM.DD-N (e.g. v2026.05.29, v2026.05.29-3)
- * Tag 格式由 .husky/pre-push 校验
+ * 版本号: vYYYY.MM.DD 或 vYYYY.MM.DD-N (e.g. v2026.06.02, v2026.06.02-3)
  */
 
 const fs = require('fs');
@@ -26,21 +27,25 @@ const EMOJI_TYPES = {
   '♻️': 'refactor',
   '🔧': 'chore',
   '✅': 'test',
-  '💄': 'style',
+  '🎨': 'style',
   '🚀': 'ci',
   '📦': 'build',
   '⚡': 'perf',
+  '🔀': 'merge',
+  '🔒': 'security',
+  '🗃️': 'db',
 };
 
 const msgFile = process.argv[2];
 let msg = fs.readFileSync(msgFile, 'utf-8').replace(/\uFEFF/g, '');
 const firstLine = msg.split(/\r?\n/, 1)[0];
 
-const emojiAlt = Object.keys(EMOJI_TYPES).join('|');
-const typesAlt = Object.values(EMOJI_TYPES).join('|');
-const re = new RegExp(`^(${emojiAlt}) (${typesAlt})(\\(.+\\))?: .+`, 'u');
+const RE_SCOPED = new RegExp(
+  `^(${Object.keys(EMOJI_TYPES).join('|')}) (${Object.values(EMOJI_TYPES).join('|')})(\\(.+\\))?: .+`,
+  'u'
+);
 
-const m = firstLine.match(re);
+const m = firstLine.match(RE_SCOPED);
 if (!m) {
   console.log('');
   console.log('  Format: <emoji> <type>: <description>');
