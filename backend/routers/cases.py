@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
 from models import Case, TrainingRecord, User
-from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse
+from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse, MessageResponse
 from auth import get_current_user, require_teacher
 from logger import log
 from pagination import paginate
@@ -220,7 +220,7 @@ def update_case(
     return _to_manage_item(case, count)
 
 
-@router.delete("/{case_id}")
+@router.delete("/{case_id}", response_model=MessageResponse)
 def delete_case(
     case_id: int,
     db: Session = Depends(get_db),

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, UserClass, Class
-from schemas import LoginRequest, RegisterRequest, TokenResponse
+from schemas import LoginRequest, RegisterRequest, TokenResponse, UserBrief
 from auth import hash_password, verify_password, create_access_token, get_current_user, require_teacher
 from rate_limiter import login_rate_limit, register_rate_limit, reset_login_limit
 from logger import log
@@ -77,7 +77,7 @@ def register(
     )
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserBrief)
 def get_me(current_user: User = Depends(get_current_user)):
     return {
         "id": current_user.id,

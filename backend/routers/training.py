@@ -10,7 +10,7 @@ from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog,
 from schemas import (
     TrainingStartRequest, TrainingStartResponse, TrainingRecordBrief,
     TrainingRecordDetail, ScoreReviewRequest, ScoreReviewResponse,
-    PaginatedResponse,
+    PaginatedResponse, MessageResponse, ScoringTriggerResponse,
 )
 from pagination import paginate
 from auth import get_current_user, require_teacher
@@ -133,7 +133,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
         _release_scoring(record_id)
 
 
-@router.post("/{record_id}/end")
+@router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
 def end_training(
     record_id: int,
     background_tasks: BackgroundTasks,
@@ -176,7 +176,7 @@ def end_training(
     }
 
 
-@router.post("/{record_id}/retry-scoring")
+@router.post("/{record_id}/retry-scoring", response_model=ScoringTriggerResponse)
 def retry_scoring(
     record_id: int,
     background_tasks: BackgroundTasks,
@@ -331,7 +331,7 @@ def get_record_detail(record_id: int, current_user: User = Depends(get_current_u
     )
 
 
-@router.delete("/records/{record_id}")
+@router.delete("/records/{record_id}", response_model=MessageResponse)
 def delete_record(record_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """删除训练记录。教师可删全部，学生仅可删自己的。"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
