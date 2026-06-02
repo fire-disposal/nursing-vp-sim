@@ -1,4 +1,19 @@
-import { BarChart3, ClipboardList, HelpCircle, Home, Info, Menu, MessageSquare, Server, Settings, Stethoscope, UserSearch, Users, X } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  GraduationCap,
+  HelpCircle,
+  Home,
+  Info,
+  Menu,
+  MessageSquare,
+  Server,
+  Settings,
+  Stethoscope,
+  UserSearch,
+  Users,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { APP_VERSION } from "../version";
@@ -20,6 +35,7 @@ const teacherLinks = [
   { to: "/stats", icon: BarChart3, label: "训练统计" },
   { to: "/admin", icon: Settings, label: "训练管理" },
   { to: "/admin/users", icon: Users, label: "用户管理" },
+  { to: "/admin/grades-classes", icon: GraduationCap, label: "班级管理" },
   { to: "/admin/cases", icon: UserSearch, label: "病例管理" },
   { to: "/admin/llm", icon: Server, label: "LLM 管理" },
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈" },
