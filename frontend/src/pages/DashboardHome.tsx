@@ -15,8 +15,9 @@
   TrendingUp,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   exportRecords,
   getCases,
@@ -83,32 +84,34 @@ interface GradeInfo {
 }
 
 export default function DashboardHome() {
-  const [cases, setCases] = useState<CaseBrief[]>([]);
-  const [records, setRecords] = useState<RecordExtended[]>([]);
-  const [durationStats, setDurationStats] = useState<DurationStats | null>(null);
-  const [stats, setStats] = useState<AdminStats | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    if (user?.role === "student") {
-      getCases()
-        .then(({ data }) => setCases(data.items ?? []))
-        .catch(() => toast.error("加载病例列表失败"));
-      getDurationStats()
-        .then(({ data }) => setDurationStats(data))
-        .catch(() => toast.error("加载统计失败"));
-    }
-    if (user?.role === "teacher") {
-      getStats()
-        .then(({ data }) => setStats(data))
-        .catch(() => toast.error("加载管理统计失败"));
-    }
-    getRecords()
-      .then(({ data }) => setRecords((data.items ?? []) as RecordExtended[]))
-      .catch(() => toast.error("加载训练记录失败"));
-  }, [user]);
+  const { data: casesData } = useQuery({
+    queryKey: ["cases"],
+    queryFn: () => getCases().then((r) => r.data),
+    enabled: user?.role === "student",
+  });
+  const { data: durationData } = useQuery({
+    queryKey: ["durationStats"],
+    queryFn: () => getDurationStats().then((r) => r.data),
+    enabled: user?.role === "student",
+  });
+  const { data: statsData } = useQuery({
+    queryKey: ["adminStats"],
+    queryFn: () => getStats().then((r) => r.data),
+    enabled: user?.role === "teacher",
+  });
+  const { data: recordsData } = useQuery({
+    queryKey: ["records", "recent"],
+    queryFn: () => getRecords({ limit: 5, offset: 0 }).then((r) => r.data),
+  });
+
+  const cases = casesData?.items ?? [];
+  const records = (recordsData?.items ?? []) as RecordExtended[];
+  const durationStats = durationData ?? null;
+  const stats = statsData ?? null;
 
   const handleExport = async () => {
     try {

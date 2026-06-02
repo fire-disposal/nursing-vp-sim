@@ -1,6 +1,7 @@
 ﻿import { ClipboardList, Loader2, RefreshCw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteRecord, getRecords } from "@/api/api-client";
 import Layout from "@/components/Layout";
 import Pagination from "@/components/ui/Pagination";
@@ -18,45 +19,41 @@ interface FilterParams {
   date_to: string;
 }
 
-interface GetRecordsParams extends Record<string, unknown> {
-  offset: number;
-  limit: number;
-  status?: string;
-  date_from?: string;
-  date_to?: string;
-}
+const LIMIT = 50;
 
 export default function History() {
-  const [records, setRecords] = useState<TrainingRecordBrief[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const LIMIT = 50;
   const [filters, setFilters] = useState<FilterParams>({ status: "", date_from: "", date_to: "" });
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
   const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
 
-  const fetchRecords = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    const params: GetRecordsParams = { offset, limit: LIMIT };
-    if (filters.status) params.status = filters.status;
-    if (filters.date_from) params.date_from = filters.date_from;
-    if (filters.date_to) params.date_to = filters.date_to;
-    getRecords(params)
-      .then(({ data }) => {
-        setRecords(data.items ?? []);
-        setTotal(data.total ?? 0);
-      })
-      .catch((err: unknown) => {
-        const axiosErr = err as { response?: { data?: { detail?: string } } };
-        setError(axiosErr.response?.data?.detail || "加载记录失败");
-      })
-      .finally(() => setLoading(false));
-  }, [filters, offset]);
+  const params: Record<string, unknown> = { offset, limit: LIMIT };
+  if (filters.status) params.status = filters.status;
+  if (filters.date_from) params.date_from = filters.date_from;
+  if (filters.date_to) params.date_to = filters.date_to;
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["records", offset, filters],
+    queryFn: () => getRecords(params).then((r) => r.data),
+  });
+
+  const records = data?.items ?? [];
+  const total = data?.total ?? 0;
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteRecord(id),
+    onSuccess: () => {
+      toast.success("训练记录已删除");
+      queryClient.invalidateQueries({ queryKey: ["records"] });
+    },
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      toast.error(axiosErr.response?.data?.detail || "删除失败");
+    },
+  });
 
   const handleDeleteRecord = async (r: TrainingRecordBrief) => {
     const ok = await confirm({
@@ -66,46 +63,24 @@ export default function History() {
       danger: true,
     });
     if (!ok) return;
-    try {
-      await deleteRecord(r.id);
-      toast.success("训练记录已删除");
-      fetchRecords();
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { detail?: string } } };
-      toast.error(axiosErr.response?.data?.detail || "删除失败");
-    }
+    deleteMutation.mutate(r.id);
   };
 
-  const clearFilters = () => setFilters({ status: "", date_from: "", date_to: "" });
-
-  useEffect(() => {
-    fetchRecords();
-  }, [fetchRecords]);
-
-  useEffect(() => {
+  const clearFilters = () => {
+    setFilters({ status: "", date_from: "", date_to: "" });
     setOffset(0);
-  }, [filters.status, filters.date_from, filters.date_to]);
+  };
 
-  interface TrainingRecordBriefExtended {
-    id: number;
-    case_name: string;
-    user_display_name?: string;
-    user_student_id?: string | null;
-    start_time: string;
-    end_time: string | null;
-    status: string;
-    score_total?: number | null;
-    scoring_status?: string | null;
-    scoring_error?: string | null;
-  }
+  const handleFilterChange = (key: keyof FilterParams, value: string) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setOffset(0);
+  };
 
   return (
     <Layout>
       <PageHeader
         title="训练记录"
-        subtitle={
-          user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"
-        }
+        subtitle={user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"}
         icon={ClipboardList}
       />
 
@@ -114,10 +89,7 @@ export default function History() {
           <div className="filter-row">
             <div className="filter-item">
               <label>状态</label>
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-              >
+              <select value={filters.status} onChange={(e) => handleFilterChange("status", e.target.value)}>
                 <option value="">全部</option>
                 <option value="in_progress">进行中</option>
                 <option value="completed">已完成</option>
@@ -125,48 +97,36 @@ export default function History() {
             </div>
             <div className="filter-item">
               <label>开始日期(起)</label>
-              <input
-                type="date"
-                value={filters.date_from}
-                onChange={(e) => setFilters((f) => ({ ...f, date_from: e.target.value }))}
-              />
+              <input type="date" value={filters.date_from} onChange={(e) => handleFilterChange("date_from", e.target.value)} />
             </div>
             <div className="filter-item">
               <label>开始日期(止)</label>
-              <input
-                type="date"
-                value={filters.date_to}
-                onChange={(e) => setFilters((f) => ({ ...f, date_to: e.target.value }))}
-              />
+              <input type="date" value={filters.date_to} onChange={(e) => handleFilterChange("date_to", e.target.value)} />
             </div>
             <div className="filter-item" style={{ alignSelf: "flex-end" }}>
-              <button className="btn btn-sm" onClick={clearFilters}>
-                清除过滤
-              </button>
+              <button type="button" className="btn btn-sm" onClick={clearFilters}>清除过滤</button>
             </div>
           </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="empty-state">
             <Loader2 size={42} className="spin" />
             <div>加载中...</div>
           </div>
-        ) : error ? (
+        ) : isError ? (
           <div className="empty-state">
-            <div className="icon">
-              <ClipboardList size={42} />
+            <div className="icon"><ClipboardList size={42} /></div>
+            <div style={{ color: "var(--danger)", marginBottom: 12 }}>
+              {(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载记录失败"}
             </div>
-            <div style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</div>
-            <button className="btn btn-primary" onClick={fetchRecords}>
+            <button type="button" className="btn btn-primary" onClick={() => refetch()}>
               <RefreshCw size={16} /> 重试
             </button>
           </div>
         ) : records.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">
-              <ClipboardList size={42} />
-            </div>
+            <div className="icon"><ClipboardList size={42} /></div>
             <div>暂无训练记录</div>
           </div>
         ) : (
@@ -185,75 +145,41 @@ export default function History() {
             </thead>
             <tbody>
               {records.map((r) => {
-                const re = r as TrainingRecordBriefExtended;
+                const re = r as Record<string, unknown> & typeof r;
                 const durMins = re.end_time
-                  ? Math.round(
-                      (new Date(re.end_time).getTime() - new Date(re.start_time).getTime()) /
-                        60000,
-                    )
+                  ? Math.round((new Date(re.end_time as string).getTime() - new Date(re.start_time as string).getTime()) / 60000)
                   : null;
                 return (
-                  <tr key={re.id}>
-                    {user?.role === "teacher" && <td>{re.user_display_name}</td>}
-                    {user?.role === "teacher" && (
-                      <td style={{ color: "var(--text-secondary)" }}>{re.user_student_id}</td>
-                    )}
-                    <td>{re.case_name}</td>
-                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                      {new Date(re.start_time).toLocaleString("zh-CN")}
-                    </td>
-                    <td
-                      style={{
-                        color: durMins != null ? "var(--text-secondary)" : "var(--text-light)",
-                      }}
-                    >
+                  <tr key={re.id as number}>
+                    {user?.role === "teacher" && <td>{String(re.user_display_name ?? "")}</td>}
+                    {user?.role === "teacher" && <td style={{ color: "var(--text-secondary)" }}>{String(re.user_student_id ?? "")}</td>}
+                    <td>{String(re.case_name ?? "")}</td>
+                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(re.start_time as string).toLocaleString("zh-CN")}</td>
+                    <td style={{ color: durMins != null ? "var(--text-secondary)" : "var(--text-light)" }}>
                       {durMins != null ? `${durMins} 分钟` : "进行中"}
                     </td>
                     <td>
-                      <span
-                        className={`badge ${re.status === "completed" ? "badge-success" : "badge-info"}`}
-                      >
-                        {re.status === "completed" ? "已完成" : "进行中"}
+                      <span className={`badge ${r.status === "completed" ? "badge-success" : "badge-info"}`}>
+                        {r.status === "completed" ? "已完成" : "进行中"}
                       </span>
                     </td>
                     <td>
-                      {re.score_total != null ? (
-                        <span style={{ fontWeight: 600, color: "var(--primary)" }}>
-                          {re.score_total}分
-                        </span>
-                      ) : re.scoring_status === "pending" || re.scoring_status === "processing" ? (
-                        <span style={{ fontSize: "0.78rem", color: "var(--amber-500)" }}>
-                          评分中...
-                        </span>
-                      ) : re.scoring_status === "failed" ? (
-                        <span
-                          style={{ fontSize: "0.78rem", color: "var(--red-500)" }}
-                          title={re.scoring_error ?? undefined}
-                        >
-                          评分失败
-                        </span>
+                      {r.score_total != null ? (
+                        <span style={{ fontWeight: 600, color: "var(--primary)" }}>{r.score_total}分</span>
+                      ) : r.scoring_status === "pending" || r.scoring_status === "processing" ? (
+                        <span style={{ fontSize: "0.78rem", color: "var(--amber-500)" }}>评分中...</span>
+                      ) : r.scoring_status === "failed" ? (
+                        <span style={{ fontSize: "0.78rem", color: "var(--red-500)" }} title={r.scoring_error ?? undefined}>评分失败</span>
                       ) : (
                         <span style={{ color: "var(--text-light)" }}>-</span>
                       )}
                     </td>
                     <td>
-                      <span className="link" onClick={() => navigate(`/record/${re.id}`)}>
-                        查看详情
-                      </span>
-                      {re.status === "in_progress" && user?.role !== "teacher" && (
-                        <span
-                          className="link"
-                          style={{ marginLeft: 12 }}
-                          onClick={() => navigate(`/training/${re.id}`)}
-                        >
-                          继续训练
-                        </span>
+                      <span className="link" onClick={() => navigate(`/record/${r.id}`)}>查看详情</span>
+                      {r.status === "in_progress" && user?.role !== "teacher" && (
+                        <span className="link" style={{ marginLeft: 12 }} onClick={() => navigate(`/training/${r.id}`)}>继续训练</span>
                       )}
-                      <button
-                        className="btn btn-sm btn-danger"
-                        style={{ marginLeft: 12 }}
-                        onClick={() => handleDeleteRecord(r)}
-                      >
+                      <button type="button" className="btn btn-sm btn-danger" style={{ marginLeft: 12 }} onClick={() => handleDeleteRecord(r)}>
                         <Trash2 size={14} />
                       </button>
                     </td>
