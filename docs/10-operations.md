@@ -8,16 +8,32 @@
 
 ## CD 部署流程
 
-推送 `v*` tag（如 `v1.2.3`）自动触发 `cd.yml`：
+### 两个流水线
+
+| Workflow | 触发方式 | 目标 | 域名 |
+|----------|---------|------|------|
+| `staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
+| `cd.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
+| `rollback.yml` | `workflow_dispatch`（手动） | 回滚 | — |
+
+### 日常发布流程
 
 ```
-推送 v1.2.3 tag
-  → Docker Build & Push (backend + frontend) → GHCR
-  → SSH 到 VPS → 备份数据库
-  → docker compose up -d（使用新镜像）
-  → 30 次健康检查轮询（每次 2s）
-     ├─ healthy  → 写入 .version-history → 清理旧镜像 → 完成
-     └─ unhealthy → 自动回滚到部署前版本 → 失败退出
+npm run tag → v2026.06.02-N
+    │
+    ▼ staging.yml 自动触发
+  构建镜像 → 部署到测试服（60s）
+    │
+    ▼ 你验证通过
+  Actions → Deploy to Production
+  输入: 2026.06.02-N
+    │
+    ▼ cd.yml
+  检查: staging 正跑着同一版本吗？
+    ├─ ✗ 不匹配 → 拒绝（必须先经过测试服）
+    └─ ✓ 匹配 → 备份DB → 拉镜像 → 部署 → 健康检查
+                  ├─ healthy  → 完成
+                  └─ unhealthy → 自动回滚旧版本
 ```
 
 ### 部署前检查清单
@@ -99,7 +115,7 @@ bash rollback.sh --list
 服务器上 `/opt/nursing-vp-sim/.version-history`，格式为：
 
 ```
-v1.2.3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:v1.2.3|ghcr.io/owner/nursing-vp-sim-frontend:v1.2.3
+2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:v1.2.3|ghcr.io/owner/nursing-vp-sim-frontend:v1.2.3
 ```
 
 每次成功部署追加一行，保留最近 5 次记录。手动维护：
