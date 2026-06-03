@@ -9,7 +9,6 @@ export interface User {
 }
 
 export interface Grade {
-  [key: string]: unknown;
   id: number;
   name: string;
   class_count?: number;
@@ -18,7 +17,6 @@ export interface Grade {
 }
 
 export interface ClassItem {
-  [key: string]: unknown;
   id: number;
   name: string;
   grade_id: number;

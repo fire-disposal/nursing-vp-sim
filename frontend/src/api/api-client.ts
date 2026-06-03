@@ -225,9 +225,6 @@ export async function getClassSummary(params: Record<string, unknown> = {}) {
   return res.data;
 }
 
-// Backup
-export const downloadBackup = () => api.post("/admin/backup", null, { responseType: "blob" });
-
 // Rubric
 export const fetchRubrics = () => api.get<Schemas["RubricResponse"][]>("/admin/api/rubrics").then((res) => res.data);
 

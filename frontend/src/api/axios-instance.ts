@@ -19,14 +19,17 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      window.location.href = "/login";
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
       return Promise.reject(err);
     }
     const config = err.config;
     if (!config || config._retryCount >= 1) {
       return Promise.reject(err);
     }
-    const shouldRetry = !err.response || err.response.status >= 500 || err.code === "ECONNABORTED" || err.code === "ERR_NETWORK";
+    const isIdempotent = !config.method || ["get", "head", "options"].includes(config.method.toLowerCase());
+    const shouldRetry = isIdempotent && (!err.response || err.response.status >= 500 || err.code === "ECONNABORTED" || err.code === "ERR_NETWORK");
     if (!shouldRetry) {
       return Promise.reject(err);
     }

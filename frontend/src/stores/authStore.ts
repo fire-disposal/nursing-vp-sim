@@ -7,7 +7,13 @@ const useAuthStore = create<AuthState>((set, get) => ({
     const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
-        return JSON.parse(userStr) as User;
+        const parsed = JSON.parse(userStr);
+        if (parsed.id && !parsed.user_id) {
+          parsed.user_id = parsed.id;
+          delete parsed.id;
+          localStorage.setItem("user", JSON.stringify(parsed));
+        }
+        return parsed as User;
       } catch {
         return null;
       }
