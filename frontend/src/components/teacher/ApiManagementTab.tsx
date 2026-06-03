@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, CheckCircle, ChevronDown, ChevronRight, Edit3, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { Activity, CheckCircle, ChevronDown, ChevronRight, Copy, Edit3, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 import {
   deleteConfig,
@@ -106,6 +106,7 @@ export default function ApiManagementTab() {
   const [editingSecret, setEditingSecret] = useState<ApiSecretResponse | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<LLMConfigResponse | null>(null);
+  const [prefilledConfig, setPrefilledConfig] = useState<{ secret_id: number; model: string } | null>(null);
   const [testingAll, setTestingAll] = useState(false);
   const [testResults, setTestResults] = useState<TestResultItem[] | null>(null);
   const [showFallback, setShowFallback] = useState(false);
@@ -441,6 +442,17 @@ export default function ApiManagementTab() {
                               >
                                 <Edit3 size={12} />
                               </button>
+                              <button
+                                onClick={() => {
+                                  setPrefilledConfig({ secret_id: c.secret_id, model: c.model });
+                                  setEditingConfig(null);
+                                  setShowConfigModal(true);
+                                }}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
+                                title="复制为新配置"
+                              >
+                                <Copy size={12} />
+                              </button>
                               {c.status === "degraded" ? (
                                 <button
                                   onClick={() => handleReset(c)}
@@ -502,9 +514,11 @@ export default function ApiManagementTab() {
       <ConfigModal
         open={showConfigModal}
         configData={editingConfig}
+        prefilled={prefilledConfig}
         onClose={() => {
           setShowConfigModal(false);
           setEditingConfig(null);
+          setPrefilledConfig(null);
         }}
         onSaved={invalidateAll}
       />
