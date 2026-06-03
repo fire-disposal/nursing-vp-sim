@@ -43,17 +43,15 @@ class TestLLMConfigCRUD:
         return secret.id
 
     def test_create_config_with_purpose_priority_conflict(self, client, teacher, secret_id):
+        """same secret_id + purpose should conflict (unique constraint)"""
         _, token = teacher
 
         resp = client.post(
             "/api/admin/api/configs",
             json={
                 "secret_id": secret_id,
-                "label": "QA-primary",
-                "base_url": "https://api.test.com",
                 "model": "test-model",
                 "purpose": "qa",
-                "priority": 10,
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -63,11 +61,8 @@ class TestLLMConfigCRUD:
             "/api/admin/api/configs",
             json={
                 "secret_id": secret_id,
-                "label": "QA-primary-duplicate",
-                "base_url": "https://api.test.com",
                 "model": "test-model-2",
                 "purpose": "qa",
-                "priority": 10,
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -80,11 +75,8 @@ class TestLLMConfigCRUD:
 
         cfg = LLMConfig(
             secret_id=secret_id,
-            label="block-delete",
-            base_url="https://api.test.com",
             model="test-model",
             purpose="qa_block",
-            priority=50,
         )
         db_session.add(cfg)
         db_session.commit()

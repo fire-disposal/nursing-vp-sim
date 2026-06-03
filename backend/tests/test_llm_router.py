@@ -7,7 +7,12 @@ from services.llm_router import ProfileRouter, _SyntheticConfig
 
 
 def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx", status="active"):
-    s = ApiSecret(id=id, label=label, encrypted_key=key, key_suffix=suffix, status=status)
+    s = ApiSecret(
+        id=id, label=label, encrypted_key=key, key_suffix=suffix, status=status,
+        consecutive_failures=0, price_input_per_1m=0, price_output_per_1m=0,
+        call_count_today=0, total_tokens_today=0, total_cost_today=0,
+        monthly_cost_used=0,
+    )
     return s
 
 
@@ -125,13 +130,12 @@ def test_select_no_config_for_purpose():
 
     result = router.select("scoring")
     assert isinstance(result, _SyntheticConfig)
-    assert "Pro" in result.label
+    assert "env" in result.label.lower()
 
 
 def test_select_falls_back_to_wildcard():
-    secret = _make_secret()
-    wildcard_cfg = LLMConfig(id=99, secret_id=secret.id, model="gpt-4", purpose="*")
-    wildcard_cfg.secret = secret
+    secret = _make_secret(id=99)
+    wildcard_cfg = _make_config(99, secret, purpose="*", model="gpt-4")
 
     router = ProfileRouter()
     router._profiles = {secret.id: secret}
