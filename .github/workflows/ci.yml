@@ -59,16 +59,21 @@ jobs:
           tables = insp.get_table_names()
           assert 'api_secrets' in tables, 'api_secrets table missing'
           assert 'llm_configs' in tables, 'llm_configs table missing'
-          print('Schema verified: api_secrets + llm_configs tables exist')
-          # 验证 llm_configs 列齐全
+          assert 'prompt_templates' in tables, 'prompt_templates table missing'
+          print('Schema verified: core tables exist')
+          # 验证 llm_configs 列（简化模型：档案管一切）
           cols = [c['name'] for c in insp.get_columns('llm_configs')]
-          required = ['secret_id','base_url','model','purpose','priority','status','degraded_reason','degraded_until']
+          required = ['id','secret_id','model','purpose','status']
           for c in required:
-              assert c in cols, f'Missing column: {c}'
+              assert c in cols, f'llm_configs missing column: {c}'
+          # 验证 api_secrets 列（profile 字段已迁移至此）
+          acols = [c['name'] for c in insp.get_columns('api_secrets')]
+          for c in ['status','degraded_reason','price_input_per_1m','consecutive_failures']:
+              assert c in acols, f'api_secrets missing column: {c}'
           print('Columns verified')
           # 验证约束
           uq = [c['name'] for c in insp.get_unique_constraints('llm_configs')]
-          assert any('purpose_priority' in u for u in uq), 'Unique constraint missing'
+          assert any('profile_purpose' in u for u in uq), 'Unique constraint missing'
           print('Constraints verified')
           "
         env:
