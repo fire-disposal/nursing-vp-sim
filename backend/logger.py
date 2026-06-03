@@ -27,3 +27,5 @@ log.addHandler(_ch)
 _fh = RotatingFileHandler(str(LOG_DIR / "app.log"), encoding="utf-8", maxBytes=10 * 1024 * 1024, backupCount=5)
 _fh.setFormatter(_fmt)
 log.addHandler(_fh)
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", handlers=[logging.StreamHandler(sys.stderr)])

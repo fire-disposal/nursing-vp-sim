@@ -277,10 +277,10 @@ if os.path.isdir(FRONTEND_DIST):
 
 def _seed_data():
     """首次启动种子数据：RBAC角色权限 → 管理员账号 → 测试学生 → 内置病例。
-    幂等安全：已有数据时自动跳过。SKIP_SEED=1 或 ENV=production 时跳过全流程。
+    幂等安全：已有数据时自动跳过。SKIP_SEED=1 时跳过全流程。
     """
     import os as _os
-    if _os.environ.get("ENV") == "production" or _os.environ.get("SKIP_SEED"):
+    if _os.environ.get("SKIP_SEED"):
         return
 
     from database import SessionLocal
