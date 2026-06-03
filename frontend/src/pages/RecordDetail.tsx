@@ -16,6 +16,7 @@
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
 import Layout from "@/components/Layout";
 import ScoreCard from "@/components/ScoreCard";
@@ -339,44 +340,34 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }: ReviewEd
 
 export default function RecordDetail() {
   const { id } = useParams<{ id: string }>();
-  const [record, setRecord] = useState<TrainingRecordDetail | null>(null);
   const [showScore, setShowScore] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [review, setReview] = useState<ScoreReviewResponse | null>(null);
   const [showReviewEditor, setShowReviewEditor] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
 
-  const loadRecord = async () => {
-    try {
-      const { data } = await getRecordDetail(id!);
-      setRecord(data);
-    } catch {
+  const { data: record, isError: recordError } = useQuery({
+    queryKey: ["recordDetail", id],
+    queryFn: () => getRecordDetail(id!).then((r) => r.data),
+    enabled: !!id,
+  });
+
+  const { data: review } = useQuery({
+    queryKey: ["scoreReview", id],
+    queryFn: () => getScoreReview(id!).then((r) => r.data),
+    enabled: !!id && !!record?.score,
+    placeholderData: (prev) => prev, // keep previous review while refetching
+  });
+
+  useEffect(() => {
+    if (recordError) {
       toast.error("加载记录详情失败");
       navigate("/history");
     }
-  };
-
-  const loadReview = async () => {
-    try {
-      const { data } = await getScoreReview(id!);
-      setReview(data);
-    } catch {
-      setReview(null);
-    }
-  };
-
-  useEffect(() => {
-    loadRecord();
-  }, [id, navigate]);
-
-  useEffect(() => {
-    if (record?.score) {
-      loadReview();
-    }
-  }, [record?.score]);
+  }, [recordError, navigate, toast]);
 
   const isReviewed = review?.review_status === "reviewed";
   const isTeacher = user?.role === "teacher";
@@ -390,12 +381,12 @@ export default function RecordDetail() {
         await new Promise<void>((r) => setTimeout(r, 3000));
         const { data } = await getRecordDetail(id!);
         if (data.scoring_status === "completed" && data.score) {
-          setRecord(data);
+          queryClient.setQueryData(["recordDetail", id], data);
           toast.success("评分已完成");
           break;
         }
         if (data.scoring_status === "failed") {
-          setRecord(data);
+          queryClient.setQueryData(["recordDetail", id], data);
           toast.error("评分再次失败: " + (data.scoring_error || "未知错误"));
           break;
         }
@@ -431,8 +422,8 @@ export default function RecordDetail() {
       });
       toast.success("复核已提交");
       setShowReviewEditor(false);
-      await loadRecord();
-      await loadReview();
+      queryClient.invalidateQueries({ queryKey: ["recordDetail", id] });
+      queryClient.invalidateQueries({ queryKey: ["scoreReview", id] });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } };
       toast.error(axiosErr.response?.data?.detail || "提交复核失败");
@@ -691,7 +682,7 @@ export default function RecordDetail() {
       {showReviewEditor && record.score && (
         <ReviewEditor
           score={record.score as ScoreData}
-          review={review}
+          review={review ?? null}
           onSubmit={handleSubmitReview}
           onClose={() => setShowReviewEditor(false)}
           submitting={submittingReview}
