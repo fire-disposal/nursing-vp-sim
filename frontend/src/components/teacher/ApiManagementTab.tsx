@@ -128,7 +128,7 @@ export default function ApiManagementTab() {
 
   const handleQuickBind = async (purpose: string, secretId: number, model: string) => {
     try {
-      await createConfig({ secret_id: secretId, label: "", model, purpose, priority: 10, weight: 10 } as any);
+      await createConfig({ secret_id: secretId, model, purpose } as any);
       toast.success("已绑定");
       invalidate();
     } catch (e: any) {
@@ -251,6 +251,15 @@ export default function ApiManagementTab() {
                       {provider}
                     </span>
                     <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{s.label}</span>
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: "0.7rem",
+                        color: (s as any).status === "active" ? "var(--green-600)" : (s as any).status === "degraded" ? "var(--amber-600)" : "var(--red-500)",
+                      }}
+                    >
+                      {(s as any).status === "active" ? "正常" : (s as any).status === "degraded" ? "熔断" : "关闭"}
+                    </span>
                   </div>
                   <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>
                     <span style={{ fontFamily: "monospace" }}>sk-...{s.key_suffix}</span>
@@ -315,7 +324,7 @@ export default function ApiManagementTab() {
                         value={cfg.secret_id}
                         onChange={async (e) => {
                           const newSid = Number(e.target.value);
-                          await createConfig({ secret_id: newSid, label: "", model: cfg.model, purpose: p.key, priority: 10, weight: 10 } as any);
+                          await createConfig({ secret_id: newSid, model: cfg.model, purpose: p.key } as any);
                           await deleteConfig(cfg.id);
                           invalidate();
                         }}
@@ -337,7 +346,7 @@ export default function ApiManagementTab() {
                         value={cfg.model}
                         onChange={async (e) => {
                           const newModel = e.target.value;
-                          await createConfig({ secret_id: cfg.secret_id, label: "", model: newModel, purpose: p.key, priority: 10, weight: 10 } as any);
+                          await createConfig({ secret_id: cfg.secret_id, model: newModel, purpose: p.key } as any);
                           await deleteConfig(cfg.id);
                           invalidate();
                         }}
@@ -370,8 +379,7 @@ export default function ApiManagementTab() {
                         {cfg.status === "active" ? "正常" : cfg.status === "degraded" ? "熔断" : "关闭"}
                       </span>
                       <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
-                        {cfg.call_count_today ? `${cfg.call_count_today}次` : ""}
-                        {cfg.total_cost_today ? ` ¥${Number(cfg.total_cost_today).toFixed(3)}` : ""}
+                        {cfg.status === "active" && (cfg as any).call_count_today ? `${(cfg as any).call_count_today}次` : ""}
                       </span>
                     </>
                   ) : (

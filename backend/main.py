@@ -436,21 +436,14 @@ def _seed_llm_configs():
         db.flush()
 
         db.add_all([
-            LLMConfig(secret_id=secret.id, label="DeepSeek Pro",
-                      base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
-                      purpose="scoring", priority=10,
-                      price_input_per_1m=1, price_output_per_1m=2),
-            LLMConfig(secret_id=secret.id, label="DeepSeek Flash (QA)",
-                      base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
-                      purpose="qa", priority=50,
-                      price_input_per_1m=1, price_output_per_1m=2),
-            LLMConfig(secret_id=secret.id, label="DeepSeek Flash",
-                      base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
-                      purpose="*", priority=100,
-                      price_input_per_1m=1, price_output_per_1m=2),
+            LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL_PRO, purpose="scoring"),
+            LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="patient_chat"),
+            LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="qa"),
+            LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="case_generation"),
+            LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="*"),
         ])
         db.commit()
-        log.info("✓ LLM seed 完成: 1 密钥 + 3 配置 (scoring=pro, qa=flash, *=flash)")
+        log.info("✓ LLM seed 完成: 1 档案 + 5 用途指派")
     except Exception as e:
         log.error("LLM seed 失败: %s", e)
         db.rollback()

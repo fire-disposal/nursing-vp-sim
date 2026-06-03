@@ -37,12 +37,18 @@ class _CallContext:
 
     def apply_config(self, config) -> None:
         from services.provider_catalog import infer_provider_name
-        base_url = getattr(getattr(config, 'secret', None), 'base_url', None) or config.base_url
-        self.provider_name = infer_provider_name(base_url) if base_url else config.label
+        if hasattr(config, 'secret') and config.secret:
+            base_url = config.secret.base_url
+            self.provider_name = infer_provider_name(base_url) if base_url else config.secret.label
+        else:
+            self.provider_name = infer_provider_name(config.base_url) if config.base_url else config.label
         self.model = config.model
         self.config_id = config.id
 
     def pricing(self, config) -> tuple[float, float]:
+        if hasattr(config, 'secret') and config.secret:
+            return (float(config.secret.price_input_per_1m or 0),
+                    float(config.secret.price_output_per_1m or 0))
         return (float(config.price_input_per_1m or 0),
                 float(config.price_output_per_1m or 0))
 
@@ -103,7 +109,9 @@ _shared_client_lock = asyncio.Lock()
 
 
 def _get_base_url(config) -> str:
-    return getattr(getattr(config, 'secret', None), 'base_url', None) or config.base_url or ""
+    if hasattr(config, 'secret') and config.secret:
+        return config.secret.base_url
+    return config.base_url or ""
 
 
 async def _get_client() -> httpx.AsyncClient:
@@ -157,7 +165,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
     for attempt in range(max_retries + 2):
         try:
-            config = router.select_key(purpose)
+            config = router.select(purpose)
             api_key = router.get_decrypted_key(config)
             ctx.apply_config(config)
 
@@ -274,7 +282,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
 
     for attempt in range(max_retries + 2):
         try:
-            config = router.select_key(purpose)
+            config = router.select(purpose)
             api_key = router.get_decrypted_key(config)
             ctx.apply_config(config)
         except RuntimeError as e:
