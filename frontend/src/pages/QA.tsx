@@ -79,10 +79,15 @@ export default function QA() {
             { id: optimisticId + 1, role: "assistant", content: ans } as QAMessageItem,
           ]);
           await loadSessions();
-        } catch {
+        } catch (err: unknown) {
+          const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
           setMessages([
             { id: optimisticId, role: "user", content: q } as QAMessageItem,
-            { id: -1, role: "assistant", content: "抱歉，AI导师暂时无法回复，请稍后重试。" } as QAMessageItem,
+            {
+              id: -1,
+              role: "assistant",
+              content: "抱歉，AI导师暂时无法回复：" + (axiosErr.response?.data?.detail || axiosErr.message || "网络错误"),
+            } as QAMessageItem,
           ]);
         } finally {
           setLoading(false);
