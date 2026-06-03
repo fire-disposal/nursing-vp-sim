@@ -20,8 +20,15 @@ export default function Login() {
       await login(username, password);
       navigate("/home");
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { detail?: string } } };
-      setError(axiosErr.response?.data?.detail || "登录失败，请检查账号密码");
+      const axiosErr = err as { response?: { status?: number; data?: { detail?: string } }; message?: string };
+      console.error("[Login] 请求失败:", err);
+      if (axiosErr.response) {
+        setError(axiosErr.response.data?.detail || `服务器错误 (${axiosErr.response.status})`);
+      } else if (axiosErr.message) {
+        setError(`网络错误: ${axiosErr.message}`);
+      } else {
+        setError("登录失败，请检查账号密码");
+      }
     } finally {
       setLoading(false);
     }
