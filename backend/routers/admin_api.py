@@ -164,15 +164,18 @@ async def create_config(
         LLMConfig.priority == data.priority,
     ).first()
     if existing:
-        raise HTTPException(400, f"purpose={data.purpose} priority={data.priority} 已存在")
+        max_p = db.query(func.max(LLMConfig.priority)).filter(LLMConfig.purpose == data.purpose).scalar()
+        new_priority = (max_p or 0) + 10
+    else:
+        new_priority = data.priority
 
     cfg = LLMConfig(
         secret_id=data.secret_id,
         label=data.label or f"{secret.label}-{data.purpose}",
-        base_url=secret.base_url or "",  # inherit from secret
+        base_url=secret.base_url or "",
         model=data.model,
         purpose=data.purpose,
-        priority=data.priority,
+        priority=new_priority,
         weight=data.weight,
         price_input_per_1m=data.price_input_per_1m,
         price_output_per_1m=data.price_output_per_1m,

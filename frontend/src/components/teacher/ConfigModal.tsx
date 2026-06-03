@@ -103,7 +103,7 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
     try {
       await createConfig({
         secret_id: Number(sid),
-        label: `${selectedSecret?.label || "DS"}-${purposeVal}`,
+        label: `${selectedSecret?.label || "key"}-${purposeVal}`,
         model: modelVal,
         purpose: purposeVal,
         priority: 10,
@@ -169,10 +169,10 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
   } as const;
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? "编辑配置" : "添加配置"}>
+    <Modal open={open} onClose={onClose} title={isEdit ? "编辑绑定" : "添加用途绑定"}>
       {/* Key selector — always visible */}
       <div style={{ marginBottom: "var(--space-3)" }}>
-        <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>API 密钥</div>
+        <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>选择密钥</div>
         <select value={secretId} onChange={(e) => setSecretId(e.target.value)} style={inputStyle}>
           <option value="">选择密钥...</option>
           {secrets.map((s) => (

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, CheckCircle, ChevronDown, ChevronRight, Copy, Edit3, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
+import { Activity, ChevronDown, ChevronRight, Copy, Edit3, Plus, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 import {
   deleteConfig,
@@ -11,7 +11,6 @@ import {
   resetConfig,
   testAllConfigs,
   testConfig,
-  testEnvFallback,
   toggleConfig,
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -23,78 +22,27 @@ import SecretModal from "./SecretModal";
 type Schemas = components["schemas"];
 type ApiSecretResponse = Schemas["ApiSecretResponse"];
 type LLMConfigResponse = Schemas["LLMConfigResponse"];
-type TestResultItem = Schemas["TestResultItem"];
 
-const PURPOSE_LABELS: Record<string, string> = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
-const PROVIDER_COLORS: Record<string, string> = {
-  deepseek: "var(--blue-500)",
-  openai: "var(--green-500)",
-  ollama: "var(--purple-500)",
-  anthropic: "var(--amber-500)",
-};
-const PROVIDER_BG: Record<string, string> = { deepseek: "var(--blue-50)", openai: "var(--green-50)", ollama: "var(--purple-50)", anthropic: "var(--amber-50)" };
+const PURPOSE_LABELS: Record<string, string> = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配兜底" };
+const PROVIDER_COLORS: Record<string, string> = { deepseek: "#4f6ef7", openai: "#10a37f", ollama: "#8b5cf6", anthropic: "#d97706" };
 
-const St = {
-  card: { border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", overflow: "hidden" } as React.CSSProperties,
-  groupHeader: {
-    padding: "var(--space-2) var(--space-4)",
-    background: "var(--bg-surface-subtle)",
-    borderBottom: "1px solid var(--border-color)",
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--space-2)",
-  } as React.CSSProperties,
-  table: { width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" } as React.CSSProperties,
-  th: {
-    padding: "var(--space-1) var(--space-3)",
-    textAlign: "left",
-    color: "var(--text-secondary)",
-    fontWeight: 600,
-    borderBottom: "1px solid var(--border-color)",
-    fontSize: "0.7rem",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  } as React.CSSProperties,
-  td: { padding: "var(--space-1) var(--space-3)", borderBottom: "1px solid var(--border-color)" } as React.CSSProperties,
-  primaryBtn: {
-    padding: "var(--space-1) var(--space-3)",
-    border: "none",
-    borderRadius: "var(--radius-md)",
-    background: "var(--color-primary)",
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: "0.82rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "var(--space-1)",
-  } as React.CSSProperties,
-  btnSm: {
-    padding: "var(--space-1) var(--space-2)",
-    border: "1px solid var(--border-color)",
-    borderRadius: "var(--radius-md)",
-    background: "#fff",
-    cursor: "pointer",
-    fontSize: "0.75rem",
-    display: "flex",
-    alignItems: "center",
-    gap: 3,
-  } as React.CSSProperties,
-};
-
-const statusDot = (status: string) => {
-  const map: Record<string, string> = { active: "var(--green-500)", degraded: "var(--amber-500)", disabled: "var(--red-400)" };
-  return { width: 6, height: 6, borderRadius: "50%", background: map[status] || "var(--text-tertiary)", display: "inline-block", marginRight: 4 };
-};
-
-const providerTag = (p: string): React.CSSProperties => ({
+const statusDot = (s: string) => ({
+  width: 7,
+  height: 7,
+  borderRadius: "50%",
+  display: "inline-block",
+  flexShrink: 0,
+  background: { active: "var(--green-500)", degraded: "var(--amber-500)", disabled: "var(--red-400)" }[s] || "var(--text-tertiary)",
+});
+const statusLabel = (s: string) => ({ active: "正常", degraded: "熔断", disabled: "关闭" })[s] || s;
+const providerTag = (p: string) => ({
+  display: "inline-block",
   padding: "0 6px",
   borderRadius: "var(--radius-full)",
   fontSize: "0.65rem",
   fontWeight: 600,
   lineHeight: "18px",
-  background: PROVIDER_BG[p] || "var(--bg-surface-subtle)",
+  background: `${PROVIDER_COLORS[p] || "var(--text-tertiary)"}18`,
   color: PROVIDER_COLORS[p] || "var(--text-secondary)",
 });
 
@@ -107,145 +55,150 @@ export default function ApiManagementTab() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<LLMConfigResponse | null>(null);
   const [prefilledConfig, setPrefilledConfig] = useState<{ secret_id: number; model: string } | null>(null);
-  const [testingAll, setTestingAll] = useState(false);
-  const [testResults, setTestResults] = useState<TestResultItem[] | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResults, setTestResults] = useState<Schemas["TestResultItem"][] | null>(null);
   const [showFallback, setShowFallback] = useState(false);
 
   const { data: secrets = [] } = useQuery({ queryKey: ["apiSecrets"], queryFn: () => fetchSecrets().then((r) => r.data) });
-  const { data: configs = [], isLoading: configsLoading } = useQuery({ queryKey: ["apiConfigs"], queryFn: () => fetchConfigs(undefined).then((r) => r.data) });
+  const { data: configs = [], isLoading } = useQuery({ queryKey: ["apiConfigs"], queryFn: () => fetchConfigs(undefined).then((r) => r.data) });
   const { data: envFallback } = useQuery({ queryKey: ["apiFallback"], queryFn: () => fetchEnvFallback().then((r) => r.data) });
 
-  const invalidateAll = () => {
+  const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["apiSecrets"] });
     void queryClient.invalidateQueries({ queryKey: ["apiConfigs"] });
   };
 
   const handleDeleteSecret = async (s: ApiSecretResponse) => {
-    if (s.config_count > 0) return toast.error(`"${s.label}" 关联了 ${s.config_count} 个配置，请先删除配置`);
+    if (s.config_count > 0) return toast.error(`"${s.label}" 还关联 ${s.config_count} 个用途，先解绑`);
     if (!(await confirm({ title: "删除密钥", message: `删除 "${s.label}"？`, confirmText: "删除", danger: true }))) return;
     try {
       await deleteSecret(s.id);
       toast.success("已删除");
-      invalidateAll();
+      invalidate();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "删除失败");
+      toast.error(e?.response?.data?.detail || "失败");
     }
   };
   const handleDeleteConfig = async (c: LLMConfigResponse) => {
-    if (!(await confirm({ title: "删除配置", message: `删除 "${c.label}"？`, confirmText: "删除", danger: true }))) return;
+    if (!(await confirm({ title: "移除绑定", message: `${PURPOSE_LABELS[c.purpose]}不再使用 ${c.model}？`, confirmText: "移除", danger: true }))) return;
     try {
       await deleteConfig(c.id);
-      toast.success("已删除");
-      invalidateAll();
+      toast.success("已移除");
+      invalidate();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "删除失败");
+      toast.error(e?.response?.data?.detail || "失败");
     }
   };
   const handleToggle = async (c: LLMConfigResponse) => {
     const action = c.status === "active" ? "停用" : "启用";
-    if (!(await confirm({ title: action, message: `${action} "${c.label}"？`, confirmText: action }))) return;
+    if (!(await confirm({ title: action, message: `${action} ${PURPOSE_LABELS[c.purpose]} 的 ${c.model}？`, confirmText: action }))) return;
     try {
       await toggleConfig(c.id);
-      invalidateAll();
+      invalidate();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "操作失败");
+      toast.error(e?.response?.data?.detail || "失败");
     }
   };
   const handleReset = async (c: LLMConfigResponse) => {
     try {
       await resetConfig(c.id);
       toast.success("已恢复");
-      invalidateAll();
+      invalidate();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "恢复失败");
+      toast.error(e?.response?.data?.detail || "失败");
     }
   };
   const handleTest = async (c: LLMConfigResponse) => {
     try {
-      const { data } = await testConfig(c.id);
-      data.ok ? toast.success(`${c.label} · ${data.latency_ms}ms`) : toast.error(data.error || "连接失败");
+      const r = await testConfig(c.id);
+      r.data.ok ? toast.success(`${c.model} · ${r.data.latency_ms}ms`) : toast.error(r.data.error || "不通");
     } catch {
-      toast.error("测试请求失败");
+      toast.error("测试失败");
     }
   };
   const handleTestAll = async () => {
-    setTestingAll(true);
-    setTestResults(null);
+    setTesting(true);
     try {
-      const { data } = await testAllConfigs();
-      setTestResults(data.results);
-      toast.success(`${data.results.filter((r) => r.ok).length}/${data.results.length} 连通`);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "检查失败");
-    } finally {
-      setTestingAll(false);
-    }
-  };
-  const handleTestFallback = async () => {
-    try {
-      const { data } = await testEnvFallback();
-      data.ok ? toast.success(`环境密钥 · ${data.latency_ms}ms`) : toast.error(data.error || "连通失败");
-      queryClient.invalidateQueries({ queryKey: ["apiFallback"] });
+      const r = await testAllConfigs();
+      setTestResults(r.data.results);
     } catch {
-      toast.error("测试请求失败");
+      toast.error("检查失败");
+    } finally {
+      setTesting(false);
     }
   };
 
-  const ALL_PURPOSES = ["patient_chat", "scoring", "qa", "case_generation"];
-  const wildcardConfigs = configs.filter((c) => c.purpose === "*");
-  const groupedConfigs: Record<string, LLMConfigResponse[]> = {};
+  const secretsMap = new Map(secrets.map((s) => [s.id, s]));
+
+  const ALL = ["patient_chat", "scoring", "qa", "case_generation", "*"];
+  const byPurpose: Record<string, LLMConfigResponse[]> = {};
   configs.forEach((c) => {
-    if (c.purpose === "*") return;
-    if (!groupedConfigs[c.purpose]) groupedConfigs[c.purpose] = [];
-    groupedConfigs[c.purpose].push(c);
+    if (!byPurpose[c.purpose]) byPurpose[c.purpose] = [];
+    byPurpose[c.purpose].push(c);
   });
+
+  const S = {
+    card: { border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", overflow: "hidden" } as React.CSSProperties,
+    row: {
+      display: "flex",
+      alignItems: "center",
+      padding: "var(--space-2) var(--space-3)",
+      borderBottom: "1px solid var(--border-color)",
+      gap: "var(--space-3)",
+    } as React.CSSProperties,
+    rowLast: { display: "flex", alignItems: "center", padding: "var(--space-2) var(--space-3)", gap: "var(--space-3)" } as React.CSSProperties,
+    btn: {
+      padding: "var(--space-1) var(--space-3)",
+      border: "none",
+      borderRadius: "var(--radius-md)",
+      background: "var(--color-primary)",
+      color: "#fff",
+      cursor: "pointer",
+      fontSize: "0.82rem",
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+    } as React.CSSProperties,
+  };
 
   return (
     <>
-      {/* Env fallback — compact collapsible */}
-      <div style={{ marginBottom: "var(--space-3)" }}>
+      {/* Env fallback — compact */}
+      <div style={{ marginBottom: "var(--space-3)", fontSize: "0.78rem" }}>
         <button
           onClick={() => setShowFallback((v) => !v)}
-          style={{ ...St.btnSm, background: "none", border: "none", padding: 0, fontSize: "0.78rem", color: "var(--text-tertiary)", cursor: "pointer" }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--text-tertiary)",
+            cursor: "pointer",
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
         >
           {showFallback ? <ChevronDown size={12} /> : <ChevronRight size={12} />} 环境兜底
           {envFallback && <span style={{ ...statusDot(envFallback.available ? "active" : "disabled") }} />}
-          <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", fontFamily: "monospace" }}>sk-...{envFallback?.key_suffix || "****"}</span>
+          <span style={{ fontFamily: "monospace", fontSize: "0.7rem" }}>sk-...{envFallback?.key_suffix || "****"}</span>
         </button>
-        {showFallback && (
+        {showFallback && envFallback && (
           <div
-            className="card"
             style={{
-              marginTop: "var(--space-1)",
+              marginTop: 4,
               padding: "var(--space-1) var(--space-3)",
               background: "var(--bg-surface-subtle)",
-              fontSize: "0.75rem",
+              borderRadius: "var(--radius-md)",
               color: "var(--text-secondary)",
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-3)",
-              flexWrap: "wrap",
             }}
           >
-            {envFallback ? (
-              <>
-                <span>
-                  {envFallback.model_flash} / {envFallback.model_pro} @ {envFallback.base_url}
-                </span>
-                {envFallback.latency_ms != null && <span>{envFallback.latency_ms}ms</span>}
-                {envFallback.error && <span style={{ color: "var(--red-500)" }}>{envFallback.error}</span>}
-                <button onClick={handleTestFallback} style={{ ...St.btnSm, fontSize: "0.7rem" }}>
-                  <Activity size={10} /> 测试
-                </button>
-              </>
-            ) : (
-              <span>加载中...</span>
-            )}
+            {envFallback.model_flash}/{envFallback.model_pro} @ {envFallback.base_url}
+            {envFallback.error && <span style={{ color: "var(--red-500)", marginLeft: 8 }}>{envFallback.error}</span>}
           </div>
         )}
       </div>
 
-      {/* Key cards */}
+      {/* Keys */}
       <div style={{ marginBottom: "var(--space-4)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
           <h3 style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>API 密钥</h3>
@@ -254,30 +207,58 @@ export default function ApiManagementTab() {
               setEditingSecret(null);
               setShowSecretModal(true);
             }}
-            style={St.primaryBtn}
+            style={S.btn}
           >
-            <Plus size={14} /> 添加密钥
+            <Plus size={14} /> 添加
           </button>
         </div>
         {secrets.length === 0 ? (
-          <div className="card" style={{ textAlign: "center", padding: "var(--space-4)", color: "var(--text-tertiary)", fontSize: "0.85rem" }}>
-            暂无密钥 · 请先添加 API Key 才能创建用途配置
+          <div
+            style={{
+              textAlign: "center",
+              padding: "var(--space-4)",
+              color: "var(--text-tertiary)",
+              fontSize: "0.85rem",
+              border: "1px dashed var(--border-color)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            暂无密钥 · 添加 DeepSeek API Key 以开始使用
           </div>
         ) : (
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             {secrets.map((s) => {
-              const p = (s as any).provider || "";
+              const myConfigs = configs.filter((c) => c.secret_id === s.id);
+              const provider = (s as any).provider || "custom";
               return (
-                <div key={s.id} className="card" style={{ flex: "1 1 200px", maxWidth: 280, padding: "var(--space-2) var(--space-3)", position: "relative" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", marginBottom: 2 }}>
-                    <span style={providerTag(p)}>{p || "custom"}</span>
+                <div key={s.id} className="card" style={{ flex: "1 1 220px", maxWidth: 300, padding: "var(--space-2) var(--space-3)", position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <span style={providerTag(provider)}>{provider}</span>
                     <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{s.label}</span>
                   </div>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>sk-...{s.key_suffix}</div>
-                  <div style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 2 }}>
-                    {s.config_count} 配置 · 本月 ¥{Number(s.monthly_cost_used || 0).toFixed(2)}
+                  <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {myConfigs.map((c) => (
+                      <span
+                        key={c.id}
+                        style={{
+                          fontSize: "0.65rem",
+                          background: c.status === "active" ? "var(--green-50)" : "var(--bg-surface-subtle)",
+                          color: c.status === "active" ? "var(--green-700)" : "var(--text-tertiary)",
+                          padding: "1px 6px",
+                          borderRadius: "var(--radius-full)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                      >
+                        <span style={{ ...statusDot(c.status), width: 5, height: 5 }} />
+                        {PURPOSE_LABELS[c.purpose] || c.purpose}
+                      </span>
+                    ))}
                   </div>
-                  <div style={{ position: "absolute", top: "var(--space-1)", right: "var(--space-1)", display: "flex", gap: 2 }}>
+                  <div style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 2 }}>本月 ¥{Number(s.monthly_cost_used || 0).toFixed(2)}</div>
+                  <div style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 2 }}>
                     <button
                       onClick={() => {
                         setEditingSecret(s);
@@ -301,41 +282,37 @@ export default function ApiManagementTab() {
         )}
       </div>
 
-      {/* Configs */}
+      {/* Purpose bindings */}
       <div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "var(--space-2)",
-            flexWrap: "wrap",
-            gap: "var(--space-2)",
-          }}
-        >
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>用途配置</h3>
-          <div style={{ display: "flex", gap: "var(--space-1)", flexWrap: "wrap" }}>
-            <button onClick={handleTestAll} disabled={testingAll} style={{ ...St.btnSm, opacity: testingAll ? 0.5 : 1 }}>
-              <Activity size={12} /> {testingAll ? "检查中..." : "检查"}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
+          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>用途绑定</h3>
+          <div style={{ display: "flex", gap: "var(--space-1)" }}>
+            <button
+              onClick={handleTestAll}
+              disabled={testing}
+              style={{ ...S.btn, background: testing ? "var(--text-tertiary)" : undefined, opacity: testing ? 0.6 : 1 }}
+            >
+              <Activity size={14} /> {testing ? "..." : "检查"}
             </button>
             <button
               onClick={() =>
                 reloadRouter()
-                  .then(() => toast.success("路由已重载"))
-                  .catch(() => toast.error("重载失败"))
+                  .then(() => toast.success("已重载"))
+                  .catch(() => toast.error("失败"))
               }
-              style={St.btnSm}
+              style={{ ...S.btn, background: "var(--bg-surface-subtle)", color: "var(--text-primary)", border: "1px solid var(--border-color)" }}
             >
-              <RefreshCw size={12} />
+              <RefreshCw size={14} />
             </button>
             <button
               onClick={() => {
                 setEditingConfig(null);
+                setPrefilledConfig(null);
                 setShowConfigModal(true);
               }}
-              style={St.primaryBtn}
+              style={S.btn}
             >
-              <Plus size={14} /> 添加配置
+              <Plus size={14} /> 添加
             </button>
           </div>
         </div>
@@ -345,160 +322,132 @@ export default function ApiManagementTab() {
               padding: "var(--space-1) var(--space-2)",
               marginBottom: "var(--space-2)",
               borderRadius: "var(--radius-md)",
-              fontSize: "0.78rem",
+              fontSize: "0.75rem",
               background: testResults.every((r) => r.ok) ? "var(--green-50)" : "var(--amber-50)",
-              border: `1px solid ${testResults.every((r) => r.ok) ? "var(--green-200)" : "var(--amber-200)"}`,
               display: "flex",
-              alignItems: "center",
               gap: "var(--space-2)",
               flexWrap: "wrap",
             }}
           >
-            {testResults.map((r, idx) => (
-              <span
-                key={r.base_url || idx}
-                style={{ display: "inline-flex", alignItems: "center", gap: 3, color: r.ok ? "var(--green-700)" : "var(--red-600)" }}
-              >
-                {r.ok ? "✓" : "✗"} {r.base_url} {r.latency_ms != null && <span style={{ fontSize: "0.7rem", opacity: 0.7 }}>{r.latency_ms}ms</span>}
+            {testResults.map((r, i) => (
+              <span key={i} style={{ color: r.ok ? "var(--green-700)" : "var(--red-600)" }}>
+                {r.ok ? "✓" : "✗"} {r.base_url} {r.latency_ms != null ? `${r.latency_ms}ms` : ""}
               </span>
             ))}
           </div>
         )}
-        {configsLoading ? (
-          <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>Loading...</div>
+        {isLoading ? (
+          <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>加载中...</div>
         ) : configs.length === 0 ? (
-          <div className="card" style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-tertiary)" }}>
-            暂无用途配置 · 点击"添加配置"开始
+          <div
+            style={{
+              textAlign: "center",
+              padding: "var(--space-6)",
+              color: "var(--text-tertiary)",
+              border: "1px dashed var(--border-color)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            暂无用途绑定 · 点击"添加"一键创建
           </div>
         ) : (
-          ALL_PURPOSES.map((purpose) => {
-            const dedicated = (groupedConfigs[purpose] || []).sort((a, b) => (a.priority || 0) - (b.priority || 0));
-            if (dedicated.length === 0 && wildcardConfigs.length === 0) return null;
-            const wildcards = wildcardConfigs.map((c) => ({ ...c, _wildcard: true as const }));
-            const group = [...dedicated, ...wildcards].sort((a, b) => (a.priority || 0) - (b.priority || 0));
-            const firstActive = group.find((c) => c.status === "active");
-            return (
-              <div key={purpose} style={{ ...St.card, marginBottom: "var(--space-3)" }}>
-                <div style={St.groupHeader}>
-                  <span>{PURPOSE_LABELS[purpose] || purpose}</span>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", fontWeight: 400 }}>{purpose}</span>
-                  {firstActive && (
-                    <span style={{ fontSize: "0.72rem", color: "var(--green-600)", fontWeight: 400, marginLeft: "auto" }}>
-                      → {(firstActive as any)._wildcard ? "(通配)" : ""}
-                      {firstActive.label || firstActive.model}
-                    </span>
-                  )}
-                  {!firstActive && dedicated.length > 0 && (
-                    <span style={{ fontSize: "0.72rem", color: "var(--red-500)", fontWeight: 400, marginLeft: "auto" }}>无可用路由</span>
-                  )}
-                </div>
-                <table style={St.table}>
-                  <thead>
-                    <tr>
-                      <th style={St.th}></th>
-                      <th style={St.th}>模型 &amp; 来源</th>
-                      <th style={St.th}>状态</th>
-                      <th style={St.th}>今日</th>
-                      <th style={St.th}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.map((c, idx) => {
-                      const isActive = idx === 0 && c.status === "active";
-                      const isWildcard = "_wildcard" in c && c._wildcard;
-                      const provider = (c as any).provider || "";
-                      return (
-                        <tr
-                          key={c.id}
-                          style={{
-                            ...(isActive ? { background: "var(--green-50)", borderLeft: "3px solid var(--green-500)" } : {}),
-                            ...(isWildcard ? { opacity: 0.55, fontSize: "0.8rem" } : {}),
+          <div style={S.card}>
+            {ALL.map((purpose) => {
+              const items = (byPurpose[purpose] || []).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+              if (items.length === 0) return null;
+              return items.map((c, idx) => {
+                const isPrimary = idx === 0;
+                const secret = secretsMap.get(c.secret_id);
+                const isLast = idx === items.length - 1;
+                return (
+                  <div
+                    key={c.id}
+                    style={isLast ? { ...S.rowLast, borderTop: idx === 0 ? undefined : "none" } : { ...S.row, borderTop: idx === 0 ? undefined : "none" }}
+                  >
+                    {isPrimary && <div style={{ width: 120, flexShrink: 0, fontSize: "0.85rem", fontWeight: 600 }}>{PURPOSE_LABELS[purpose] || purpose}</div>}
+                    {!isPrimary && <div style={{ width: 120, flexShrink: 0 }} />}
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
+                      {!isPrimary && <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>↳ 备用</span>}
+                      <span style={{ fontFamily: "monospace", fontSize: "0.82rem", fontWeight: isPrimary ? 600 : 400 }}>{c.model}</span>
+                      {secret && <span style={providerTag((secret as any).provider || "")}>{(secret as any).provider || "custom"}</span>}
+                      <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{secret?.label || ""}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: "0.8rem",
+                          color: c.status === "active" ? "var(--green-700)" : c.status === "degraded" ? "var(--amber-700)" : "var(--red-600)",
+                        }}
+                      >
+                        <span style={statusDot(c.status)} />
+                        {statusLabel(c.status)}
+                        {c.status === "degraded" && c.degraded_reason && <span style={{ fontSize: "0.65rem", opacity: 0.7 }}>({c.degraded_reason})</span>}
+                      </span>
+                      <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+                        {c.call_count_today ? `${c.call_count_today}次` : ""}
+                        {c.total_cost_today ? ` ¥${Number(c.total_cost_today).toFixed(3)}` : ""}
+                      </span>
+                      <div style={{ display: "flex", gap: 2 }}>
+                        <button
+                          onClick={() => {
+                            setEditingConfig(c);
+                            setPrefilledConfig(null);
+                            setShowConfigModal(true);
                           }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
                         >
-                          <td style={{ ...St.td, width: 28, color: "var(--text-tertiary)", textAlign: "center" }}>{isWildcard ? "通" : c.priority}</td>
-                          <td style={St.td}>
-                            <span style={{ ...providerTag(provider), marginRight: 6 }}>{provider}</span>
-                            <span style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{c.model}</span>
-                            <div style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 1 }}>{c.secret_label}</div>
-                          </td>
-                          <td style={St.td}>
-                            <span style={{ display: "inline-flex", alignItems: "center", fontSize: "0.8rem" }}>
-                              <span style={statusDot(c.status)} />
-                              {c.status === "active" ? "正常" : c.status === "degraded" ? "熔断" : "关闭"}
-                            </span>
-                          </td>
-                          <td style={{ ...St.td, fontSize: "0.78rem", color: "var(--text-secondary)" }}>
-                            {c.call_count_today ? `${c.call_count_today} 次` : "-"}
-                            {c.total_cost_today ? <span style={{ marginLeft: 4, fontSize: "0.7rem" }}>¥{Number(c.total_cost_today).toFixed(3)}</span> : ""}
-                          </td>
-                          <td style={St.td}>
-                            <div style={{ display: "flex", gap: 2 }}>
-                              <button
-                                onClick={() => {
-                                  setEditingConfig(c);
-                                  setShowConfigModal(true);
-                                }}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-primary)", padding: 2 }}
-                              >
-                                <Edit3 size={12} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setPrefilledConfig({ secret_id: c.secret_id, model: c.model });
-                                  setEditingConfig(null);
-                                  setShowConfigModal(true);
-                                }}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
-                                title="复制为新配置"
-                              >
-                                <Copy size={12} />
-                              </button>
-                              {c.status === "degraded" ? (
-                                <button
-                                  onClick={() => handleReset(c)}
-                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--amber-500)", padding: 2 }}
-                                  title="手动恢复"
-                                >
-                                  <RefreshCw size={12} />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleToggle(c)}
-                                  title={c.status === "active" ? "停用" : "启用"}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    color: c.status === "active" ? "var(--red-400)" : "var(--green-500)",
-                                    padding: 2,
-                                  }}
-                                >
-                                  {c.status === "active" ? <XCircle size={12} /> : <CheckCircle size={12} />}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleTest(c)}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
-                                title="测试连接"
-                              >
-                                <Activity size={12} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteConfig(c)}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red-400)", padding: 2 }}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })
+                          <Edit3 size={12} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPrefilledConfig({ secret_id: c.secret_id, model: c.model });
+                            setEditingConfig(null);
+                            setShowConfigModal(true);
+                          }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
+                          title="复制"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        {c.status === "degraded" ? (
+                          <button
+                            onClick={() => handleReset(c)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--amber-500)", padding: 2 }}
+                            title="恢复"
+                          >
+                            <RefreshCw size={12} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleToggle(c)}
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}
+                            title={c.status === "active" ? "停用" : "启用"}
+                          >
+                            <XCircle size={12} style={{ color: c.status === "active" ? "var(--red-400)" : "var(--green-500)" }} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleTest(c)}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
+                        >
+                          <Activity size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteConfig(c)}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red-400)", padding: 2 }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })}
+          </div>
         )}
       </div>
 
@@ -509,7 +458,7 @@ export default function ApiManagementTab() {
           setShowSecretModal(false);
           setEditingSecret(null);
         }}
-        onSaved={invalidateAll}
+        onSaved={invalidate}
       />
       <ConfigModal
         open={showConfigModal}
@@ -520,7 +469,7 @@ export default function ApiManagementTab() {
           setEditingConfig(null);
           setPrefilledConfig(null);
         }}
-        onSaved={invalidateAll}
+        onSaved={invalidate}
       />
     </>
   );
