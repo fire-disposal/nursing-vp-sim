@@ -4,6 +4,11 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 LOG_DIR = Path(os.getenv("LOG_DIR", Path(__file__).resolve().parent.parent / "logs"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
