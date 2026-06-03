@@ -1,5 +1,6 @@
 import { Activity, CheckCircle, Edit3, Plus, RefreshCw, Server, Shield, Trash2, XCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkHealth,
   deleteConfig,
@@ -46,95 +47,61 @@ interface EnvFallback {
 
 export default function ApiManagementTab() {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const [subTab, setSubTab] = useState("configs");
-  const [secrets, setSecrets] = useState<ApiSecretResponse[]>([]);
-  const [configs, setConfigs] = useState<LLMConfigResponse[]>([]);
-  const [health, setHealth] = useState<HealthCheckItem[]>([]);
   const [healthAutoRefresh, setHealthAutoRefresh] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [showSecretModal, setShowSecretModal] = useState(false);
   const [editingSecret, setEditingSecret] = useState<ApiSecretResponse | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<LLMConfigResponse | null>(null);
   const [testingAll, setTestingAll] = useState(false);
   const [testResults, setTestResults] = useState<TestResultItem[] | null>(null);
-  const [envFallback, setEnvFallback] = useState<EnvFallback | null>(null);
   const [testingFallback, setTestingFallback] = useState(false);
-  const toastRef = useRef(toast);
-  useEffect(() => {
-    toastRef.current = toast;
-  }, [toast]);
 
-  const loadSecrets = useCallback(() => {
-    fetchSecrets()
-      .then(({ data }) => setSecrets(data))
-      .catch((err: unknown) => {
-        const e = err as { response?: { data?: { detail?: string } } };
-        toastRef.current.error(e.response?.data?.detail || "加载密钥失败");
-      });
-  }, []);
-  const loadConfigs = useCallback(() => {
-    setLoading(true);
-    fetchConfigs(undefined)
-      .then(({ data }) => setConfigs(data))
-      .catch((err: unknown) => {
-        const e = err as { response?: { data?: { detail?: string } } };
-        toastRef.current.error(e.response?.data?.detail || "加载配置失败");
-      })
-      .finally(() => setLoading(false));
-  }, []);
-  const loadHealth = useCallback(() => {
-    setLoading(true);
-    checkHealth()
-      .then(({ data }) => setHealth(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-  const loadFallback = useCallback(() => {
-    fetchEnvFallback()
-      .then(({ data }) => setEnvFallback(data as EnvFallback))
-      .catch(() => {});
-  }, []);
-  useEffect(() => {
-    loadFallback();
-  }, [loadFallback]);
+  const { data: secrets = [] } = useQuery({
+    queryKey: ["apiSecrets"],
+    queryFn: () => fetchSecrets().then((r) => r.data),
+    enabled: subTab === "secrets",
+  });
+  const { data: configs = [], isLoading: configsLoading } = useQuery({
+    queryKey: ["apiConfigs"],
+    queryFn: () => fetchConfigs(undefined).then((r) => r.data),
+    enabled: subTab === "configs",
+  });
+  const { data: health = [] } = useQuery({
+    queryKey: ["apiHealth"],
+    queryFn: () => checkHealth().then((r) => r.data),
+    enabled: subTab === "health",
+    refetchInterval: healthAutoRefresh && subTab === "health" ? 30_000 : false,
+  });
+  const { data: envFallback } = useQuery({
+    queryKey: ["apiFallback"],
+    queryFn: () => fetchEnvFallback().then((r) => r.data),
+  });
   const handleTestFallback = async () => {
     setTestingFallback(true);
     try {
       const { data } = await testEnvFallback();
       if (data.ok) toast.success(`环境密钥连通正常 · ${data.latency_ms}ms`);
       else toast.error(data.error || "连通失败");
-      loadFallback();
+      queryClient.invalidateQueries({ queryKey: ["apiFallback"] });
     } catch {
       toast.error("测试请求失败");
     } finally {
       setTestingFallback(false);
     }
   };
-  useEffect(() => {
-    if (subTab === "secrets") loadSecrets();
-    else if (subTab === "configs") loadConfigs();
-    else if (subTab === "health") loadHealth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab]);
-  useEffect(() => {
-    if (!healthAutoRefresh || subTab !== "health") return;
-    const timer = setInterval(loadHealth, 30000);
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [healthAutoRefresh, subTab]);
-
   const handleDeleteSecret = async (s: ApiSecretResponse) => {
     if (s.config_count > 0) {
-      toastRef.current.error(`该密钥关联了 ${s.config_count} 个配置，请先删除配置`);
+      toast.error(`该密钥关联了 ${s.config_count} 个配置，请先删除配置`);
       return;
     }
     if (!(await confirm({ title: "删除密钥", message: `删除 "${s.label}"？`, confirmText: "删除", danger: true }))) return;
     try {
       await deleteSecret(s.id);
       toast.success("密钥已删除");
-      loadSecrets();
+      queryClient.invalidateQueries({ queryKey: ["apiSecrets"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       toast.error(e.response?.data?.detail || "删除失败");
@@ -145,7 +112,7 @@ export default function ApiManagementTab() {
     try {
       await deleteConfig(c.id);
       toast.success("配置已删除");
-      loadConfigs();
+      queryClient.invalidateQueries({ queryKey: ["apiConfigs"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       toast.error(e.response?.data?.detail || "删除失败");
@@ -162,7 +129,7 @@ export default function ApiManagementTab() {
       return;
     try {
       await toggleConfig(c.id);
-      loadConfigs();
+      queryClient.invalidateQueries({ queryKey: ["apiConfigs"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       toast.error(e.response?.data?.detail || "操作失败");
@@ -172,7 +139,7 @@ export default function ApiManagementTab() {
     try {
       await resetConfig(c.id);
       toast.success("已恢复");
-      loadConfigs();
+      queryClient.invalidateQueries({ queryKey: ["apiConfigs"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       toast.error(e.response?.data?.detail || "恢复失败");
@@ -471,7 +438,7 @@ export default function ApiManagementTab() {
               ))}
             </div>
           )}
-          {loading ? (
+          {configsLoading ? (
             <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-secondary)" }}>Loading...</div>
           ) : configs.length === 0 ? (
             <div className="card" style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--text-tertiary)" }}>
@@ -620,7 +587,7 @@ export default function ApiManagementTab() {
       {subTab === "health" && (
         <div>
           <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
-            <button onClick={loadHealth} style={S.primaryBtn}>
+            <button onClick={() => queryClient.invalidateQueries({ queryKey: ["apiHealth"] })} style={S.primaryBtn}>
               <Activity size={14} /> 检查连通性
             </button>
             <button
@@ -686,7 +653,7 @@ export default function ApiManagementTab() {
           setEditingSecret(null);
         }}
         onSaved={() => {
-          loadSecrets();
+          queryClient.invalidateQueries({ queryKey: ["apiSecrets"] });
         }}
       />
       <ConfigModal
@@ -697,7 +664,7 @@ export default function ApiManagementTab() {
           setEditingConfig(null);
         }}
         onSaved={() => {
-          void loadConfigs();
+          void queryClient.invalidateQueries({ queryKey: ["apiConfigs"] });
         }}
       />
     </>
