@@ -43,7 +43,7 @@ class TestLLMConfigCRUD:
         return secret.id
 
     def test_create_config_with_purpose_priority_conflict(self, client, teacher, secret_id):
-        """same secret_id + purpose should conflict (unique constraint)"""
+        """same secret_id + purpose upserts: updates model, returns 201"""
         _, token = teacher
 
         resp = client.post(
@@ -56,6 +56,7 @@ class TestLLMConfigCRUD:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 201
+        first_id = resp.json()["id"]
 
         resp2 = client.post(
             "/api/admin/api/configs",
@@ -66,7 +67,8 @@ class TestLLMConfigCRUD:
             },
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert resp2.status_code == 400
+        assert resp2.status_code == 201
+        assert resp2.json()["id"] == first_id
 
     def test_cannot_delete_secret_with_configs(self, client, teacher, secret_id, db_session):
         from models import LLMConfig
