@@ -14,8 +14,14 @@ type CaseBrief = components["schemas"]["CaseBrief"];
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
 
-function getPatientSummary(ps: unknown) {
-  if (ps && typeof ps === "object") return ps as Record<string, unknown>;
+interface PatientSummary {
+  gender?: string;
+  age?: number;
+  chief_complaint?: string;
+}
+
+function getPatientSummary(ps: CaseBrief["patient_summary"]): PatientSummary {
+  if (ps && typeof ps === "object") return ps as PatientSummary;
   return {};
 }
 
@@ -101,7 +107,7 @@ export default function CaseSelect() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
           {filteredCases.map((c) => {
-            const summary = getPatientSummary((c as Record<string, unknown>).patient_summary);
+            const summary = getPatientSummary(c.patient_summary);
             return (
               <div
                 key={c.id}

@@ -442,8 +442,8 @@ export default function RecordDetail() {
 
   const duration = record.end_time ? Math.round((new Date(record.end_time).getTime() - new Date(record.start_time).getTime()) / 60000) : null;
   const scoreMax = record.score?.detail_scores
-    ? Object.values(record.score.detail_scores).reduce((sum: number, value: unknown) => {
-        if (value && typeof value === "object" && "max" in (value as Record<string, unknown>)) return sum + ((value as Record<string, number>).max || 0);
+    ? Object.values(record.score.detail_scores).reduce((sum: number, value) => {
+        if (value && typeof value === "object" && "max" in (value as DetailScoreCategory)) return sum + ((value as DetailScoreCategory).max || 0);
         return sum + 30;
       }, 0)
     : 100;

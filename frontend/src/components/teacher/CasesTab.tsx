@@ -124,29 +124,53 @@ function buildCaseData(form: CaseForm): CaseData {
   };
 }
 
+interface CaseJsonData {
+  name?: string;
+  time_limit?: number;
+  difficulty?: number;
+  description?: string;
+  chief_complaint?: string;
+  opening_line?: string;
+  present_illness?: string;
+  past_history?: string;
+  medication_history?: string;
+  allergy_history?: string;
+  family_history?: string;
+  social_history?: string;
+  communication_style?: string;
+  hidden_info?: string[];
+  required_inquiries?: string[];
+  scoring_criteria?: Record<string, ScoringDimension>;
+  patient_info?: {
+    name?: string;
+    age?: number;
+    gender?: string;
+  };
+}
+
 function parseCaseData(cd: unknown): CaseForm {
-  const rec = cd as Record<string, unknown> | null;
-  const info = (rec?.patient_info as Record<string, unknown>) || {};
+  const rec = cd as CaseJsonData | null;
+  const info = rec?.patient_info ?? {};
   return {
-    name: (rec?.name as string) || "",
-    time_limit: (rec?.time_limit as number) || 20,
-    difficulty: (rec?.difficulty as number) || 1,
-    description: (rec?.description as string) || "",
-    patient_name: (info.name as string) || "",
-    patient_age: (info.age as number) || 0,
-    patient_gender: (info.gender as string) || "",
-    chief_complaint: (rec?.chief_complaint as string) || "",
-    opening_line: (rec?.opening_line as string) || "",
-    present_illness: (rec?.present_illness as string) || "",
-    past_history: (rec?.past_history as string) || "",
-    medication_history: (rec?.medication_history as string) || "",
-    allergy_history: (rec?.allergy_history as string) || "",
-    family_history: (rec?.family_history as string) || "",
-    social_history: (rec?.social_history as string) || "",
-    communication_style: (rec?.communication_style as string) || "",
-    hidden_info: (rec?.hidden_info as string[]) || [],
-    required_inquiries: (rec?.required_inquiries as string[]) || [],
-    scoring_criteria: (rec?.scoring_criteria as Record<string, ScoringDimension>) || {},
+    name: rec?.name || "",
+    time_limit: rec?.time_limit || 20,
+    difficulty: rec?.difficulty || 1,
+    description: rec?.description || "",
+    patient_name: info.name || "",
+    patient_age: info.age || 0,
+    patient_gender: info.gender || "",
+    chief_complaint: rec?.chief_complaint || "",
+    opening_line: rec?.opening_line || "",
+    present_illness: rec?.present_illness || "",
+    past_history: rec?.past_history || "",
+    medication_history: rec?.medication_history || "",
+    allergy_history: rec?.allergy_history || "",
+    family_history: rec?.family_history || "",
+    social_history: rec?.social_history || "",
+    communication_style: rec?.communication_style || "",
+    hidden_info: rec?.hidden_info || [],
+    required_inquiries: rec?.required_inquiries || [],
+    scoring_criteria: rec?.scoring_criteria || {},
   };
 }
 
