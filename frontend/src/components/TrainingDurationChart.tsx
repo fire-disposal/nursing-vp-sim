@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import { getTrends } from "../api/api-client";
 import type { components } from "../api/api-types.gen";
 
@@ -27,28 +28,12 @@ const PERIODS = [
 
 export default function TrainingDurationChart() {
   const [period, setPeriod] = useState("month");
-  const [trends, setTrends] = useState<TrendStats | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) setLoading(true);
-    });
-    getTrends(period)
-      .then(({ data }) => {
-        if (!cancelled) setTrends(data);
-      })
-      .catch(() => {
-        if (!cancelled) setTrends(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [period]);
+  const { data: trends, isLoading } = useQuery({
+    queryKey: ["trends", period],
+    queryFn: () => getTrends(period).then((r) => r.data),
+    staleTime: 60_000,
+  });
 
   const chartData = useMemo((): ChartDataItem[] => {
     const daily = (trends?.daily || []) as DayItem[];
@@ -97,7 +82,7 @@ export default function TrainingDurationChart() {
         </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="chart-empty">正在加载训练统计...</div>
       ) : chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height={220}>

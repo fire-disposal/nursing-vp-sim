@@ -1,5 +1,6 @@
 ﻿import { Bot, Lightbulb, Menu, Plus, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
@@ -21,7 +22,7 @@ interface OptimisticMessage {
 }
 
 export default function QA() {
-  const [sessions, setSessions] = useState<QASessionItem[]>([]);
+  const queryClient = useQueryClient();
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<QAMessageItem[]>([]);
   const [input, setInput] = useState("");
@@ -32,18 +33,15 @@ export default function QA() {
   const { confirm } = useConfirm();
   const toast = useToast();
 
-  const loadSessions = useCallback(async () => {
-    try {
-      const res = await getQASessions();
-      setSessions(res.data || []);
-    } catch {
-      toast.error("加载会话列表失败");
-    }
-  }, [toast]);
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["qaSessions"],
+    queryFn: () => getQASessions().then((r) => r.data || []),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
+  const loadSessions = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["qaSessions"] });
+  }, [queryClient]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
