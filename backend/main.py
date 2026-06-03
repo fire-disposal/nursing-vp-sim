@@ -144,6 +144,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
 
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局未捕获异常处理 — 确保所有 500 错误都被日志记录"""
+    import traceback as _tb
+    log.error(
+        "未处理的异常 %s %s: %s\n%s",
+        request.method, request.url.path,
+        exc,
+        _tb.format_exc(),
+        extra={"client_ip": _get_client_ip(request)},
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "服务器内部错误，请稍后重试"},
+    )
+
 _cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -189,7 +206,8 @@ async def request_id_and_audit_middleware(request: Request, call_next):
         def __exit__(self, exc_type, exc_val, exc_tb):
             duration_ms = round((time.time() - t0) * 1000)
             user_id, user_role = _try_extract_user(self.req)
-            log.info(
+            log_fn = log.error if exc_type else log.info
+            log_fn(
                 "%s %s → %s (%.0fms)%s",
                 self.req.method, self.req.url.path,
                 self.status or (500 if exc_type else 0),
