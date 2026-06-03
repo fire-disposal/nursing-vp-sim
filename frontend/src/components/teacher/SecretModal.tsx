@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { createSecret, updateSecret } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/ui/Modal";
-import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
 type ApiSecretResponse = Schemas["ApiSecretResponse"];

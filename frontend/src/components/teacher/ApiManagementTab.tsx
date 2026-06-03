@@ -1,6 +1,6 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, CheckCircle, Edit3, Plus, RefreshCw, Server, Shield, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkHealth,
   deleteConfig,
@@ -15,11 +15,11 @@ import {
   testEnvFallback,
   toggleConfig,
 } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import ConfigModal from "./ConfigModal";
 import SecretModal from "./SecretModal";
-import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
 type ApiSecretResponse = Schemas["ApiSecretResponse"];

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { createConfig, fetchModelPresets, fetchSecrets, updateConfig, type ModelPresetItem } from "@/api/api-client";
+import { createConfig, fetchModelPresets, fetchSecrets, type ModelPresetItem, updateConfig } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/ui/Modal";
-import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
 type ApiSecretResponse = Schemas["ApiSecretResponse"];
@@ -163,7 +163,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
   };
 
   const handleSave = async () => {
-    let data;
+    let data: ReturnType<typeof sanitizePayload>;
     try {
       const raw = mode === "json" ? JSON.parse(jsonText) : { ...form };
       data = sanitizePayload(raw);
