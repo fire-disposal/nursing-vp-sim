@@ -251,7 +251,7 @@ function StudentDashboard({
               <BookOpen size={14} /> 病例库：{cases.length} 例可用
             </div>
             <button className="hero-start-btn" onClick={() => (inProgressRecord ? navigate(`/training/${inProgressRecord.id}`) : navigate("/cases"))}>
-              {inProgressRecord ? "继续训练 →" : "选择病例开始训练 →"}
+              {inProgressRecord ? "继续训练 →" : "开始新的病史采集训练 →"}
             </button>
             {!inProgressRecord && <div className="hero-hint">约 20 分钟完成一次训练</div>}
           </div>
