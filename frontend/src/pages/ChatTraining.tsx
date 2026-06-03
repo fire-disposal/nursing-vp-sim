@@ -285,7 +285,7 @@ export default function ChatTraining() {
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
-  const voice = useVoice();
+  const voice = useVoice({ patientGender: patientInfo?.gender, patientAge: patientInfo?.age });
 
   const toggleVoice = () => {
     voice.startListening().then(
