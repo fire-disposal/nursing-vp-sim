@@ -72,7 +72,7 @@ jobs:
           print('Constraints verified')
           "
         env:
-          SECRET_KEY: ci-test-key-not-for-production
+          SECRET_KEY: ci-test-key-not-for-production-use-only-in-ci-env
           DEEPSEEK_API_KEY: ""
 
       - name: Run tests

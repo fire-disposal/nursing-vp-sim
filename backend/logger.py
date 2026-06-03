@@ -1,27 +1,24 @@
-import logging, json, sys
+import logging
+import os
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR = Path(os.getenv("LOG_DIR", Path(__file__).resolve().parent.parent / "logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-sys.stderr.reconfigure(encoding="utf-8")
+_fmt = logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(name)s %(filename)s:%(lineno)d: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 log = logging.getLogger("nursing")
-log.setLevel(logging.INFO)
+log.setLevel(getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
 
 _ch = logging.StreamHandler(sys.stderr)
-_ch.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+_ch.setFormatter(_fmt)
 log.addHandler(_ch)
 
-class _JsonFmt(logging.Formatter):
-    def format(self, r):
-        e = {"ts": self.formatTime(r, "%Y-%m-%dT%H:%M:%S"), "lvl": r.levelname, "msg": r.getMessage()}
-        for a in ("request_id", "user_id", "user_role", "client_ip", "error"):
-            if v := getattr(r, a, None): e[a] = v
-        if r.exc_info and r.exc_info[1]: e["exc"] = str(r.exc_info[1])
-        return json.dumps(e, ensure_ascii=False)
-
-_fh = RotatingFileHandler(str(LOG_DIR / "app.log"), encoding="utf-8", maxBytes=10*1024*1024, backupCount=5)
-_fh.setFormatter(_JsonFmt())
+_fh = RotatingFileHandler(str(LOG_DIR / "app.log"), encoding="utf-8", maxBytes=10 * 1024 * 1024, backupCount=5)
+_fh.setFormatter(_fmt)
 log.addHandler(_fh)

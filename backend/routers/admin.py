@@ -45,24 +45,23 @@ def list_users(
     if role:
         q = q.filter(User.role == role)
     total = q.count()
-    users = q.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+    users = q.options(
+        joinedload(User.user_class)
+        .joinedload(UserClass.class_)
+        .joinedload(Class.grade)
+    ).order_by(User.created_at.desc()).offset(offset).limit(limit).all()
 
     items = []
     for u in users:
-        uc = db.query(UserClass).filter(UserClass.user_id == u.id).first()
-        class_name = None; grade_name = None; cid = None
-        if uc and uc.class_id:
-            cls = db.query(Class).filter(Class.id == uc.class_id).first()
-            if cls:
-                cid = cls.id
-                class_name = cls.name
-                grade = db.query(Grade).filter(Grade.id == cls.grade_id).first()
-                grade_name = grade.name if grade else None
+        uc = u.user_class
+        cls = uc.class_ if uc else None
         items.append(UserBrief(
             id=u.id, username=u.username, role=u.role,
             display_name=u.display_name, student_id=u.student_id,
             created_at=u.created_at,
-            class_id=cid, class_name=class_name, grade_name=grade_name,
+            class_id=cls.id if cls else None,
+            class_name=cls.name if cls else None,
+            grade_name=cls.grade.name if (cls and cls.grade) else None,
         ))
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
@@ -109,15 +108,14 @@ def update_user(
     db.commit()
     db.refresh(user)
 
-    uc = db.query(UserClass).filter(UserClass.user_id == user_id).first()
-    class_name = None; grade_name = None; cid = None
-    if uc and uc.class_id:
-        cls = db.query(Class).filter(Class.id == uc.class_id).first()
-        if cls:
-            cid = cls.id
-            class_name = cls.name
-            grade = db.query(Grade).filter(Grade.id == cls.grade_id).first()
-            grade_name = grade.name if grade else None
+    user = db.query(User).options(
+        joinedload(User.user_class)
+        .joinedload(UserClass.class_)
+        .joinedload(Class.grade)
+    ).filter(User.id == user_id).first()
+
+    uc = user.user_class if user else None
+    cls = uc.class_ if uc else None
 
     log.info(f"用户更新: target_id={user_id} target_name={user.username}",
              extra={"user_id": current_user.id, "user_role": current_user.role})
@@ -125,7 +123,9 @@ def update_user(
         id=user.id, username=user.username, role=user.role,
         display_name=user.display_name, student_id=user.student_id,
         created_at=user.created_at,
-        class_id=cid, class_name=class_name, grade_name=grade_name,
+        class_id=cls.id if cls else None,
+        class_name=cls.name if cls else None,
+        grade_name=cls.grade.name if (cls and cls.grade) else None,
     )
 
 
@@ -242,6 +242,9 @@ def batch_create_users(
     created = 0
     skipped = 0
     errors = []
+    class_ids = {u.class_id for u in users if u.class_id}
+    valid_class_ids = {c.id for c in db.query(Class).filter(Class.id.in_(class_ids)).all()} if class_ids else set()
+
     for i, u in enumerate(users, 1):
         if not u.username.strip() or not u.password or not u.display_name.strip():
             errors.append(f"第{i}行跳过: 用户名/密码/姓名不能为空")
@@ -260,12 +263,10 @@ def batch_create_users(
             errors.append(f"第{i}行跳过 {u.username}: 用户名已存在")
             skipped += 1
             continue
-        if u.class_id:
-            cls = db.query(Class).filter(Class.id == u.class_id).first()
-            if not cls:
-                errors.append(f"第{i}行跳过 {u.username}: 班级ID {u.class_id} 不存在")
-                skipped += 1
-                continue
+        if u.class_id and u.class_id not in valid_class_ids:
+            errors.append(f"第{i}行跳过 {u.username}: 班级ID {u.class_id} 不存在")
+            skipped += 1
+            continue
         user = User(
             username=u.username,
             password_hash=hash_password(u.password),

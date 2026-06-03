@@ -282,6 +282,8 @@ def get_records(
             start_time=r.start_time,
             end_time=r.end_time,
             score_total=r.score.total_score if r.score else None,
+            scoring_status=r.scoring_status,
+            scoring_error=r.scoring_error,
         )
         for r in records
     ]

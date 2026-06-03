@@ -109,7 +109,7 @@ def upgrade() -> None:
     teacher_perms = [
         "teacher_access", "user_manage", "case_manage", "score_review",
         "llm_monitor", "api_manage", "prompt_manage",
-        "grade_class_manage", "backup_manage",
+        "grade_class_manage",
     ]
     student_perms = ["training_access", "qa_access"]
 

@@ -19,11 +19,20 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vptest")
 
 _raw_secret = os.getenv("SECRET_KEY", "")
-_SECRET_PLACEHOLDERS = {"", "change-me-to-a-random-secret-key", "virtual-patient-secret-key-change-in-production"}
+_SECRET_MIN_LENGTH = 32
+_SECRET_PLACEHOLDERS = {
+    "", "change-me-to-a-random-secret-key", "virtual-patient-secret-key-change-in-production",
+    "test-secret-key-for-dev-only",
+}
 if _raw_secret in _SECRET_PLACEHOLDERS:
     raise RuntimeError(
         "SECRET_KEY 未配置或仍为默认值。请在项目根目录的 .env 文件中设置一个随机字符串作为 SECRET_KEY。\n"
-        "例如: SECRET_KEY=aB3xK9mW7qR2tY6v\n"
+        "可使用 python -c \"import secrets; print(secrets.token_urlsafe(32))\" 生成安全密钥。"
+    )
+if len(_raw_secret) < _SECRET_MIN_LENGTH:
+    raise RuntimeError(
+        f"SECRET_KEY 长度不足（当前 {len(_raw_secret)} 字符，要求至少 {_SECRET_MIN_LENGTH} 字符）。\n"
+        "过短的密钥会导致 JWT 签名可被暴力破解。\n"
         "可使用 python -c \"import secrets; print(secrets.token_urlsafe(32))\" 生成安全密钥。"
     )
 SECRET_KEY = _raw_secret

@@ -66,7 +66,7 @@ def pg_engine():
             {"role_name": "teacher", "permission": p} for p in [
                 "teacher_access", "user_manage", "case_manage", "score_review",
                 "llm_monitor", "api_manage", "prompt_manage",
-                "grade_class_manage", "backup_manage",
+                "grade_class_manage",
             ]
         ] + [
             {"role_name": "student", "permission": p} for p in [

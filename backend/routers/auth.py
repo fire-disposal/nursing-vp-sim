@@ -79,10 +79,4 @@ def register(
 
 @router.get("/me", response_model=UserBrief)
 def get_me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "role": current_user.role,
-        "display_name": current_user.display_name,
-        "student_id": current_user.student_id,
-    }
+    return current_user
