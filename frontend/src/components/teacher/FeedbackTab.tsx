@@ -1,12 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useQuery } from "@tanstack/react-query";
 import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
-import Pagination from "@/components/ui/Pagination";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import LoadingState from "@/components/ui/LoadingState";
-import type { components } from "@/api/api-types.gen";
+import Pagination from "@/components/ui/Pagination";
 
 type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"];
@@ -257,7 +257,7 @@ export default function FeedbackTab() {
   const [dateTo, setDateTo] = useState("");
   const [offset, setOffset] = useState(0);
   const LIMIT = 20;
-  const toast = useToast();
+  const _toast = useToast();
 
   const params: Record<string, unknown> = { offset, limit: LIMIT };
   if (tag) params.tag = tag;

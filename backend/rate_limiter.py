@@ -1,9 +1,11 @@
 """内存滑动窗口速率限制器，单机部署无需 Redis。"""
+
 import logging
-import time
 import threading
+import time
 from collections import defaultdict
-from fastapi import Request, HTTPException, status
+
+from fastapi import HTTPException, Request, status
 
 _logger = logging.getLogger(__name__)
 

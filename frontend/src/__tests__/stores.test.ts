@@ -1,5 +1,4 @@
-import { describe, it, expect } from "vitest";
-import { create } from "zustand";
+import { describe, expect, it } from "vitest";
 
 describe("llmStore", () => {
   it("initializes with tab set to 'monitor'", async () => {

@@ -1,21 +1,28 @@
 import json
+import logging
+
 from sqlalchemy.orm import Session
-from models import TrainingRecord, Message, Score
+
+from config import DEEPSEEK_MODEL, get_llm_config
+from models import Message, Score, TrainingRecord
+from prompt_static import build_scoring_criteria, build_scoring_json_schema
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
-from config import get_llm_config, DEEPSEEK_MODEL
-from rubrics import load_rubric
-from services.rubric_service import load_rubric_dict, get_rubric_version_id
-from prompt_static import build_scoring_criteria, build_scoring_json_schema
-import logging
+from services.rubric_service import get_rubric_version_id, load_rubric_dict
+
 log = logging.getLogger(__name__)
 import asyncio
+
 import httpx
 
 
-async def evaluate_training(record_id: int, case_data: dict, db: Session,
-                            client: httpx.AsyncClient | None = None,
-                            semaphore: asyncio.Semaphore | None = None) -> Score:
+async def evaluate_training(
+    record_id: int,
+    case_data: dict,
+    db: Session,
+    client: httpx.AsyncClient | None = None,
+    semaphore: asyncio.Semaphore | None = None,
+) -> Score:
     """对训练对话进行评分并保存结果"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -50,12 +57,17 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_content},
     ]
-    result = await call_llm_json(scoring_messages,
-                                   purpose="scoring", user_id=record.user_id,
-                                   record_id=record_id, case_id=record.case_id,
-                                   log_meta={"message_count": len(messages)},
-                                   client=client, semaphore=semaphore,
-                                   **get_llm_config("scoring"))
+    result = await call_llm_json(
+        scoring_messages,
+        purpose="scoring",
+        user_id=record.user_id,
+        record_id=record_id,
+        case_id=record.case_id,
+        log_meta={"message_count": len(messages)},
+        client=client,
+        semaphore=semaphore,
+        **get_llm_config("scoring"),
+    )
 
     # 强制数值字段类型：LLM 可能把数字写成字符串，统一 coerce
     _coerce_numeric_fields(result)
@@ -63,9 +75,14 @@ async def evaluate_training(record_id: int, case_data: dict, db: Session,
     try:
         _validate_scoring_result(result, rubric)
     except ValueError as e:
-        log.info("scoring_parse_failed",
-                 extra={"record_id": record_id, "error": str(e),
-                        "raw_result": json.dumps(result, ensure_ascii=False)[:8000]})
+        log.info(
+            "scoring_parse_failed",
+            extra={
+                "record_id": record_id,
+                "error": str(e),
+                "raw_result": json.dumps(result, ensure_ascii=False)[:8000],
+            },
+        )
         raise ValueError(f"LLM评分结果不完整: {e}") from e
 
     # 将原始 57 分制转换为 100 分制
@@ -121,9 +138,7 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
         "suggestions": "",
     }
     for field, default in optional_defaults.items():
-        if field not in result:
-            result[field] = default
-        elif not isinstance(result[field], type(default)):
+        if field not in result or not isinstance(result[field], type(default)):
             result[field] = default
 
     # 核心字段：缺失则拒绝
@@ -159,8 +174,10 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
                 if item.get("evidence"):
                     items_with_evidence += 1
         if total_items > 0 and items_with_evidence / total_items < 0.5:
-            log.info("scoring_evidence_warning",
-                     extra={"items_with_evidence": items_with_evidence, "total_items": total_items})
+            log.info(
+                "scoring_evidence_warning",
+                extra={"items_with_evidence": items_with_evidence, "total_items": total_items},
+            )
 
 
 def _convert_to_100_scale(result: dict, raw_max: int):
@@ -171,7 +188,7 @@ def _convert_to_100_scale(result: dict, raw_max: int):
     result["total_score"] = round(result["total_score"] * factor)
 
     detail_scores = result.get("detail_scores", {})
-    for dim_name, dim_data in detail_scores.items():
+    for dim_data in detail_scores.values():
         if isinstance(dim_data, dict):
             dim_data["score"] = round(dim_data.get("score", 0) * factor)
             dim_data["max"] = round(dim_data.get("max", 0) * factor)

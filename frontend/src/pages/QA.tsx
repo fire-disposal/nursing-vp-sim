@@ -1,14 +1,14 @@
-﻿import { Bot, Lightbulb, Menu, Plus, Send, Trash2 } from "lucide-react";
+﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bot, Lightbulb, Menu, Plus, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
-import Layout from "@/components/Layout";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
-import { useToast } from "@/components/Toast";
-import { getNurseAvatar } from "@/utils/avatar";
 import type { components } from "@/api/api-types.gen";
+import Layout from "@/components/Layout";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { getNurseAvatar } from "@/utils/avatar";
 
 type QASessionItem = components["schemas"]["QASessionItem"];
 type QAMessageItem = components["schemas"]["QAMessageItem"];
@@ -45,7 +45,7 @@ export default function QA() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, []);
 
   const switchSession = useCallback(
     async (sessionId: number) => {

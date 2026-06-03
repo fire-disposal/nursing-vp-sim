@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv
+
     env_path = Path(__file__).resolve().parent.parent / ".env"
     load_dotenv(env_path)
 except ImportError:
@@ -21,19 +22,21 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localho
 _raw_secret = os.getenv("SECRET_KEY", "")
 _SECRET_MIN_LENGTH = 32
 _SECRET_PLACEHOLDERS = {
-    "", "change-me-to-a-random-secret-key", "virtual-patient-secret-key-change-in-production",
+    "",
+    "change-me-to-a-random-secret-key",
+    "virtual-patient-secret-key-change-in-production",
     "test-secret-key-for-dev-only",
 }
 if _raw_secret in _SECRET_PLACEHOLDERS:
     raise RuntimeError(
         "SECRET_KEY 未配置或仍为默认值。请在项目根目录的 .env 文件中设置一个随机字符串作为 SECRET_KEY。\n"
-        "可使用 python -c \"import secrets; print(secrets.token_urlsafe(32))\" 生成安全密钥。"
+        '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
     )
 if len(_raw_secret) < _SECRET_MIN_LENGTH:
     raise RuntimeError(
         f"SECRET_KEY 长度不足（当前 {len(_raw_secret)} 字符，要求至少 {_SECRET_MIN_LENGTH} 字符）。\n"
         "过短的密钥会导致 JWT 签名可被暴力破解。\n"
-        "可使用 python -c \"import secrets; print(secrets.token_urlsafe(32))\" 生成安全密钥。"
+        '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
     )
 SECRET_KEY = _raw_secret
 ALGORITHM = "HS256"
@@ -51,24 +54,26 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 DEEPSEEK_MODEL_PRO = os.getenv("DEEPSEEK_MODEL_PRO", "deepseek-v4-pro")
 
 # LLM 调用参数
-LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))            # 单次调用最大重试次数
-LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))    # 单次 HTTP 请求超时（秒）
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))  # 单次调用最大重试次数
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))  # 单次 HTTP 请求超时（秒）
 LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))  # 全局并发 LLM 调用数上限
-LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))      # HTTP 连接池大小
-LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))      # 空闲连接存活时间（秒）
+LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))  # HTTP 连接池大小
+LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))  # 空闲连接存活时间（秒）
 
 # LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
-    "patient_chat":    {"timeout": 30,  "max_tokens": 512,  "temperature": 0.6, "max_retries": 2},
-    "qa":              {"timeout": 30,  "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
-    "scoring":         {"timeout": 120, "max_tokens": 4096, "temperature": 0,   "max_retries": 3},
+    "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.6, "max_retries": 2},
+    "qa": {"timeout": 30, "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
+    "scoring": {"timeout": 120, "max_tokens": 4096, "temperature": 0, "max_retries": 3},
     "case_generation": {"timeout": 120, "max_tokens": 4096, "temperature": 0.3, "max_retries": 3},
 }
+
 
 def get_llm_config(purpose: str) -> dict:
     """返回某 purpose 的 LLM 调用参数。环境变量 LLM_CONFIG_JSON 可覆盖。"""
     import json as _json
     import os as _os
+
     override = _os.getenv("LLM_CONFIG_JSON")
     if override:
         try:

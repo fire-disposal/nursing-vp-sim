@@ -1,6 +1,6 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   activatePrompt,
   createPrompt,
@@ -12,10 +12,10 @@ import {
   updatePrompt,
   validatePrompt,
 } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
-import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
 type PromptTemplateResponse = Schemas["PromptTemplateResponse"];
@@ -512,7 +512,7 @@ export default function PromptManagementTab() {
         : null;
 
   const extractVars = (text: string) => [...new Set((text.match(/\{#([^}#]+)#\}/g) || []).map((v) => v.slice(2, -2)))];
-  const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt]);
+  const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt, extractVars]);
   const dbVars = (editedPrompt?.variables as VariableMeta[]) || [];
 
   const renderHighlighted = (text: string | null) => {

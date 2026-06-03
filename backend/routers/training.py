@@ -1,21 +1,31 @@
 import asyncio
+import logging
 import threading
+from datetime import UTC, datetime
+from typing import Annotated
+
 import httpx
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func
-from database import get_db, SessionLocal
-from models import User, Case, TrainingRecord, Message, Score, Note, LLMCallLog, UserClass
-from schemas import (
-    TrainingStartRequest, TrainingStartResponse, TrainingRecordBrief,
-    TrainingRecordDetail, ScoreReviewRequest, ScoreReviewResponse,
-    PaginatedResponse, MessageResponse, ScoringTriggerResponse,
-)
-from pagination import paginate
+from sqlalchemy.orm import Session, joinedload
+
 from auth import get_current_user, require_teacher
 from config import LLM_CONCURRENT_LIMIT
-import logging
+from database import SessionLocal, get_db
+from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
+from pagination import paginate
+from schemas import (
+    MessageResponse,
+    PaginatedResponse,
+    ScoreReviewRequest,
+    ScoreReviewResponse,
+    ScoringTriggerResponse,
+    TrainingRecordBrief,
+    TrainingRecordDetail,
+    TrainingStartRequest,
+    TrainingStartResponse,
+)
+
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/training", tags=["训练"])
@@ -41,7 +51,11 @@ def _release_scoring(record_id: int):
 
 
 @router.post("/start", response_model=TrainingStartResponse)
-def start_training(req: TrainingStartRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def start_training(
+    req: TrainingStartRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="仅学生可以开始训练")
 
@@ -69,8 +83,10 @@ def start_training(req: TrainingStartRequest, current_user: User = Depends(get_c
     db.add(greeting_msg)
     db.commit()
 
-    log.info(f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
-             extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_start"})
+    log.info(
+        f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
+        extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_start"},
+    )
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
 
@@ -94,9 +110,9 @@ def _run_scoring_background(record_id: int, case_data: dict):
             db.commit()
 
             from services.scoring import evaluate_training
+
             await asyncio.wait_for(
-                evaluate_training(record_id, case_data, db,
-                                  client=local_client, semaphore=local_sema),
+                evaluate_training(record_id, case_data, db, client=local_client, semaphore=local_sema),
                 timeout=SCORING_GLOBAL_TIMEOUT,
             )
 
@@ -104,7 +120,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
             record.scoring_error = None
             db.commit()
             log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
-        except asyncio.TimeoutError:
+        except TimeoutError:
             try:
                 record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
                 if record:
@@ -113,7 +129,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
                     db.commit()
             except Exception as e:
                 log.warning("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
-            log.error("评分超时", extra={"record_id": record_id})
+            log.exception("评分超时", extra={"record_id": record_id})
         except Exception as e:
             try:
                 record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -123,7 +139,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
                     db.commit()
             except Exception as inner:
                 log.warning("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
-            log.error("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
+            log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
         finally:
             db.close()
             await local_client.aclose()
@@ -138,8 +154,8 @@ def _run_scoring_background(record_id: int, case_data: dict):
 def end_training(
     record_id: int,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -158,18 +174,21 @@ def end_training(
 
     # 立即标记完成 + 评分待处理，响应不再阻塞在 LLM 调用上
     record.status = "completed"
-    record.end_time = datetime.now(timezone.utc)
+    record.end_time = datetime.now(UTC)
     record.scoring_status = "pending"
     db.commit()
 
     from services.chat_session import cleanup_topics
+
     cleanup_topics(record_id)
 
     background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
-    log.info(f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
-             extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_end"})
+    log.info(
+        f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
+        extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_end"},
+    )
     return {
         "message": "训练已结束，评分正在后台生成中",
         "record_id": record_id,
@@ -181,8 +200,8 @@ def end_training(
 def retry_scoring(
     record_id: int,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     """重新触发失败的评分（学生本人或教师可操作）"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -196,7 +215,7 @@ def retry_scoring(
         raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
     if record.scoring_status == "processing":
         # 检查是否超时（超过 5 分钟仍 processing，视为僵尸状态）
-        if record.end_time and (datetime.now(timezone.utc) - record.end_time).total_seconds() > 300:
+        if record.end_time and (datetime.now(UTC) - record.end_time).total_seconds() > 300:
             record.scoring_status = "failed"
             db.commit()
         else:
@@ -217,16 +236,16 @@ def retry_scoring(
 
 @router.get("/records", response_model=PaginatedResponse[TrainingRecordBrief])
 def get_records(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    student_name: str | None = Query(None, description="按学生姓名模糊搜索"),
-    case_id: int | None = Query(None, description="按病例ID筛选"),
-    status: str | None = Query(None, description="按状态筛选(in_progress/completed)"),
-    date_from: str | None = Query(None, description="开始日期 ISO 格式 (含)"),
-    date_to: str | None = Query(None, description="结束日期 ISO 格式 (含)"),
-    class_id: int | None = Query(None),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    student_name: Annotated[str | None, Query(description="按学生姓名模糊搜索")] = None,
+    case_id: Annotated[int | None, Query(description="按病例ID筛选")] = None,
+    status: Annotated[str | None, Query(description="按状态筛选(in_progress/completed)")] = None,
+    date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
+    date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
+    class_id: Annotated[int | None, Query()] = None,
 ):
     """获取训练记录列表。学生只看自己的，教师看全部并支持多维过滤。"""
     base = db.query(TrainingRecord)
@@ -235,9 +254,7 @@ def get_records(
         base = base.filter(TrainingRecord.user_id == current_user.id)
     else:
         if student_name:
-            base = base.filter(
-                TrainingRecord.user.has(User.display_name.ilike(f"%{student_name}%"))
-            )
+            base = base.filter(TrainingRecord.user.has(User.display_name.ilike(f"%{student_name}%")))
         if case_id is not None:
             base = base.filter(TrainingRecord.case_id == case_id)
         if class_id is not None:
@@ -251,7 +268,7 @@ def get_records(
         try:
             df = datetime.fromisoformat(date_from)
             if df.tzinfo is None:
-                df = df.replace(tzinfo=timezone.utc)
+                df = df.replace(tzinfo=UTC)
             base = base.filter(TrainingRecord.start_time >= df)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
@@ -259,7 +276,7 @@ def get_records(
         try:
             dt = datetime.fromisoformat(date_to)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             base = base.filter(TrainingRecord.start_time <= dt)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
@@ -292,7 +309,9 @@ def get_records(
 
 
 @router.get("/records/{record_id}", response_model=TrainingRecordDetail)
-def get_record_detail(record_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_record_detail(
+    record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
@@ -310,7 +329,7 @@ def get_record_detail(record_id: int, current_user: User = Depends(get_current_u
     time_limit = case_data.get("time_limit", 20)
     remaining_seconds = None
     if record.status == "in_progress" and record.start_time:
-        elapsed = (datetime.now(timezone.utc) - record.start_time).total_seconds()
+        elapsed = (datetime.now(UTC) - record.start_time).total_seconds()
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
     patient_info = case_data.get("patient_info", {})
 
@@ -335,7 +354,9 @@ def get_record_detail(record_id: int, current_user: User = Depends(get_current_u
 
 
 @router.delete("/records/{record_id}", response_model=MessageResponse)
-def delete_record(record_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_record(
+    record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+):
     """删除训练记录。教师可删全部，学生仅可删自己的。"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -353,18 +374,21 @@ def delete_record(record_id: int, current_user: User = Depends(get_current_user)
     db.delete(record)
     db.commit()
 
-    log.info(f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(
+        f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
     return {"message": "训练记录已删除"}
 
 
 # ── 教师复核 ──
 
+
 @router.get("/records/{record_id}/review", response_model=ScoreReviewResponse)
 def get_score_review(
     record_id: int,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
@@ -390,8 +414,8 @@ def get_score_review(
 def submit_score_review(
     record_id: int,
     req: ScoreReviewRequest,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
@@ -410,12 +434,14 @@ def submit_score_review(
 
     score.review_status = "reviewed"
     score.reviewed_by = current_user.id
-    score.reviewed_at = datetime.now(timezone.utc)
+    score.reviewed_at = datetime.now(UTC)
     db.commit()
     db.refresh(score)
 
-    log.info(f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(
+        f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
 
     reviewer_name = current_user.display_name
     return ScoreReviewResponse(

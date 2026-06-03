@@ -31,7 +31,7 @@ def infer_provider_name(base_url: str) -> str:
     if not base_url:
         return "unknown"
     p = match_provider(base_url)
-    return p["id"] if p else base_url.split("://")[-1].split("/")[0]
+    return p["id"] if p else base_url.rsplit("://", maxsplit=1)[-1].split("/", maxsplit=1)[0]
 
 
 def get_models_for(base_url: str) -> list[dict]:

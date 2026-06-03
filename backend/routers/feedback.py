@@ -1,18 +1,25 @@
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User, Feedback
-from schemas import FeedbackSubmit, FeedbackItem, FeedbackListResponse, FeedbackSubmitResponse, FeedbackDailyItem
+
 from auth import get_current_user, require_teacher
+from database import get_db
+from models import Feedback, User
 from pagination import paginate
+from schemas import FeedbackDailyItem, FeedbackItem, FeedbackListResponse, FeedbackSubmit, FeedbackSubmitResponse
 
 router = APIRouter(prefix="/api", tags=["反馈"])
 
 
 @router.post("/feedback", response_model=FeedbackSubmitResponse)
-def submit_feedback(req: FeedbackSubmit, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def submit_feedback(
+    req: FeedbackSubmit,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
     fb = Feedback(
         user_id=current_user.id,
         rating=req.rating,
@@ -27,23 +34,27 @@ def submit_feedback(req: FeedbackSubmit, current_user: User = Depends(get_curren
 
 @router.get("/admin/feedback", response_model=FeedbackListResponse)
 def admin_list_feedback(
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
-    tag: str = Query(None),
-    date_from: str | None = Query(None),
-    date_to: str | None = Query(None),
-    offset: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
+    tag: Annotated[str | None, Query()] = None,
+    date_from: Annotated[str | None, Query()] = None,
+    date_to: Annotated[str | None, Query()] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    query = db.query(
-        Feedback.id,
-        Feedback.user_id,
-        Feedback.rating,
-        Feedback.tag,
-        Feedback.content,
-        Feedback.created_at,
-        User.display_name.label("user_name"),
-    ).join(User, Feedback.user_id == User.id).order_by(Feedback.created_at.desc())
+    query = (
+        db.query(
+            Feedback.id,
+            Feedback.user_id,
+            Feedback.rating,
+            Feedback.tag,
+            Feedback.content,
+            Feedback.created_at,
+            User.display_name.label("user_name"),
+        )
+        .join(User, Feedback.user_id == User.id)
+        .order_by(Feedback.created_at.desc())
+    )
 
     if tag:
         query = query.filter(Feedback.tag == tag)
@@ -79,10 +90,10 @@ def admin_list_feedback(
 
 @router.get("/admin/feedback/stats", response_model=list[FeedbackDailyItem])
 def feedback_stats(
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
-    date_from: str | None = Query(None),
-    date_to: str | None = Query(None),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
+    date_from: Annotated[str | None, Query()] = None,
+    date_to: Annotated[str | None, Query()] = None,
 ):
     """Return daily count of feedback by rating level, for stacked bar chart."""
     base = db.query(Feedback)
@@ -109,12 +120,14 @@ def feedback_stats(
     result = []
     for day in sorted(daily.keys()):
         d = daily[day]
-        result.append({
-            "date": day,
-            "rating_1": d[1],
-            "rating_2": d[2],
-            "rating_3": d[3],
-            "rating_4": d[4],
-            "rating_5": d[5],
-        })
+        result.append(
+            {
+                "date": day,
+                "rating_1": d[1],
+                "rating_2": d[2],
+                "rating_3": d[3],
+                "rating_4": d[4],
+                "rating_5": d[5],
+            }
+        )
     return result

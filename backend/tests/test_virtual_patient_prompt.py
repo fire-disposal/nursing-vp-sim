@@ -1,4 +1,5 @@
 """Tests for virtual_patient_prompt service"""
+
 from unittest.mock import MagicMock
 
 from services.virtual_patient_prompt import (
@@ -12,8 +13,12 @@ class TestBuildPatientContextKwargs:
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
         kwargs = build_patient_context_kwargs(case)
         assert set(kwargs.keys()) == {
-            "communication_style", "patient_info", "chief_complaint",
-            "present_illness", "allergy_history", "hidden_info_rules",
+            "communication_style",
+            "patient_info",
+            "chief_complaint",
+            "present_illness",
+            "allergy_history",
+            "hidden_info_rules",
         }
 
     def test_patient_info_formatting(self):

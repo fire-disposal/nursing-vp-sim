@@ -1,28 +1,37 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User, TrainingRecord, Note
-from schemas import NoteItem, NoteCreateRequest, MessageResponse
+
 from auth import get_current_user
+from database import get_db
+from models import Note, TrainingRecord, User
+from schemas import MessageResponse, NoteCreateRequest, NoteItem
 
 router = APIRouter(prefix="/api/notes", tags=["笔记"])
 
 
 @router.get("/{record_id}", response_model=list[NoteItem])
-def get_notes(record_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_notes(
+    record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     if current_user.role != "teacher" and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看")
 
-    notes = db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
-    return notes
+    return db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
 
 
 @router.post("/{record_id}", response_model=NoteItem)
-def save_note(record_id: int, req: NoteCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def save_note(
+    record_id: int,
+    req: NoteCreateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
@@ -43,7 +52,12 @@ def save_note(record_id: int, req: NoteCreateRequest, current_user: User = Depen
 
 
 @router.put("/{note_id}", response_model=NoteItem)
-def update_note(note_id: int, req: NoteCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_note(
+    note_id: int,
+    req: NoteCreateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
     note = db.query(Note).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="笔记不存在")
@@ -51,14 +65,16 @@ def update_note(note_id: int, req: NoteCreateRequest, current_user: User = Depen
         raise HTTPException(status_code=403, detail="只能编辑自己的笔记")
 
     note.content = req.content
-    note.updated_at = datetime.now(timezone.utc)
+    note.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(note)
     return note
 
 
 @router.delete("/{note_id}", response_model=MessageResponse)
-def delete_note(note_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_note(
+    note_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+):
     note = db.query(Note).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="笔记不存在")

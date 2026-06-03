@@ -1,10 +1,23 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from sqlalchemy import (
-    Column, Integer, String, Text, Float, Boolean, DateTime, Date,
-    BigInteger, Numeric, ForeignKey, Index, UniqueConstraint,
+    BigInteger,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
+
 from database import Base
 
 
@@ -18,9 +31,7 @@ class Role(Base):
 
 class RolePermission(Base):
     __tablename__ = "role_permissions"
-    __table_args__ = (
-        UniqueConstraint("role_name", "permission", name="ix_rp_role_perm"),
-    )
+    __table_args__ = (UniqueConstraint("role_name", "permission", name="ix_rp_role_perm"),)
 
     id = Column(Integer, primary_key=True)
     role_name = Column(String(20), ForeignKey("roles.name", ondelete="CASCADE"), nullable=False)
@@ -32,7 +43,7 @@ class Grade(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(40), unique=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     classes = relationship("Class", back_populates="grade", cascade="all, delete-orphan")
 
@@ -47,7 +58,7 @@ class Class(Base):
     id = Column(Integer, primary_key=True)
     grade_id = Column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(60), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     grade = relationship("Grade", back_populates="classes")
     user_classes = relationship("UserClass", back_populates="class_", cascade="all, delete-orphan")
@@ -55,13 +66,11 @@ class Class(Base):
 
 class UserClass(Base):
     __tablename__ = "user_class"
-    __table_args__ = (
-        Index("ix_user_class_class_id", "class_id"),
-    )
+    __table_args__ = (Index("ix_user_class_class_id", "class_id"),)
 
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
-    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     user = relationship("User", back_populates="user_class")
     class_ = relationship("Class", back_populates="user_classes")
@@ -76,7 +85,7 @@ class User(Base):
     role = Column(String(20), ForeignKey("roles.name", ondelete="RESTRICT"), nullable=False, default="student")
     display_name = Column(String(50), nullable=False)
     student_id = Column(String(30), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     training_records = relationship("TrainingRecord", back_populates="user")
     user_class = relationship("UserClass", back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -98,7 +107,7 @@ class Case(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     case_data = Column(JSONB, nullable=False)  # 完整病例数据
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
 class TrainingRecord(Base):
@@ -116,7 +125,7 @@ class TrainingRecord(Base):
     status = Column(String(20), nullable=False, default="in_progress")  # in_progress / completed
     scoring_status = Column(String(20), nullable=True)  # null / pending / processing / completed / failed
     scoring_error = Column(Text, nullable=True)  # 评分失败时的错误信息
-    start_time = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    start_time = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     end_time = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="training_records")
@@ -127,15 +136,13 @@ class TrainingRecord(Base):
 
 class Message(Base):
     __tablename__ = "messages"
-    __table_args__ = (
-        Index("ix_msg_record_created", "record_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_msg_record_created", "record_id", "created_at"),)
 
     id = Column(Integer, primary_key=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
     role = Column(String(10), nullable=False)  # student / patient
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     record = relationship("TrainingRecord", back_populates="messages")
 
@@ -162,30 +169,29 @@ class Score(Base):
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     review_detail_scores = Column(JSONB, nullable=True)
     review_comment = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     record = relationship("TrainingRecord", back_populates="score")
 
 
 class Note(Base):
     __tablename__ = "notes"
-    __table_args__ = (
-        Index("ix_notes_record_id", "record_id"),
-    )
+    __table_args__ = (Index("ix_notes_record_id", "record_id"),)
 
     id = Column(Integer, primary_key=True)
     record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 # ── 评分标准（Rubric）──
 
+
 class Rubric(Base):
     """评分标准定义 —— 维度、条目、锚点，可从管理面板编辑"""
+
     __tablename__ = "rubrics"
 
     id = Column(Integer, primary_key=True)
@@ -197,12 +203,13 @@ class Rubric(Base):
     raw_scale = Column(Integer, nullable=False, default=3)
     dimensions = Column(JSONB, nullable=False)
     is_active = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
 
 class LLMCallLog(Base):
     """记录每次 LLM 调用的元数据，用于成本监控和稳定性分析"""
+
     __tablename__ = "llm_call_logs"
 
     id = Column(Integer, primary_key=True)
@@ -228,10 +235,10 @@ class LLMCallLog(Base):
     error_message = Column(Text, nullable=True)
     request_chars = Column(Integer, nullable=True)
     response_chars = Column(Integer, nullable=True)
-    request_text = Column(Text, nullable=True)   # LLM 请求全文（调试用）
+    request_text = Column(Text, nullable=True)  # LLM 请求全文（调试用）
     response_text = Column(Text, nullable=True)  # LLM 回复全文（调试用）
     meta = Column(JSONB, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
 
     api_key = relationship("ApiKey")
     config = relationship("LLMConfig")
@@ -239,15 +246,13 @@ class LLMCallLog(Base):
 
 class QASession(Base):
     __tablename__ = "qa_sessions"
-    __table_args__ = (
-        Index("ix_qa_sessions_user_updated", "user_id", "updated_at"),
-    )
+    __table_args__ = (Index("ix_qa_sessions_user_updated", "user_id", "updated_at"),)
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String(80), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     user = relationship("User")
     records = relationship("QARecord", back_populates="session", order_by="QARecord.created_at")
@@ -255,17 +260,16 @@ class QASession(Base):
 
 class QARecord(Base):
     """通用护理问答消息记录"""
+
     __tablename__ = "qa_records"
-    __table_args__ = (
-        Index("ix_qa_session_created", "session_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_qa_session_created", "session_id", "created_at"),)
 
     id = Column(Integer, primary_key=True)
     session_id = Column(Integer, ForeignKey("qa_sessions.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
 
     user = relationship("User")
     session = relationship("QASession", back_populates="records")
@@ -273,10 +277,9 @@ class QARecord(Base):
 
 class ApiSecret(Base):
     """API 档案 — 一份 API 连接的全部信息（密钥、端点、计费、状态）"""
+
     __tablename__ = "api_secrets"
-    __table_args__ = (
-        UniqueConstraint("encrypted_key", "key_suffix", name="uq_api_secret_key"),
-    )
+    __table_args__ = (UniqueConstraint("encrypted_key", "key_suffix", name="uq_api_secret_key"),)
 
     id = Column(Integer, primary_key=True)
     label = Column(String(80), nullable=False)
@@ -302,19 +305,17 @@ class ApiSecret(Base):
     consecutive_failures = Column(Integer, nullable=False, default=0)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     configs = relationship("LLMConfig", back_populates="secret", cascade="all, delete-orphan")
 
 
 class LLMConfig(Base):
     """用途指派 — 某档案的某模型用于某用途"""
+
     __tablename__ = "llm_configs"
-    __table_args__ = (
-        UniqueConstraint("secret_id", "purpose", name="uq_llmconfig_profile_purpose"),
-    )
+    __table_args__ = (UniqueConstraint("secret_id", "purpose", name="uq_llmconfig_profile_purpose"),)
 
     id = Column(Integer, primary_key=True)
     secret_id = Column(Integer, ForeignKey("api_secrets.id"), nullable=False)
@@ -322,9 +323,8 @@ class LLMConfig(Base):
     purpose = Column(String(40), nullable=False)
     status = Column(String(20), nullable=False, default="active")
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     secret = relationship("ApiSecret", back_populates="configs")
 
@@ -341,8 +341,8 @@ class ApiProvider(Base):
     default_model = Column(String(80), nullable=False)
     is_enabled = Column(Boolean, nullable=False, default=True)
     priority = Column(Integer, nullable=False, default=100)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     keys = relationship("ApiKey", back_populates="provider", cascade="all, delete-orphan")
 
@@ -375,11 +375,9 @@ class ApiKey(Base):
     rate_limit_until = Column(DateTime(timezone=True), nullable=True)
     purpose = Column(String(40), nullable=False, default="*")
     priority = Column(Integer, nullable=False, default=100)
-    __table_args__ = (
-        Index("idx_api_keys_purpose", "purpose"),
-    )
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    __table_args__ = (Index("idx_api_keys_purpose", "purpose"),)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     provider = relationship("ApiProvider", back_populates="keys")
 
@@ -397,13 +395,14 @@ class Feedback(Base):
     rating = Column(Integer, nullable=False)
     tag = Column(String(20), nullable=False)
     content = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     user = relationship("User")
 
 
 class PromptTemplate(Base):
     """LLM 提示词模板"""
+
     __tablename__ = "prompt_templates"
 
     id = Column(Integer, primary_key=True)
@@ -417,7 +416,5 @@ class PromptTemplate(Base):
     is_active = Column(Boolean, nullable=False, default=False)
     created_by = Column(String(80), nullable=True)
     remark = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
-
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

@@ -1,13 +1,14 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 import bcrypt
-from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from database import get_db
-from models import User, RolePermission
+from models import RolePermission, User
 
 security = HTTPBearer()
 
@@ -22,7 +23,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -44,9 +45,7 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
 
-    rows = db.query(RolePermission.permission).filter(
-        RolePermission.role_name == user.role
-    ).all()
+    rows = db.query(RolePermission.permission).filter(RolePermission.role_name == user.role).all()
     user.set_permissions_cache({r.permission for r in rows})
 
     return user

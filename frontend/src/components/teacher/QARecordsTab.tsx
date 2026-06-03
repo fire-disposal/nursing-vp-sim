@@ -1,11 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
-import Pagination from "@/components/ui/Pagination";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/ui/Modal";
-import type { components } from "@/api/api-types.gen";
+import Pagination from "@/components/ui/Pagination";
 
 type Schemas = components["schemas"];
 type QASessionAdminItem = Schemas["QASessionAdminItem"];

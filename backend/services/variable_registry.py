@@ -1,4 +1,5 @@
 """集中管理所有 prompt purpose 的合法变量定义"""
+
 from dataclasses import dataclass
 
 
@@ -85,7 +86,7 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             description="LLM 评分结果输出的 JSON 格式模板",
             source="rubrics/nursing_history_v1.json + build_scoring_json_schema() 自动生成",
             default_example=(
-                '## 输出格式\n\n必须是严格的 JSON：\n\n'
+                "## 输出格式\n\n必须是严格的 JSON：\n\n"
                 '{\n  "rubric_version": "nursing_history_v1@1.0",\n'
                 '  "total_score": 数字(满分57),\n'
                 '  "detail_scores": {\n    "沟通技能": {...},\n    "病史采集": {...}\n  },\n'
@@ -174,12 +175,15 @@ class VariableRegistry:
         for v in self.get_variables(purpose):
             if v.name == "scoring_criteria":
                 from prompt_static import build_scoring_criteria
+
                 result[v.name] = build_scoring_criteria()
             elif v.name == "scoring_json_schema":
                 from prompt_static import build_scoring_json_schema
+
                 result[v.name] = build_scoring_json_schema()
             elif v.name == "scoring_rubric":
                 from prompt_static import build_scoring_rubric
+
                 result[v.name] = build_scoring_rubric()
             else:
                 result[v.name] = v.default_example

@@ -1,8 +1,8 @@
 ﻿import { Users } from "lucide-react";
-import useAuthStore from "@/stores/authStore";
 import Layout from "@/components/Layout";
 import UsersTab from "@/components/teacher/UsersTab";
 import PageHeader from "@/components/ui/PageHeader";
+import useAuthStore from "@/stores/authStore";
 
 export default function UsersPage() {
   const userId = useAuthStore((s) => s.user?.user_id);

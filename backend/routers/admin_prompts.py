@@ -1,16 +1,26 @@
 """Prompt 模板管理 CRUD"""
-import re
+
 import logging
+import re
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User, PromptTemplate as PT
-from schemas import (
-    PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateResponse,
-    PromptValidateRequest, PromptValidateResponse, PromptPreviewResponse,
-    OkResponse, SampleVarsResponse,
-)
+
 from auth import require_teacher
+from database import get_db
+from models import PromptTemplate as PT
+from models import User
+from schemas import (
+    OkResponse,
+    PromptPreviewResponse,
+    PromptTemplateCreate,
+    PromptTemplateResponse,
+    PromptTemplateUpdate,
+    PromptValidateRequest,
+    PromptValidateResponse,
+    SampleVarsResponse,
+)
 from services.prompt_manager import refresh_prompts, render_template
 from services.variable_registry import get_registry
 
@@ -52,8 +62,8 @@ def list_prompts(
 @router.post("", status_code=201, response_model=PromptTemplateResponse)
 async def create_prompt(
     data: PromptTemplateCreate,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     max_v = db.query(PT).filter(PT.purpose == data.purpose).order_by(PT.version.desc()).first()
     version = (max_v.version + 1) if max_v else 1
@@ -72,12 +82,15 @@ async def create_prompt(
             name = uv["name"] if isinstance(uv, dict) else uv
             if isinstance(uv, dict) and name in registry_map:
                 rv = registry_map[name]
-                merged.append({
-                    "name": name, "desc": uv.get("desc", rv.description),
-                    "source": uv.get("source", rv.source),
-                    "type": uv.get("type", rv.type),
-                    "example": uv.get("example", rv.default_example),
-                })
+                merged.append(
+                    {
+                        "name": name,
+                        "desc": uv.get("desc", rv.description),
+                        "source": uv.get("source", rv.source),
+                        "type": uv.get("type", rv.type),
+                        "example": uv.get("example", rv.default_example),
+                    }
+                )
             elif isinstance(uv, dict):
                 merged.append(uv)
             else:
@@ -87,10 +100,14 @@ async def create_prompt(
         default_vars = get_registry().get_variables_jsonb(data.purpose)
 
     pt = PT(
-        purpose=data.purpose, version=version, name=data.name,
-        system_prompt=data.system_prompt, user_prompt=data.user_prompt,
+        purpose=data.purpose,
+        version=version,
+        name=data.name,
+        system_prompt=data.system_prompt,
+        user_prompt=data.user_prompt,
         variables=_dedup_variables(default_vars),
-        is_active=False, created_by=data.created_by or current_user.username,
+        is_active=False,
+        created_by=data.created_by or current_user.username,
         remark=data.remark,
     )
     db.add(pt)
@@ -107,8 +124,8 @@ async def create_prompt(
 async def update_prompt(
     prompt_id: int,
     data: PromptTemplateUpdate,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
     if not pt:
@@ -130,10 +147,15 @@ async def update_prompt(
                 new_vars.append(existing_map[vname])
             elif vname in registry_map:
                 rv = registry_map[vname]
-                new_vars.append({
-                    "name": vname, "desc": rv.description,
-                    "source": rv.source, "type": rv.type, "example": rv.default_example,
-                })
+                new_vars.append(
+                    {
+                        "name": vname,
+                        "desc": rv.description,
+                        "source": rv.source,
+                        "type": rv.type,
+                        "example": rv.default_example,
+                    }
+                )
             else:
                 new_vars.append({"name": vname, "desc": ""})
         pt.variables = _dedup_variables(new_vars)
@@ -146,8 +168,8 @@ async def update_prompt(
 @router.delete("/{prompt_id}", response_model=OkResponse)
 async def delete_prompt(
     prompt_id: int,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
     if not pt:
@@ -162,8 +184,8 @@ async def delete_prompt(
 @router.post("/{prompt_id}/activate", response_model=OkResponse)
 async def activate_prompt(
     prompt_id: int,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     await _activate(prompt_id, db)
     await refresh_prompts()
@@ -180,7 +202,7 @@ async def _activate(prompt_id: int, db: Session):
 
 
 @router.post("/validate", response_model=PromptValidateResponse)
-def validate_prompt(data: PromptValidateRequest, current_user: User = Depends(require_teacher)):
+def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, Depends(require_teacher)]):
     errors = []
     missing = []
     vars_set = _extract_vars(data.system_prompt) | _extract_vars(data.user_prompt)
@@ -207,17 +229,19 @@ def validate_prompt(data: PromptValidateRequest, current_user: User = Depends(re
     reg_errors, reg_warnings = get_registry().validate_template_vars(data.purpose, vars_set)
     all_errors = errors + reg_errors
     all_warnings = list(reg_warnings)
-    return PromptValidateResponse(valid=len(all_errors) == 0, errors=all_errors, missing_vars=missing, warnings=all_warnings)
+    return PromptValidateResponse(
+        valid=len(all_errors) == 0, errors=all_errors, missing_vars=missing, warnings=all_warnings
+    )
 
 
 @router.post("/reload")
-async def reload_prompts_endpoint(current_user: User = Depends(require_teacher)):
+async def reload_prompts_endpoint(current_user: Annotated[User, Depends(require_teacher)]):
     await refresh_prompts()
     return {"ok": True}
 
 
 @router.get("/sample-vars", response_model=SampleVarsResponse)
-def get_sample_vars(purpose: str, current_user: User = Depends(require_teacher)):
+def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_teacher)]):
     known = {"patient_chat", "scoring", "qa", "case_generation"}
     if purpose not in known:
         raise HTTPException(404, f"未知 purpose: {purpose}")
@@ -227,15 +251,15 @@ def get_sample_vars(purpose: str, current_user: User = Depends(require_teacher))
 @router.get("/active/preview", response_model=PromptPreviewResponse)
 async def preview_active_prompt(
     purpose: str,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    pt = db.query(PT).filter(PT.purpose == purpose, PT.is_active == True).first()
+    pt = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()
     if not pt:
         raise HTTPException(404, f"「{purpose}」没有激活的模板")
     sample = get_registry().get_sample_kwargs(purpose)
     # 合并自定义变量（不在 registry 中但模板自带 default_value 的变量）
-    for v in (pt.variables or []):
+    for v in pt.variables or []:
         name = v.get("name", "") if isinstance(v, dict) else str(v)
         if name and name not in sample:
             default_val = v.get("default_value", "") if isinstance(v, dict) else ""

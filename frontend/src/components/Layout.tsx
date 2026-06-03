@@ -14,13 +14,13 @@ import {
   Users,
   X,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { APP_VERSION } from "../version";
 import useAuthStore from "../stores/authStore";
+import { APP_VERSION } from "../version";
 import { useFeedback } from "./FeedbackProvider";
 import Modal from "./ui/Modal";
-import type { ReactNode } from "react";
 
 interface NavLinkItem {
   to: string;

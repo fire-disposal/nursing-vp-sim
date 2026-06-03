@@ -2,15 +2,15 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # 确保 backend 目录在 sys.path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import models  # noqa: F401 — 确保所有表定义被注册到 Base.metadata
 from config import DATABASE_URL, ENV
 from database import Base
-import models  # noqa: F401 — 确保所有表定义被注册到 Base.metadata
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
@@ -42,6 +42,7 @@ def run_migrations_online():
         )
     else:
         from database import engine
+
         connectable = engine
 
     with connectable.connect() as connection:

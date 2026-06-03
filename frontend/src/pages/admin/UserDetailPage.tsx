@@ -1,11 +1,11 @@
-﻿import { Activity, Clock, FileText, Medal, Target, TrendingUp, User as UserIcon } from "lucide-react";
+﻿import { useQuery } from "@tanstack/react-query";
+import { Activity, Clock, FileText, Medal, Target, TrendingUp, User as UserIcon } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentDetail } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import PageHeader from "@/components/ui/PageHeader";
-import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
 type StudentDetail = Schemas["StudentDetail"];

@@ -1,5 +1,6 @@
 """Training flow tests: start, messages, end with scoring (mocked LLM)."""
-from unittest.mock import patch, AsyncMock
+
+from unittest.mock import AsyncMock, patch
 
 
 class TestStartTraining:
@@ -40,7 +41,7 @@ class TestStartTraining:
 
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case):
-        user, token = student
+        _user, token = student
         # Start training
         resp = client.post(
             "/api/training/start",
@@ -52,10 +53,14 @@ class TestEndTraining:
         # Mock the scoring service (imported inside function body)
         with patch("services.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:
             from models import Score
+
             mock_eval.return_value = Score(
-                id=1, record_id=record_id, total_score=45.0,
+                id=1,
+                record_id=record_id,
+                total_score=45.0,
                 detail_scores={"沟通技能": {"score": 35, "max": 42}},
-                strengths=["态度好"], weaknesses=["问诊不全"],
+                strengths=["态度好"],
+                weaknesses=["问诊不全"],
             )
 
             resp2 = client.post(
@@ -70,8 +75,8 @@ class TestEndTraining:
             assert "训练已结束" in data["message"]
 
     def test_end_other_user_training(self, client, student, test_case, db_session):
-        from models import User
         from auth import hash_password
+        from models import User
 
         _, token = student
         # Start as student1
@@ -86,7 +91,8 @@ class TestEndTraining:
         other = User(
             username="other_student",
             password_hash=hash_password("123"),
-            role="student", display_name="Other",
+            role="student",
+            display_name="Other",
         )
         db_session.add(other)
         db_session.commit()
@@ -110,8 +116,10 @@ class TestEndTraining:
 
         with patch("services.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:
             from models import Score
+
             mock_eval.return_value = Score(
-                record_id=record_id, total_score=40.0,
+                record_id=record_id,
+                total_score=40.0,
             )
             client.post(
                 f"/api/training/{record_id}/end",
@@ -127,10 +135,10 @@ class TestEndTraining:
 
 class TestRecords:
     def test_student_sees_only_own(self, client, student, test_case, db_session):
-        from models import User
         from auth import hash_password
+        from models import User
 
-        user, token = student
+        _user, token = student
         # Start + complete one training for student1
         resp = client.post(
             "/api/training/start",
@@ -141,6 +149,7 @@ class TestRecords:
 
         with patch("services.scoring.evaluate_training", new_callable=AsyncMock) as m:
             from models import Score
+
             m.return_value = Score(id=1, record_id=record_id, total_score=42.0)
             client.post(
                 f"/api/training/{record_id}/end",
@@ -149,8 +158,10 @@ class TestRecords:
 
         # Create another student with their own record
         other = User(
-            username="s2", password_hash=hash_password("123"),
-            role="student", display_name="S2",
+            username="s2",
+            password_hash=hash_password("123"),
+            role="student",
+            display_name="S2",
         )
         db_session.add(other)
         db_session.commit()
@@ -158,7 +169,7 @@ class TestRecords:
         resp_other = client.post("/api/auth/login", json={"username": "s2", "password": "123"})
         other_token = resp_other.json()["access_token"]
 
-        resp2 = client.post(
+        client.post(
             "/api/training/start",
             json={"case_id": test_case.id},
             headers={"Authorization": f"Bearer {other_token}"},
@@ -173,11 +184,11 @@ class TestRecords:
         assert len(records_resp.json()["items"]) == 1
 
     def test_teacher_sees_all(self, client, teacher, student, test_case):
-        user_t, teacher_token = teacher
-        user_s, student_token = student
+        _user_t, teacher_token = teacher
+        _user_s, student_token = student
 
         # Student starts training
-        resp = client.post(
+        client.post(
             "/api/training/start",
             json={"case_id": test_case.id},
             headers={"Authorization": f"Bearer {student_token}"},
@@ -271,8 +282,10 @@ class TestScoringIsolation:
 
     def test_call_llm_json_passes_through_client(self):
         """call_llm_json 将 client/semaphore 转发给 call_llm。"""
-        import httpx
         import asyncio
+
+        import httpx
+
         from services.llm_service import call_llm_json
 
         local_client = httpx.AsyncClient()
@@ -282,8 +295,7 @@ class TestScoringIsolation:
         async def _do():
             with patch("services.llm_service.call_llm", new_callable=AsyncMock) as mock_llm:
                 mock_llm.return_value = '{"result": "ok"}'
-                await call_llm_json(messages, client=local_client, semaphore=local_sema,
-                                    purpose="test", max_retries=1)
+                await call_llm_json(messages, client=local_client, semaphore=local_sema, purpose="test", max_retries=1)
                 call_kwargs = mock_llm.call_args.kwargs
                 assert call_kwargs["client"] is local_client
                 assert call_kwargs["semaphore"] is local_sema

@@ -42,15 +42,36 @@ markers = [
 [tool.ruff]
 target-version = "py313"
 line-length = 120
+exclude = ["migrations/versions/"]
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
+    "A002",   # `id` parameter shadowing (ORM model idiom)
     "ANN",    # type annotations (too noisy for existing code)
     "ARG001", # unused function arguments (FastAPI Depends auth guards are intentional)
     "ARG002", # unused method arguments (same)
+    "ASYNC109", # timeout parameter name (legacy, not using asyncio.timeout)
+    "B008",   # Depends in argument defaults (standard FastAPI idiom)
+    "B904",   # raise from (style preference)
+    "BLE001", # blind except (some intentional; review later)
+    "C901",   # too-complex (known complex functions, refactor later)
+    "COM812", # conflicts with formatter
     "D",      # docstrings
+    "E402",   # import after env var setup (test conftest pattern)
+    "E501",   # line too long (Chinese prompt strings)
     "EM",     # empty lines in f-strings
+    "ERA001", # commented-out code (documentation comments)
+    "FAST002",# non-Annotated Depends (standard FastAPI idiom)
+    "FBT001", # boolean positional arg (style)
+    "FBT002", # boolean default arg (style)
+    "G004",   # f-string in logging (style)
+    "INP001", # implicit namespace (alembic env.py)
+    "N801",   # class naming convention (intentional lowercase)
+    "N806",   # uppercase in function (test fixture naming)
+    "N814",   # camelCase import alias (locale abbreviations AS/LC/PT)
+    "N817",   # camelCase import alias (locale abbreviations)
+    "PERF401",# manual-list-comprehension (often less readable)
     "PLC0415",# import at function level (intentional for circular import avoidance)
     "PLC1901",# compare-to-empty-string too aggressive
     "PLR0913",# too-many-arguments
@@ -58,11 +79,29 @@ ignore = [
     "PLR0915",# too-many-statements
     "PLR2004",# magic-value-comparison
     "PLR6301",# no-self-use
+    "PLW0603",# global statement (intentional singleton pattern)
+    "PTH100", # os.path → pathlib (legacy, migrate later)
+    "PTH112", # os.path.isdir → pathlib (legacy)
+    "PTH113", # os.path.isfile → pathlib (legacy)
+    "PTH118", # os.path.join → pathlib (legacy)
+    "PTH120", # os.path.dirname → pathlib (legacy)
+    "PTH123", # open() → Path.open() (legacy)
+    "PTH208", # os.listdir → pathlib (legacy)
+    "RUF001", # ambiguous unicode — fullwidth punctuation is intentional (Chinese)
+    "RUF002", # ambiguous unicode in docstrings — same
+    "RUF003", # ambiguous unicode in comments — same
     "S101",   # assert (tests use it)
+    "S105",   # hardcoded password string (test credentials)
+    "S106",   # hardcoded password arg (test fixtures)
+    "S110",   # try-except-pass (intentional middleware pattern)
+    "S311",   # non-crypto random (backoff jitter, not crypto)
     "SLF001", # private-member-access
     "T201",   # print
     "TRY003", # raise-vanilla-args
-    "PERF401",# manual-list-comprehension (often less readable)
+    "TRY300", # move return to else (style)
+    "TRY301", # abstract raise (style)
+    "TRY401", # exception in logging.exception (style)
+    "UP046",  # Generic subclass (style)
 ]
 
 [tool.ruff.lint.flake8-unused-arguments]

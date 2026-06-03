@@ -1,26 +1,41 @@
 """tests for ConfigRouter priority-based degradation routing"""
-from datetime import datetime, timezone, timedelta
+
+from datetime import UTC, datetime, timedelta
+
+from models import ApiSecret, LLMConfig
 from services.llm_router import ConfigRouter, _SyntheticConfig
-from models import LLMConfig, ApiSecret
 
 
 def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx"):
-    s = ApiSecret(id=id, label=label, encrypted_key=key, key_suffix=suffix)
-    return s
+    return ApiSecret(id=id, label=label, encrypted_key=key, key_suffix=suffix)
 
 
-def _make_config(id, secret, purpose="qa", priority=10, status="active",
-                 model="test-model", base_url="https://test.api",
-                 consecutive_failures=0, degraded_reason=None,
-                 degraded_until=None):
+def _make_config(
+    id,
+    secret,
+    purpose="qa",
+    priority=10,
+    status="active",
+    model="test-model",
+    base_url="https://test.api",
+    consecutive_failures=0,
+    degraded_reason=None,
+    degraded_until=None,
+):
     c = LLMConfig(
-        id=id, secret_id=secret.id, label=f"cfg-{id}",
-        base_url=base_url, model=model,
-        purpose=purpose, priority=priority, status=status,
+        id=id,
+        secret_id=secret.id,
+        label=f"cfg-{id}",
+        base_url=base_url,
+        model=model,
+        purpose=purpose,
+        priority=priority,
+        status=status,
         consecutive_failures=consecutive_failures,
         degraded_reason=degraded_reason,
         degraded_until=degraded_until,
-        price_input_per_1m=1, price_output_per_1m=2,
+        price_input_per_1m=1,
+        price_output_per_1m=2,
     )
     c.secret = secret
     return c
@@ -50,8 +65,9 @@ def test_select_key_skips_disabled():
 def test_select_key_skips_degraded_in_cooldown():
     router = ConfigRouter()
     secret = _make_secret()
-    cfg1 = _make_config(1, secret, priority=10, status="degraded",
-                        degraded_until=datetime.now(timezone.utc) + timedelta(minutes=5))
+    cfg1 = _make_config(
+        1, secret, priority=10, status="degraded", degraded_until=datetime.now(UTC) + timedelta(minutes=5)
+    )
     cfg2 = _make_config(2, secret, priority=20, status="active")
     router._cache_by_purpose = {"qa": [cfg1, cfg2]}
 
@@ -62,8 +78,9 @@ def test_select_key_skips_degraded_in_cooldown():
 def test_select_key_uses_degraded_after_ttl():
     router = ConfigRouter()
     secret = _make_secret()
-    cfg1 = _make_config(1, secret, priority=10, status="degraded",
-                        degraded_until=datetime.now(timezone.utc) - timedelta(seconds=1))
+    cfg1 = _make_config(
+        1, secret, priority=10, status="degraded", degraded_until=datetime.now(UTC) - timedelta(seconds=1)
+    )
     cfg2 = _make_config(2, secret, priority=20, status="active")
     router._cache_by_purpose = {"qa": [cfg1, cfg2]}
 
@@ -90,7 +107,7 @@ def test_report_result_consecutive_failures_circuit_break():
     cfg = _make_config(1, secret)
     router._cache_by_purpose = {"qa": [cfg]}
 
-    for i in range(5):
+    for _i in range(5):
         router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="timeout")
     assert cfg.status == "degraded"
     assert cfg.degraded_reason == "consecutive_failures"
@@ -110,9 +127,14 @@ def test_report_result_429_sets_rate_limited():
 def test_report_result_success_clears_degraded():
     router = ConfigRouter()
     secret = _make_secret()
-    cfg = _make_config(1, secret, status="degraded", degraded_reason="rate_limited",
-                       degraded_until=datetime.now(timezone.utc) + timedelta(minutes=5),
-                       consecutive_failures=3)
+    cfg = _make_config(
+        1,
+        secret,
+        status="degraded",
+        degraded_reason="rate_limited",
+        degraded_until=datetime.now(UTC) + timedelta(minutes=5),
+        consecutive_failures=3,
+    )
     router._cache_by_purpose = {"qa": [cfg]}
 
     router.report_result(cfg, success=True, tokens=100, latency_ms=50, error=None)
@@ -136,9 +158,13 @@ def test_select_key_falls_back_to_wildcard():
     from models import LLMConfig
 
     wildcard_cfg = LLMConfig(
-        id=99, secret_id=1, label="catch-all",
-        base_url="https://api.wildcard.com", model="gpt-4",
-        purpose="*", priority=100,
+        id=99,
+        secret_id=1,
+        label="catch-all",
+        base_url="https://api.wildcard.com",
+        model="gpt-4",
+        purpose="*",
+        priority=100,
     )
 
     router = ConfigRouter()

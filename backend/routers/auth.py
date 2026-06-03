@@ -1,11 +1,15 @@
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
+
+from auth import create_access_token, get_current_user, hash_password, require_teacher, verify_password
 from database import get_db
-from models import User, UserClass, Class
-from schemas import LoginRequest, RegisterRequest, TokenResponse, UserBrief
-from auth import hash_password, verify_password, create_access_token, get_current_user, require_teacher
+from models import Class, User, UserClass
 from rate_limiter import login_rate_limit, register_rate_limit, reset_login_limit
-import logging
+from schemas import LoginRequest, RegisterRequest, TokenResponse, UserBrief
+
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
@@ -15,8 +19,8 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
 def login(
     req: LoginRequest,
     request: Request,
-    db: Session = Depends(get_db),
-    _: None = Depends(login_rate_limit),
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[None, Depends(login_rate_limit)],
 ):
     user = db.query(User).filter(User.username == req.username).first()
     if not user or not verify_password(req.password, user.password_hash):
@@ -25,7 +29,9 @@ def login(
 
     reset_login_limit(request)
     token = create_access_token({"user_id": user.id, "role": user.role})
-    log.info(f"登录成功: username={req.username}", extra={"user_id": user.id, "user_role": user.role, "action": "login"})
+    log.info(
+        f"登录成功: username={req.username}", extra={"user_id": user.id, "user_role": user.role, "action": "login"}
+    )
     return TokenResponse(
         access_token=token,
         role=user.role,
@@ -37,9 +43,9 @@ def login(
 @router.post("/register", response_model=TokenResponse)
 def register(
     req: RegisterRequest,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
-    _: None = Depends(register_rate_limit),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[None, Depends(register_rate_limit)],
 ):
     existing = db.query(User).filter(User.username == req.username).first()
     if existing:
@@ -68,8 +74,10 @@ def register(
 
     db.commit()
     db.refresh(user)
-    log.info(f"用户注册: target_id={user.id} target_name={user.username} role={user.role}",
-             extra={"user_id": current_user.id, "user_role": current_user.role, "action": "register"})
+    log.info(
+        f"用户注册: target_id={user.id} target_name={user.username} role={user.role}",
+        extra={"user_id": current_user.id, "user_role": current_user.role, "action": "register"},
+    )
     return TokenResponse(
         access_token=create_access_token({"user_id": user.id, "role": user.role}),
         role=user.role,
@@ -79,5 +87,5 @@ def register(
 
 
 @router.get("/me", response_model=UserBrief)
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user

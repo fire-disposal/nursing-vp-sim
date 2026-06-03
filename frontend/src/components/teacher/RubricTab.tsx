@@ -1,12 +1,12 @@
-import { Award, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
+import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
-import { useToast } from "@/components/Toast";
-import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
 type RubricResponse = Schemas["RubricResponse"];
@@ -112,7 +112,7 @@ export default function RubricTab() {
       await activateRubric(id);
       refresh();
       toast.success("已激活");
-    } catch (e: unknown) {
+    } catch (_e: unknown) {
       toast.error("激活失败");
     }
   };

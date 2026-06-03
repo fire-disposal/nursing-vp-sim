@@ -1,52 +1,78 @@
 import csv
 import io
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
-from database import get_db
-from models import User, Case, TrainingRecord, Message, Score
+
 from auth import get_current_user, require_teacher
+from database import get_db
+from models import Case, Message, Score, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
 
 
 @router.get("/records")
-def export_records(current_user: User = Depends(require_teacher), db: Session = Depends(get_db)):
+def export_records(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
+
     def generate():
         buf = io.StringIO()
         writer = csv.writer(buf)
         # BOM + 表头
         buf.write("﻿")
-        writer.writerow(["记录ID", "学生姓名", "学号", "病例名称", "状态", "开始时间", "结束时间", "总分",
-                          "优点", "不足", "漏问内容", "改进建议", "对话轮数"])
+        writer.writerow(
+            [
+                "记录ID",
+                "学生姓名",
+                "学号",
+                "病例名称",
+                "状态",
+                "开始时间",
+                "结束时间",
+                "总分",
+                "优点",
+                "不足",
+                "漏问内容",
+                "改进建议",
+                "对话轮数",
+            ]
+        )
         yield buf.getvalue()
         buf.truncate(0)
         buf.seek(0)
 
-        records = db.query(TrainingRecord).options(
-            selectinload(TrainingRecord.user),
-            selectinload(TrainingRecord.case),
-            selectinload(TrainingRecord.score),
-            selectinload(TrainingRecord.messages),
-        ).order_by(TrainingRecord.start_time.desc()).yield_per(100)
+        records = (
+            db.query(TrainingRecord)
+            .options(
+                selectinload(TrainingRecord.user),
+                selectinload(TrainingRecord.case),
+                selectinload(TrainingRecord.score),
+                selectinload(TrainingRecord.messages),
+            )
+            .order_by(TrainingRecord.start_time.desc())
+            .yield_per(100)
+        )
 
         for r in records:
-            writer.writerow([
-                r.id,
-                r.user.display_name if r.user else "",
-                r.user.student_id if r.user else "",
-                r.case.name if r.case else "",
-                r.status,
-                r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else "",
-                r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else "",
-                r.score.total_score if r.score else "",
-                "；".join(r.score.strengths) if r.score and r.score.strengths else "",
-                "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else "",
-                "；".join(r.score.missed_content) if r.score and r.score.missed_content else "",
-                r.score.suggestions if r.score else "",
-                len(r.messages) if r.messages else 0,
-            ])
+            writer.writerow(
+                [
+                    r.id,
+                    r.user.display_name if r.user else "",
+                    r.user.student_id if r.user else "",
+                    r.case.name if r.case else "",
+                    r.status,
+                    r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else "",
+                    r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else "",
+                    r.score.total_score if r.score else "",
+                    "；".join(r.score.strengths) if r.score and r.score.strengths else "",
+                    "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else "",
+                    "；".join(r.score.missed_content) if r.score and r.score.missed_content else "",
+                    r.score.suggestions if r.score else "",
+                    len(r.messages) if r.messages else 0,
+                ]
+            )
             yield buf.getvalue()
             buf.truncate(0)
             buf.seek(0)
@@ -59,7 +85,9 @@ def export_records(current_user: User = Depends(require_teacher), db: Session = 
 
 
 @router.get("/record/{record_id}")
-def export_record_detail(record_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def export_record_detail(
+    record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+):
     """导出单条训练记录详情（含完整对话）为文本"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:

@@ -1,5 +1,5 @@
 ﻿import { Activity } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 

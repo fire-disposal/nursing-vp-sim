@@ -1,4 +1,5 @@
-﻿import {
+﻿import { useQuery } from "@tanstack/react-query";
+import {
   ArrowRight,
   Award,
   BookOpen,
@@ -17,17 +18,16 @@
 } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import { useFeedback } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
-import useAuthStore from "@/stores/authStore";
 import { useToast } from "@/components/Toast";
 import TrainingDurationChart from "@/components/TrainingDurationChart";
 import Badge from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
-import type { components } from "@/api/api-types.gen";
+import useAuthStore from "@/stores/authStore";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -558,7 +558,7 @@ function TeacherDashboard({
   navigate: (path: string) => void;
 }) {
   const recentRecords = records.slice(0, 5);
-  const user = useAuthStore((s) => s.user);
+  const _user = useAuthStore((s) => s.user);
 
   return (
     <Layout>

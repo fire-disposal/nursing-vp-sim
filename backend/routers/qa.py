@@ -1,21 +1,30 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database import get_db
-from models import User, QASession, QARecord
-from schemas import (
-    QASessionCreate, QASessionItem, QAMessageItem,
-    QAAskResponse, QASessionAdminItem,
-    PaginatedResponse, MessageResponse,
-)
+from sqlalchemy.orm import Session
+
 from auth import get_current_user, require_teacher
-from services.llm_service import call_llm
+from database import get_db
+from models import QARecord, QASession, User
+from pagination import paginate
 from rate_limiter import check_qa_limit
+from schemas import (
+    MessageResponse,
+    PaginatedResponse,
+    QAAskResponse,
+    QAMessageItem,
+    QASessionAdminItem,
+    QASessionCreate,
+    QASessionItem,
+)
+from services.llm_service import call_llm
 from services.prompt_manager import get_prompt_manager
 from services.qa_service import build_qa_history
-from pagination import paginate
-import logging
+
 log = logging.getLogger(__name__)
+from typing import Annotated
+
 from config import get_llm_config
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
@@ -25,8 +34,8 @@ router = APIRouter(prefix="/api/qa", tags=["通用问答"])
 async def create_session(
     req: QASessionCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="问题不能为空")
@@ -58,18 +67,21 @@ async def create_session(
             {"role": "user", "content": req.question},
         ]
     except Exception as e:
-        log.error("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
-        raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {str(e)}")
+        log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
+        raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
 
     rid = getattr(request.state, "request_id", None)
     try:
-        answer = await call_llm(llm_messages,
-                                purpose="qa", user_id=current_user.id,
-                                log_meta={"request_id": rid} if rid else None,
-                                **get_llm_config("qa"))
+        answer = await call_llm(
+            llm_messages,
+            purpose="qa",
+            user_id=current_user.id,
+            log_meta={"request_id": rid} if rid else None,
+            **get_llm_config("qa"),
+        )
     except Exception as e:
-        log.error("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
-        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {str(e)}")
+        log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
 
     assistant_msg = QARecord(
         session_id=session.id,
@@ -81,8 +93,10 @@ async def create_session(
     session.updated_at = func.now()
     db.commit()
 
-    log.info(f"新会话创建: session_id={session.id} q_len={len(req.question)}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(
+        f"新会话创建: session_id={session.id} q_len={len(req.question)}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
     return QAAskResponse(session_id=session.id, answer=answer)
 
 
@@ -91,16 +105,20 @@ async def ask_in_session(
     session_id: int,
     req: QASessionCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="问题不能为空")
 
-    session = db.query(QASession).filter(
-        QASession.id == session_id,
-        QASession.user_id == current_user.id,
-    ).first()
+    session = (
+        db.query(QASession)
+        .filter(
+            QASession.id == session_id,
+            QASession.user_id == current_user.id,
+        )
+        .first()
+    )
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
@@ -123,13 +141,18 @@ async def ask_in_session(
 
     rid = getattr(request.state, "request_id", None)
     try:
-        answer = await call_llm(llm_messages,
-                                purpose="qa", user_id=current_user.id,
-                                log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
-                                **get_llm_config("qa"))
+        answer = await call_llm(
+            llm_messages,
+            purpose="qa",
+            user_id=current_user.id,
+            log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+            **get_llm_config("qa"),
+        )
     except Exception as e:
-        log.error("qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id})
-        raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")
+        log.exception(
+            "qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id}
+        )
+        raise HTTPException(status_code=500, detail=f"AI调用失败: {e!s}")
 
     assistant_msg = QARecord(
         session_id=session.id,
@@ -141,32 +164,35 @@ async def ask_in_session(
     session.updated_at = func.now()
     db.commit()
 
-    log.info(f"会话追问: session_id={session_id} q_len={len(req.question)}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(
+        f"会话追问: session_id={session_id} q_len={len(req.question)}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
     return QAAskResponse(session_id=session.id, answer=answer)
 
 
 @router.get("/sessions", response_model=list[QASessionItem])
 def list_sessions(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    sessions = db.query(QASession).filter(
-        QASession.user_id == current_user.id
-    ).order_by(QASession.updated_at.desc()).all()
-    return sessions
+    return db.query(QASession).filter(QASession.user_id == current_user.id).order_by(QASession.updated_at.desc()).all()
 
 
 @router.delete("/sessions/{session_id}", response_model=MessageResponse)
 def delete_session(
     session_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    session = db.query(QASession).filter(
-        QASession.id == session_id,
-        QASession.user_id == current_user.id,
-    ).first()
+    session = (
+        db.query(QASession)
+        .filter(
+            QASession.id == session_id,
+            QASession.user_id == current_user.id,
+        )
+        .first()
+    )
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
@@ -174,62 +200,65 @@ def delete_session(
     db.delete(session)
     db.commit()
 
-    log.info(f"会话删除: session_id={session_id}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(f"会话删除: session_id={session_id}", extra={"user_id": current_user.id, "user_role": current_user.role})
     return {"message": "删除成功"}
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[QAMessageItem])
 def get_session_messages(
     session_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    session = db.query(QASession).filter(
-        QASession.id == session_id,
-        QASession.user_id == current_user.id,
-    ).first()
+    session = (
+        db.query(QASession)
+        .filter(
+            QASession.id == session_id,
+            QASession.user_id == current_user.id,
+        )
+        .first()
+    )
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    messages = db.query(QARecord).filter(
-        QARecord.session_id == session_id
-    ).order_by(QARecord.created_at.asc()).all()
-    return messages
+    return db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
 
 
 # ── 兼容旧端点 ──
+
 
 @router.post("/ask", response_model=QAAskResponse)
 async def ask_question_legacy(
     req: QASessionCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     return await create_session(req, request=request, current_user=current_user, db=db)
 
 
 @router.get("/history/all", response_model=PaginatedResponse[QASessionAdminItem])
 def get_all_qa_history(
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    base = db.query(
-        QASession.id,
-        QASession.user_id,
-        QASession.title,
-        QASession.created_at,
-        QASession.updated_at,
-        User.display_name.label("student_name"),
-        User.student_id.label("student_code"),
-        func.count(QARecord.id).label("message_count"),
-    ).outerjoin(User, QASession.user_id == User.id).outerjoin(
-        QARecord, QARecord.session_id == QASession.id
-    ).group_by(QASession.id, User.display_name, User.student_id).order_by(
-        QASession.updated_at.desc()
+    base = (
+        db.query(
+            QASession.id,
+            QASession.user_id,
+            QASession.title,
+            QASession.created_at,
+            QASession.updated_at,
+            User.display_name.label("student_name"),
+            User.student_id.label("student_code"),
+            func.count(QARecord.id).label("message_count"),
+        )
+        .outerjoin(User, QASession.user_id == User.id)
+        .outerjoin(QARecord, QARecord.session_id == QASession.id)
+        .group_by(QASession.id, User.display_name, User.student_id)
+        .order_by(QASession.updated_at.desc())
     )
 
     rows, total = paginate(base, offset, limit)
@@ -252,10 +281,7 @@ def get_all_qa_history(
 @router.get("/history/all/{session_id}/messages", response_model=list[QAMessageItem])
 def get_session_messages_admin(
     session_id: int,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    messages = db.query(QARecord).filter(
-        QARecord.session_id == session_id
-    ).order_by(QARecord.created_at.asc()).all()
-    return messages
+    return db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()

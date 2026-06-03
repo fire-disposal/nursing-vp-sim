@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { getGrades, createGrade, updateGrade, deleteGrade, getClasses, createClass, updateClass, deleteClass } from "@/api/api-client";
-import type { GradesClassesState, Grade, ClassItem } from "../types/store";
+import { createClass, createGrade, deleteClass, deleteGrade, getClasses, getGrades, updateClass, updateGrade } from "@/api/api-client";
+import type { ClassItem, Grade, GradesClassesState } from "../types/store";
 
 const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
   grades: [] as Grade[],

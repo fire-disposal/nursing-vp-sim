@@ -1,13 +1,13 @@
-﻿import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
+﻿import { useMutation, useQuery } from "@tanstack/react-query";
+import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { getCases, startTraining } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
-import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/Toast";
 import PageHeader from "@/components/ui/PageHeader";
-import type { components } from "@/api/api-types.gen";
+import Pagination from "@/components/ui/Pagination";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 

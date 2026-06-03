@@ -7,31 +7,79 @@
 import re
 
 ROLE_LEAK_PATTERNS = [
-    "作为护士", "作为医生", "作为老师", "作为AI", "我是AI",
-    "我是人工智能", "我是语言模型", "作为语言模型", "由AI", "由人工智能",
-    "我是虚拟患者", "我是病例", "根据系统", "根据设定",
-    "你应该问", "你可以询问", "你可以继续问", "建议你询问",
-    "你漏掉了", "你还没有问", "你忘了问", "你遗漏了",
-    "评分标准", "教学反馈", "我建议你", "正确的问诊", "护理学生应该",
-    "你问得很好", "你问得不错", "下一个该问", "请继续问诊",
-    "根据病例", "根据我的病历", "作为患者角色",
-    "我是一个AI", "角色扮演", "按照设定",
-    "你应该关注", "你的任务是", "你可以问一下",
-    "这位患者", "本患者", "该患者",
+    "作为护士",
+    "作为医生",
+    "作为老师",
+    "作为AI",
+    "我是AI",
+    "我是人工智能",
+    "我是语言模型",
+    "作为语言模型",
+    "由AI",
+    "由人工智能",
+    "我是虚拟患者",
+    "我是病例",
+    "根据系统",
+    "根据设定",
+    "你应该问",
+    "你可以询问",
+    "你可以继续问",
+    "建议你询问",
+    "你漏掉了",
+    "你还没有问",
+    "你忘了问",
+    "你遗漏了",
+    "评分标准",
+    "教学反馈",
+    "我建议你",
+    "正确的问诊",
+    "护理学生应该",
+    "你问得很好",
+    "你问得不错",
+    "下一个该问",
+    "请继续问诊",
+    "根据病例",
+    "根据我的病历",
+    "作为患者角色",
+    "我是一个AI",
+    "角色扮演",
+    "按照设定",
+    "你应该关注",
+    "你的任务是",
+    "你可以问一下",
+    "这位患者",
+    "本患者",
+    "该患者",
 ]
 
 DIAGNOSIS_PATTERNS = [
-    "诊断为", "我判断", "应该是", "急性加重", "护理诊断为",
-    "糖尿病足", "感染扩散", "需要抗生素",
-    "你患有", "你得了", "你可能得了",
-    "这属于", "并发症是",
-    "治疗方案", "需要住院",
+    "诊断为",
+    "我判断",
+    "应该是",
+    "急性加重",
+    "护理诊断为",
+    "糖尿病足",
+    "感染扩散",
+    "需要抗生素",
+    "你患有",
+    "你得了",
+    "你可能得了",
+    "这属于",
+    "并发症是",
+    "治疗方案",
+    "需要住院",
 ]
 
 # 教学反馈关键词——患者不应评价学生表现
 TEACHING_LEAK_PATTERNS = [
-    "你应该继续", "你还需要问", "建议你", "这次训练",
-    "你的表现", "不完整", "不正确", "该问的",
+    "你应该继续",
+    "你还需要问",
+    "建议你",
+    "这次训练",
+    "你的表现",
+    "不完整",
+    "不正确",
+    "该问的",
 ]
 
 # 长回复阈值（超此字符数触发截断，防止患者长篇大论）
@@ -75,11 +123,11 @@ def check_long_output(reply: str) -> bool:
 def get_fallback_reply() -> str:
     """返回一条随机兜底回复"""
     import random
+
     return random.choice(UNKNOWN_FALLBACKS)
 
 
-def get_allowed_hidden_info(case_data: dict, student_message: str,
-                            disclosed_topics: set) -> list[dict]:
+def get_allowed_hidden_info(case_data: dict, student_message: str, disclosed_topics: set) -> list[dict]:
     """根据学生问题和已泄露主题，返回本轮允许透露的隐藏信息"""
     rules = case_data.get("hidden_info_rules", [])
     if not rules:
@@ -88,9 +136,7 @@ def get_allowed_hidden_info(case_data: dict, student_message: str,
         result = []
         for item in legacy_hidden:
             topic = str(item)[:30]
-            if topic in disclosed_topics:
-                result.append({"topic": topic, "content": item, "triggered": True})
-            elif _keyword_match(item, student_message):
+            if topic in disclosed_topics or _keyword_match(item, student_message):
                 result.append({"topic": topic, "content": item, "triggered": True})
             else:
                 result.append({"topic": topic, "content": item, "triggered": False})
@@ -144,9 +190,21 @@ ADDRESSING_REPLACEMENTS = [
 ]
 
 # 不替换的病史语境前缀（保留原样）
-ADDRESSING_SKIP_PREFIXES = ["医生说", "医生让我", "医生给我", "医生叫", "医生建议",
-                              "那个医生", "门诊医生", "主治医生", "值班医生",
-                              "以前医生", "之前医生", "上次医生", "医生没"]
+ADDRESSING_SKIP_PREFIXES = [
+    "医生说",
+    "医生让我",
+    "医生给我",
+    "医生叫",
+    "医生建议",
+    "那个医生",
+    "门诊医生",
+    "主治医生",
+    "值班医生",
+    "以前医生",
+    "之前医生",
+    "上次医生",
+    "医生没",
+]
 
 
 def normalize_addressing_to_nurse(reply: str) -> tuple[str, bool]:
@@ -168,14 +226,11 @@ def normalize_addressing_to_nurse(reply: str) -> tuple[str, bool]:
 
     # 正则匹配开头任意非中文字符后跟"医生/大夫/医师"+ 问候/标点
     for title in ["医生", "大夫", "医师"]:
-        m = re.match(
-            r'^([^\u4e00-\u9fff]*)' + re.escape(title) + r'(你好|您好|，|,)',
-            text
-        )
+        m = re.match(r"^([^\u4e00-\u9fff]*)" + re.escape(title) + r"(你好|您好|，|,)", text)
         if m:
             prefix_chars = m.group(1)
             suffix = m.group(2)
-            normalized = prefix_chars + "护士" + suffix + text[m.end():]
+            normalized = prefix_chars + "护士" + suffix + text[m.end() :]
             return normalized, True
 
     return reply, False

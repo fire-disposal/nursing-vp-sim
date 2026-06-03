@@ -1,24 +1,35 @@
 import logging
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from auth import get_current_user, require_teacher
 from database import get_db
 from models import Case, TrainingRecord, User
-from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse, MessageResponse
-from auth import get_current_user, require_teacher
+from schemas import (
+    CaseBrief,
+    CaseCreateRequest,
+    CaseDetail,
+    CaseGenerateRequest,
+    CaseGenerateResponse,
+    CaseManageItem,
+    CaseUpdateRequest,
+    MessageResponse,
+    PaginatedResponse,
+)
+
 log = logging.getLogger(__name__)
+from typing import Annotated
+
+from config import get_llm_config
 from pagination import paginate
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
 from services.variable_registry import get_registry
 from services.virtual_patient_prompt import format_case_for_prompt
-from config import get_llm_config
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
-
 
 
 def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
@@ -41,31 +52,39 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
 
 @router.get("", response_model=PaginatedResponse[CaseBrief])
 def list_cases(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
     db: Session = Depends(get_db),
     _=Depends(get_current_user),
 ):
     query = db.query(Case).order_by(Case.id)
     items, total = paginate(query, offset, limit)
-    return PaginatedResponse(items=[
-        CaseBrief(
-            id=c.id, name=c.name,
-            difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
-            description=c.description,
-            patient_summary=c.case_data.get("patient_info") if c.case_data else None,
-        ) for c in items
-    ], total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[
+            CaseBrief(
+                id=c.id,
+                name=c.name,
+                difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
+                description=c.description,
+                patient_summary=c.case_data.get("patient_info") if c.case_data else None,
+            )
+            for c in items
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 # ── 教师病例管理（/manage/list 必须在 /{case_id} 之前声明，避免 "manage" 被当作 case_id）──
 
+
 @router.get("/manage/list", response_model=PaginatedResponse[CaseManageItem])
 def list_cases_manage(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    name: Optional[str] = Query(None, description="病例名称模糊搜索"),
-    difficulty: Optional[int] = Query(None, ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级"),
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
+    difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
     db: Session = Depends(get_db),
     _=Depends(require_teacher),
 ):
@@ -80,26 +99,35 @@ def list_cases_manage(
 
     training_counts = {}
     if cases:
-        rows = db.query(
-            TrainingRecord.case_id, func.count(TrainingRecord.id)
-        ).filter(
-            TrainingRecord.case_id.in_([c.id for c in cases])
-        ).group_by(TrainingRecord.case_id).all()
+        rows = (
+            db.query(TrainingRecord.case_id, func.count(TrainingRecord.id))
+            .filter(TrainingRecord.case_id.in_([c.id for c in cases]))
+            .group_by(TrainingRecord.case_id)
+            .all()
+        )
         training_counts = dict(rows)
 
-    return PaginatedResponse(items=[
-        CaseManageItem(
-            id=c.id, name=c.name, description=c.description,
-            patient_name=(c.case_data or {}).get("patient_info", {}).get("name", ""),
-            patient_age=(c.case_data or {}).get("patient_info", {}).get("age"),
-            patient_gender=(c.case_data or {}).get("patient_info", {}).get("gender", ""),
-            chief_complaint=(c.case_data or {}).get("chief_complaint", ""),
-            time_limit=(c.case_data or {}).get("time_limit", 20),
-            difficulty=(c.case_data or {}).get("difficulty", 1),
-            created_at=c.created_at,
-            training_count=training_counts.get(c.id, 0),
-        ) for c in cases
-    ], total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[
+            CaseManageItem(
+                id=c.id,
+                name=c.name,
+                description=c.description,
+                patient_name=(c.case_data or {}).get("patient_info", {}).get("name", ""),
+                patient_age=(c.case_data or {}).get("patient_info", {}).get("age"),
+                patient_gender=(c.case_data or {}).get("patient_info", {}).get("gender", ""),
+                chief_complaint=(c.case_data or {}).get("chief_complaint", ""),
+                time_limit=(c.case_data or {}).get("time_limit", 20),
+                difficulty=(c.case_data or {}).get("difficulty", 1),
+                created_at=c.created_at,
+                training_count=training_counts.get(c.id, 0),
+            )
+            for c in cases
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 _logger = logging.getLogger(__name__)
@@ -108,8 +136,8 @@ _logger = logging.getLogger(__name__)
 @router.post("/generate", response_model=CaseGenerateResponse)
 async def generate_case(
     data: CaseGenerateRequest,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     if not data.description.strip():
         raise HTTPException(400, "描述不能为空")
@@ -147,13 +175,14 @@ async def generate_case(
     try:
         result = await call_llm_json(
             messages,
-            purpose="case_generation", user_id=current_user.id,
+            purpose="case_generation",
+            user_id=current_user.id,
             log_meta={"description": data.description[:200] if data.description else None},
             **get_llm_config("case_generation"),
         )
     except Exception as e:
         _logger.exception("case_generation LLM call failed")
-        raise HTTPException(500, f"AI 生成失败: {str(e)}")
+        raise HTTPException(500, f"AI 生成失败: {e!s}")
 
     if data.field:
         field_value = result.get("field_value") or result.get(data.field)
@@ -163,7 +192,7 @@ async def generate_case(
 
 
 @router.get("/{case_id}", response_model=CaseDetail)
-def get_case(case_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_case(case_id: int, db: Annotated[Session, Depends(get_db)], _=Depends(get_current_user)):
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
@@ -173,8 +202,8 @@ def get_case(case_id: int, db: Session = Depends(get_db), _=Depends(get_current_
 @router.post("", response_model=CaseManageItem)
 def create_case(
     req: CaseCreateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_teacher),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_teacher)],
 ):
     """创建新病例"""
     cd = req.case_data
@@ -188,8 +217,10 @@ def create_case(
     db.add(case)
     db.commit()
     db.refresh(case)
-    log.info(f"病例创建: case_id={case.id} case_name={case.name}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(
+        f"病例创建: case_id={case.id} case_name={case.name}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
     return _to_manage_item(case, 0)
 
 
@@ -197,8 +228,8 @@ def create_case(
 def update_case(
     case_id: int,
     req: CaseUpdateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_teacher),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_teacher)],
 ):
     """编辑病例"""
     case = db.query(Case).filter(Case.id == case_id).first()
@@ -212,27 +243,25 @@ def update_case(
     case.case_data = cd
     db.commit()
     db.refresh(case)
-    log.info(f"病例编辑: case_id={case_id} case_name={case.name}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
-    count = db.query(func.count(TrainingRecord.id)).filter(
-        TrainingRecord.case_id == case_id
-    ).scalar() or 0
+    log.info(
+        f"病例编辑: case_id={case_id} case_name={case.name}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
+    count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar() or 0
     return _to_manage_item(case, count)
 
 
 @router.delete("/{case_id}", response_model=MessageResponse)
 def delete_case(
     case_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_teacher),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_teacher)],
 ):
     """删除病例（仅当无训练记录时允许）"""
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
-    count = db.query(func.count(TrainingRecord.id)).filter(
-        TrainingRecord.case_id == case_id
-    ).scalar() or 0
+    count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar() or 0
     if count > 0:
         raise HTTPException(
             status_code=400,
@@ -241,6 +270,8 @@ def delete_case(
     case_name = case.name
     db.delete(case)
     db.commit()
-    log.info(f"病例删除: case_id={case_id} case_name={case_name}",
-             extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(
+        f"病例删除: case_id={case_id} case_name={case_name}",
+        extra={"user_id": current_user.id, "user_role": current_user.role},
+    )
     return {"message": "病例已删除"}

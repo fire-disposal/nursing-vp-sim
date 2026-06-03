@@ -1,7 +1,10 @@
 """API Key 加密工具 —— Fernet 对称加密（由 SECRET_KEY 派生）"""
+
 import base64
 import hashlib
+
 from cryptography.fernet import Fernet
+
 from config import SECRET_KEY
 
 _fernet: Fernet | None = None

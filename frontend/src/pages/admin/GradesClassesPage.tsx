@@ -1,12 +1,12 @@
 ﻿import { useEffect, useState } from "react";
-import useGradesClassesStore from "@/stores/gradesClassesStore";
+import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import FormField from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
-import Layout from "@/components/Layout";
+import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem, Grade } from "@/types/store";
 
 const GRADE_COLUMNS = [
@@ -38,11 +38,11 @@ export default function GradesClassesPage() {
   useEffect(() => {
     fetchGrades();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchGrades]);
   useEffect(() => {
     fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gradeFilter]);
+  }, [gradeFilter, fetchClasses]);
 
   const openCreate = () => {
     setEditId(null);

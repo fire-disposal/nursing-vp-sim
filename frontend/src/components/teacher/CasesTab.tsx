@@ -1,12 +1,12 @@
-import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "@/api/api-client";
-import Pagination from "@/components/ui/Pagination";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
-import type { components } from "@/api/api-types.gen";
+import Pagination from "@/components/ui/Pagination";
 
 type Schemas = components["schemas"];
 type CaseManageItem = Schemas["CaseManageItem"];
@@ -176,7 +176,7 @@ function parseCaseData(cd: unknown): CaseForm {
 
 export default function CasesTab() {
   const [showEditor, setShowEditor] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<CaseManageItem | null>(null);
+  const [_deleteTarget, _setDeleteTarget] = useState<CaseManageItem | null>(null);
   const [editingCase, setEditingCase] = useState<CaseManageItem | null>(null);
   const [caseForm, setCaseForm] = useState<CaseForm>(parseCaseData(NEW_CASE_TEMPLATE));
   const [caseMsg, setCaseMsg] = useState("");
@@ -219,7 +219,7 @@ export default function CasesTab() {
 
   useEffect(() => {
     setOffset(0);
-  }, [filters.name, filters.difficulty]);
+  }, []);
 
   const openNew = () => {
     setEditingCase(null);

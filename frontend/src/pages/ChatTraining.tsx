@@ -1,14 +1,14 @@
 ﻿import { ArrowLeft, CheckCircle2, Circle, Clock, Ear, EarOff, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail, sendMessageStream } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import PatientPortrait from "@/components/PatientPortrait";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import useVoice from "@/hooks/useVoice";
 import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
-import type { components } from "@/api/api-types.gen";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type MessageItem = components["schemas"]["MessageItem"];
@@ -387,11 +387,11 @@ export default function ChatTraining() {
     return () => {
       cancelled = true;
     };
-  }, [recordId]);
+  }, [recordId, toast.error, navigate]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, []);
 
   const handleSend = async () => {
     const content = input.trim();
@@ -500,7 +500,7 @@ export default function ChatTraining() {
     if (remaining === 0 && !autoEndRef.current) {
       toast.info("训练时间已结束，正在自动评分...");
     }
-  }, [remaining]);
+  }, [remaining, toast.warning, toast.info]);
 
   useEffect(() => {
     if (remaining === 0 && !ending && !showScore) {
@@ -508,7 +508,7 @@ export default function ChatTraining() {
       autoEndRef.current = true;
       executeEnd(true);
     }
-  }, [remaining, ending, showScore]);
+  }, [remaining, ending, showScore, executeEnd]);
 
   useEffect(() => {
     if (!ending) return;

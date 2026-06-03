@@ -1,17 +1,20 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database import get_db
-from models import User, Grade, Class, UserClass
-from schemas import ClassCreate, ClassUpdate, ClassResponse, MessageResponse
+from sqlalchemy.orm import Session
+
 from auth import require_teacher
+from database import get_db
+from models import Class, Grade, User, UserClass
+from schemas import ClassCreate, ClassResponse, ClassUpdate, MessageResponse
 
 router = APIRouter(prefix="/api/admin/classes", tags=["班级管理"])
 
 
 @router.get("", response_model=list[ClassResponse])
 def list_classes(
-    grade_id: int | None = Query(None),
+    grade_id: Annotated[int | None, Query()] = None,
     current_user: User = Depends(require_teacher),
     db: Session = Depends(get_db),
 ):
@@ -23,29 +26,30 @@ def list_classes(
 
     result = []
     for cls, grade_name in rows:
-        student_count = db.query(func.count(UserClass.user_id)).filter(
-            UserClass.class_id == cls.id
-        ).scalar() or 0
-        result.append(ClassResponse(
-            id=cls.id, grade_id=cls.grade_id, grade_name=grade_name,
-            name=cls.name, student_count=student_count,
-            created_at=cls.created_at,
-        ))
+        student_count = db.query(func.count(UserClass.user_id)).filter(UserClass.class_id == cls.id).scalar() or 0
+        result.append(
+            ClassResponse(
+                id=cls.id,
+                grade_id=cls.grade_id,
+                grade_name=grade_name,
+                name=cls.name,
+                student_count=student_count,
+                created_at=cls.created_at,
+            )
+        )
     return result
 
 
 @router.post("", response_model=ClassResponse)
 def create_class(
     body: ClassCreate,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     grade = db.query(Grade).filter(Grade.id == body.grade_id).first()
     if not grade:
         raise HTTPException(status_code=404, detail="年级不存在")
-    dup = db.query(Class).filter(
-        Class.grade_id == body.grade_id, Class.name == body.name
-    ).first()
+    dup = db.query(Class).filter(Class.grade_id == body.grade_id, Class.name == body.name).first()
     if dup:
         raise HTTPException(status_code=400, detail="该年级下班级名称重复")
     cls = Class(grade_id=body.grade_id, name=body.name)
@@ -53,8 +57,12 @@ def create_class(
     db.commit()
     db.refresh(cls)
     return ClassResponse(
-        id=cls.id, grade_id=cls.grade_id, grade_name=grade.name,
-        name=cls.name, student_count=0, created_at=cls.created_at,
+        id=cls.id,
+        grade_id=cls.grade_id,
+        grade_name=grade.name,
+        name=cls.name,
+        student_count=0,
+        created_at=cls.created_at,
     )
 
 
@@ -62,8 +70,8 @@ def create_class(
 def update_class(
     class_id: int,
     body: ClassUpdate,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     cls = db.query(Class).filter(Class.id == class_id).first()
     if not cls:
@@ -74,39 +82,42 @@ def update_class(
             raise HTTPException(status_code=404, detail="年级不存在")
         cls.grade_id = body.grade_id
     if body.name is not None:
-        dup = db.query(Class).filter(
-            Class.grade_id == cls.grade_id, Class.name == body.name,
-            Class.id != class_id,
-        ).first()
+        dup = (
+            db.query(Class)
+            .filter(
+                Class.grade_id == cls.grade_id,
+                Class.name == body.name,
+                Class.id != class_id,
+            )
+            .first()
+        )
         if dup:
             raise HTTPException(status_code=400, detail="该年级下班级名称重复")
         cls.name = body.name
     db.commit()
     db.refresh(cls)
     grade = db.query(Grade).filter(Grade.id == cls.grade_id).first()
-    student_count = db.query(func.count(UserClass.user_id)).filter(
-        UserClass.class_id == cls.id
-    ).scalar() or 0
+    student_count = db.query(func.count(UserClass.user_id)).filter(UserClass.class_id == cls.id).scalar() or 0
     return ClassResponse(
-        id=cls.id, grade_id=cls.grade_id, grade_name=grade.name if grade else "",
-        name=cls.name, student_count=student_count, created_at=cls.created_at,
+        id=cls.id,
+        grade_id=cls.grade_id,
+        grade_name=grade.name if grade else "",
+        name=cls.name,
+        student_count=student_count,
+        created_at=cls.created_at,
     )
 
 
 @router.delete("/{class_id}", response_model=MessageResponse)
 def delete_class(
     class_id: int,
-    current_user: User = Depends(require_teacher),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     cls = db.query(Class).filter(Class.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
-    db.execute(
-        UserClass.__table__.update()
-        .where(UserClass.class_id == class_id)
-        .values(class_id=None)
-    )
+    db.execute(UserClass.__table__.update().where(UserClass.class_id == class_id).values(class_id=None))
     db.delete(cls)
     db.commit()
-    return {"message": "已删除班级 {name}".format(name=cls.name)}
+    return {"message": f"已删除班级 {cls.name}"}

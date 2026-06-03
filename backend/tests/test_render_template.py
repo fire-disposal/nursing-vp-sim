@@ -1,11 +1,13 @@
 """Test the new render_template function and {#var#} syntax."""
+
 import os
 
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
-from services.prompt_manager import render_template, PromptTemplateObj
+
+from services.prompt_manager import PromptTemplateObj, render_template
 
 
 class TestRenderTemplate:
@@ -22,7 +24,7 @@ class TestRenderTemplate:
         assert r == "Text: Some {braces} and {{more}}"
 
     def test_chinese_variable_name(self):
-        r = render_template("{#中文变量#}", **{"中文变量": "成功"})
+        r = render_template("{#中文变量#}", 中文变量="成功")
         assert r == "成功"
 
     def test_plain_braces_untouched(self):
@@ -62,7 +64,9 @@ class TestRenderTemplate:
 class TestPromptTemplateObj:
     def test_render_pair(self):
         pt = PromptTemplateObj(
-            id=0, purpose="test", version=1,
+            id=0,
+            purpose="test",
+            version=1,
             system_prompt="SYS: {#s#}",
             user_prompt="USR: {#u#}",
         )
@@ -72,7 +76,9 @@ class TestPromptTemplateObj:
 
     def test_no_user_prompt(self):
         pt = PromptTemplateObj(
-            id=0, purpose="test", version=1,
+            id=0,
+            purpose="test",
+            version=1,
             system_prompt="{#x#}",
             user_prompt=None,
         )
@@ -82,7 +88,9 @@ class TestPromptTemplateObj:
 
     def test_missing_var_in_pair_raises(self):
         pt = PromptTemplateObj(
-            id=0, purpose="test", version=1,
+            id=0,
+            purpose="test",
+            version=1,
             system_prompt="{#good#}",
             user_prompt="{#bad#}",
         )

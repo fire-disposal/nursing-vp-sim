@@ -14,12 +14,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database import Base, get_db
 from auth import hash_password
-from models import User, Case
+from database import Base, get_db
+from models import Case, User
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def engine():
     """PostgreSQL test database. Set TEST_DB_URL to override default."""
     eng = create_engine(TEST_DB_URL)
@@ -28,21 +28,42 @@ def engine():
     Base.metadata.create_all(bind=eng)
 
     with eng.connect() as conn:
-        conn.execute(Base.metadata.tables["roles"].insert().values(
-            [{"name": "teacher", "display_name": "教师", "is_system": True},
-             {"name": "student", "display_name": "学生", "is_system": True}]
-        ))
-        conn.execute(Base.metadata.tables["role_permissions"].insert().values([
-            {"role_name": "teacher", "permission": p} for p in [
-                "teacher_access", "user_manage", "case_manage", "score_review",
-                "llm_monitor", "api_manage", "prompt_manage",
-                "grade_class_manage",
-            ]
-        ] + [
-            {"role_name": "student", "permission": p} for p in [
-                "training_access", "qa_access",
-            ]
-        ]))
+        conn.execute(
+            Base.metadata.tables["roles"]
+            .insert()
+            .values(
+                [
+                    {"name": "teacher", "display_name": "教师", "is_system": True},
+                    {"name": "student", "display_name": "学生", "is_system": True},
+                ]
+            )
+        )
+        conn.execute(
+            Base.metadata.tables["role_permissions"]
+            .insert()
+            .values(
+                [
+                    {"role_name": "teacher", "permission": p}
+                    for p in [
+                        "teacher_access",
+                        "user_manage",
+                        "case_manage",
+                        "score_review",
+                        "llm_monitor",
+                        "api_manage",
+                        "prompt_manage",
+                        "grade_class_manage",
+                    ]
+                ]
+                + [
+                    {"role_name": "student", "permission": p}
+                    for p in [
+                        "training_access",
+                        "qa_access",
+                    ]
+                ]
+            )
+        )
         conn.commit()
 
     yield eng
@@ -50,7 +71,7 @@ def engine():
     eng.dispose()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def db_session(engine):
     """Fresh DB session."""
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -62,7 +83,7 @@ def db_session(engine):
         session.close()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def client(engine, db_session):
     """FastAPI TestClient with overridden DB dependency."""
     from main import app
@@ -80,6 +101,7 @@ def client(engine, db_session):
 
 
 # ── convenience fixtures ──
+
 
 @pytest.fixture
 def teacher(client, db_session):

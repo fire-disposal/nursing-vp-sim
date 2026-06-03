@@ -1,6 +1,7 @@
 """Prompt 模板管理器 —— 从 DB 加载模板，支持热切换和硬编码兜底"""
-import logging
+
 import asyncio
+import logging
 import re
 
 _logger = logging.getLogger(__name__)
@@ -10,11 +11,12 @@ _VAR_RE = re.compile(r"\{#([^}#]+)#\}")
 
 def render_template(template: str, **kwargs) -> str:
     """安全模板渲染 —— 用 {#variable#} 语法替换变量。
-    
+
     与 Python format() 不同：花括号 {} 在值中原样保留，不会被误解析。
     仅替换 {#name#} 模式，缺失变量抛 RuntimeError。
     设计原因：Prompt 模板可能包含 JSON 示例（带 {}），format() 会误伤。
     """
+
     def _replace(m: re.Match) -> str:
         var = m.group(1).strip()
         if var not in kwargs:
@@ -31,8 +33,16 @@ def render_template(template: str, **kwargs) -> str:
 
 class PromptTemplateObj:
     """单个 prompt 模板实例，支持变量渲染"""
-    def __init__(self, id: int, purpose: str, version: int, system_prompt: str,
-                 user_prompt: str | None, variables: list[dict] | None = None):
+
+    def __init__(
+        self,
+        id: int,
+        purpose: str,
+        version: int,
+        system_prompt: str,
+        user_prompt: str | None,
+        variables: list[dict] | None = None,
+    ):
         self.id = id
         self.purpose = purpose
         self.version = version
@@ -53,12 +63,14 @@ class PromptTemplateObj:
             if used_defaults:
                 _logger.info(
                     "prompt render using default_value for %s: %s",
-                    self.purpose, used_defaults,
+                    self.purpose,
+                    used_defaults,
                 )
         try:
             return render_template(self.system_prompt, **merged)
         except RuntimeError as e:
             import re as _re
+
             expected = sorted(set(_re.findall(r"\{#([^}#]+)#\}", self.system_prompt)))
             provided = sorted(kwargs.keys())
             missing = [v for v in expected if v not in kwargs]
@@ -93,13 +105,16 @@ class PromptManager:
         try:
             self._upsert_v1_defaults(db)
 
-            rows = db.query(PT).filter(PT.is_active == True).all()
+            rows = db.query(PT).filter(PT.is_active).all()
 
             new_cache = {}
             for r in rows:
                 new_cache[r.purpose] = PromptTemplateObj(
-                    id=r.id, purpose=r.purpose, version=r.version,
-                    system_prompt=r.system_prompt, user_prompt=r.user_prompt,
+                    id=r.id,
+                    purpose=r.purpose,
+                    version=r.version,
+                    system_prompt=r.system_prompt,
+                    user_prompt=r.user_prompt,
                     variables=r.variables,
                 )
 
@@ -137,23 +152,31 @@ class PromptManager:
                 v1.name = name
                 v1.is_active = True
                 from services.variable_registry import get_registry
+
                 v1.variables = get_registry().get_variables_jsonb(purpose)
                 if old_sp != system_prompt:
                     updated += 1
             else:
                 from services.variable_registry import get_registry
-                db.add(PT(
-                    purpose=purpose, version=1, name=name,
-                    system_prompt=system_prompt, user_prompt=user_prompt,
-                    variables=get_registry().get_variables_jsonb(purpose),
-                    is_active=True, created_by="system",
-                ))
+
+                db.add(
+                    PT(
+                        purpose=purpose,
+                        version=1,
+                        name=name,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        variables=get_registry().get_variables_jsonb(purpose),
+                        is_active=True,
+                        created_by="system",
+                    )
+                )
                 updated += 1
         if updated:
             db.commit()
             _logger.info("v1 默认模板已同步: %d 个更新", updated)
 
-    async     def get(self, purpose: str) -> PromptTemplateObj:
+    async def get(self, purpose: str) -> PromptTemplateObj:
         """获取激活模板。三层降级保障：
         1. 内存缓存命中 → 直接返回（最快）
         2. 缓存未命中 → 从 DB 重新加载
@@ -386,14 +409,13 @@ def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
     """硬编码兜底 - 永不返回 None"""
     if purpose == "qa":
         return PromptTemplateObj(0, "qa", 0, _HARDCODED_QA, None)
-    elif purpose == "patient_chat":
+    if purpose == "patient_chat":
         return PromptTemplateObj(0, "patient_chat", 0, _HARDCODED_PATIENT_CHAT, None)
-    elif purpose == "scoring":
+    if purpose == "scoring":
         return PromptTemplateObj(0, "scoring", 0, _HARDCODED_SCORING_SYSTEM, _HARDCODED_SCORING_USER)
-    elif purpose == "case_generation":
+    if purpose == "case_generation":
         return PromptTemplateObj(0, "case_generation", 0, _HARDCODED_CASE_GENERATION, None)
-    else:
-        raise ValueError(f"Unknown prompt purpose: {purpose}")
+    raise ValueError(f"Unknown prompt purpose: {purpose}")
 
 
 # ── 全局单例 ──

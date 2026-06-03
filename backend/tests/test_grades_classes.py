@@ -27,9 +27,11 @@ def test_create_class(client, teacher):
     resp = client.post("/api/admin/grades", json={"name": "2024级"}, headers={"Authorization": f"Bearer {token}"})
     grade_id = resp.json()["id"]
 
-    resp = client.post("/api/admin/classes", json={
-        "grade_id": grade_id, "name": "护理1班"
-    }, headers={"Authorization": f"Bearer {token}"})
+    resp = client.post(
+        "/api/admin/classes",
+        json={"grade_id": grade_id, "name": "护理1班"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code in (200, 400)
 
 
@@ -86,9 +88,13 @@ def test_update_user_class(client, teacher):
     if not users:
         pytest.skip("No users available")
     user_id = users[0]["id"]
-    resp = client.put(f"/api/admin/users/{user_id}", json={
-        "class_id": 0  # unlink
-    }, headers={"Authorization": f"Bearer {token}"})
+    resp = client.put(
+        f"/api/admin/users/{user_id}",
+        json={
+            "class_id": 0  # unlink
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 200
 
 

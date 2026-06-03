@@ -22,7 +22,7 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
   useEffect(() => {
     fetchGrades();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchGrades]);
 
   useEffect(() => {
     if (firstRun.current) {
@@ -32,7 +32,7 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
     onChange?.({ grade_id: selGrade ? Number(selGrade) : null, class_id: null });
     setSelClass("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selGrade]);
+  }, [selGrade, onChange]);
 
   const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const gid = e.target.value;

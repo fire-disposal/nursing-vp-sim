@@ -8,7 +8,7 @@ def load_active_rubric() -> Rubric | None:
     """从数据库加载当前激活的评分标准。若无激活版本则返回 None。"""
     db = SessionLocal()
     try:
-        return db.query(Rubric).filter(Rubric.is_active == True).first()
+        return db.query(Rubric).filter(Rubric.is_active).first()
     finally:
         db.close()
 
@@ -29,6 +29,7 @@ def load_rubric_dict() -> dict:
             "dimensions": active.dimensions,
         }
     from rubrics import load_rubric
+
     return load_rubric("nursing_history_v1")
 
 

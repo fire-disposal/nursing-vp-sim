@@ -8,9 +8,11 @@ PostgreSQL 迁移集成测试
 4. 种子数据初始化
 5. 复合索引创建
 """
+
 import os
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 
 # PG 测试数据库（独立不影响主库）
 PG_TEST_URL = os.getenv("PG_TEST_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
@@ -23,6 +25,7 @@ def _pg_available():
     """检测本地 PG 是否可达"""
     try:
         from sqlalchemy import create_engine, text
+
         e = create_engine(PG_TEST_URL, isolation_level="AUTOCOMMIT")
         with e.connect() as c:
             c.execute(text("SELECT 1"))
@@ -53,26 +56,48 @@ def pg_engine():
     test_url = f"{base_url}/test_nursing_vp_migration"
 
     from database import Base
+
     engine = create_engine(test_url)
 
     Base.metadata.create_all(bind=engine)
 
     with engine.connect() as conn:
-        conn.execute(Base.metadata.tables["roles"].insert().values(
-            [{"name": "teacher", "display_name": "教师", "is_system": True},
-             {"name": "student", "display_name": "学生", "is_system": True}]
-        ))
-        conn.execute(Base.metadata.tables["role_permissions"].insert().values([
-            {"role_name": "teacher", "permission": p} for p in [
-                "teacher_access", "user_manage", "case_manage", "score_review",
-                "llm_monitor", "api_manage", "prompt_manage",
-                "grade_class_manage",
-            ]
-        ] + [
-            {"role_name": "student", "permission": p} for p in [
-                "training_access", "qa_access",
-            ]
-        ]))
+        conn.execute(
+            Base.metadata.tables["roles"]
+            .insert()
+            .values(
+                [
+                    {"name": "teacher", "display_name": "教师", "is_system": True},
+                    {"name": "student", "display_name": "学生", "is_system": True},
+                ]
+            )
+        )
+        conn.execute(
+            Base.metadata.tables["role_permissions"]
+            .insert()
+            .values(
+                [
+                    {"role_name": "teacher", "permission": p}
+                    for p in [
+                        "teacher_access",
+                        "user_manage",
+                        "case_manage",
+                        "score_review",
+                        "llm_monitor",
+                        "api_manage",
+                        "prompt_manage",
+                        "grade_class_manage",
+                    ]
+                ]
+                + [
+                    {"role_name": "student", "permission": p}
+                    for p in [
+                        "training_access",
+                        "qa_access",
+                    ]
+                ]
+            )
+        )
         conn.commit()
 
     yield engine
@@ -87,9 +112,10 @@ def pg_engine():
     admin_engine.dispose()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def pg_session(pg_engine):
     from sqlalchemy.orm import sessionmaker
+
     Session = sessionmaker(bind=pg_engine)
     session = Session()
     try:
@@ -106,7 +132,7 @@ class TestDateTimeTimezone:
     def test_datetime_stores_utc(self, pg_session):
         from models import User
 
-        now = datetime(2026, 5, 29, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 5, 29, 12, 0, 0, tzinfo=UTC)
         user = User(
             username="tztest",
             password_hash="hash",
@@ -144,8 +170,9 @@ class TestAllModelsCreate:
     """验证全部 7 张表可创建"""
 
     def test_users_table(self, pg_session):
-        from models import User
         from auth import hash_password
+        from models import User
+
         user = User(
             username="pgtest",
             password_hash=hash_password("test"),
@@ -159,6 +186,7 @@ class TestAllModelsCreate:
 
     def test_cases_table(self, pg_session):
         from models import Case
+
         case = Case(
             name="PG测试病例",
             description="迁移验证",
@@ -170,11 +198,10 @@ class TestAllModelsCreate:
         assert case.case_data["patient_info"]["name"] == "测试"
 
     def test_training_records_table(self, pg_session):
-        from models import User, Case, TrainingRecord
         from auth import hash_password
+        from models import Case, TrainingRecord, User
 
-        user = User(username="truser", password_hash=hash_password("pw"),
-                     role="student", display_name="TR User")
+        user = User(username="truser", password_hash=hash_password("pw"), role="student", display_name="TR User")
         case = Case(name="TR Case", description="", case_data={})
         pg_session.add_all([user, case])
         pg_session.commit()
@@ -185,11 +212,10 @@ class TestAllModelsCreate:
         assert tr.id is not None
 
     def test_messages_table(self, pg_session):
-        from models import User, Case, TrainingRecord, Message
         from auth import hash_password
+        from models import Case, Message, TrainingRecord, User
 
-        user = User(username="msguser", password_hash=hash_password("pw"),
-                     role="student", display_name="Msg User")
+        user = User(username="msguser", password_hash=hash_password("pw"), role="student", display_name="Msg User")
         case = Case(name="Msg Case", description="", case_data={})
         pg_session.add_all([user, case])
         pg_session.commit()
@@ -205,17 +231,15 @@ class TestAllModelsCreate:
         assert msg.content == "你好"
 
     def test_scores_table(self, pg_session):
-        from models import User, Case, TrainingRecord, Score
         from auth import hash_password
+        from models import Case, Score, TrainingRecord, User
 
-        user = User(username="scuser", password_hash=hash_password("pw"),
-                     role="student", display_name="Score User")
+        user = User(username="scuser", password_hash=hash_password("pw"), role="student", display_name="Score User")
         case = Case(name="Score Case", description="", case_data={})
         pg_session.add_all([user, case])
         pg_session.commit()
 
-        tr = TrainingRecord(user_id=user.id, case_id=case.id, status="completed",
-                            scoring_status="completed")
+        tr = TrainingRecord(user_id=user.id, case_id=case.id, status="completed", scoring_status="completed")
         pg_session.add(tr)
         pg_session.commit()
 
@@ -233,11 +257,10 @@ class TestAllModelsCreate:
         assert "问诊全面" in score.strengths
 
     def test_notes_table(self, pg_session):
-        from models import User, Case, TrainingRecord, Note
         from auth import hash_password
+        from models import Case, Note, TrainingRecord, User
 
-        user = User(username="noteuser", password_hash=hash_password("pw"),
-                     role="student", display_name="Note User")
+        user = User(username="noteuser", password_hash=hash_password("pw"), role="student", display_name="Note User")
         case = Case(name="Note Case", description="", case_data={})
         pg_session.add_all([user, case])
         pg_session.commit()
@@ -252,11 +275,10 @@ class TestAllModelsCreate:
         assert note.id is not None
 
     def test_llm_call_logs_table(self, pg_session):
-        from models import User, Case, TrainingRecord, LLMCallLog
         from auth import hash_password
+        from models import Case, LLMCallLog, TrainingRecord, User
 
-        user = User(username="llmuser", password_hash=hash_password("pw"),
-                     role="student", display_name="LLM User")
+        user = User(username="llmuser", password_hash=hash_password("pw"), role="student", display_name="LLM User")
         case = Case(name="LLM Case", description="", case_data={})
         pg_session.add_all([user, case])
         pg_session.commit()
@@ -295,6 +317,7 @@ class TestCompositeIndexes:
 
     def test_ix_msg_record_created_exists(self, pg_engine):
         from sqlalchemy import inspect
+
         inspector = inspect(pg_engine)
         indexes = inspector.get_indexes("messages")
         index_names = [idx["name"] for idx in indexes]
@@ -302,6 +325,7 @@ class TestCompositeIndexes:
 
     def test_ix_tr_user_status_exists(self, pg_engine):
         from sqlalchemy import inspect
+
         inspector = inspect(pg_engine)
         indexes = inspector.get_indexes("training_records")
         index_names = [idx["name"] for idx in indexes]
@@ -309,6 +333,7 @@ class TestCompositeIndexes:
 
     def test_ix_tr_status_exists(self, pg_engine):
         from sqlalchemy import inspect
+
         inspector = inspect(pg_engine)
         indexes = inspector.get_indexes("training_records")
         index_names = [idx["name"] for idx in indexes]
@@ -320,10 +345,11 @@ class TestSeedData:
     """验证种子数据可正常初始化"""
 
     def test_seed_data_initializes(self, pg_session):
-        from models import User, Case
-        from auth import hash_password
         import json
         import os
+
+        from auth import hash_password
+        from models import Case, User
 
         user_count = pg_session.query(User).count()
         if user_count > 0:
@@ -347,13 +373,11 @@ class TestSeedData:
             )
             pg_session.add(student)
 
-        cases_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cases"
-        )
+        cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cases")
         case_count = 0
         for case_file in sorted(os.listdir(cases_dir)):
             if case_file.endswith(".json"):
-                with open(os.path.join(cases_dir, case_file), "r", encoding="utf-8") as f:
+                with open(os.path.join(cases_dir, case_file), encoding="utf-8") as f:
                     case_data = json.load(f)
                 case = Case(
                     name=case_data.get("name", case_file),
@@ -374,11 +398,10 @@ class TestScoreScoreScaleDefault:
     """验证 score_scale 和 token_estimated 的 server_default"""
 
     def test_token_estimated_default(self, pg_session):
-        from models import User, Case, TrainingRecord, LLMCallLog
         from auth import hash_password
+        from models import Case, LLMCallLog, TrainingRecord, User
 
-        user = User(username="deftest", password_hash=hash_password("pw"),
-                     role="student", display_name="Def Test")
+        user = User(username="deftest", password_hash=hash_password("pw"), role="student", display_name="Def Test")
         case = Case(name="Def Case", description="", case_data={})
         pg_session.add_all([user, case])
         pg_session.commit()

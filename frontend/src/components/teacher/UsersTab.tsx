@@ -2,13 +2,13 @@ import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, U
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "@/api/api-client";
-import Pagination from "@/components/ui/Pagination";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
+import Pagination from "@/components/ui/Pagination";
+import type { ClassItem, Grade } from "@/types/store";
 import ClassFilter from "./ClassFilter";
-import type { components } from "@/api/api-types.gen";
-import type { Grade, ClassItem } from "@/types/store";
 
 type Schemas = components["schemas"];
 type UserBrief = Schemas["UserBrief"];
@@ -114,7 +114,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
   useEffect(() => {
     setOffset(0);
-  }, [search, roleFilter, classParam]);
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

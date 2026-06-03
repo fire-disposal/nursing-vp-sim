@@ -3,19 +3,20 @@
 
 运行:  cd backend && uv run pytest tests/test_scoring_integration.py -v -s
 """
-import os
+
 import json
+import os
 import textwrap
 
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
+
 from prompt_static import build_scoring_criteria, build_scoring_json_schema, build_scoring_rubric
+from rubrics import load_rubric
 from services.prompt_manager import render_template
 from services.variable_registry import get_registry
-from rubrics import load_rubric
-
 
 # ── 模拟场景数据 ──
 
@@ -44,6 +45,7 @@ _MOCK_REQUIRED_INQUIRIES = [
     "家族史",
 ]
 _MOCK_REQUIRED_INQUIRIES_TEXT = json.dumps(_MOCK_REQUIRED_INQUIRIES, ensure_ascii=False, indent=2)
+
 
 def _make_scoring_kwargs():
     rubric = load_rubric("nursing_history_v1")
@@ -79,6 +81,7 @@ class TestScoringPromptSanity:
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
+
         system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
 
         assert "{{" not in system, "发现双左大括号 - LLM 会被误导"
@@ -86,17 +89,16 @@ class TestScoringPromptSanity:
 
     def test_render_user_prompt_no_double_braces(self):
         from services.prompt_manager import _HARDCODED_SCORING_USER
-        user = render_template(_HARDCODED_SCORING_USER,
-                               conversation_text=_MOCK_CONVERSATION)
+
+        user = render_template(_HARDCODED_SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
         assert "{{" not in user, "发现双左大括号"
         assert "}}" not in user, "发现双右大括号"
 
     def test_conversation_braces_preserved_literally(self):
         """用户对话中的 { } 必须原样保留，不被替换"""
-        conv = '护士：{请问这是什么情况？}'
-        user = render_template("{#conversation_text#}",
-                               conversation_text=conv)
+        conv = "护士：{请问这是什么情况？}"
+        user = render_template("{#conversation_text#}", conversation_text=conv)
         assert conv in user, f"对话中的花括号被篡改: {user}"
 
     def test_json_template_is_valid_json_structure(self):
@@ -104,19 +106,19 @@ class TestScoringPromptSanity:
         rubric = load_rubric("nursing_history_v1")
         schema_text = build_scoring_json_schema(rubric)
 
-        system = render_template("{#scoring_json_schema#}",
-                                 scoring_json_schema=schema_text)
+        system = render_template("{#scoring_json_schema#}", scoring_json_schema=schema_text)
 
         start = system.find("{")
         end = system.rfind("}")
         if start != -1 and end != -1 and end > start:
-            json_block = system[start:end + 1]
+            json_block = system[start : end + 1]
             # 新格式：无引号占位符 → 替换为数字
-            json_block = json_block.replace('数字(满分57)', "0")
-            json_block = json_block.replace('数字(满分42)', "0")
-            json_block = json_block.replace('数字(满分15)', "0")
+            json_block = json_block.replace("数字(满分57)", "0")
+            json_block = json_block.replace("数字(满分42)", "0")
+            json_block = json_block.replace("数字(满分15)", "0")
             # item score: "1-3" → 1
             import re
+
             json_block = re.sub(r'"score":\s*1-3', '"score": 1', json_block)
             try:
                 parsed = json.loads(json_block)
@@ -134,12 +136,15 @@ class TestScoringPromptSanity:
         rubric = load_rubric("nursing_history_v1")
         criteria_text = build_scoring_criteria(rubric)
 
-        s, u = render_template(
-            "{#scoring_criteria#}\nEND",
-            scoring_criteria=criteria_text,
-        ), render_template(
-            "{#conversation_text#}\nEND",
-            conversation_text=_MOCK_CONVERSATION,
+        s, u = (
+            render_template(
+                "{#scoring_criteria#}\nEND",
+                scoring_criteria=criteria_text,
+            ),
+            render_template(
+                "{#conversation_text#}\nEND",
+                conversation_text=_MOCK_CONVERSATION,
+            ),
         )
 
         assert criteria_text in s
@@ -150,6 +155,7 @@ class TestScoringPromptSanity:
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
+
         system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
 
         checks = [
@@ -251,6 +257,7 @@ class TestScoringPromptSanity:
 
     def test_coerce_float_score(self):
         from services.scoring import _coerce_numeric_fields
+
         result = {"total_score": "35.5"}
         _coerce_numeric_fields(result)
         assert result["total_score"] == 35.5
@@ -283,9 +290,9 @@ class TestScoringFlowEndToEnd:
             _HARDCODED_SCORING_SYSTEM,
             _HARDCODED_SCORING_USER,
         )
+
         system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
-        user = render_template(_HARDCODED_SCORING_USER,
-                               conversation_text=_MOCK_CONVERSATION)
+        user = render_template(_HARDCODED_SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
         assert len(system) > 500, "System prompt 过短"
         assert len(user) > 50, "User prompt 过短"
@@ -349,6 +356,7 @@ class TestScoringFlowEndToEnd:
 
     def test_validate_rejects_missing_total_score(self):
         from services.scoring import _validate_scoring_result
+
         with pytest.raises(ValueError, match="缺失字段"):
             _validate_scoring_result({})
 
@@ -358,6 +366,7 @@ class TestScoringFlowEndToEnd:
         assert sample, "scoring sample vars 为空"
 
         from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
+
         rendered = render_template(_HARDCODED_SCORING_SYSTEM, **sample)
         assert len(rendered) > 1000
         assert "{{" not in rendered

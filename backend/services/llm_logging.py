@@ -1,10 +1,15 @@
 """LLM 调用日志服务 —— 异步队列批量写入，独立 DB session"""
+
 import asyncio
+import contextlib
 import logging
-from database import SessionLocal
+
 from config import (
-    LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M, LLM_COST_CURRENCY,
+    LLM_COST_CURRENCY,
+    LLM_PRICE_INPUT_PER_1M,
+    LLM_PRICE_OUTPUT_PER_1M,
 )
+from database import SessionLocal
 
 _logger = logging.getLogger(__name__)
 
@@ -18,21 +23,39 @@ def _estimate_tokens(text: str) -> int:
     return max(1, int(len(text) / 1.5))
 
 
-def _estimate_cost(prompt_tokens: int, completion_tokens: int,
-                   price_input: float | None = None, price_output: float | None = None) -> float:
+def _estimate_cost(
+    prompt_tokens: int, completion_tokens: int, price_input: float | None = None, price_output: float | None = None
+) -> float:
     pi = price_input if price_input is not None else LLM_PRICE_INPUT_PER_1M
     po = price_output if price_output is not None else LLM_PRICE_OUTPUT_PER_1M
     if not pi and not po:
         return 0.0
-    return (prompt_tokens / 1_000_000 * pi
-            + completion_tokens / 1_000_000 * po)
+    return prompt_tokens / 1_000_000 * pi + completion_tokens / 1_000_000 * po
 
 
-def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
-                 max_tokens, latency_ms, status, error_type, error_message,
-                 request_text, response_text, usage, meta, api_key_id=None, config_id=None,
-                 provider_name="deepseek",
-                 key_price_input=None, key_price_output=None):
+def _build_entry(
+    *,
+    purpose,
+    user_id,
+    record_id,
+    case_id,
+    model,
+    temperature,
+    max_tokens,
+    latency_ms,
+    status,
+    error_type,
+    error_message,
+    request_text,
+    response_text,
+    usage,
+    meta,
+    api_key_id=None,
+    config_id=None,
+    provider_name="deepseek",
+    key_price_input=None,
+    key_price_output=None,
+):
     """构建 LLMCallLog 条目字典"""
     if usage:
         prompt_tokens = usage.get("prompt_tokens")
@@ -45,8 +68,7 @@ def _build_entry(*, purpose, user_id, record_id, case_id, model, temperature,
         total_tokens = prompt_tokens + completion_tokens
         token_estimated = 1
 
-    estimated_cost = _estimate_cost(prompt_tokens or 0, completion_tokens or 0,
-                                    key_price_input, key_price_output)
+    estimated_cost = _estimate_cost(prompt_tokens or 0, completion_tokens or 0, key_price_input, key_price_output)
 
     return {
         "user_id": user_id,
@@ -87,10 +109,8 @@ async def stop_worker():
     global _log_queue, _worker_task
     if _worker_task:
         _worker_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await _worker_task
-        except asyncio.CancelledError:
-            pass
         _worker_task = None
     _log_queue = None
 
@@ -101,7 +121,7 @@ async def _worker_loop():
         try:
             item = await asyncio.wait_for(_log_queue.get(), timeout=2.0)
             batch.append(item)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if batch:
                 _flush_batch(batch)
                 batch.clear()
@@ -124,6 +144,7 @@ async def _worker_loop():
 
 def _flush_batch(items: list[dict]):
     from models import LLMCallLog
+
     db = SessionLocal()
     try:
         for item in items:
@@ -136,22 +157,52 @@ def _flush_batch(items: list[dict]):
         db.close()
 
 
-def enqueue_log(*, purpose, user_id=None, record_id=None, case_id=None,
-                model="", temperature=None, max_tokens=None,
-                latency_ms=0, status="success", error_type=None, error_message=None,
-                request_text="", response_text="", usage=None, meta=None,
-                api_key_id=None, config_id=None, provider_name="deepseek",
-                key_price_input=None, key_price_output=None):
+def enqueue_log(
+    *,
+    purpose,
+    user_id=None,
+    record_id=None,
+    case_id=None,
+    model="",
+    temperature=None,
+    max_tokens=None,
+    latency_ms=0,
+    status="success",
+    error_type=None,
+    error_message=None,
+    request_text="",
+    response_text="",
+    usage=None,
+    meta=None,
+    api_key_id=None,
+    config_id=None,
+    provider_name="deepseek",
+    key_price_input=None,
+    key_price_output=None,
+):
     if _log_queue is None:
         return
     entry = _build_entry(
-        purpose=purpose, user_id=user_id, record_id=record_id, case_id=case_id,
-        model=model, temperature=temperature, max_tokens=max_tokens,
-        latency_ms=latency_ms, status=status, error_type=error_type,
-        error_message=error_message, request_text=request_text,
-        response_text=response_text, usage=usage, meta=meta,
-        api_key_id=api_key_id, config_id=config_id, provider_name=provider_name,
-        key_price_input=key_price_input, key_price_output=key_price_output,
+        purpose=purpose,
+        user_id=user_id,
+        record_id=record_id,
+        case_id=case_id,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        latency_ms=latency_ms,
+        status=status,
+        error_type=error_type,
+        error_message=error_message,
+        request_text=request_text,
+        response_text=response_text,
+        usage=usage,
+        meta=meta,
+        api_key_id=api_key_id,
+        config_id=config_id,
+        provider_name=provider_name,
+        key_price_input=key_price_input,
+        key_price_output=key_price_output,
     )
     try:
         _log_queue.put_nowait(entry)

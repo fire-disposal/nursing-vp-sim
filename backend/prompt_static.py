@@ -1,5 +1,7 @@
 """静态模板辅助 —— rubric 文本构建 + 预览示例变量"""
+
 import json
+
 from rubrics import load_rubric
 
 
@@ -16,8 +18,10 @@ def build_scoring_criteria(rubric: dict | None = None) -> str:
     display_max = rubric.get("total_max", 100)
 
     lines = []
-    lines.append(f"## 评分标准版本")
-    lines.append(f"{rubric_name} v{rubric_version}（原始{raw_max}分制，每项1-{raw_scale}分，系统将自动换算为{display_max}分制）")
+    lines.append("## 评分标准版本")
+    lines.append(
+        f"{rubric_name} v{rubric_version}（原始{raw_max}分制，每项1-{raw_scale}分，系统将自动换算为{display_max}分制）"
+    )
     lines.append("")
     lines.append("## 评估维度与条目")
     lines.append("")
@@ -55,13 +59,15 @@ def build_scoring_json_schema(rubric: dict | None = None) -> str:
         dim_max = dim["max"]
         items = []
         for item in dim["items"]:
-            items.append({
-                "id": item["id"],
-                "name": item["name"],
-                "score": "N_ITEM_SCORE",
-                "evidence": "对话中的具体证据（30-80字）",
-                "reason": "评分理由（20-50字）",
-            })
+            items.append(
+                {
+                    "id": item["id"],
+                    "name": item["name"],
+                    "score": "N_ITEM_SCORE",
+                    "evidence": "对话中的具体证据（30-80字）",
+                    "reason": "评分理由（20-50字）",
+                }
+            )
         item_objs.append({dim_name: {"score": "N_DIM_SCORE", "max": dim_max, "items": items}})
 
     json_obj = {
@@ -75,9 +81,9 @@ def build_scoring_json_schema(rubric: dict | None = None) -> str:
     }
 
     json_template = json.dumps(json_obj, ensure_ascii=False, indent=2)
-    json_template = json_template.replace('"N_TOTAL_SCORE"', f'数字(满分{raw_max})')
-    json_template = json_template.replace('"N_DIM_SCORE"', f'数字(满分{raw_max})')
-    json_template = json_template.replace('"N_ITEM_SCORE"', '1-3')
+    json_template = json_template.replace('"N_TOTAL_SCORE"', f"数字(满分{raw_max})")
+    json_template = json_template.replace('"N_DIM_SCORE"', f"数字(满分{raw_max})")
+    json_template = json_template.replace('"N_ITEM_SCORE"', "1-3")
 
     lines = []
     lines.append("## 输出格式")
@@ -89,8 +95,7 @@ def build_scoring_json_schema(rubric: dict | None = None) -> str:
     return "\n".join(lines)
 
 
-def build_scoring_rubric(rubric: dict | None = None,
-                         required_inquiries: list | None = None) -> str:
+def build_scoring_rubric(rubric: dict | None = None, required_inquiries: list | None = None) -> str:
     """[兼容] 构建完整评分 rubric（评分标准 + 必须采集清单 + JSON 模板）。
     新代码请使用 build_scoring_criteria() + build_scoring_json_schema() + required_inquiries 分拆方案。"""
     if rubric is None:
@@ -106,5 +111,3 @@ def build_scoring_rubric(rubric: dict | None = None,
     lines.append(build_scoring_json_schema(rubric))
 
     return "\n".join(lines)
-
-

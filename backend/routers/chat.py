@@ -1,29 +1,32 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from database import get_db
-from models import User, Case, TrainingRecord, Message
-from schemas import ChatMessageRequest, ChatMessageResponse
+
 from auth import get_current_user
-from services.llm_service import call_llm, call_llm_stream
-from services.virtual_patient_prompt import build_patient_context_kwargs, build_patient_chat_messages
-from services.prompt_manager import get_prompt_manager
-from services.variable_registry import get_registry
-from services.patient_guard import (
-    get_allowed_hidden_info, sanitize_patient_reply,
-)
-from services.chat_session import restore_topics, add_topic
 from config import get_llm_config
+from database import get_db
+from models import Case, Message, TrainingRecord, User
 from rate_limiter import check_chat_limit
-import logging
+from schemas import ChatMessageRequest, ChatMessageResponse
+from services.chat_session import add_topic, restore_topics
+from services.llm_service import call_llm, call_llm_stream
+from services.patient_guard import (
+    get_allowed_hidden_info,
+    sanitize_patient_reply,
+)
+from services.prompt_manager import get_prompt_manager
+from services.virtual_patient_prompt import build_patient_chat_messages, build_patient_context_kwargs
+
 log = logging.getLogger(__name__)
 import json
+from typing import Annotated
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])
 
 
-async def _build_llm_context(case_data: dict, history_messages: list,
-                               student_content: str, record_id: int) -> list:
+async def _build_llm_context(case_data: dict, history_messages: list, student_content: str, record_id: int) -> list:
     """构建 LLM 消息列表。编排角色：恢复已泄露主题 → 筛选隐藏信息 → 构建渲染变量 → 渲染模板 → 组装消息。"""
     history_text = " ".join(m.content for m in history_messages)
     topics = restore_topics(record_id, history_text, case_data)
@@ -48,8 +51,8 @@ async def send_message(
     record_id: int,
     req: ChatMessageRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -69,14 +72,20 @@ async def send_message(
 
     rid = getattr(request.state, "request_id", None)
     try:
-        reply = await call_llm(llm_messages,
-                                purpose="patient_chat", user_id=current_user.id,
-                                record_id=record_id, case_id=record.case_id,
-                                log_meta={"request_id": rid} if rid else None,
-                                **get_llm_config("patient_chat"))
+        reply = await call_llm(
+            llm_messages,
+            purpose="patient_chat",
+            user_id=current_user.id,
+            record_id=record_id,
+            case_id=record.case_id,
+            log_meta={"request_id": rid} if rid else None,
+            **get_llm_config("patient_chat"),
+        )
     except Exception as e:
-        log.error("patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
-        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {str(e)}")
+        log.exception(
+            "patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id}
+        )
+        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
 
     # 角色守卫：检测越界并替换
     sanitized, violations = sanitize_patient_reply(reply, case_data)
@@ -99,8 +108,8 @@ async def send_message_stream(
     record_id: int,
     req: ChatMessageRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ):
     """流式发送消息：逐字返回 LLM 回复，大幅提升感知速度"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -126,8 +135,10 @@ async def send_message_stream(
         try:
             async for chunk in call_llm_stream(
                 llm_messages,
-                purpose="patient_chat", user_id=current_user.id,
-                record_id=record_id, case_id=record.case_id,
+                purpose="patient_chat",
+                user_id=current_user.id,
+                record_id=record_id,
+                case_id=record.case_id,
                 log_meta={"request_id": rid} if rid else None,
                 **get_llm_config("patient_chat"),
             ):
@@ -146,10 +157,16 @@ async def send_message_stream(
             db.commit()
             db.refresh(patient_msg)
 
-            log.info(f"流式消息已记录: record_id={record_id}", extra={"user_id": current_user.id, "user_role": current_user.role})
+            log.info(
+                f"流式消息已记录: record_id={record_id}",
+                extra={"user_id": current_user.id, "user_role": current_user.role},
+            )
             yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
         except Exception as e:
-            log.error("patient_chat 流式LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id})
+            log.exception(
+                "patient_chat 流式LLM调用失败",
+                extra={"error": str(e), "user_id": current_user.id, "record_id": record_id},
+            )
             if full_reply:
                 yield f"data: {json.dumps({'content': full_reply, 'truncated': True, 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
             else:

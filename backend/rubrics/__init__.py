@@ -16,7 +16,7 @@ def load_rubric(version: str = "nursing_history_v1") -> dict:
     if not path.exists():
         raise FileNotFoundError(f"评分标准文件不存在: {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         rubric = json.load(f)
 
     _CACHE[version] = rubric

@@ -1,5 +1,7 @@
 """Feedback API tests."""
 
+from datetime import UTC
+
 
 class TestFeedback:
     def test_submit_feedback_success(self, client, student, db_session):
@@ -39,10 +41,12 @@ class TestFeedback:
         teacher_user, teacher_token = teacher
         stu_user, _ = student
 
-        db_session.add_all([
-            Feedback(user_id=stu_user.id, rating=5, tag="feature", content="好用的系统"),
-            Feedback(user_id=teacher_user.id, rating=3, tag="bug", content="有个问题"),
-        ])
+        db_session.add_all(
+            [
+                Feedback(user_id=stu_user.id, rating=5, tag="feature", content="好用的系统"),
+                Feedback(user_id=teacher_user.id, rating=3, tag="bug", content="有个问题"),
+            ]
+        )
         db_session.commit()
 
         resp = client.get(
@@ -64,10 +68,12 @@ class TestFeedback:
         teacher_user, teacher_token = teacher
         stu_user, _ = student
 
-        db_session.add_all([
-            Feedback(user_id=stu_user.id, rating=5, tag="feature"),
-            Feedback(user_id=teacher_user.id, rating=3, tag="bug"),
-        ])
+        db_session.add_all(
+            [
+                Feedback(user_id=stu_user.id, rating=5, tag="feature"),
+                Feedback(user_id=teacher_user.id, rating=3, tag="bug"),
+            ]
+        )
         db_session.commit()
 
         resp = client.get(
@@ -83,10 +89,10 @@ class TestFeedback:
         """GET /api/admin/feedback supports offset + limit pagination."""
         from models import Feedback
 
-        teacher_user, teacher_token = teacher
+        _teacher_user, teacher_token = teacher
         stu_user, _ = student
 
-        for i in range(5):
+        for _i in range(5):
             db_session.add(Feedback(user_id=stu_user.id, rating=4, tag="other"))
         db_session.commit()
 
@@ -116,17 +122,20 @@ class TestFeedback:
         assert resp.status_code == 403
 
     def test_admin_list_feedback_filter_by_date(self, client, teacher, student, db_session):
+        from datetime import datetime
+
         from models import Feedback
-        from datetime import datetime, timezone
 
         teacher_user, teacher_token = teacher
         stu_user, _ = student
 
-        today = datetime.now(timezone.utc)
-        db_session.add_all([
-            Feedback(user_id=stu_user.id, rating=5, tag="feature", created_at=today),
-            Feedback(user_id=teacher_user.id, rating=3, tag="bug", created_at=today),
-        ])
+        today = datetime.now(UTC)
+        db_session.add_all(
+            [
+                Feedback(user_id=stu_user.id, rating=5, tag="feature", created_at=today),
+                Feedback(user_id=teacher_user.id, rating=3, tag="bug", created_at=today),
+            ]
+        )
         db_session.commit()
 
         resp = client.get(
@@ -137,18 +146,21 @@ class TestFeedback:
         assert resp.json()["total"] == 0
 
     def test_feedback_stats(self, client, teacher, student, db_session):
+        from datetime import datetime
+
         from models import Feedback
-        from datetime import datetime, timezone
 
         teacher_user, teacher_token = teacher
         stu_user, _ = student
 
-        today = datetime.now(timezone.utc)
-        db_session.add_all([
-            Feedback(user_id=stu_user.id, rating=5, tag="feature", created_at=today),
-            Feedback(user_id=stu_user.id, rating=3, tag="bug", created_at=today),
-            Feedback(user_id=teacher_user.id, rating=5, tag="feature", created_at=today),
-        ])
+        today = datetime.now(UTC)
+        db_session.add_all(
+            [
+                Feedback(user_id=stu_user.id, rating=5, tag="feature", created_at=today),
+                Feedback(user_id=stu_user.id, rating=3, tag="bug", created_at=today),
+                Feedback(user_id=teacher_user.id, rating=5, tag="feature", created_at=today),
+            ]
+        )
         db_session.commit()
 
         resp = client.get(

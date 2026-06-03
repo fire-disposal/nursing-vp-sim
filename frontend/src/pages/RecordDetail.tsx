@@ -1,4 +1,5 @@
-﻿import {
+﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
   BarChart3,
   ChevronDown,
   ChevronUp,
@@ -16,15 +17,14 @@
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import useAuthStore from "@/stores/authStore";
-import type { components } from "@/api/api-types.gen";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];

@@ -1,14 +1,14 @@
-﻿import { Activity, BarChart3, ClipboardList, Clock, Medal, Target, TrendingUp, Trophy } from "lucide-react";
+﻿import { useQuery } from "@tanstack/react-query";
+import { Activity, BarChart3, ClipboardList, Clock, Medal, Target, TrendingUp, Trophy } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentRanking, getTeacherSummary, getTrends } from "@/api/api-client";
-import useAuthStore from "@/stores/authStore";
+import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
-import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/Toast";
 import PageHeader from "@/components/ui/PageHeader";
-import type { components } from "@/api/api-types.gen";
+import Pagination from "@/components/ui/Pagination";
+import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
 
 type TrendStats = components["schemas"]["TrendStats"];
@@ -49,7 +49,7 @@ export default function Stats() {
   const [period, setPeriod] = useState("month");
   const [summaryOffset, setSummaryOffset] = useState(0);
   const [rankingOffset, setRankingOffset] = useState(0);
-  const toast = useToast();
+  const _toast = useToast();
   const user = useAuthStore((s) => s.user);
   const LIMIT = 50;
 

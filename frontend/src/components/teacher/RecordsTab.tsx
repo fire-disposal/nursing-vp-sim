@@ -1,12 +1,12 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Download, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteRecord, exportRecords, getManageCases, getRecords } from "@/api/api-client";
-import Pagination from "@/components/ui/Pagination";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import type { components } from "@/api/api-types.gen";
+import Pagination from "@/components/ui/Pagination";
 
 type Schemas = components["schemas"];
 type TrainingRecordBrief = Schemas["TrainingRecordBrief"];
