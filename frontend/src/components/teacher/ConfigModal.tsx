@@ -36,7 +36,6 @@ interface ConfigForm {
 }
 
 export default function ConfigModal({ open, configData, onClose, onSaved }: ConfigModalProps) {
-  const [mode, setMode] = useState<"form" | "json">("form");
   const [secrets, setSecrets] = useState<ApiSecretResponse[]>([]);
   const [modelPresets, setModelPresets] = useState<ModelPresetItem[]>([]);
   const [secretsLoaded, setSecretsLoaded] = useState(false);
@@ -59,20 +58,8 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
     };
   }, [secrets]);
 
-  const [form, setForm] = useState<ConfigForm>({
-    secret_id: "",
-    label: "",
-    model: "",
-    purpose: "qa",
-    priority: 10,
-    weight: 10,
-    price_input_per_1m: 1,
-    price_output_per_1m: 2,
-    monthly_cost_limit: "",
-  });
-  const [jsonText, setJsonText] = useState("");
+  const [form, setForm] = useState<ConfigForm>(newFormDefaults());
   const [customModel, setCustomModel] = useState(false);
-
   const selectedSecret = secrets.find((s) => String(s.id) === form.secret_id);
 
   const loadModelPresets = (baseUrl: string) => {
@@ -102,7 +89,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
         })
         .catch(() => setSecretsLoaded(true));
       if (configData) {
-        const f: ConfigForm = {
+        setForm({
           secret_id: String(configData.secret_id || ""),
           label: configData.label || "",
           model: configData.model || "",
@@ -112,12 +99,10 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
           price_input_per_1m: configData.price_input_per_1m ?? 1,
           price_output_per_1m: configData.price_output_per_1m ?? 2,
           monthly_cost_limit: configData.monthly_cost_limit != null ? String(configData.monthly_cost_limit) : "",
-        };
-        setForm(f);
-        setJsonText(JSON.stringify(configData, null, 2));
+        });
       } else {
         setForm(newFormDefaults());
-        setJsonText("");
+        setCustomModel(false);
       }
     }
   }, [open, configData, newFormDefaults]);
@@ -143,73 +128,42 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
     }
   };
 
-  const sanitizePayload = (raw: Record<string, unknown>): Schemas["LLMConfigCreate"] | null => {
-    const data = { ...raw } as any;
-    const sid = Number(data.secret_id);
-    if (!Number.isFinite(sid) || sid <= 0) return null;
-    data.secret_id = sid;
-    data.priority = Number(data.priority);
-    if (!Number.isFinite(data.priority) || data.priority < 1) data.priority = 10;
-    data.weight = Number(data.weight) || 10;
-    if (typeof data.price_input_per_1m !== "number") data.price_input_per_1m = Number(data.price_input_per_1m) || 0;
-    if (typeof data.price_output_per_1m !== "number") data.price_output_per_1m = Number(data.price_output_per_1m) || 0;
-    if (data.monthly_cost_limit === "" || data.monthly_cost_limit === undefined || data.monthly_cost_limit === null) {
-      delete data.monthly_cost_limit;
-    } else {
-      data.monthly_cost_limit = Number(data.monthly_cost_limit);
-    }
-    delete data.base_url;
-    return data;
-  };
-
   const handleSave = async () => {
-    let data: ReturnType<typeof sanitizePayload>;
-    try {
-      const raw = mode === "json" ? JSON.parse(jsonText) : { ...form };
-      data = sanitizePayload(raw);
-    } catch {
-      error("JSON 格式无效");
+    const payload = {
+      secret_id: Number(form.secret_id),
+      label: form.label || `${selectedSecret?.label || ""}-${form.purpose}`,
+      model: form.model,
+      purpose: form.purpose,
+      priority: form.priority || 10,
+      weight: form.weight || 10,
+      price_input_per_1m: form.price_input_per_1m || 0,
+      price_output_per_1m: form.price_output_per_1m || 0,
+      monthly_cost_limit: form.monthly_cost_limit ? Number(form.monthly_cost_limit) : undefined,
+    } as any;
+    if (!payload.secret_id) {
+      error("请选择密钥凭证");
       return;
     }
-    if (!data) {
-      error("请选择密钥凭证");
+    if (!payload.model) {
+      error("请填写模型名");
       return;
     }
     setSaving(true);
     try {
       if (isEdit) {
-        await updateConfig(configData.id, data);
-        success("配置已更新");
+        await updateConfig(configData.id, payload);
+        success("已更新");
       } else {
-        await createConfig(data);
-        success("配置已创建");
+        await createConfig(payload);
+        success("已创建");
       }
       onSaved();
       onClose();
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: unknown }; status?: number }; message?: string };
-      const detail = err.response?.data?.detail;
-      if (typeof detail === "string") error(detail);
-      else if (detail && Array.isArray(detail)) error((detail as { msg?: string }[]).map((d) => d.msg || JSON.stringify(d)).join("; "));
-      else error(`保存失败 (${err.response?.status || err.message})`);
+      const err = e as { response?: { data?: { detail?: unknown } }; message?: string };
+      error(typeof err.response?.data?.detail === "string" ? err.response.data.detail : `保存失败`);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const switchToJson = () => {
-    const payload = { ...form, base_url: (selectedSecret as any)?.base_url || "" };
-    delete (payload as any).secret_id;
-    setJsonText(JSON.stringify(payload, null, 2));
-    setMode("json");
-  };
-  const switchToForm = () => {
-    try {
-      const parsed = JSON.parse(jsonText);
-      setForm((prev) => ({ ...prev, ...parsed }));
-      setMode("form");
-    } catch {
-      error("当前 JSON 格式无效，无法切换");
     }
   };
 
@@ -224,87 +178,71 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "编辑用途配置" : "添加用途配置"}>
-      <div style={{ marginBottom: "var(--space-3)" }}>
-        <button
-          onClick={switchToForm}
-          style={{
-            padding: "var(--space-1) var(--space-3)",
-            border: mode === "form" ? "2px solid var(--color-primary)" : "2px solid var(--border-color)",
-            background: "none",
-            borderRadius: "var(--radius-md)",
-            cursor: "pointer",
-            fontWeight: mode === "form" ? 600 : 400,
-            marginRight: 8,
-          }}
-        >
-          表单视图
-        </button>
-        <button
-          onClick={switchToJson}
-          style={{
-            padding: "var(--space-1) var(--space-3)",
-            border: mode === "json" ? "2px solid var(--color-primary)" : "2px solid var(--border-color)",
-            background: "none",
-            borderRadius: "var(--radius-md)",
-            cursor: "pointer",
-            fontWeight: mode === "json" ? 600 : 400,
-          }}
-        >
-          JSON 视图
-        </button>
-      </div>
-
-      {mode === "form" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <label>
-            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>密钥凭证</div>
-            <select value={form.secret_id} onChange={(e) => updateField("secret_id", e.target.value)} style={inputStyle}>
-              <option value="">选择...</option>
-              {secrets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label} (sk-...{s.key_suffix})
-                </option>
-              ))}
-              {!secretsLoaded && (
-                <option value="" disabled>
-                  加载中...
-                </option>
-              )}
-            </select>
-          </label>
-          {selectedSecret && (
-            <div
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--text-secondary)",
-                padding: "var(--space-2)",
-                background: "var(--bg-surface-subtle)",
-                borderRadius: "var(--radius-md)",
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>{(selectedSecret as any).provider || selectedSecret.label}</span>
-              {" · "}
-              {(selectedSecret as any).base_url || "(未设置端点)"}
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <label>
+          <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>密钥凭证</div>
+          <select value={form.secret_id} onChange={(e) => updateField("secret_id", e.target.value)} style={inputStyle}>
+            <option value="">选择...</option>
+            {secrets.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label} (sk-...{s.key_suffix})
+              </option>
+            ))}
+            {!secretsLoaded && <option disabled>加载中...</option>}
+          </select>
+        </label>
+        {selectedSecret && (
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--text-secondary)",
+              padding: "var(--space-2)",
+              background: "var(--bg-surface-subtle)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>{(selectedSecret as any).provider || selectedSecret.label}</span>
+            {" · "}
+            {(selectedSecret as any).base_url || "(未设置端点)"}
+          </div>
+        )}
+        <label>
+          <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>配置标签</div>
+          <input value={form.label} onChange={(e) => updateField("label", e.target.value)} placeholder="如: QA用Pro模型" style={inputStyle} />
+        </label>
+        <div>
+          <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>模型</div>
+          {!customModel && modelPresets.length > 0 ? (
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+              <select value={form.model} onChange={(e) => handleModelSelect(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                <option value="">选择模型...</option>
+                {modelPresets.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name} (入 ¥{m.price_input}/出 ¥{m.price_output})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setCustomModel(true)}
+                style={{
+                  padding: "var(--space-1) var(--space-2)",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border-color)",
+                  background: "none",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                自定义
+              </button>
             </div>
-          )}
-          <label>
-            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>配置标签</div>
-            <input value={form.label} onChange={(e) => updateField("label", e.target.value)} placeholder="如: QA用Pro模型" style={inputStyle} />
-          </label>
-          <div>
-            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>模型</div>
-            {!customModel && modelPresets.length > 0 ? (
-              <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-                <select value={form.model} onChange={(e) => handleModelSelect(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-                  <option value="">选择模型...</option>
-                  {modelPresets.map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name} (入 ¥{m.price_input}/出 ¥{m.price_output})
-                    </option>
-                  ))}
-                </select>
+          ) : (
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+              <input value={form.model} onChange={(e) => updateField("model", e.target.value)} placeholder="如: deepseek-v4-pro" style={inputStyle} />
+              {modelPresets.length > 0 && (
                 <button
-                  onClick={() => setCustomModel(true)}
+                  onClick={() => setCustomModel(false)}
                   style={{
                     padding: "var(--space-1) var(--space-2)",
                     borderRadius: "var(--radius-md)",
@@ -315,113 +253,75 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
                     whiteSpace: "nowrap",
                   }}
                 >
-                  自定义
+                  预设
                 </button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-                <input value={form.model} onChange={(e) => updateField("model", e.target.value)} placeholder="如: deepseek-v4-pro" style={inputStyle} />
-                {modelPresets.length > 0 && (
-                  <button
-                    onClick={() => setCustomModel(false)}
-                    style={{
-                      padding: "var(--space-1) var(--space-2)",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--border-color)",
-                      background: "none",
-                      cursor: "pointer",
-                      fontSize: "0.75rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    预设
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: "var(--space-3)" }}>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>用途</div>
-              <select value={form.purpose} onChange={(e) => updateField("purpose", e.target.value)} style={inputStyle}>
-                {PURPOSES.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先级</div>
-              <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value, 10) || 10)} style={inputStyle} />
-            </label>
-          </div>
-          <div style={{ display: "flex", gap: "var(--space-3)" }}>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>权重 (1-100)</div>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={form.weight}
-                onChange={(e) => updateField("weight", Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 10)))}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>月度上限 (¥)</div>
-              <input
-                type="number"
-                step="0.01"
-                value={form.monthly_cost_limit}
-                onChange={(e) => updateField("monthly_cost_limit", e.target.value)}
-                placeholder="不限"
-                style={inputStyle}
-              />
-            </label>
-          </div>
-          <div style={{ display: "flex", gap: "var(--space-3)" }}>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>入价/百万token</div>
-              <input
-                type="number"
-                step="0.01"
-                value={form.price_input_per_1m}
-                onChange={(e) => updateField("price_input_per_1m", parseFloat(e.target.value) || 0)}
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>出价/百万token</div>
-              <input
-                type="number"
-                step="0.01"
-                value={form.price_output_per_1m}
-                onChange={(e) => updateField("price_output_per_1m", parseFloat(e.target.value) || 0)}
-                style={inputStyle}
-              />
-            </label>
-          </div>
+              )}
+            </div>
+          )}
         </div>
-      ) : (
-        <textarea
-          value={jsonText}
-          onChange={(e) => setJsonText(e.target.value)}
-          style={{
-            width: "100%",
-            height: 360,
-            padding: "var(--space-3)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "var(--radius-md)",
-            fontSize: "0.8rem",
-            fontFamily: "monospace",
-            boxSizing: "border-box",
-            resize: "vertical",
-          }}
-          placeholder='{"secret_id":1,"label":"...","model":"...","purpose":"qa","priority":10,"weight":10}'
-        />
-      )}
-
+        <div style={{ display: "flex", gap: "var(--space-3)" }}>
+          <label style={{ flex: 1 }}>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>用途</div>
+            <select value={form.purpose} onChange={(e) => updateField("purpose", e.target.value)} style={inputStyle}>
+              {PURPOSES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ flex: 1 }}>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先级</div>
+            <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value, 10) || 10)} style={inputStyle} />
+          </label>
+        </div>
+        <div style={{ display: "flex", gap: "var(--space-3)" }}>
+          <label style={{ flex: 1 }}>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>权重 (1-100)</div>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={form.weight}
+              onChange={(e) => updateField("weight", Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 10)))}
+              style={inputStyle}
+            />
+          </label>
+          <label style={{ flex: 1 }}>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>月度上限 (¥)</div>
+            <input
+              type="number"
+              step="0.01"
+              value={form.monthly_cost_limit}
+              onChange={(e) => updateField("monthly_cost_limit", e.target.value)}
+              placeholder="不限"
+              style={inputStyle}
+            />
+          </label>
+        </div>
+        <div style={{ display: "flex", gap: "var(--space-3)" }}>
+          <label style={{ flex: 1 }}>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>入价/百万token</div>
+            <input
+              type="number"
+              step="0.01"
+              value={form.price_input_per_1m}
+              onChange={(e) => updateField("price_input_per_1m", parseFloat(e.target.value) || 0)}
+              style={inputStyle}
+            />
+          </label>
+          <label style={{ flex: 1 }}>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>出价/百万token</div>
+            <input
+              type="number"
+              step="0.01"
+              value={form.price_output_per_1m}
+              onChange={(e) => updateField("price_output_per_1m", parseFloat(e.target.value) || 0)}
+              style={inputStyle}
+            />
+          </label>
+        </div>
+      </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
         <button onClick={onClose} className="btn btn-secondary">
           取消
