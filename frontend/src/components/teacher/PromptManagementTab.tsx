@@ -1,5 +1,6 @@
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   activatePrompt,
   createPrompt,
@@ -279,7 +280,11 @@ interface PromptForm {
 export default function PromptManagementTab() {
   const toast = useToast();
   const { confirm } = useConfirm();
-  const [prompts, setPrompts] = useState<PromptTemplateResponse[]>([]);
+  const queryClient = useQueryClient();
+  const { data: prompts = [] } = useQuery({
+    queryKey: ["prompts"],
+    queryFn: () => fetchPrompts(undefined).then((r) => r.data),
+  });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<PromptForm>({ purpose: "patient_chat", name: "", system_prompt: "", user_prompt: "", remark: "", activate: true });
@@ -338,15 +343,6 @@ export default function PromptManagementTab() {
     }
   };
 
-  const load = useCallback(() => {
-    fetchPrompts(undefined)
-      .then(({ data }) => setPrompts(data))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
   useEffect(() => {
     if (!editing) setValidation(null);
   }, [editing]);
@@ -369,7 +365,7 @@ export default function PromptManagementTab() {
         toast.success("已创建");
       }
       setEditing(null);
-      load();
+      queryClient.invalidateQueries({ queryKey: ["prompts"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: unknown } } };
       const detail = e.response?.data?.detail;
@@ -388,7 +384,7 @@ export default function PromptManagementTab() {
     try {
       await activatePrompt(p.id);
       toast.success(`已切换到 v${p.version}`);
-      load();
+      queryClient.invalidateQueries({ queryKey: ["prompts"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: unknown } } };
       const d = e.response?.data?.detail;
@@ -407,7 +403,7 @@ export default function PromptManagementTab() {
       await deletePrompt(p.id);
       if (editing === p.id) setEditing(null);
       toast.success("已删除");
-      load();
+      queryClient.invalidateQueries({ queryKey: ["prompts"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       toast.error(e.response?.data?.detail || "删除失败");
@@ -418,8 +414,8 @@ export default function PromptManagementTab() {
 
   const handleUpdateVarDesc = (varName: string, newDesc: string) => {
     if (!editedPrompt) return;
-    setPrompts((prev) =>
-      prev.map((p) => {
+    queryClient.setQueryData<PromptTemplateResponse[]>(["prompts"], (prev) =>
+      (prev ?? []).map((p) => {
         if (p.id !== editedPrompt.id) return p;
         const updatedVars = ((p.variables || []) as VariableMeta[]).map((v) => (v.name === varName ? { ...v, desc: newDesc } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
@@ -432,8 +428,8 @@ export default function PromptManagementTab() {
 
   const handleUpdateVarDefault = (varName: string, newDefault: string) => {
     if (!editedPrompt) return;
-    setPrompts((prev) =>
-      prev.map((p) => {
+    queryClient.setQueryData<PromptTemplateResponse[]>(["prompts"], (prev) =>
+      (prev ?? []).map((p) => {
         if (p.id !== editedPrompt.id) return p;
         const updatedVars = ((p.variables || []) as VariableMeta[]).map((v) => (v.name === varName ? { ...v, default_value: newDefault } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
@@ -446,8 +442,8 @@ export default function PromptManagementTab() {
 
   const handleUpdateVarSource = (varName: string, newSource: string) => {
     if (!editedPrompt) return;
-    setPrompts((prev) =>
-      prev.map((p) => {
+    queryClient.setQueryData<PromptTemplateResponse[]>(["prompts"], (prev) =>
+      (prev ?? []).map((p) => {
         if (p.id !== editedPrompt.id) return p;
         const updatedVars = ((p.variables || []) as VariableMeta[]).map((v) => (v.name === varName ? { ...v, source: newSource } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
