@@ -1,6 +1,7 @@
-"""LLM 路由调度器 —— 基于 LLMConfig priority 降级 + 熔断自动恢复"""
+"""LLM 路由调度器 —— 基于 LLMConfig priority 降级 + 加权随机 + 熔断自动恢复"""
 import asyncio
 import logging
+import random
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -115,10 +116,11 @@ class ConfigRouter:
         
         选择逻辑：
         1. 查 purpose 对应配置，按 priority 升序
-        2. 跳过 disabled / 冷却中的 degraded
-        3. purpose 无匹配时回退到通配符 "*"
-        4. 全部不可用 → 最后防线：.env DEEPSEEK_API_KEY
-        5. .env 也没有 → 全局降级（30s）
+        2. 同 priority 组内加权随机选择（weight 越高越可能被选中）
+        3. 跳过 disabled / 冷却中的 degraded
+        4. purpose 无匹配时回退到通配符 "*"
+        5. 全部不可用 → 最后防线：.env DEEPSEEK_API_KEY
+        6. .env 也没有 → 全局降级（30s）
         """
         configs = self._cache_by_purpose.get(purpose, [])
 
@@ -128,20 +130,32 @@ class ConfigRouter:
         if self._global_degraded_until and datetime.now(timezone.utc) < self._global_degraded_until:
             raise RuntimeError("所有配置不可用，全局降级中")
 
+        now = datetime.now(timezone.utc)
+        by_priority: dict[int, list] = {}
         for cfg in configs:
-            if cfg.status == "disabled":
-                continue
-            if cfg.status == "degraded":
-                if cfg.degraded_until and datetime.now(timezone.utc) < cfg.degraded_until:
+            by_priority.setdefault(cfg.priority, []).append(cfg)
+
+        for priority in sorted(by_priority.keys()):
+            candidates = []
+            for cfg in by_priority[priority]:
+                if cfg.status == "disabled":
                     continue
-                cfg.status = "active"
-                cfg.degraded_reason = None
-                cfg.degraded_until = None
-                cfg.consecutive_failures = 0
+                if cfg.status == "degraded":
+                    if cfg.degraded_until and now < cfg.degraded_until:
+                        continue
+                    cfg.status = "active"
+                    cfg.degraded_reason = None
+                    cfg.degraded_until = None
+                    cfg.consecutive_failures = 0
+                candidates.append(cfg)
 
-            return cfg
+            if not candidates:
+                continue
 
-        # ── 🚨 最后防线：DB 无可用配置时直接用 .env 的 DEEPSEEK_API_KEY ──
+            weights = [max(c.weight or 1, 1) for c in candidates]
+            return random.choices(candidates, weights=weights, k=1)[0]
+
+        # ── 最后防线：DB 无可用配置时直接用 .env 的 DEEPSEEK_API_KEY ──
         from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
             _logger.warning("LLMRouter: 最后防线 — 使用 .env DEEPSEEK 密钥应急兜底 (purpose=%s)", purpose)

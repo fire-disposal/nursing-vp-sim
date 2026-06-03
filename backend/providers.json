@@ -1,0 +1,19 @@
+{
+  "providers": [
+    {
+      "id": "deepseek",
+      "display_name": "DeepSeek",
+      "base_url": "https://api.deepseek.com",
+      "models": [
+        {"name": "deepseek-v4-pro",   "price_input": 1.0, "price_output": 2.0},
+        {"name": "deepseek-v4-flash", "price_input": 0.5, "price_output": 0.5}
+      ]
+    },
+    {
+      "id": "custom",
+      "display_name": "自定义",
+      "base_url": "",
+      "models": []
+    }
+  ]
+}

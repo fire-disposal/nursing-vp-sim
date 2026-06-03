@@ -282,6 +282,7 @@ class ApiSecret(Base):
     label = Column(String(80), nullable=False)
     encrypted_key = Column(Text, nullable=False)
     key_suffix = Column(String(8), nullable=False)
+    base_url = Column(String(200), nullable=False, default="")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -300,10 +301,11 @@ class LLMConfig(Base):
     id = Column(Integer, primary_key=True)
     secret_id = Column(Integer, ForeignKey("api_secrets.id"), nullable=False)
     label = Column(String(80), nullable=False)
-    base_url = Column(String(200), nullable=False)
+    base_url = Column(String(200), nullable=True)  # deprecated: 优先读 secret.base_url
     model = Column(String(80), nullable=False)
     purpose = Column(String(40), nullable=False)
     priority = Column(Integer, nullable=False, default=100)
+    weight = Column(Integer, nullable=False, default=1)
 
     status = Column(String(20), nullable=False, default="active")
     degraded_reason = Column(String(40), nullable=True)

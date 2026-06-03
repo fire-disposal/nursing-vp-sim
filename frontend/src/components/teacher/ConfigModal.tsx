@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { createConfig, fetchSecrets, updateConfig } from "@/api/api-client";
+import { createConfig, fetchModelPresets, fetchSecrets, updateConfig, type ModelPresetItem } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 import Modal from "@/components/ui/Modal";
 import type { components } from "@/api/api-types.gen";
@@ -23,30 +23,13 @@ const PURPOSES = [
   { value: "case_generation", label: "病例生成" },
 ];
 
-const MODEL_PRESETS = [
-  {
-    label: "DeepSeek V4 Pro",
-    model: "deepseek-v4-pro",
-    base_url: "https://api.deepseek.com",
-    price_input_per_1m: 1,
-    price_output_per_1m: 2,
-  },
-  {
-    label: "DeepSeek V4 Flash",
-    model: "deepseek-v4-flash",
-    base_url: "https://api.deepseek.com",
-    price_input_per_1m: 0.5,
-    price_output_per_1m: 0.5,
-  },
-];
-
 interface ConfigForm {
   secret_id: string;
   label: string;
-  base_url: string;
   model: string;
   purpose: string;
   priority: number;
+  weight: number;
   price_input_per_1m: number;
   price_output_per_1m: number;
   monthly_cost_limit: string;
@@ -55,6 +38,7 @@ interface ConfigForm {
 export default function ConfigModal({ open, configData, onClose, onSaved }: ConfigModalProps) {
   const [mode, setMode] = useState<"form" | "json">("form");
   const [secrets, setSecrets] = useState<ApiSecretResponse[]>([]);
+  const [modelPresets, setModelPresets] = useState<ModelPresetItem[]>([]);
   const [secretsLoaded, setSecretsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const { success, error } = useToast();
@@ -65,10 +49,10 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
     return {
       secret_id: sid,
       label: "",
-      base_url: "",
       model: "",
       purpose: "qa",
       priority: 10,
+      weight: 10,
       price_input_per_1m: 1,
       price_output_per_1m: 2,
       monthly_cost_limit: "",
@@ -78,26 +62,35 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
   const [form, setForm] = useState<ConfigForm>({
     secret_id: "",
     label: "",
-    base_url: "",
     model: "",
     purpose: "qa",
     priority: 10,
+    weight: 10,
     price_input_per_1m: 1,
     price_output_per_1m: 2,
     monthly_cost_limit: "",
   });
   const [jsonText, setJsonText] = useState("");
-  const [preset, setPreset] = useState("");
+  const [customModel, setCustomModel] = useState(false);
 
-  const applyPreset = (key: string) => {
-    if (!key) return;
-    const p = MODEL_PRESETS.find((m) => m.model === key);
-    if (!p) return;
-    updateField("model", p.model);
-    updateField("base_url", p.base_url);
-    updateField("price_input_per_1m", p.price_input_per_1m);
-    updateField("price_output_per_1m", p.price_output_per_1m);
-    setPreset("");
+  const selectedSecret = secrets.find((s) => String(s.id) === form.secret_id);
+
+  const loadModelPresets = (baseUrl: string) => {
+    if (!baseUrl) {
+      setModelPresets([]);
+      return;
+    }
+    fetchModelPresets()
+      .then(({ data }) => {
+        for (const p of data.providers) {
+          if (p.base_url && baseUrl.startsWith(p.base_url)) {
+            setModelPresets(p.models);
+            return;
+          }
+        }
+        setModelPresets([]);
+      })
+      .catch(() => setModelPresets([]));
   };
 
   useEffect(() => {
@@ -112,10 +105,10 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
         const f: ConfigForm = {
           secret_id: String(configData.secret_id || ""),
           label: configData.label || "",
-          base_url: configData.base_url || "",
           model: configData.model || "",
           purpose: configData.purpose || "qa",
           priority: configData.priority || 10,
+          weight: (configData as any).weight || 10,
           price_input_per_1m: configData.price_input_per_1m ?? 1,
           price_output_per_1m: configData.price_output_per_1m ?? 2,
           monthly_cost_limit: configData.monthly_cost_limit != null ? String(configData.monthly_cost_limit) : "",
@@ -130,16 +123,34 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
   }, [open, configData, newFormDefaults]);
 
   const updateField = <K extends keyof ConfigForm>(name: K, value: ConfigForm[K]) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "secret_id") {
+        const s = secrets.find((x) => String(x.id) === String(value)) as any;
+        if (s?.base_url) loadModelPresets(s.base_url);
+        setCustomModel(false);
+      }
+      return next;
+    });
+  };
+
+  const handleModelSelect = (modelName: string) => {
+    updateField("model", modelName);
+    const preset = modelPresets.find((m) => m.name === modelName);
+    if (preset) {
+      updateField("price_input_per_1m", preset.price_input);
+      updateField("price_output_per_1m", preset.price_output);
+    }
   };
 
   const sanitizePayload = (raw: Record<string, unknown>): Schemas["LLMConfigCreate"] | null => {
-    const data = { ...raw };
+    const data = { ...raw } as any;
     const sid = Number(data.secret_id);
     if (!Number.isFinite(sid) || sid <= 0) return null;
     data.secret_id = sid;
     data.priority = Number(data.priority);
-    if (!Number.isFinite(data.priority as number) || (data.priority as number) < 1) data.priority = 10;
+    if (!Number.isFinite(data.priority) || data.priority < 1) data.priority = 10;
+    data.weight = Number(data.weight) || 10;
     if (typeof data.price_input_per_1m !== "number") data.price_input_per_1m = Number(data.price_input_per_1m) || 0;
     if (typeof data.price_output_per_1m !== "number") data.price_output_per_1m = Number(data.price_output_per_1m) || 0;
     if (data.monthly_cost_limit === "" || data.monthly_cost_limit === undefined || data.monthly_cost_limit === null) {
@@ -147,7 +158,8 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
     } else {
       data.monthly_cost_limit = Number(data.monthly_cost_limit);
     }
-    return data as Schemas["LLMConfigCreate"];
+    delete data.base_url;
+    return data;
   };
 
   const handleSave = async () => {
@@ -186,7 +198,9 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
   };
 
   const switchToJson = () => {
-    setJsonText(JSON.stringify(form, null, 2));
+    const payload = { ...form, base_url: (selectedSecret as any)?.base_url || "" };
+    delete (payload as any).secret_id;
+    setJsonText(JSON.stringify(payload, null, 2));
     setMode("json");
   };
   const switchToForm = () => {
@@ -242,19 +256,6 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
 
       {mode === "form" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          {!isEdit && (
-            <label>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>快速预设</div>
-              <select value={preset} onChange={(e) => applyPreset(e.target.value)} style={inputStyle}>
-                <option value="">自定义...</option>
-                {MODEL_PRESETS.map((p) => (
-                  <option key={p.model} value={p.model}>
-                    {p.label} — {p.base_url}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <label>
             <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>密钥凭证</div>
             <select value={form.secret_id} onChange={(e) => updateField("secret_id", e.target.value)} style={inputStyle}>
@@ -270,23 +271,76 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
                 </option>
               )}
             </select>
-            {!secretsLoaded && secrets.length === 0 && (
-              <div style={{ fontSize: "0.75rem", color: "var(--amber-600)", marginTop: 4 }}>未找到密钥凭证，请先在"密钥凭证"标签页添加</div>
-            )}
           </label>
+          {selectedSecret && (
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-secondary)",
+                padding: "var(--space-2)",
+                background: "var(--bg-surface-subtle)",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>{(selectedSecret as any).provider || selectedSecret.label}</span>
+              {" · "}
+              {(selectedSecret as any).base_url || "(未设置端点)"}
+            </div>
+          )}
           <label>
             <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>配置标签</div>
             <input value={form.label} onChange={(e) => updateField("label", e.target.value)} placeholder="如: QA用Pro模型" style={inputStyle} />
           </label>
-          <label>
-            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>Base URL</div>
-            <input value={form.base_url} onChange={(e) => updateField("base_url", e.target.value)} placeholder="https://api.deepseek.com" style={inputStyle} />
-          </label>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>模型</div>
+            {!customModel && modelPresets.length > 0 ? (
+              <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                <select value={form.model} onChange={(e) => handleModelSelect(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                  <option value="">选择模型...</option>
+                  {modelPresets.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.name} (入 ¥{m.price_input}/出 ¥{m.price_output})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setCustomModel(true)}
+                  style={{
+                    padding: "var(--space-1) var(--space-2)",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--border-color)",
+                    background: "none",
+                    cursor: "pointer",
+                    fontSize: "0.75rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  自定义
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                <input value={form.model} onChange={(e) => updateField("model", e.target.value)} placeholder="如: deepseek-v4-pro" style={inputStyle} />
+                {modelPresets.length > 0 && (
+                  <button
+                    onClick={() => setCustomModel(false)}
+                    style={{
+                      padding: "var(--space-1) var(--space-2)",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--border-color)",
+                      background: "none",
+                      cursor: "pointer",
+                      fontSize: "0.75rem",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    预设
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
-            <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>模型</div>
-              <input value={form.model} onChange={(e) => updateField("model", e.target.value)} placeholder="deepseek-v4-pro" style={inputStyle} />
-            </label>
             <label style={{ flex: 1 }}>
               <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>用途</div>
               <select value={form.purpose} onChange={(e) => updateField("purpose", e.target.value)} style={inputStyle}>
@@ -297,14 +351,25 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
                 ))}
               </select>
             </label>
+            <label style={{ flex: 1 }}>
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先级</div>
+              <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value, 10) || 10)} style={inputStyle} />
+            </label>
           </div>
           <div style={{ display: "flex", gap: "var(--space-3)" }}>
             <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>优先级 (越小越优先)</div>
-              <input type="number" value={form.priority} onChange={(e) => updateField("priority", parseInt(e.target.value, 10) || 10)} style={inputStyle} />
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>权重 (1-100)</div>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={form.weight}
+                onChange={(e) => updateField("weight", Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 10)))}
+                style={inputStyle}
+              />
             </label>
             <label style={{ flex: 1 }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>月度费用上限 (¥)</div>
+              <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>月度上限 (¥)</div>
               <input
                 type="number"
                 step="0.01"
@@ -353,7 +418,7 @@ export default function ConfigModal({ open, configData, onClose, onSaved }: Conf
             boxSizing: "border-box",
             resize: "vertical",
           }}
-          placeholder={'{"secret_id":1,"label":"...","base_url":"...","model":"...","purpose":"qa","priority":10}'}
+          placeholder='{"secret_id":1,"label":"...","model":"...","purpose":"qa","priority":10,"weight":10}'
         />
       )}
 

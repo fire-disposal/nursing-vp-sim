@@ -430,6 +430,7 @@ def _seed_llm_configs():
             label="初始服务密钥",
             encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
             key_suffix=suffix,
+            base_url=DEEPSEEK_BASE_URL,
         )
         db.add(secret)
         db.flush()

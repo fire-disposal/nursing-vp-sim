@@ -16,6 +16,7 @@ interface SecretModalProps {
 
 export default function SecretModal({ open, secret, onClose, onSaved }: SecretModalProps) {
   const [label, setLabel] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
   const [rawKey, setRawKey] = useState("");
   const [saving, setSaving] = useState(false);
   const { success, error } = useToast();
@@ -24,6 +25,7 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
   useEffect(() => {
     if (open) {
       setLabel(secret?.label || "");
+      setBaseUrl((secret as any)?.base_url || "");
       setRawKey("");
     }
   }, [open, secret]);
@@ -34,11 +36,11 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
     setSaving(true);
     try {
       if (isEdit) {
-        await updateSecret(secret.id, { label: label.trim() });
-        success("Secret 已更新");
+        await updateSecret(secret.id, { label: label.trim(), base_url: baseUrl.trim() } as any);
+        success("密钥已更新");
       } else {
-        await createSecret({ label: label.trim(), raw_key: rawKey.trim() });
-        success("Secret 已创建");
+        await createSecret({ label: label.trim(), raw_key: rawKey.trim(), base_url: baseUrl.trim() || undefined } as any);
+        success("密钥已创建");
       }
       onSaved();
       onClose();
@@ -66,6 +68,23 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
               borderRadius: "var(--radius-md)",
               fontSize: "0.85rem",
               boxSizing: "border-box",
+            }}
+          />
+        </label>
+        <label>
+          <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>API 端点 (Base URL)</div>
+          <input
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://api.deepseek.com"
+            style={{
+              width: "100%",
+              padding: "var(--space-2) var(--space-3)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-md)",
+              fontSize: "0.85rem",
+              boxSizing: "border-box",
+              fontFamily: "monospace",
             }}
           />
         </label>

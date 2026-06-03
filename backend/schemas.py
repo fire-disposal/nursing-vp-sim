@@ -364,16 +364,20 @@ class ScoreReviewResponse(BaseModel):
 class ApiSecretCreate(BaseModel):
     label: str = Field(..., max_length=80)
     raw_key: str = Field(..., min_length=10, max_length=500)
+    base_url: Optional[str] = Field(None, max_length=200)
 
 
 class ApiSecretUpdate(BaseModel):
     label: Optional[str] = Field(None, max_length=80)
+    base_url: Optional[str] = Field(None, max_length=200)
 
 
 class ApiSecretResponse(BaseModel):
     id: int
     label: str
     key_suffix: str
+    base_url: str = ""
+    provider: str = ""
     config_count: int = 0
     total_cost_today: float = 0
     monthly_cost_used: float = 0
@@ -388,10 +392,10 @@ class ApiSecretResponse(BaseModel):
 class LLMConfigCreate(BaseModel):
     secret_id: int
     label: str = Field(..., max_length=80)
-    base_url: str = Field(..., max_length=200)
     model: str = Field(..., max_length=80)
     purpose: str = Field(..., max_length=40)
     priority: int = Field(default=100, ge=1, le=10000)
+    weight: int = Field(default=1, ge=1, le=100)
     price_input_per_1m: float = 0
     price_output_per_1m: float = 0
     monthly_cost_limit: Optional[float] = None
@@ -399,10 +403,10 @@ class LLMConfigCreate(BaseModel):
 
 class LLMConfigUpdate(BaseModel):
     label: Optional[str] = Field(None, max_length=80)
-    base_url: Optional[str] = Field(None, max_length=200)
     model: Optional[str] = Field(None, max_length=80)
     purpose: Optional[str] = Field(None, max_length=40)
     priority: Optional[int] = Field(None, ge=1, le=10000)
+    weight: Optional[int] = Field(None, ge=1, le=100)
     status: Optional[str] = Field(None, pattern="^(active|disabled)$")
     price_input_per_1m: Optional[float] = None
     price_output_per_1m: Optional[float] = None
@@ -415,10 +419,12 @@ class LLMConfigResponse(BaseModel):
     secret_label: str = ""
     secret_suffix: str = ""
     label: str
-    base_url: str
+    base_url: str = ""
+    provider: str = ""
     model: str
     purpose: str
     priority: int
+    weight: int = 1
     status: str
     degraded_reason: Optional[str] = None
     degraded_until: Optional[datetime] = None
@@ -582,6 +588,25 @@ class ClassResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Model Presets (Provider Catalog) ──
+
+class ModelPresetItem(BaseModel):
+    name: str
+    price_input: float = 0
+    price_output: float = 0
+
+
+class ProviderPresetResponse(BaseModel):
+    provider: str = ""
+    display_name: str = ""
+    base_url: str = ""
+    models: list[ModelPresetItem] = []
+
+
+class CatalogResponse(BaseModel):
+    providers: list[ProviderPresetResponse] = []
 
 
 # ── Generic responses ──

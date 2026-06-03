@@ -36,7 +36,9 @@ class _CallContext:
     config_id: int | None = None
 
     def apply_config(self, config) -> None:
-        self.provider_name = config.label
+        from services.provider_catalog import infer_provider_name
+        base_url = getattr(getattr(config, 'secret', None), 'base_url', None) or config.base_url
+        self.provider_name = infer_provider_name(base_url) if base_url else config.label
         self.model = config.model
         self.config_id = config.id
 
@@ -98,6 +100,10 @@ _RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError,
 # 注意：切勿在外部调用 _reset_client()，会断开所有进行中的请求
 _shared_client: httpx.AsyncClient | None = None
 _shared_client_lock = asyncio.Lock()
+
+
+def _get_base_url(config) -> str:
+    return getattr(getattr(config, 'secret', None), 'base_url', None) or config.base_url or ""
 
 
 async def _get_client() -> httpx.AsyncClient:
@@ -166,7 +172,7 @@ async def call_llm(messages: list, temperature: float = 0.7, max_tokens: int = 5
 
             async with _acquire_sema(_sema):
                 resp = await _client.post(
-                    f"{config.base_url}/v1/chat/completions",
+                    f"{_get_base_url(config)}/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
@@ -297,7 +303,7 @@ async def call_llm_stream(messages: list, temperature: float = 0.7, max_tokens: 
             async with _acquire_sema(_rate_limiter):
                 async with client.stream(
                     "POST",
-                    f"{config.base_url}/v1/chat/completions",
+                    f"{_get_base_url(config)}/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",

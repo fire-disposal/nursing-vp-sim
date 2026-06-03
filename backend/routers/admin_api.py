@@ -12,10 +12,12 @@ from schemas import (
     TestResultItem, TestAllResultsResponse,
     HealthCheckItem,
     RubricResponse, RubricBrief,
+    CatalogResponse, ProviderPresetResponse, ModelPresetItem,
 )
 from auth import require_teacher
 from services.llm_router import refresh_router
 from services.crypto_utils import encrypt_api_key, decrypt_api_key
+from services.provider_catalog import get_catalog, infer_provider_name, match_provider
 import httpx
 import time
 
@@ -39,6 +41,8 @@ def list_secrets(
         ).filter(LLMConfig.secret_id == s.id).first()
         result.append(ApiSecretResponse(
             id=s.id, label=s.label, key_suffix=s.key_suffix,
+            base_url=s.base_url or "",
+            provider=infer_provider_name(s.base_url) if s.base_url else "",
             config_count=config_count,
             total_cost_today=float(cost_agg[0]),
             monthly_cost_used=float(cost_agg[1]),
@@ -58,6 +62,7 @@ async def create_secret(
         label=data.label,
         encrypted_key=encrypt_api_key(data.raw_key),
         key_suffix=suffix,
+        base_url=data.base_url or "",
     )
     db.add(s)
     db.commit()
@@ -77,6 +82,8 @@ def update_secret(
         raise HTTPException(404, "Secret 不存在")
     if data.label is not None:
         s.label = data.label
+    if data.base_url is not None:
+        s.base_url = data.base_url
     db.commit()
     return {"ok": True}
 
@@ -114,12 +121,17 @@ def list_configs(
     result = []
     for c in configs:
         secret = secrets_map.get(c.secret_id)
+        effective_base_url = (secret.base_url or c.base_url or "") if secret else (c.base_url or "")
+        provider = infer_provider_name(effective_base_url) if effective_base_url else ""
         result.append(LLMConfigResponse(
             id=c.id, secret_id=c.secret_id,
             secret_label=secret.label if secret else "",
             secret_suffix=secret.key_suffix if secret else "",
-            label=c.label, base_url=c.base_url, model=c.model,
-            purpose=c.purpose, priority=c.priority,
+            label=c.label,
+            base_url=effective_base_url,
+            provider=provider,
+            model=c.model, purpose=c.purpose,
+            priority=c.priority, weight=c.weight or 1,
             status=c.status,
             degraded_reason=c.degraded_reason,
             degraded_until=c.degraded_until,
@@ -157,10 +169,11 @@ async def create_config(
     cfg = LLMConfig(
         secret_id=data.secret_id,
         label=data.label or f"{secret.label}-{data.purpose}",
-        base_url=data.base_url,
+        base_url=secret.base_url or "",  # inherit from secret
         model=data.model,
         purpose=data.purpose,
         priority=data.priority,
+        weight=data.weight,
         price_input_per_1m=data.price_input_per_1m,
         price_output_per_1m=data.price_output_per_1m,
         monthly_cost_limit=data.monthly_cost_limit,
@@ -257,18 +270,19 @@ async def test_config(
         raise HTTPException(404, "Config 不存在")
     secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
     api_key = decrypt_api_key(secret.encrypted_key)
+    base_url = (secret.base_url or cfg.base_url or "")
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10)) as client:
             t0 = time.monotonic()
             resp = await client.get(
-                f"{cfg.base_url}/v1/models",
+                f"{base_url}/v1/models",
                 headers={"Authorization": f"Bearer {api_key}"},
             )
             latency = int((time.monotonic() - t0) * 1000)
-            return {"base_url": cfg.base_url, "ok": True, "status_code": resp.status_code, "latency_ms": latency}
+            return {"base_url": base_url, "ok": True, "status_code": resp.status_code, "latency_ms": latency}
     except Exception as e:
-        return {"base_url": cfg.base_url, "ok": False, "error": str(e)[:200]}
+        return {"base_url": base_url, "ok": False, "error": str(e)[:200]}
 
 
 @router.post("/configs/test-all", response_model=TestAllResultsResponse)
@@ -281,20 +295,21 @@ async def test_all_configs(
     seen = {}
     async with httpx.AsyncClient(timeout=httpx.Timeout(8)) as client:
         for cfg in configs:
-            cache_key = (cfg.base_url, cfg.secret_id)
+            secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
+            base_url = (secret.base_url or cfg.base_url or "") if secret else (cfg.base_url or "")
+            cache_key = (base_url, cfg.secret_id)
             if cache_key in seen:
-                seen[cache_key].update({"base_url": cfg.base_url})
+                seen[cache_key].update({"base_url": base_url})
                 results.append(seen[cache_key].copy())
                 continue
-            secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
             api_key = decrypt_api_key(secret.encrypted_key)
             try:
                 t0 = time.monotonic()
-                resp = await client.get(f"{cfg.base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
+                resp = await client.get(f"{base_url}/v1/models", headers={"Authorization": f"Bearer {api_key}"})
                 latency = int((time.monotonic() - t0) * 1000)
-                r = {"base_url": cfg.base_url, "ok": resp.status_code < 500, "status_code": resp.status_code, "latency_ms": latency}
+                r = {"base_url": base_url, "ok": resp.status_code < 500, "status_code": resp.status_code, "latency_ms": latency}
             except Exception as e:
-                r = {"base_url": cfg.base_url, "ok": False, "latency_ms": None, "error": str(e)[:100]}
+                r = {"base_url": base_url, "ok": False, "latency_ms": None, "error": str(e)[:100]}
             seen[cache_key] = r
             results.append(r)
     return {"results": results}
@@ -347,12 +362,13 @@ async def health_check(
     # 按 base_url 去重，取每个端点的第一个 config 关联的 key
     seen = {}
     for c in configs:
-        if c.base_url not in seen:
-            seen[c.base_url] = c
+        secret = db.query(ApiSecret).filter(ApiSecret.id == c.secret_id).first()
+        effective_url = (secret.base_url or c.base_url or "") if secret else (c.base_url or "")
+        if effective_url not in seen:
+            seen[effective_url] = (c, secret)
     results = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(5)) as client:
-        for base_url, cfg in seen.items():
-            secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
+        for base_url, (cfg, secret) in seen.items():
             api_key = decrypt_api_key(secret.encrypted_key) if secret else None
             headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
             try:
@@ -373,6 +389,32 @@ async def health_check(
                     "error": str(e)[:200],
                 })
     return results
+
+
+# ── Provider Catalog ──
+
+@router.get("/model-presets", response_model=CatalogResponse)
+def list_model_presets(
+    current_user: User = Depends(require_teacher),
+):
+    catalog = get_catalog()
+    providers = []
+    for p in catalog["providers"]:
+        models = [
+            ModelPresetItem(
+                name=m["name"],
+                price_input=m.get("price_input", 0),
+                price_output=m.get("price_output", 0),
+            )
+            for m in p.get("models", [])
+        ]
+        providers.append(ProviderPresetResponse(
+            provider=p["id"],
+            display_name=p.get("display_name", p["id"]),
+            base_url=p.get("base_url", ""),
+            models=models,
+        ))
+    return CatalogResponse(providers=providers)
 
 
 # ── Rubric CRUD ──
