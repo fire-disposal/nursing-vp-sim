@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "@/api/api-client";
 import Pagination from "@/components/ui/Pagination";
 import { useToast } from "@/components/Toast";
@@ -150,8 +151,8 @@ function parseCaseData(cd: unknown): CaseForm {
 }
 
 export default function CasesTab() {
-  const [cases, setCases] = useState<CaseManageItem[]>([]);
   const [showEditor, setShowEditor] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CaseManageItem | null>(null);
   const [editingCase, setEditingCase] = useState<CaseManageItem | null>(null);
   const [caseForm, setCaseForm] = useState<CaseForm>(parseCaseData(NEW_CASE_TEMPLATE));
   const [caseMsg, setCaseMsg] = useState("");
@@ -164,13 +165,9 @@ export default function CasesTab() {
   const [aiReferenceText, setAiReferenceText] = useState("");
   const [aiError, setAiError] = useState("");
   const toast = useToast();
-  const toastRef = useRef(toast);
-  useEffect(() => {
-    toastRef.current = toast;
-  }, [toast]);
+  const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
   const LIMIT = 50;
   const [filters, setFilters] = useState({ name: "", difficulty: "" });
   const [searchText, setSearchText] = useState("");
@@ -184,24 +181,17 @@ export default function CasesTab() {
     }, 300);
   };
 
-  const fetchCases = useCallback(
-    (off: number) => {
-      const params: Record<string, unknown> = { offset: off, limit: LIMIT };
-      if (filters.name) params.name = filters.name;
-      if (filters.difficulty) params.difficulty = filters.difficulty;
-      getManageCases(params)
-        .then(({ data }) => {
-          setCases(data.items);
-          setTotal(data.total);
-        })
-        .catch(() => toastRef.current.error("加载病例列表失败"));
-    },
-    [filters],
-  );
+  const params: Record<string, unknown> = { offset, limit: LIMIT };
+  if (filters.name) params.name = filters.name;
+  if (filters.difficulty) params.difficulty = filters.difficulty;
 
-  useEffect(() => {
-    fetchCases(offset);
-  }, [offset, fetchCases]);
+  const { data: caseData } = useQuery({
+    queryKey: ["manageCases", offset, filters],
+    queryFn: () => getManageCases(params).then((r) => r.data),
+    placeholderData: (prev) => prev,
+  });
+  const cases = caseData?.items ?? [];
+  const total = caseData?.total ?? 0;
 
   useEffect(() => {
     setOffset(0);
@@ -250,11 +240,7 @@ export default function CasesTab() {
         await createCase({ case_data: caseData });
       }
       setShowEditor(false);
-      if (offset === 0) {
-        fetchCases(0);
-      } else {
-        setOffset(0);
-      }
+      queryClient.invalidateQueries({ queryKey: ["manageCases"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       setCaseMsg(e.response?.data?.detail || "保存失败");
@@ -271,11 +257,7 @@ export default function CasesTab() {
     try {
       await deleteCase(c.id);
       toast.success("病例已删除");
-      if (offset === 0) {
-        fetchCases(0);
-      } else {
-        setOffset(0);
-      }
+      queryClient.invalidateQueries({ queryKey: ["manageCases"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       toast.error(e.response?.data?.detail || "删除失败");
