@@ -346,19 +346,23 @@ def _seed_data():
                     is_active=True,
                 ))
 
-        # 检查是否已初始化
-        if db.query(User).count() > 0:
-            return
+        # 确保管理员账号始终存在
+        if not db.query(User).filter(User.username == "admin").first():
+            admin = User(
+                username="admin",
+                password_hash=hash_password("admin123"),
+                role="teacher",
+                display_name="管理员",
+                student_id=None,
+            )
+            db.add(admin)
+            db.flush()
 
-        # 创建默认教师账号
-        admin = User(
-            username="admin",
-            password_hash=hash_password("admin123"),
-            role="teacher",
-            display_name="管理员",
-            student_id=None,
-        )
-        db.add(admin)
+        # 检查是否已初始化（跳过学生+病例种子）
+        if db.query(User).filter(User.username != "admin").count() > 0:
+            db.commit()
+            log.info("种子数据检查完成（已有用户数据，跳过初始化）")
+            return
 
         # 创建测试学生账号
         for i in range(1, 6):

@@ -29,6 +29,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem("token", data.access_token);
     const user: User = { user_id: data.user_id, role: data.role as User["role"], display_name: data.display_name };
     localStorage.setItem("user", JSON.stringify(user));
+    console.log("[authStore] 登录成功:", user.role, user.display_name);
     set({ user, token: data.access_token });
     return user;
   },
