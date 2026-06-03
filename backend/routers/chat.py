@@ -15,7 +15,8 @@ from services.patient_guard import (
 from services.chat_session import restore_topics, add_topic
 from config import get_llm_config
 from rate_limiter import check_chat_limit
-from logger import log
+import logging
+log = logging.getLogger(__name__)
 import json
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])

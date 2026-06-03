@@ -20,6 +20,7 @@ export default function Login() {
       await login(username, password);
       navigate("/home");
     } catch (err: unknown) {
+      console.error("[Login] 登录失败:", err);
       const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
       setError(axiosErr.response?.data?.detail || axiosErr.message || "登录失败，请检查账号密码");
     } finally {

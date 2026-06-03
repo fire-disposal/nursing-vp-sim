@@ -6,7 +6,8 @@ from database import get_db
 from models import User, TrainingRecord, Score, LLMCallLog, Case as CaseModel, ApiProvider, UserClass, Class, Grade
 from schemas import UserBrief, AdminStats, UserUpdateRequest, BatchUserItem, BatchCreateResult, LLMStatsResponse, LLMCallLogItem, PaginatedResponse, StudentDetail, TrainingRecordBrief, MessageResponse
 from auth import require_teacher, hash_password
-from logger import log
+import logging
+log = logging.getLogger(__name__)
 import os
 from fastapi.responses import Response
 from urllib.parse import urlparse
@@ -546,10 +547,10 @@ def get_llm_log_detail(
     db: Session = Depends(get_db),
 ):
     """查看单条 LLM 调用日志详情（含请求/响应全文）"""
-    log = db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
-    if not log:
+    entry = db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
+    if not entry:
         raise HTTPException(404, "日志不存在")
-    return log
+    return entry
 
 
 @router.get("/llm-logs/export")
@@ -578,27 +579,27 @@ def export_llm_logs_csv(
         "CompletionTokens", "TotalTokens", "估算标记", "预估费用",
         "错误类型", "错误信息", "请求字符数", "响应字符数",
     ])
-    for log in logs:
+    for entry in logs:
         writer.writerow([
-            log.id,
-            log.created_at.isoformat() if log.created_at else "",
-            log.user_id or "",
-            log.record_id or "",
-            log.case_id or "",
-            log.purpose,
-            getattr(log, "provider_name", ""),
-            log.model,
-            log.status,
-            log.latency_ms or "",
-            log.prompt_tokens or "",
-            log.completion_tokens or "",
-            log.total_tokens or "",
-            log.token_estimated,
-            log.estimated_cost if log.estimated_cost is not None else "",
-            log.error_type or "",
-            (log.error_message or "")[:200],
-            log.request_chars or "",
-            log.response_chars or "",
+            entry.id,
+            entry.created_at.isoformat() if entry.created_at else "",
+            entry.user_id or "",
+            entry.record_id or "",
+            entry.case_id or "",
+            entry.purpose,
+            getattr(entry, "provider_name", ""),
+            entry.model,
+            entry.status,
+            entry.latency_ms or "",
+            entry.prompt_tokens or "",
+            entry.completion_tokens or "",
+            entry.total_tokens or "",
+            entry.token_estimated,
+            entry.estimated_cost if entry.estimated_cost is not None else "",
+            entry.error_type or "",
+            (entry.error_message or "")[:200],
+            entry.request_chars or "",
+            entry.response_chars or "",
         ])
 
     csv_content = output.getvalue()

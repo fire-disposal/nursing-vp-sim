@@ -7,7 +7,7 @@ from sqlalchemy.pool import QueuePool
 
 from config import DATABASE_URL
 
-logger = logging.getLogger("nursing")
+logger = logging.getLogger(__name__)
 
 engine = create_engine(
     DATABASE_URL,

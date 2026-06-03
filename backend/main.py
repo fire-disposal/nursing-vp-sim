@@ -1,6 +1,14 @@
+import sys
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)-8s %(name)s %(message)s",
+    stream=sys.stderr,
+)
+
 import os
 import asyncio
-import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -16,10 +24,10 @@ from routers import admin_grades
 from routers import admin_classes
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
-from logger import log
 from config import APP_VERSION, log_config
 
-_startup_logger = logging.getLogger("nursing")
+log = logging.getLogger(__name__)
+
 
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))  # 默认 10MB
 
@@ -30,11 +38,11 @@ async def _verify_llm_key() -> bool:
     from services.llm_router import set_env_fallback_state
 
     if not DEEPSEEK_API_KEY:
-        _startup_logger.warning("DEEPSEEK_API_KEY 未设置")
+        log.warning("DEEPSEEK_API_KEY 未设置")
         set_env_fallback_state(False, error="DEEPSEEK_API_KEY 未设置")
         return False
     if not DEEPSEEK_API_KEY.startswith("sk-") or len(DEEPSEEK_API_KEY) < 20:
-        _startup_logger.warning("DEEPSEEK_API_KEY 格式无效 (需以 sk- 开头且 >=20 字符)")
+        log.warning("DEEPSEEK_API_KEY 格式无效 (需以 sk- 开头且 >=20 字符)")
         set_env_fallback_state(False, error="API Key 格式无效")
         return False
 
@@ -49,15 +57,15 @@ async def _verify_llm_key() -> bool:
             ok = resp.status_code < 400
         ms = int((time.perf_counter() - t0) * 1000)
         if ok:
-            _startup_logger.info("DeepSeek 密钥连通性验证通过 ✓  %dms", ms)
+            log.info("DeepSeek 密钥连通性验证通过 ✓  %dms", ms)
             set_env_fallback_state(True, latency_ms=ms)
         else:
-            _startup_logger.error("DeepSeek 密钥连通性验证失败 ✗  HTTP %d, %dms", resp.status_code, ms)
+            log.error("DeepSeek 密钥连通性验证失败 ✗  HTTP %d, %dms", resp.status_code, ms)
             set_env_fallback_state(False, error=f"HTTP {resp.status_code}", latency_ms=ms)
         return ok
     except Exception as e:
         error_msg = str(e)[:200]
-        _startup_logger.error("DeepSeek 密钥连通性验证异常 ✗  %s", e)
+        log.error("DeepSeek 密钥连通性验证异常 ✗  %s", e)
         set_env_fallback_state(False, error=error_msg)
         return False
 
@@ -78,7 +86,7 @@ async def lifespan(app: FastAPI):
 
     关闭链路：取消清理任务 → 刷写剩余日志 → 关闭 DB 连接池
     """
-    _startup_logger.info(
+    log.info(
         "\n"
         "  _   __              _               __      ______  _____ \n"
         " | | / /             (_)              \\ \\    / /  _ \\|  __ \\\n"
@@ -89,7 +97,7 @@ async def lifespan(app: FastAPI):
         "                         __/ |\n"
         "                        |___/    虚拟患者训练系统"
     )
-    log_config(_startup_logger)
+    log_config(log)
 
     llm_key_valid = await _verify_llm_key()
 
@@ -99,21 +107,21 @@ async def lifespan(app: FastAPI):
     try:
         _seed_data()
     except Exception as e:
-        _startup_logger.warning("种子数据初始化失败(非致命): %s", e)
+        log.warning("种子数据初始化失败(非致命): %s", e)
     if llm_key_valid:
         _seed_llm_configs()
     try:
         from services.llm_router import refresh_router
         await refresh_router()
     except Exception as e:
-        _startup_logger.error("ConfigRouter 初始化失败: %s", e)
+        log.error("ConfigRouter 初始化失败: %s", e)
     # 初始化 PromptManager 并 seed 默认模板
     try:
         from services.prompt_manager import get_prompt_manager
         await get_prompt_manager()
-        _startup_logger.info("PromptManager 初始化完成")
+        log.info("PromptManager 初始化完成")
     except Exception as e:
-        _startup_logger.error("PromptManager 初始化失败: %s", e)
+        log.error("PromptManager 初始化失败: %s", e)
     # 启动 LLM 日志消费者
     from services.llm_logging import start_worker, stop_worker
     await start_worker()
@@ -126,7 +134,7 @@ async def lifespan(app: FastAPI):
             rate_limiter.cleanup()
     cleanup_task = asyncio.create_task(_cleanup_loop())
     yield
-    _startup_logger.info("正在关闭服务...")
+    log.info("正在关闭服务...")
     shutdown_flag = True
     cleanup_task.cancel()
     try:
@@ -137,9 +145,9 @@ async def lifespan(app: FastAPI):
     from services.llm_service import _shared_client
     if _shared_client:
         await _shared_client.aclose()
-    _startup_logger.info("释放数据库连接池...")
+    log.info("释放数据库连接池...")
     engine.dispose()
-    _startup_logger.info("服务已关闭")
+    log.info("服务已关闭")
 
 
 app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
@@ -294,45 +302,45 @@ if os.path.isdir(FRONTEND_DIST):
 
 
 def _seed_data():
-    """首次启动种子数据：RBAC角色权限 → 管理员账号 → 测试学生 → 内置病例。
-    幂等安全：已有数据时自动跳过。SKIP_SEED=1 时跳过全流程。
-    """
+    """种子数据：RBAC → 管理员 → 评分标准 → 测试学生 → 内置病例。幂等安全。"""
     import os as _os
     if _os.environ.get("SKIP_SEED"):
+        log.info("SKIP_SEED=1, 跳过种子数据")
         return
 
     from database import SessionLocal
-    from models import User, Case
+    from models import User, Case, Role, RolePermission, Rubric
     from auth import hash_password
     import json
     import os
 
     db = SessionLocal()
     try:
-        from models import Role, RolePermission
-
+        # ── RBAC 角色权限 ──────────────────────────────────
         if db.query(Role).count() == 0:
-            db.add(Role(name="teacher", display_name="教师", is_system=True))
-            db.add(Role(name="student", display_name="学生", is_system=True))
+            db.add_all([
+                Role(name="teacher", display_name="教师", is_system=True),
+                Role(name="student", display_name="学生", is_system=True),
+            ])
             db.flush()
 
-            teacher_perms = [
-                "teacher_access", "user_manage", "case_manage", "score_review",
-                "llm_monitor", "api_manage", "prompt_manage",
-                "grade_class_manage",
+            perms = [
+                (["teacher_access", "user_manage", "case_manage", "score_review",
+                  "llm_monitor", "api_manage", "prompt_manage", "grade_class_manage"], "teacher"),
+                (["training_access", "qa_access"], "student"),
             ]
-            student_perms = ["training_access", "qa_access"]
-            for p in teacher_perms:
-                db.add(RolePermission(role_name="teacher", permission=p))
-            for p in student_perms:
-                db.add(RolePermission(role_name="student", permission=p))
+            for perm_list, role_name in perms:
+                for p in perm_list:
+                    db.add(RolePermission(role_name=role_name, permission=p))
+            db.commit()
+            log.info("✓ RBAC 角色权限已初始化 (teacher + student)")
+        else:
+            log.info("→ RBAC 角色已存在, 跳过")
 
-        # 种子评分标准（idempotent — 首次启动从 JSON 导入到 DB，后续从 DB 读取）
-        from models import Rubric
+        # ── 评分标准 ───────────────────────────────────────
         if db.query(Rubric).count() == 0:
-            import json, os as _os
-            rubric_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "rubrics", "nursing_history_v1.json")
-            if _os.path.isfile(rubric_path):
+            rubric_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rubrics", "nursing_history_v1.json")
+            if os.path.isfile(rubric_path):
                 with open(rubric_path, "r", encoding="utf-8") as f:
                     rubric_data = json.load(f)
                 db.add(Rubric(
@@ -345,50 +353,55 @@ def _seed_data():
                     dimensions=rubric_data.get("dimensions", []),
                     is_active=True,
                 ))
+                db.commit()
+                log.info("✓ 评分标准已导入 (nursing_history_v1)")
+        else:
+            log.info("→ 评分标准已存在, 跳过")
 
-        # 确保管理员账号始终存在
-        if not db.query(User).filter(User.username == "admin").first():
-            admin = User(
+        # ── 管理员账号 (始终确保存在) ─────────────────────
+        admin_exists = db.query(User).filter(User.username == "admin").first()
+        if not admin_exists:
+            db.add(User(
                 username="admin",
                 password_hash=hash_password("admin123"),
                 role="teacher",
                 display_name="管理员",
-                student_id=None,
-            )
-            db.add(admin)
-            db.flush()
-
-        # 检查是否已初始化（跳过学生+病例种子）
-        if db.query(User).filter(User.username != "admin").count() > 0:
+            ))
             db.commit()
-            log.info("种子数据检查完成（已有用户数据，跳过初始化）")
+            log.info("✓ 管理员账号已创建 (admin / admin123)")
+        else:
+            log.info("→ 管理员账号已存在, 跳过")
+
+        # ── 测试学生 + 病例 (仅首次) ─────────────────────
+        student_count = db.query(User).filter(User.username != "admin").count()
+        if student_count > 0:
+            log.info("→ 已有 %d 个非管理员用户, 跳过测试数据", student_count)
             return
 
-        # 创建测试学生账号
         for i in range(1, 6):
-            student = User(
+            db.add(User(
                 username=f"student{i}",
                 password_hash=hash_password("123456"),
                 role="student",
                 display_name=f"学生{i}",
                 student_id=f"202400{i:02d}",
-            )
-            db.add(student)
+            ))
+        log.info("✓ 测试学生账号已创建 (student1-5 / 123456)")
 
-        # 导入病例数据
         cases_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cases")
+        case_count = 0
         for case_file in sorted(os.listdir(cases_dir)):
             if case_file.endswith(".json"):
                 with open(os.path.join(cases_dir, case_file), "r", encoding="utf-8") as f:
                     case_data = json.load(f)
-                case = Case(
+                db.add(Case(
                     name=case_data.get("name", case_file),
                     description=case_data.get("description", ""),
                     case_data=case_data,
-                )
-                db.add(case)
-
+                ))
+                case_count += 1
         db.commit()
+        log.info("✓ 内置病例已导入 (%d 个)", case_count)
         log.info("种子数据初始化完成")
     finally:
         db.close()
@@ -404,7 +417,7 @@ def _seed_llm_configs():
     db = SessionLocal()
     try:
         if db.query(LLMConfig).count() > 0:
-            _startup_logger.info("LLMConfig 已有数据，跳过 LLM seed")
+            log.info("→ LLM 配置已存在, 跳过 seed")
             return
 
         suffix = DEEPSEEK_API_KEY[-4:]
@@ -416,31 +429,24 @@ def _seed_llm_configs():
         db.add(secret)
         db.flush()
 
-        cfgs = [
-            LLMConfig(
-                secret_id=secret.id, label="DeepSeek Pro",
-                base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
-                purpose="scoring", priority=10,
-                price_input_per_1m=1, price_output_per_1m=2,
-            ),
-            LLMConfig(
-                secret_id=secret.id, label="DeepSeek Flash (QA)",
-                base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
-                purpose="qa", priority=50,
-                price_input_per_1m=1, price_output_per_1m=2,
-            ),
-            LLMConfig(
-                secret_id=secret.id, label="DeepSeek Flash",
-                base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
-                purpose="*", priority=100,
-                price_input_per_1m=1, price_output_per_1m=2,
-            ),
-        ]
-        db.add_all(cfgs)
+        db.add_all([
+            LLMConfig(secret_id=secret.id, label="DeepSeek Pro",
+                      base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL_PRO,
+                      purpose="scoring", priority=10,
+                      price_input_per_1m=1, price_output_per_1m=2),
+            LLMConfig(secret_id=secret.id, label="DeepSeek Flash (QA)",
+                      base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
+                      purpose="qa", priority=50,
+                      price_input_per_1m=1, price_output_per_1m=2),
+            LLMConfig(secret_id=secret.id, label="DeepSeek Flash",
+                      base_url=DEEPSEEK_BASE_URL, model=DEEPSEEK_MODEL,
+                      purpose="*", priority=100,
+                      price_input_per_1m=1, price_output_per_1m=2),
+        ])
         db.commit()
-        _startup_logger.info("LLM seed 完成: 初始密钥 + 3 配置 (scoring=pro, qa=flash, *=flash)")
+        log.info("✓ LLM seed 完成: 1 密钥 + 3 配置 (scoring=pro, qa=flash, *=flash)")
     except Exception as e:
-        _startup_logger.error("LLM seed 失败: %s", e)
+        log.error("LLM seed 失败: %s", e)
         db.rollback()
     finally:
         db.close()

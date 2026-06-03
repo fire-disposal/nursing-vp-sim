@@ -5,7 +5,7 @@ import threading
 from collections import defaultdict
 from fastapi import Request, HTTPException, status
 
-_logger = logging.getLogger("nursing")
+_logger = logging.getLogger(__name__)
 
 
 class RateLimiter:

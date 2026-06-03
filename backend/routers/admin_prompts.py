@@ -14,7 +14,7 @@ from auth import require_teacher
 from services.prompt_manager import refresh_prompts, render_template
 from services.variable_registry import get_registry
 
-_logger = logging.getLogger("nursing")
+_logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin/prompts", tags=["Prompt管理"])
 

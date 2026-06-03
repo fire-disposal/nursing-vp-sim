@@ -15,7 +15,8 @@ from schemas import (
 from pagination import paginate
 from auth import get_current_user, require_teacher
 from config import LLM_CONCURRENT_LIMIT
-from logger import log
+import logging
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/training", tags=["训练"])
 

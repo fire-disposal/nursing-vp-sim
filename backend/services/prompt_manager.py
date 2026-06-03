@@ -3,7 +3,7 @@ import logging
 import asyncio
 import re
 
-_logger = logging.getLogger("nursing")
+_logger = logging.getLogger(__name__)
 
 _VAR_RE = re.compile(r"\{#([^}#]+)#\}")
 

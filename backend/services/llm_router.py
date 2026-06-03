@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import datetime, timezone, timedelta
 
-_logger = logging.getLogger("nursing")
+_logger = logging.getLogger(__name__)
 
 CIRCUIT_BREAKER_THRESHOLD = 5       # 连续失败 N 次 → 熔断（DEGRADED_TTL 秒后自动恢复）
 RATE_LIMIT_COOLDOWN_SECONDS = 60   # 收到 429 → 冷却 N 秒

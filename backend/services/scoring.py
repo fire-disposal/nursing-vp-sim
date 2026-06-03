@@ -7,7 +7,8 @@ from config import get_llm_config, DEEPSEEK_MODEL
 from rubrics import load_rubric
 from services.rubric_service import load_rubric_dict, get_rubric_version_id
 from prompt_static import build_scoring_criteria, build_scoring_json_schema
-from logger import log
+import logging
+log = logging.getLogger(__name__)
 import asyncio
 import httpx
 

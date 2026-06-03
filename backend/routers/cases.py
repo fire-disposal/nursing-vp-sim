@@ -9,7 +9,7 @@ from database import get_db
 from models import Case, TrainingRecord, User
 from schemas import CaseBrief, CaseDetail, CaseCreateRequest, CaseUpdateRequest, CaseManageItem, PaginatedResponse, CaseGenerateRequest, CaseGenerateResponse, MessageResponse
 from auth import get_current_user, require_teacher
-from logger import log
+log = logging.getLogger(__name__)
 from pagination import paginate
 from services.llm_service import call_llm_json
 from services.prompt_manager import get_prompt_manager
@@ -102,7 +102,7 @@ def list_cases_manage(
     ], total=total, offset=offset, limit=limit)
 
 
-_logger = logging.getLogger("nursing")
+_logger = logging.getLogger(__name__)
 
 
 @router.post("/generate", response_model=CaseGenerateResponse)

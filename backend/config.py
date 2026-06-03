@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-logger = logging.getLogger("nursing")
+logger = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv

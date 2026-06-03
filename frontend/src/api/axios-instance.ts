@@ -17,6 +17,7 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     if (err.response?.status === 401) {
+      console.warn("[axios] 401 未授权，清除 token 并跳转登录页");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       if (!window.location.pathname.includes("/login")) {
@@ -33,6 +34,7 @@ api.interceptors.response.use(
     if (!shouldRetry) {
       return Promise.reject(err);
     }
+    console.warn("[axios] 重试请求:", config.method, config.url, "(第", config._retryCount + 1, "次)");
     config._retryCount = (config._retryCount || 0) + 1;
     await new Promise((resolve) => setTimeout(resolve, 1000));
     return api(config);

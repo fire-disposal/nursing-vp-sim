@@ -6,7 +6,7 @@ from config import (
     LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M, LLM_COST_CURRENCY,
 )
 
-_logger = logging.getLogger("nursing")
+_logger = logging.getLogger(__name__)
 
 _log_queue: asyncio.Queue[dict] | None = None
 _worker_task: asyncio.Task | None = None

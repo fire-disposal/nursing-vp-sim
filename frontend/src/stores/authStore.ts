@@ -41,6 +41,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem("user", JSON.stringify(user));
       set({ user });
     } catch {
+      console.warn("[authStore] refreshUser 失败，强制登出");
       get().logout();
     }
   },

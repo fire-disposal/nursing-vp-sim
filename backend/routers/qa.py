@@ -14,7 +14,8 @@ from rate_limiter import check_qa_limit
 from services.prompt_manager import get_prompt_manager
 from services.qa_service import build_qa_history
 from pagination import paginate
-from logger import log
+import logging
+log = logging.getLogger(__name__)
 from config import get_llm_config
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
