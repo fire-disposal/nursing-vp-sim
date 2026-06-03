@@ -23,7 +23,5 @@
     "concurrently": "^9",
     "husky": "^9"
   },
-  "dependencies": {
-    "zustand": "^5.0.14"
-  }
+  "dependencies": {}
 }

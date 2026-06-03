@@ -42,3 +42,6 @@ backups/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 生成文件
+openapi.json
