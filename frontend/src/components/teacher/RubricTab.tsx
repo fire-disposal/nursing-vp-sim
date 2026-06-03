@@ -1,5 +1,6 @@
 import { Award, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
 import Button from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -25,7 +26,11 @@ interface RubricItem {
 
 export default function RubricTab() {
   const toast = useToast();
-  const [rubrics, setRubrics] = useState<RubricResponse[]>([]);
+  const queryClient = useQueryClient();
+  const { data: rubrics = [] } = useQuery({
+    queryKey: ["rubrics"],
+    queryFn: () => fetchRubrics().then((r) => r.data),
+  });
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [formName, setFormName] = useState("");
@@ -39,15 +44,7 @@ export default function RubricTab() {
   const [deleteTarget, setDeleteTarget] = useState<RubricResponse | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const load = () =>
-    fetchRubrics()
-      .then((res) => setRubrics(res.data))
-      .catch(() => toast.error("加载失败"));
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["rubrics"] });
 
   const openCreate = () => {
     setEditId(null);
@@ -102,7 +99,7 @@ export default function RubricTab() {
       if (editId) await updateRubric(editId, data);
       else await createRubric(data);
       setShowModal(false);
-      load();
+      refresh();
       toast.success(editId ? "已更新" : "已创建");
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
@@ -113,7 +110,7 @@ export default function RubricTab() {
   const handleActivate = async (id: number) => {
     try {
       await activateRubric(id);
-      load();
+      refresh();
       toast.success("已激活");
     } catch (e: unknown) {
       toast.error("激活失败");
@@ -124,7 +121,7 @@ export default function RubricTab() {
     if (!deleteTarget) return;
     try {
       await deleteRubric(deleteTarget.id);
-      load();
+      refresh();
       toast.success("已删除");
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
