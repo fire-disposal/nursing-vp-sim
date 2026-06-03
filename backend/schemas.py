@@ -431,8 +431,6 @@ class LLMConfigResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    model_config = ConfigDict(from_attributes=True)
-
 
 # ── Prompt 管理 ──
 
