@@ -103,8 +103,6 @@ class PromptManager:
 
         db = SessionLocal()
         try:
-            self._upsert_v1_defaults(db)
-
             rows = db.query(PT).filter(PT.is_active).all()
 
             new_cache = {}
@@ -131,50 +129,6 @@ class PromptManager:
             raise
         finally:
             db.close()
-
-    def _upsert_v1_defaults(self, db):
-        """强制 v1 模板始终与代码内置版本一致。每次启动 upsert，确保部署后旧语法被覆写。"""
-        from models import PromptTemplate as PT
-
-        defaults = [
-            ("qa", "v1-默认QA", _HARDCODED_QA, None),
-            ("patient_chat", "v1-默认患者对话", _HARDCODED_PATIENT_CHAT, None),
-            ("scoring", "v1-默认评分", _HARDCODED_SCORING_SYSTEM, _HARDCODED_SCORING_USER),
-            ("case_generation", "v1-默认病例生成", _HARDCODED_CASE_GENERATION, None),
-        ]
-        updated = 0
-        for purpose, name, system_prompt, user_prompt in defaults:
-            v1 = db.query(PT).filter(PT.purpose == purpose, PT.version == 1).first()
-            if v1:
-                old_sp = v1.system_prompt
-                v1.system_prompt = system_prompt
-                v1.user_prompt = user_prompt
-                v1.name = name
-                v1.is_active = True
-                from services.variable_registry import get_registry
-
-                v1.variables = get_registry().get_variables_jsonb(purpose)
-                if old_sp != system_prompt:
-                    updated += 1
-            else:
-                from services.variable_registry import get_registry
-
-                db.add(
-                    PT(
-                        purpose=purpose,
-                        version=1,
-                        name=name,
-                        system_prompt=system_prompt,
-                        user_prompt=user_prompt,
-                        variables=get_registry().get_variables_jsonb(purpose),
-                        is_active=True,
-                        created_by="system",
-                    )
-                )
-                updated += 1
-        if updated:
-            db.commit()
-            _logger.info("v1 默认模板已同步: %d 个更新", updated)
 
     async def get(self, purpose: str) -> PromptTemplateObj:
         """获取激活模板。三层降级保障：

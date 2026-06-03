@@ -37,7 +37,7 @@ def upgrade() -> None:
         ('last_used_at', sa.DateTime(timezone=True), None),
     ]:
         if col not in ac:
-            op.add_column('api_secrets', sa.Column(col, col_type, nullable=default is not None, server_default=str(default) if default is not None else None))
+            op.add_column('api_secrets', sa.Column(col, col_type, nullable=default is None, server_default=str(default) if default is not None else None))
 
     # ── api_secrets: set default values for existing rows ──
     conn.execute(sa.text("UPDATE api_secrets SET status = 'active' WHERE status IS NULL"))

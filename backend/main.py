@@ -331,7 +331,7 @@ def _seed_data():
 
     from auth import hash_password
     from database import SessionLocal
-    from models import Case, Role, RolePermission, Rubric, User
+    from models import Case, PromptTemplate, Role, RolePermission, Rubric, User
 
     db = SessionLocal()
     try:
@@ -391,6 +391,42 @@ def _seed_data():
                 log.info("✓ 评分标准已导入 (nursing_history_v1)")
         else:
             log.info("→ 评分标准已存在, 跳过")
+
+        # ── Prompt 模板 v1 ─────────────────────────────────
+        if db.query(PromptTemplate).count() == 0:
+            from services.prompt_manager import (
+                _HARDCODED_CASE_GENERATION,
+                _HARDCODED_PATIENT_CHAT,
+                _HARDCODED_QA,
+                _HARDCODED_SCORING_SYSTEM,
+                _HARDCODED_SCORING_USER,
+            )
+            from services.variable_registry import get_registry
+
+            registry = get_registry()
+            defaults = [
+                ("qa", "v1-默认QA", _HARDCODED_QA, None),
+                ("patient_chat", "v1-默认患者对话", _HARDCODED_PATIENT_CHAT, None),
+                ("scoring", "v1-默认评分", _HARDCODED_SCORING_SYSTEM, _HARDCODED_SCORING_USER),
+                ("case_generation", "v1-默认病例生成", _HARDCODED_CASE_GENERATION, None),
+            ]
+            for purpose, name, system_prompt, user_prompt in defaults:
+                db.add(
+                    PromptTemplate(
+                        purpose=purpose,
+                        version=1,
+                        name=name,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        variables=registry.get_variables_jsonb(purpose),
+                        is_active=True,
+                        created_by="system",
+                    )
+                )
+            db.commit()
+            log.info("✓ Prompt 模板 v1 已创建 (4 个)")
+        else:
+            log.info("→ Prompt 模板已存在, 跳过")
 
         # ── 管理员账号 (由环境变量提供凭证) ─────────────────
         admin_username = _os.environ.get("SEED_ADMIN_USERNAME", "")
