@@ -104,10 +104,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
   useEffect(() => {
     getGrades()
-      .then(setGrades)
+      .then((res) => setGrades(res.data))
       .catch(() => {});
+
     getClasses({})
-      .then(setAllClasses)
+      .then((res) => setAllClasses(res.data))
       .catch(() => {});
   }, []);
 
@@ -306,7 +307,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
       return;
     }
     getClasses({ grade_id: String(gradeId) })
-      .then(setter)
+      .then((res) => setter(res.data))
       .catch(() => setter([]));
   }
 

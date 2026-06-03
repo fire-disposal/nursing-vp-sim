@@ -93,9 +93,9 @@ export const deleteRecord = (id: number | string) => api.delete<Schemas["Message
 export const getRecordDetail = (id: number | string) => api.get<Schemas["TrainingRecordDetail"]>(`/training/records/${id}`);
 
 // Export
-export const exportRecords = () => api.get("/export/records", { responseType: "blob" });
+export const exportRecords = () => api.get<Blob>("/export/records", { responseType: "blob" });
 
-export const exportRecordDetail = (id: number | string) => api.get(`/export/record/${id}`, { responseType: "blob" });
+export const exportRecordDetail = (id: number | string) => api.get<Blob>(`/export/record/${id}`, { responseType: "blob" });
 
 // Admin - Users
 export const getUsers = (params: Record<string, unknown> = {}) => api.get<Schemas["PaginatedResponse_UserBrief_"]>("/admin/users", { params });
@@ -159,7 +159,7 @@ export const exportLLMLogs = (dateFrom?: string, dateTo?: string) => {
   const params: Record<string, string> = {};
   if (dateFrom) params.date_from = dateFrom;
   if (dateTo) params.date_to = dateTo;
-  return api.get("/admin/llm-logs/export", { params, responseType: "blob" });
+  return api.get<Blob>("/admin/llm-logs/export", { params, responseType: "blob" });
 };
 
 // Score review
@@ -178,66 +178,38 @@ export const getFeedbackStats = (params: Record<string, unknown> = {}) => api.ge
 export const generateCase = (data: Schemas["CaseGenerateRequest"]) => api.post<Schemas["CaseGenerateResponse"]>("/cases/generate", data);
 
 // Grade management
-export async function getGrades() {
-  const res = await api.get<Schemas["GradeResponse"][]>("/admin/grades");
-  return res.data;
-}
+export const getGrades = () => api.get<Schemas["GradeResponse"][]>("/admin/grades");
 
-export async function createGrade(data: Schemas["GradeCreate"]) {
-  const res = await api.post<Schemas["GradeResponse"]>("/admin/grades", data);
-  return res.data;
-}
+export const createGrade = (data: Schemas["GradeCreate"]) => api.post<Schemas["GradeResponse"]>("/admin/grades", data);
 
-export async function updateGrade(id: number | string, data: Schemas["GradeUpdate"]) {
-  const res = await api.put<Schemas["GradeResponse"]>(`/admin/grades/${id}`, data);
-  return res.data;
-}
+export const updateGrade = (id: number | string, data: Schemas["GradeUpdate"]) => api.put<Schemas["GradeResponse"]>(`/admin/grades/${id}`, data);
 
-export async function deleteGrade(id: number | string) {
-  const res = await api.delete(`/admin/grades/${id}`);
-  return res.data;
-}
+export const deleteGrade = (id: number | string) => api.delete(`/admin/grades/${id}`);
 
 // Class management
-export async function getClasses(params: Record<string, unknown> = {}) {
-  const res = await api.get<Schemas["ClassResponse"][]>("/admin/classes", { params });
-  return res.data;
-}
+export const getClasses = (params: Record<string, unknown> = {}) => api.get<Schemas["ClassResponse"][]>("/admin/classes", { params });
 
-export async function createClass(data: Schemas["ClassCreate"]) {
-  const res = await api.post<Schemas["ClassResponse"]>("/admin/classes", data);
-  return res.data;
-}
+export const createClass = (data: Schemas["ClassCreate"]) => api.post<Schemas["ClassResponse"]>("/admin/classes", data);
 
-export async function updateClass(id: number | string, data: Schemas["ClassUpdate"]) {
-  const res = await api.put<Schemas["ClassResponse"]>(`/admin/classes/${id}`, data);
-  return res.data;
-}
+export const updateClass = (id: number | string, data: Schemas["ClassUpdate"]) => api.put<Schemas["ClassResponse"]>(`/admin/classes/${id}`, data);
 
-export async function deleteClass(id: number | string) {
-  const res = await api.delete(`/admin/classes/${id}`);
-  return res.data;
-}
+export const deleteClass = (id: number | string) => api.delete(`/admin/classes/${id}`);
 
 // Class stats
-export async function getClassSummary(params: Record<string, unknown> = {}) {
-  const res = await api.get<Schemas["ClassSummaryItemSchema"][]>("/stats/class-summary", { params });
-  return res.data;
-}
+export const getClassSummary = (params: Record<string, unknown> = {}) => api.get<Schemas["ClassSummaryItemSchema"][]>("/stats/class-summary", { params });
 
 // Rubric
-export const fetchRubrics = () => api.get<Schemas["RubricResponse"][]>("/admin/api/rubrics").then((res) => res.data);
+export const fetchRubrics = () => api.get<Schemas["RubricResponse"][]>("/admin/api/rubrics");
 
-export const getActiveRubric = () => api.get<Schemas["RubricBrief"]>("/admin/api/rubrics/active").then((res) => res.data);
+export const getActiveRubric = () => api.get<Schemas["RubricBrief"]>("/admin/api/rubrics/active");
 
-export const createRubric = (data: Record<string, unknown>) => api.post<Schemas["RubricResponse"]>("/admin/api/rubrics", data).then((res) => res.data);
+export const createRubric = (data: Record<string, unknown>) => api.post<Schemas["RubricResponse"]>("/admin/api/rubrics", data);
 
-export const updateRubric = (id: number | string, data: Record<string, unknown>) =>
-  api.put<Schemas["RubricResponse"]>(`/admin/api/rubrics/${id}`, data).then((res) => res.data);
+export const updateRubric = (id: number | string, data: Record<string, unknown>) => api.put<Schemas["RubricResponse"]>(`/admin/api/rubrics/${id}`, data);
 
-export const deleteRubric = (id: number | string) => api.delete(`/admin/api/rubrics/${id}`).then((res) => res.data);
+export const deleteRubric = (id: number | string) => api.delete(`/admin/api/rubrics/${id}`);
 
-export const activateRubric = (id: number | string) => api.post(`/admin/api/rubrics/${id}/activate`).then((res) => res.data);
+export const activateRubric = (id: number | string) => api.post(`/admin/api/rubrics/${id}/activate`);
 
 // ── API Management ──
 
@@ -247,7 +219,7 @@ export const createSecret = (data: Schemas["ApiSecretCreate"]) => api.post<Schem
 
 export const updateSecret = (id: number | string, data: Schemas["ApiSecretUpdate"]) => api.put<Schemas["ApiSecretResponse"]>(`/admin/api/secrets/${id}`, data);
 
-export const deleteSecret = (id: number | string) => api.delete(`/admin/api/secrets/${id}`);
+export const deleteSecret = (id: number | string) => api.delete<Schemas["OkResponse"]>(`/admin/api/secrets/${id}`);
 
 export const fetchConfigs = (purpose?: string) => {
   const params: Record<string, string> = {};
@@ -259,7 +231,7 @@ export const createConfig = (data: Schemas["LLMConfigCreate"]) => api.post<Schem
 
 export const updateConfig = (id: number | string, data: Schemas["LLMConfigUpdate"]) => api.put<Schemas["LLMConfigResponse"]>(`/admin/api/configs/${id}`, data);
 
-export const deleteConfig = (id: number | string) => api.delete(`/admin/api/configs/${id}`);
+export const deleteConfig = (id: number | string) => api.delete<Schemas["OkResponse"]>(`/admin/api/configs/${id}`);
 
 export const toggleConfig = (id: number | string) => api.post<Schemas["ToggleStatusResponse"]>(`/admin/api/configs/${id}/toggle`);
 
@@ -290,13 +262,13 @@ export const createPrompt = (data: Schemas["PromptTemplateCreate"]) => api.post<
 export const updatePrompt = (id: number | string, data: Schemas["PromptTemplateUpdate"]) =>
   api.put<Schemas["PromptTemplateResponse"]>(`/admin/prompts/${id}`, data);
 
-export const deletePrompt = (id: number | string) => api.delete(`/admin/prompts/${id}`);
+export const deletePrompt = (id: number | string) => api.delete<Schemas["OkResponse"]>(`/admin/prompts/${id}`);
 
 export const activatePrompt = (id: number | string) => api.post<Schemas["PromptTemplateResponse"]>(`/admin/prompts/${id}/activate`);
 
 export const validatePrompt = (data: Schemas["PromptValidateRequest"]) => api.post<Schemas["PromptValidateResponse"]>("/admin/prompts/validate", data);
 
-export const reloadPrompts = () => api.post("/admin/prompts/reload");
+export const reloadPrompts = () => api.post<Schemas["OkResponse"]>("/admin/prompts/reload");
 
 export const previewActivePrompt = (purpose: string) => api.get<Schemas["PromptPreviewResponse"]>("/admin/prompts/active/preview", { params: { purpose } });
 

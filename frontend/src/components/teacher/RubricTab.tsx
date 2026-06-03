@@ -41,7 +41,7 @@ export default function RubricTab() {
 
   const load = () =>
     fetchRubrics()
-      .then(setRubrics)
+      .then((res) => setRubrics(res.data))
       .catch(() => toast.error("加载失败"));
 
   useEffect(() => {

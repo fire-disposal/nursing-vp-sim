@@ -12,7 +12,7 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
     if (loading) return;
     set({ loading: true });
     try {
-      const data = await getGrades();
+      const { data } = await getGrades();
       set({ grades: data, loading: false });
     } catch {
       set({ loading: false });
@@ -20,13 +20,13 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
   },
 
   createGrade: async (name: string): Promise<Grade> => {
-    const data = await createGrade({ name });
+    const { data } = await createGrade({ name });
     set((s) => ({ grades: [...s.grades, data] }));
     return data;
   },
 
   updateGrade: async (id: number, name: string): Promise<Grade> => {
-    const data = await updateGrade(id, { name });
+    const { data } = await updateGrade(id, { name });
     set((s) => ({ grades: s.grades.map((g) => (g.id === id ? data : g)) }));
     return data;
   },
@@ -39,7 +39,7 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
   fetchClasses: async (gradeId?: number): Promise<ClassItem[]> => {
     try {
       const params = gradeId ? { grade_id: gradeId } : {};
-      const data = await getClasses(params);
+      const { data } = await getClasses(params);
       set({ classes: data });
       return data;
     } catch {
@@ -48,13 +48,13 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
   },
 
   createClass: async (gradeId: number, name: string): Promise<ClassItem> => {
-    const data = await createClass({ grade_id: gradeId, name });
+    const { data } = await createClass({ grade_id: gradeId, name });
     set((s) => ({ classes: [...s.classes, data] }));
     return data;
   },
 
   updateClass: async (id: number, body: Partial<ClassItem>): Promise<ClassItem> => {
-    const data = await updateClass(id, body);
+    const { data } = await updateClass(id, body);
     set((s) => ({ classes: s.classes.map((c) => (c.id === id ? data : c)) }));
     return data;
   },
