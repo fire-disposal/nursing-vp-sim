@@ -174,8 +174,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _cors_origins if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
 )
 
 from rate_limiter import _get_client_ip
@@ -358,19 +358,24 @@ def _seed_data():
         else:
             log.info("→ 评分标准已存在, 跳过")
 
-        # ── 管理员账号 (始终确保存在) ─────────────────────
-        admin_exists = db.query(User).filter(User.username == "admin").first()
-        if not admin_exists:
-            db.add(User(
-                username="admin",
-                password_hash=hash_password("admin123"),
-                role="teacher",
-                display_name="管理员",
-            ))
-            db.commit()
-            log.info("✓ 管理员账号已创建 (admin / admin123)")
+        # ── 管理员账号 (由环境变量提供凭证) ─────────────────
+        admin_username = _os.environ.get("SEED_ADMIN_USERNAME", "")
+        admin_password = _os.environ.get("SEED_ADMIN_PASSWORD", "")
+        if admin_username and admin_password:
+            admin_exists = db.query(User).filter(User.username == admin_username).first()
+            if not admin_exists:
+                db.add(User(
+                    username=admin_username,
+                    password_hash=hash_password(admin_password),
+                    role="teacher",
+                    display_name="管理员",
+                ))
+                db.commit()
+                log.info("✓ 管理员账号已创建 (%s)", admin_username)
+            else:
+                log.info("→ 管理员账号已存在, 跳过")
         else:
-            log.info("→ 管理员账号已存在, 跳过")
+            log.warning("⚠ SEED_ADMIN_USERNAME/SEED_ADMIN_PASSWORD 未设置，跳过管理员创建")
 
         # ── 测试学生 + 病例 (仅首次) ─────────────────────
         student_count = db.query(User).filter(User.username != "admin").count()

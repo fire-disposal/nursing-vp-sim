@@ -48,7 +48,7 @@ jobs:
           build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: false
+          provenance: true
 
       - name: Build & push frontend
         uses: docker/build-push-action@v6
@@ -60,7 +60,7 @@ jobs:
           build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: false
+          provenance: true
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
