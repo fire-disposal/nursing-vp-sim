@@ -201,7 +201,7 @@ export const getClassSummary = (params: Record<string, unknown> = {}) => api.get
 // Rubric
 export const fetchRubrics = () => api.get<Schemas["RubricResponse"][]>("/admin/api/rubrics");
 
-export const getActiveRubric = () => api.get<Schemas["RubricBrief"]>("/admin/api/rubrics/active");
+export const getActiveRubric = () => api.get<Schemas["RubricResponse"]>("/admin/api/rubrics/active");
 
 export const createRubric = (data: Record<string, unknown>) => api.post<Schemas["RubricResponse"]>("/admin/api/rubrics", data);
 

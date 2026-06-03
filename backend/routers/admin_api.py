@@ -23,7 +23,6 @@ from schemas import (
     ModelPresetItem,
     OkResponse,
     ProviderPresetResponse,
-    RubricBrief,
     RubricResponse,
     SecretCreateResponse,
     TestAllResultsResponse,
@@ -400,7 +399,7 @@ async def test_env_fallback(current_user: Annotated[User, Depends(require_teache
 # ── Rubric CRUD (unchanged) ──
 
 
-@router.get("/rubrics", response_model=list[RubricBrief])
+@router.get("/rubrics", response_model=list[RubricResponse])
 def list_rubrics(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
     return db.query(Rubric).order_by(Rubric.created_at.desc()).all()
 

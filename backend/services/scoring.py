@@ -86,7 +86,7 @@ async def evaluate_training(
         raise ValueError(f"LLM评分结果不完整: {e}") from e
 
     # 将原始 57 分制转换为 100 分制
-    raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
+    raw_max = rubric.get("raw_max", 57)
     _convert_to_100_scale(result, raw_max)
 
     score = Score(

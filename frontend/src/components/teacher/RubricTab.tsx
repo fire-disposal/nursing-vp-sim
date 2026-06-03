@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronUp, Code, Layout, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -7,11 +7,13 @@ import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
+import RubricEditor from "./RubricEditor";
 
 type Schemas = components["schemas"];
 type RubricResponse = Schemas["RubricResponse"];
 
 interface RubricDimension {
+  id?: string;
   name: string;
   max: number;
   description?: string;
@@ -19,9 +21,17 @@ interface RubricDimension {
 }
 
 interface RubricItem {
+  id?: string;
   name: string;
-  score?: number;
   anchors?: Record<string, string>;
+}
+
+function dimCount(r: RubricResponse) {
+  if (!r.dimensions) return "0个维度";
+  const dims = r.dimensions as RubricDimension[];
+  let items = 0;
+  for (const d of dims) items += (d.items || []).length;
+  return `${dims.length}个维度 · ${items}项条目`;
 }
 
 export default function RubricTab() {
@@ -39,12 +49,35 @@ export default function RubricTab() {
   const [formTotalMax, setFormTotalMax] = useState(100);
   const [formRawMax, setFormRawMax] = useState(57);
   const [formRawScale, setFormRawScale] = useState(3);
-  const [formDims, setFormDims] = useState("[]");
+  const [formDims, setFormDims] = useState<RubricDimension[]>([]);
+  const [editorMode, setEditorMode] = useState<"structured" | "json">("structured");
+  const [jsonText, setJsonText] = useState("");
   const [dimError, setDimError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<RubricResponse | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["rubrics"] });
+
+  const applyStructuredDims = (dims: RubricDimension[]) => {
+    setFormDims(dims);
+    setJsonText(JSON.stringify(dims, null, 2));
+    setDimError("");
+  };
+
+  const applyJsonDims = (text: string) => {
+    setJsonText(text);
+    try {
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) {
+        setDimError("dimensions 必须是一个数组");
+        return;
+      }
+      setFormDims(parsed);
+      setDimError("");
+    } catch {
+      setDimError("JSON 格式错误");
+    }
+  };
 
   const openCreate = () => {
     setEditId(null);
@@ -54,8 +87,8 @@ export default function RubricTab() {
     setFormTotalMax(100);
     setFormRawMax(57);
     setFormRawScale(3);
-    setFormDims("[]");
-    setDimError("");
+    applyStructuredDims([]);
+    setEditorMode("structured");
     setShowModal(true);
   };
 
@@ -67,21 +100,26 @@ export default function RubricTab() {
     setFormTotalMax(r.total_max);
     setFormRawMax(r.raw_max);
     setFormRawScale(r.raw_scale);
-    setFormDims(JSON.stringify(r.dimensions, null, 2));
-    setDimError("");
+    const dims = (r.dimensions as RubricDimension[]) || [];
+    applyStructuredDims(dims);
+    setEditorMode("structured");
     setShowModal(true);
   };
 
   const handleSave = async () => {
     let dims: RubricDimension[];
-    try {
-      dims = JSON.parse(formDims);
-    } catch {
-      setDimError("JSON 格式错误");
-      return;
+    if (editorMode === "json") {
+      try {
+        dims = JSON.parse(jsonText);
+      } catch {
+        setDimError("JSON 格式错误");
+        return;
+      }
+    } else {
+      dims = formDims;
     }
     if (!Array.isArray(dims) || dims.length === 0) {
-      setDimError("dimensions 必须是非空数组");
+      setDimError("至少需要一个评估维度");
       return;
     }
     setDimError("");
@@ -112,7 +150,7 @@ export default function RubricTab() {
       await activateRubric(id);
       refresh();
       toast.success("已激活");
-    } catch (_e: unknown) {
+    } catch {
       toast.error("激活失败");
     }
   };
@@ -130,14 +168,6 @@ export default function RubricTab() {
     setDeleteTarget(null);
   };
 
-  const dimCount = (r: RubricResponse) => {
-    if (!r.dimensions) return 0;
-    const dims = r.dimensions as RubricDimension[];
-    let items = 0;
-    for (const d of dims) items += (d.items || []).length;
-    return `${dims.length}个维度 · ${items}项条目`;
-  };
-
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
@@ -150,9 +180,22 @@ export default function RubricTab() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rubrics.map((r) => (
-          <div key={r.id} style={{ border: "1px solid var(--border-secondary)", borderRadius: "var(--radius-md)", background: "var(--bg-primary)" }}>
+          <div
+            key={r.id}
+            style={{
+              border: "1px solid var(--border-secondary)",
+              borderRadius: "var(--radius-md)",
+              background: "var(--bg-primary)",
+            }}
+          >
             <div
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", cursor: "pointer" }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 16px",
+                cursor: "pointer",
+              }}
               onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
             >
               <div>
@@ -173,14 +216,20 @@ export default function RubricTab() {
                   )}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
-                  {r.description} · {dimCount(r)} · 满分{r.total_max}
+                  {r.description || "无描述"} · {dimCount(r)} · 满分{r.total_max}
                 </div>
               </div>
               <span style={{ color: "var(--text-tertiary)" }}>{expandedId === r.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
             </div>
 
             {expandedId === r.id && (
-              <div style={{ borderTop: "1px solid var(--border-secondary)", padding: "12px 16px", background: "var(--bg-secondary)" }}>
+              <div
+                style={{
+                  borderTop: "1px solid var(--border-secondary)",
+                  padding: "12px 16px",
+                  background: "var(--bg-secondary)",
+                }}
+              >
                 <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                   {!r.is_active && (
                     <Button size="sm" onClick={() => handleActivate(r.id)}>
@@ -196,29 +245,59 @@ export default function RubricTab() {
                     </Button>
                   )}
                 </div>
-                {((r.dimensions as RubricDimension[]) || []).map((dim, i) => (
-                  <div key={i} style={{ marginBottom: 8 }}>
-                    <div style={{ fontWeight: 600, fontSize: "0.8rem", marginBottom: 4 }}>
-                      {dim.name}（{dim.items?.length || 0}项 · 满分{dim.max}分）
+
+                {((r.dimensions as RubricDimension[]) || []).length === 0 ? (
+                  <div style={{ color: "var(--text-tertiary)", fontSize: "0.8rem" }}>暂无评估维度</div>
+                ) : (
+                  ((r.dimensions as RubricDimension[]) || []).map((dim, i) => (
+                    <div key={i} style={{ marginBottom: 12 }}>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                          marginBottom: 6,
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: 8,
+                        }}
+                      >
+                        {dim.name}
+                        <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", fontWeight: 400 }}>
+                          {dim.items?.length || 0}项 · 满分{dim.max}分
+                        </span>
+                      </div>
+                      {dim.description && <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: 6 }}>{dim.description}</div>}
+                      <div style={{ paddingLeft: 8 }}>
+                        {(dim.items || []).map((item, j) => (
+                          <div
+                            key={j}
+                            style={{
+                              marginBottom: 4,
+                              padding: "4px 8px",
+                              borderRadius: "var(--radius-sm)",
+                              background: "var(--bg-primary)",
+                              border: "1px solid var(--border-primary)",
+                            }}
+                          >
+                            <div style={{ fontSize: "0.75rem", fontWeight: 500, marginBottom: 2 }}>
+                              {j + 1}. {item.name}
+                            </div>
+                            {item.anchors && (
+                              <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)", paddingLeft: 8 }}>
+                                {Object.entries(item.anchors).map(([k, v]) => (
+                                  <div key={k} style={{ marginBottom: 1 }}>
+                                    <span style={{ color: "var(--text-tertiary)", fontWeight: 500 }}>{k}分：</span>
+                                    {String(v)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", paddingLeft: 8 }}>
-                      {(dim.items || []).map((item, j) => (
-                        <div key={j} style={{ marginBottom: 2 }}>
-                          {j + 1}. {item.name}
-                          {item.anchors && (
-                            <span style={{ color: "var(--text-tertiary)", marginLeft: 6 }}>
-                              [
-                              {Object.entries(item.anchors)
-                                .map(([k, v]) => `${k}分:${v}`)
-                                .join(" / ")}
-                              ]
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -229,6 +308,7 @@ export default function RubricTab() {
         open={showModal}
         onClose={() => setShowModal(false)}
         title={editId ? "编辑评分标准" : "新建评分标准"}
+        maxWidth={720}
         footer={
           <>
             <Button variant="outline" onClick={() => setShowModal(false)}>
@@ -238,25 +318,35 @@ export default function RubricTab() {
           </>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "70vh", overflow: "auto" }}>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>名称</label>
+              <input
+                className="form-input"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="nursing_history_v1"
+                style={{ width: "100%", padding: "6px 10px" }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>版本</label>
+              <input className="form-input" value={formVersion} onChange={(e) => setFormVersion(e.target.value)} style={{ width: 80 }} />
+            </div>
+          </div>
+
           <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>名称</label>
+            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>描述</label>
             <input
               className="form-input"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="nursing_history_v1"
+              value={formDesc}
+              onChange={(e) => setFormDesc(e.target.value)}
+              placeholder="简要说明该评分标准的用途"
               style={{ width: "100%", padding: "6px 10px" }}
             />
           </div>
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>版本</label>
-            <input className="form-input" value={formVersion} onChange={(e) => setFormVersion(e.target.value)} style={{ width: 100 }} />
-          </div>
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>描述</label>
-            <input className="form-input" value={formDesc} onChange={(e) => setFormDesc(e.target.value)} style={{ width: "100%", padding: "6px 10px" }} />
-          </div>
+
           <div style={{ display: "flex", gap: 12 }}>
             <div>
               <label style={{ fontSize: "0.8rem" }}>展示满分</label>
@@ -283,19 +373,59 @@ export default function RubricTab() {
               />
             </div>
           </div>
+
           <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>dimensions（JSON 数组）</label>
-            <textarea
-              className="form-input"
-              value={formDims}
-              onChange={(e) => {
-                setFormDims(e.target.value);
-                setDimError("");
-              }}
-              rows={14}
-              style={{ width: "100%", fontFamily: "monospace", fontSize: "0.72rem", padding: "8px 10px" }}
-            />
-            {dimError && <div style={{ color: "var(--red-600)", fontSize: "0.75rem" }}>{dimError}</div>}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>
+                评估维度与条目
+                <span style={{ fontWeight: 400, color: "var(--text-tertiary)", fontSize: "0.7rem", marginLeft: 6 }}>
+                  ({formDims.length}维度 · {formDims.reduce((s, d) => s + (d.items?.length || 0), 0)}条目)
+                </span>
+              </label>
+              <div style={{ display: "flex", gap: 4 }}>
+                <Button
+                  size="sm"
+                  variant={editorMode === "structured" ? "primary" : "ghost"}
+                  onClick={() => {
+                    setEditorMode("structured");
+                    setDimError("");
+                  }}
+                >
+                  <Layout size={12} /> 结构化
+                </Button>
+                <Button
+                  size="sm"
+                  variant={editorMode === "json" ? "primary" : "ghost"}
+                  onClick={() => {
+                    setEditorMode("json");
+                    setJsonText(JSON.stringify(formDims, null, 2));
+                    setDimError("");
+                  }}
+                >
+                  <Code size={12} /> JSON
+                </Button>
+              </div>
+            </div>
+
+            {editorMode === "structured" ? (
+              <RubricEditor dimensions={formDims} onChange={applyStructuredDims} />
+            ) : (
+              <div>
+                <textarea
+                  className="form-input"
+                  value={jsonText}
+                  onChange={(e) => applyJsonDims(e.target.value)}
+                  rows={18}
+                  style={{
+                    width: "100%",
+                    fontFamily: "monospace",
+                    fontSize: "0.72rem",
+                    padding: "8px 10px",
+                  }}
+                />
+              </div>
+            )}
+            {dimError && <div style={{ color: "var(--red-600)", fontSize: "0.75rem", marginTop: 4 }}>{dimError}</div>}
           </div>
         </div>
       </Modal>
