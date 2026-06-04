@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="topbar">
+    <view class="back-btn" bindtap="goBack">←</view>
+    <view class="patient-info">
+      <text class="patient-name">{{patientName}}</text>
+      <text class="case-title">{{caseName}}</text>
+    </view>
+    <view class="timer {{remaining <= 120 ? 'timer-warn' : ''}}">
+      <text>⏱ {{timerStr || '--:--'}}</text>
+    </view>
+    <view class="end-btn" bindtap="handleEnd" wx:if="{{!ending}}">结束</view>
+  </view>
+
+  <scroll-view class="chat-area" scroll-y scroll-into-view="msg-{{messages[messages.length-1].id}}">
+    <view
+      wx:for="{{messages}}"
+      wx:key="id"
+      id="msg-{{item.id}}"
+      class="msg-row {{item.role === 'student' ? 'msg-right' : 'msg-left'}}"
+    >
+      <view class="msg-bubble {{item.role === 'student' ? 'bubble-student' : 'bubble-patient'}}">
+        <text>{{item.content}}</text>
+      </view>
+    </view>
+    <view id="msg-end"></view>
+  </scroll-view>
+
+  <view class="input-bar">
+    <input
+      class="chat-input"
+      value="{{input}}"
+      placeholder="输入消息..."
+      bindinput="onInput"
+      disabled="{{sending}}"
+      confirm-type="send"
+      bindconfirm="handleSend"
+    />
+    <button class="send-btn" bindtap="handleSend" disabled="{{sending || !input}}">发送</button>
+  </view>
+
+  <view class="score-overlay" wx:if="{{showScore && score}}">
+    <view class="score-card">
+      <text class="score-title">训练评分</text>
+      <text class="score-total">{{score.total_score}}</text>
+      <text class="score-label">总分</text>
+      <button class="score-close" bindtap="goBack">返回首页</button>
+    </view>
+  </view>
+</view>

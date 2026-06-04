@@ -1,0 +1,82 @@
+<view class="page">
+  <view class="header">
+    <text class="header-title">虚拟患者训练系统</text>
+    <text class="header-sub">护理病史采集训练平台</text>
+  </view>
+
+  <view class="stats-row">
+    <view class="stat-item">
+      <text class="stat-value">{{totalSessions}}</text>
+      <text class="stat-label">训练次数</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{totalMinutes}}</text>
+      <text class="stat-label">累计分钟</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{avgScore}}</text>
+      <text class="stat-label">平均得分</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">快速开始</view>
+    <view class="action-card" bindtap="goToCases">
+      <view class="action-left">
+        <text class="action-icon">🩺</text>
+        <view>
+          <text class="action-title">开始新训练</text>
+          <text class="action-desc">选择病例，与虚拟患者对话</text>
+        </view>
+      </view>
+      <text class="action-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{recommendedCases.length > 0}}">
+    <view class="section-title">推荐病例</view>
+    <view
+      class="case-row"
+      wx:for="{{recommendedCases}}"
+      wx:key="id"
+      bindtap="goToCases"
+    >
+      <view class="case-badge case-badge-{{item.difficulty}}">
+        {{item.difficulty === 1 ? '★☆☆' : item.difficulty === 2 ? '★★☆' : '★★★'}}
+      </view>
+      <view class="case-info">
+        <text class="case-name">{{item.name}}</text>
+        <text class="case-desc">{{item.description}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{recentRecords.length > 0}}">
+    <view class="section-title">最近训练</view>
+    <view
+      class="record-row"
+      wx:for="{{recentRecords}}"
+      wx:key="id"
+      bindtap="goToRecord"
+      data-id="{{item.id}}"
+    >
+      <view class="record-info">
+        <text class="record-name">{{item.case_name}}</text>
+        <text class="record-time">{{item.timeLabel}}</text>
+      </view>
+      <view class="record-right">
+        <text class="record-score {{item.scoreLabel.color === '#16a34a' ? 'text-green' : item.scoreLabel.color === '#dc2626' ? 'text-red' : 'text-amber'}}" wx:if="{{item.score_total != null}}">
+          {{item.score_total}}分
+        </text>
+        <text class="record-status text-secondary" wx:else>{{item.status === 'in_progress' ? '进行中' : '未评分'}}</text>
+        <text class="record-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && recentRecords.length === 0}}">
+    <text class="empty-icon">📋</text>
+    <text class="empty-text">暂无训练记录</text>
+    <text class="empty-desc">开始你的第一次模拟训练吧</text>
+  </view>
+</view>

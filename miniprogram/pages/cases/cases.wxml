@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="header">病例选择</view>
+
+  <scroll-view class="filter-bar" scroll-x>
+    <view
+      class="filter-chip {{difficulty === 0 ? 'active' : ''}}"
+      bindtap="filterCases"
+      data-difficulty="0"
+    >全部</view>
+    <view
+      class="filter-chip {{difficulty === 1 ? 'active' : ''}}"
+      bindtap="filterCases"
+      data-difficulty="1"
+    >★ 初级</view>
+    <view
+      class="filter-chip {{difficulty === 2 ? 'active' : ''}}"
+      bindtap="filterCases"
+      data-difficulty="2"
+    >★★ 中级</view>
+    <view
+      class="filter-chip {{difficulty === 3 ? 'active' : ''}}"
+      bindtap="filterCases"
+      data-difficulty="3"
+    >★★★ 高级</view>
+  </scroll-view>
+
+  <view class="case-list" wx:if="{{filteredCases.length > 0}}">
+    <view
+      class="case-card"
+      wx:for="{{filteredCases}}"
+      wx:key="id"
+    >
+      <view class="case-badge case-badge-{{item.difficulty}}">
+        {{item.difficulty === 1 ? '★☆☆ 初级' : item.difficulty === 2 ? '★★☆ 中级' : '★★★ 高级'}}
+      </view>
+      <text class="case-name">{{item.name}}</text>
+      <text class="case-desc">{{item.description}}</text>
+      <button
+        class="case-btn"
+        bindtap="startCase"
+        data-id="{{item.id}}"
+        loading="{{starting}}"
+      >开始训练</button>
+    </view>
+  </view>
+
+  <view class="empty" wx:elif="{{!loading}}">
+    <text>暂无病例</text>
+  </view>
+</view>

@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="header">训练记录</view>
+
+  <scroll-view class="filter-bar" scroll-x>
+    <view class="filter-chip {{statusFilter === '' ? 'active' : ''}}" bindtap="filterRecords" data-status="">全部</view>
+    <view class="filter-chip {{statusFilter === 'in_progress' ? 'active' : ''}}" bindtap="filterRecords" data-status="in_progress">进行中</view>
+    <view class="filter-chip {{statusFilter === 'completed' ? 'active' : ''}}" bindtap="filterRecords" data-status="completed">已完成</view>
+  </scroll-view>
+
+  <view class="record-list" wx:if="{{records.length > 0}}">
+    <view
+      class="record-row"
+      wx:for="{{records}}"
+      wx:key="id"
+      bindtap="goToDetail"
+      data-id="{{item.id}}"
+    >
+      <view class="record-info">
+        <text class="record-name">{{item.case_name}}</text>
+        <text class="record-time">{{item.timeLabel}}</text>
+      </view>
+      <view class="record-right">
+        <text
+          wx:if="{{item.scoreLabel}}"
+          class="record-score"
+          style="color: {{item.scoreLabel.color}}"
+        >{{item.score_total}}分 {{item.scoreLabel.label}}</text>
+        <text wx:else class="record-status">{{item.status === 'in_progress' ? '进行中' : '未评分'}}</text>
+        <view class="record-del" wx:if="{{item.status === 'completed'}}" catchtap="handleDelete" data-id="{{item.id}}">×</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:else>
+    <text>📋</text>
+    <text>暂无训练记录</text>
+  </view>
+</view>

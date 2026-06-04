@@ -1,0 +1,23 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/home/home",
+    "pages/cases/cases",
+    "pages/training/training",
+    "pages/history/history",
+    "pages/record-detail/record-detail"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#f5f6f8"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "plugins": {
+    "WechatSI": {
+      "version": "0.3.6",
+      "provider": "wx069ba97219f66d99"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="brand">
+    <view class="brand-icon">🩺</view>
+    <text class="brand-title">虚拟患者训练系统</text>
+    <text class="brand-desc">护理病史采集技能训练平台</text>
+  </view>
+
+  <view class="card">
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+
+    <input
+      class="input"
+      placeholder="用户名"
+      value="{{username}}"
+      bindinput="onUsernameInput"
+      auto-focus
+    />
+    <input
+      class="input"
+      type="password"
+      placeholder="密码"
+      value="{{password}}"
+      bindinput="onPasswordInput"
+    />
+
+    <button class="btn-primary" bindtap="handleLogin" loading="{{loading}}" disabled="{{loading}}">
+      {{loading ? '登录中...' : '登 录'}}
+    </button>
+  </view>
+
+  <text class="footer-text">虚拟患者 · 护理教学平台</text>
+</view>
