@@ -38,7 +38,7 @@ export default function LoginIllustration() {
 
   return (
     <div className="hidden lg:flex lg:w-1/2 items-center justify-center">
-      <div ref={containerRef} className="w-full max-w-lg [&>canvas]:!w-full [&>canvas]:!h-auto" />
+      <div ref={containerRef} className="w-full max-w-md [&>canvas]:!w-full [&>canvas]:!h-auto" />
     </div>
   );
 }
