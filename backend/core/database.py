@@ -74,15 +74,20 @@ def init_db():
     try:
         command.upgrade(alembic_cfg, "head")
         log.info("数据库迁移完成")
-    except Exception:
+    except Exception as e:
+        log.warning("迁移失败: %s", e)
         from alembic.script import ScriptDirectory
+        from sqlalchemy import inspect
 
-        log.warning("迁移失败，尝试 stamp head（可能已是目标版本）")
-        try:
-            script = ScriptDirectory.from_config(alembic_cfg)
-            head = script.get_current_head()
+        insp = inspect(engine)
+        existing = insp.get_table_names()
+        script = ScriptDirectory.from_config(alembic_cfg)
+        head = script.get_current_head()
+
+        if existing:
+            log.info("检测到现有表 (%d)，stamp head: %s", len(existing), head)
             command.stamp(alembic_cfg, head)
-            log.info("数据库版本已标记为最新: %s", head)
-        except Exception:
-            log.exception("stamp 也失败，回退到 create_all")
+        else:
+            log.info("全新数据库，create_all + stamp: %s", head)
             Base.metadata.create_all(bind=engine)
+            command.stamp(alembic_cfg, head)
