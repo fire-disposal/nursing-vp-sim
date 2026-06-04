@@ -1,9 +1,9 @@
 ﻿import { Activity, Stethoscope } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import LoginIllustration from "@/components/LoginIllustration";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
-import LoginIllustration from "@/components/LoginIllustration";
 import useAuthStore from "@/stores/authStore";
 
 export default function Login() {
@@ -32,13 +32,11 @@ export default function Login() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-sky-50">
-      <div className="absolute inset-0 bg-grid-medical animate-rotate-slow" />
+      <div className="absolute inset-0 bg-grid-medical" />
 
-      <div className="absolute size-72 rounded-full bg-blue-400/15 blur-3xl animate-float" style={{ left: "10%", top: "20%" }} />
-      <div className="absolute size-96 rounded-full bg-teal-400/10 blur-3xl animate-float-delayed" style={{ right: "15%", bottom: "15%" }} />
-      <div className="absolute size-60 rounded-full bg-blue-300/10 blur-3xl animate-breathe" style={{ left: "50%", top: "10%" }} />
-      <div className="absolute size-48 rounded-full bg-sky-300/12 blur-2xl animate-float" style={{ left: "25%", bottom: "25%" }} />
-      <div className="absolute size-40 rounded-full bg-indigo-300/8 blur-2xl animate-float-delayed" style={{ right: "30%", top: "40%" }} />
+      <div className="absolute size-72 rounded-full bg-blue-400/12 blur-2xl animate-float" style={{ left: "-5%", top: "15%" }} />
+      <div className="absolute size-96 rounded-full bg-teal-400/8 blur-2xl animate-float-delayed" style={{ right: "-5%", bottom: "5%" }} />
+      <div className="absolute size-64 rounded-full bg-indigo-300/8 blur-2xl animate-breathe" style={{ left: "40%", top: "40%" }} />
 
       <div className="relative z-10 flex w-full max-w-5xl items-center gap-8 px-6 py-10">
         <LoginIllustration />
