@@ -133,6 +133,7 @@ async def send_message_stream(
         async def generate():
             full_reply = ""
             try:
+                log.info("开始 LLM 流式调用: record_id=%d messages=%d", record_id, len(llm_messages))
                 async for chunk in call_llm_stream(
                     llm_messages,
                     purpose="patient_chat",

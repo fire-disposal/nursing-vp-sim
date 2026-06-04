@@ -4,7 +4,10 @@
 五层安全：称谓归一化 → 角色越界 → 诊断泄露 → 教学反馈 → 长回复截断
 """
 
+import logging
 import re
+
+log = logging.getLogger(__name__)
 
 ROLE_LEAK_PATTERNS = [
     "作为护士",
@@ -260,9 +263,10 @@ def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str]]
     if is_long:
         violations.append(f"回复过长: {len(normalized)}字 (上限{LONG_OUTPUT_LIMIT})")
 
-    # 严重越界 → 替换为兜底回复
+    # 严重越界 → 仅记录，不替换回复
     if leak or diag or teach:
-        return get_fallback_reply(), violations
+        log.info("guard_violation: leak=%s diag=%s teach=%s", leak, diag, teach)
+        return normalized, violations
 
     # 仅过长 → 截断
     if is_long:
