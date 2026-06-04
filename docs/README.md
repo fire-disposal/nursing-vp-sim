@@ -19,8 +19,8 @@
 
 ## 当前版本
 
-- **版本**: v2026.05.31
-- **最后更新**: 2026-05-31
+- **版本**: v2026.06.04-5
+- **最后更新**: 2026-06-04
 - **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
 - **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过，Husky 提交规范已启用。
 
@@ -51,7 +51,7 @@
 - **流式对话**：SSE 逐字显示 + 闪烁光标动画，首字延迟 <1s
 - **韧性保护**：Error Boundary 全局异常边界 + beforeunload 离开守卫 + 输入恢复 + 定时器防绕过
 - **安全防护**：速率限制（登录/注册/聊天/问答）、密码强度统一（最低6位）、审计日志（JSON格式，控制台+文件，请求ID追踪）
-- 前后端测试套件（57+ 条测试，覆盖认证/训练/CRUD/组件）
+- 前后端测试套件（61 条测试，覆盖认证/训练/CRUD/组件）
 
 ---
 
@@ -67,12 +67,18 @@
 |------|------|
 | 后端框架 | Python FastAPI (异步) |
 | 数据库 | PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移 |
-| 前端框架 | React 19 + Vite 8 (SPA) |
+| 前端框架 | React 19 + TypeScript + Vite 8 (SPA) |
+| UI 框架 | Tailwind CSS v4 + shadcn/ui (Base UI) |
+| 状态管理 | @tanstack/react-query v5 + zustand v5 |
 | 前端路由 | react-router-dom v7 |
 | 认证 | JWT (python-jose) + bcrypt 密码哈希 |
 | LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义），SSE 流式 |
 | 图表 | recharts (ComposedChart) |
 | 图标 | lucide-react |
+| 图表 | recharts (ComposedChart) |
+| 表单 | react-hook-form + zod |
+| 通知 | sonner |
+| Lint | Biome |
 
 ### 已完成功能 (v1.0 → v1.16)
 
@@ -83,10 +89,9 @@
 - 证据化评分（evidence + reason 可展开）+ 教师复核（逐项修改 + 备注 + 复核徽章）
 - 评分标准版本化（rubrics/nursing_history_v1.json）+ 评分容错
 
-**前端设计系统（14个UI组件）**:
-- v1.14 第一批（6个）: Button, Card, Badge, ConfirmDialog, EmptyState, LoadingState
-- v1.16 第二批（8个）: Tabs, Table, PageHeader, StatCard, Modal, FormField, Toolbar, Drawer
-- tokens.css 完整 CSS 变量体系（色板/间距/字体/圆角/阴影/z-index）
+**前端设计系统 (21 个 UI 组件)**:
+- shadcn/ui (14个): Button, Badge, Card, Dialog, AlertDialog, Tabs, Input, Select, Textarea, Form, Table, DropdownMenu, Separator, Label
+- 自研 (7个): Modal, ConfirmDialog, PageHeader, Pagination, StatCard, FormField, LoadingState, LoadingSkeleton, EmptyState
 
 **页面状态**:
 - 9个路由页面全部使用新设计系统组件
@@ -105,7 +110,7 @@
 - **Prompt 管理**: 数据库模板化，支持变量渲染、版本激活、热重载
 - **DeepSeek 一键添加**: 仅需 API Key，自动配置官方参数
 
-**测试**: 57 条（后端 pytest 40 条 + 前端 Vitest 17 条），全部通过
+**测试**: 61 条（后端 pytest 40 条 + 前端 Vitest 21 条），全部通过
 
 **并发**: 验证可支撑 40 人同时在线训练
 
@@ -113,67 +118,45 @@
 
 ```
 frontend/src/
-├── App.jsx                              # 路由配置 + 权限守卫 + lazy loading
-├── main.jsx                             # React 入口 (含 styles/index.css 导入)
-├── api.js                               # 后端 API 封装
+├── App.tsx                        # 路由 + Providers
+├── main.tsx                       # 入口 (导入 tailwind.css)
+├── api/
+│   ├── api-client.ts              # API 封装
+│   ├── api-types.gen.ts           # OpenAPI 自动生成类型
+│   └── axios-instance.ts          # axios 实例
 ├── pages/
-│   ├── Login.jsx                        # 登录页 (Card/Button 组件)
-│   ├── DashboardHome.jsx                # 仪表盘 (StudentDashboard/TeacherDashboard)
-│   ├── ChatTraining.jsx                 # 训练对话 (SSE 流式 + 采集进度侧栏)
-│   ├── CaseSelect.jsx                   # 病例选择 (难度筛选 + PageHeader)
-│   ├── QA.jsx                           # 护理问答 (PageHeader)
-│   ├── QAHistory.jsx                    # 问答历史 (PageHeader)
-│   ├── Stats.jsx                        # 训练统计 + 排行榜 (PageHeader)
-│   ├── History.jsx                      # 历史记录 (PageHeader)
-│   ├── RecordDetail.jsx                 # 记录详情 + 教师复核 (PageHeader)
-│   └── Admin.jsx                        # 管理后台 (Tabs + 6个Tab组件)
+│   ├── Login.tsx                  # 登录 (渐变背景 + 品牌卡片)
+│   ├── DashboardHome.tsx          # 角色分流仪表盘
+│   ├── ChatTraining.tsx           # 流式对话训练
+│   ├── CaseSelect.tsx             # 病例选择 + 难度筛选
+│   ├── QA.tsx                     # 护理问答
+│   ├── Stats.tsx                  # 训练统计
+│   ├── History.tsx                # 历史记录
+│   ├── RecordDetail.tsx           # 记录详情
+│   └── admin/                     # 教师端页面
 ├── components/
-│   ├── AppShell.jsx                     # 统一侧边栏布局
-│   ├── Layout.jsx                       # → 重导出 AppShell
-│   ├── Toast.jsx                        # Toast 通知系统
-│   ├── Pagination.jsx                   # 统一分页组件
-│   ├── PatientPortrait.jsx              # 患者画像卡片
-│   ├── ScoreCard.jsx                    # 评分结果弹窗（证据化 + 动画）
-│   ├── TrainingDurationChart.jsx        # recharts ComposedChart
-│   ├── ErrorBoundary.jsx                # 全局异常边界
-│   ├── ui/                              # 设计系统组件库 (14个)
-│   │   ├── Button.jsx                   # 统一按钮 (5 variant / 3 size)
-│   │   ├── Card.jsx                     # 卡片
-│   │   ├── Badge.jsx                    # 徽章 (5 variant)
-│   │   ├── ConfirmDialog.jsx            # 确认弹窗 (Context)
-│   │   ├── EmptyState.jsx               # 空状态
-│   │   ├── LoadingState.jsx             # 加载状态
-│   │   ├── Tabs.jsx                     # Tab 导航 (v1.16)
-│   │   ├── Table.jsx                    # 配置化表格 (v1.16)
-│   │   ├── PageHeader.jsx               # 统一页面标题 (v1.16)
-│   │   ├── StatCard.jsx                 # 统计卡片 (v1.16)
-│   │   ├── Modal.jsx                    # 模态框 (v1.16)
-│   │   ├── FormField.jsx                # 表单字段 (v1.16)
-│   │   ├── Toolbar.jsx                  # 工具栏 (v1.16)
-│   │   └── Drawer.jsx                   # 侧滑抽屉 (v1.16)
-│   └── teacher/                         # 教师端 Tab 组件
-│       ├── RecordsTab.jsx               # 训练记录管理
-│       ├── UsersTab.jsx                 # 用户管理
-│       ├── CasesTab.jsx                 # 病例管理
-│       ├── MonitorTab.jsx               # LLM 调用监控
-│       ├── ApiManagementTab.jsx         # API Provider/Key 管理
-│       ├── PromptManagementTab.jsx      # Prompt 模板管理
-│       ├── QARecordsTab.jsx             # 问答历史管理
-│       ├── KeyModal.jsx                 # API Key 编辑弹窗
-│       └── ProviderModal.jsx            # Provider 编辑弹窗
-└── styles/
-    ├── tokens.css                        # CSS 变量体系
-    └── index.css                         # 全局样式
+│   ├── Layout.tsx                 # 响应式侧边栏
+│   ├── Toast.tsx                  # sonner 封装
+│   ├── PatientPortrait.tsx        # 患者信息 + 护理记录
+│   ├── ScoreCard.tsx              # 评分报告
+│   ├── TrainingDurationChart.tsx  # 趋势图
+│   ├── ErrorBoundary.tsx          # 异常边界
+│   ├── FeedbackModal.tsx          # 反馈弹窗
+│   ├── ui/                        # shadcn + 自研组件 (21个)
+│   └── teacher/                   # 教师端 Tab 组件 (13个)
+├── hooks/useVoice.ts              # 语音识别 + TTS
+├── stores/                        # Zustand (auth, gradesClasses, llm)
+├── lib/utils.ts                   # cn() 工具
+└── styles/tailwind.css            # Tailwind + shadcn 主题
 ```
 
 ### 未完成事项
 
 | 优先级 | 事项 | 预估工作量 |
 |--------|------|-----------|
-| Phase 5 | 响应式优化（平板/手机适配） | 2-3h |
+| Phase 5 | 暗色模式切换开关 | 1-2h |
 | 第四梯队 | 断网检测 + 消息重试 + 病例长度校验 + Token刷新 | 1-2h |
 | 第五梯队 | 补齐导出/统计/问答/批量导入/LLM失败路径测试覆盖 (~30条) | 2-3h |
-| 清理 | 删除遗留未使用文件、清理未使用 CSS | 1h |
 
 ### 快速启动
 

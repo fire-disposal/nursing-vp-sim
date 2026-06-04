@@ -1,309 +1,220 @@
 # 04 — 前端设计
 
-> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
+> 适用版本: v2026.06.04-5 | 最后更新: 2026-06-04
 
 ## 技术栈
 
-- React 19 (函数组件 + Hooks)
-- react-router-dom v7 (客户端路由)
-- Vite 8 (构建工具 + 开发服务器，代理超时 120s)
-- axios (HTTP客户端，120s 超时 + 自动重试)
-- recharts (柱状图，仅 TrainingDurationChart 使用)
-- lucide-react (统一图标库，全项目使用)
-- 纯CSS (CSS变量 + 无第三方UI组件库)
+| 技术 | 用途 |
+|------|------|
+| React 19 | 函数组件 + Hooks |
+| TypeScript 5.8 | 类型安全，`strict: true` |
+| Vite 8 | 构建工具 + 开发服务器 |
+| Tailwind CSS v4 | 原子化 CSS 框架，`@tailwindcss/vite` 集成 |
+| shadcn/ui (Base UI) | 组件库 — Button, Card, Dialog, Table, Badge, Tabs, Form 等 |
+| react-router-dom v7 | 客户端路由 |
+| @tanstack/react-query v5 | 服务端状态管理 + 缓存 |
+| zustand v5 | 客户端状态管理 (auth, gradesClasses, llm) |
+| axios | HTTP 客户端，120s 超时 + 自动重试 |
+| sonner | Toast 通知系统 |
+| react-hook-form + zod | 表单状态管理 + 校验 |
+| recharts | 图表 (ComposedChart) |
+| lucide-react | 统一图标库 |
+| react-markdown + remark-gfm | QA 答案 Markdown 渲染 |
+| Biome | 代码格式化 + Lint |
+| Vitest + Testing Library | 单元测试 |
 
-## 路由设计（当前）
+## 项目结构
+
+```
+frontend/src/
+├── App.tsx                    # 路由 + Providers (QueryClient, Toaster, Confirm, Feedback, ErrorBoundary)
+├── main.tsx                   # 入口，导入 tailwind.css
+├── version.ts                 # APP_VERSION 常量
+├── api/
+│   ├── api-client.ts          # 后端 API 封装函数
+│   ├── api-types.gen.ts       # OpenAPI 自动生成类型 (5,616行)
+│   └── axios-instance.ts      # axios 实例 + 拦截器
+├── assets/avatars/            # 10 张患者/护士头像 PNG
+├── components/
+│   ├── ErrorBoundary.tsx      # 类组件全局异常边界
+│   ├── FeedbackModal.tsx      # 用户反馈表单 (5 级表情评分)
+│   ├── FeedbackProvider.tsx   # 反馈弹窗 Context
+│   ├── Layout.tsx             # 主布局 — 响应式侧边栏 + 移动端汉堡菜单
+│   ├── PatientPortrait.tsx    # 患者信息面板 — 头像 + 可编辑护理记录 (localStorage)
+│   ├── ScoreCard.tsx          # 评分报告弹窗 — 总分 + 维度分数 + 证据展开
+│   ├── Toast.tsx              # sonner Toast 封装 (useToast hook)
+│   ├── TrainingDurationChart.tsx  # Recharts 训练趋势图
+│   ├── teacher/               # 教师端 Tab 组件 (13 个)
+│   └── ui/                    # shadcn/ui 组件 + 自研组件 (21 个)
+├── hooks/
+│   └── useVoice.ts            # 语音识别 + TTS 朗读
+├── lib/
+│   └── utils.ts               # cn() — clsx + tailwind-merge
+├── pages/                     # 路由页面 (10 个)
+│   └── admin/                 # 教师端独立页面 (6 个)
+├── stores/                    # Zustand 状态 (3 个)
+├── styles/
+│   └── tailwind.css           # Tailwind 入口 + shadcn 主题变量 + 自定义 tokens
+├── types/                     # 全局类型定义
+└── utils/
+    └── avatar.ts              # 患者/护士头像映射
+```
+
+## 路由设计
 
 | 路径 | 页面 | 权限 | 布局 | 说明 |
 |------|------|------|------|------|
-| /login | Login | 公开 | 居中卡片 | 登录页 |
-| /home | **DashboardHome** | 登录 | Sidebar (Layout) | 首页仪表盘（角色分流） |
-| /cases | CaseSelect | 学生 | Sidebar | 病例选择（难度筛选+星级徽章） |
-| /training/:recordId | **ChatTraining** | 学生 | 独立极简 (training-shell) | 训练对话 |
-| /qa | QA | 登录 | Sidebar | 护理专业问答 |
-| /qa/history | QAHistory | 登录 | Sidebar | 问答历史记录 |
-| /stats | Stats | 登录 | Sidebar | 训练统计 + 排行榜（教师） |
-| /history | History | 登录 | Sidebar | 训练记录列表 + 删除 |
-| /record/:id | RecordDetail | 登录 | Sidebar | 记录详情+对话回放 |
-| /admin | Admin | 教师 | Sidebar | 管理后台（6个Tab） |
-| * | → /login | - | - | 未匹配路由 |
+| `/login` | Login | 公开 | 居中卡片 | 渐变背景 + 品牌卡片 |
+| `/home` | DashboardHome | 登录 | Layout | 角色分流仪表盘 |
+| `/cases` | CaseSelect | 学生 | Layout | 病例选择 + 难度筛选 |
+| `/training/:recordId` | ChatTraining | 学生 | 全屏独立 | 流式对话训练 |
+| `/history` | History | 登录 | Layout | 训练记录列表 |
+| `/record/:id` | RecordDetail | 登录 | Layout | 记录详情 + 评分 |
+| `/qa` | QA | 登录 | Layout | 护理专业问答 |
+| `/stats` | StatsPage | 登录 | Layout | 训练统计图表 |
+| `/admin` | Admin | 教师 | Layout | LLM 管理 Tabs |
+| `/admin/llm` | LLMManagementPage | 教师 | Layout | API/Prompt/评分标准 |
+| `/admin/cases` | CasesPage | 教师 | Layout | 病例管理 |
+| `/admin/users` | UsersPage | 教师 | Layout | 用户管理 |
+| `/admin/users/:userId` | UserDetailPage | 教师 | Layout | 用户详情 |
+| `/admin/grades-classes` | GradesClassesPage | 教师 | Layout | 年级班级管理 |
+| `/admin/feedback` | FeedbackPage | 教师 | Layout | 反馈管理 |
+| `*` | → `/login` | - | - | 未匹配路由 |
 
-## 组件树（当前在用）
+## 设计系统
 
-```
-App
-├── ConfirmProvider                 ★ 全局确认弹窗 (Context)
-├── ToastProvider                   ★ 全局通知系统 (Context)
-├── ErrorBoundary                   ★ 全局异常边界
-├── Login                           ★ (使用 Card/Button 组件)
-├── DashboardHome                   ★ 首页仪表盘 (StudentDashboard/TeacherDashboard)
-│   ├── PageHeader                  ★ 页面标题
-│   ├── StatCard ×5                 ★ 教师仪表盘统计卡片
-│   │   └── Tabs                        ★ 角色分流
-├── ChatTraining                    ★ 训练页（独立布局 + 倒计时 + 语音 + 采集进度侧栏）
-│   ├── ScoreCard                   ★ 评分弹窗（证据化 + 动画）
-│   └── InquirySidebar              ★ 采集进度侧栏（关键词匹配，不调LLM）
-├── CaseSelect                      ★ 病例选择（难度筛选 + 星级徽章 + PageHeader）
-├── QA                              ★ 护理问答 (PageHeader)
-├── QAHistory                       ★ 问答历史 (PageHeader + Pagination)
-├── Stats                           ★ 训练统计 + 学生排行榜 (PageHeader)
-├── History                         ★ 训练记录（含时长/删除，PageHeader + ConfirmDialog + Pagination）
-├── RecordDetail                    ★ (教师复核UI: ReviewEditor + Badge + PageHeader)
-│   ├── ScoreCard
-│   └── ReviewEditor                ★ 教师复核编辑器（逐项修改分数 + 复核备注）
-├── Admin                           ★ 管理后台（Tabs + 6个Tab组件，v2026.05.31 扩展）
-│   ├── Tabs                        ★ Tab 导航
-│   ├── RecordsTab                  ★ 训练记录管理
-│   ├── UsersTab                    ★ 用户管理
-│   ├── CasesTab                    ★ 病例管理
-│   ├── MonitorTab                  ★ LLM 调用监控
-│   ├── ApiManagementTab            ★ API Provider/Key 管理 (v2026.05.31)
-│   │   ├── KeyModal                ★ Key 添加/编辑弹窗
-│   │   └── ProviderModal           ★ Provider 添加/编辑弹窗
-│   ├── PromptManagementTab         ★ Prompt 模板管理 (v2026.05.31)
-│   └── QARecordsTab                ★ 问答历史管理 (v2026.05.30)
-│
-└── Layout / AppShell               ★ Layout 重导出 AppShell
-    └── (Sidebar + MainContent)
+### 颜色令牌 (shadcn 主题)
 
-新增专项组件:
-├── Pagination                      ★ 统一分页组件（页码 + 前后翻页 + 信息文本）
-├── PatientPortrait                 ★ 患者画像卡片（姓名/年龄/性别/主诉，训练页显示）
+所有颜色通过 CSS 自定义属性定义，支持暗色模式：
 
-UI 组件库 (14个):
-第一批 (6个):
-├── ui/Button        ★ 统一按钮（variant/size/loading/icon）
-├── ui/Card          ★ 统一卡片（title/titleIcon/actions）
-├── ui/Badge         ★ 徽章（success/info/warning/danger/neutral）
-├── ui/ConfirmDialog ★ 确认弹窗（Context驱动，Promise<boolean>）
-├── ui/EmptyState    ★ 空状态占位
-└── ui/LoadingState  ★ 加载状态（spinner + message）
-第二批 (8个):
-├── ui/Tabs          ★ Tab 导航（icon + label + count badge）
-├── ui/Table         ★ 配置化表格（columns + rowKey + empty + hover）
-├── ui/PageHeader    ★ 统一页面标题（title + subtitle + icon + actions + back）
-├── ui/StatCard      ★ 统计卡片（icon 44×44 + value + label + 5色主题 + trend）
-├── ui/Modal         ★ 模态框（overlay关闭 + ESC关闭 + body锁滚动 + title/footer）
-├── ui/FormField     ★ 表单字段封装（Input + Select + Textarea）
-├── ui/Toolbar       ★ 工具栏布局（ToolbarLeft + ToolbarRight）
-└── ui/Drawer        ★ 侧滑抽屉（left/right + 滑入动画 + overlay）
-```
+| Token | 浅色值 | 用途 |
+|-------|--------|------|
+| `--primary` | `#2563eb` (blue-600) | 主色 — 按钮、链接、激活态 |
+| `--background` | `#f5f6f8` | 页面背景 |
+| `--foreground` | `#111827` | 主文字 |
+| `--card` | `#ffffff` | 卡片背景 |
+| `--muted` | `#f3f4f6` | 次级背景 |
+| `--muted-foreground` | `#6b7280` | 次级文字 |
+| `--border` | `#e5e7eb` | 边框 |
+| `--destructive` | `#dc2626` | 危险操作 |
+| `--ring` | `#2563eb` | 聚焦环 |
 
-## 布局详解
+### UI 组件库
 
-### 1. Sidebar 布局（AppShell/Layout 组件）
+**shadcn/ui (基于 Base UI):**
+| 组件 | 文件 |
+|------|------|
+| Button | `button.tsx` — variant: default/outline/secondary/ghost/destructive/link, size: xs/sm/default/lg/icon |
+| Badge | `badge.tsx` — variant: default/secondary/destructive/outline + 兼容旧 success/info/warning/danger/neutral |
+| Card | `card.tsx` — Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter |
+| Dialog | `dialog.tsx` — 模态框，含 overlay + 动画 |
+| AlertDialog | `alert-dialog.tsx` — 确认弹窗 |
+| Tabs | `tabs.tsx` — 包含 LegacyTabs 兼容包装器 |
+| Input / Select / Textarea | `input.tsx`, `select.tsx`, `textarea.tsx` |
+| Form | `form.tsx` — react-hook-form 集成 (Form, FormField, FormItem, FormLabel, FormControl, FormMessage) |
+| Table | `table.tsx` — Table, TableHeader, TableBody, TableRow, TableHead, TableCell |
+| DropdownMenu | `dropdown-menu.tsx` |
+| Separator | `separator.tsx` |
+| Sonner | `sonner.tsx` — Toaster 组件 |
+| Label | `label.tsx` |
 
-所有页面（DashboardHome、CaseSelect、QA、QAHistory、Stats、History、RecordDetail、Admin）均使用 AppShell 布局。Layout.jsx 保留作为重导出包装器，向后兼容。
-
-```
-┌────────────┬────────────────────────────────┐
-│  Sidebar   │       Main Content            │
-│  200px宽   │                               │
-│  深色背景  │  页面标题                      │
-│            │                               │
-│  导航菜单  │  页面主体                      │
-│            │                               │
-│  用户信息  │                               │
-└────────────┴────────────────────────────────┘
-```
-
-- 侧边栏固定定位，深灰(#111827)背景
-- 主内容区左边距200px，浅灰(#f5f6f8)背景
-
-### 2. Training 布局（训练页 + 采集进度侧栏）
-
-```
-┌──────────────────────────────────────────────────────────┐
-│ [←返回] (头像) 患者姓名 · 病例名 [采集3/5] ⏱ [结束训练] │
-├──────────────────────────────────────────────────────────┤
-│                                              ┌─采集进度─┐│
-│              患者：我叫王建国...              │████░░ 60% ││
-│                                              │✓ 起病时间 ││
-│                    学生：您哪里不舒服？       │✓ 疼痛部位 ││
-│                                              │○ 既往用药 ││
-│              患者：我这两天喘不上来气...     │○ 过敏史   ││
-│                                              │○ 生活方式 ││
-├──────────────────────────────────────────────────────────┤
-│ [🎤语音] [_______________输入框__________________] [→发送]│
-└──────────────────────────────────────────────────────────┘
-```
-
-- **全屏布局**：100vh，无侧栏无多余面板
-- **顶部窄条**：56px，返回+患者信息+结束训练
-- **对话区**：max-width 800px居中
-- **输入栏**：语音按钮+输入框+发送按钮
-- **消息**：学生蓝色靠右，患者白色(带边框)靠左，hover显示朗读按钮
-
-## DashboardHome 关键交互 (商业级布局)
-
-DashboardHome 按角色分流为两个独立函数组件，使用 PageHeader + Layout：
-
-### 教师仪表盘（TeacherDashboard）
-1. **PageHeader**: title="教师工作台", subtitle 含日期和欢迎语
-2. **5 个 StatCard**: 学生总数 / 总训练次数 / 已完成训练 / 平均得分 / 通过率，各具独立颜色主题和图标
-3. **训练投入趋势图**: TrainingDurationChart ComposedChart（次数+时长双柱，日/周/月切换）
-4. **2 列布局**: 左栏（最近训练动态列表，含学生名/病例/状态/得分/详情链接）+ 右栏（快捷操作按钮 + 数据概览）
-
-### 学生仪表盘（StudentDashboard）
-1. **PageHeader**: title="学生工作台", subtitle 含日期和欢迎语
-2. **状态栏**: 训练总次数 / 已完成 / 累计分钟 / 进行中(可点击继续) / 最新得分
-3. **2 列布局 (65/35)**:
-   - **左栏**: 训练 Hero 卡片（开始训练按钮 + 已选病例标签）+ 推荐病例列表 + 最近训练记录
-   - **右栏**: 最新反馈卡片 + 快速提问（3个示例标签→跳转QA）+ 周统计摘要
-4. **难度分布**: 病例卡片以颜色区分难度级别（绿色初级/橙色中级/红色高级）
-
-## ChatTraining 关键交互
-
-1. **发送消息**: Enter键发送，支持语音输入（Web Speech API）
-2. **语音朗读**: hover患者消息时显示朗读按钮（Web Speech Synthesis）
-3. **倒计时器**: 从病例 time_limit 倒计时，<5分钟琥珀色，<2分钟红色，归零自动结束训练并评分
-4. **采集进度侧栏**: 工具栏按钮显示已覆盖/总问询数，点击打开侧边面板；客户端中文 bigram 关键词匹配 `required_inquiries`，不调 LLM，不泄露病例答案；包含进度条和逐项完成/未完成状态
-5. **结束训练**: 自定义 ConfirmDialog 确认后调用API结束并触发自动评分；倒计时归零自动触发
-6. **返回首页**: 左上角箭头返回 DashboardHome（训练进行中有 beforeunload + ConfirmDialog 离开守卫）
-
-## 设计系统（tokens.css 变量体系）
-
-设计 tokens 集中在 `styles/tokens.css`，从 `index.css` 通过 `@import` 引入：
-
-- **完整色板**: blue/teal/green/amber/red/gray 各 50-900
-- **语义 Token**: `--color-primary`, `--color-success`, `--color-warning`, `--color-danger`, `--color-info`
-- **间距系统**: 4px 基础单位 (4-48px, 8px步进)
-- **字体层级**: text-xs(0.7rem) → text-3xl(1.5rem)
-- **圆角**: radius-sm(6px), md(8px), lg(12px), xl(16px)
-- **阴影**: shadow-sm/md/lg
-- **z-index**: z-sidebar(100), z-modal(1000), z-toast(2000)
-- **向后兼容别名**: `--primary`, `--text`, `--text-secondary`, `--text-light` 等旧变量名保留
-
-### 14 个 UI 组件
-
-**第一批（6个）:**
-| 组件 | 路径 | 用途 |
+**自研组件:**
+| 组件 | 文件 | 用途 |
 |------|------|------|
-| Button | `ui/Button.jsx` | variant(5种)/size(3种)/icon/loading/disabled |
-| Card | `ui/Card.jsx` | title/titleIcon/actions/children |
-| Badge | `ui/Badge.jsx` | variant(5种): success/info/warning/danger/neutral |
-| ConfirmDialog | `ui/ConfirmDialog.jsx` | Context驱动，`useConfirm().confirm()` 返回 Promise<boolean> |
-| EmptyState | `ui/EmptyState.jsx` | icon/title/description/action |
-| LoadingState | `ui/LoadingState.jsx` | spinner + message |
+| Modal | `Modal.tsx` | 基于 shadcn Dialog 的兼容包装器 |
+| ConfirmDialog | `ConfirmDialog.tsx` | 基于 shadcn AlertDialog 的 Context 驱动确认弹窗 |
+| PageHeader | `PageHeader.tsx` | 页面标题 (title + subtitle + icon + actions + back) |
+| Pagination | `Pagination.tsx` | 分页组件 |
+| StatCard | `StatCard.tsx` | 统计卡片 (5 色主题 + trend) |
+| FormField | `FormField.tsx` | 表单字段封装 (label + error + help) |
+| LoadingState | `LoadingState.tsx` | 加载指示器 |
+| LoadingSkeleton | `LoadingSkeleton.tsx` | 骨架屏 (card/stats/table/text 变体) |
+| EmptyState | `EmptyState.tsx` | 空状态占位 (icon + title + description + action) |
 
-**第二批（8个）:**
-| 组件 | 路径 | 用途 |
-|------|------|------|
-| Tabs | `ui/Tabs.jsx` | Tab导航（icon + label + count badge），支持 activeTab/onChange |
-| Table | `ui/Table.jsx` | 配置化表格（columns数组 + rowKey + empty插槽 + hover效果 + onRowClick） |
-| PageHeader | `ui/PageHeader.jsx` | 统一页面标题（title + subtitle + icon + actions + back导航） |
-| StatCard | `ui/StatCard.jsx` | 统计卡片（icon 44×44彩色 + value + label + 5色主题 + trend指示器）|
-| Modal | `ui/Modal.jsx` | 模态框（overlay关闭 + ESC关闭 + body锁滚动 + title/footer插槽 + maxWidth）|
-| FormField | `ui/FormField.jsx` | 表单字段封装（label + Input/Select/Textarea + focus/blur样式）|
-| Toolbar | `ui/Toolbar.jsx` | 工具栏布局（ToolbarLeft + ToolbarRight 插槽）|
-| Drawer | `ui/Drawer.jsx` | 侧滑抽屉（left/right position + 滑入动画 + overlay关闭）|
+## 布局系统
 
-## 已清理的遗留文件
+### Sidebar 布局 (Layout 组件)
 
-- 删除 9 个遗留文件：`Avatar.jsx`, `ChatBubble.jsx`, `VoiceButton.jsx`, `TrainingMainPanel.jsx`, `FeatureCard.jsx`, `CaseLibraryPanel.jsx`, `FeedbackPreviewCard.jsx`, `QuestionQuickAskCard.jsx`, `Home.jsx`
-- 删除 `Header.jsx`（零引用死代码），~103 行孤儿 CSS（`.dash-*`, `.header-*`）
+```
+┌──────────┬──────────────────────────────────────┐
+│ Sidebar  │  Main Content                        │
+│ w-60     │  ml-60                               │
+│ 浅色背景 │  p-4 sm:p-6 lg:p-8                   │
+│ 导航菜单 │  页面内容                             │
+│ 用户信息 │                                       │
+└──────────┴──────────────────────────────────────┘
+```
 
-## 数据接入说明
+- 侧边栏固定定位，`bg-card` 浅色背景
+- 移动端 `translate-x` 抽屉式滑入，汉堡菜单按钮
+- 激活项 `bg-primary/10 text-primary` 高亮
+- 底部用户信息块 + 关于/退出按钮
 
-`DashboardHome.jsx` 已接入真实训练记录：
+### Training 全屏布局 (ChatTraining)
 
-- 病例库：`GET /api/cases`（5个病例，含 difficulty 字段，用于难度分布统计：初级1/中级2/高级2）
-- 状态栏：`GET /api/training/records` + `GET /api/stats/duration`
-- 训练统计：`TrainingDurationChart.jsx` 调用 `GET /api/stats/trends`
-- 快速提问：跳转 `/qa?q=...`
+```
+┌─────────────────────────────────────────────────┐
+│ [←] (头像) 患者名 · 病例名  ⏱计时 [进度] [朗读] [结束] │
+├─────────────────────────────────────────────────┤
+│                 对话消息区                       │
+│         学生蓝色靠右 · 患者白色靠左              │
+├─────────────────────────────────────────────────┤
+│ [🎤语音] [____________输入框____________] [→发送] │
+└─────────────────────────────────────────────────┘
+```
 
-仍保留的 mock/示例内容只有 Dashboard 快速提问的三个示例标签。
+- `h-dvh` 全屏，顶栏 `flex-wrap` 移动端自动换行
+- 移动端安全区 `env(safe-area-inset-top)` 适配刘海屏
+- 左侧可折叠患者信息面板 (300px，护理记录可编辑)
+- 右侧采集进度侧栏 (fixed drawer)
+- 评分弹窗 `backdrop-blur` 毛玻璃效果
 
-## CaseSelect 病例选择 (难度分级)
+## 状态管理
 
-- **难度筛选器**: 顶部横向 chip 按钮（全部 / 初级 / 中级 / 高级），点击筛选
-- **星级徽章**: 每张病例卡右上角显示难度（★☆☆ 初级 / ★★☆ 中级 / ★★★ 高级），颜色编码
-- **主诉预览**: 引用块显示患者主诉，蓝色左边框
-- **面包屑**: 「← 返回工作台」返回 DashboardHome
-- 数据来源：`GET /api/cases`（含 `difficulty` 字段）
+| 工具 | 用途 |
+|------|------|
+| `@tanstack/react-query` | 服务端数据获取 + 缓存 + 自动刷新 (staleTime: 30s) |
+| `zustand` | 客户端状态 — authStore (登录/用户), gradesClassesStore (年级班级 CRUD), llmStore (Tab 状态) |
+| `sonner` | 全局 Toast 通知 |
+| `useVoice` | 语音识别 + TTS 朗读 (Web Speech API) |
 
-## Admin 管理后台 (v2026.05.31 扩展为 6 Tab)
+## 语音系统
 
-Admin 从单一 1150 行文件重构为 Tabs 容器（~40行）+ 6 个独立 Tab 组件：
+| 功能 | 实现 |
+|------|------|
+| 语音输入 | Web Speech Recognition API，zh-CN |
+| 自动朗读 | Web Speech Synthesis API，年龄感知语速/音调/停顿 |
+| 默认状态 | 首次访问默认开启 (`localStorage` 无值时返回 true) |
+| 首条招呼 | 训练开始自动朗读患者首条消息 |
+| 流式朗读 | 按句子切分，句间自动停顿 |
 
-### 训练记录 Tab（RecordsTab.jsx，默认）
-- 多维过滤栏：学生姓名（模糊搜索）、病例下拉、状态选择、日期范围（起/止）、清除过滤
-- 表格：学生、学号、病例、状态(Badge)、开始时间、时长、得分(颜色编码: 85+/70+/60+)、操作（查看详情 + 删除）
-- CSV 导出按钮 + 记录总数显示
-- 删除使用 ConfirmDialog 确认弹窗
+## 护理记录 (PatientPortrait)
 
-### 用户管理 Tab（UsersTab.jsx）
-- 注册新用户表单（可折叠，含用户名/密码/角色/姓名/学号）
-- 用户列表：用户名、姓名、角色(Badge)、学号、注册时间、操作（编辑 + 删除）
-- 编辑弹窗使用 Modal 组件（姓名/学号/角色/新密码）
-- 批量导入弹窗使用 Modal 组件：粘贴文本或上传 CSV，密码脱敏预览
-- 删除保护：不能删除自己
+训练页患者面板内嵌可编辑护理记录：
 
-### 病例管理 Tab（CasesTab.jsx）
-- 病例列表：名称、患者、主诉、时限(Badge)、训练次数、操作
-- 添加/编辑弹窗使用 Modal 组件（4 个 fieldset + JSON 导入）
-- 删除保护：有训练记录时禁用删除按钮
+| 字段 | 说明 |
+|------|------|
+| 主诉 | 患者主要不适及持续时间 |
+| 现病史 | 起病情况、症状特点、伴随症状、诊治经过 |
+| 既往史 | 既往疾病、手术、过敏、输血史 |
+| 个人史 | 出生地、职业、生活习惯、婚育史 |
+| 家族史 | 家族成员健康及遗传病史 |
 
-### LLM 调用监控 Tab（MonitorTab.jsx）
-- 统计卡片：今日调用次数 + 今日费用 + 7天调用次数 + 7天费用
-- 每日趋势柱状图（近7天/近30天切换）
-- 按用途分布表格 + 调用日志表格（支持分页和过滤）
-
-### API 管理 Tab（ApiManagementTab.jsx，v2026.05.31 新增）
-- **Provider 管理**: 列表展示所有 Provider（名称/地址/类型/Key数量/状态）+ 添加/编辑 Provider Modal
-- **Key 管理**: 展开 Provider 查看关联 Key 列表（模型/优先级/权重/用量/费用/健康状态）
-- **Key 操作**: 添加 Key Modal（含定价、熔断参数）+ 连通性测试按钮 + 编辑/删除
-- **DeepSeek 一键添加**: 仅填写 API Key，自动拉取官方默认参数
-- Provider 删除保护：有 Key 的 Provider 提示先删除 Key
-
-### Prompt 管理 Tab（PromptManagementTab.jsx，v2026.05.31 新增）
-- 模板列表：名称、用途(Badge)、版本、激活状态、更新时间
-- 创建/编辑 Modal：名称、用途(chat/scoring/qa/guard)、模板内容（含 `{变量}` 提示）、说明
-- 版本管理：编辑自动版本号+1，旧版自动停用；支持手动激活任一版本
-- 删除保护：激活版本不可删除
-
-### 问答历史 Tab（QARecordsTab.jsx，v2026.05.30 新增）
-- 所有用户的问答记录列表，支持按用户名搜索
-- 表格：用户名、问题（截断）、回答（截断）、时间、操作（删除）
-- 使用 Pagination 统一分页
+- 纯前端实现，`localStorage` 按患者名称隔离存储
+- 输入 800ms 防抖自动保存
+- focus 时蓝色边框高亮，未保存提示
 
 ## 韧性特性
 
-### AbortController 请求取消
-- `ChatTraining.jsx`：组件卸载或用户离开页面时自动取消进行中的 LLM 请求
-- 快速连续发送消息时取消上一次未完成的请求
-- 取消的请求不再弹错误提示
+- **ErrorBoundary**: 全局异常边界，可展开堆栈详情，重试/刷新按钮
+- **AbortController**: 组件卸载时取消进行中 LLM 请求
+- **axios 重试**: 网络错误/超时自动重试 1 次（不重试 4xx）
+- **beforeunload 守卫**: 训练进行中关闭页面弹出确认
+- **Lazy Loading**: 所有路由页面 `React.lazy()` + Suspense 加载指示器
+- **超时配置**: axios 120s，Vite proxy 120s（匹配 LLM 评分耗时）
 
-### Axios 自动重试
-- `api.js` 响应拦截器：网络错误、超时 (ECONNABORTED)、ERR_NETWORK、5xx 自动重试 1 次
-- 重试延迟 1 秒，不重试 4xx 客户端错误
-- 4xx 错误（如 401）直接跳转登录页，不重试
+## 测试
 
-### 超时配置
-- axios 默认超时：120 秒（匹配 LLM 评分长耗时）
-- Vite dev proxy 超时：120 秒
-- 前端 build 后无代理超时问题
-
-### 加载/错误状态
-- `History.jsx`：加载中显示 spinner 动画，错误时显示错误信息和"重试"按钮
-- CSS 新增 `@keyframes spin` 动画和 `.spin` 工具类
-
-### 请求取消函数签名
-- `sendMessage(recordId, content, signal)` — 接受 AbortController.signal
-- `endTraining(recordId, signal)` — 同上
-
-## Toast 通知系统
-
-`components/Toast.jsx` — 基于 React Context 的全局通知：
-
-- `ToastProvider` 包裹 App 根组件，`useToast()` hook 提供便捷方法
-- 4 种类型：`toast.success(msg)` / `toast.error(msg)` / `toast.warning(msg)` / `toast.info(msg)`
-- error 6秒消失，warning 5秒，其他 4秒，可手动点击 X 关闭
-- 最多同时 5 个，超出的排队等待
-- CSS 动画：滑入 + 进度条收缩
-
-## 前端测试
-
-- 框架: Vitest 4.1 + @testing-library/react 16 + jsdom
-- 3 个测试文件，17 条测试用例
-- 运行: `npx vitest run`
+- 框架: Vitest 4 + @testing-library/react 16 + jsdom
+- 5 个测试文件，21 条用例
+- 覆盖: Toast, ConfirmDialog, authStore, axios-instance, stores

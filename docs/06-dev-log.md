@@ -1044,3 +1044,52 @@
 - SECURITY-AUDIT 精简（12→6 项待处理）
 
 **EmoGuard 优化:** Gunicorn 3→1 worker, Celery solo pool + embedded beat, -53% 内存（741→352 MB）
+
+---
+
+### v2.0 — 前端 UI 全面革新 (2026-06-04)
+
+**组件库迁移: Tailwind CSS v4 + shadcn/ui**
+- 从"纯 CSS (2686行) + 大量内联 style + 14 手写组件"迁移到 Tailwind + shadcn/ui
+- 新增依赖: `tailwindcss`, `@tailwindcss/vite`, `shadcn/ui` (Base UI), `sonner`, `react-hook-form`, `zod`, `clsx`, `tailwind-merge`, `class-variance-authority`
+- 删除旧 `index.css` 引用，全局样式精简至 `tailwind.css` (135行)
+
+**组件替换:**
+- Button → shadcn Button (5→6 variant，新增 link/destructive；size 扩展为 xs/sm/default/lg/icon)
+- Badge → shadcn Badge (兼容旧 variant 别名)
+- Modal → shadcn Dialog (Base UI 动画 + 键盘导航)
+- ConfirmDialog → shadcn AlertDialog (保持 `useConfirm()` Promise API)
+- Tabs → shadcn Tabs (保留 LegacyTabs 兼容包装)
+- FormField → shadcn Form + react-hook-form (校验集成)
+- Toast → sonner (更丰富动画、暗色模式、无限通知)
+- Pagination, StatCard, PageHeader, LoadingState, ErrorBoundary → Tailwind 重写
+
+**新增组件:**
+- `LoadingSkeleton` — 骨架屏 (card/stats/table/text 四变体)
+- `EmptyState` — 统一空状态组件 (icon + title + description + action)，替换 15 处手写空态
+- `Card`, `Table`, `Input`, `Select`, `Textarea`, `DropdownMenu`, `Separator` — shadcn 标准组件
+
+**页面重设计:**
+- Login: 渐变背景 + 品牌卡片，stethoscope 图标
+- Layout: 浅色侧边栏 w-60，移动端 translate-x 抽屉，用户头像圆形徽标
+- ChatTraining: 响应式气泡、flex-wrap 顶栏自动换行、安全区适配 `env(safe-area-inset-top)`
+- DashboardHome: StatCard 网格 + Card 容器 + Table 粘性表头 + Skeleton 加载
+- 全部 Teacher/Admin 组件: 颜色令牌统一 (bg-white→bg-card, border-gray-200→border-border)，shadow-sm 阴影，sticky 表头
+
+**UX 增强:**
+- 语音默认开启自动朗读 (localStorage 无值时 true)，首条招呼自动朗读
+- 训练顶栏移动端 flex-wrap 换行，按钮高度统一 h-8
+- 患者面板护理记录: 5 字段可编辑 textarea，localStorage 实时保存，focus 高亮
+- 弹出动画修复: 移除 zoom-out 关闭动画，slide 限定 open 态，避免跳变
+- 移动端安全区 `viewport-fit=cover` 适配刘海屏
+
+**风格一致性:**
+- 全站颜色令牌统一，消除 182 处 `border-gray-200` + 60+ `bg-white`
+- 24 处 `font-[inherit]` 冗余移除
+- 间距标准化: `py-[7px]`→`py-1.5`, `h-[42px]`→`h-10`
+- 25+ raw `<button>` → `<Button>` 组件替换
+- 10 张表加 sticky header
+
+**类型系统:**
+- TypeScript strict mode, `@/` 路径别名
+- OpenAPI 自动生成 `api-types.gen.ts` (5,616 行)
