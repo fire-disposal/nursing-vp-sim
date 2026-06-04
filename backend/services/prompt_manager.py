@@ -4,7 +4,15 @@ import asyncio
 import logging
 import re
 
-from prompts import CASE_GENERATION_SYSTEM, PATIENT_CHAT_SYSTEM, QA_SYSTEM, SCORING_SYSTEM, SCORING_USER
+from prompts import (
+    CASE_GENERATION_SYSTEM,
+    PATIENT_CHAT_SYSTEM,
+    QA_SYSTEM,
+    SCORING_FEEDBACK_SYSTEM,
+    SCORING_FEEDBACK_USER,
+    SCORING_SYSTEM,
+    SCORING_USER,
+)
 
 log = logging.getLogger(__name__)
 
@@ -149,6 +157,8 @@ def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
         return PromptTemplateObj(0, "patient_chat", 0, PATIENT_CHAT_SYSTEM, None)
     if purpose == "scoring":
         return PromptTemplateObj(0, "scoring", 0, SCORING_SYSTEM, SCORING_USER)
+    if purpose == "scoring_feedback":
+        return PromptTemplateObj(0, "scoring_feedback", 0, SCORING_FEEDBACK_SYSTEM, SCORING_FEEDBACK_USER)
     if purpose == "case_generation":
         return PromptTemplateObj(0, "case_generation", 0, CASE_GENERATION_SYSTEM, None)
     raise ValueError(f"Unknown prompt purpose: {purpose}")

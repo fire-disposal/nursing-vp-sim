@@ -20,6 +20,7 @@ from schemas import (
 )
 from services.llm_service import call_llm
 from services.pagination import paginate
+from services.qa_cache import get_qa_cache
 from services.qa_service import build_qa_history
 
 log = logging.getLogger(__name__)
@@ -58,6 +59,24 @@ async def create_session(
     db.add(user_msg)
     db.commit()
 
+    qa_cache = get_qa_cache()
+    cached = await qa_cache.get(req.question)
+    if cached is not None:
+        assistant_msg = QARecord(
+            session_id=session.id,
+            user_id=current_user.id,
+            role="assistant",
+            content=cached,
+        )
+        db.add(assistant_msg)
+        session.updated_at = func.now()
+        db.commit()
+        log.info(
+            f"QA缓存命中: session_id={session.id}",
+            extra={"user_id": current_user.id},
+        )
+        return QAAskResponse(session_id=session.id, answer=cached)
+
     try:
         pm = request.app.state.prompt_manager
         tmpl = await pm.get("qa")
@@ -94,6 +113,8 @@ async def create_session(
     db.add(assistant_msg)
     session.updated_at = func.now()
     db.commit()
+
+    await qa_cache.set(req.question, answer)
 
     log.info(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",

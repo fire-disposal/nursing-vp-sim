@@ -2,6 +2,7 @@ import asyncio
 import json
 import random
 import re
+import threading
 import time
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -16,14 +17,20 @@ def _backoff(attempt: int) -> float:
 
 
 class _SemaPool:
+    """LLM 并发限制信号量 —— 使用 threading.Semaphore 支持跨事件循环安全。
+
+    asyncio.Semaphore 依赖 asyncio.Future，绑定到创建它的事件循环。
+    背景评分线程通过 asyncio.run() 运行在独立事件循环中，若共享 asyncio.Semaphore
+    会导致跨事件循环的 Future 唤醒失败。threading.Semaphore 天然跨线程/跨循环安全。
+    """
+
     def __init__(self):
-        self._semaphore = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
+        self._semaphore = threading.Semaphore(LLM_CONCURRENT_LIMIT)
 
     @asynccontextmanager
     async def acquire(self, timeout: float = 30):
-        try:
-            await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
-        except TimeoutError:
+        acquired = await asyncio.to_thread(self._semaphore.acquire, timeout=timeout)
+        if not acquired:
             raise RuntimeError("LLM 服务繁忙，请稍后重试") from None
         try:
             yield

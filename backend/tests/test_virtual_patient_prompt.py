@@ -99,3 +99,17 @@ class TestBuildPatientChatMessages:
         assert len(msgs) == 2
         assert msgs[0]["role"] == "system"
         assert msgs[1] == {"role": "user", "content": "hello"}
+
+    def test_cache_split_on_patient_marker(self):
+        prompt = "静态规则内容\n\n## 患者资料\n张三，45岁，男\n主诉：咳嗽\n\n## 可透露的隐藏信息\n暂无"
+        msgs = build_patient_chat_messages(prompt, [], "你好")
+        assert len(msgs) == 3
+        assert msgs[0] == {"role": "system", "content": "静态规则内容"}
+        assert msgs[1] == {"role": "system", "content": "## 患者资料\n张三，45岁，男\n主诉：咳嗽\n\n## 可透露的隐藏信息\n暂无"}
+        assert msgs[2] == {"role": "user", "content": "你好"}
+
+    def test_no_split_without_marker(self):
+        prompt = "一个普通的系统提示词，没有患者资料标记"
+        msgs = build_patient_chat_messages(prompt, [], "你好")
+        assert len(msgs) == 2
+        assert msgs[0] == {"role": "system", "content": prompt}

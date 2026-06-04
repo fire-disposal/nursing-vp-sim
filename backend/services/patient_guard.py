@@ -6,6 +6,8 @@
 import logging
 import re
 
+import httpx
+
 log = logging.getLogger(__name__)
 
 ROLE_LEAK_PATTERNS = [
@@ -132,7 +134,7 @@ async def correct_via_llm(original: str, violations: list[str], client, router, 
         if result != original:
             log.info("guard LLM 修正完成: before=%d after=%d", len(original), len(result))
         return result
-    except Exception:
+    except (RuntimeError, httpx.HTTPError, OSError, ValueError, KeyError):
         log.exception("guard LLM 修正失败，回退原文")
         return original
 

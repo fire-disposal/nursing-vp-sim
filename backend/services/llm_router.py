@@ -221,8 +221,9 @@ class ProfileRouter:
 
         profile.call_count_today = (profile.call_count_today or 0) + 1
         profile.total_tokens_today = (profile.total_tokens_today or 0) + tokens
-        avg_price = (float(profile.price_input_per_1m or 0) + float(profile.price_output_per_1m or 0)) / 2
-        cost = avg_price * tokens / 1_000_000
+        pi = float(profile.price_input_per_1m or 0)
+        po = float(profile.price_output_per_1m or 0)
+        cost = (pi * 0.7 + po * 0.3) * tokens / 1_000_000
         profile.total_cost_today = float(profile.total_cost_today or 0) + cost
         profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + cost
         profile.last_used_at = datetime.now(UTC)

@@ -14,8 +14,15 @@ type Schemas = components["schemas"];
 type PromptTemplateResponse = Schemas["PromptTemplateResponse"];
 type PromptValidateResponse = Schemas["PromptValidateResponse"];
 
-const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
-const PURPOSE_LABELS: Record<string, string> = { patient_chat: "患者对话", scoring: "评分", qa: "问答", case_generation: "病例生成", "*": "通配" };
+const PURPOSES = ["patient_chat", "scoring", "scoring_feedback", "qa", "case_generation", "*"];
+const PURPOSE_LABELS: Record<string, string> = {
+  patient_chat: "患者对话",
+  scoring: "评分",
+  scoring_feedback: "评分反馈",
+  qa: "问答",
+  case_generation: "病例生成",
+  "*": "通配",
+};
 
 interface VariableMeta {
   name: string;

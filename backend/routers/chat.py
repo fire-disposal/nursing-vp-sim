@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -79,7 +80,7 @@ async def send_message(
             log_worker=request.app.state.log_worker,
             **get_llm_config("patient_chat"),
         )
-    except Exception as e:
+    except (httpx.HTTPError, OSError, RuntimeError, ValueError) as e:
         log.exception(
             "patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id}
         )

@@ -110,6 +110,36 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             default_example="学生：你好，请问你哪里不舒服？\n\n患者：我最近咳嗽得厉害...",
         ),
     ],
+    "scoring_feedback": [
+        VariableDef(
+            name="scoring_criteria",
+            type="text",
+            description="评分标准维度、条目及1-3分评分锚点",
+            source="data/rubrics/nursing_history_v1.json + build_scoring_criteria()",
+            default_example="(同 scoring 的 scoring_criteria)",
+        ),
+        VariableDef(
+            name="required_inquiries",
+            type="text",
+            description="病例中必须采集到的关键内容清单（JSON数组格式）",
+            source="病例数据 > required_inquiries",
+            default_example='["主诉", "现病史", "既往史", "过敏史"]',
+        ),
+        VariableDef(
+            name="scoring_result",
+            type="text",
+            description="已完成评分的完整 JSON 结果（含 total_score 和 detail_scores）",
+            source="第一阶段评分 LLM 输出",
+            default_example='{"total_score": 42, "detail_scores": {...}}',
+        ),
+        VariableDef(
+            name="conversation_text",
+            type="text",
+            description="学生与虚拟患者的完整对话记录",
+            source="Message 表该训练记录的所有消息拼接",
+            default_example="学生：你好，请问你哪里不舒服？\n\n患者：我最近咳嗽得厉害...",
+        ),
+    ],
     "case_generation": [
         VariableDef(
             name="description",

@@ -2,9 +2,12 @@
 
 职责：
 - build_patient_context_kwargs: 从 case_data 提取模板渲染所需的 6 个变量值
-- build_patient_chat_messages: 组装 OpenAI-compatible messages 列表
+- build_patient_chat_messages: 组装 OpenAI-compatible messages 列表（含缓存分片）
 - format_case_for_prompt: 将病例 JSON 格式化为 LLM 可读的文本块
 """
+
+# 缓存分片标记：模板中患者资料区块的标题行，运行时以此为界拆分 messages
+_CACHE_SPLIT_MARKER = "## 患者资料"
 
 
 def build_patient_context_kwargs(case_data: dict, allowed_hidden_info: list[dict] | None = None) -> dict:
@@ -47,11 +50,26 @@ def build_patient_chat_messages(
 ) -> list[dict]:
     """构建 OpenAI-compatible messages 数组。
 
-    messages[0] = system prompt（position=0 对 DeepSeek 前缀缓存最友好）
-    messages[1 : 1 + max_rounds*2] = 最近 N 轮历史（student→user, patient→assistant）
+    缓存分片策略：
+      messages[0] = 静态行为规则（`## 患者资料` 之前的全部内容）
+        → DeepSeek prefix cache 全局复用，跨所有会话、所有病例共享
+      messages[1] = 患者数据 + 隐藏信息（`## 患者资料` 及之后的内容）
+        → 按会话/每轮消息更新，仅 ~200 token
+
+    向后兼容：若模板不含 `## 患者资料` 标记，整个 prompt 放在 messages[0]。
+    messages[后续] = 最近 N 轮历史（student→user, patient→assistant）
     messages[-1] = 学生当前输入
     """
-    llm_messages = [{"role": "system", "content": system_prompt}]
+    idx = system_prompt.find(_CACHE_SPLIT_MARKER)
+    if idx != -1:
+        static_prefix = system_prompt[:idx].rstrip()
+        patient_block = system_prompt[idx:].strip()
+        llm_messages = [
+            {"role": "system", "content": static_prefix},
+            {"role": "system", "content": patient_block},
+        ]
+    else:
+        llm_messages = [{"role": "system", "content": system_prompt}]
 
     for msg in history_messages[-max_rounds * 2 :]:
         role = "user" if msg.role == "student" else "assistant"

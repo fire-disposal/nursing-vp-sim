@@ -146,7 +146,7 @@ class TestQAMultiTurn:
             mock_llm.side_effect = RuntimeError("模拟LLM故障")
             resp = client.post(
                 "/api/qa/sessions",
-                json={"question": "测试问题"},
+                json={"question": "缓存隔离测试专用问题-unique-500"},
                 headers={"Authorization": f"Bearer {student[1]}"},
             )
             assert resp.status_code == 502

@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import json as _json
 import logging
 
 from core.config import (
@@ -144,11 +145,28 @@ class LogWorker:
 
         db = SessionLocal()
         try:
+            failed = 0
             for item in items:
-                db.add(LLMCallLog(**item))
-            db.commit()
+                try:
+                    db.add(LLMCallLog(**item))
+                    db.flush()
+                except Exception:
+                    failed += 1
+                    db.rollback()
+                    log.warning(
+                        "flush single llm log entry failed: %s",
+                        _json.dumps(item, ensure_ascii=False, default=str)[:500],
+                    )
+            if failed == 0:
+                db.commit()
+            elif failed < len(items):
+                db.commit()
+                log.warning("flush %d/%d llm log entries failed", failed, len(items))
+            else:
+                db.rollback()
+                log.warning("flush all %d llm log entries failed", len(items))
         except Exception:
-            log.exception("flush %d llm log entries failed", len(items))
+            log.exception("flush %d llm log entries batch failed", len(items))
             db.rollback()
         finally:
             db.close()
@@ -204,4 +222,7 @@ class LogWorker:
         try:
             self._queue.put_nowait(entry)
         except asyncio.QueueFull:
-            log.warning("llm log queue full, dropping entry for %s", entry.get("purpose"))
+            log.warning(
+                "llm log queue full, entry logged as JSON fallback: %s",
+                _json.dumps(entry, ensure_ascii=False, default=str)[:2000],
+            )
