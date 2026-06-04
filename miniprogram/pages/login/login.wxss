@@ -24,6 +24,8 @@
 
 .lottie-wrap {
   width: 500rpx; height: 500rpx; margin-bottom: 16rpx;
+  display: flex; align-items: center; justify-content: center;
+  align-self: center;
 }
 
 .brand { text-align: center; margin-bottom: 48rpx; }
