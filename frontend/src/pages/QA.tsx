@@ -9,6 +9,7 @@ import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { getNurseAvatar } from "@/utils/avatar";
+import { cn } from "@/lib/utils";
 
 type QASessionItem = components["schemas"]["QASessionItem"];
 type QAMessageItem = components["schemas"]["QAMessageItem"];
@@ -20,6 +21,28 @@ interface OptimisticMessage {
   role: string;
   content: string;
 }
+
+const BUBBLE_CONTENT_CLASSES = [
+  "whitespace-pre-wrap break-words",
+  "[&_p]:mb-2 [&_p:last-child]:mb-0",
+  "[&_code]:bg-black/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono",
+  "[&_pre]:bg-black/[0.06] [&_pre]:p-2.5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-2",
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-sm",
+  "[&_ul]:my-1 [&_ul]:pl-6 [&_ol]:my-1 [&_ol]:pl-6",
+  "[&_li]:mb-0.5",
+  "[&_table]:border-collapse [&_table]:my-2 [&_table]:w-full",
+  "[&_th]:bg-black/[0.04] [&_th]:font-semibold [&_th]:border [&_th]:border-black/10 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-sm",
+  "[&_td]:border [&_td]:border-black/10 [&_td]:px-2.5 [&_td]:py-1.5 [&_td]:text-left [&_td]:text-sm",
+  "[&_blockquote]:border-l-[3px] [&_blockquote]:border-black/15 [&_blockquote]:my-2 [&_blockquote]:px-3 [&_blockquote]:py-1 [&_blockquote]:opacity-85",
+].join(" ");
+
+const BUBBLE_CONTENT_USER = [
+  "[&_code]:bg-white/15 [&_code]:text-white",
+  "[&_pre]:bg-white/10",
+  "[&_blockquote]:border-l-white/30",
+  "[&_th]:border-white/20 [&_th]:bg-white/[0.08]",
+  "[&_td]:border-white/20",
+].join(" ");
 
 export default function QA() {
   const queryClient = useQueryClient();
@@ -159,61 +182,89 @@ export default function QA() {
 
   return (
     <Layout>
-      <div className="qa-layout">
-        {showSidebar && <div className="sidebar-overlay" onClick={() => setShowSidebar(false)} style={{ zIndex: 199 }} />}
-        <aside className={`qa-sidebar${showSidebar ? " show" : ""}`}>
-          <button className="qa-new-btn" onClick={handleNewChat}>
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+        {showSidebar && <div className="fixed inset-0 z-[199] bg-black/40 md:hidden" onClick={() => setShowSidebar(false)} />}
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-[200] flex w-[260px] min-w-[260px] flex-col bg-[#fafbfc] shadow-[2px_0_20px_rgba(0,0,0,0.15)] transition-transform duration-250",
+            showSidebar ? "translate-x-0" : "-translate-x-full",
+            "md:static md:translate-x-0 md:border-r md:border-border md:shadow-none",
+          )}
+        >
+          <button
+            className="flex shrink-0 items-center gap-2 m-3.5 px-4 py-2.5 border border-border rounded-lg bg-white cursor-pointer text-sm text-gray-700 transition-all hover:bg-gray-100 hover:border-blue-600 hover:text-blue-600"
+            onClick={handleNewChat}
+          >
             <Plus size={16} />
             <span>新对话</span>
           </button>
-          <div className="qa-session-list">
+          <div className="flex-1 overflow-y-auto px-2 pb-2">
             {sessions.map((s) => (
-              <div key={s.id} className={`qa-session-item ${activeSessionId === s.id ? "active" : ""}`} onClick={() => switchSession(s.id)}>
-                <span className="qa-session-title">{s.title}</span>
-                <span className="qa-session-time">{new Date(s.updated_at).toLocaleDateString()}</span>
-                <button className="qa-session-delete" onClick={(e) => handleDeleteSession(e, s.id)}>
+              <div
+                key={s.id}
+                className={cn(
+                  "grid grid-cols-[1fr_auto] grid-rows-[auto_auto] gap-y-0.5 gap-x-2 px-3 py-2.5 mb-0.5 rounded-lg cursor-pointer transition-colors relative group",
+                  activeSessionId === s.id ? "bg-[#e8edf5]" : "hover:bg-[#e8edf5]",
+                )}
+                onClick={() => switchSession(s.id)}
+              >
+                <span className="text-sm text-gray-800 truncate">{s.title}</span>
+                <span className="text-xs text-gray-400">{new Date(s.updated_at).toLocaleDateString()}</span>
+                <button
+                  className="row-span-2 col-start-2 self-center opacity-0 group-hover:opacity-100 bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded transition-all hover:text-red-500 hover:bg-red-100"
+                  onClick={(e) => handleDeleteSession(e, s.id)}
+                >
                   <Trash2 size={14} />
                 </button>
               </div>
             ))}
-            {sessions.length === 0 && <div className="qa-session-empty">暂无历史对话</div>}
+            {sessions.length === 0 && <div className="py-6 px-4 text-center text-gray-400 text-sm">暂无历史对话</div>}
           </div>
         </aside>
 
-        <main className="qa-main">
-          <button className="qa-sidebar-toggle" onClick={() => setShowSidebar(true)} title="会话列表">
+        <main className="flex-1 flex flex-col min-w-0 bg-white relative">
+          <button
+            className="flex md:hidden absolute top-2 left-2 z-10 size-[34px] border border-gray-200 rounded-lg bg-white cursor-pointer items-center justify-center text-gray-500"
+            onClick={() => setShowSidebar(true)}
+            title="会话列表"
+          >
             <Menu size={18} />
           </button>
           {messages.length > 0 && (
-            <div className="qa-messages">
+            <div className="flex flex-col gap-4 pt-6 px-6 flex-1 overflow-y-auto">
               {messages.map((m, i) => {
                 const isUser = m.role === "user";
                 return (
-                  <div key={i} className={`qa-msg-row ${isUser ? "question" : "answer"}`}>
+                  <div key={i} className={cn("flex items-end gap-2", isUser ? "justify-end" : "justify-start")}>
                     {!isUser && (
-                      <div className="qa-avatar qa-avatar-bot">
+                      <div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-[#e8edf5] text-blue-600">
                         <Bot size={18} />
                       </div>
                     )}
-                    <div className="qa-bubble">
-                      <div className="qa-bubble-content">
+                    <div
+                      className={cn(
+                        "max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+                        isUser ? "bg-blue-600 text-white rounded-br-md" : "bg-[#f4f5f7] text-gray-800 rounded-bl-md",
+                      )}
+                    >
+                      <div className={cn(BUBBLE_CONTENT_CLASSES, !isUser || BUBBLE_CONTENT_USER)}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                       </div>
                     </div>
-                    {isUser && <img className="qa-avatar qa-avatar-user" src={nurseAvatar} alt="护士" />}
+                    {isUser && <img className="size-8 rounded-full shrink-0 object-cover bg-gray-100" src={nurseAvatar} alt="护士" />}
                   </div>
                 );
               })}
               {loading && (
-                <div className="qa-msg-row answer">
-                  <div className="qa-avatar qa-avatar-bot">
+                <div className="flex items-end gap-2 justify-start">
+                  <div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-[#e8edf5] text-blue-600">
                     <Bot size={18} />
                   </div>
-                  <div className="qa-bubble">
-                    <div className="qa-typing">
-                      <span className="qa-typing-dot" />
-                      <span className="qa-typing-dot" />
-                      <span className="qa-typing-dot" />
+                  <div className="max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-[#f4f5f7] text-gray-800">
+                    <div className="flex gap-1 py-1">
+                      <span className="size-2 rounded-full bg-gray-400 animate-[qa-bounce_1.4s_ease-in-out_infinite_both] [animation-delay:-0.32s]" />
+                      <span className="size-2 rounded-full bg-gray-400 animate-[qa-bounce_1.4s_ease-in-out_infinite_both] [animation-delay:-0.16s]" />
+                      <span className="size-2 rounded-full bg-gray-400 animate-[qa-bounce_1.4s_ease-in-out_infinite_both]" />
                     </div>
                   </div>
                 </div>
@@ -223,13 +274,17 @@ export default function QA() {
           )}
 
           {messages.length === 0 && (
-            <div className="qa-empty-state">
-              <Lightbulb size={48} className="qa-empty-icon" />
-              <h2>护理问答</h2>
-              <p>向AI护理导师提问，获取专业的护理学知识解答</p>
-              <div className="qa-suggestions">
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 pb-6 text-center">
+              <Lightbulb size={48} className="text-blue-300 mb-2" />
+              <h2 className="text-2xl font-semibold text-gray-800">护理问答</h2>
+              <p className="text-gray-500 text-base max-w-[360px]">向AI护理导师提问，获取专业的护理学知识解答</p>
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
                 {SUGGESTIONS.map((s) => (
-                  <button key={s} className="qa-suggestion-btn" onClick={() => sendMessage(s)}>
+                  <button
+                    key={s}
+                    className="px-4 py-2 border border-gray-300 rounded-[20px] bg-white text-sm text-gray-700 cursor-pointer transition-all hover:border-blue-600 hover:text-blue-600 hover:bg-blue-50"
+                    onClick={() => sendMessage(s)}
+                  >
                     {s}
                   </button>
                 ))}
@@ -237,16 +292,21 @@ export default function QA() {
             </div>
           )}
 
-          <div className="qa-input-row">
+          <div className="flex gap-2.5 items-center border-t border-gray-200 px-6 py-4">
             <input
               ref={inputRef}
+              className="w-full border border-gray-200 rounded-lg bg-gray-50 text-gray-900 text-sm px-3 py-2 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入您的问题..."
               disabled={loading}
             />
-            <button className="qa-send-btn" onClick={() => sendMessage()} disabled={loading || !input.trim()}>
+            <button
+              className="inline-flex items-center justify-center size-10 rounded-lg bg-blue-600 text-white cursor-pointer transition-colors shrink-0 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => sendMessage()}
+              disabled={loading || !input.trim()}
+            >
               <Send size={16} />
             </button>
           </div>

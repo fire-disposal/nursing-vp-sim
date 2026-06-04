@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
-import type { CSSProperties, ElementType, ReactNode } from "react";
+import type { ElementType, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
   title: string;
@@ -8,68 +9,35 @@ interface PageHeaderProps {
   icon?: ElementType;
   actions?: ReactNode;
   backTo?: string;
-  style?: CSSProperties;
+  className?: string;
 }
 
-export default function PageHeader({ title, subtitle, icon: Icon, actions, backTo, style }: PageHeaderProps) {
+export default function PageHeader({ title, subtitle, icon: Icon, actions, backTo, className }: PageHeaderProps) {
   const navigate = useNavigate();
 
   return (
-    <div
-      style={{
-        marginBottom: "var(--space-6)",
-        ...style,
-      }}
-    >
+    <div className={cn("mb-6", className)}>
       {backTo && (
-        <div style={{ marginBottom: "var(--space-2)" }}>
-          <span
+        <div className="mb-2">
+          <button
+            type="button"
             onClick={() => navigate(backTo)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: "var(--font-size-sm)",
-              color: "var(--color-primary)",
-              cursor: "pointer",
-              fontWeight: "var(--font-weight-medium)",
-            }}
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 cursor-pointer"
           >
             <ChevronLeft size={14} />
             返回
-          </span>
+          </button>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
-        <div style={{ minWidth: 0 }}>
-          <h1
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-2)",
-              fontSize: "var(--font-size-xl)",
-              fontWeight: "var(--font-weight-bold)",
-              color: "var(--text-primary)",
-              margin: 0,
-            }}
-          >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-xl font-bold text-foreground">
             {Icon && <Icon size={22} />}
             {title}
           </h1>
-          {subtitle && (
-            <p
-              style={{
-                fontSize: "var(--font-size-sm)",
-                color: "var(--text-secondary)",
-                marginTop: "var(--space-1)",
-                marginBottom: 0,
-              }}
-            >
-              {subtitle}
-            </p>
-          )}
+          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        {actions && <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{actions}</div>}
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
     </div>
   );

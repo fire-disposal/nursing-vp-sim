@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
@@ -50,46 +50,49 @@ export default function QARecordsTab() {
 
   if (isLoading && offset === 0) {
     return (
-      <div className="empty-state" style={{ padding: "48px 0" }}>
+      <div className="flex flex-col items-center justify-center py-12 text-gray-500">
         <MessageCircle size={48} />
-        <p style={{ marginTop: 12, color: "var(--gray-500)" }}>加载中...</p>
+        <p className="mt-3 text-gray-500">加载中...</p>
       </div>
     );
   }
 
   if (records.length === 0 && offset === 0) {
     return (
-      <div className="empty-state" style={{ padding: "48px 0" }}>
+      <div className="flex flex-col items-center justify-center py-12 text-gray-500">
         <MessageCircle size={48} />
-        <p style={{ marginTop: 12, color: "var(--gray-500)" }}>暂无问答记录</p>
+        <p className="mt-3 text-gray-500">暂无问答记录</p>
       </div>
     );
   }
 
   return (
-    <div className="card">
-      <div style={{ marginBottom: 12, color: "var(--gray-500)", fontSize: "0.88rem" }}>共 {total} 条问答会话</div>
-      <table className="data-table">
+    <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="mb-3 text-gray-500 text-sm">共 {total} 条问答会话</div>
+      <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th>学生</th>
-            <th>学号</th>
-            <th>会话标题</th>
-            <th>消息数</th>
-            <th>最后活跃</th>
-            <th>操作</th>
+            <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">学生</th>
+            <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">学号</th>
+            <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">会话标题</th>
+            <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">消息数</th>
+            <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">最后活跃</th>
+            <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">操作</th>
           </tr>
         </thead>
         <tbody>
           {records.map((r) => (
-            <tr key={r.id}>
-              <td style={{ fontWeight: 600 }}>{r.student_name || r.student_code}</td>
-              <td>{r.student_code || "-"}</td>
-              <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{truncate(r.title, 40)}</td>
-              <td>{r.message_count}</td>
-              <td style={{ whiteSpace: "nowrap", fontSize: "0.82rem", color: "#6b7280" }}>{new Date(r.updated_at).toLocaleString("zh-CN")}</td>
-              <td>
-                <button className="btn btn-sm btn-ghost" onClick={() => handlePreview(r.id, r.title)}>
+            <tr key={r.id} className="hover:bg-gray-50">
+              <td className="px-4 py-3 border-b border-gray-200 font-semibold">{r.student_name || r.student_code}</td>
+              <td className="px-4 py-3 border-b border-gray-200">{r.student_code || "-"}</td>
+              <td className="px-4 py-3 border-b border-gray-200 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">{truncate(r.title, 40)}</td>
+              <td className="px-4 py-3 border-b border-gray-200">{r.message_count}</td>
+              <td className="px-4 py-3 border-b border-gray-200 whitespace-nowrap text-sm text-gray-500">{new Date(r.updated_at).toLocaleString("zh-CN")}</td>
+              <td className="px-4 py-3 border-b border-gray-200">
+                <button
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg border border-transparent hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                  onClick={() => handlePreview(r.id, r.title)}
+                >
                   <Eye size={14} /> 查看
                 </button>
               </td>
@@ -100,25 +103,17 @@ export default function QARecordsTab() {
       <Pagination offset={offset} limit={LIMIT} total={total} onChange={setOffset} />
 
       <Modal open={showPreview} onClose={() => setShowPreview(false)} title={`对话预览：${previewTitle}`}>
-        <div style={{ maxHeight: "60vh", overflowY: "auto", padding: "8px 0" }}>
+        <div className="max-h-[60vh] overflow-y-auto py-2">
           {loadingPreview ? (
-            <p style={{ textAlign: "center", color: "#9ca3af" }}>加载中...</p>
+            <p className="text-center text-gray-400">加载中...</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="flex flex-col gap-3">
               {messages.map((m, i) => (
                 <div
                   key={m.id || i}
-                  style={{
-                    alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                    maxWidth: "70%",
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    background: m.role === "user" ? "#2563eb" : "#f4f5f7",
-                    color: m.role === "user" ? "#fff" : "#1f2937",
-                    fontSize: "0.88rem",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
+                  className={`max-w-[70%] px-[14px] py-2.5 rounded-xl text-sm whitespace-pre-wrap break-words ${
+                    m.role === "user" ? "self-end bg-[#2563eb] text-white" : "self-start bg-[#f4f5f7] text-gray-800"
+                  }`}
                 >
                   {m.content}
                 </div>

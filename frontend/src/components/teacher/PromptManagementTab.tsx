@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -80,65 +80,21 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
   };
 
   return (
-    <div
-      style={{
-        border: "1px solid var(--border-secondary)",
-        borderRadius: "var(--radius-md)",
-        padding: "var(--space-2) var(--space-3)",
-        background: "var(--bg-secondary)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <code
-          style={{
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            color: "var(--blue-700)",
-          }}
-        >
-          {"{#"}
+    <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+      <div className="flex items-center justify-between mb-1">
+        <code className="text-sm font-semibold text-blue-700">
+          {"{#}"}
           {vName}
           {"#}"}
         </code>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {isSystem && (
-            <span
-              style={{
-                fontSize: "0.6rem",
-                background: "var(--amber-100)",
-                color: "var(--amber-700)",
-                padding: "0px 5px",
-                borderRadius: "var(--radius-full)",
-                lineHeight: "17px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              系统注入
-            </span>
-          )}
-          <span
-            style={{
-              fontSize: "0.65rem",
-              color: "var(--text-tertiary)",
-              background: "var(--bg-tertiary)",
-              padding: "1px 6px",
-              borderRadius: "var(--radius-full)",
-            }}
-          >
-            {meta.type || "string"}
-          </span>
+        <div className="flex items-center gap-1">
+          {isSystem && <span className="text-[0.625rem] bg-amber-100 text-amber-700 px-1 rounded-full leading-[17px] whitespace-nowrap">系统注入</span>}
+          <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded-full">{meta.type || "string"}</span>
         </div>
       </div>
 
       {editing ? (
-        <div style={{ marginBottom: 4 }}>
+        <div className="mb-1">
           <input
             value={descDraft}
             onChange={(e) => setDescDraft(e.target.value)}
@@ -148,42 +104,22 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
             }}
             autoFocus
             placeholder="变量描述..."
-            style={{
-              width: "100%",
-              fontSize: "0.72rem",
-              padding: "2px 6px",
-              border: "1px solid var(--blue-300)",
-              borderRadius: 4,
-              outline: "none",
-            }}
+            className="w-full text-xs py-0.5 px-1.5 border border-blue-300 rounded outline-none"
           />
         </div>
       ) : (
         <div
           onClick={() => setEditing(true)}
-          style={{
-            fontSize: "0.7rem",
-            color: meta.desc ? "var(--text-secondary)" : "var(--text-tertiary)",
-            marginBottom: 4,
-            cursor: "pointer",
-            padding: "2px 0",
-            fontStyle: meta.desc ? "normal" : "italic",
-          }}
+          className={`text-xs mb-1 cursor-pointer py-0.5 ${meta.desc ? "text-gray-500 not-italic" : "text-gray-400 italic"}`}
           title="点击编辑描述"
         >
           {meta.desc || "点击添加描述..."}
         </div>
       )}
 
-      <div
-        style={{
-          fontSize: "0.65rem",
-          color: "var(--text-tertiary)",
-          lineHeight: 1.5,
-        }}
-      >
+      <div className="text-xs text-gray-400 leading-relaxed">
         {editingSource ? (
-          <div style={{ marginBottom: 2 }}>
+          <div className="mb-0.5">
             <input
               value={sourceDraft}
               onChange={(e) => setSourceDraft(e.target.value)}
@@ -193,43 +129,22 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
               }}
               autoFocus
               placeholder="变量来源..."
-              style={{
-                width: "100%",
-                fontSize: "0.68rem",
-                padding: "2px 6px",
-                border: "1px solid var(--amber-300)",
-                borderRadius: 4,
-                outline: "none",
-              }}
+              className="w-full text-xs py-0.5 px-1.5 border border-amber-300 rounded outline-none"
             />
           </div>
         ) : (
           <div
             onClick={() => setEditingSource(true)}
-            style={{
-              cursor: "pointer",
-              color: meta.source ? "var(--text-secondary)" : "var(--text-tertiary)",
-              fontStyle: meta.source ? "normal" : "italic",
-            }}
+            className={`cursor-pointer ${meta.source ? "text-gray-500 not-italic" : "text-gray-400 italic"}`}
             title="点击编辑来源说明"
           >
             {meta.source ? `来源：${meta.source}` : "点击添加来源说明..."}
           </div>
         )}
-        {meta.example && (
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              maxHeight: 60,
-              overflow: "hidden",
-            }}
-          >
-            示例：{meta.example}
-          </div>
-        )}
-        <div style={{ marginTop: 2 }}>
+        {meta.example && <div className="whitespace-pre-wrap max-h-[60px] overflow-hidden">示例：{meta.example}</div>}
+        <div className="mt-0.5">
           {isSystem ? (
-            <div style={{ fontSize: "0.65rem", color: "var(--text-tertiary)", fontStyle: "italic" }}>默认值：由系统运行时注入，不可编辑</div>
+            <div className="text-xs text-gray-400 italic">默认值：由系统运行时注入，不可编辑</div>
           ) : editingDefault ? (
             <input
               value={defaultDraft}
@@ -240,23 +155,12 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
               }}
               autoFocus
               placeholder="默认值..."
-              style={{
-                width: "100%",
-                fontSize: "0.68rem",
-                padding: "2px 6px",
-                border: "1px solid var(--green-300)",
-                borderRadius: 4,
-                outline: "none",
-              }}
+              className="w-full text-xs py-0.5 px-1.5 border border-green-300 rounded outline-none"
             />
           ) : (
             <div
               onClick={() => setEditingDefault(true)}
-              style={{
-                cursor: "pointer",
-                color: meta.default_value ? "var(--text-secondary)" : "var(--text-tertiary)",
-                fontStyle: meta.default_value ? "normal" : "italic",
-              }}
+              className={`cursor-pointer ${meta.default_value ? "text-gray-500 not-italic" : "text-gray-400 italic"}`}
               title="点击设置默认值（自定义变量在调用点未提供值时使用）"
             >
               默认值：{meta.default_value || "(点击设置)"}
@@ -520,7 +424,7 @@ export default function PromptManagementTab() {
     const parts = text.split(/(\{#[^}#]+#\})/g);
     return parts.map((part, i) =>
       /\{#[^}#]+#\}/.test(part) ? (
-        <span key={i} style={{ background: "var(--blue-100)", color: "var(--blue-700)", fontWeight: 700, borderRadius: 3, padding: "0 2px" }}>
+        <span key={i} className="bg-blue-100 text-blue-700 font-bold rounded px-0.5">
           {part}
         </span>
       ) : (
@@ -529,72 +433,40 @@ export default function PromptManagementTab() {
     );
   };
 
+  const inputBase =
+    "w-full py-1 px-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 font-[inherit] box-border focus:outline-none focus:border-blue-500";
+
   return (
     <div>
-      <div style={{ marginBottom: "var(--space-4)", display: "flex", gap: "var(--space-2)" }}>
+      <div className="mb-4 flex gap-2">
         <button
           onClick={handleReload}
-          style={{
-            padding: "var(--space-2) var(--space-4)",
-            border: "1px solid var(--amber-400)",
-            borderRadius: "var(--radius-md)",
-            background: "var(--amber-50)",
-            color: "var(--amber-700)",
-            cursor: "pointer",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "var(--space-1)",
-          }}
+          className="flex items-center gap-1 py-2 px-4 border border-amber-400 rounded-lg bg-amber-50 text-amber-700 cursor-pointer text-sm font-semibold"
         >
           <RefreshCw size={13} /> 热加载
         </button>
         <button
           onClick={handleShowActive}
-          style={{
-            padding: "var(--space-2) var(--space-4)",
-            border: "1px solid var(--color-primary)",
-            borderRadius: "var(--radius-md)",
-            background: "var(--bg-surface)",
-            color: "var(--color-primary)",
-            cursor: "pointer",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "var(--space-1)",
-          }}
+          className="flex items-center gap-1 py-2 px-4 border border-blue-600 rounded-lg bg-white text-blue-600 cursor-pointer text-sm font-semibold"
         >
           <Eye size={13} /> 查看生效版本
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "var(--space-4)", alignItems: "start", minHeight: "calc(100vh - 180px)" }}>
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="grid grid-cols-[340px_1fr] gap-4 items-start min-h-[calc(100vh-180px)]">
+        <div className="rounded-xl border border-gray-200 bg-white p-0 overflow-hidden">
           {PURPOSES.map((purpose) => {
             const versions = grouped[purpose] || [];
             const isOpen = expanded[purpose] !== false;
             return (
-              <div key={purpose} style={{ borderBottom: "1px solid var(--border-color)" }}>
+              <div key={purpose} className="border-b border-gray-200 last:border-b-0">
                 <div
                   onClick={() => toggle(purpose)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "var(--space-2)",
-                    padding: "var(--space-3) var(--space-4)",
-                    cursor: "pointer",
-                    userSelect: "none",
-                    fontWeight: 600,
-                    fontSize: "0.85rem",
-                    background: "var(--bg-surface-subtle)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none font-semibold text-sm bg-gray-50 text-gray-900"
                 >
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <span style={{ flex: 1 }}>{PURPOSE_LABELS[purpose]}</span>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", fontWeight: 400 }}>
+                  <span className="flex-1">{PURPOSE_LABELS[purpose]}</span>
+                  <span className="text-xs text-gray-400 font-normal">
                     {versions.filter((v) => v.is_active).length > 0
                       ? `v${versions.find((v) => v.is_active)!.version} · ${versions.length}个版本`
                       : `${versions.length}个版本`}
@@ -604,19 +476,7 @@ export default function PromptManagementTab() {
                       e.stopPropagation();
                       openNew(purpose);
                     }}
-                    style={{
-                      background: "var(--blue-50)",
-                      border: "1px solid var(--blue-200)",
-                      borderRadius: "var(--radius-md)",
-                      color: "var(--blue-600)",
-                      cursor: "pointer",
-                      padding: "2px 8px",
-                      fontSize: "0.7rem",
-                      fontWeight: 600,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 2,
-                    }}
+                    className="bg-blue-50 border border-blue-200 rounded-lg text-blue-600 cursor-pointer px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-0.5"
                     title="新增"
                   >
                     <Plus size={13} /> 新增
@@ -625,7 +485,7 @@ export default function PromptManagementTab() {
                 {isOpen && (
                   <div>
                     {versions.length === 0 ? (
-                      <div style={{ padding: "var(--space-3) var(--space-4)", color: "var(--text-tertiary)", fontSize: "0.8rem" }}>暂无模板</div>
+                      <div className="px-4 py-3 text-gray-400 text-sm">暂无模板</div>
                     ) : (
                       versions.map((v) => (
                         <div
@@ -635,59 +495,23 @@ export default function PromptManagementTab() {
                             e.preventDefault();
                             if (!v.is_active) handleActivate(v);
                           }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "var(--space-2)",
-                            padding: "var(--space-2) var(--space-4)",
-                            borderTop: "1px solid var(--border-color)",
-                            cursor: "pointer",
-                            background: editing === v.id ? "var(--blue-50)" : v.is_active ? "var(--green-50)" : "transparent",
-                            transition: "background 0.1s",
-                          }}
+                          className={`flex items-center gap-2 px-4 py-2 border-t border-gray-200 cursor-pointer transition-colors ${
+                            editing === v.id ? "bg-blue-50" : v.is_active ? "bg-green-50" : "bg-transparent"
+                          }`}
                         >
-                          <span
-                            style={{
-                              fontSize: "0.7rem",
-                              fontWeight: 700,
-                              padding: "1px 6px",
-                              borderRadius: "var(--radius-sm)",
-                              background: "var(--bg-surface)",
-                              border: "1px solid var(--border-color)",
-                              minWidth: 28,
-                              textAlign: "center",
-                            }}
-                          >
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-white border border-gray-200 min-w-[28px] text-center">
                             v{v.version}
                           </span>
-                          <span style={{ flex: 1, fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {v.name || "-"}
-                          </span>
+                          <span className="flex-1 text-sm overflow-hidden text-ellipsis whitespace-nowrap">{v.name || "-"}</span>
                           {v.is_active ? (
-                            <span
-                              style={{
-                                fontSize: "0.65rem",
-                                padding: "1px 6px",
-                                borderRadius: "var(--radius-full)",
-                                background: "var(--green-100)",
-                                color: "var(--green-700)",
-                                whiteSpace: "nowrap",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 2,
-                              }}
-                            >
+                            <span className="text-xs px-1.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap inline-flex items-center gap-0.5">
                               <CheckCircle size={10} /> 激活
                             </span>
                           ) : (
-                            <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>未激活</span>
+                            <span className="text-xs text-gray-400">未激活</span>
                           )}
-                          <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 1 }}>
-                            <button
-                              onClick={() => handleDelete(v)}
-                              style={{ background: "none", border: "none", color: "var(--red-400)", cursor: "pointer", padding: 2 }}
-                              title="删除"
-                            >
+                          <div onClick={(e) => e.stopPropagation()} className="flex gap-0.5">
+                            <button onClick={() => handleDelete(v)} className="bg-transparent border-none text-red-400 cursor-pointer p-0.5" title="删除">
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -702,29 +526,19 @@ export default function PromptManagementTab() {
         </div>
 
         {editing && (
-          <div className="card" style={{ padding: "var(--space-5)", display: "flex", flexDirection: "column", height: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-              <h4 style={{ margin: 0, fontSize: "0.95rem", flex: 1 }}>{editorTitle}</h4>
-              {editedPrompt && (
-                <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>更新于 {new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}</span>
-              )}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="m-0 text-base flex-1">{editorTitle}</h4>
+              {editedPrompt && <span className="text-xs text-gray-400">更新于 {new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}</span>}
             </div>
 
             {editing === "new" && (
-              <div style={{ marginBottom: "var(--space-3)" }}>
-                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>场景</label>
+              <div className="mb-3">
+                <label className="block text-sm font-semibold mb-1">场景</label>
                 <select
                   value={form.purpose}
                   onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "var(--space-2) var(--space-3)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.85rem",
-                    background: "var(--bg-surface)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full py-2 px-3 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
                 >
                   {PURPOSES.map((p) => (
                     <option key={p} value={p}>
@@ -734,62 +548,32 @@ export default function PromptManagementTab() {
                 </select>
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>版本名称</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="v2-优化版"
-                  style={{
-                    width: "100%",
-                    padding: "var(--space-2) var(--space-3)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.85rem",
-                    background: "var(--bg-surface)",
-                    color: "var(--text-primary)",
-                    boxSizing: "border-box",
-                  }}
-                />
+                <label className="block text-sm font-semibold mb-1">版本名称</label>
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版" className={inputBase} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: 4 }}>备注</label>
+                <label className="block text-sm font-semibold mb-1">备注</label>
                 <input
                   value={form.remark}
                   onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
                   placeholder="修改说明..."
-                  style={{
-                    width: "100%",
-                    padding: "var(--space-2) var(--space-3)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.85rem",
-                    background: "var(--bg-surface)",
-                    color: "var(--text-primary)",
-                    boxSizing: "border-box",
-                  }}
+                  className={inputBase}
                 />
               </div>
             </div>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", marginBottom: "var(--space-3)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>System Prompt</label>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{form.system_prompt.length} 字符</span>
+            <div className="flex-1 flex flex-col mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-semibold">System Prompt</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">{form.system_prompt.length} 字符</span>
                   <button
                     type="button"
                     onClick={togglePreview}
-                    style={{
-                      padding: "1px 8px",
-                      border: "1px solid var(--blue-300)",
-                      borderRadius: "var(--radius-sm)",
-                      background: showEditorPreview ? "var(--blue-500)" : "var(--bg-surface)",
-                      color: showEditorPreview ? "#fff" : "var(--blue-600)",
-                      cursor: "pointer",
-                      fontSize: "0.7rem",
-                      fontWeight: 600,
-                    }}
+                    className={`px-2 py-0.5 border border-blue-300 rounded-sm text-xs font-semibold cursor-pointer ${
+                      showEditorPreview ? "bg-blue-500 text-white" : "bg-white text-blue-600"
+                    }`}
                   >
                     {showEditorPreview ? "编辑" : "预览填充"}
                   </button>
@@ -799,65 +583,35 @@ export default function PromptManagementTab() {
                 value={form.system_prompt}
                 onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
                 readOnly={showEditorPreview}
-                style={{
-                  flex: 1,
-                  minHeight: 200,
-                  width: "100%",
-                  padding: "var(--space-2) var(--space-3)",
-                  border: showEditorPreview ? "1px solid var(--blue-300)" : "1px solid var(--border-color)",
-                  borderRadius: "var(--radius-md)",
-                  fontSize: "0.8rem",
-                  fontFamily: "monospace",
-                  background: showEditorPreview ? "var(--blue-25)" : "var(--bg-surface)",
-                  color: "var(--text-primary)",
-                  boxSizing: "border-box",
-                  resize: "vertical",
-                }}
+                className={`flex-1 min-h-[200px] w-full p-2 rounded-lg text-sm font-mono resize-y box-border ${
+                  showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-gray-200 bg-white"
+                } text-gray-900`}
               />
             </div>
             {form.purpose === "scoring" && (
-              <div style={{ marginBottom: "var(--space-3)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>User Prompt Template</label>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{(form.user_prompt || "").length} 字符</span>
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-semibold">User Prompt Template</label>
+                  <span className="text-xs text-gray-400">{(form.user_prompt || "").length} 字符</span>
                 </div>
                 <textarea
                   value={form.user_prompt}
                   onChange={(e) => setForm((f) => ({ ...f, user_prompt: e.target.value }))}
                   readOnly={showEditorPreview}
                   rows={6}
-                  style={{
-                    width: "100%",
-                    padding: "var(--space-2) var(--space-3)",
-                    border: showEditorPreview ? "1px solid var(--blue-300)" : "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.8rem",
-                    fontFamily: "monospace",
-                    background: showEditorPreview ? "var(--blue-25)" : "var(--bg-surface)",
-                    color: "var(--text-primary)",
-                    boxSizing: "border-box",
-                    resize: "vertical",
-                  }}
+                  className={`w-full p-2 rounded-lg text-sm font-mono resize-y box-border ${
+                    showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-gray-200 bg-white"
+                  } text-gray-900`}
                 />
               </div>
             )}
-            <div style={{ marginBottom: "var(--space-3)", display: "flex", alignItems: "flex-start", gap: "var(--space-3)", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
+            <div className="mb-3 flex items-start gap-3 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
                   <Hash size={12} /> 模板变量 {currentVars.length > 0 && `(${currentVars.length})`}
                 </div>
                 {currentVars.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div className="flex flex-col gap-1.5">
                     {currentVars.map((vName) => {
                       const meta = dbVars.find((d) => d.name === vName) || { name: vName };
                       return (
@@ -873,59 +627,27 @@ export default function PromptManagementTab() {
                     })}
                   </div>
                 ) : (
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>无变量（纯静态 prompt）</span>
+                  <span className="text-xs text-gray-400">无变量（纯静态 prompt）</span>
                 )}
               </div>
             </div>
             {validation && (
-              <div
-                style={{
-                  padding: "var(--space-3)",
-                  borderRadius: "var(--radius-md)",
-                  marginBottom: "var(--space-3)",
-                  background: validation.valid ? "var(--green-50)" : "var(--red-50)",
-                  color: validation.valid ? "var(--green-700)" : "var(--red-700)",
-                  fontSize: "0.8rem",
-                }}
-              >
+              <div className={`p-3 rounded-lg mb-3 text-sm ${validation.valid ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
                 {validation.valid ? "校验通过" : validation.errors.join("; ")}
-                {validation.missing_vars?.length > 0 && <div style={{ marginTop: 4 }}>变量未声明: {validation.missing_vars.join(", ")}</div>}
+                {validation.missing_vars?.length > 0 && <div className="mt-1">变量未声明: {validation.missing_vars.join(", ")}</div>}
               </div>
             )}
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+            <div className="flex gap-2">
               <button
                 onClick={handleValidate}
-                style={{
-                  padding: "var(--space-2) var(--space-4)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--bg-surface)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
+                className="flex items-center gap-1 py-2 px-4 border border-gray-200 rounded-lg bg-white text-gray-900 cursor-pointer text-sm"
               >
                 <Play size={14} /> 校验语法
               </button>
               {editedPrompt && !editedPrompt.is_active && (
                 <button
                   onClick={() => handleActivate(editedPrompt)}
-                  style={{
-                    padding: "var(--space-2) var(--space-4)",
-                    border: "1px solid var(--green-400)",
-                    borderRadius: "var(--radius-md)",
-                    background: "var(--green-50)",
-                    color: "var(--green-700)",
-                    cursor: "pointer",
-                    fontSize: "0.85rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontWeight: 600,
-                  }}
+                  className="flex items-center gap-1 py-2 px-4 border border-green-400 rounded-lg bg-green-50 text-green-700 cursor-pointer text-sm font-semibold"
                 >
                   <CheckCircle size={14} /> 保存并激活
                 </button>
@@ -933,17 +655,10 @@ export default function PromptManagementTab() {
               <button
                 onClick={handleSave}
                 disabled={saving || showEditorPreview}
-                style={{
-                  padding: "var(--space-2) var(--space-4)",
-                  border: "none",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--color-primary)",
-                  color: "#fff",
-                  cursor: saving || showEditorPreview ? "not-allowed" : "pointer",
-                  fontSize: "0.85rem",
-                  opacity: saving || showEditorPreview ? 0.6 : 1,
-                  marginLeft: "auto",
-                }}
+                className={`py-2 px-4 border-none rounded-lg text-white text-sm ml-auto ${
+                  saving || showEditorPreview ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
+                style={{ background: "var(--primary)" }}
               >
                 {saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
               </button>
@@ -954,15 +669,7 @@ export default function PromptManagementTab() {
                   setSavedForm(null);
                   setEditing(null);
                 }}
-                style={{
-                  padding: "var(--space-2) var(--space-4)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--bg-surface)",
-                  color: "var(--text-secondary)",
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                }}
+                className="py-2 px-4 border border-gray-200 rounded-lg bg-white text-gray-500 cursor-pointer text-sm"
               >
                 取消
               </button>
@@ -971,31 +678,16 @@ export default function PromptManagementTab() {
         )}
 
         {!editing && (
-          <div
-            className="card"
-            style={{ padding: "var(--space-8)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300 }}
-          >
-            <Layers size={40} style={{ color: "var(--text-tertiary)", opacity: 0.5, marginBottom: "var(--space-4)" }} />
-            <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "var(--space-1)" }}>选择左侧版本进行编辑</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginBottom: "var(--space-4)" }}>
-              点击版本名打开编辑器，或点击左侧 <Plus size={12} style={{ verticalAlign: "middle", color: "var(--color-primary)" }} /> 为场景创建新版本
+          <div className="rounded-xl border border-gray-200 bg-white p-8 flex flex-col items-center justify-center min-h-[300px]">
+            <Layers size={40} className="text-gray-400 opacity-50 mb-4" />
+            <div className="text-base font-semibold text-gray-500 mb-1">选择左侧版本进行编辑</div>
+            <div className="text-sm text-gray-400 mb-4">
+              点击版本名打开编辑器，或点击左侧 <Plus size={12} className="inline align-middle text-blue-600" /> 为场景创建新版本
             </div>
             {!prompts.length && (
               <button
                 onClick={() => openNew("patient_chat")}
-                style={{
-                  padding: "var(--space-2) var(--space-5)",
-                  border: "none",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--color-primary)",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--space-1)",
-                }}
+                className="flex items-center gap-1 py-2 px-6 border-none rounded-lg bg-blue-600 text-white cursor-pointer text-sm font-semibold"
               >
                 <Plus size={14} /> 创建第一个版本
               </button>
@@ -1005,19 +697,11 @@ export default function PromptManagementTab() {
       </div>
 
       <Modal open={showActiveModal} onClose={() => setShowActiveModal(false)} title={null} maxWidth={900}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+        <div className="flex items-center gap-3 mb-4">
           <select
             value={activeModalPurpose}
             onChange={(e) => handleActiveModalPurposeChange(e.target.value)}
-            style={{
-              padding: "var(--space-2) var(--space-3)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.85rem",
-              background: "var(--bg-surface)",
-              color: "var(--text-primary)",
-              fontWeight: 600,
-            }}
+            className="py-2 px-3 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 font-semibold"
           >
             {PURPOSES.map((p) => {
               const av = grouped[p]?.find((t) => t.is_active);
@@ -1029,36 +713,22 @@ export default function PromptManagementTab() {
               );
             })}
           </select>
-          {previewData && <span style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>v{previewData.version}</span>}
+          {previewData && <span className="text-sm text-gray-400">v{previewData.version}</span>}
           {previewData && (
-            <div style={{ marginLeft: "auto", display: "flex", gap: 2, background: "var(--bg-surface-subtle)", borderRadius: "var(--radius-md)", padding: 2 }}>
+            <div className="ml-auto flex gap-0.5 bg-gray-50 rounded-lg p-0.5">
               <button
                 onClick={() => setShowRendered(true)}
-                style={{
-                  padding: "var(--space-1) var(--space-3)",
-                  border: "none",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  background: showRendered ? "var(--color-primary)" : "transparent",
-                  color: showRendered ? "#fff" : "var(--text-secondary)",
-                }}
+                className={`px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer ${
+                  showRendered ? "bg-blue-600 text-white" : "bg-transparent text-gray-500"
+                }`}
               >
                 渲染效果
               </button>
               <button
                 onClick={() => setShowRendered(false)}
-                style={{
-                  padding: "var(--space-1) var(--space-3)",
-                  border: "none",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  background: !showRendered ? "var(--color-primary)" : "transparent",
-                  color: !showRendered ? "#fff" : "var(--text-secondary)",
-                }}
+                className={`px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer ${
+                  !showRendered ? "bg-blue-600 text-white" : "bg-transparent text-gray-500"
+                }`}
               >
                 原始模板
               </button>
@@ -1067,58 +737,28 @@ export default function PromptManagementTab() {
         </div>
 
         {previewLoading ? (
-          <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--text-tertiary)" }}>加载中...</div>
+          <div className="p-8 text-center text-gray-400">加载中...</div>
         ) : previewData ? (
           <>
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>System Prompt</div>
-              <pre
-                style={{
-                  margin: 0,
-                  padding: "var(--space-3)",
-                  background: "var(--bg-surface-subtle)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "var(--radius-md)",
-                  fontSize: "0.8rem",
-                  fontFamily: "monospace",
-                  whiteSpace: "pre-wrap",
-                  color: "var(--text-primary)",
-                  maxHeight: 400,
-                  overflow: "auto",
-                  lineHeight: 1.6,
-                }}
-              >
+            <div className="mb-3">
+              <div className="text-xs font-semibold text-gray-500 mb-1">System Prompt</div>
+              <pre className="m-0 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono whitespace-pre-wrap text-gray-900 max-h-[400px] overflow-auto leading-relaxed">
                 {showRendered ? previewData.system_prompt_rendered : renderHighlighted(previewData.system_prompt_raw)}
               </pre>
             </div>
             {previewData.user_prompt_raw && (
-              <div style={{ marginBottom: "var(--space-3)" }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>User Prompt Template</div>
-                <pre
-                  style={{
-                    margin: 0,
-                    padding: "var(--space-3)",
-                    background: "var(--bg-surface-subtle)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: "0.8rem",
-                    fontFamily: "monospace",
-                    whiteSpace: "pre-wrap",
-                    color: "var(--text-primary)",
-                    maxHeight: 300,
-                    overflow: "auto",
-                    lineHeight: 1.6,
-                  }}
-                >
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-gray-500 mb-1">User Prompt Template</div>
+                <pre className="m-0 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono whitespace-pre-wrap text-gray-900 max-h-[300px] overflow-auto leading-relaxed">
                   {showRendered ? previewData.user_prompt_rendered : renderHighlighted(previewData.user_prompt_raw)}
                 </pre>
               </div>
             )}
             {showRendered && previewData.sample_vars && Object.keys(previewData.sample_vars).length > 0 && (
-              <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: "var(--space-2)" }}>
+              <div className="text-xs text-gray-400 mt-2">
                 预览替换变量:{" "}
                 {Object.entries(previewData.sample_vars).map(([k]) => (
-                  <code key={k} style={{ marginLeft: 6, padding: "1px 6px", background: "var(--blue-50)", borderRadius: 3, fontSize: "0.65rem" }}>
+                  <code key={k} className="ml-1.5 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
                     {k}
                   </code>
                 ))}
@@ -1126,7 +766,7 @@ export default function PromptManagementTab() {
             )}
           </>
         ) : (
-          <div style={{ padding: "var(--space-6)", textAlign: "center", color: "var(--text-tertiary)" }}>该场景暂未激活任何版本</div>
+          <div className="p-6 text-center text-gray-400">该场景暂未激活任何版本</div>
         )}
       </Modal>
     </div>

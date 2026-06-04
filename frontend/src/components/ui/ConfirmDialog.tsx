@@ -1,6 +1,17 @@
-import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { AlertTriangle, X } from "lucide-react";
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 interface ConfirmOptions {
   title: string;
@@ -23,8 +34,6 @@ export function useConfirm(): ConfirmContextType {
   return ctx;
 }
 
-const D = AlertDialogPrimitive;
-
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<(ConfirmOptions & { open: boolean }) | null>(null);
   const resolveRef = useRef<((val: boolean) => void) | null>(null);
@@ -44,96 +53,40 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     setState(null);
   }, []);
 
+  const isDanger = state?.danger ?? false;
+
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <D.Root open={state?.open ?? false} onOpenChange={() => handleClose(false)}>
-        <D.Portal>
-          <D.Overlay style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 2000 }} />
-          <D.Content
-            style={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: 420,
-              maxWidth: "90vw",
-              background: "#fff",
-              borderRadius: 12,
-              boxShadow: "0 20px 48px rgba(15,23,42,0.16)",
-              zIndex: 2001,
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ padding: "24px 24px 8px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 9999,
-                    background: state?.danger ? "#fef2f2" : "#fffbeb",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <AlertTriangle size={20} style={{ color: state?.danger ? "#ef4444" : "#f59e0b" }} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <D.Title style={{ fontSize: "1.05rem", fontWeight: 600, color: "#111827", margin: "0 0 4px" }}>{state?.title}</D.Title>
-                  <D.Description style={{ fontSize: "0.875rem", color: "#6b7280", lineHeight: 1.7 }}>{state?.message}</D.Description>
-                </div>
-                <button
-                  onClick={() => handleClose(false)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, flexShrink: 0 }}
-                >
-                  <X size={18} />
-                </button>
+      <AlertDialog open={state?.open ?? false} onOpenChange={() => handleClose(false)}>
+        <AlertDialogContent className="max-w-[420px]">
+          <AlertDialogHeader>
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-full",
+                  isDanger ? "bg-red-50 dark:bg-red-950" : "bg-amber-50 dark:bg-amber-950",
+                )}
+              >
+                <AlertTriangle size={20} className={isDanger ? "text-red-500" : "text-amber-500"} />
               </div>
+              <div className="min-w-0 flex-1">
+                <AlertDialogTitle className="text-base font-semibold">{state?.title}</AlertDialogTitle>
+                <AlertDialogDescription className="mt-1 text-sm leading-relaxed text-muted-foreground">{state?.message}</AlertDialogDescription>
+              </div>
+              <button type="button" onClick={() => handleClose(false)} className="flex shrink-0 cursor-pointer p-1 text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "16px 24px 20px" }}>
-              <D.Cancel asChild>
-                <button
-                  type="button"
-                  onClick={() => handleClose(false)}
-                  style={{
-                    padding: "7px 18px",
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
-                    borderRadius: 8,
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    color: "#374151",
-                    cursor: "pointer",
-                  }}
-                >
-                  {state?.cancelLabel || "取消"}
-                </button>
-              </D.Cancel>
-              <D.Action asChild>
-                <button
-                  type="button"
-                  onClick={() => handleClose(true)}
-                  style={{
-                    padding: "7px 18px",
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
-                    borderRadius: 8,
-                    border: "none",
-                    cursor: "pointer",
-                    background: state?.danger ? "#ef4444" : "#2563eb",
-                    color: "#fff",
-                  }}
-                >
-                  {state?.confirmLabel || "确定"}
-                </button>
-              </D.Action>
-            </div>
-          </D.Content>
-        </D.Portal>
-      </D.Root>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleClose(false)}>{state?.cancelLabel || "取消"}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleClose(true)} className={isDanger ? "bg-destructive hover:bg-destructive/90" : undefined}>
+              {state?.confirmLabel || "确定"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ConfirmContext.Provider>
   );
 }
@@ -157,95 +110,35 @@ export function ConfirmDialog({
   cancelLabel?: string;
   danger?: boolean;
 }) {
-  if (!open) return null;
   return (
-    <D.Root open onOpenChange={() => onCancel()}>
-      <D.Portal>
-        <D.Overlay style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 2000 }} />
-        <D.Content
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: 420,
-            maxWidth: "90vw",
-            background: "#fff",
-            borderRadius: 12,
-            boxShadow: "0 20px 48px rgba(15,23,42,0.16)",
-            zIndex: 2001,
-            overflow: "hidden",
-          }}
-        >
-          <div style={{ padding: "24px 24px 8px" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 9999,
-                  background: danger ? "#fef2f2" : "#fffbeb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <AlertTriangle size={20} style={{ color: danger ? "#ef4444" : "#f59e0b" }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <D.Title style={{ fontSize: "1.05rem", fontWeight: 600, color: "#111827", margin: "0 0 4px" }}>{title}</D.Title>
-                <D.Description style={{ fontSize: "0.875rem", color: "#6b7280", lineHeight: 1.7 }}>{message}</D.Description>
-              </div>
-              <button
-                type="button"
-                onClick={onCancel}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4, flexShrink: 0 }}
-              >
-                <X size={18} />
-              </button>
+    <AlertDialog open={open} onOpenChange={() => onCancel()}>
+      <AlertDialogContent className="max-w-[420px]">
+        <AlertDialogHeader>
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-full",
+                danger ? "bg-red-50 dark:bg-red-950" : "bg-amber-50 dark:bg-amber-950",
+              )}
+            >
+              <AlertTriangle size={20} className={danger ? "text-red-500" : "text-amber-500"} />
             </div>
+            <div className="min-w-0 flex-1">
+              <AlertDialogTitle className="text-base font-semibold">{title}</AlertDialogTitle>
+              <AlertDialogDescription className="mt-1 text-sm leading-relaxed text-muted-foreground">{message}</AlertDialogDescription>
+            </div>
+            <button type="button" onClick={onCancel} className="flex shrink-0 cursor-pointer p-1 text-gray-400 hover:text-gray-600">
+              <X size={18} />
+            </button>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "16px 24px 20px" }}>
-            <D.Cancel asChild>
-              <button
-                type="button"
-                onClick={onCancel}
-                style={{
-                  padding: "7px 18px",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
-                  color: "#374151",
-                  cursor: "pointer",
-                }}
-              >
-                {cancelLabel}
-              </button>
-            </D.Cancel>
-            <D.Action asChild>
-              <button
-                type="button"
-                onClick={onConfirm}
-                style={{
-                  padding: "7px 18px",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  background: danger ? "#ef4444" : "#2563eb",
-                  color: "#fff",
-                }}
-              >
-                {confirmLabel}
-              </button>
-            </D.Action>
-          </div>
-        </D.Content>
-      </D.Portal>
-    </D.Root>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onCancel}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className={danger ? "bg-destructive hover:bg-destructive/90" : undefined}>
+            {confirmLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

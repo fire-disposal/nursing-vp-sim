@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react";
+﻿import { Plus, Trash2 } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 interface RubricItem {
@@ -70,81 +70,59 @@ export default function RubricEditor({ dimensions, onChange }: RubricEditorProps
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="flex flex-col gap-3">
       {dimensions.map((dim, di) => (
-        <div
-          key={di}
-          style={{
-            border: "1px solid var(--border-secondary)",
-            borderRadius: "var(--radius-md)",
-            padding: 12,
-            background: "var(--bg-secondary)",
-          }}
-        >
-          <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+        <div key={di} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+          <div className="flex gap-2 mb-2 items-center">
             <input
-              className="form-input"
+              className="w-full h-9 border border-gray-200 rounded-md bg-white px-2.5 text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 flex-1 font-semibold !py-1 !px-2 !h-auto"
               placeholder="维度名称"
               value={dim.name}
               onChange={(e) => updateDim(di, { name: e.target.value })}
-              style={{ flex: 1, fontWeight: 600, padding: "4px 8px" }}
             />
-            <label style={{ fontSize: "0.7rem", whiteSpace: "nowrap" }}>
+            <label className="text-xs whitespace-nowrap">
               满分
               <input
                 type="number"
-                className="form-input"
+                className="w-14 ml-1 p-1 h-7 border border-gray-200 rounded-md bg-white text-sm font-[inherit] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={dim.max}
                 onChange={(e) => updateDim(di, { max: Number(e.target.value) || 0 })}
-                style={{ width: 56, marginLeft: 4, padding: "4px" }}
               />
             </label>
-            <Button size="sm" variant="ghost" className="danger" onClick={() => removeDim(di)} title="删除此维度">
+            <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeDim(di)} title="删除此维度">
               <Trash2 size={12} />
             </Button>
           </div>
           <input
-            className="form-input"
+            className="w-full h-7 mb-2 !py-1 !px-2 text-xs border border-gray-200 rounded-md bg-white font-[inherit] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             placeholder="维度描述（可选）"
             value={dim.description || ""}
             onChange={(e) => updateDim(di, { description: e.target.value })}
-            style={{ width: "100%", marginBottom: 8, padding: "4px 8px", fontSize: "0.72rem" }}
           />
 
-          <div style={{ paddingLeft: 8 }}>
+          <div className="pl-2">
             {dim.items.map((item, ii) => (
-              <div
-                key={ii}
-                style={{
-                  marginBottom: 8,
-                  padding: 8,
-                  border: "1px solid var(--border-primary)",
-                  borderRadius: "var(--radius-sm)",
-                  background: "var(--bg-primary)",
-                }}
-              >
-                <div style={{ display: "flex", gap: 6, marginBottom: 4, alignItems: "center" }}>
-                  <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>{ii + 1}</span>
+              <div key={ii} className="mb-2 p-2 border border-gray-200 rounded-sm bg-white">
+                <div className="flex gap-1.5 mb-1 items-center">
+                  <span className="text-xs text-gray-400">{ii + 1}</span>
                   <input
-                    className="form-input"
+                    className="flex-1 !py-0.5 !px-1.5 text-xs h-7 border border-gray-200 rounded-md bg-white font-[inherit] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                     placeholder="条目名称"
                     value={item.name}
                     onChange={(e) => updateItem(di, ii, { name: e.target.value })}
-                    style={{ flex: 1, padding: "3px 6px", fontSize: "0.75rem" }}
                   />
-                  <Button size="sm" variant="ghost" className="danger" onClick={() => removeItem(di, ii)} title="删除此条目">
+                  <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeItem(di, ii)} title="删除此条目">
                     <Trash2 size={11} />
                   </Button>
                 </div>
                 {["1", "2", "3"].map((score) => (
-                  <div key={score} style={{ display: "flex", gap: 6, marginBottom: 2, alignItems: "center" }}>
-                    <span style={{ fontSize: "0.6rem", color: "var(--text-tertiary)", width: 28, textAlign: "right" }}>{score}分</span>
+                  <div key={score} className="flex gap-1.5 mb-0.5 items-center">
+                    <span className="text-[0.625rem] text-gray-400 w-7 text-right">{score}分</span>
                     <input
-                      className="form-input"
+                      className="flex-1 !py-0.5 !px-1.5 text-xs h-7 border border-gray-200 rounded-md bg-white font-[inherit] focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                       placeholder={`${score}分锚点描述`}
                       value={item.anchors?.[score] || ""}
                       onChange={(e) => updateAnchor(di, ii, score, e.target.value)}
-                      style={{ flex: 1, padding: "2px 6px", fontSize: "0.7rem" }}
                     />
                   </div>
                 ))}
@@ -157,7 +135,7 @@ export default function RubricEditor({ dimensions, onChange }: RubricEditorProps
         </div>
       ))}
 
-      <Button variant="outline" size="sm" onClick={addDim} style={{ alignSelf: "flex-start" }}>
+      <Button variant="outline" size="sm" onClick={addDim} className="self-start">
         <Plus size={12} /> 添加维度
       </Button>
     </div>

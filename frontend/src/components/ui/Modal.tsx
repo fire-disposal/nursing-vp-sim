@@ -1,6 +1,7 @@
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface ModalProps {
   open: boolean;
@@ -10,73 +11,26 @@ interface ModalProps {
   footer?: ReactNode;
   maxWidth?: number;
   style?: React.CSSProperties;
+  className?: string;
 }
 
-export default function Modal({ open, onClose, title, children, footer, maxWidth = 560, style }: ModalProps) {
+export default function Modal({ open, onClose, title, children, footer, maxWidth, style, className }: ModalProps) {
   return (
-    <DialogPrimitive.Root
+    <Dialog
       open={open}
       onOpenChange={(o) => {
         if (!o) onClose();
       }}
     >
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 1000,
-            animation: "fadeIn 0.15s ease",
-          }}
-        />
-        <DialogPrimitive.Content
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: maxWidth,
-            maxWidth: "90vw",
-            maxHeight: "85vh",
-            overflow: "auto",
-            background: "#fff",
-            borderRadius: "var(--radius-lg, 12px)",
-            boxShadow: "var(--shadow-xl, 0 20px 60px rgba(0,0,0,0.15))",
-            zIndex: 1001,
-            padding: 0,
-            ...style,
-          }}
-        >
-          {title && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "20px 24px 0",
-              }}
-            >
-              <DialogPrimitive.Title style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>{title}</DialogPrimitive.Title>
-              <DialogPrimitive.Close
-                onClick={onClose}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--gray-400)",
-                  padding: 4,
-                  display: "flex",
-                }}
-              >
-                <X size={20} />
-              </DialogPrimitive.Close>
-            </div>
-          )}
-          <div style={{ padding: "12px 24px" }}>{children}</div>
-          {footer && <div style={{ padding: "0 24px 20px", display: "flex", gap: 12, justifyContent: "flex-end" }}>{footer}</div>}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+      <DialogContent className={cn("max-h-[85vh] overflow-auto p-0", className)} style={{ maxWidth: maxWidth ?? 560, ...style }}>
+        {title && (
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+        )}
+        <div className="px-6 py-3">{children}</div>
+        {footer && <DialogFooter className="px-6 pb-6">{footer}</DialogFooter>}
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem, Grade } from "@/types/store";
+import { cn } from "@/lib/utils";
 
 const GRADE_COLUMNS = [
   { key: "name", label: "年级名称" },
@@ -125,21 +126,15 @@ export default function GradesClassesPage() {
           actions={<Button onClick={openCreate}>新建{tab === "grades" ? "年级" : "班级"}</Button>}
         />
 
-        <div style={{ display: "flex", gap: 0, marginBottom: "1rem", borderBottom: "2px solid var(--border)" }}>
+        <div className="flex gap-0 mb-4 border-b-2 border-gray-200">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key as "grades" | "classes")}
-              style={{
-                padding: "0.5rem 1.25rem",
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                fontWeight: tab === t.key ? 600 : 400,
-                color: tab === t.key ? "var(--primary)" : "var(--text-secondary)",
-                borderBottom: tab === t.key ? "2px solid var(--primary)" : "2px solid transparent",
-                marginBottom: -2,
-              }}
+              className={cn(
+                "px-6 py-2 border-none bg-transparent cursor-pointer border-b-2 mb-[-2px]",
+                tab === t.key ? "font-semibold text-primary border-primary" : "font-normal text-gray-500 border-transparent",
+              )}
             >
               {t.label}
             </button>
@@ -147,18 +142,11 @@ export default function GradesClassesPage() {
         </div>
 
         {tab === "classes" && (
-          <div style={{ marginBottom: "1rem" }}>
+          <div className="mb-4">
             <select
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
-              style={{
-                padding: "7px 10px",
-                border: "1px solid var(--gray-200)",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.82rem",
-                fontFamily: "inherit",
-                background: "#fff",
-              }}
+              className="px-2.5 py-[7px] border border-gray-200 rounded-[var(--radius-md)] text-sm bg-white"
             >
               <option value="">全部年级</option>
               {grades.map((g) => (
@@ -170,29 +158,36 @@ export default function GradesClassesPage() {
           </div>
         )}
 
-        {/* Simple table rendering */}
-        <div className="card">
-          <table className="data-table" style={{ width: "100%" }}>
+        <div className="bg-white rounded-[var(--radius-xl)] p-6 border border-gray-200">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
                 {(tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS).map((col) => (
-                  <th key={col.key}>{col.label}</th>
+                  <th
+                    key={col.key}
+                    className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200"
+                  >
+                    {col.label}
+                  </th>
                 ))}
-                <th>操作</th>
+                <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">操作</th>
               </tr>
             </thead>
             <tbody>
               {(tab === "grades" ? grades : classes).map((item) => (
-                <tr key={item.id}>
+                <tr key={item.id} className="group">
                   {(tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS).map((col) => (
-                    <td key={col.key} style={col.key === "created_at" ? { fontSize: "0.8rem", color: "var(--text-secondary)" } : {}}>
+                    <td
+                      key={col.key}
+                      className={cn("px-4 py-3 border-b border-gray-200 group-hover:bg-gray-50", col.key === "created_at" && "text-xs text-gray-500")}
+                    >
                       {col.render
                         ? col.render(String((item as unknown as Record<string, unknown>)[col.key]))
                         : String((item as unknown as Record<string, unknown>)[col.key] || "")}
                     </td>
                   ))}
-                  <td>
-                    <div style={{ display: "flex", gap: 8 }}>
+                  <td className="px-4 py-3 border-b border-gray-200 group-hover:bg-gray-50">
+                    <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                         编辑
                       </Button>
@@ -225,8 +220,7 @@ export default function GradesClassesPage() {
               <select
                 value={formGradeId}
                 onChange={(e) => setFormGradeId(e.target.value)}
-                className="form-input"
-                style={{ width: "100%", padding: "8px 12px" }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-[var(--radius-md)] text-sm bg-white"
               >
                 <option value="">请选择年级</option>
                 {grades.map((g) => (
@@ -239,10 +233,9 @@ export default function GradesClassesPage() {
           )}
           <FormField label="名称">
             <input
-              className="form-input"
+              className="w-full px-3 py-2 border border-gray-200 rounded-[var(--radius-md)] text-sm"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px" }}
               placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
             />
           </FormField>

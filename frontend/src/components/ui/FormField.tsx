@@ -1,4 +1,5 @@
 import type { CSSProperties, InputHTMLAttributes, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface FormFieldProps {
   label?: string;
@@ -7,82 +8,42 @@ interface FormFieldProps {
   help?: string;
   children?: ReactNode;
   style?: CSSProperties;
+  className?: string;
 }
 
-export default function FormField({ label, required, error, help, children, style }: FormFieldProps) {
+export default function FormField({ label, required, error, help, children, style, className }: FormFieldProps) {
   return (
-    <div style={{ marginBottom: "var(--space-4)", ...style }}>
+    <div className={cn("mb-4", className)} style={style}>
       {label && (
-        <label
-          style={{
-            display: "block",
-            fontSize: "var(--font-size-sm)",
-            color: "var(--text-secondary)",
-            marginBottom: "var(--space-1)",
-            fontWeight: "var(--font-weight-semibold)",
-          }}
-        >
+        <label className="mb-1 block text-sm font-semibold text-muted-foreground">
           {label}
-          {required && <span style={{ color: "var(--color-danger)", marginLeft: 2 }}>*</span>}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
         </label>
       )}
       {children}
-      {help && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--text-tertiary)", marginTop: "var(--space-1)" }}>{help}</div>}
-      {error && <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-danger)", marginTop: "var(--space-1)" }}>{error}</div>}
+      {help && <p className="mt-1 text-xs text-muted-foreground/70">{help}</p>}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   );
 }
 
-const inputStyle = {
-  width: "100%",
-  height: 42,
-  padding: "0 var(--space-3)",
-  border: "1px solid var(--border-color)",
-  borderRadius: "var(--radius-md)",
-  background: "var(--bg-surface-subtle)",
-  color: "var(--text-primary)",
-  fontFamily: "inherit",
-  fontSize: "var(--font-size-base)",
-};
-
-const focusStyle = {
-  outline: "none",
-  borderColor: "var(--color-primary)",
-  background: "var(--bg-surface)",
-  boxShadow: "0 0 0 2px rgba(59,130,246,0.1)",
-};
-
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      style={inputStyle}
-      onFocus={(e) => Object.assign(e.currentTarget.style, focusStyle)}
-      onBlur={(e) => {
-        e.currentTarget.style.outline = "";
-        e.currentTarget.style.borderColor = "var(--border-color)";
-        e.currentTarget.style.background = "var(--bg-surface-subtle)";
-        e.currentTarget.style.boxShadow = "";
-      }}
-      {...props}
-    />
-  );
-}
+export { Input } from "@/components/ui/input";
 
 export function Select({
   options,
   placeholder,
+  className,
   ...props
-}: { options: { value: string; label: string }[]; placeholder?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+}: {
+  options: { value: string; label: string }[];
+  placeholder?: string;
+} & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      style={{ ...inputStyle, cursor: "pointer" }}
-      onFocus={(e) => Object.assign(e.currentTarget.style, focusStyle)}
-      onBlur={(e) => {
-        e.currentTarget.style.outline = "";
-        e.currentTarget.style.borderColor = "var(--border-color)";
-        e.currentTarget.style.background = "var(--bg-surface-subtle)";
-        e.currentTarget.style.boxShadow = "";
-      }}
+      className={cn(
+        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
+        className,
+      )}
       {...props}
     >
       {placeholder && <option value="">{placeholder}</option>}
@@ -98,20 +59,7 @@ export function Select({
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      style={{
-        ...inputStyle,
-        height: "auto",
-        padding: "var(--space-2) var(--space-3)",
-        resize: "vertical",
-        minHeight: 60,
-      }}
-      onFocus={(e) => Object.assign(e.currentTarget.style, focusStyle)}
-      onBlur={(e) => {
-        e.currentTarget.style.outline = "";
-        e.currentTarget.style.borderColor = "var(--border-color)";
-        e.currentTarget.style.background = "var(--bg-surface-subtle)";
-        e.currentTarget.style.boxShadow = "";
-      }}
+      className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
       {...props}
     />
   );

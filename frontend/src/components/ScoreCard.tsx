@@ -1,5 +1,6 @@
-import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lightbulb, MessageSquare, X } from "lucide-react";
+﻿import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lightbulb, MessageSquare, X } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ScoreItemData {
   id?: number;
@@ -27,22 +28,21 @@ interface ScoreData {
 
 function ScoreBar({ label, score, max, variant }: { label: string; score: number; max: number; variant: "blue" | "teal" }) {
   const pct = Math.min((score / (max || 1)) * 100, 100);
-  const colorMap = { blue: "#2563eb", teal: "#14b8a6" };
-  const bgMap = { blue: "#eff6ff", teal: "#f0fdfa" };
-  const color = colorMap[variant];
-  const bg = bgMap[variant];
 
   return (
-    <div className="score-category-row" style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>{label}</span>
-        <span style={{ fontSize: "0.88rem", fontWeight: 700, color }}>
+    <div className="mb-4">
+      <div className="flex justify-between mb-1.5">
+        <span className="text-sm font-semibold">{label}</span>
+        <span className={cn("text-sm font-bold", variant === "blue" ? "text-blue-600" : "text-teal-500")}>
           {score}
-          <span style={{ fontSize: "0.7rem", color: "#9ca3af", fontWeight: 400 }}> / {max}</span>
+          <span className="text-xs text-gray-400 font-normal"> / {max}</span>
         </span>
       </div>
-      <div className="score-bar" style={{ background: bg }}>
-        <div className="score-bar-fill" style={{ width: `${pct}%`, background: color, transition: "width 0.6s ease" }} />
+      <div className={cn("h-[7px] rounded overflow-hidden", variant === "blue" ? "bg-blue-50" : "bg-teal-50")}>
+        <div
+          className={cn("h-full rounded transition-[width] duration-600", variant === "blue" ? "bg-blue-600" : "bg-teal-500")}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -53,71 +53,42 @@ function ScoreItem({ item }: { item: ScoreItemData }) {
   const hasEvidence = item.evidence || item.reason;
 
   return (
-    <div style={{ marginBottom: 4 }}>
+    <div className="mb-1">
       <div
         onClick={() => hasEvidence && setExpanded(!expanded)}
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "6px 10px",
-          borderRadius: 6,
-          cursor: hasEvidence ? "pointer" : "default",
-          background: item.score >= 3 ? "#f0fdf4" : item.score >= 2 ? "#fffbeb" : "#fef2f2",
-          transition: "background 0.15s",
-        }}
+        className={cn(
+          "flex justify-between items-center px-2.5 py-1.5 rounded-md transition-colors duration-150",
+          hasEvidence ? "cursor-pointer" : "cursor-default",
+          item.score >= 3 ? "bg-green-50" : item.score >= 2 ? "bg-amber-50" : "bg-red-50",
+        )}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-          {hasEvidence && (
-            <span style={{ color: "#9ca3af", flexShrink: 0, transition: "transform 0.2s ease" }}>
-              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </span>
-          )}
-          <span style={{ fontSize: "0.76rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</span>
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {hasEvidence && <span className="text-gray-400 shrink-0">{expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</span>}
+          <span className="text-xs text-gray-700 overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</span>
         </div>
-        <span
-          style={{
-            fontSize: "0.72rem",
-            fontWeight: 700,
-            marginLeft: 8,
-            flexShrink: 0,
-            color: item.score >= 3 ? "#15803d" : item.score >= 2 ? "#b45309" : "#dc2626",
-          }}
-        >
+        <span className={cn("text-xs font-bold ml-2 shrink-0", item.score >= 3 ? "text-green-700" : item.score >= 2 ? "text-amber-700" : "text-red-600")}>
           {item.score}/3
         </span>
       </div>
       <div
-        style={{
-          maxHeight: expanded && hasEvidence ? 200 : 0,
-          opacity: expanded && hasEvidence ? 1 : 0,
-          overflow: "hidden",
-          transition: "max-height 0.3s ease, opacity 0.25s ease, margin 0.3s ease",
-          margin: expanded && hasEvidence ? "2px 4px 4px 24px" : "0 4px 0 24px",
-        }}
+        className={cn(
+          "overflow-hidden transition-all duration-300",
+          expanded && hasEvidence ? "max-h-[200px] opacity-100 m-[2px_4px_4px_24px]" : "max-h-0 opacity-0 m-[0_4px_0_24px]",
+        )}
       >
-        <div
-          style={{
-            padding: "8px 10px",
-            borderRadius: 6,
-            background: "#f8fafc",
-            border: "1px solid #e5e7eb",
-            fontSize: "0.73rem",
-            lineHeight: 1.55,
-          }}
-        >
+        <div className="p-2 rounded-md bg-slate-50 border border-border text-xs leading-[1.55]">
           {item.evidence && (
-            <div style={{ marginBottom: item.reason ? 4 : 0 }}>
-              <span style={{ fontWeight: 600, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
+            <div className={item.reason ? "mb-1" : ""}>
+              <span className="font-semibold text-gray-500 flex items-center gap-1">
                 <MessageSquare size={10} /> 证据
               </span>
-              <span style={{ color: "#374151" }}>{item.evidence}</span>
+              <span className="text-gray-700">{item.evidence}</span>
             </div>
           )}
           {item.reason && (
             <div>
-              <span style={{ fontWeight: 600, color: "#6b7280" }}>理由：</span>
-              <span style={{ color: "#374151" }}>{item.reason}</span>
+              <span className="font-semibold text-gray-500">理由：</span>
+              <span className="text-gray-700">{item.reason}</span>
             </div>
           )}
         </div>
@@ -145,34 +116,24 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
   const rubricLabel = score.rubric_version ? `评分标准: ${score.rubric_version}` : null;
 
   return (
-    <div className="score-overlay" onClick={onClose}>
-      <div className="score-modal" onClick={(e) => e.stopPropagation()} style={{ animation: "scoreSlideUp 0.25s ease" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] backdrop-blur-[2px]" onClick={onClose}>
+      <div
+        className="bg-card rounded-2xl p-8 max-w-[600px] w-[92vw] max-h-[85vh] overflow-y-auto shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-[scoreSlideUp_0.25s_ease]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700 }}>训练评分报告</h2>
-            {rubricLabel && <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{rubricLabel}</span>}
+            <h2 className="text-lg font-bold">训练评分报告</h2>
+            {rubricLabel && <span className="text-xs text-muted-foreground/60">{rubricLabel}</span>}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-border bg-card cursor-pointer flex items-center justify-center">
             <X size={16} />
           </button>
         </div>
 
-        <div className="score-total">
-          <div className="big-number">{score.total_score}</div>
-          <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>总分 (满分{maxTotal})</div>
+        <div className="text-center mb-5">
+          <div className="text-[3.5rem] font-extrabold text-primary">{score.total_score}</div>
+          <div className="text-muted-foreground text-sm">总分 (满分{maxTotal})</div>
         </div>
 
         {categories.map(([catName, catData]) => {
@@ -186,20 +147,9 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
           categories.map(([catName, catData]) => {
             if (!catData || !Array.isArray(catData.items)) return null;
             return (
-              <div key={catName} style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    marginBottom: 6,
-                  }}
-                >
-                  {catName} · 逐项评分（点击展开证据）
-                </div>
-                <div style={{ display: "flex", flexDirection: "column" }}>
+              <div key={catName} className="mb-4">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{catName} · 逐项评分（点击展开证据）</div>
+                <div className="flex flex-col">
                   {catData.items.map((item, i) => (
                     <ScoreItem key={item.id || i} item={item} />
                   ))}
@@ -209,66 +159,78 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
           })}
 
         {score.strengths && score.strengths.length > 0 && (
-          <div className="score-section">
-            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="mb-4">
+            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
               <CheckCircle size={16} color="#22c55e" />
               表现较好
             </h4>
-            <ul>
+            <ul className="pl-6">
               {score.strengths.map((s, i) => (
-                <li key={i}>{s}</li>
+                <li key={i} className="text-sm text-gray-600 mb-0.5">
+                  {s}
+                </li>
               ))}
             </ul>
           </div>
         )}
 
         {score.weaknesses && score.weaknesses.length > 0 && (
-          <div className="score-section">
-            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="mb-4">
+            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
               <AlertTriangle size={16} color="#f59e0b" />
               需要改善
             </h4>
-            <ul>
+            <ul className="pl-6">
               {score.weaknesses.map((w, i) => (
-                <li key={i}>{w}</li>
+                <li key={i} className="text-sm text-gray-600 mb-0.5">
+                  {w}
+                </li>
               ))}
             </ul>
           </div>
         )}
 
         {score.missed_content && score.missed_content.length > 0 && (
-          <div className="score-section">
-            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="mb-4">
+            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
               <AlertTriangle size={16} color="#ef4444" />
               漏问内容
             </h4>
-            <ul>
+            <ul className="pl-6">
               {score.missed_content.map((m, i) => (
-                <li key={i}>{m}</li>
+                <li key={i} className="text-sm text-gray-600 mb-0.5">
+                  {m}
+                </li>
               ))}
             </ul>
           </div>
         )}
 
         {score.suggestions && (
-          <div className="score-section">
-            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="mb-4">
+            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
               <Lightbulb size={16} color="#2563eb" />
               改进建议
             </h4>
-            <div className="text-block">{score.suggestions}</div>
+            <div className="text-sm text-gray-600">{score.suggestions}</div>
           </div>
         )}
 
         {(onRetry || onGoHome) && (
-          <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "center" }}>
+          <div className="flex gap-3 mt-7 justify-center">
             {onRetry && (
-              <button className="btn btn-primary" onClick={onRetry}>
+              <button
+                onClick={onRetry}
+                className="inline-flex items-center justify-center gap-1.5 py-[9px] px-[22px] border-none rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 bg-primary text-primary-foreground hover:bg-blue-700"
+              >
                 再试一次
               </button>
             )}
             {onGoHome && (
-              <button className="btn" onClick={onGoHome}>
+              <button
+                onClick={onGoHome}
+                className="inline-flex items-center justify-center gap-1.5 py-[9px] px-[22px] border border-border rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 bg-card text-foreground hover:bg-muted"
+              >
                 结束训练（返回首页）
               </button>
             )}

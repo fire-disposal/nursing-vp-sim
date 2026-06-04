@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
-import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import useAuthStore from "@/stores/authStore";
 
@@ -49,132 +49,131 @@ export default function App() {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <ConfirmProvider>
-            <FeedbackProvider>
-              <ErrorBoundary>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route
-                      path="/home"
-                      element={
-                        <ProtectedRoute>
-                          <DashboardHome />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/cases"
-                      element={
-                        <ProtectedRoute role="student">
-                          <CaseSelect />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/training/:recordId"
-                      element={
-                        <ProtectedRoute role="student">
-                          <ChatTraining />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/history"
-                      element={
-                        <ProtectedRoute>
-                          <History />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/record/:id"
-                      element={
-                        <ProtectedRoute>
-                          <RecordDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/qa"
-                      element={
-                        <ProtectedRoute>
-                          <QA />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/stats"
-                      element={
-                        <ProtectedRoute>
-                          <StatsPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <Admin />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/llm"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <AdminLLM />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/cases"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <AdminCases />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/users/:userId"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <AdminUserDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/users"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <AdminUsers />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/grades-classes"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <AdminGradesClasses />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/admin/feedback"
-                      element={
-                        <ProtectedRoute role="teacher">
-                          <AdminFeedback />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="*" element={<Navigate to="/login" replace />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </FeedbackProvider>
-          </ConfirmProvider>
-        </ToastProvider>
+        <Toaster />
+        <ConfirmProvider>
+          <FeedbackProvider>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route
+                    path="/home"
+                    element={
+                      <ProtectedRoute>
+                        <DashboardHome />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/cases"
+                    element={
+                      <ProtectedRoute role="student">
+                        <CaseSelect />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/training/:recordId"
+                    element={
+                      <ProtectedRoute role="student">
+                        <ChatTraining />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/history"
+                    element={
+                      <ProtectedRoute>
+                        <History />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/record/:id"
+                    element={
+                      <ProtectedRoute>
+                        <RecordDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/qa"
+                    element={
+                      <ProtectedRoute>
+                        <QA />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/stats"
+                    element={
+                      <ProtectedRoute>
+                        <StatsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <Admin />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/llm"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <AdminLLM />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/cases"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <AdminCases />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/users/:userId"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <AdminUserDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/users"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <AdminUsers />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/grades-classes"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <AdminGradesClasses />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/feedback"
+                    element={
+                      <ProtectedRoute role="teacher">
+                        <AdminFeedback />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/login" replace />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </FeedbackProvider>
+        </ConfirmProvider>
       </QueryClientProvider>
     </BrowserRouter>
   );

@@ -1,13 +1,14 @@
-import type { CSSProperties, ElementType, ReactNode } from "react";
+import { type ElementType, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 type StatColor = "blue" | "green" | "amber" | "red" | "teal";
 
-const colorMap: Record<StatColor, { bg: string; color: string }> = {
-  blue: { bg: "var(--color-primary-soft)", color: "var(--color-primary)" },
-  green: { bg: "var(--color-success-soft)", color: "var(--color-success)" },
-  amber: { bg: "var(--color-warning-soft)", color: "var(--color-warning)" },
-  red: { bg: "var(--color-danger-soft)", color: "var(--color-danger)" },
-  teal: { bg: "var(--color-clinical-soft)", color: "var(--color-clinical)" },
+const colorClasses: Record<StatColor, { bg: string; color: string }> = {
+  blue: { bg: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400", color: "" },
+  green: { bg: "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400", color: "" },
+  amber: { bg: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400", color: "" },
+  red: { bg: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400", color: "" },
+  teal: { bg: "bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400", color: "" },
 };
 
 interface StatCardProps {
@@ -17,87 +18,32 @@ interface StatCardProps {
   color?: StatColor;
   trend?: number;
   onClick?: () => void;
-  style?: CSSProperties;
+  className?: string;
 }
 
-export default function StatCard({ icon: Icon, value, label, color = "blue", trend, onClick, style }: StatCardProps) {
-  const c = colorMap[color] || colorMap.blue;
+export default function StatCard({ icon: Icon, value, label, color = "blue", trend, onClick, className }: StatCardProps) {
+  const c = colorClasses[color] || colorClasses.blue;
 
   return (
     <div
       onClick={onClick}
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-color)",
-        borderRadius: "var(--radius-lg)",
-        padding: "var(--space-4) var(--space-5)",
-        display: "flex",
-        alignItems: "center",
-        gap: "var(--space-4)",
-        cursor: onClick ? "pointer" : undefined,
-        transition: "box-shadow var(--transition-fast), border-color var(--transition-fast)",
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (onClick) {
-          e.currentTarget.style.borderColor = "var(--color-primary-border)";
-          e.currentTarget.style.boxShadow = "var(--shadow-sm)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (onClick) {
-          e.currentTarget.style.borderColor = "var(--border-color)";
-          e.currentTarget.style.boxShadow = "";
-        }
-      }}
+      className={cn(
+        "flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all",
+        onClick && "cursor-pointer hover:border-primary hover:shadow-sm",
+        className,
+      )}
     >
       {Icon && (
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: "var(--radius-md)",
-            background: c.bg,
-            color: c.color,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
+        <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg", c.bg)}>
           <Icon size={20} />
         </div>
       )}
-      <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: "var(--font-size-xl)",
-            fontWeight: "var(--font-weight-bold)",
-            lineHeight: 1.2,
-            color: "var(--text-primary)",
-          }}
-        >
-          {value ?? "-"}
-        </div>
-        <div
-          style={{
-            fontSize: "var(--font-size-sm)",
-            color: "var(--text-secondary)",
-            marginTop: 2,
-          }}
-        >
-          {label}
-        </div>
-        {trend && (
-          <div
-            style={{
-              fontSize: "var(--font-size-xs)",
-              color: trend > 0 ? "var(--color-success)" : trend < 0 ? "var(--color-danger)" : "var(--text-tertiary)",
-              marginTop: 2,
-              fontWeight: "var(--font-weight-medium)",
-            }}
-          >
-            {trend > 0 ? "↑" : trend < 0 ? "↓" : "→"} {Math.abs(trend)}%
+      <div className="min-w-0">
+        <div className="text-xl font-bold leading-tight text-foreground">{value ?? "-"}</div>
+        <div className="mt-0.5 text-sm text-muted-foreground">{label}</div>
+        {trend !== undefined && trend !== 0 && (
+          <div className={cn("mt-0.5 text-xs font-medium", trend > 0 ? "text-green-600" : "text-red-600")}>
+            {trend > 0 ? "\u2191" : "\u2193"} {Math.abs(trend)}%
           </div>
         )}
       </div>

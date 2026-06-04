@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { cn } from "@/lib/utils";
 import { getTrends } from "../api/api-client";
 import type { components } from "../api/api-types.gen";
 
@@ -48,42 +49,51 @@ export default function TrainingDurationChart() {
   const averageMinutes = trends?.total_sessions ? Math.round((trends.total_minutes || 0) / trends.total_sessions) : 0;
 
   return (
-    <div className="chart-card">
-      <div className="chart-card-top">
+    <div className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-start justify-between mb-3.5">
         <div>
-          <h3>训练投入趋势</h3>
-          <span className="chart-card-sub">每日训练次数与时长关联</span>
+          <h3 className="text-sm font-bold">训练投入趋势</h3>
+          <span className="text-xs text-gray-400">每日训练次数与时长关联</span>
         </div>
-        <div className="period-tabs">
+        <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
           {PERIODS.map((p) => (
-            <button key={p.key} className={`period-tab ${period === p.key ? "active" : ""}`} onClick={() => setPeriod(p.key)}>
+            <button
+              key={p.key}
+              className={cn(
+                "py-[5px] px-3.5 border-none bg-transparent rounded-md text-xs font-medium text-muted-foreground cursor-pointer",
+                period === p.key && "bg-card text-gray-800 font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
+              )}
+              onClick={() => setPeriod(p.key)}
+            >
               {p.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="chart-summary-row">
-        <div className="chart-summary-item">
-          <span className="chart-summary-val">{trends?.total_sessions ?? 0}次</span>
-          <span className="chart-summary-lbl">训练次数</span>
+      <div className="grid grid-cols-4 gap-2 mb-4 max-[768px]:grid-cols-2">
+        <div className="text-center p-2 bg-muted rounded-lg">
+          <span className="block text-sm font-bold">{trends?.total_sessions ?? 0}次</span>
+          <span className="text-xs text-gray-400">训练次数</span>
         </div>
-        <div className="chart-summary-item">
-          <span className="chart-summary-val">{trends?.total_minutes ?? 0}min</span>
-          <span className="chart-summary-lbl">总时长</span>
+        <div className="text-center p-2 bg-muted rounded-lg">
+          <span className="block text-sm font-bold">{trends?.total_minutes ?? 0}min</span>
+          <span className="text-xs text-gray-400">总时长</span>
         </div>
-        <div className="chart-summary-item">
-          <span className="chart-summary-val">{averageMinutes}min</span>
-          <span className="chart-summary-lbl">平均时长</span>
+        <div className="text-center p-2 bg-muted rounded-lg">
+          <span className="block text-sm font-bold">{averageMinutes}min</span>
+          <span className="text-xs text-gray-400">平均时长</span>
         </div>
-        <div className="chart-summary-item">
-          <span className="chart-summary-val">{trends?.avg_score != null ? `${trends.avg_score}分` : "-"}</span>
-          <span className="chart-summary-lbl">平均得分</span>
+        <div className="text-center p-2 bg-muted rounded-lg">
+          <span className="block text-sm font-bold">{trends?.avg_score != null ? `${trends.avg_score}分` : "-"}</span>
+          <span className="text-xs text-gray-400">平均得分</span>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="chart-empty">正在加载训练统计...</div>
+        <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm border border-dashed border-border rounded-md bg-muted">
+          正在加载训练统计...
+        </div>
       ) : chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -105,7 +115,9 @@ export default function TrainingDurationChart() {
           </ComposedChart>
         </ResponsiveContainer>
       ) : (
-        <div className="chart-empty">暂无训练统计数据</div>
+        <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm border border-dashed border-border rounded-md bg-muted">
+          暂无训练统计数据
+        </div>
       )}
     </div>
   );

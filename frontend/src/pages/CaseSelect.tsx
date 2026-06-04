@@ -8,6 +8,7 @@ import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
+import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 
@@ -60,20 +61,23 @@ export default function CaseSelect() {
         backTo="/home"
       />
 
-      <div className="card" style={{ marginBottom: 24, background: "linear-gradient(135deg, #fef3c7, #fffbeb)", border: "1px solid #fde68a" }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+      <div className="mb-6 rounded-xl border border-amber-200 p-6" style={{ background: "linear-gradient(135deg, #fef3c7, #fffbeb)" }}>
+        <div className="flex gap-3 items-start">
           <Lightbulb size={24} color="#f59e0b" />
-          <div style={{ flex: 1 }}>
+          <div className="flex-1">
             <strong>提示：</strong>每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
           </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 8 }}>
+      <div className="mb-4">
+        <div className="flex gap-2">
           <button
             type="button"
-            className={`btn ${difficultyFilter === 0 ? "btn-primary" : ""}`}
+            className={cn(
+              "inline-flex items-center justify-center gap-1.5 rounded-lg px-[22px] py-[9px] text-sm font-medium cursor-pointer transition-all",
+              difficultyFilter === 0 ? "bg-blue-600 text-white hover:bg-blue-700" : "text-gray-700 hover:bg-gray-100",
+            )}
             onClick={() => {
               setDifficultyFilter(0);
               setOffset(0);
@@ -85,7 +89,10 @@ export default function CaseSelect() {
             <button
               type="button"
               key={d}
-              className={`btn ${difficultyFilter === d ? "btn-primary" : ""}`}
+              className={cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-lg px-[22px] py-[9px] text-sm font-medium cursor-pointer transition-all",
+                difficultyFilter === d ? "bg-blue-600 text-white hover:bg-blue-700" : "text-gray-700 hover:bg-gray-100",
+              )}
               onClick={() => {
                 setDifficultyFilter(d);
                 setOffset(0);
@@ -98,57 +105,39 @@ export default function CaseSelect() {
       </div>
 
       {isLoading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中...</div>
+        <div className="py-10 text-center text-muted-foreground">加载中...</div>
       ) : filteredCases.length === 0 ? (
-        <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>
-          <AlertTriangle size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
+        <div className="bg-card border border-border rounded-xl p-10 text-center text-muted-foreground">
+          <AlertTriangle size={40} className="mb-3 opacity-40" />
           <p>暂无病例</p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
           {filteredCases.map((c) => {
             const summary = getPatientSummary(c.patient_summary);
             return (
               <div
                 key={c.id}
-                className="card"
-                style={{
-                  cursor: "pointer",
-                  transition: "box-shadow 0.2s, transform 0.2s",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-lg)";
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-sm)";
-                  (e.currentTarget as HTMLElement).style.transform = "none";
-                }}
+                className="bg-card border border-border rounded-xl p-6 flex flex-col gap-3 cursor-pointer transition-shadow transition-transform duration-200 hover:shadow-lg hover:-translate-y-0.5"
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <h3 style={{ fontSize: "1.05rem", fontWeight: 600, margin: 0 }}>{c.name}</h3>
-                  <span style={{ display: "flex", gap: 2 }}>{getDifficultyStars(c.difficulty)}</span>
+                <div className="flex items-start justify-between">
+                  <h3 className="text-lg font-semibold">{c.name}</h3>
+                  <span className="flex gap-0.5">{getDifficultyStars(c.difficulty)}</span>
                 </div>
-                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0, lineHeight: 1.6 }}>{c.description}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{c.description}</p>
                 {typeof summary.gender === "string" && (
-                  <div style={{ display: "flex", gap: 16, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div className="flex gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
                       <User size={14} />
                       {summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}
                     </span>
                     {typeof summary.age === "number" && <span>{summary.age}岁</span>}
-                    {typeof summary.chief_complaint === "string" && (
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>主诉：{summary.chief_complaint}</span>
-                    )}
+                    {typeof summary.chief_complaint === "string" && <span className="truncate">主诉：{summary.chief_complaint}</span>}
                   </div>
                 )}
                 <button
                   type="button"
-                  className="btn btn-primary"
-                  style={{ marginTop: "auto" }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-[22px] py-[9px] text-sm font-medium cursor-pointer transition-all mt-auto bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => startMutation.mutate(c.id)}
                   disabled={startMutation.isPending}
                 >

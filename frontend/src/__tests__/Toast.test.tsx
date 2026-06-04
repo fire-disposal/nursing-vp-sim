@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ToastProvider, useToast } from "@/components/Toast";
+import { useToast } from "@/components/Toast";
+import { Toaster } from "@/components/ui/sonner";
 
 function ToastTrigger({
   message = "test",
@@ -23,72 +24,46 @@ function ToastTrigger({
 describe("Toast", () => {
   it("renders toast when triggered", async () => {
     render(
-      <ToastProvider>
+      <>
+        <Toaster />
         <ToastTrigger message="Hello World" />
-      </ToastProvider>,
+      </>,
     );
 
     await userEvent.click(screen.getByText("Show"));
     expect(screen.getByText("Hello World")).toBeInTheDocument();
   });
 
-  it("renders success toast with correct styling", async () => {
+  it("renders success toast", async () => {
     render(
-      <ToastProvider>
+      <>
+        <Toaster />
         <ToastTrigger message="Success!" type="success" />
-      </ToastProvider>,
+      </>,
     );
 
     await userEvent.click(screen.getByText("Show"));
-    const toast = screen.getByText("Success!").closest(".toast");
-    expect(toast).toHaveClass("toast-success");
+    expect(screen.getByText("Success!")).toBeInTheDocument();
   });
 
-  it("removes toast when close button clicked", async () => {
-    render(
-      <ToastProvider>
-        <ToastTrigger message="Deletable" duration={0} />
-      </ToastProvider>,
-    );
-
-    await userEvent.click(screen.getByText("Show"));
-    expect(screen.getByText("Deletable")).toBeInTheDocument();
-
-    const closeBtn = document.querySelector(".toast-close") as HTMLElement;
-    await userEvent.click(closeBtn);
-
-    expect(screen.queryByText("Deletable")).not.toBeInTheDocument();
-  });
-
-  it("limits to max 5 toasts", async () => {
-    function MultiToast() {
-      const toast = useToast();
+  it("convenience methods work", async () => {
+    function QuickToast() {
+      const t = useToast();
       return (
-        <button
-          type="button"
-          onClick={() => {
-            for (let i = 0; i < 10; i++) toast.toast(`Toast ${i}`, "info", 0);
-          }}
-        >
-          Flood
+        <button type="button" onClick={() => t.success("Done")}>
+          Success
         </button>
       );
     }
 
     render(
-      <ToastProvider>
-        <MultiToast />
-      </ToastProvider>,
+      <>
+        <Toaster />
+        <QuickToast />
+      </>,
     );
 
-    await userEvent.click(screen.getByText("Flood"));
-    const toasts = document.querySelectorAll(".toast");
-    expect(toasts.length).toBeLessThanOrEqual(5);
-  });
-
-  it("throws error when useToast used outside provider", () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<ToastTrigger />)).toThrow("useToast must be inside ToastProvider");
-    consoleError.mockRestore();
+    await userEvent.click(screen.getByText("Success"));
+    expect(screen.getByText("Done")).toBeInTheDocument();
   });
 });

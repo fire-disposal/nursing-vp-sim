@@ -10,6 +10,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
 import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
+import { cn } from "@/lib/utils";
 
 type TrendStats = components["schemas"]["TrendStats"];
 type TeacherSummaryItem = components["schemas"]["TeacherSummaryItem"];
@@ -101,6 +102,14 @@ export function StatsPage() {
   );
 }
 
+const statIconBlue = "w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0 bg-blue-50 text-blue-500";
+const statIconAmber = "w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0 bg-amber-50 text-amber-500";
+const statIconGreen = "w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0 bg-green-50 text-green-500";
+const statIconCyan = "w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0 bg-cyan-50 text-cyan-500";
+
+const thClass = "text-left px-4 py-2.5 bg-gray-50 text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-gray-200";
+const tdClass = "px-4 py-3 border-b border-gray-200";
+
 function StatsContent({
   period,
   setPeriod,
@@ -136,58 +145,67 @@ function StatsContent({
       />
 
       {trends && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon blue">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5 mb-6">
+          <div className="bg-card border border-border rounded-xl py-4 px-6 flex items-center gap-3.5">
+            <div className={statIconBlue}>
               <Activity size={22} />
             </div>
             <div>
-              <div className="stat-value">{trends.total_sessions}</div>
-              <div className="stat-label">总训练次数</div>
+              <div className="text-2xl font-bold leading-tight">{trends.total_sessions}</div>
+              <div className="text-xs text-muted-foreground">总训练次数</div>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon amber">
+          <div className="bg-card border border-border rounded-xl py-4 px-6 flex items-center gap-3.5">
+            <div className={statIconAmber}>
               <Clock size={22} />
             </div>
             <div>
-              <div className="stat-value">{trends.total_minutes}</div>
-              <div className="stat-label">总训练时长（分钟）</div>
+              <div className="text-2xl font-bold leading-tight">{trends.total_minutes}</div>
+              <div className="text-xs text-muted-foreground">总训练时长（分钟）</div>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon green">
+          <div className="bg-card border border-border rounded-xl py-4 px-6 flex items-center gap-3.5">
+            <div className={statIconGreen}>
               <Target size={22} />
             </div>
             <div>
-              <div className="stat-value">{trends.avg_score != null ? `${trends.avg_score}分` : "-"}</div>
-              <div className="stat-label">平均得分</div>
+              <div className="text-2xl font-bold leading-tight">{trends.avg_score != null ? `${trends.avg_score}分` : "-"}</div>
+              <div className="text-xs text-muted-foreground">平均得分</div>
             </div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon cyan">
+          <div className="bg-card border border-border rounded-xl py-4 px-6 flex items-center gap-3.5">
+            <div className={statIconCyan}>
               <TrendingUp size={22} />
             </div>
             <div>
-              <div className="stat-value">{trends.total_sessions > 0 ? `${Math.round(trends.total_minutes / trends.total_sessions)}分钟` : "-"}</div>
-              <div className="stat-label">平均每次训练时长</div>
+              <div className="text-2xl font-bold leading-tight">
+                {trends.total_sessions > 0 ? `${Math.round(trends.total_minutes / trends.total_sessions)}分钟` : "-"}
+              </div>
+              <div className="text-xs text-muted-foreground">平均每次训练时长</div>
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <div className="period-tabs">
+      <div className="flex justify-end mb-4">
+        <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
           {["week", "month", "all"].map((p) => (
-            <button key={p} className={`period-tab ${period === p ? "active" : ""}`} onClick={() => setPeriod(p)}>
+            <button
+              key={p}
+              className={cn(
+                "px-3.5 py-1 border-0 bg-transparent rounded-md text-xs font-medium cursor-pointer font-[inherit]",
+                period === p ? "bg-white text-gray-800 font-semibold shadow-sm" : "text-muted-foreground",
+              )}
+              onClick={() => setPeriod(p)}
+            >
               {p === "week" ? "近7天" : p === "month" ? "近30天" : "全部"}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="chart-container">
-        <h3 style={{ marginBottom: 16 }}>训练投入：次数与时长</h3>
+      <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <h3 className="text-sm font-semibold mb-4">训练投入：次数与时长</h3>
         {hasData ? (
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={daily} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -225,8 +243,8 @@ function StatsContent({
         )}
       </div>
 
-      <div className="chart-container">
-        <h3 style={{ marginBottom: 16 }}>训练效果：次数与得分</h3>
+      <div className="bg-card border border-border rounded-xl p-6 mb-6">
+        <h3 className="text-sm font-semibold mb-4">训练效果：次数与得分</h3>
         {hasData ? (
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={daily} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -275,31 +293,33 @@ function StatsContent({
       </div>
 
       {user?.role === "teacher" && summary && summary.length > 0 && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-header">
-            <h3>
+        <div className="bg-card border border-border rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
               <ClipboardList size={18} />
               学生训练统计
             </h3>
           </div>
-          <table className="data-table">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th>学生</th>
-                <th>学号</th>
-                <th>训练次数</th>
-                <th>总时长（分钟）</th>
-                <th>平均时长</th>
+                <th className={thClass}>学生</th>
+                <th className={thClass}>学号</th>
+                <th className={thClass}>训练次数</th>
+                <th className={thClass}>总时长（分钟）</th>
+                <th className={thClass}>平均时长</th>
               </tr>
             </thead>
             <tbody>
               {summary.map((s) => (
-                <tr key={s.user_id}>
-                  <td>{s.display_name}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{s.student_code}</td>
-                  <td>{s.total_sessions}</td>
-                  <td style={{ fontWeight: 600 }}>{s.total_minutes}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{s.total_sessions > 0 ? `${Math.round(s.total_minutes / s.total_sessions)}分钟` : "-"}</td>
+                <tr key={s.user_id} className="hover:bg-gray-50">
+                  <td className={tdClass}>{s.display_name}</td>
+                  <td className={cn(tdClass, "text-muted-foreground")}>{s.student_code}</td>
+                  <td className={tdClass}>{s.total_sessions}</td>
+                  <td className={cn(tdClass, "font-semibold")}>{s.total_minutes}</td>
+                  <td className={cn(tdClass, "text-muted-foreground")}>
+                    {s.total_sessions > 0 ? `${Math.round(s.total_minutes / s.total_sessions)}分钟` : "-"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -309,53 +329,48 @@ function StatsContent({
       )}
 
       {user?.role === "teacher" && ranking && ranking.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3>
-              <Trophy size={18} style={{ color: "var(--amber-500)" }} />
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Trophy size={18} className="text-amber-500" />
               学生成绩排名
             </h3>
-            <span style={{ fontSize: "0.78rem", color: "var(--gray-500)" }}>按平均分降序</span>
+            <span className="text-xs text-muted-foreground">按平均分降序</span>
           </div>
-          <table className="data-table">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th style={{ width: 60 }}>排名</th>
-                <th>学生</th>
-                <th>学号</th>
-                <th>训练次数</th>
-                <th>平均分</th>
-                <th>总分</th>
-                <th>总时长</th>
+                <th className={cn(thClass, "w-[60px]")}>排名</th>
+                <th className={thClass}>学生</th>
+                <th className={thClass}>学号</th>
+                <th className={thClass}>训练次数</th>
+                <th className={thClass}>平均分</th>
+                <th className={thClass}>总分</th>
+                <th className={thClass}>总时长</th>
               </tr>
             </thead>
             <tbody>
               {ranking.map((s) => (
-                <tr key={s.user_id} style={s.rank <= 3 ? { background: "var(--amber-50)" } : {}}>
-                  <td>
+                <tr key={s.user_id} className={cn("hover:bg-gray-50", s.rank <= 3 && "bg-amber-50")}>
+                  <td className={tdClass}>
                     {s.rank === 1 ? (
-                      <Medal size={20} style={{ color: "#f59e0b" }} />
+                      <Medal size={20} className="text-amber-500" />
                     ) : s.rank === 2 ? (
-                      <Medal size={20} style={{ color: "#9ca3af" }} />
+                      <Medal size={20} className="text-gray-400" />
                     ) : s.rank === 3 ? (
-                      <Medal size={20} style={{ color: "#d97706" }} />
+                      <Medal size={20} className="text-amber-700" />
                     ) : (
-                      <span style={{ color: "var(--gray-500)", fontWeight: 600 }}>{s.rank}</span>
+                      <span className="text-muted-foreground font-semibold">{s.rank}</span>
                     )}
                   </td>
-                  <td style={{ fontWeight: 500 }}>{s.display_name}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{s.student_id || "-"}</td>
-                  <td>{s.total_sessions}</td>
-                  <td
-                    style={{
-                      fontWeight: 700,
-                      color: s.avg_score != null ? "var(--primary)" : "var(--text-light)",
-                    }}
-                  >
+                  <td className={cn(tdClass, "font-medium")}>{s.display_name}</td>
+                  <td className={cn(tdClass, "text-muted-foreground")}>{s.student_id || "-"}</td>
+                  <td className={tdClass}>{s.total_sessions}</td>
+                  <td className={cn(tdClass, "font-bold", s.avg_score != null ? "text-primary" : "text-gray-400")}>
                     {s.avg_score != null ? `${s.avg_score}分` : "-"}
                   </td>
-                  <td style={{ color: "var(--text-secondary)" }}>{s.total_score > 0 ? `${s.total_score}分` : "-"}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{s.total_minutes}分钟</td>
+                  <td className={cn(tdClass, "text-muted-foreground")}>{s.total_score > 0 ? `${s.total_score}分` : "-"}</td>
+                  <td className={cn(tdClass, "text-muted-foreground")}>{s.total_minutes}分钟</td>
                 </tr>
               ))}
             </tbody>
@@ -376,10 +391,10 @@ interface TooltipPayloadItem {
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadItem[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="chart-tooltip">
-      <div className="chart-tooltip-date">{label}</div>
+    <div className="bg-white border border-border rounded-lg px-3.5 py-2.5 shadow-md">
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
       {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color, fontSize: "0.82rem" }}>
+        <div key={i} className="text-xs" style={{ color: p.color }}>
           {p.name}:{" "}
           <strong>
             {p.value}
@@ -393,8 +408,8 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 function EmptyChart() {
   return (
-    <div className="empty-state" style={{ minHeight: 200 }}>
-      <div className="icon">
+    <div className="text-center py-16 px-6 text-muted-foreground min-h-[200px]">
+      <div className="text-gray-400 flex items-center justify-center mb-2.5">
         <BarChart3 size={42} />
       </div>
       <div>暂无该时间段的数据</div>

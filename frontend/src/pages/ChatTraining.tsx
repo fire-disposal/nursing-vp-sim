@@ -9,6 +9,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import useVoice from "@/hooks/useVoice";
 import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
+import { cn } from "@/lib/utils";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type MessageItem = components["schemas"]["MessageItem"];
@@ -73,183 +74,65 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }: Inquir
   return (
     <>
       <button
-        className="inquiry-toggle"
+        className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-300 bg-white cursor-pointer text-sm font-medium text-gray-700 transition-all"
         onClick={onToggle}
         title="采集进度"
-        style={{
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "6px 12px",
-          borderRadius: 20,
-          border: "1px solid #d1d5db",
-          background: "#fff",
-          cursor: "pointer",
-          fontSize: "0.78rem",
-          fontWeight: 500,
-          color: "#374151",
-          transition: "all 0.15s",
-        }}
       >
         <ListChecks size={16} />
         <span>
           {covered}/{total}
         </span>
-        {pct < 100 && (
-          <span
-            style={{
-              position: "absolute",
-              top: -3,
-              right: -3,
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "#f59e0b",
-            }}
-          />
-        )}
+        {pct < 100 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" />}
       </button>
 
       <div
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 300,
-          maxWidth: "85vw",
-          background: "#fff",
-          zIndex: 1000,
-          boxShadow: "-2px 0 20px rgba(0,0,0,0.1)",
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.25s ease",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className={cn(
+          "fixed top-0 right-0 bottom-0 w-[300px] max-w-[85vw] bg-white z-[1000] flex flex-col transition-transform duration-300 ease-out",
+          isOpen ? "translate-x-0 shadow-[-2px_0_20px_rgba(0,0,0,0.1)]" : "translate-x-full",
+        )}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "16px 20px",
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          <h3
-            style={{
-              fontSize: "0.95rem",
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+          <h3 className="text-base font-bold flex items-center gap-2">
             <ListChecks size={18} /> 采集进度
           </h3>
-          <button
-            onClick={onToggle}
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 6,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+          <button onClick={onToggle} className="w-7 h-7 rounded-md border border-border bg-white cursor-pointer flex items-center justify-center">
             <X size={14} />
           </button>
         </div>
 
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #f3f4f6" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>关键问诊内容覆盖</span>
-            <span
-              style={{
-                fontSize: "0.8rem",
-                fontWeight: 700,
-                color: pct >= 80 ? "#15803d" : pct >= 40 ? "#b45309" : "#dc2626",
-              }}
-            >
+        <div className="px-6 py-3 border-b border-gray-100">
+          <div className="flex justify-between mb-1.5">
+            <span className="text-xs text-muted-foreground">关键问诊内容覆盖</span>
+            <span className={cn("text-sm font-bold", pct >= 80 ? "text-green-700" : pct >= 40 ? "text-amber-700" : "text-red-600")}>
               {covered}/{total}
             </span>
           </div>
-          <div
-            style={{
-              height: 6,
-              borderRadius: 3,
-              background: "#e5e7eb",
-              overflow: "hidden",
-            }}
-          >
+          <div className="h-1.5 rounded-sm bg-gray-200 overflow-hidden">
             <div
-              style={{
-                height: "100%",
-                borderRadius: 3,
-                background: pct >= 80 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444",
-                width: `${pct}%`,
-                transition: "width 0.5s ease",
-              }}
+              className={cn("h-full rounded-sm transition-[width] duration-500", pct >= 80 ? "bg-green-500" : pct >= 40 ? "bg-amber-500" : "bg-red-500")}
+              style={{ width: `${pct}%` }}
             />
           </div>
         </div>
 
-        <div style={{ flex: 1, overflow: "auto", padding: "8px 0" }}>
+        <div className="flex-1 overflow-auto py-2">
           {inquiries.map((inquiry, idx) => {
             const done = addressed.has(idx);
             return (
-              <div
-                key={idx}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  padding: "9px 20px",
-                  fontSize: "0.78rem",
-                  color: done ? "#374151" : "#9ca3af",
-                  transition: "color 0.2s",
-                }}
-              >
-                {done ? (
-                  <CheckCircle2 size={16} style={{ color: "#22c55e", flexShrink: 0, marginTop: 1 }} />
-                ) : (
-                  <Circle size={16} style={{ color: "#d1d5db", flexShrink: 0, marginTop: 1 }} />
-                )}
-                <span style={{ lineHeight: 1.4 }}>{getInquiryLabel(inquiry)}</span>
+              <div key={idx} className={cn("flex items-start gap-2.5 px-6 py-2 text-sm transition-colors", done ? "text-gray-700" : "text-gray-400")}>
+                {done ? <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" /> : <Circle size={16} className="text-gray-300 shrink-0 mt-0.5" />}
+                <span className="leading-relaxed">{getInquiryLabel(inquiry)}</span>
               </div>
             );
           })}
         </div>
 
-        <div
-          style={{
-            padding: "12px 20px",
-            borderTop: "1px solid #f3f4f6",
-            fontSize: "0.7rem",
-            color: "#9ca3af",
-            lineHeight: 1.5,
-          }}
-        >
+        <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-400 leading-relaxed">
           提示：系统根据对话关键词自动匹配，仅供参考。建议按护理评估框架全面采集病史。
         </div>
       </div>
 
-      {isOpen && (
-        <div
-          onClick={onToggle}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.3)",
-            zIndex: 999,
-          }}
-        />
-      )}
+      {isOpen && <div onClick={onToggle} className="fixed inset-0 bg-black/30 z-[999]" />}
     </>
   );
 }
@@ -559,10 +442,10 @@ export default function ChatTraining() {
   };
 
   return (
-    <div className="training-shell">
-      <header className="training-topbar">
+    <div className="flex flex-col h-screen bg-background">
+      <header className="flex items-center h-14 px-4 bg-card border-b border-border gap-3 shrink-0">
         <button
-          className="training-back"
+          className="w-[34px] h-[34px] border border-border rounded-lg bg-white text-gray-500 cursor-pointer flex items-center justify-center hover:bg-gray-50"
           onClick={async () => {
             const isActive = remaining != null && remaining > 0 && !score && !ending;
             if (isActive) {
@@ -580,11 +463,11 @@ export default function ChatTraining() {
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="training-patient-identity">
-          <img className="training-patient-avatar-img" src={getPatientAvatar(patientInfo)} alt={patientName || "虚拟患者"} />
+        <div className="flex items-center gap-2.5 flex-1">
+          <img className="w-9 h-9 rounded-full object-cover object-center bg-gray-100" src={getPatientAvatar(patientInfo)} alt={patientName || "虚拟患者"} />
           <div>
-            <div className="training-patient-name">{patientName || "虚拟患者"}</div>
-            <div className="training-patient-desc">
+            <div className="text-sm font-semibold text-foreground">{patientName || "虚拟患者"}</div>
+            <div className="text-xs text-muted-foreground">
               {caseTitle} · {loading ? "正在输入..." : "在线"}
             </div>
           </div>
@@ -600,111 +483,123 @@ export default function ChatTraining() {
         )}
 
         <div
-          className="training-timer"
-          style={
-            remaining !== null && remaining <= 120
-              ? {
-                  background: "#fef2f2",
-                  borderColor: "#fca5a5",
-                  color: "#dc2626",
-                }
-              : remaining !== null && remaining <= 300
-                ? {
-                    background: "#fffbeb",
-                    borderColor: "#fcd34d",
-                    color: "#d97706",
-                  }
-                : {}
-          }
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-semibold tabular-nums border border-gray-200 bg-gray-50 text-gray-700",
+            remaining !== null && remaining <= 120 && "bg-red-50 border-red-300 text-red-600",
+            remaining !== null && remaining > 120 && remaining <= 300 && "bg-amber-50 border-amber-200 text-amber-600",
+          )}
         >
-          <Clock size={16} />
+          <Clock size={16} className="text-gray-400 shrink-0" />
           <span>{formatTime(remaining)}</span>
         </div>
         {voice.speechSupported.synthesis && (
           <button
-            className={`voice-auto-btn${voice.autoPlay ? " active" : ""}`}
+            className={cn(
+              "flex items-center justify-center w-[34px] h-[34px] p-0 border border-gray-200 rounded-lg bg-gray-50 text-gray-400 cursor-pointer transition-all hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50",
+              voice.autoPlay && "border-blue-500 bg-blue-50 text-blue-600 hover:bg-blue-100",
+            )}
             onClick={() => voice.setAutoPlay(!voice.autoPlay)}
             title={voice.autoPlay ? "关闭自动朗读" : "开启自动朗读"}
           >
             {voice.autoPlay ? <Ear size={16} /> : <EarOff size={16} />}
           </button>
         )}
-        <button className="training-end-btn" onClick={handleEnd} disabled={ending || messages.length <= 1}>
+        <button
+          className="flex items-center gap-1.5 px-3.5 py-1.5 border border-red-200 rounded-lg bg-white text-red-500 text-sm font-medium cursor-pointer hover:bg-red-50 disabled:opacity-35 disabled:cursor-not-allowed"
+          onClick={handleEnd}
+          disabled={ending || messages.length <= 1}
+        >
           <Phone size={16} />
           <span>{ending ? "评分中..." : "结束训练"}</span>
         </button>
       </header>
 
-      <div className="training-body">
+      <div className="flex flex-1 overflow-hidden relative">
         <PatientPortrait patientInfo={patientInfo} collapsed={!showPortrait} onToggle={() => setShowPortrait((v) => !v)} />
 
-        <div className="training-conversation">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 max-w-[800px] mx-auto w-full">
           {messages.length <= 1 && (
-            <div className="training-hint">
-              <div className="training-hint-icon">
-                <img className="msg-avatar" src={getPatientAvatar(patientInfo)} alt="患者" style={{ width: 36, height: 36 }} />
+            <div className="text-center pt-16 pb-6 text-muted-foreground">
+              <div className="flex items-center justify-center mb-3 text-gray-400">
+                <img className="w-9 h-9 rounded-full object-cover object-center bg-gray-100" src={getPatientAvatar(patientInfo)} alt="患者" />
               </div>
-              <p>请按照护理评估流程与患者交流</p>
-              <span>从主诉开始，逐步了解现病史、既往史、用药史等信息</span>
+              <p className="text-sm font-medium mt-3 text-gray-500">请按照护理评估流程与患者交流</p>
+              <span className="text-xs block mt-1">从主诉开始，逐步了解现病史、既往史、用药史等信息</span>
             </div>
           )}
           {messages.map((msg, i) => (
-            <div key={msg.id || i} className={`msg-row ${msg.role}`}>
-              {msg.role === "patient" && <img className="msg-avatar" src={getPatientAvatar(patientInfo)} alt="患者" />}
-              <div className={`msg-bubble${msg.streaming ? " streaming" : ""}`}>
+            <div key={msg.id || i} className={cn("flex items-end gap-1.5", msg.role === "student" ? "justify-end" : "justify-start")}>
+              {msg.role === "patient" && (
+                <img className="w-8 h-8 rounded-full object-cover object-center shrink-0 bg-gray-100" src={getPatientAvatar(patientInfo)} alt="患者" />
+              )}
+              <div
+                className={cn(
+                  "max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+                  msg.role === "student" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-white text-gray-800 border border-gray-200 rounded-bl-md",
+                  msg.streaming && "streaming-cursor",
+                )}
+              >
                 <p>
                   {msg.content}
                   {msg.streaming ? "" : ""}
                 </p>
               </div>
-              {msg.role === "student" && <img className="msg-avatar" src={getNurseAvatar()} alt="护士" />}
+              {msg.role === "student" && (
+                <img className="w-8 h-8 rounded-full object-cover object-center shrink-0 bg-gray-100" src={getNurseAvatar()} alt="护士" />
+              )}
               {msg.role === "patient" && !msg.streaming && !voice.autoPlay && voice.speechSupported.synthesis && (
-                <button className="msg-speak-btn" onClick={() => handleSpeakToggle(msg.content)} title={voice.isSpeaking ? "停止朗读" : "朗读"}>
+                <button
+                  className="w-7 h-7 border border-gray-200 rounded-md bg-white cursor-pointer flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                  onClick={() => handleSpeakToggle(msg.content)}
+                  title={voice.isSpeaking ? "停止朗读" : "朗读"}
+                >
                   {voice.isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
                 </button>
               )}
             </div>
           ))}
           {loading && !messages.some((m) => m.streaming) && (
-            <div className="msg-row patient">
-              <img className="msg-avatar" src={getPatientAvatar(patientInfo)} alt="患者" />
-              <div className="msg-bubble">
-                <div className="typing-dots">
-                  <span />
-                  <span />
-                  <span />
+            <>
+              <div className="flex items-end gap-1.5 justify-start">
+                <img className="w-8 h-8 rounded-full object-cover object-center shrink-0 bg-gray-100" src={getPatientAvatar(patientInfo)} alt="患者" />
+                <div className="bg-white text-gray-800 border border-gray-200 rounded-2xl rounded-bl-md px-4 py-2.5">
+                  <div className="typing-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                 </div>
+              </div>
+              <div className="flex justify-center mt-2">
                 <button
                   onClick={() => {
                     scoreCancelRef.current = true;
                     setEnding(false);
                     setShowOverlay(false);
                   }}
-                  style={{
-                    marginTop: 20,
-                    padding: "8px 20px",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--radius-md)",
-                    background: "var(--bg-surface)",
-                    color: "var(--text-secondary)",
-                    cursor: "pointer",
-                    fontSize: "0.85rem",
-                  }}
+                  className="px-6 py-2 border border-border rounded-lg bg-card text-muted-foreground cursor-pointer text-sm"
                 >
                   跳过等待，稍后在记录中查看
                 </button>
               </div>
+            </>
+          )}
+          {remaining === 0 && (
+            <div className="text-center mx-4 px-4 py-3 bg-red-50 border border-red-300 rounded-lg text-red-600 text-sm font-semibold">
+              训练时间已结束，系统正在自动评分...
             </div>
           )}
-          {remaining === 0 && <div className="time-up-banner">训练时间已结束，系统正在自动评分...</div>}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      <div className="training-input-bar">
+      <div className="flex items-center gap-2 px-6 py-3 bg-card border-t border-border shrink-0">
         {voice.speechSupported.recognition && (
           <button
-            className={`voice-btn ${voice.isListening ? "active" : ""}`}
+            className={cn(
+              "w-10 h-10 rounded-full border border-gray-200 bg-white text-gray-500 cursor-pointer flex items-center justify-center shrink-0 hover:bg-gray-50 disabled:opacity-35 disabled:cursor-not-allowed",
+              voice.isListening && "bg-red-50 border-red-200 text-red-500",
+            )}
             onClick={toggleVoice}
             disabled={loading || ending || remaining === 0}
             title={voice.isListening ? "停止录音" : "语音输入"}
@@ -719,61 +614,27 @@ export default function ChatTraining() {
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSend()}
           placeholder={remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
           disabled={loading || ending || remaining === 0}
+          className="flex-1 px-4 py-2.5 border border-gray-200 rounded-3xl text-sm font-[inherit] bg-gray-50 focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_2px_rgba(59,130,246,0.1)] focus:bg-white"
         />
-        <button className="send-btn" onClick={handleSend} disabled={!input.trim() || loading || ending || remaining === 0}>
+        <button
+          className="w-10 h-10 rounded-full bg-blue-600 text-white border-0 cursor-pointer flex items-center justify-center shrink-0 hover:bg-blue-700 disabled:opacity-35 disabled:cursor-not-allowed"
+          onClick={handleSend}
+          disabled={!input.trim() || loading || ending || remaining === 0}
+        >
           <Send size={18} />
         </button>
       </div>
 
       {showOverlay && (
-        <div className="score-overlay">
-          <div
-            className="score-modal"
-            style={{
-              textAlign: "center",
-              padding: "40px 32px",
-              maxWidth: 420,
-            }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                margin: "0 auto 20px",
-                border: "4px solid var(--gray-200)",
-                borderTopColor: "var(--blue-600)",
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
-              }}
-            />
-            <h3 style={{ marginBottom: 8, fontSize: "1.05rem" }}>{scoreProgress >= 100 ? "评分完成，即将展示报告" : "AI 正在评分"}</h3>
-            <p
-              style={{
-                color: "var(--text-secondary)",
-                fontSize: "0.85rem",
-                lineHeight: 1.6,
-                marginBottom: 24,
-              }}
-            >
-              正在分析你的训练表现，根据问诊完整性、沟通技巧等维度进行评分，请耐心等待...
-            </p>
-            <div
-              style={{
-                height: 6,
-                borderRadius: 3,
-                background: "var(--gray-200)",
-                overflow: "hidden",
-                marginBottom: 24,
-              }}
-            >
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] backdrop-blur-sm">
+          <div className="bg-white rounded-2xl text-center px-8 py-10 max-w-[420px] w-[92vw] shadow-2xl">
+            <div className="w-12 h-12 mx-auto mb-5 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
+            <h3 className="mb-2 text-lg">{scoreProgress >= 100 ? "评分完成，即将展示报告" : "AI 正在评分"}</h3>
+            <p className="text-muted-foreground text-sm leading-relaxed mb-6">正在分析你的训练表现，根据问诊完整性、沟通技巧等维度进行评分，请耐心等待...</p>
+            <div className="h-1.5 rounded-sm bg-gray-200 overflow-hidden mb-6">
               <div
-                style={{
-                  height: "100%",
-                  borderRadius: 3,
-                  background: scoreProgress >= 100 ? "#22c55e" : "var(--blue-600)",
-                  width: `${scoreProgress}%`,
-                  transition: scoreProgress >= 100 ? "none" : "width 0.05s linear",
-                }}
+                className={cn("h-full rounded-sm", scoreProgress >= 100 ? "bg-green-500" : "bg-blue-600")}
+                style={{ width: `${scoreProgress}%`, transition: scoreProgress >= 100 ? "none" : "width 0.05s linear" }}
               />
             </div>
             <button
@@ -783,20 +644,11 @@ export default function ChatTraining() {
                 setShowOverlay(false);
                 navigate("/home");
               }}
-              style={{
-                padding: "8px 24px",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-surface)",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
+              className="px-6 py-2 border border-border rounded-lg bg-card text-muted-foreground cursor-pointer text-sm"
             >
               稍后在记录中查看，先回首页
             </button>
           </div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
@@ -812,6 +664,37 @@ export default function ChatTraining() {
           }
         />
       )}
+
+      <style>{`
+        .streaming-cursor::after {
+          content: "|";
+          animation: blink 0.8s infinite;
+          color: #3b82f6;
+          font-weight: 700;
+        }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        .typing-dots {
+          display: flex;
+          gap: 4px;
+          padding: 4px 0;
+        }
+        .typing-dots span {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #d1d5db;
+          animation: bounce-dot 1.4s infinite ease-in-out;
+        }
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce-dot {
+          0%, 80%, 100% { transform: scale(0.3); }
+          40% { transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,18 +1,10 @@
-export default function LoadingState({ message = "加载中..." }: { message?: string }) {
+import { cn } from "@/lib/utils";
+
+export default function LoadingState({ message = "加载中...", className }: { message?: string; className?: string }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "var(--space-12) var(--space-6)",
-        textAlign: "center",
-        color: "var(--text-tertiary)",
-      }}
-    >
-      <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3, marginBottom: "var(--space-3)" }} />
-      <span style={{ fontSize: "var(--font-size-base)" }}>{message}</span>
+    <div className={cn("flex flex-col items-center justify-center py-12 text-center text-muted-foreground", className)}>
+      <div className="mb-3 size-8 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
+      <span className="text-sm">{message}</span>
     </div>
   );
 }

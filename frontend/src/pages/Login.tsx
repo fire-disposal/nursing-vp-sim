@@ -1,6 +1,8 @@
-﻿import { Activity } from "lucide-react";
+﻿import { Activity, Stethoscope } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
 import useAuthStore from "@/stores/authStore";
 
 export default function Login() {
@@ -29,65 +31,56 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div
-          className="login-logo"
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 14,
-            background: "linear-gradient(135deg, #2563eb, #7c3aed)",
-            color: "#fff",
-            boxShadow: "0 4px 14px rgba(37, 99, 235, 0.3)",
-          }}
-        >
-          <Activity size={30} />
-        </div>
-        <h2>虚拟患者训练系统</h2>
-        <p className="login-subtitle">护理病史采集技能训练平台</p>
-
-        {error && (
-          <div
-            style={{
-              padding: "10px 14px",
-              borderRadius: 8,
-              background: "var(--red-50)",
-              color: "var(--red-600)",
-              fontSize: "0.82rem",
-              marginBottom: 16,
-              border: "1px solid #fecaca",
-              textAlign: "left",
-            }}
-          >
-            {error}
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50">
+      <div className="relative w-[420px] max-w-[92vw] overflow-hidden rounded-2xl border border-border/50 bg-white shadow-xl">
+        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-8">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-white/20 shadow-inner">
+            <Stethoscope size={30} className="text-white" />
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          <input
-            className="login-input"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="用户名"
-            autoComplete="username"
-            required
-            autoFocus
-          />
-          <input
-            className="login-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="密码"
-            autoComplete="current-password"
-            required
-          />
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? "登录中..." : "登 录"}
-          </button>
-        </form>
+        <div className="space-y-5 px-8 pb-8 pt-6">
+          <div className="text-center">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">虚拟患者训练系统</h2>
+            <p className="mt-1 text-sm text-muted-foreground">护理病史采集技能训练平台</p>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+              <Activity size={16} className="shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="用户名"
+                autoComplete="username"
+                required
+                autoFocus
+                className="h-11"
+              />
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="密码"
+                autoComplete="current-password"
+                required
+                className="h-11"
+              />
+            </div>
+            <Button type="submit" disabled={loading} className="h-11 w-full font-semibold">
+              {loading ? "登录中..." : "登 录"}
+            </Button>
+          </form>
+
+          <p className="text-center text-xs text-muted-foreground">请输入您的账号和密码登录系统</p>
+        </div>
       </div>
     </div>
   );

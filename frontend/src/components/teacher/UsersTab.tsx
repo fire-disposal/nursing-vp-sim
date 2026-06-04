@@ -1,4 +1,4 @@
-import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
+﻿import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "@/api/api-client";
@@ -311,10 +311,16 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
       .catch(() => setter([]));
   }
 
+  const inputClass =
+    "w-full h-[42px] px-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-900 font-[inherit] text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10";
+
   return (
     <>
-      <div style={{ marginBottom: 16, display: "flex", gap: 12 }}>
-        <button className="btn btn-primary" onClick={() => setShowRegister(!showRegister)}>
+      <div className="mb-4 flex gap-3">
+        <button
+          className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          onClick={() => setShowRegister(!showRegister)}
+        >
           {showRegister ? (
             "取消"
           ) : (
@@ -324,7 +330,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           )}
         </button>
         <button
-          className="btn"
+          className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
           onClick={() => {
             setShowBatchImport(true);
             setBatchText("");
@@ -338,16 +344,22 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
       </div>
 
       {showRegister && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 16 }}>添加用户</h3>
-          {regMsg && <div className={regMsg.includes("成功") ? "success-msg" : "error-msg"}>{regMsg}</div>}
-          <form onSubmit={handleRegister} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>用户名</label>
-              <input value={regForm.username} onChange={(e) => setRegForm({ ...regForm, username: e.target.value })} required />
+        <div className="rounded-xl border border-gray-200 bg-white p-6 mb-5">
+          <h3 className="mb-4 font-semibold text-lg">添加用户</h3>
+          {regMsg && (
+            <div
+              className={`px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left ${regMsg.includes("成功") ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}
+            >
+              {regMsg}
             </div>
-            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>密码</label>
+          )}
+          <form onSubmit={handleRegister} className="flex gap-3 flex-wrap items-end">
+            <div className="flex-[1_1_120px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">用户名</label>
+              <input value={regForm.username} onChange={(e) => setRegForm({ ...regForm, username: e.target.value })} required className={inputClass} />
+            </div>
+            <div className="flex-[1_1_120px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">密码</label>
               <input
                 type="password"
                 value={regForm.password}
@@ -355,25 +367,26 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                 required
                 minLength={6}
                 placeholder="至少6位"
+                className={inputClass}
               />
             </div>
-            <div className="form-group" style={{ flex: "1 1 100px", marginBottom: 0 }}>
-              <label>角色</label>
-              <select value={regForm.role} onChange={(e) => setRegForm({ ...regForm, role: e.target.value })}>
+            <div className="flex-[1_1_100px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">角色</label>
+              <select value={regForm.role} onChange={(e) => setRegForm({ ...regForm, role: e.target.value })} className={inputClass}>
                 <option value="student">学生</option>
                 <option value="teacher">教师</option>
               </select>
             </div>
-            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>姓名</label>
-              <input value={regForm.display_name} onChange={(e) => setRegForm({ ...regForm, display_name: e.target.value })} required />
+            <div className="flex-[1_1_120px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">姓名</label>
+              <input value={regForm.display_name} onChange={(e) => setRegForm({ ...regForm, display_name: e.target.value })} required className={inputClass} />
             </div>
-            <div className="form-group" style={{ flex: "1 1 100px", marginBottom: 0 }}>
-              <label>学号</label>
-              <input value={regForm.student_id} onChange={(e) => setRegForm({ ...regForm, student_id: e.target.value })} />
+            <div className="flex-[1_1_100px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">学号</label>
+              <input value={regForm.student_id} onChange={(e) => setRegForm({ ...regForm, student_id: e.target.value })} className={inputClass} />
             </div>
-            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>年级</label>
+            <div className="flex-[1_1_120px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">年级</label>
               <select
                 value={regGrade}
                 onChange={(e) => {
@@ -381,6 +394,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                   setRegForm({ ...regForm, class_id: "" });
                   loadClassesForGrade(e.target.value, setRegClasses);
                 }}
+                className={inputClass}
               >
                 <option value="">不指定</option>
                 {grades.map((g) => (
@@ -390,9 +404,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                 ))}
               </select>
             </div>
-            <div className="form-group" style={{ flex: "1 1 120px", marginBottom: 0 }}>
-              <label>班级</label>
-              <select value={regForm.class_id} onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })} disabled={!regGrade}>
+            <div className="flex-[1_1_120px]">
+              <label className="block text-xs text-gray-500 font-semibold mb-1">班级</label>
+              <select
+                value={regForm.class_id}
+                onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })}
+                disabled={!regGrade}
+                className={inputClass}
+              >
                 <option value="">不指定</option>
                 {regClasses.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -401,81 +420,76 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                 ))}
               </select>
             </div>
-            <button type="submit" className="btn btn-primary" style={{ height: 42 }}>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors h-[42px]"
+            >
               注册
             </button>
           </form>
         </div>
       )}
 
-      <div className="card">
-        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 320 }}>
-            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--gray-400)" }} />
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className="mb-3 flex gap-2 items-center">
+          <div className="relative flex-1 max-w-[320px]">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               ref={searchRef}
               type="text"
               placeholder="搜索用户名、姓名或学号..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "7px 10px 7px 30px",
-                border: "1px solid var(--gray-200)",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.82rem",
-                fontFamily: "inherit",
-              }}
+              className="w-full py-[7px] pl-[30px] pr-2.5 border border-gray-200 rounded-lg text-sm font-[inherit]"
             />
           </div>
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            style={{
-              padding: "7px 10px",
-              border: "1px solid var(--gray-200)",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.82rem",
-              fontFamily: "inherit",
-              background: "#fff",
-            }}
+            className="py-[7px] px-2.5 border border-gray-200 rounded-lg text-sm font-[inherit] bg-white"
           >
             <option value="">全部角色</option>
             <option value="student">学生</option>
             <option value="teacher">教师</option>
           </select>
           <ClassFilter onChange={setClassParam} />
-          <span style={{ fontSize: "0.78rem", color: "var(--gray-500)", whiteSpace: "nowrap" }}>共 {userTotal} 人</span>
+          <span className="text-sm text-gray-500 whitespace-nowrap">共 {userTotal} 人</span>
         </div>
-        <table className="data-table">
+        <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th>用户名</th>
-              <th>姓名</th>
-              <th>角色</th>
-              <th>班级</th>
-              <th>学号</th>
-              <th>注册时间</th>
-              <th>操作</th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">用户名</th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">姓名</th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">角色</th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">班级</th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">学号</th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                注册时间
+              </th>
+              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">操作</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/admin/users/${u.id}`)}>
-                <td>{u.username}</td>
-                <td>{u.display_name}</td>
-                <td>
-                  <span className={`badge ${u.role === "teacher" ? "badge-info" : "badge-success"}`}>{u.role === "teacher" ? "教师" : "学生"}</span>
+              <tr key={u.id} className="cursor-pointer hover:bg-gray-50" onClick={() => navigate(`/admin/users/${u.id}`)}>
+                <td className="px-4 py-3 border-b border-gray-200">{u.username}</td>
+                <td className="px-4 py-3 border-b border-gray-200">{u.display_name}</td>
+                <td className="px-4 py-3 border-b border-gray-200">
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold ${u.role === "teacher" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-700"}`}
+                  >
+                    {u.role === "teacher" ? "教师" : "学生"}
+                  </span>
                 </td>
-                <td style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>
+                <td className="px-4 py-3 border-b border-gray-200 text-gray-500 text-sm">
                   {u.grade_name && u.class_name ? `${u.grade_name} ${u.class_name}` : u.class_name || "-"}
                 </td>
-                <td style={{ color: "var(--text-secondary)" }}>{u.student_id || "-"}</td>
-                <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(u.created_at).toLocaleString("zh-CN")}</td>
-                <td>
-                  <div style={{ display: "flex", gap: 8 }}>
+                <td className="px-4 py-3 border-b border-gray-200 text-gray-500">{u.student_id || "-"}</td>
+                <td className="px-4 py-3 border-b border-gray-200 text-sm text-gray-500">{new Date(u.created_at).toLocaleString("zh-CN")}</td>
+                <td className="px-4 py-3 border-b border-gray-200">
+                  <div className="flex gap-2">
                     <button
-                      className="btn btn-sm"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         openEditUser(u);
@@ -485,7 +499,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                       <Edit3 size={14} />
                     </button>
                     <button
-                      className="btn btn-sm btn-danger"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteUser(u);
@@ -505,30 +519,32 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
       {/* Edit User Modal */}
       <Modal open={showEditUser} onClose={() => setShowEditUser(false)} title={`编辑用户: ${editUser?.display_name}`} maxWidth={480}>
-        {editUserMsg && (
-          <div className="error-msg" style={{ marginBottom: 16 }}>
-            {editUserMsg}
-          </div>
-        )}
+        {editUserMsg && <div className="bg-red-50 text-red-500 px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">{editUserMsg}</div>}
         <form onSubmit={handleSaveUser}>
-          <div className="form-group">
-            <label>姓名</label>
-            <input value={editUserForm.display_name} onChange={(e) => setEditUserForm((f) => ({ ...f, display_name: e.target.value }))} required />
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 font-semibold mb-1">姓名</label>
+            <input
+              className={inputClass}
+              value={editUserForm.display_name}
+              onChange={(e) => setEditUserForm((f) => ({ ...f, display_name: e.target.value }))}
+              required
+            />
           </div>
-          <div className="form-group">
-            <label>学号</label>
-            <input value={editUserForm.student_id} onChange={(e) => setEditUserForm((f) => ({ ...f, student_id: e.target.value }))} />
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 font-semibold mb-1">学号</label>
+            <input className={inputClass} value={editUserForm.student_id} onChange={(e) => setEditUserForm((f) => ({ ...f, student_id: e.target.value }))} />
           </div>
-          <div className="form-group">
-            <label>角色</label>
-            <select value={editUserForm.role} onChange={(e) => setEditUserForm((f) => ({ ...f, role: e.target.value }))}>
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 font-semibold mb-1">角色</label>
+            <select className={inputClass} value={editUserForm.role} onChange={(e) => setEditUserForm((f) => ({ ...f, role: e.target.value }))}>
               <option value="student">学生</option>
               <option value="teacher">教师</option>
             </select>
           </div>
-          <div className="form-group">
-            <label>年级</label>
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 font-semibold mb-1">年级</label>
             <select
+              className={inputClass}
               value={editGrade}
               onChange={(e) => {
                 setEditGrade(e.target.value);
@@ -544,9 +560,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               ))}
             </select>
           </div>
-          <div className="form-group">
-            <label>班级</label>
-            <select value={editUserForm.class_id} onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))} disabled={!editGrade}>
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 font-semibold mb-1">班级</label>
+            <select
+              className={inputClass}
+              value={editUserForm.class_id}
+              onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))}
+              disabled={!editGrade}
+            >
               <option value="">不指定</option>
               {editClasses.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -555,21 +576,29 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               ))}
             </select>
           </div>
-          <div className="form-group">
-            <label>新密码（留空不修改）</label>
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 font-semibold mb-1">新密码（留空不修改）</label>
             <input
               type="password"
+              className={inputClass}
               value={editUserForm.password}
               onChange={(e) => setEditUserForm((f) => ({ ...f, password: e.target.value }))}
               placeholder="至少6位"
               minLength={6}
             />
           </div>
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 16 }}>
-            <button type="button" className="btn" onClick={() => setShowEditUser(false)}>
+          <div className="flex gap-3 justify-end mt-4">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              onClick={() => setShowEditUser(false)}
+            >
               取消
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            >
               保存
             </button>
           </div>
@@ -589,8 +618,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
         }
         maxWidth={650}
       >
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontWeight: 600, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+        <div className="mb-3">
+          <label className="font-semibold text-sm flex items-center gap-1.5 mb-2">
             <FileText size={14} /> 粘贴文本（每行一个用户，逗号分隔）
           </label>
           <textarea
@@ -601,13 +630,13 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               setBatchText(e.target.value);
               parseBatchText(e.target.value);
             }}
-            style={{ width: "100%", fontFamily: "monospace", fontSize: "0.8rem" }}
+            className="w-full font-mono text-sm p-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
             disabled={batchImporting}
           />
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>格式：用户名,密码,姓名,角色,学号,班级ID（可选）</div>
+          <div className="text-xs text-gray-500 mt-1">格式：用户名,密码,姓名,角色,学号,班级ID（可选）</div>
         </div>
-        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <label className="btn btn-sm" style={{ cursor: "pointer" }}>
+        <div className="mb-3 flex items-center gap-3 flex-wrap">
+          <label className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer">
             <Upload size={14} /> 上传 CSV 文件
             <input
               type="file"
@@ -620,46 +649,62 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                 }
                 e.target.value = "";
               }}
-              style={{ display: "none" }}
+              className="hidden"
               disabled={batchImporting}
             />
           </label>
-          <span className="link" onClick={handleDownloadTemplate} style={{ fontSize: "0.8rem" }}>
-            <Download size={14} style={{ verticalAlign: -3, marginRight: 2 }} />
+          <span className="text-blue-500 cursor-pointer font-medium hover:underline text-sm" onClick={handleDownloadTemplate}>
+            <Download size={14} className="inline align-middle mr-0.5 -mt-0.5" />
             下载模板
           </span>
         </div>
         {batchParseError && (
-          <div style={{ color: "var(--red-500)", fontSize: "0.82rem", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="text-red-500 text-sm mb-3 flex items-center gap-1.5">
             <AlertCircle size={16} /> {batchParseError}
           </div>
         )}
         {batchPreview.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontWeight: 600, fontSize: "0.85rem", marginBottom: 8 }}>预览（{batchPreview.length} 名用户）</div>
-            <div style={{ maxHeight: 200, overflow: "auto", border: "1px solid var(--border-color)", borderRadius: 8 }}>
-              <table className="data-table" style={{ margin: 0 }}>
+          <div className="mb-4">
+            <div className="font-semibold text-sm mb-2">预览（{batchPreview.length} 名用户）</div>
+            <div className="max-h-[200px] overflow-auto border border-gray-200 rounded-lg">
+              <table className="w-full border-collapse text-sm m-0">
                 <thead>
                   <tr>
-                    <th>用户名</th>
-                    <th>密码</th>
-                    <th>姓名</th>
-                    <th>角色</th>
-                    <th>学号</th>
-                    <th>班级ID</th>
+                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                      用户名
+                    </th>
+                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                      密码
+                    </th>
+                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                      姓名
+                    </th>
+                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                      角色
+                    </th>
+                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                      学号
+                    </th>
+                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                      班级ID
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {batchPreview.map((u, i) => (
-                    <tr key={i}>
-                      <td>{u.username}</td>
-                      <td>{"*".repeat(Math.min(u.password.length, 8))}</td>
-                      <td>{u.display_name}</td>
-                      <td>
-                        <span className={`badge ${u.role === "teacher" ? "badge-info" : "badge-success"}`}>{u.role === "teacher" ? "教师" : "学生"}</span>
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 border-b border-gray-200">{u.username}</td>
+                      <td className="px-4 py-3 border-b border-gray-200">{"*".repeat(Math.min(u.password.length, 8))}</td>
+                      <td className="px-4 py-3 border-b border-gray-200">{u.display_name}</td>
+                      <td className="px-4 py-3 border-b border-gray-200">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold ${u.role === "teacher" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-700"}`}
+                        >
+                          {u.role === "teacher" ? "教师" : "学生"}
+                        </span>
                       </td>
-                      <td style={{ color: "var(--text-secondary)" }}>{u.student_id || "-"}</td>
-                      <td style={{ color: "var(--text-secondary)" }}>{u.class_id || "-"}</td>
+                      <td className="px-4 py-3 border-b border-gray-200 text-gray-500">{u.student_id || "-"}</td>
+                      <td className="px-4 py-3 border-b border-gray-200 text-gray-500">{u.class_id || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -669,28 +714,31 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
         )}
         {batchResult && (
           <div
-            style={{
-              marginBottom: 16,
-              padding: "12px 16px",
-              borderRadius: 8,
-              fontSize: "0.85rem",
-              background: batchResult.created > 0 ? "#f0fdf4" : "#fffbeb",
-              border: `1px solid ${batchResult.created > 0 ? "#86efac" : "#fde68a"}`,
-            }}
+            className={`mb-4 px-4 py-3 rounded-lg text-sm ${
+              batchResult.created > 0 ? "bg-green-50 border border-green-300" : "bg-amber-50 border border-amber-300"
+            }`}
           >
             <div>
-              创建成功: <strong style={{ color: "var(--green-500)" }}>{batchResult.created}</strong> 名
+              创建成功: <strong className="text-green-500">{batchResult.created}</strong> 名
             </div>
             <div>
-              跳过: <strong style={{ color: "var(--amber-500)" }}>{batchResult.skipped}</strong> 名
+              跳过: <strong className="text-amber-500">{batchResult.skipped}</strong> 名
             </div>
           </div>
         )}
-        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-          <button className="btn" onClick={() => setShowBatchImport(false)} disabled={batchImporting}>
+        <div className="flex gap-3 justify-end">
+          <button
+            className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            onClick={() => setShowBatchImport(false)}
+            disabled={batchImporting}
+          >
             取消
           </button>
-          <button className="btn btn-primary" disabled={batchPreview.length === 0 || batchImporting} onClick={handleBatchImport}>
+          <button
+            className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={batchPreview.length === 0 || batchImporting}
+            onClick={handleBatchImport}
+          >
             {batchImporting ? "导入中..." : `导入 ${batchPreview.length} 名用户`}
           </button>
         </div>

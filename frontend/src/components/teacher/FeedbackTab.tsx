@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -7,6 +7,7 @@ import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import LoadingState from "@/components/ui/LoadingState";
 import Pagination from "@/components/ui/Pagination";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"];
@@ -41,15 +42,15 @@ const TAG_LABEL: Record<string, string> = {
 };
 
 const EMOTION_MAP: Record<number, string> = {
-  1: "😞",
-  2: "😐",
-  3: "🙂",
-  4: "😊",
-  5: "😍",
+  1: "\u{1F61E}",
+  2: "\u{1F610}",
+  3: "\u{1F642}",
+  4: "\u{1F60A}",
+  5: "\u{1F60D}",
 };
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
-const PIE_LABELS = ["😞 很差", "😐 较差", "🙂 一般", "😊 满意", "😍 很满意"];
+const PIE_LABELS = ["\u{1F61E} 很差", "\u{1F610} 较差", "\u{1F642} 一般", "\u{1F60A} 满意", "\u{1F60D} 很满意"];
 
 interface FeedbackChartData {
   name: string;
@@ -105,48 +106,39 @@ function FeedbackChart() {
     initialData: [],
   });
 
-  if (isLoading)
-    return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-tertiary)" }}>加载图表...</div>;
+  if (isLoading) return <div className="h-[200px] flex items-center justify-center text-gray-400">加载图表...</div>;
   if (data.length === 0) return null;
 
   const colorMap: Record<string, string> = { rating_1: "#ef4444", rating_2: "#f97316", rating_3: "#eab308", rating_4: "#22c55e", rating_5: "#3b82f6" };
-  const labelMap: Record<string, string> = { rating_1: "😞 很差", rating_2: "😐 较差", rating_3: "🙂 一般", rating_4: "😊 满意", rating_5: "😍 很满意" };
+  const labelMap: Record<string, string> = {
+    rating_1: "\u{1F61E} 很差",
+    rating_2: "\u{1F610} 较差",
+    rating_3: "\u{1F642} 一般",
+    rating_4: "\u{1F60A} 满意",
+    rating_5: "\u{1F60D} 很满意",
+  };
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <h3 style={{ fontSize: "0.9rem", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-normal m-0 flex items-center gap-1.5">
           <BarChart3 size={14} />
           {weekLabel}反馈分布
         </h3>
-        <div style={{ display: "flex", gap: 2 }}>
+        <div className="flex gap-0.5">
           <button
             onClick={() => setWeekOffset((v) => v - 1)}
-            style={{
-              padding: "3px 6px",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--bg-surface)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-            }}
+            className="flex items-center px-1.5 py-0.5 border border-gray-200 rounded-sm bg-white cursor-pointer"
           >
             <ChevronLeft size={12} />
           </button>
           <button
             onClick={() => setWeekOffset((v) => v + 1)}
             disabled={weekOffset >= 0}
-            style={{
-              padding: "3px 6px",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--bg-surface)",
-              cursor: weekOffset >= 0 ? "default" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              opacity: weekOffset >= 0 ? 0.4 : 1,
-            }}
+            className={cn(
+              "flex items-center px-1.5 py-0.5 border border-gray-200 rounded-sm bg-white",
+              weekOffset >= 0 ? "cursor-default opacity-40" : "cursor-pointer",
+            )}
           >
             <ChevronRight size={12} />
           </button>
@@ -154,9 +146,9 @@ function FeedbackChart() {
       </div>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-          <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="var(--text-tertiary)" />
-          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="var(--text-tertiary)" width={24} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={24} />
           <Tooltip formatter={(value, name) => [value, labelMap[name as string] || name]} />
           <Legend formatter={(value) => labelMap[value] || value} wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="rating_1" stackId="a" fill={colorMap.rating_1} name="rating_1" />
@@ -215,8 +207,8 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
   if (total === 0) return null;
 
   return (
-    <div style={{ flex: "1 1 300px", minWidth: 280 }}>
-      <h3 style={{ fontSize: "0.9rem", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: 6 }}>
+    <div className="flex-[1_1_300px] min-w-[280px]">
+      <h3 className="text-sm font-normal m-0 mb-2 flex items-center gap-1.5">
         <MessageSquare size={14} />
         评价分布
       </h3>
@@ -280,52 +272,42 @@ export default function FeedbackTab() {
   };
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", gap: 24, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+    <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="flex gap-6 mb-4 flex-wrap">
+        <div className="flex-[1_1_300px] min-w-0">
           <FeedbackChart />
         </div>
         <RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
       </div>
 
-      <div className="filter-bar" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+      <div className="flex gap-2 flex-wrap items-center justify-between rounded-[10px] border border-gray-200 bg-gray-50 p-3.5 mb-4">
+        <div className="flex gap-2 items-end flex-wrap">
           <div>
-            <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>开始日期</label>
+            <label className="block text-xs text-gray-500 mb-1">开始日期</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
-              style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
+              className="py-1.5 px-2.5 rounded-lg border border-gray-200 text-sm"
             />
           </div>
-          <span style={{ color: "var(--text-tertiary)", fontSize: "0.85rem", alignSelf: "flex-end", paddingBottom: 7 }}>—</span>
+          <span className="text-gray-400 text-sm self-end pb-[7px]">—</span>
           <div>
-            <label style={{ display: "block", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: 4 }}>结束日期</label>
+            <label className="block text-xs text-gray-500 mb-1">结束日期</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => handleFilterChange("dateTo", e.target.value)}
-              style={{ padding: "6px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", fontSize: "0.85rem" }}
+              className="py-1.5 px-2.5 rounded-lg border border-gray-200 text-sm"
             />
           </div>
           {(dateFrom || dateTo) && (
             <button
-              className="btn btn-sm"
+              className="py-1.5 px-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer text-sm text-gray-500 self-end"
               onClick={() => {
                 setDateFrom("");
                 setDateTo("");
                 setOffset(0);
-              }}
-              style={{
-                padding: "6px 12px",
-                background: "var(--bg-surface-subtle)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-                color: "var(--text-secondary)",
-                alignSelf: "flex-end",
               }}
             >
               清除
@@ -333,47 +315,62 @@ export default function FeedbackTab() {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="flex gap-2 flex-wrap">
           {TAG_OPTIONS.map((opt) => (
-            <button key={opt.value} className={`difficulty-chip${tag === opt.value ? " active" : ""}`} onClick={() => setTag(opt.value)}>
+            <button
+              key={opt.value}
+              className={cn(
+                "px-4 py-1.5 rounded-full border text-sm cursor-pointer transition-colors",
+                tag === opt.value
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600",
+              )}
+              onClick={() => setTag(opt.value)}
+            >
               {opt.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ marginBottom: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>共 {total} 条反馈</div>
+      <div className="mb-4 text-sm text-gray-500">共 {total} 条反馈</div>
 
       {isLoading ? (
         <LoadingState />
       ) : feedbacks.length === 0 ? (
-        <div className="empty-state">
-          <div className="icon">
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <div className="text-gray-400 mb-2.5">
             <MessageSquare size={42} />
           </div>
           <div>暂无反馈</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {feedbacks.map((fb) => (
-            <div
-              key={fb.id}
-              style={{
-                padding: "10px 14px",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-surface)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: "1rem" }}>{EMOTION_MAP[fb.rating] || ""}</span>
-                  <span style={{ fontWeight: "var(--font-weight-semibold)", fontSize: "0.85rem" }}>{fb.user_name}</span>
+            <div key={fb.id} className="py-2.5 px-3.5 border border-gray-200 rounded-lg bg-white">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base">{EMOTION_MAP[fb.rating] || ""}</span>
+                  <span className="font-semibold text-sm">{fb.user_name}</span>
                 </div>
-                <span className={`badge badge-${TAG_BADGE_VARIANT[fb.tag] || "neutral"}`}>{TAG_LABEL[fb.tag] || fb.tag}</span>
+                <span
+                  className={`inline-flex h-5 items-center gap-1 rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
+                    TAG_BADGE_VARIANT[fb.tag] === "info"
+                      ? "bg-blue-100 text-blue-700"
+                      : TAG_BADGE_VARIANT[fb.tag] === "danger"
+                        ? "bg-red-100 text-red-700"
+                        : TAG_BADGE_VARIANT[fb.tag] === "success"
+                          ? "bg-green-100 text-green-700"
+                          : TAG_BADGE_VARIANT[fb.tag] === "warning"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {TAG_LABEL[fb.tag] || fb.tag}
+                </span>
               </div>
-              {fb.content && <div style={{ fontSize: "0.82rem", color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.4 }}>{fb.content}</div>}
-              <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{new Date(fb.created_at).toLocaleString("zh-CN")}</div>
+              {fb.content && <div className="text-sm text-gray-900 mb-1 leading-relaxed">{fb.content}</div>}
+              <div className="text-xs text-gray-400">{new Date(fb.created_at).toLocaleString("zh-CN")}</div>
             </div>
           ))}
         </div>

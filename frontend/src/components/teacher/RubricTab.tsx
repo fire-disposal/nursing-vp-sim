@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronUp, Code, Layout, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
@@ -170,67 +170,33 @@ export default function RubricTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div className="flex justify-end mb-3">
         <Button onClick={openCreate}>
           <Plus size={14} /> 新建评分标准
         </Button>
       </div>
 
-      {rubrics.length === 0 && <div style={{ textAlign: "center", color: "var(--text-tertiary)", padding: 40 }}>暂无评分标准</div>}
+      {rubrics.length === 0 && <div className="text-center text-gray-400 py-10">暂无评分标准</div>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {rubrics.map((r) => (
-          <div
-            key={r.id}
-            style={{
-              border: "1px solid var(--border-secondary)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--bg-primary)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 16px",
-                cursor: "pointer",
-              }}
-              onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
-            >
+          <div key={r.id} className="border border-gray-200 rounded-lg bg-white">
+            <div className="flex items-center justify-between px-4 py-3 cursor-pointer" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
               <div>
-                <div style={{ fontWeight: 600, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: 8 }}>
-                  {r.name} <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", fontWeight: 400 }}>v{r.version}</span>
-                  {r.is_active && (
-                    <span
-                      style={{
-                        fontSize: "0.6rem",
-                        background: "var(--green-100)",
-                        color: "var(--green-700)",
-                        padding: "0px 6px",
-                        borderRadius: "var(--radius-full)",
-                      }}
-                    >
-                      当前
-                    </span>
-                  )}
+                <div className="font-semibold text-sm flex items-center gap-2">
+                  {r.name} <span className="text-xs text-gray-400 font-normal">v{r.version}</span>
+                  {r.is_active && <span className="text-[0.625rem] bg-green-100 text-green-700 px-1.5 rounded-full">当前</span>}
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                <div className="text-xs text-gray-500 mt-0.5">
                   {r.description || "无描述"} · {dimCount(r)} · 满分{r.total_max}
                 </div>
               </div>
-              <span style={{ color: "var(--text-tertiary)" }}>{expandedId === r.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+              <span className="text-gray-400">{expandedId === r.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
             </div>
 
             {expandedId === r.id && (
-              <div
-                style={{
-                  borderTop: "1px solid var(--border-secondary)",
-                  padding: "12px 16px",
-                  background: "var(--bg-secondary)",
-                }}
-              >
-                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 rounded-b-lg">
+                <div className="flex gap-1.5 mb-3">
                   {!r.is_active && (
                     <Button size="sm" onClick={() => handleActivate(r.id)}>
                       <CheckCircle size={12} /> 激活
@@ -240,53 +206,35 @@ export default function RubricTab() {
                     编辑
                   </Button>
                   {!r.is_active && (
-                    <Button size="sm" variant="ghost" className="danger" onClick={() => setDeleteTarget(r)}>
+                    <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => setDeleteTarget(r)}>
                       <Trash2 size={12} />
                     </Button>
                   )}
                 </div>
 
                 {((r.dimensions as RubricDimension[]) || []).length === 0 ? (
-                  <div style={{ color: "var(--text-tertiary)", fontSize: "0.8rem" }}>暂无评估维度</div>
+                  <div className="text-gray-400 text-sm">暂无评估维度</div>
                 ) : (
                   ((r.dimensions as RubricDimension[]) || []).map((dim, i) => (
-                    <div key={i} style={{ marginBottom: 12 }}>
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          fontSize: "0.85rem",
-                          marginBottom: 6,
-                          display: "flex",
-                          alignItems: "baseline",
-                          gap: 8,
-                        }}
-                      >
+                    <div key={i} className="mb-3">
+                      <div className="font-semibold text-sm mb-1.5 flex items-baseline gap-2">
                         {dim.name}
-                        <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", fontWeight: 400 }}>
+                        <span className="text-xs text-gray-400 font-normal">
                           {dim.items?.length || 0}项 · 满分{dim.max}分
                         </span>
                       </div>
-                      {dim.description && <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: 6 }}>{dim.description}</div>}
-                      <div style={{ paddingLeft: 8 }}>
+                      {dim.description && <div className="text-xs text-gray-500 mb-1.5">{dim.description}</div>}
+                      <div className="pl-2">
                         {(dim.items || []).map((item, j) => (
-                          <div
-                            key={j}
-                            style={{
-                              marginBottom: 4,
-                              padding: "4px 8px",
-                              borderRadius: "var(--radius-sm)",
-                              background: "var(--bg-primary)",
-                              border: "1px solid var(--border-primary)",
-                            }}
-                          >
-                            <div style={{ fontSize: "0.75rem", fontWeight: 500, marginBottom: 2 }}>
+                          <div key={j} className="mb-1 px-2 py-1 rounded-sm bg-white border border-gray-200">
+                            <div className="text-xs font-medium mb-0.5">
                               {j + 1}. {item.name}
                             </div>
                             {item.anchors && (
-                              <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)", paddingLeft: 8 }}>
+                              <div className="text-xs text-gray-500 pl-2">
                                 {Object.entries(item.anchors).map(([k, v]) => (
-                                  <div key={k} style={{ marginBottom: 1 }}>
-                                    <span style={{ color: "var(--text-tertiary)", fontWeight: 500 }}>{k}分：</span>
+                                  <div key={k} className="mb-0.5">
+                                    <span className="text-gray-400 font-medium">{k}分：</span>
                                     {String(v)}
                                   </div>
                                 ))}
@@ -318,71 +266,76 @@ export default function RubricTab() {
           </>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "70vh", overflow: "auto" }}>
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>名称</label>
+        <div className="flex flex-col gap-2.5 max-h-[70vh] overflow-auto">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-sm font-medium">名称</label>
               <input
-                className="form-input"
+                className="w-full py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="nursing_history_v1"
-                style={{ width: "100%", padding: "6px 10px" }}
               />
             </div>
             <div>
-              <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>版本</label>
-              <input className="form-input" value={formVersion} onChange={(e) => setFormVersion(e.target.value)} style={{ width: 80 }} />
+              <label className="text-sm font-medium">版本</label>
+              <input
+                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                value={formVersion}
+                onChange={(e) => setFormVersion(e.target.value)}
+              />
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>描述</label>
+            <label className="text-sm font-medium">描述</label>
             <input
-              className="form-input"
+              className="w-full py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
               value={formDesc}
               onChange={(e) => setFormDesc(e.target.value)}
               placeholder="简要说明该评分标准的用途"
-              style={{ width: "100%", padding: "6px 10px" }}
             />
           </div>
 
-          <div style={{ display: "flex", gap: 12 }}>
+          <div className="flex gap-3">
             <div>
-              <label style={{ fontSize: "0.8rem" }}>展示满分</label>
+              <label className="text-sm">展示满分</label>
               <input
                 type="number"
-                className="form-input"
+                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formTotalMax}
                 onChange={(e) => setFormTotalMax(Number(e.target.value))}
-                style={{ width: 80 }}
               />
             </div>
             <div>
-              <label style={{ fontSize: "0.8rem" }}>原始满分</label>
-              <input type="number" className="form-input" value={formRawMax} onChange={(e) => setFormRawMax(Number(e.target.value))} style={{ width: 80 }} />
-            </div>
-            <div>
-              <label style={{ fontSize: "0.8rem" }}>原始刻度</label>
+              <label className="text-sm">原始满分</label>
               <input
                 type="number"
-                className="form-input"
+                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                value={formRawMax}
+                onChange={(e) => setFormRawMax(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="text-sm">原始刻度</label>
+              <input
+                type="number"
+                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formRawScale}
                 onChange={(e) => setFormRawScale(Number(e.target.value))}
-                style={{ width: 80 }}
               />
             </div>
           </div>
 
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <label style={{ fontSize: "0.8rem", fontWeight: 500 }}>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-sm font-medium">
                 评估维度与条目
-                <span style={{ fontWeight: 400, color: "var(--text-tertiary)", fontSize: "0.7rem", marginLeft: 6 }}>
+                <span className="font-normal text-gray-400 text-xs ml-1.5">
                   ({formDims.length}维度 · {formDims.reduce((s, d) => s + (d.items?.length || 0), 0)}条目)
                 </span>
               </label>
-              <div style={{ display: "flex", gap: 4 }}>
+              <div className="flex gap-1">
                 <Button
                   size="sm"
                   variant={editorMode === "structured" ? "primary" : "ghost"}
@@ -412,20 +365,14 @@ export default function RubricTab() {
             ) : (
               <div>
                 <textarea
-                  className="form-input"
+                  className="w-full font-mono text-xs py-2 px-2.5 border border-gray-200 rounded-md bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                   value={jsonText}
                   onChange={(e) => applyJsonDims(e.target.value)}
                   rows={18}
-                  style={{
-                    width: "100%",
-                    fontFamily: "monospace",
-                    fontSize: "0.72rem",
-                    padding: "8px 10px",
-                  }}
                 />
               </div>
             )}
-            {dimError && <div style={{ color: "var(--red-600)", fontSize: "0.75rem", marginTop: 4 }}>{dimError}</div>}
+            {dimError && <div className="text-red-600 text-xs mt-1">{dimError}</div>}
           </div>
         </div>
       </Modal>

@@ -9,7 +9,9 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import useAuthStore from "@/stores/authStore";
+import { cn } from "@/lib/utils";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
@@ -20,6 +22,8 @@ interface FilterParams {
 }
 
 const LIMIT = 50;
+
+const tdClass = "px-4 py-3";
 
 export default function History() {
   const [offset, setOffset] = useState(0);
@@ -80,27 +84,45 @@ export default function History() {
     <Layout>
       <PageHeader title="训练记录" subtitle={user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"} icon={ClipboardList} />
 
-      <div className="card">
-        <div className="filter-bar">
-          <div className="filter-row">
-            <div className="filter-item">
-              <label>状态</label>
-              <select value={filters.status} onChange={(e) => handleFilterChange("status", e.target.value)}>
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="bg-gray-50 border border-gray-200 rounded-[10px] px-4 py-3.5 mb-4">
+          <div className="flex gap-3 flex-wrap items-start">
+            <div className="flex-[1_1_140px] min-w-[120px]">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">状态</label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange("status", e.target.value)}
+                className="w-full h-9 border border-gray-200 rounded-md bg-white px-2.5 text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              >
                 <option value="">全部</option>
                 <option value="in_progress">进行中</option>
                 <option value="completed">已完成</option>
               </select>
             </div>
-            <div className="filter-item">
-              <label>开始日期(起)</label>
-              <input type="date" value={filters.date_from} onChange={(e) => handleFilterChange("date_from", e.target.value)} />
+            <div className="flex-[1_1_140px] min-w-[120px]">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">开始日期(起)</label>
+              <input
+                type="date"
+                value={filters.date_from}
+                onChange={(e) => handleFilterChange("date_from", e.target.value)}
+                className="w-full h-9 border border-gray-200 rounded-md bg-white px-2.5 text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              />
             </div>
-            <div className="filter-item">
-              <label>开始日期(止)</label>
-              <input type="date" value={filters.date_to} onChange={(e) => handleFilterChange("date_to", e.target.value)} />
+            <div className="flex-[1_1_140px] min-w-[120px]">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">开始日期(止)</label>
+              <input
+                type="date"
+                value={filters.date_to}
+                onChange={(e) => handleFilterChange("date_to", e.target.value)}
+                className="w-full h-9 border border-gray-200 rounded-md bg-white px-2.5 text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              />
             </div>
-            <div className="filter-item" style={{ alignSelf: "flex-end" }}>
-              <button type="button" className="btn btn-sm" onClick={clearFilters}>
+            <div className="flex-[1_1_140px] min-w-[120px] self-end">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium cursor-pointer font-[inherit] transition-colors hover:border-blue-500 hover:text-blue-500"
+                onClick={clearFilters}
+              >
                 清除过滤
               </button>
             </div>
@@ -108,92 +130,129 @@ export default function History() {
         </div>
 
         {isLoading ? (
-          <div className="empty-state">
-            <Loader2 size={42} className="spin" />
+          <div className="text-center py-16 px-6 text-muted-foreground">
+            <Loader2 size={42} className="animate-spin" />
             <div>加载中...</div>
           </div>
         ) : isError ? (
-          <div className="empty-state">
-            <div className="icon">
+          <div className="text-center py-16 px-6 text-muted-foreground">
+            <div className="text-gray-400 flex items-center justify-center mb-2.5">
               <ClipboardList size={42} />
             </div>
-            <div style={{ color: "var(--danger)", marginBottom: 12 }}>
-              {(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载记录失败"}
-            </div>
-            <button type="button" className="btn btn-primary" onClick={() => refetch()}>
+            <div className="text-destructive mb-3">{(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载记录失败"}</div>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-1.5 px-[22px] py-[9px] border-0 rounded-lg text-sm font-medium cursor-pointer font-[inherit] transition-all duration-150 bg-primary text-primary-foreground hover:bg-blue-700"
+              onClick={() => refetch()}
+            >
               <RefreshCw size={16} /> 重试
             </button>
           </div>
         ) : records.length === 0 ? (
-          <div className="empty-state">
-            <div className="icon">
+          <div className="text-center py-16 px-6 text-muted-foreground">
+            <div className="text-gray-400 flex items-center justify-center mb-2.5">
               <ClipboardList size={42} />
             </div>
             <div>暂无训练记录</div>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                {user?.role === "teacher" && <th>学生</th>}
-                {user?.role === "teacher" && <th>学号</th>}
-                <th>病例</th>
-                <th>开始时间</th>
-                <th>时长</th>
-                <th>状态</th>
-                <th>得分</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => {
-                const re = r as Record<string, unknown> & typeof r;
-                const durMins = re.end_time
-                  ? Math.round((new Date(re.end_time as string).getTime() - new Date(re.start_time as string).getTime()) / 60000)
-                  : null;
-                return (
-                  <tr key={re.id as number}>
-                    {user?.role === "teacher" && <td>{String(re.user_display_name ?? "")}</td>}
-                    {user?.role === "teacher" && <td style={{ color: "var(--text-secondary)" }}>{String(re.user_student_id ?? "")}</td>}
-                    <td>{String(re.case_name ?? "")}</td>
-                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{new Date(re.start_time as string).toLocaleString("zh-CN")}</td>
-                    <td style={{ color: durMins != null ? "var(--text-secondary)" : "var(--text-light)" }}>{durMins != null ? `${durMins} 分钟` : "进行中"}</td>
-                    <td>
-                      <span className={`badge ${r.status === "completed" ? "badge-success" : "badge-info"}`}>
-                        {r.status === "completed" ? "已完成" : "进行中"}
-                      </span>
-                    </td>
-                    <td>
-                      {r.score_total != null ? (
-                        <span style={{ fontWeight: 600, color: "var(--primary)" }}>{r.score_total}分</span>
-                      ) : r.scoring_status === "pending" || r.scoring_status === "processing" ? (
-                        <span style={{ fontSize: "0.78rem", color: "var(--amber-500)" }}>评分中...</span>
-                      ) : r.scoring_status === "failed" ? (
-                        <span style={{ fontSize: "0.78rem", color: "var(--red-500)" }} title={r.scoring_error ?? undefined}>
-                          评分失败
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {user?.role === "teacher" && (
+                    <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                      学生
+                    </TableHead>
+                  )}
+                  {user?.role === "teacher" && (
+                    <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                      学号
+                    </TableHead>
+                  )}
+                  <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                    病例
+                  </TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                    开始时间
+                  </TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                    时长
+                  </TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                    状态
+                  </TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                    得分
+                  </TableHead>
+                  <TableHead className="sticky top-0 z-10 bg-muted text-left px-4 py-2.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                    操作
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {records.map((r) => {
+                  const re = r as Record<string, unknown> & typeof r;
+                  const durMins = re.end_time
+                    ? Math.round((new Date(re.end_time as string).getTime() - new Date(re.start_time as string).getTime()) / 60000)
+                    : null;
+                  return (
+                    <TableRow key={re.id as number}>
+                      {user?.role === "teacher" && <TableCell className={tdClass}>{String(re.user_display_name ?? "")}</TableCell>}
+                      {user?.role === "teacher" && <TableCell className={cn(tdClass, "text-muted-foreground")}>{String(re.user_student_id ?? "")}</TableCell>}
+                      <TableCell className={tdClass}>{String(re.case_name ?? "")}</TableCell>
+                      <TableCell className={cn(tdClass, "text-xs text-muted-foreground")}>
+                        {new Date(re.start_time as string).toLocaleString("zh-CN")}
+                      </TableCell>
+                      <TableCell className={cn(tdClass, durMins != null ? "text-muted-foreground" : "text-gray-400")}>
+                        {durMins != null ? `${durMins} 分钟` : "进行中"}
+                      </TableCell>
+                      <TableCell className={tdClass}>
+                        <span
+                          className={cn(
+                            "inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
+                            r.status === "completed" ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-600",
+                          )}
+                        >
+                          {r.status === "completed" ? "已完成" : "进行中"}
                         </span>
-                      ) : (
-                        <span style={{ color: "var(--text-light)" }}>-</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="link" onClick={() => navigate(`/record/${r.id}`)}>
-                        查看详情
-                      </span>
-                      {r.status === "in_progress" && user?.role !== "teacher" && (
-                        <span className="link" style={{ marginLeft: 12 }} onClick={() => navigate(`/training/${r.id}`)}>
-                          继续训练
+                      </TableCell>
+                      <TableCell className={tdClass}>
+                        {r.score_total != null ? (
+                          <span className="font-semibold text-primary">{r.score_total}分</span>
+                        ) : r.scoring_status === "pending" || r.scoring_status === "processing" ? (
+                          <span className="text-xs text-amber-500">评分中...</span>
+                        ) : r.scoring_status === "failed" ? (
+                          <span className="text-xs text-red-500" title={r.scoring_error ?? undefined}>
+                            评分失败
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className={tdClass}>
+                        <span className="text-blue-500 cursor-pointer font-medium hover:underline" onClick={() => navigate(`/record/${r.id}`)}>
+                          查看详情
                         </span>
-                      )}
-                      <button type="button" className="btn btn-sm btn-danger" style={{ marginLeft: 12 }} onClick={() => handleDeleteRecord(r)}>
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        {r.status === "in_progress" && user?.role !== "teacher" && (
+                          <span className="text-blue-500 cursor-pointer font-medium hover:underline ml-3" onClick={() => navigate(`/training/${r.id}`)}>
+                            继续训练
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 border-0 rounded-lg text-xs font-medium cursor-pointer font-[inherit] transition-all duration-150 bg-red-500 text-white hover:bg-red-600 ml-3"
+                          onClick={() => handleDeleteRecord(r)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
         <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
