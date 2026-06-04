@@ -9,8 +9,12 @@ from core.config import DATABASE_URL
 
 log = logging.getLogger(__name__)
 
+_URL = DATABASE_URL
+if _URL.startswith("postgresql://") and "+" not in _URL.split("://")[0]:
+    _URL = _URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
 engine = create_engine(
-    DATABASE_URL,
+    _URL,
     poolclass=QueuePool,
     pool_size=10,
     max_overflow=20,

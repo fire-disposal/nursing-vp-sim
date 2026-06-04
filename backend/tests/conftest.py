@@ -25,7 +25,7 @@ from models import Case, User
 @pytest.fixture
 def engine():
     """PostgreSQL test database. Set TEST_DB_URL to override default."""
-    eng = create_engine(TEST_DB_URL)
+    eng = create_engine(TEST_DB_URL.replace("postgresql://", "postgresql+psycopg://", 1))
 
     Base.metadata.drop_all(bind=eng)
     Base.metadata.create_all(bind=eng)
