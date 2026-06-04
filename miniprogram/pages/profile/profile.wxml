@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="header">我的</view>
+
+  <view class="user-card">
+    <view class="user-avatar">{{userInitial}}</view>
+    <view class="user-info">
+      <text class="user-name">{{displayName}}</text>
+      <text class="user-role">{{roleLabel}}</text>
+    </view>
+  </view>
+
+  <view class="menu-group">
+    <view class="menu-item" bindtap="goToStats">
+      <text class="menu-icon">📊</text>
+      <text class="menu-label">训练统计</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="handleWechatBind">
+      <text class="menu-icon">🔗</text>
+      <text class="menu-label">微信绑定</text>
+      <text class="menu-value {{wechatBound ? 'bound' : ''}}">
+        {{wechatBound ? '已绑定' : '未绑定'}}
+      </text>
+      <text class="menu-arrow" wx:if="{{!wechatBound}}">›</text>
+    </view>
+    <view class="menu-item" bindtap="goToFeedback">
+      <text class="menu-icon">💬</text>
+      <text class="menu-label">意见反馈</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goToAbout">
+      <text class="menu-icon">ℹ️</text>
+      <text class="menu-label">关于我们</text>
+      <text class="menu-arrow">›</text>
+    </view>
+  </view>
+
+  <button class="logout-btn" bindtap="handleLogout">退出登录</button>
+</view>
