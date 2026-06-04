@@ -6,19 +6,12 @@ import re
 
 from prompts import CASE_GENERATION_SYSTEM, PATIENT_CHAT_SYSTEM, QA_SYSTEM, SCORING_SYSTEM, SCORING_USER
 
-_logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 _VAR_RE = re.compile(r"\{#([^}#]+)#\}")
 
 
 def render_template(template: str, **kwargs) -> str:
-    """安全模板渲染 —— 用 {#variable#} 语法替换变量。
-
-    与 Python format() 不同：花括号 {} 在值中原样保留，不会被误解析。
-    仅替换 {#name#} 模式，缺失变量抛 RuntimeError。
-    设计原因：Prompt 模板可能包含 JSON 示例（带 {}），format() 会误伤。
-    """
-
     def _replace(m: re.Match) -> str:
         var = m.group(1).strip()
         if var not in kwargs:
@@ -34,8 +27,6 @@ def render_template(template: str, **kwargs) -> str:
 
 
 class PromptTemplateObj:
-    """单个 prompt 模板实例，支持变量渲染"""
-
     def __init__(
         self,
         id: int,
@@ -63,7 +54,7 @@ class PromptTemplateObj:
         if self._var_defaults:
             used_defaults = [k for k in self._var_defaults if k not in kwargs]
             if used_defaults:
-                _logger.info(
+                log.info(
                     "prompt render using default_value for %s: %s",
                     self.purpose,
                     used_defaults,
@@ -100,7 +91,7 @@ class PromptManager:
         self._lock = asyncio.Lock()
 
     async def load_from_db(self):
-        from database import SessionLocal
+        from core.database import SessionLocal
         from models import PromptTemplate as PT
 
         db = SessionLocal()
@@ -121,24 +112,18 @@ class PromptManager:
             async with self._lock:
                 self._last_valid_cache = self._cache
                 self._cache = new_cache
-            _logger.info("PromptManager 加载: %d 个模板", len(new_cache))
+            log.info("PromptManager loaded: %d templates", len(new_cache))
         except Exception:
-            _logger.exception("PromptManager 加载失败")
+            log.exception("PromptManager load failed")
             if self._last_valid_cache:
                 async with self._lock:
                     self._cache = self._last_valid_cache
-                _logger.warning("保留上次有效缓存")
+                log.warning("retaining last valid cache")
             raise
         finally:
             db.close()
 
     async def get(self, purpose: str) -> PromptTemplateObj:
-        """获取激活模板。三层降级保障：
-        1. 内存缓存命中 → 直接返回（最快）
-        2. 缓存未命中 → 从 DB 重新加载
-        3. DB 加载失败 → 使用上次有效缓存
-        4. 最终兜底 → 硬编码模板（永不返回 None）
-        """
         async with self._lock:
             tmpl = self._cache.get(purpose)
         if tmpl is not None:
@@ -146,7 +131,7 @@ class PromptManager:
         try:
             await self.load_from_db()
         except Exception:
-            _logger.warning("reload 失败，使用硬编码兜底 for purpose=%s", purpose)
+            log.warning("reload failed, using hardcoded fallback for purpose=%s", purpose)
         async with self._lock:
             tmpl = self._cache.get(purpose)
         if tmpl is not None:
@@ -158,7 +143,6 @@ class PromptManager:
 
 
 def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
-    """硬编码兜底 - 永不返回 None。提示词内容来自 prompts/ 目录的独立文件。"""
     if purpose == "qa":
         return PromptTemplateObj(0, "qa", 0, QA_SYSTEM, None)
     if purpose == "patient_chat":
@@ -168,28 +152,3 @@ def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
     if purpose == "case_generation":
         return PromptTemplateObj(0, "case_generation", 0, CASE_GENERATION_SYSTEM, None)
     raise ValueError(f"Unknown prompt purpose: {purpose}")
-
-
-# ── 全局单例 ──
-
-_manager: PromptManager | None = None
-_manager_lock = asyncio.Lock()
-
-
-async def get_prompt_manager() -> PromptManager:
-    global _manager
-    if _manager is not None:
-        return _manager
-    async with _manager_lock:
-        if _manager is None:
-            _manager = PromptManager()
-            await _manager.load_from_db()
-    return _manager
-
-
-async def refresh_prompts():
-    global _manager
-    async with _manager_lock:
-        if _manager is None:
-            _manager = PromptManager()
-    await _manager.load_from_db()

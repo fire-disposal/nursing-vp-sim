@@ -2,7 +2,7 @@ import logging
 
 import httpx
 
-from config import WECHAT_APPID, WECHAT_SECRET
+from core.config import WECHAT_APPID, WECHAT_SECRET
 
 log = logging.getLogger(__name__)
 

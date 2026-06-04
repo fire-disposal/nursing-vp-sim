@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import require_teacher
 from models import Class, Grade, User, UserClass
 from schemas import ClassCreate, ClassResponse, ClassUpdate, MessageResponse
 

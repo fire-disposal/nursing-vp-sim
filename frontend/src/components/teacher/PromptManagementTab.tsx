@@ -435,9 +435,7 @@ export default function PromptManagementTab() {
                 >
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span className="flex-1">{PURPOSE_LABELS[purpose]}</span>
-                  <span className="text-xs text-muted-foreground/70 font-normal">
-                    {versions.length}个版本
-                  </span>
+                  <span className="text-xs text-muted-foreground/70 font-normal">{versions.length}个版本</span>
                   <Button
                     variant="outline"
                     size="xs"
@@ -466,7 +464,13 @@ export default function PromptManagementTab() {
                           }}
                           className={cn(
                             "flex items-center gap-2 px-4 py-2 border-t border-border cursor-pointer transition-colors",
-                            v.locked ? "bg-amber-50/50 hover:bg-amber-100/50" : editing === v.id ? "bg-blue-50" : v.is_active ? "bg-green-50" : "bg-transparent",
+                            v.locked
+                              ? "bg-amber-50/50 hover:bg-amber-100/50"
+                              : editing === v.id
+                                ? "bg-blue-50"
+                                : v.is_active
+                                  ? "bg-green-50"
+                                  : "bg-transparent",
                           )}
                         >
                           {v.locked ? (
@@ -556,7 +560,13 @@ export default function PromptManagementTab() {
             <div className="grid grid-cols-2 gap-3 mb-3 max-[600px]:grid-cols-1">
               <div>
                 <label className="block text-sm font-semibold mb-1">版本名称</label>
-                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版" className={inputBase} readOnly={isBuiltinEditing} />
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="v2-优化版"
+                  className={inputBase}
+                  readOnly={isBuiltinEditing}
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1">备注</label>
@@ -592,7 +602,11 @@ export default function PromptManagementTab() {
                 readOnly={showEditorPreview || isBuiltinEditing}
                 className={cn(
                   "flex-1 min-h-[200px] w-full p-2 rounded-lg text-sm font-mono resize-y",
-                  showEditorPreview ? "border border-blue-300 bg-blue-50" : isBuiltinEditing ? "border border-amber-200 bg-amber-50" : "border border-border bg-card",
+                  showEditorPreview
+                    ? "border border-blue-300 bg-blue-50"
+                    : isBuiltinEditing
+                      ? "border border-amber-200 bg-amber-50"
+                      : "border border-border bg-card",
                   "text-foreground focus:outline-none focus:border-blue-500",
                 )}
               />
@@ -610,7 +624,11 @@ export default function PromptManagementTab() {
                   rows={6}
                   className={cn(
                     "w-full p-2 rounded-lg text-sm font-mono resize-y",
-                    showEditorPreview ? "border border-blue-300 bg-blue-50" : isBuiltinEditing ? "border border-amber-200 bg-amber-50" : "border border-border bg-card",
+                    showEditorPreview
+                      ? "border border-blue-300 bg-blue-50"
+                      : isBuiltinEditing
+                        ? "border border-amber-200 bg-amber-50"
+                        : "border border-border bg-card",
                     "text-foreground focus:outline-none focus:border-blue-500",
                   )}
                 />
@@ -722,7 +740,12 @@ export default function PromptManagementTab() {
           return (
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-semibold", eff.is_builtin ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700")}>
+                <span
+                  className={cn(
+                    "text-xs px-1.5 py-0.5 rounded-full font-semibold",
+                    eff.is_builtin ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700",
+                  )}
+                >
                   {eff.is_builtin ? "系统内置" : `DB v${eff.version}`}
                 </span>
                 {!eff.is_builtin && <span className="text-sm font-medium">{eff.name}</span>}

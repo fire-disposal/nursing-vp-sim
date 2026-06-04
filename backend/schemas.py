@@ -5,6 +5,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
+_REQ_CFG = ConfigDict(extra="forbid", str_strip_whitespace=True)
+_RESP_CFG = ConfigDict(from_attributes=True)
+
+
+# ── Generic ──
 
 class PaginatedResponse[T](BaseModel):
     items: list[T]
@@ -13,21 +18,26 @@ class PaginatedResponse[T](BaseModel):
     limit: int
 
 
+# ── Auth ──
+
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    model_config = _REQ_CFG
+    username: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1)
 
 
 class RegisterRequest(BaseModel):
-    username: str
+    model_config = _REQ_CFG
+    username: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=6)
-    role: str = "student"
-    display_name: str
+    role: str = Field(default="student", pattern="^(student|teacher)$")
+    display_name: str = Field(min_length=1, max_length=50)
     student_id: str | None = None
     class_id: int | None = None
 
 
 class TokenResponse(BaseModel):
+    model_config = _RESP_CFG
     access_token: str
     token_type: str = "bearer"
     role: str
@@ -35,20 +45,26 @@ class TokenResponse(BaseModel):
     user_id: int
 
 
+# ── WeChat ──
+
 class WechatLoginRequest(BaseModel):
-    code: str
+    model_config = _REQ_CFG
+    code: str = Field(min_length=1)
 
 
 class WechatBindRequest(BaseModel):
-    code: str
+    model_config = _REQ_CFG
+    code: str = Field(min_length=1)
 
 
 class WechatRegisterRequest(BaseModel):
-    code: str
+    model_config = _REQ_CFG
+    code: str = Field(min_length=1)
     display_name: str = Field(min_length=1, max_length=50)
 
 
 class WechatLoginResponse(BaseModel):
+    model_config = _RESP_CFG
     access_token: str | None = None
     token_type: str = "bearer"
     role: str | None = None
@@ -57,231 +73,37 @@ class WechatLoginResponse(BaseModel):
     need_bind: bool = False
 
 
+# ── Case ──
+
 class CaseBrief(BaseModel):
+    model_config = _RESP_CFG
     id: int
     name: str
     difficulty: int = 1
-    description: str | None
-    patient_summary: dict | None = None
-
-    model_config = ConfigDict(from_attributes=True)
+    description: str | None = None
+    patient_summary: dict[str, Any] | None = None
 
 
 class CaseDetail(BaseModel):
+    model_config = _RESP_CFG
     id: int
     name: str
-    description: str | None
-    case_data: dict
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TrainingStartRequest(BaseModel):
-    case_id: int
-
-
-class TrainingStartResponse(BaseModel):
-    record_id: int
-    greeting: str
-    case_name: str = ""
-
-
-class ChatMessageRequest(BaseModel):
-    content: str = Field(..., max_length=4096)
-
-
-class ChatMessageResponse(BaseModel):
-    role: str
-    content: str
-
-
-class MessageItem(BaseModel):
-    id: int
-    role: str
-    content: str
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ScoreItem(BaseModel):
-    id: int
-    total_score: float
-    detail_scores: dict | None
-    strengths: list | None
-    weaknesses: list | None
-    missed_content: list | None
-    suggestions: str | None
-    rubric_version: str | None = None
-    model_name: str | None = None
-    prompt_version: int | None = None
-    score_scale: int | None = None
-    review_status: str | None = None
-    reviewed_by_name: str | None = None
-    reviewed_at: datetime | None = None
-    review_comment: str | None = None
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class NoteItem(BaseModel):
-    id: int
-    content: str
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class NoteCreateRequest(BaseModel):
-    content: str
-
-
-class TrainingRecordBrief(BaseModel):
-    id: int
-    case_id: int
-    case_name: str
-    user_display_name: str
-    user_student_id: str | None
-    status: str
-    scoring_status: str | None = None
-    scoring_error: str | None = None
-    start_time: datetime
-    end_time: datetime | None
-    score_total: float | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TrainingRecordDetail(BaseModel):
-    id: int
-    case_id: int
-    case_name: str
-    user_display_name: str
-    status: str
-    scoring_status: str | None = None
-    scoring_error: str | None = None
-    start_time: datetime
-    end_time: datetime | None
-    time_limit: int = 20
-    remaining_seconds: int | None = None
-    messages: list[MessageItem]
-    score: ScoreItem | None = None
-    notes: list[NoteItem] = []
-    required_inquiries: list | None = None
-    patient_info: dict | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserBrief(BaseModel):
-    id: int
-    username: str
-    role: str
-    display_name: str
-    student_id: str | None
-    class_id: int | None = None
-    class_name: str | None = None
-    grade_name: str | None = None
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class AdminStats(BaseModel):
-    total_students: int
-    total_records: int
-    completed_records: int
-    average_score: float | None
-    avg_duration_min: float | None = None
-    today_records: int = 0
-
-
-# ── QA 多轮对话 ──
-
-
-class QASessionCreate(BaseModel):
-    question: str = Field(..., min_length=1, max_length=4096)
-
-
-class QASessionItem(BaseModel):
-    id: int
-    title: str
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class QAMessageItem(BaseModel):
-    id: int
-    role: str
-    content: str
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class QAAskResponse(BaseModel):
-    session_id: int
-    answer: str
-
-
-class QASessionAdminItem(BaseModel):
-    id: int
-    user_id: int
-    student_name: str = ""
-    student_code: str = ""
-    title: str
-    message_count: int = 0
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class DurationStats(BaseModel):
-    daily: list  # [{date: "2026-05-20", minutes: 45}, ...]
-    total_minutes: int
-    total_sessions: int
-
-
-class TrendStats(BaseModel):
-    daily: list  # [{date, sessions, minutes, avg_score}, ...]
-    total_sessions: int
-    total_minutes: int
-    avg_score: float | None = None
-
-
-class StudentDetail(BaseModel):
-    id: int
-    username: str
-    role: str
-    display_name: str
-    student_id: str | None
-    created_at: datetime
-    total_sessions: int = 0
-    total_minutes: int = 0
-    avg_score: float | None = None
-    recent_records: list = []
-    daily: list = []
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── 病例管理 ──
+    description: str | None = None
+    case_data: dict[str, Any]
 
 
 class CaseCreateRequest(BaseModel):
-    case_data: dict
+    model_config = _REQ_CFG
+    case_data: dict[str, Any]
 
 
 class CaseUpdateRequest(BaseModel):
-    case_data: dict
+    model_config = _REQ_CFG
+    case_data: dict[str, Any]
 
 
 class CaseManageItem(BaseModel):
+    model_config = _RESP_CFG
     id: int
     name: str
     description: str | None = None
@@ -294,25 +116,199 @@ class CaseManageItem(BaseModel):
     created_at: datetime
     training_count: int = 0
 
-    model_config = ConfigDict(from_attributes=True)
+
+class CaseGenerateRequest(BaseModel):
+    model_config = _REQ_CFG
+    mode: str = Field(default="quick", pattern="^(quick|reference)$")
+    description: str = Field(min_length=1, max_length=4096)
+    reference_case_ids: list[int] | None = None
+    reference_text: str | None = Field(default=None, max_length=16384)
+    field: str | None = Field(default=None, pattern="^(scoring_criteria|hidden_info|required_inquiries)$")
+    current_case_data: dict[str, Any] | None = None
+
+
+class CaseGenerateResponse(BaseModel):
+    model_config = _RESP_CFG
+    case_data: dict[str, Any] | None = None
+    field_value: Any | None = None
+    field: str | None = None
+
+
+# ── Training ──
+
+class TrainingStartRequest(BaseModel):
+    model_config = _REQ_CFG
+    case_id: int
+
+
+class TrainingStartResponse(BaseModel):
+    model_config = _RESP_CFG
+    record_id: int
+    greeting: str
+    case_name: str = ""
+
+
+class ChatMessageRequest(BaseModel):
+    model_config = _REQ_CFG
+    content: str = Field(min_length=1, max_length=4096)
+
+
+class ChatMessageResponse(BaseModel):
+    model_config = _RESP_CFG
+    role: str
+    content: str
+
+
+class TrainingRecordBrief(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    case_id: int
+    case_name: str
+    user_display_name: str
+    user_student_id: str | None
+    status: str
+    scoring_status: str | None = None
+    scoring_error: str | None = None
+    start_time: datetime
+    end_time: datetime | None
+    score_total: float | None = None
+
+
+class TrainingRecordDetail(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    case_id: int
+    case_name: str
+    user_display_name: str
+    status: str
+    scoring_status: str | None = None
+    scoring_error: str | None = None
+    start_time: datetime
+    end_time: datetime | None
+    time_limit: int = 20
+    remaining_seconds: int | None = None
+    messages: list["MessageItem"]
+    score: "ScoreItem | None" = None
+    notes: list["NoteItem"] = []
+    required_inquiries: list[dict[str, Any]] | None = None
+    patient_info: dict[str, Any] | None = None
+
+
+class ScoringTriggerResponse(BaseModel):
+    message: str
+    record_id: int
+    scoring_status: str
+
+
+# ── Messages / Scores / Notes ──
+
+class MessageItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
+class ScoreItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    total_score: float
+    detail_scores: dict[str, Any] | None = None
+    strengths: list[str] | None = None
+    weaknesses: list[str] | None = None
+    missed_content: list[str] | None = None
+    suggestions: str | None = None
+    rubric_version: str | None = None
+    model_name: str | None = None
+    prompt_version: int | None = None
+    score_scale: int | None = None
+    review_status: str | None = None
+    reviewed_by_name: str | None = None
+    reviewed_at: datetime | None = None
+    review_comment: str | None = None
+    created_at: datetime
+
+
+class NoteItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    content: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class NoteCreateRequest(BaseModel):
+    model_config = _REQ_CFG
+    content: str = Field(min_length=1)
+
+
+# ── Score Review ──
+
+class ScoreReviewRequest(BaseModel):
+    model_config = _REQ_CFG
+    detail_scores: dict[str, Any] | None = None
+    comment: str | None = None
+
+
+class ScoreReviewResponse(BaseModel):
+    model_config = _RESP_CFG
+    score_id: int
+    review_status: str
+    reviewed_by_name: str | None = None
+    reviewed_at: datetime | None = None
+    original_detail_scores: dict[str, Any] | None = None
+    review_detail_scores: dict[str, Any] | None = None
+    review_comment: str | None = None
+
+
+# ── User ──
+
+class UserBrief(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    username: str
+    role: str
+    display_name: str
+    student_id: str | None
+    class_id: int | None = None
+    class_name: str | None = None
+    grade_name: str | None = None
+    created_at: datetime
 
 
 class UserUpdateRequest(BaseModel):
+    model_config = _REQ_CFG
     display_name: str | None = None
     student_id: str | None = None
     class_id: int | None = None
     role: str | None = None
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=6)
 
 
-# ── 批量导入 ──
+class StudentDetail(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    username: str
+    role: str
+    display_name: str
+    student_id: str | None
+    created_at: datetime
+    total_sessions: int = 0
+    total_minutes: int = 0
+    avg_score: float | None = None
+    recent_records: list = []
+    daily: list = []
 
+
+# ── Batch Import ──
 
 class BatchUserItem(BaseModel):
-    username: str
+    model_config = _REQ_CFG
+    username: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=6)
-    display_name: str
-    role: str = "student"
+    display_name: str = Field(min_length=1, max_length=50)
+    role: str = Field(default="student", pattern="^(student|teacher)$")
     student_id: str | None = None
     class_id: int | None = None
 
@@ -320,451 +316,33 @@ class BatchUserItem(BaseModel):
 class BatchCreateResult(BaseModel):
     created: int
     skipped: int
-    errors: list
+    errors: list[str]
 
 
-# ── LLM 调用监控 ──
+# ── Admin Stats ──
 
+class AdminStats(BaseModel):
+    total_students: int
+    total_records: int
+    completed_records: int
+    average_score: float | None
+    avg_duration_min: float | None = None
+    today_records: int = 0
 
-class LLMCallLogItem(BaseModel):
-    id: int
-    user_id: int | None = None
-    record_id: int | None = None
-    case_id: int | None = None
-    purpose: str
-    provider_name: str = "deepseek"
-    model: str = ""
-    temperature: float | None = None
-    max_tokens: int | None = None
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-    total_tokens: int | None = None
-    token_estimated: int = 0
-    estimated_cost: float | None = None
-    cost_currency: str | None = None
-    latency_ms: int | None = None
-    status: str = "success"
-    error_type: str | None = None
-    error_message: str | None = None
-    request_chars: int | None = None
-    response_chars: int | None = None
-    request_text: str | None = None
-    response_text: str | None = None
-    created_at: datetime
-    # 聚合字段（v1.17）
-    call_count: int = 1
-    avg_latency_ms: int | None = None
-    error_count: int = 0
-    first_called_at: datetime | None = None
-    last_called_at: datetime | None = None
-    student_name: str | None = None
-    case_name: str | None = None
-    is_aggregated: bool = False
 
-    model_config = ConfigDict(from_attributes=True)
+class DurationStats(BaseModel):
+    daily: list[dict[str, Any]]
+    total_minutes: int
+    total_sessions: int
 
 
-class LLMStatsResponse(BaseModel):
-    today: dict  # {count, success_rate, avg_latency_ms, total_cost}
-    week: dict  # same structure
-    month: dict = {}  # same structure, current calendar month
-    by_purpose: list  # [{purpose, count, avg_latency_ms, error_count}]
-    by_provider: list = []  # [{provider, count, cost, error_count}] 最近7天
-    daily: list  # [{date, count, success_count, fail_count, total_cost}] 最近30天
+class TrendStats(BaseModel):
+    daily: list[dict[str, Any]]
+    total_sessions: int
+    total_minutes: int
+    avg_score: float | None = None
 
 
-# ── 教师复核 ──
-
-
-class ScoreReviewRequest(BaseModel):
-    detail_scores: dict | None = None
-    comment: str | None = None
-
-
-class ScoreReviewResponse(BaseModel):
-    score_id: int
-    review_status: str
-    reviewed_by_name: str | None = None
-    reviewed_at: datetime | None = None
-    original_detail_scores: dict | None = None
-    review_detail_scores: dict | None = None
-    review_comment: str | None = None
-
-
-# ── ApiSecret (API 档案) ──
-
-
-class ApiSecretCreate(BaseModel):
-    label: str = Field(..., max_length=80)
-    raw_key: str = Field(..., min_length=10, max_length=500)
-    base_url: str | None = Field(None, max_length=200)
-    price_input_per_1m: float = 0
-    price_output_per_1m: float = 0
-    monthly_cost_limit: float | None = None
-
-
-class ApiSecretUpdate(BaseModel):
-    label: str | None = Field(None, max_length=80)
-    base_url: str | None = Field(None, max_length=200)
-    price_input_per_1m: float | None = None
-    price_output_per_1m: float | None = None
-    monthly_cost_limit: float | None = None
-
-
-class ApiSecretResponse(BaseModel):
-    id: int
-    label: str
-    key_suffix: str
-    base_url: str = ""
-    provider: str = ""
-    status: str = "active"
-    degraded_reason: str | None = None
-    degraded_until: datetime | None = None
-    price_input_per_1m: float = 0
-    price_output_per_1m: float = 0
-    monthly_cost_limit: float | None = None
-    call_count_today: int = 0
-    total_tokens_today: int = 0
-    total_cost_today: float = 0
-    monthly_cost_used: float = 0
-    config_count: int = 0
-    last_used_at: datetime | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── LLMConfig (用途指派) ──
-
-
-class LLMConfigCreate(BaseModel):
-    secret_id: int
-    model: str = Field(..., max_length=80)
-    purpose: str = Field(..., max_length=40)
-    label: str = Field("", max_length=80)
-    priority: int = Field(10, ge=0)
-    weight: int = Field(10, ge=0, le=100)
-    price_input_per_1m: float = Field(0, ge=0)
-    price_output_per_1m: float = Field(0, ge=0)
-    monthly_cost_limit: float | None = Field(None, ge=0)
-
-
-class LLMConfigUpdate(BaseModel):
-    secret_id: int | None = None
-    model: str | None = Field(None, max_length=80)
-    purpose: str | None = Field(None, max_length=40)
-    label: str | None = Field(None, max_length=80)
-    priority: int | None = Field(None, ge=0)
-    weight: int | None = Field(None, ge=0, le=100)
-    price_input_per_1m: float | None = Field(None, ge=0)
-    price_output_per_1m: float | None = Field(None, ge=0)
-    monthly_cost_limit: float | None = Field(None, ge=0)
-    status: str | None = Field(None, pattern="^(active|disabled)$")
-
-
-class LLMConfigResponse(BaseModel):
-    id: int
-    secret_id: int
-    secret_label: str = ""
-    secret_suffix: str = ""
-    base_url: str = ""
-    provider: str = ""
-    label: str = ""
-    model: str
-    purpose: str
-    priority: int = 10
-    weight: int = 10
-    status: str = "active"
-    price_input_per_1m: float = 0
-    price_output_per_1m: float = 0
-    monthly_cost_limit: float | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── Prompt 管理 ──
-
-
-class PromptTemplateCreate(BaseModel):
-    purpose: str = Field(..., max_length=40)
-    name: str | None = Field(None, max_length=80)
-    system_prompt: str = Field(..., min_length=10)
-    user_prompt: str | None = None
-    variables: list[dict] | None = None
-    created_by: str | None = None
-    remark: str | None = None
-    activate: bool = False
-
-
-class PromptTemplateUpdate(BaseModel):
-    name: str | None = Field(None, max_length=80)
-    system_prompt: str | None = Field(None, min_length=10)
-    user_prompt: str | None = None
-    variables: list[dict] | None = None
-    remark: str | None = None
-
-
-class PromptTemplateResponse(BaseModel):
-    id: int
-    purpose: str
-    version: int
-    name: str | None
-    system_prompt: str
-    user_prompt: str | None
-    template_engine: str
-    variables: list | None
-    is_active: bool
-    created_by: str | None
-    remark: str | None
-    created_at: datetime
-    updated_at: datetime
-    is_builtin: bool = False
-    locked: bool = False
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PromptValidateRequest(BaseModel):
-    purpose: str
-    system_prompt: str
-    user_prompt: str | None = None
-    variables: list[dict] | None = None
-
-
-class PromptValidateResponse(BaseModel):
-    valid: bool
-    errors: list[str] = []
-    missing_vars: list[str] = []
-    warnings: list[str] = []
-
-
-class PromptPreviewResponse(BaseModel):
-    purpose: str
-    version: int
-    system_prompt_raw: str
-    user_prompt_raw: str | None
-    system_prompt_rendered: str
-    user_prompt_rendered: str | None
-    sample_vars: dict
-    render_error: str | None = None
-
-
-# ── 反馈系统 ──
-
-
-class FeedbackSubmit(BaseModel):
-    rating: int = Field(ge=1, le=5)
-    tag: str = Field(max_length=20)
-    content: str | None = None
-
-
-class FeedbackItem(BaseModel):
-    id: int
-    user_id: int
-    user_name: str = ""
-    rating: int
-    tag: str
-    content: str | None = None
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class FeedbackListResponse(BaseModel):
-    items: list[FeedbackItem]
-    total: int
-    offset: int
-    limit: int
-
-
-# ── AI 病例生成 ──
-
-
-class CaseGenerateRequest(BaseModel):
-    mode: str = Field(default="quick", pattern="^(quick|reference)$")
-    description: str = Field(..., min_length=1, max_length=4096)
-    reference_case_ids: list[int] | None = None
-    reference_text: str | None = Field(None, max_length=16384)
-    field: str | None = Field(None, pattern="^(scoring_criteria|hidden_info|required_inquiries)$")
-    current_case_data: dict | None = None
-
-
-class CaseGenerateResponse(BaseModel):
-    case_data: dict | None = None
-    field_value: Any | None = None
-    field: str | None = None
-
-
-# ── 年级管理 ──
-
-
-class GradeCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=40)
-
-
-class GradeUpdate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=40)
-
-
-class GradeResponse(BaseModel):
-    id: int
-    name: str
-    class_count: int = 0
-    student_count: int = 0
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── 班级管理 ──
-
-
-class ClassCreate(BaseModel):
-    grade_id: int
-    name: str = Field(..., min_length=1, max_length=60)
-
-
-class ClassUpdate(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=60)
-    grade_id: int | None = None
-
-
-class ClassResponse(BaseModel):
-    id: int
-    grade_id: int
-    grade_name: str = ""
-    name: str
-    student_count: int = 0
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── Model Presets (Provider Catalog) ──
-
-
-class ModelPresetItem(BaseModel):
-    name: str
-    price_input: float = 0
-    price_output: float = 0
-
-
-class ProviderPresetResponse(BaseModel):
-    provider: str = ""
-    display_name: str = ""
-    base_url: str = ""
-    models: list[ModelPresetItem] = []
-
-
-class CatalogResponse(BaseModel):
-    providers: list[ProviderPresetResponse] = []
-
-
-# ── Generic responses ──
-class MessageResponse(BaseModel):
-    message: str
-
-
-class OkResponse(BaseModel):
-    ok: bool = True
-
-
-class ToggleStatusResponse(BaseModel):
-    ok: bool = True
-    status: str
-
-
-# ── Create short responses ──
-class SecretCreateResponse(BaseModel):
-    id: int
-    key_suffix: str
-
-
-class ConfigCreateResponse(BaseModel):
-    id: int
-
-
-class FeedbackSubmitResponse(BaseModel):
-    id: int
-    created_at: datetime
-
-
-# ── Training trigger ──
-class ScoringTriggerResponse(BaseModel):
-    message: str
-    record_id: int
-    scoring_status: str
-
-
-# ── Feedback stats ──
-class FeedbackDailyItem(BaseModel):
-    date: str
-    rating_1: int = 0
-    rating_2: int = 0
-    rating_3: int = 0
-    rating_4: int = 0
-    rating_5: int = 0
-
-
-# ── Rubric ──
-class RubricDimensionItem(BaseModel):
-    name: str = ""
-    weight: int = 0
-    criteria: str = ""
-
-
-class RubricResponse(BaseModel):
-    id: int
-    name: str
-    version: str = ""
-    description: str | None = None
-    total_max: int = 100
-    raw_max: int = 57
-    raw_scale: int = 3
-    dimensions: list = []
-    is_active: bool = False
-    created_at: datetime
-    updated_at: datetime
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RubricBrief(BaseModel):
-    id: int
-    name: str
-    is_active: bool = False
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ── Prompt misc ──
-class SampleVarsResponse(BaseModel):
-    purpose: str
-    vars: dict
-
-
-# ── Health / Test ──
-class HealthCheckItem(BaseModel):
-    base_url: str
-    status: str
-    latency_ms: int | None = None
-    error: str | None = None
-
-
-class TestResultItem(BaseModel):
-    base_url: str
-    ok: bool
-    status_code: int | None = None
-    latency_ms: int | None = None
-    error: str | None = None
-
-
-class TestAllResultsResponse(BaseModel):
-    results: list[TestResultItem]
-
-
-# ── Stats item schemas (replace PaginatedResponse[dict]) ──
 class TeacherSummaryItem(BaseModel):
     user_id: int
     display_name: str
@@ -793,3 +371,428 @@ class ClassSummaryItemSchema(BaseModel):
     completion_rate: float = 0
     total_sessions: int = 0
     total_minutes: int = 0
+
+
+# ── LLM Monitoring ──
+
+class LLMCallLogItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    user_id: int | None = None
+    record_id: int | None = None
+    case_id: int | None = None
+    purpose: str
+    provider_name: str = "deepseek"
+    model: str = ""
+    temperature: float | None = None
+    max_tokens: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    token_estimated: int = 0
+    estimated_cost: float | None = None
+    cost_currency: str | None = None
+    latency_ms: int | None = None
+    status: str = "success"
+    error_type: str | None = None
+    error_message: str | None = None
+    request_chars: int | None = None
+    response_chars: int | None = None
+    request_text: str | None = None
+    response_text: str | None = None
+    created_at: datetime
+    call_count: int = 1
+    avg_latency_ms: int | None = None
+    error_count: int = 0
+    first_called_at: datetime | None = None
+    last_called_at: datetime | None = None
+    student_name: str | None = None
+    case_name: str | None = None
+    is_aggregated: bool = False
+
+
+class LLMStatsResponse(BaseModel):
+    today: dict[str, Any]
+    week: dict[str, Any]
+    month: dict[str, Any] = {}
+    by_purpose: list[dict[str, Any]]
+    by_provider: list[dict[str, Any]] = []
+    daily: list[dict[str, Any]]
+
+
+# ── ApiSecret ──
+
+class ApiSecretCreate(BaseModel):
+    model_config = _REQ_CFG
+    label: str = Field(min_length=1, max_length=80)
+    raw_key: str = Field(min_length=10, max_length=500)
+    base_url: str | None = Field(default=None, max_length=200)
+    price_input_per_1m: float = Field(default=0, ge=0)
+    price_output_per_1m: float = Field(default=0, ge=0)
+    monthly_cost_limit: float | None = Field(default=None, ge=0)
+
+
+class ApiSecretUpdate(BaseModel):
+    model_config = _REQ_CFG
+    label: str | None = Field(default=None, max_length=80)
+    base_url: str | None = Field(default=None, max_length=200)
+    price_input_per_1m: float | None = Field(default=None, ge=0)
+    price_output_per_1m: float | None = Field(default=None, ge=0)
+    monthly_cost_limit: float | None = Field(default=None, ge=0)
+
+
+class ApiSecretResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    label: str
+    key_suffix: str
+    base_url: str = ""
+    provider: str = ""
+    status: str = "active"
+    degraded_reason: str | None = None
+    degraded_until: datetime | None = None
+    price_input_per_1m: float = 0
+    price_output_per_1m: float = 0
+    monthly_cost_limit: float | None = None
+    call_count_today: int = 0
+    total_tokens_today: int = 0
+    total_cost_today: float = 0
+    monthly_cost_used: float = 0
+    config_count: int = 0
+    last_used_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SecretCreateResponse(BaseModel):
+    id: int
+    key_suffix: str
+
+
+# ── LLMConfig ──
+
+class LLMConfigCreate(BaseModel):
+    model_config = _REQ_CFG
+    secret_id: int = Field(gt=0)
+    model: str = Field(min_length=1, max_length=80)
+    purpose: str = Field(min_length=1, max_length=40)
+    label: str = Field(default="", max_length=80)
+    priority: int = Field(default=10, ge=0)
+    weight: int = Field(default=10, ge=0, le=100)
+    price_input_per_1m: float = Field(default=0, ge=0)
+    price_output_per_1m: float = Field(default=0, ge=0)
+    monthly_cost_limit: float | None = Field(default=None, ge=0)
+
+
+class LLMConfigUpdate(BaseModel):
+    model_config = _REQ_CFG
+    secret_id: int | None = None
+    model: str | None = Field(default=None, max_length=80)
+    purpose: str | None = Field(default=None, max_length=40)
+    label: str | None = Field(default=None, max_length=80)
+    priority: int | None = Field(default=None, ge=0)
+    weight: int | None = Field(default=None, ge=0, le=100)
+    price_input_per_1m: float | None = Field(default=None, ge=0)
+    price_output_per_1m: float | None = Field(default=None, ge=0)
+    monthly_cost_limit: float | None = Field(default=None, ge=0)
+    status: str | None = Field(default=None, pattern="^(active|disabled)$")
+
+
+class LLMConfigResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    secret_id: int
+    secret_label: str = ""
+    secret_suffix: str = ""
+    base_url: str = ""
+    provider: str = ""
+    label: str = ""
+    model: str
+    purpose: str
+    priority: int = 10
+    weight: int = 10
+    status: str = "active"
+    price_input_per_1m: float = 0
+    price_output_per_1m: float = 0
+    monthly_cost_limit: float | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConfigCreateResponse(BaseModel):
+    id: int
+
+
+# ── Prompt Management ──
+
+class PromptTemplateCreate(BaseModel):
+    model_config = _REQ_CFG
+    purpose: str = Field(min_length=1, max_length=40)
+    name: str | None = Field(default=None, max_length=80)
+    system_prompt: str = Field(min_length=10)
+    user_prompt: str | None = None
+    variables: list[dict[str, Any]] | None = None
+    created_by: str | None = None
+    remark: str | None = None
+    activate: bool = False
+
+
+class PromptTemplateUpdate(BaseModel):
+    model_config = _REQ_CFG
+    name: str | None = Field(default=None, max_length=80)
+    system_prompt: str | None = Field(default=None, min_length=10)
+    user_prompt: str | None = None
+    variables: list[dict[str, Any]] | None = None
+    remark: str | None = None
+
+
+class PromptTemplateResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    purpose: str
+    version: int
+    name: str | None
+    system_prompt: str
+    user_prompt: str | None
+    template_engine: str
+    variables: list[dict[str, Any]] | None
+    is_active: bool
+    created_by: str | None
+    remark: str | None
+    created_at: datetime
+    updated_at: datetime
+    is_builtin: bool = False
+    locked: bool = False
+
+
+class PromptValidateRequest(BaseModel):
+    model_config = _REQ_CFG
+    purpose: str
+    system_prompt: str
+    user_prompt: str | None = None
+    variables: list[dict[str, Any]] | None = None
+
+
+class PromptValidateResponse(BaseModel):
+    valid: bool
+    errors: list[str] = []
+    missing_vars: list[str] = []
+    warnings: list[str] = []
+
+
+class PromptPreviewResponse(BaseModel):
+    purpose: str
+    version: int
+    system_prompt_raw: str
+    user_prompt_raw: str | None
+    system_prompt_rendered: str
+    user_prompt_rendered: str | None
+    sample_vars: dict[str, Any]
+    render_error: str | None = None
+
+
+class SampleVarsResponse(BaseModel):
+    purpose: str
+    vars: dict[str, Any]
+
+
+# ── QA ──
+
+class QASessionCreate(BaseModel):
+    model_config = _REQ_CFG
+    question: str = Field(min_length=1, max_length=4096)
+
+
+class QASessionItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class QAMessageItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
+class QAAskResponse(BaseModel):
+    session_id: int
+    answer: str
+
+
+class QASessionAdminItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    user_id: int
+    student_name: str = ""
+    student_code: str = ""
+    title: str
+    message_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+# ── Feedback ──
+
+class FeedbackSubmit(BaseModel):
+    model_config = _REQ_CFG
+    rating: int = Field(ge=1, le=5)
+    tag: str = Field(max_length=20)
+    content: str | None = None
+
+
+class FeedbackSubmitResponse(BaseModel):
+    id: int
+    created_at: datetime
+
+
+class FeedbackItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    user_id: int
+    user_name: str = ""
+    rating: int
+    tag: str
+    content: str | None = None
+    created_at: datetime
+
+
+class FeedbackDailyItem(BaseModel):
+    date: str
+    rating_1: int = 0
+    rating_2: int = 0
+    rating_3: int = 0
+    rating_4: int = 0
+    rating_5: int = 0
+
+
+# ── Grade / Class ──
+
+class GradeCreate(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=40)
+
+
+class GradeUpdate(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=40)
+
+
+class GradeResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    class_count: int = 0
+    student_count: int = 0
+    created_at: datetime
+
+
+class ClassCreate(BaseModel):
+    model_config = _REQ_CFG
+    grade_id: int = Field(gt=0)
+    name: str = Field(min_length=1, max_length=60)
+
+
+class ClassUpdate(BaseModel):
+    model_config = _REQ_CFG
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    grade_id: int | None = Field(default=None, gt=0)
+
+
+class ClassResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    grade_id: int
+    grade_name: str = ""
+    name: str
+    student_count: int = 0
+    created_at: datetime
+
+
+# ── Rubric ──
+
+class RubricDimensionItem(BaseModel):
+    name: str = ""
+    weight: int = 0
+    criteria: str = ""
+
+
+class RubricResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    version: str = ""
+    description: str | None = None
+    total_max: int = 100
+    raw_max: int = 57
+    raw_scale: int = 3
+    dimensions: list[dict[str, Any]] = []
+    is_active: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class RubricBrief(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    is_active: bool = False
+
+
+# ── Provider Catalog ──
+
+class ModelPresetItem(BaseModel):
+    name: str
+    price_input: float = 0
+    price_output: float = 0
+
+
+class ProviderPresetResponse(BaseModel):
+    provider: str = ""
+    display_name: str = ""
+    base_url: str = ""
+    models: list[ModelPresetItem] = []
+
+
+class CatalogResponse(BaseModel):
+    providers: list[ProviderPresetResponse] = []
+
+
+# ── Health / Test ──
+
+class HealthCheckItem(BaseModel):
+    base_url: str
+    status: str
+    latency_ms: int | None = None
+    error: str | None = None
+
+
+class TestResultItem(BaseModel):
+    base_url: str
+    ok: bool
+    status_code: int | None = None
+    latency_ms: int | None = None
+    error: str | None = None
+
+
+class TestAllResultsResponse(BaseModel):
+    results: list[TestResultItem]
+
+
+# ── Generic ──
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
+class ToggleStatusResponse(BaseModel):
+    ok: bool = True
+    status: str

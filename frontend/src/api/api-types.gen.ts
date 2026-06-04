@@ -459,10 +459,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Send Message Stream
-         * @description 流式发送消息：逐字返回 LLM 回复，大幅提升感知速度
-         */
+        /** Send Message Stream */
         post: operations["send_message_stream_api_chat__record_id__message_stream_post"];
         delete?: never;
         options?: never;
@@ -1494,7 +1491,7 @@ export interface components {
             /** Skipped */
             skipped: number;
             /** Errors */
-            errors: unknown[];
+            errors: string[];
         };
         /** BatchUserItem */
         BatchUserItem: {
@@ -1526,7 +1523,7 @@ export interface components {
              */
             difficulty: number;
             /** Description */
-            description: string | null;
+            description?: string | null;
             /** Patient Summary */
             patient_summary?: {
                 [key: string]: unknown;
@@ -1546,7 +1543,7 @@ export interface components {
             /** Name */
             name: string;
             /** Description */
-            description: string | null;
+            description?: string | null;
             /** Case Data */
             case_data: {
                 [key: string]: unknown;
@@ -1733,7 +1730,9 @@ export interface components {
         /** DurationStats */
         DurationStats: {
             /** Daily */
-            daily: unknown[];
+            daily: {
+                [key: string]: unknown;
+            }[];
             /** Total Minutes */
             total_minutes: number;
             /** Total Sessions */
@@ -1791,17 +1790,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-        };
-        /** FeedbackListResponse */
-        FeedbackListResponse: {
-            /** Items */
-            items: components["schemas"]["FeedbackItem"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
         };
         /** FeedbackSubmit */
         FeedbackSubmit: {
@@ -2111,14 +2099,20 @@ export interface components {
                 [key: string]: unknown;
             };
             /** By Purpose */
-            by_purpose: unknown[];
+            by_purpose: {
+                [key: string]: unknown;
+            }[];
             /**
              * By Provider
              * @default []
              */
-            by_provider: unknown[];
+            by_provider: {
+                [key: string]: unknown;
+            }[];
             /** Daily */
-            daily: unknown[];
+            daily: {
+                [key: string]: unknown;
+            }[];
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2206,6 +2200,17 @@ export interface components {
         PaginatedResponse_CaseManageItem_: {
             /** Items */
             items: components["schemas"]["CaseManageItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** PaginatedResponse[FeedbackItem] */
+        PaginatedResponse_FeedbackItem_: {
+            /** Items */
+            items: components["schemas"]["FeedbackItem"][];
             /** Total */
             total: number;
             /** Offset */
@@ -2341,7 +2346,9 @@ export interface components {
             /** Template Engine */
             template_engine: string;
             /** Variables */
-            variables: unknown[] | null;
+            variables: {
+                [key: string]: unknown;
+            }[] | null;
             /** Is Active */
             is_active: boolean;
             /** Created By */
@@ -2598,7 +2605,9 @@ export interface components {
              * Dimensions
              * @default []
              */
-            dimensions: unknown[];
+            dimensions: {
+                [key: string]: unknown;
+            }[];
             /**
              * Is Active
              * @default false
@@ -2631,17 +2640,17 @@ export interface components {
             /** Total Score */
             total_score: number;
             /** Detail Scores */
-            detail_scores: {
+            detail_scores?: {
                 [key: string]: unknown;
             } | null;
             /** Strengths */
-            strengths: unknown[] | null;
+            strengths?: string[] | null;
             /** Weaknesses */
-            weaknesses: unknown[] | null;
+            weaknesses?: string[] | null;
             /** Missed Content */
-            missed_content: unknown[] | null;
+            missed_content?: string[] | null;
             /** Suggestions */
-            suggestions: string | null;
+            suggestions?: string | null;
             /** Rubric Version */
             rubric_version?: string | null;
             /** Model Name */
@@ -2743,12 +2752,16 @@ export interface components {
              * Recent Records
              * @default []
              */
-            recent_records: unknown[];
+            recent_records: {
+                [key: string]: unknown;
+            }[];
             /**
              * Daily
              * @default []
              */
-            daily: unknown[];
+            daily: {
+                [key: string]: unknown;
+            }[];
         };
         /** TeacherSummaryItem */
         TeacherSummaryItem: {
@@ -2880,7 +2893,9 @@ export interface components {
              */
             notes: components["schemas"]["NoteItem"][];
             /** Required Inquiries */
-            required_inquiries?: unknown[] | null;
+            required_inquiries?: {
+                [key: string]: unknown;
+            }[] | null;
             /** Patient Info */
             patient_info?: {
                 [key: string]: unknown;
@@ -2906,7 +2921,9 @@ export interface components {
         /** TrendStats */
         TrendStats: {
             /** Daily */
-            daily: unknown[];
+            daily: {
+                [key: string]: unknown;
+            }[];
             /** Total Sessions */
             total_sessions: number;
             /** Total Minutes */
@@ -4159,7 +4176,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FeedbackListResponse"];
+                    "application/json": components["schemas"]["PaginatedResponse_FeedbackItem_"];
                 };
             };
             /** @description Validation Error */

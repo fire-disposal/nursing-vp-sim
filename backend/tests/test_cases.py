@@ -83,13 +83,12 @@ class TestGenerateCase:
         assert resp.status_code == 404
 
     @patch("routers.cases.call_llm_json", new_callable=AsyncMock)
-    @patch("routers.cases.get_prompt_manager")
-    def test_generate_quick_mode_success(self, mock_pm_get, mock_call_llm, client, teacher):
+    def test_generate_quick_mode_success(self, mock_call_llm, client, teacher):
         mock_tmpl = MagicMock()
         mock_tmpl.render.return_value = "system prompt content"
-        mock_pm = AsyncMock()
-        mock_pm.get.return_value = mock_tmpl
-        mock_pm_get.return_value = mock_pm
+        mock_pm = MagicMock()
+        mock_pm.get = AsyncMock(return_value=mock_tmpl)
+        client.app.state.prompt_manager = mock_pm
 
         mock_call_llm.return_value = {
             "name": "测试生成病例",
@@ -124,13 +123,12 @@ class TestGenerateCase:
         assert data["field"] is None
 
     @patch("routers.cases.call_llm_json", new_callable=AsyncMock)
-    @patch("routers.cases.get_prompt_manager")
-    def test_generate_field_mode(self, mock_pm_get, mock_call_llm, client, teacher):
+    def test_generate_field_mode(self, mock_call_llm, client, teacher):
         mock_tmpl = MagicMock()
         mock_tmpl.render.return_value = "system prompt content"
-        mock_pm = AsyncMock()
-        mock_pm.get.return_value = mock_tmpl
-        mock_pm_get.return_value = mock_pm
+        mock_pm = MagicMock()
+        mock_pm.get = AsyncMock(return_value=mock_tmpl)
+        client.app.state.prompt_manager = mock_pm
 
         mock_call_llm.return_value = {
             "field_value": ["吸烟史", "饮酒史", "运动习惯"],

@@ -3,15 +3,13 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from config import DEEPSEEK_MODEL, get_llm_config
+from core.config import DEEPSEEK_MODEL, get_llm_config
 from models import Message, Score, TrainingRecord
-from prompt_static import build_scoring_criteria, build_scoring_json_schema
 from services.llm_service import call_llm_json
-from services.prompt_manager import get_prompt_manager
+from services.prompt_static import build_scoring_criteria, build_scoring_json_schema
 from services.rubric_service import get_rubric_version_id, load_rubric_dict
 
 log = logging.getLogger(__name__)
-import asyncio
 
 import httpx
 
@@ -20,8 +18,11 @@ async def evaluate_training(
     record_id: int,
     case_data: dict,
     db: Session,
+    *,
+    pm,
+    router,
+    log_worker,
     client: httpx.AsyncClient | None = None,
-    semaphore: asyncio.Semaphore | None = None,
 ) -> Score:
     """对训练对话进行评分并保存结果"""
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -44,7 +45,6 @@ async def evaluate_training(
     scoring_json_schema_text = build_scoring_json_schema(rubric)
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
 
-    pm = await get_prompt_manager()
     tmpl = await pm.get("scoring")
 
     system_content, user_content = tmpl.render_pair(
@@ -65,7 +65,8 @@ async def evaluate_training(
         case_id=record.case_id,
         log_meta={"message_count": len(messages)},
         client=client,
-        semaphore=semaphore,
+        router=router,
+        log_worker=log_worker,
         **get_llm_config("scoring"),
     )
 

@@ -8,25 +8,37 @@ from dataclasses import dataclass
 
 import httpx
 
-from config import (
-    LLM_CONCURRENT_LIMIT,
-    LLM_CONNECTION_KEEPALIVE,
-    LLM_CONNECTION_POOL_SIZE,
-)
-from services.llm_router import get_router
-
-# ── 基础设施 ──
+from core.config import LLM_CONCURRENT_LIMIT
 
 
 def _backoff(attempt: int) -> float:
-    """指数退避 + 抖动，上限 4.5 秒。用于 LLM 调用重试间隔。"""
     return min(2**attempt, 4) + random.uniform(0, 0.5)
+
+
+class _SemaPool:
+    def __init__(self):
+        self._semaphore = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
+
+    @asynccontextmanager
+    async def acquire(self, timeout: float = 30):
+        try:
+            await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
+        except TimeoutError:
+            raise RuntimeError("LLM 服务繁忙，请稍后重试") from None
+        try:
+            yield
+        finally:
+            self._semaphore.release()
+
+
+_sema_pool = _SemaPool()
+
+_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+_RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError)
 
 
 @dataclass
 class _CallContext:
-    """LLM 调用上下文 —— 统一收集路由选择和日志所需的元数据"""
-
     purpose: str
     user_id: int | None = None
     record_id: int | None = None
@@ -57,15 +69,14 @@ class _CallContext:
 
     def log_success(
         self,
+        log_worker,
         latency_ms: int,
         response_text: str,
         usage: dict | None = None,
         price_input: float = 0,
         price_output: float = 0,
     ):
-        from services.llm_logging import enqueue_log
-
-        enqueue_log(
+        log_worker.enqueue(
             purpose=self.purpose,
             user_id=self.user_id,
             record_id=self.record_id,
@@ -86,10 +97,8 @@ class _CallContext:
             key_price_output=price_output,
         )
 
-    def log_failure(self, latency_ms: int, error_type: str, error_message: str | None):
-        from services.llm_logging import enqueue_log
-
-        enqueue_log(
+    def log_failure(self, log_worker, latency_ms: int, error_type: str, error_message: str | None):
+        log_worker.enqueue(
             purpose=self.purpose,
             user_id=self.user_id,
             record_id=self.record_id,
@@ -109,60 +118,15 @@ class _CallContext:
         )
 
 
-# 并发限流 —— 控制同时进行的 LLM API 调用数，防止打爆 API 配额
-_rate_limiter = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
-
-# 信号量获取超时（秒）—— 排队过久返回 503 让调用方重试
-_SEMAPHORE_ACQUIRE_TIMEOUT = 30
-
-
-@asynccontextmanager
-async def _acquire_sema(semaphore: asyncio.Semaphore):
-    try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=_SEMAPHORE_ACQUIRE_TIMEOUT)
-    except TimeoutError:
-        raise RuntimeError("LLM 服务繁忙，请稍后重试") from None
-    try:
-        yield
-    finally:
-        semaphore.release()
-
-
-# 可重试的 HTTP 状态码和异常类型
-_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
-_RETRYABLE_EXCEPTIONS = (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError)
-
-# 模块级共享 HTTP/2 客户端 —— 复用 TCP 连接，避免每次请求都握手
-# 注意：切勿在外部调用 _reset_client()，会断开所有进行中的请求
-_shared_client: httpx.AsyncClient | None = None
-_shared_client_lock = asyncio.Lock()
-
-
 def _get_base_url(config) -> str:
     if hasattr(config, "secret") and config.secret:
         return config.secret.base_url
     return config.base_url or ""
 
 
-async def _get_client() -> httpx.AsyncClient:
-    """延迟创建共享客户端"""
-    global _shared_client
-    if _shared_client is None:
-        async with _shared_client_lock:
-            if _shared_client is None:
-                _shared_client = httpx.AsyncClient(
-                    timeout=httpx.Timeout(60, connect=15.0),
-                    limits=httpx.Limits(
-                        max_connections=LLM_CONNECTION_POOL_SIZE,
-                        max_keepalive_connections=LLM_CONNECTION_KEEPALIVE,
-                        keepalive_expiry=30,
-                    ),
-                )
-    return _shared_client
-
-
 async def call_llm(
     messages: list,
+    *,
     temperature: float = 0.7,
     max_tokens: int = 512,
     timeout: int = 30,
@@ -172,18 +136,11 @@ async def call_llm(
     record_id: int | None = None,
     case_id: int | None = None,
     log_meta: dict | None = None,
-    client: httpx.AsyncClient | None = None,
-    semaphore: asyncio.Semaphore | None = None,
+    client: httpx.AsyncClient,
+    router,
+    log_worker,
     response_format: dict | None = None,
 ) -> str:
-    """通过 LLMRouter 选择 key/provider 调用 LLM API，返回文本回复。支持自动记录调用日志。
-
-    调用链路：Router选key → 构造payload → HTTP POST → 解析响应 → 记录日志
-    重试策略：429立即降解+退避 / 5xx退避重试 / 网络异常重建客户端后重试
-    降级兜底：所有DB配置不可用时，回退到 .env 的 DEEPSEEK_API_KEY
-    """
-    router = await get_router()
-
     ctx = _CallContext(
         purpose=purpose,
         user_id=user_id,
@@ -198,8 +155,6 @@ async def call_llm(
     last_error = None
     latency_ms = 0
     t0 = time.perf_counter()
-    _client = client if client is not None else await _get_client()
-    _sema = semaphore if semaphore is not None else _rate_limiter
 
     for attempt in range(max_retries + 2):
         try:
@@ -216,8 +171,8 @@ async def call_llm(
             if response_format:
                 payload["response_format"] = response_format
 
-            async with _acquire_sema(_sema):
-                resp = await _client.post(
+            async with _sema_pool.acquire():
+                resp = await client.post(
                     f"{_get_base_url(config)}/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
@@ -229,10 +184,7 @@ async def call_llm(
             latency_ms = int((time.perf_counter() - t0) * 1000)
 
             if resp.status_code == 429:
-                # 429 Rate Limited → 立即降解当前配置 60s，让 Router 选下一个 key
-                router.report_result(
-                    config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {resp.text[:200]}"
-                )
+                router.report_result(config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
                 last_error = "HTTP 429"
                 if attempt < max_retries + 1:
                     await asyncio.sleep(_backoff(attempt))
@@ -262,7 +214,7 @@ async def call_llm(
             router.report_result(config, success=True, tokens=total_tokens, latency_ms=latency_ms, error=None)
 
             pi, po = ctx.pricing(config)
-            ctx.log_success(latency_ms, content, usage, price_input=pi, price_output=po)
+            ctx.log_success(log_worker, latency_ms, content, usage, price_input=pi, price_output=po)
             return content
 
         except _RETRYABLE_EXCEPTIONS as e:
@@ -283,12 +235,13 @@ async def call_llm(
             continue
 
     latency_ms = int((time.perf_counter() - t0) * 1000)
-    ctx.log_failure(latency_ms, "all_providers_failed", last_error)
+    ctx.log_failure(log_worker, latency_ms, "all_providers_failed", last_error)
     raise RuntimeError(f"LLM调用失败（所有 provider 不可用）: {last_error}")
 
 
 async def call_llm_stream(
     messages: list,
+    *,
     temperature: float = 0.7,
     max_tokens: int = 512,
     timeout: int = 30,
@@ -298,15 +251,10 @@ async def call_llm_stream(
     record_id: int | None = None,
     case_id: int | None = None,
     log_meta: dict | None = None,
+    client: httpx.AsyncClient,
+    router,
+    log_worker,
 ):
-    """通过 LLMRouter 选择 key/provider，流式返回文本块（SSE 逐 token 推送）。
-
-    与 call_llm 不同：响应通过 yield 逐块返回，前端可实时显示。
-    重试策略：整条流失败后重新开始，不做断点续传。
-    兜底机制：全部重试耗尽且未产出任何内容时，自动降级为 call_llm（非流式）获取完整结果。
-    """
-    router = await get_router()
-
     ctx = _CallContext(
         purpose=purpose,
         user_id=user_id,
@@ -348,10 +296,9 @@ async def call_llm_stream(
             "stream": True,
         }
 
-        client = await _get_client()
         try:
             async with (
-                _acquire_sema(_rate_limiter),
+                _sema_pool.acquire(),
                 client.stream(
                     "POST",
                     f"{_get_base_url(config)}/v1/chat/completions",
@@ -367,9 +314,7 @@ async def call_llm_stream(
                     body = await resp.aread()
                     status_text = body.decode(errors="replace")[:200]
                     if resp.status_code == 429:
-                        router.report_result(
-                            config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {status_text}"
-                        )
+                        router.report_result(config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {status_text}")
                         last_error = "HTTP 429"
                     elif resp.status_code in _RETRYABLE_STATUSES:
                         last_error = f"HTTP {resp.status_code}: {status_text}"
@@ -398,7 +343,7 @@ async def call_llm_stream(
             total_tokens = len(full_reply) // 2
             router.report_result(config, success=True, tokens=total_tokens, latency_ms=latency_ms, error=None)
             pi, po = ctx.pricing(config)
-            ctx.log_success(latency_ms, full_reply, price_input=pi, price_output=po)
+            ctx.log_success(log_worker, latency_ms, full_reply, price_input=pi, price_output=po)
             return
 
         except _RETRYABLE_EXCEPTIONS as e:
@@ -427,23 +372,17 @@ async def call_llm_stream(
             record_id=record_id,
             case_id=case_id,
             log_meta=log_meta,
+            client=client,
+            router=router,
+            log_worker=log_worker,
         )
         yield content
         return
-    ctx.log_failure(latency_ms, "all_providers_failed", last_error)
+    ctx.log_failure(log_worker, latency_ms, "all_providers_failed", last_error)
     raise RuntimeError(f"LLM流式调用失败（所有 provider 不可用）: {last_error}")
 
 
 def _safe_parse_json(text: str) -> dict:
-    """安全解析 LLM 返回的 JSON —— 四级降级策略：
-
-    1. 标准解析（去markdown围栏、首尾花括号定位）
-    2. 移除尾部逗号后重试
-    3. 截断修复（补全未闭合的引号、括号）
-    4. 正则兜底提取关键字段（评分必须的总分+维度分）
-
-    最后防线：total_score 或 detail_scores 至少有一个存在，否则抛异常告知上游。
-    """
     text = text.strip()
     text = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\n?\s*```\s*$", "", text)
@@ -454,13 +393,11 @@ def _safe_parse_json(text: str) -> dict:
     if start != -1 and end != -1 and end > start:
         text = text[start : end + 1]
 
-    # 1. 标准解析
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # 2. 移除尾部逗号后重试
     try:
         cleaned = re.sub(r",\s*}", "}", text)
         cleaned = re.sub(r",\s*]", "]", cleaned)
@@ -468,7 +405,6 @@ def _safe_parse_json(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # 3. 截断修复：补全缺失的 } ] "
     try:
         repaired = _repair_truncated_json(text)
         if repaired:
@@ -476,7 +412,6 @@ def _safe_parse_json(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # 4. 最终降级：正则提取关键字段（给所有可选字段默认值）
     result = {
         "strengths": [],
         "weaknesses": [],
@@ -523,20 +458,16 @@ def _safe_parse_json(text: str) -> dict:
 
 
 def _repair_truncated_json(text: str) -> str | None:
-    """尝试修复被截断的 JSON：补全未闭合的引号、大括号、方括号。"""
     if not text or not text.strip().startswith("{"):
         return None
-    # 补全末尾截断的字符串值
     if text.rstrip().endswith('"'):
-        pass  # 正常闭合
+        pass
     else:
         last_quote = text.rfind('"')
         if last_quote > len(text) // 2:
             text = text[: last_quote + 1]
-    # 计数括号差，补闭合
     open_braces = text.count("{") - text.count("}")
     open_brackets = text.count("[") - text.count("]")
-    # 检查是否有未闭合的字符串（奇数个引号）
     in_string = False
     for i, ch in enumerate(text):
         if ch == '"' and (i == 0 or text[i - 1] != "\\"):
@@ -545,7 +476,6 @@ def _repair_truncated_json(text: str) -> str | None:
         text += '"'
     text += "]" * open_brackets
     text += "}" * open_braces
-    # 仅当补了括号才返回
     if open_braces > 0 or open_brackets > 0:
         return text
     return None
@@ -553,6 +483,7 @@ def _repair_truncated_json(text: str) -> str | None:
 
 async def call_llm_json(
     messages: list,
+    *,
     temperature: float = 0.3,
     max_tokens: int = 2048,
     timeout: int = 120,
@@ -562,22 +493,23 @@ async def call_llm_json(
     record_id: int | None = None,
     case_id: int | None = None,
     log_meta: dict | None = None,
-    client: httpx.AsyncClient | None = None,
-    semaphore: asyncio.Semaphore | None = None,
+    client: httpx.AsyncClient,
+    router,
+    log_worker,
 ) -> dict:
-    """调用 LLM API（通过 Router 路由），返回 JSON 结构化结果（容错解析），支持日志记录"""
     response_text = await call_llm(
         messages,
-        temperature,
-        max_tokens,
-        timeout,
-        max_retries,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        max_retries=max_retries,
         purpose=purpose,
         user_id=user_id,
         record_id=record_id,
         case_id=case_id,
         log_meta=log_meta,
         client=client,
-        semaphore=semaphore,
+        router=router,
+        log_worker=log_worker,
     )
     return _safe_parse_json(response_text)

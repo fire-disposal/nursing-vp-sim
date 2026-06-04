@@ -1,33 +1,28 @@
+import json
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from auth import get_current_user
-from config import get_llm_config
-from database import get_db
+from core.config import get_llm_config
+from core.database import get_db
+from core.security import get_current_user
+from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
-from rate_limiter import check_chat_limit
 from schemas import ChatMessageRequest, ChatMessageResponse
 from services.chat_session import add_topic, restore_topics
 from services.llm_service import call_llm, call_llm_stream
-from services.patient_guard import (
-    get_allowed_hidden_info,
-    sanitize_patient_reply,
-)
-from services.prompt_manager import get_prompt_manager
+from services.patient_guard import get_allowed_hidden_info, sanitize_patient_reply
 from services.virtual_patient_prompt import build_patient_chat_messages, build_patient_context_kwargs
 
 log = logging.getLogger(__name__)
-import json
-from typing import Annotated
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])
 
 
-async def _build_llm_context(case_data: dict, history_messages: list, student_content: str, record_id: int) -> list:
-    """构建 LLM 消息列表。编排角色：恢复已泄露主题 → 筛选隐藏信息 → 构建渲染变量 → 渲染模板 → 组装消息。"""
+async def _build_llm_context(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> list:
     history_text = " ".join(m.content for m in history_messages)
     topics = restore_topics(record_id, history_text, case_data)
     allowed = get_allowed_hidden_info(case_data, student_content, topics)
@@ -38,7 +33,6 @@ async def _build_llm_context(case_data: dict, history_messages: list, student_co
 
     kwargs = build_patient_context_kwargs(case_data, allowed)
 
-    pm = await get_prompt_manager()
     tmpl = await pm.get("patient_chat")
     system_prompt = tmpl.render(**kwargs)
 
@@ -62,13 +56,14 @@ async def send_message(
     if record.status != "in_progress":
         raise HTTPException(status_code=400, detail="训练已结束")
 
-    check_chat_limit(current_user.id)
+    await check_chat_limit(current_user.id, request)
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data or {}
 
+    pm = request.app.state.prompt_manager
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
+    llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id, pm)
 
     rid = getattr(request.state, "request_id", None)
     try:
@@ -79,6 +74,9 @@ async def send_message(
             record_id=record_id,
             case_id=record.case_id,
             log_meta={"request_id": rid} if rid else None,
+            client=request.app.state.httpx_client,
+            router=request.app.state.llm_router,
+            log_worker=request.app.state.log_worker,
             **get_llm_config("patient_chat"),
         )
     except Exception as e:
@@ -87,7 +85,6 @@ async def send_message(
         )
         raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
 
-    # 角色守卫：检测越界并替换
     sanitized, violations = sanitize_patient_reply(reply, case_data)
     if violations:
         log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
@@ -110,8 +107,7 @@ async def send_message_stream(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    """流式发送消息：逐字返回 LLM 回复，大幅提升感知速度"""
-    from database import SessionLocal
+    from core.database import SessionLocal
 
     db = SessionLocal()
     try:
@@ -123,13 +119,14 @@ async def send_message_stream(
         if record.status != "in_progress":
             raise HTTPException(status_code=400, detail="训练已结束")
 
-        check_chat_limit(current_user.id)
+        await check_chat_limit(current_user.id, request)
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = case.case_data or {}
 
+        pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-        llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
+        llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id, pm)
 
         rid = getattr(request.state, "request_id", None)
 
@@ -143,6 +140,9 @@ async def send_message_stream(
                     record_id=record_id,
                     case_id=record.case_id,
                     log_meta={"request_id": rid} if rid else None,
+                    client=request.app.state.httpx_client,
+                    router=request.app.state.llm_router,
+                    log_worker=request.app.state.log_worker,
                     **get_llm_config("patient_chat"),
                 ):
                     full_reply += chunk

@@ -3,7 +3,7 @@
 
 class TestLogin:
     def test_login_success(self, client, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         user = User(
@@ -23,7 +23,7 @@ class TestLogin:
         assert data["display_name"] == "测试"
 
     def test_login_wrong_password(self, client, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         user = User(
@@ -64,7 +64,7 @@ class TestRegister:
         assert data["display_name"] == "新同学"
 
     def test_register_duplicate_username(self, client, teacher, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         _, token = teacher
@@ -138,7 +138,7 @@ class TestWechatRegister:
 
     def test_wechat_register_duplicate_openid(self, client, db_session, monkeypatch):
         """微信注册：重复 openid 应返回 400"""
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         user = User(

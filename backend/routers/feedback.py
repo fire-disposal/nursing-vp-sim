@@ -5,11 +5,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import get_current_user, require_teacher
 from models import Feedback, User
-from pagination import paginate
-from schemas import FeedbackDailyItem, FeedbackItem, FeedbackListResponse, FeedbackSubmit, FeedbackSubmitResponse
+from schemas import (
+    FeedbackDailyItem,
+    FeedbackItem,
+    FeedbackSubmit,
+    FeedbackSubmitResponse,
+    PaginatedResponse,
+)
+from services.pagination import paginate
 
 router = APIRouter(prefix="/api", tags=["反馈"])
 
@@ -32,7 +38,7 @@ def submit_feedback(
     return {"id": fb.id, "created_at": fb.created_at}
 
 
-@router.get("/admin/feedback", response_model=FeedbackListResponse)
+@router.get("/admin/feedback", response_model=PaginatedResponse[FeedbackItem])
 def admin_list_feedback(
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
@@ -85,7 +91,7 @@ def admin_list_feedback(
         )
         for r in rows
     ]
-    return FeedbackListResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/admin/feedback/stats", response_model=list[FeedbackDailyItem])

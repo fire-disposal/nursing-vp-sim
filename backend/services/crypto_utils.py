@@ -5,7 +5,7 @@ import hashlib
 
 from cryptography.fernet import Fernet
 
-from config import SECRET_KEY
+from core.config import SECRET_KEY
 
 _fernet: Fernet | None = None
 

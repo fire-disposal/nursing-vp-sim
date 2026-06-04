@@ -1,6 +1,6 @@
 """Training flow tests: start, messages, end with scoring (mocked LLM)."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestStartTraining:
@@ -75,7 +75,7 @@ class TestEndTraining:
             assert "训练已结束" in data["message"]
 
     def test_end_other_user_training(self, client, student, test_case, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         _, token = student
@@ -135,7 +135,7 @@ class TestEndTraining:
 
 class TestRecords:
     def test_student_sees_only_own(self, client, student, test_case, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         _user, token = student
@@ -278,10 +278,10 @@ class TestScoreReview:
 
 
 class TestScoringIsolation:
-    """验证后台评分使用独立 client/semaphore，不污染模块级共享资源。"""
+    """验证后台评分使用独立 client/router/log_worker，不污染模块级共享资源。"""
 
     def test_call_llm_json_passes_through_client(self):
-        """call_llm_json 将 client/semaphore 转发给 call_llm。"""
+        """call_llm_json 将 client/router/log_worker 转发给 call_llm。"""
         import asyncio
 
         import httpx
@@ -289,15 +289,24 @@ class TestScoringIsolation:
         from services.llm_service import call_llm_json
 
         local_client = httpx.AsyncClient()
-        local_sema = asyncio.Semaphore(10)
+        mock_router = MagicMock()
+        mock_worker = MagicMock()
         messages = [{"role": "user", "content": "test"}]
 
         async def _do():
             with patch("services.llm_service.call_llm", new_callable=AsyncMock) as mock_llm:
                 mock_llm.return_value = '{"result": "ok"}'
-                await call_llm_json(messages, client=local_client, semaphore=local_sema, purpose="test", max_retries=1)
+                await call_llm_json(
+                    messages,
+                    client=local_client,
+                    router=mock_router,
+                    log_worker=mock_worker,
+                    purpose="test",
+                    max_retries=1,
+                )
                 call_kwargs = mock_llm.call_args.kwargs
                 assert call_kwargs["client"] is local_client
-                assert call_kwargs["semaphore"] is local_sema
+                assert call_kwargs["router"] is mock_router
+                assert call_kwargs["log_worker"] is mock_worker
 
         asyncio.run(_do())

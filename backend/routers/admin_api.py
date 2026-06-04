@@ -1,14 +1,17 @@
 """API 档案 + 用途指派 CRUD"""
 
+import logging
 import time
 from typing import Annotated
 
+log = logging.getLogger(__name__)
+
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from auth import require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import require_teacher
 from models import ApiSecret, LLMConfig, Rubric, User
 from schemas import (
     ApiSecretCreate,
@@ -30,7 +33,7 @@ from schemas import (
     ToggleStatusResponse,
 )
 from services.crypto_utils import decrypt_api_key, encrypt_api_key
-from services.llm_router import refresh_router
+from services.llm_router import get_env_fallback_state
 from services.provider_catalog import get_catalog, infer_provider_name
 
 router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
@@ -81,7 +84,8 @@ async def create_secret(
         try:
             if decrypt_api_key(existing.encrypted_key) == data.raw_key:
                 raise HTTPException(409, "该 API Key 已存在，请勿重复添加")
-        except Exception:
+        except Exception as exc:
+            log.debug("decrypt check skipped: %s", exc)
             continue
     suffix = data.raw_key[-4:] if len(data.raw_key) >= 4 else "****"
     s = ApiSecret(
@@ -176,6 +180,7 @@ def list_configs(
 @router.post("/configs", status_code=201, response_model=ConfigCreateResponse)
 async def create_config(
     data: LLMConfigCreate,
+    request: Request,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -201,7 +206,7 @@ async def create_config(
         existing.monthly_cost_limit = data.monthly_cost_limit
         existing.status = "active"
         db.commit()
-        await refresh_router()
+        await request.app.state.llm_router.load_from_db()
         return {"id": existing.id}
 
     cfg = LLMConfig(
@@ -218,7 +223,7 @@ async def create_config(
     db.add(cfg)
     db.commit()
     db.refresh(cfg)
-    await refresh_router()
+    await request.app.state.llm_router.load_from_db()
     return {"id": cfg.id}
 
 
@@ -226,6 +231,7 @@ async def create_config(
 async def update_config(
     config_id: int,
     data: LLMConfigUpdate,
+    request: Request,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -237,39 +243,39 @@ async def update_config(
         if val is not None:
             setattr(cfg, f, val)
     db.commit()
-    await refresh_router()
+    await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
 @router.delete("/configs/{config_id}", response_model=OkResponse)
 async def delete_config(
-    config_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, request: Request, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
         raise HTTPException(404, "指派不存在")
     db.delete(cfg)
     db.commit()
-    await refresh_router()
+    await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
 @router.post("/configs/{config_id}/toggle", response_model=ToggleStatusResponse)
 async def toggle_config(
-    config_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, request: Request, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
         raise HTTPException(404, "指派不存在")
     cfg.status = "active" if cfg.status == "disabled" else "disabled"
     db.commit()
-    await refresh_router()
+    await request.app.state.llm_router.load_from_db()
     return {"ok": True, "status": cfg.status}
 
 
 @router.post("/configs/{config_id}/reset", response_model=OkResponse)
 async def reset_profile(
-    config_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, request: Request, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -282,7 +288,7 @@ async def reset_profile(
         secret.consecutive_failures = 0
     cfg.status = "active"
     db.commit()
-    await refresh_router()
+    await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
@@ -337,8 +343,8 @@ async def test_all_configs(
 
 
 @router.post("/reload", response_model=OkResponse)
-async def reload_router(current_user: Annotated[User, Depends(require_teacher)]):
-    await refresh_router()
+async def reload_router(request: Request, current_user: Annotated[User, Depends(require_teacher)]):
+    await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
@@ -396,15 +402,14 @@ async def health_check(
 
 
 @router.get("/fallback")
-def get_env_fallback(current_user: Annotated[User, Depends(require_teacher)]):
-    from services.llm_router import get_env_fallback_state
+async def get_env_fallback(current_user: Annotated[User, Depends(require_teacher)]):
 
-    return get_env_fallback_state()
+    return await get_env_fallback_state()
 
 
 @router.post("/fallback/test", response_model=TestResultItem)
 async def test_env_fallback(current_user: Annotated[User, Depends(require_teacher)]):
-    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+    from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 
     if not DEEPSEEK_API_KEY:
         return {"base_url": DEEPSEEK_BASE_URL, "ok": False, "error": "DEEPSEEK_API_KEY 未设置"}

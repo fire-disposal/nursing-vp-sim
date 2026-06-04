@@ -55,7 +55,7 @@ def pg_engine():
     base_url = PG_TEST_URL.rsplit("/", 1)[0]
     test_url = f"{base_url}/test_nursing_vp_migration"
 
-    from database import Base
+    from core.database import Base
 
     engine = create_engine(test_url)
 
@@ -170,7 +170,7 @@ class TestAllModelsCreate:
     """验证全部 7 张表可创建"""
 
     def test_users_table(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         user = User(
@@ -198,7 +198,7 @@ class TestAllModelsCreate:
         assert case.case_data["patient_info"]["name"] == "测试"
 
     def test_training_records_table(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, TrainingRecord, User
 
         user = User(username="truser", password_hash=hash_password("pw"), role="student", display_name="TR User")
@@ -212,7 +212,7 @@ class TestAllModelsCreate:
         assert tr.id is not None
 
     def test_messages_table(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, Message, TrainingRecord, User
 
         user = User(username="msguser", password_hash=hash_password("pw"), role="student", display_name="Msg User")
@@ -231,7 +231,7 @@ class TestAllModelsCreate:
         assert msg.content == "你好"
 
     def test_scores_table(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, Score, TrainingRecord, User
 
         user = User(username="scuser", password_hash=hash_password("pw"), role="student", display_name="Score User")
@@ -257,7 +257,7 @@ class TestAllModelsCreate:
         assert "问诊全面" in score.strengths
 
     def test_notes_table(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, Note, TrainingRecord, User
 
         user = User(username="noteuser", password_hash=hash_password("pw"), role="student", display_name="Note User")
@@ -275,7 +275,7 @@ class TestAllModelsCreate:
         assert note.id is not None
 
     def test_llm_call_logs_table(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, LLMCallLog, TrainingRecord, User
 
         user = User(username="llmuser", password_hash=hash_password("pw"), role="student", display_name="LLM User")
@@ -348,7 +348,7 @@ class TestSeedData:
         import json
         import os
 
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, User
 
         user_count = pg_session.query(User).count()
@@ -373,7 +373,7 @@ class TestSeedData:
             )
             pg_session.add(student)
 
-        cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cases")
+        cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cases")
         case_count = 0
         for case_file in sorted(os.listdir(cases_dir)):
             if case_file.endswith(".json"):
@@ -398,7 +398,7 @@ class TestScoreScoreScaleDefault:
     """验证 score_scale 和 token_estimated 的 server_default"""
 
     def test_token_estimated_default(self, pg_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import Case, LLMCallLog, TrainingRecord, User
 
         user = User(username="deftest", password_hash=hash_password("pw"), role="student", display_name="Def Test")

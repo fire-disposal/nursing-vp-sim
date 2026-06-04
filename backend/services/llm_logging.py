@@ -4,17 +4,14 @@ import asyncio
 import contextlib
 import logging
 
-from config import (
+from core.config import (
     LLM_COST_CURRENCY,
     LLM_PRICE_INPUT_PER_1M,
     LLM_PRICE_OUTPUT_PER_1M,
 )
-from database import SessionLocal
+from core.database import SessionLocal
 
-_logger = logging.getLogger(__name__)
-
-_log_queue: asyncio.Queue[dict] | None = None
-_worker_task: asyncio.Task | None = None
+log = logging.getLogger(__name__)
 
 
 def _estimate_tokens(text: str) -> int:
@@ -56,7 +53,6 @@ def _build_entry(
     key_price_input=None,
     key_price_output=None,
 ):
-    """构建 LLMCallLog 条目字典"""
     if usage:
         prompt_tokens = usage.get("prompt_tokens")
         completion_tokens = usage.get("completion_tokens")
@@ -99,112 +95,113 @@ def _build_entry(
     }
 
 
-async def start_worker():
-    global _log_queue, _worker_task
-    _log_queue = asyncio.Queue(maxsize=500)
-    _worker_task = asyncio.create_task(_worker_loop())
+class LogWorker:
+    def __init__(self):
+        self._queue: asyncio.Queue[dict] | None = None
+        self._task: asyncio.Task | None = None
 
+    async def start(self):
+        self._queue = asyncio.Queue(maxsize=500)
+        self._task = asyncio.create_task(self._loop())
 
-async def stop_worker():
-    global _log_queue, _worker_task
-    if _worker_task:
-        _worker_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await _worker_task
-        _worker_task = None
-    _log_queue = None
+    async def stop(self):
+        if self._task:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+        self._queue = None
 
+    async def _loop(self):
+        batch: list[dict] = []
+        while True:
+            try:
+                item = await asyncio.wait_for(self._queue.get(), timeout=2.0)
+                batch.append(item)
+            except TimeoutError:
+                if batch:
+                    self._flush(batch)
+                    batch.clear()
+                continue
+            except asyncio.CancelledError:
+                break
 
-async def _worker_loop():
-    batch: list[dict] = []
-    while True:
-        try:
-            item = await asyncio.wait_for(_log_queue.get(), timeout=2.0)
-            batch.append(item)
-        except TimeoutError:
-            if batch:
-                _flush_batch(batch)
+            if len(batch) >= 20:
+                self._flush(batch)
                 batch.clear()
-            continue
-        except asyncio.CancelledError:
-            break
 
-        if len(batch) >= 20:
-            _flush_batch(batch)
-            batch.clear()
+        while not self._queue.empty():
+            try:
+                batch.append(self._queue.get_nowait())
+            except asyncio.QueueEmpty:
+                break
+        if batch:
+            self._flush(batch)
 
-    while not _log_queue.empty():
+    @staticmethod
+    def _flush(items: list[dict]):
+        from models import LLMCallLog
+
+        db = SessionLocal()
         try:
-            batch.append(_log_queue.get_nowait())
-        except asyncio.QueueEmpty:
-            break
-    if batch:
-        _flush_batch(batch)
+            for item in items:
+                db.add(LLMCallLog(**item))
+            db.commit()
+        except Exception:
+            log.exception("flush %d llm log entries failed", len(items))
+            db.rollback()
+        finally:
+            db.close()
 
-
-def _flush_batch(items: list[dict]):
-    from models import LLMCallLog
-
-    db = SessionLocal()
-    try:
-        for item in items:
-            db.add(LLMCallLog(**item))
-        db.commit()
-    except Exception:
-        _logger.exception("flush %d llm log entries failed", len(items))
-        db.rollback()
-    finally:
-        db.close()
-
-
-def enqueue_log(
-    *,
-    purpose,
-    user_id=None,
-    record_id=None,
-    case_id=None,
-    model="",
-    temperature=None,
-    max_tokens=None,
-    latency_ms=0,
-    status="success",
-    error_type=None,
-    error_message=None,
-    request_text="",
-    response_text="",
-    usage=None,
-    meta=None,
-    api_key_id=None,
-    config_id=None,
-    provider_name="deepseek",
-    key_price_input=None,
-    key_price_output=None,
-):
-    if _log_queue is None:
-        return
-    entry = _build_entry(
-        purpose=purpose,
-        user_id=user_id,
-        record_id=record_id,
-        case_id=case_id,
-        model=model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        latency_ms=latency_ms,
-        status=status,
-        error_type=error_type,
-        error_message=error_message,
-        request_text=request_text,
-        response_text=response_text,
-        usage=usage,
-        meta=meta,
-        api_key_id=api_key_id,
-        config_id=config_id,
-        provider_name=provider_name,
-        key_price_input=key_price_input,
-        key_price_output=key_price_output,
-    )
-    try:
-        _log_queue.put_nowait(entry)
-    except asyncio.QueueFull:
-        _logger.warning("llm log queue full, dropping entry for %s", entry.get("purpose"))
+    def enqueue(
+        self,
+        *,
+        purpose,
+        user_id=None,
+        record_id=None,
+        case_id=None,
+        model="",
+        temperature=None,
+        max_tokens=None,
+        latency_ms=0,
+        status="success",
+        error_type=None,
+        error_message=None,
+        request_text="",
+        response_text="",
+        usage=None,
+        meta=None,
+        api_key_id=None,
+        config_id=None,
+        provider_name="deepseek",
+        key_price_input=None,
+        key_price_output=None,
+    ):
+        if self._queue is None:
+            return
+        entry = _build_entry(
+            purpose=purpose,
+            user_id=user_id,
+            record_id=record_id,
+            case_id=case_id,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            latency_ms=latency_ms,
+            status=status,
+            error_type=error_type,
+            error_message=error_message,
+            request_text=request_text,
+            response_text=response_text,
+            usage=usage,
+            meta=meta,
+            api_key_id=api_key_id,
+            config_id=config_id,
+            provider_name=provider_name,
+            key_price_input=key_price_input,
+            key_price_output=key_price_output,
+        )
+        try:
+            self._queue.put_nowait(entry)
+        except asyncio.QueueFull:
+            log.warning("llm log queue full, dropping entry for %s", entry.get("purpose"))

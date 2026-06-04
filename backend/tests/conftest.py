@@ -3,19 +3,22 @@ import os
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 os.environ["SKIP_SEED"] = "1"
+os.environ["SKIP_MIGRATION"] = "1"
 
 TEST_DB_URL = os.environ.get(
     "TEST_DB_URL",
     "postgresql://postgres:postgres@localhost:5432/nursing_test",
 )
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from auth import hash_password
-from database import Base, get_db
+from core.database import Base, get_db
+from core.security import hash_password
 from models import Case, User
 
 
@@ -95,6 +98,27 @@ def client(engine, db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+
+    rate_limiter = MagicMock()
+    rate_limiter.is_allowed = AsyncMock(return_value=True)
+    rate_limiter.reset_key = AsyncMock()
+    app.state.rate_limiter = rate_limiter
+
+    mock_pm_template = MagicMock()
+    mock_pm_template.render = MagicMock(return_value="mock system prompt")
+    mock_pm = MagicMock()
+    mock_pm.get = AsyncMock(return_value=mock_pm_template)
+    app.state.prompt_manager = mock_pm
+
+    mock_router = MagicMock()
+    mock_router.select = MagicMock(return_value=MagicMock(model="test-model"))
+    mock_router.get_decrypted_key = MagicMock(return_value="sk-test")
+    mock_router.report_result = AsyncMock()
+    app.state.llm_router = mock_router
+
+    app.state.httpx_client = MagicMock()
+    app.state.log_worker = MagicMock()
+
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

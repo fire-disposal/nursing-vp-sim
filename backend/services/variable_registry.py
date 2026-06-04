@@ -63,7 +63,7 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             name="scoring_criteria",
             type="text",
             description="评分标准维度、条目及1-3分评分锚点",
-            source="rubrics/nursing_history_v1.json + build_scoring_criteria() 自动生成",
+            source="data/rubrics/nursing_history_v1.json + build_scoring_criteria() 自动生成",
             default_example=(
                 "## 评分标准版本\n"
                 "护理病史采集训练评分标准 v1.0（原始57分制，每项1-3分，系统将自动换算为100分制）\n\n"
@@ -174,15 +174,15 @@ class VariableRegistry:
         result: dict[str, str] = {}
         for v in self.get_variables(purpose):
             if v.name == "scoring_criteria":
-                from prompt_static import build_scoring_criteria
+                from services.prompt_static import build_scoring_criteria
 
                 result[v.name] = build_scoring_criteria()
             elif v.name == "scoring_json_schema":
-                from prompt_static import build_scoring_json_schema
+                from services.prompt_static import build_scoring_json_schema
 
                 result[v.name] = build_scoring_json_schema()
             elif v.name == "scoring_rubric":
-                from prompt_static import build_scoring_rubric
+                from services.prompt_static import build_scoring_rubric
 
                 result[v.name] = build_scoring_rubric()
             else:

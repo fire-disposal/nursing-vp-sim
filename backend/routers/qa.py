@@ -1,14 +1,14 @@
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import get_current_user, require_teacher
+from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
-from pagination import paginate
-from rate_limiter import check_qa_limit
 from schemas import (
     MessageResponse,
     PaginatedResponse,
@@ -19,13 +19,12 @@ from schemas import (
     QASessionItem,
 )
 from services.llm_service import call_llm
-from services.prompt_manager import get_prompt_manager
+from services.pagination import paginate
 from services.qa_service import build_qa_history
 
 log = logging.getLogger(__name__)
-from typing import Annotated
 
-from config import get_llm_config
+from core.config import get_llm_config
 
 router = APIRouter(prefix="/api/qa", tags=["通用问答"])
 
@@ -40,7 +39,7 @@ async def create_session(
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="问题不能为空")
 
-    check_qa_limit(current_user.id)
+    await check_qa_limit(current_user.id, request)
 
     session = QASession(
         user_id=current_user.id,
@@ -60,7 +59,7 @@ async def create_session(
     db.commit()
 
     try:
-        pm = await get_prompt_manager()
+        pm = request.app.state.prompt_manager
         tmpl = await pm.get("qa")
         llm_messages = [
             {"role": "system", "content": tmpl.render()},
@@ -77,6 +76,9 @@ async def create_session(
             purpose="qa",
             user_id=current_user.id,
             log_meta={"request_id": rid} if rid else None,
+            client=request.app.state.httpx_client,
+            router=request.app.state.llm_router,
+            log_worker=request.app.state.log_worker,
             **get_llm_config("qa"),
         )
     except Exception as e:
@@ -122,7 +124,7 @@ async def ask_in_session(
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    check_qa_limit(current_user.id)
+    await check_qa_limit(current_user.id, request)
 
     user_msg = QARecord(
         session_id=session.id,
@@ -135,7 +137,7 @@ async def ask_in_session(
 
     llm_messages = build_qa_history(session_id, db)
 
-    pm = await get_prompt_manager()
+    pm = request.app.state.prompt_manager
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render()})
 
@@ -146,6 +148,9 @@ async def ask_in_session(
             purpose="qa",
             user_id=current_user.id,
             log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+            client=request.app.state.httpx_client,
+            router=request.app.state.llm_router,
+            log_worker=request.app.state.log_worker,
             **get_llm_config("qa"),
         )
     except Exception as e:

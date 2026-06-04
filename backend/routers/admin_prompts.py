@@ -4,11 +4,11 @@ import logging
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from auth import require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import require_teacher
 from models import PromptTemplate as PT
 from models import User
 from schemas import (
@@ -21,10 +21,10 @@ from schemas import (
     PromptValidateResponse,
     SampleVarsResponse,
 )
-from services.prompt_manager import refresh_prompts, render_template
+from services.prompt_manager import render_template
 from services.variable_registry import get_registry
 
-_logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin/prompts", tags=["Prompt管理"])
 
@@ -110,6 +110,7 @@ def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[P
 @router.post("", status_code=201, response_model=PromptTemplateResponse)
 async def create_prompt(
     data: PromptTemplateCreate,
+    request: Request,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -121,7 +122,7 @@ async def create_prompt(
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
     if warnings:
-        _logger.warning("create_prompt %s: %s", data.purpose, "; ".join(warnings))
+        log.warning("create_prompt %s: %s", data.purpose, "; ".join(warnings))
 
     if data.variables:
         registry_map = get_registry().get_variable_map(data.purpose)
@@ -172,6 +173,7 @@ async def create_prompt(
 async def update_prompt(
     prompt_id: int,
     data: PromptTemplateUpdate,
+    request: Request,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -186,7 +188,7 @@ async def update_prompt(
         if errors:
             raise HTTPException(status_code=400, detail="; ".join(errors))
         if warnings:
-            _logger.warning("update_prompt %s v%d: %s", pt.purpose, pt.version, "; ".join(warnings))
+            log.warning("update_prompt %s v%d: %s", pt.purpose, pt.version, "; ".join(warnings))
         existing_map = {v["name"]: v for v in (pt.variables or [])}
         registry_map = get_registry().get_variable_map(pt.purpose)
         new_vars = []
@@ -209,7 +211,7 @@ async def update_prompt(
         pt.variables = _dedup_variables(new_vars)
     db.commit()
     db.refresh(pt)
-    await refresh_prompts()
+    await request.app.state.prompt_manager.reload()
     return pt
 
 
@@ -232,6 +234,7 @@ async def delete_prompt(
 @router.post("/{prompt_id}/activate", response_model=OkResponse)
 async def activate_prompt(
     prompt_id: int,
+    request: Request,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
     purpose: str | None = None,
@@ -242,11 +245,11 @@ async def activate_prompt(
             raise HTTPException(400, "切换到内置版本需要指定 purpose")
         db.query(PT).filter(PT.purpose == purpose).update({"is_active": False})
         db.commit()
-        await refresh_prompts()
+        await request.app.state.prompt_manager.reload()
         return {"ok": True}
 
     await _activate(prompt_id, db)
-    await refresh_prompts()
+    await request.app.state.prompt_manager.reload()
     return {"ok": True}
 
 
@@ -293,8 +296,8 @@ def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, D
 
 
 @router.post("/reload")
-async def reload_prompts_endpoint(current_user: Annotated[User, Depends(require_teacher)]):
-    await refresh_prompts()
+async def reload_prompts_endpoint(request: Request, current_user: Annotated[User, Depends(require_teacher)]):
+    await request.app.state.prompt_manager.reload()
     return {"ok": True}
 
 
@@ -331,7 +334,7 @@ async def preview_active_prompt(
             user_rendered = render_template(pt.user_prompt, **sample) if sample else pt.user_prompt
     except RuntimeError as e:
         render_error = str(e)
-        _logger.warning("preview render failed purpose=%s v%d: %s", purpose, pt.version, e)
+        log.warning("preview render failed purpose=%s v%d: %s", purpose, pt.version, e)
     return PromptPreviewResponse(
         purpose=pt.purpose,
         version=pt.version,

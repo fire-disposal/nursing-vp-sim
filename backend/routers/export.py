@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
-from auth import get_current_user, require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import get_current_user, require_teacher
 from models import Case, Message, Score, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])

@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from models import ApiSecret, LLMConfig
 from services.llm_router import ProfileRouter, _SyntheticConfig
 
@@ -81,7 +83,8 @@ def test_select_all_unavailable():
     assert len(result._raw_key) > 0
 
 
-def test_report_result_circuit_breaks_on_consecutive_failures():
+@pytest.mark.asyncio
+async def test_report_result_circuit_breaks_on_consecutive_failures():
     router = ProfileRouter()
     secret = _make_secret()
     cfg = _make_config(1, secret)
@@ -89,24 +92,26 @@ def test_report_result_circuit_breaks_on_consecutive_failures():
     router._bindings = {"qa": cfg}
 
     for _i in range(5):
-        router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="timeout")
+        await router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="timeout")
     assert secret.status == "degraded"
     assert secret.degraded_reason == "consecutive_failures"
 
 
-def test_report_result_429_sets_rate_limited():
+@pytest.mark.asyncio
+async def test_report_result_429_sets_rate_limited():
     router = ProfileRouter()
     secret = _make_secret()
     cfg = _make_config(1, secret)
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": cfg}
 
-    router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="HTTP 429")
+    await router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="HTTP 429")
     assert secret.status == "degraded"
     assert secret.degraded_reason == "rate_limited"
 
 
-def test_report_result_success_clears_degraded():
+@pytest.mark.asyncio
+async def test_report_result_success_clears_degraded():
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_reason = "rate_limited"
@@ -116,7 +121,7 @@ def test_report_result_success_clears_degraded():
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": cfg}
 
-    router.report_result(cfg, success=True, tokens=100, latency_ms=50, error=None)
+    await router.report_result(cfg, success=True, tokens=100, latency_ms=50, error=None)
     assert secret.status == "active"
     assert secret.degraded_reason is None
     assert secret.consecutive_failures == 0

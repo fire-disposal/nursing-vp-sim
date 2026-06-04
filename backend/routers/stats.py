@@ -5,10 +5,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import get_current_user, require_teacher
 from models import Class, Grade, Score, TrainingRecord, User, UserClass
-from pagination import paginate
 from schemas import (
     ClassSummaryItemSchema,
     DurationStats,
@@ -17,6 +16,7 @@ from schemas import (
     TeacherSummaryItem,
     TrendStats,
 )
+from services.pagination import paginate
 
 router = APIRouter(prefix="/api/stats", tags=["统计"])
 

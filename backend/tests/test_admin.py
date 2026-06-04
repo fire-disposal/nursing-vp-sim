@@ -157,7 +157,7 @@ class TestLLMLogs:
         assert data["total"] == 0
 
     def test_get_llm_logs_with_data(self, client, teacher, db_session, test_case):
-        from auth import hash_password
+        from core.security import hash_password
         from models import LLMCallLog, TrainingRecord
         from models import User as UserModel
 
@@ -237,7 +237,7 @@ class TestLLMLogs:
 
     def test_get_llm_logs_aggregation(self, client, teacher, db_session, test_case):
         """聚合模式下 patient_chat 应合并为一条训练级记录"""
-        from auth import hash_password
+        from core.security import hash_password
         from models import LLMCallLog, TrainingRecord
         from models import User as UserModel
 
@@ -310,7 +310,7 @@ class TestLLMLogs:
 
     def test_get_llm_logs_estimated_cost_zero(self, client, teacher, db_session, test_case):
         """estimated_cost 为 0 的聚合行不应因 falsy 而变成 None"""
-        from auth import hash_password
+        from core.security import hash_password
         from models import LLMCallLog, TrainingRecord
         from models import User as UserModel
 
@@ -403,7 +403,7 @@ class TestUserManagement:
         assert resp.status_code == 403
 
     def test_update_user(self, client, teacher, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         u = User(
@@ -425,7 +425,7 @@ class TestUserManagement:
         assert resp.json()["display_name"] == "新名字"
 
     def test_delete_user(self, client, teacher, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         u = User(
@@ -446,7 +446,7 @@ class TestUserManagement:
         assert resp.status_code == 200
 
     def test_get_users_search(self, client, teacher, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         db_session.add(
@@ -511,7 +511,7 @@ class TestStudentDetail:
         assert resp.status_code == 403
 
     def test_get_detail_empty(self, client, teacher, db_session):
-        from auth import hash_password
+        from core.security import hash_password
         from models import User
 
         s = User(
@@ -538,7 +538,7 @@ class TestStudentDetail:
     def test_get_detail_with_records(self, client, teacher, db_session, test_case):
         from datetime import datetime
 
-        from auth import hash_password
+        from core.security import hash_password
         from models import Score, TrainingRecord, User
 
         s = User(

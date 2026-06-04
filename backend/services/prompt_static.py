@@ -2,7 +2,7 @@
 
 import json
 
-from rubrics import load_rubric
+from services.rubric_service import load_rubric
 
 
 def build_scoring_criteria(rubric: dict | None = None) -> str:

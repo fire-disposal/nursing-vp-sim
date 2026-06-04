@@ -1,11 +1,12 @@
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from auth import get_current_user, require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import get_current_user, require_teacher
 from models import Case, TrainingRecord, User
 from schemas import (
     CaseBrief,
@@ -20,12 +21,10 @@ from schemas import (
 )
 
 log = logging.getLogger(__name__)
-from typing import Annotated
 
-from config import get_llm_config
-from pagination import paginate
+from core.config import get_llm_config
 from services.llm_service import call_llm_json
-from services.prompt_manager import get_prompt_manager
+from services.pagination import paginate
 from services.variable_registry import get_registry
 from services.virtual_patient_prompt import format_case_for_prompt
 
@@ -130,12 +129,11 @@ def list_cases_manage(
     )
 
 
-_logger = logging.getLogger(__name__)
-
 
 @router.post("/generate", response_model=CaseGenerateResponse)
 async def generate_case(
     data: CaseGenerateRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -157,7 +155,7 @@ async def generate_case(
             parts.append(f"--- 补充参考资料 ---\n{data.reference_text}")
         reference_material = "\n\n".join(parts)
 
-    pm = await get_prompt_manager()
+    pm = request.app.state.prompt_manager
     tmpl = await pm.get("case_generation")
     defaults = get_registry().get_defaults("case_generation")
     system_content = tmpl.render(
@@ -178,10 +176,13 @@ async def generate_case(
             purpose="case_generation",
             user_id=current_user.id,
             log_meta={"description": data.description[:200] if data.description else None},
+            client=request.app.state.httpx_client,
+            router=request.app.state.llm_router,
+            log_worker=request.app.state.log_worker,
             **get_llm_config("case_generation"),
         )
     except Exception as e:
-        _logger.exception("case_generation LLM call failed")
+        log.exception("case_generation LLM call failed")
         raise HTTPException(500, f"AI 生成失败: {e!s}")
 
     if data.field:

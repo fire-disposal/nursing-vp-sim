@@ -9,11 +9,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from auth import get_current_user, require_teacher
-from config import LLM_CONCURRENT_LIMIT
-from database import SessionLocal, get_db
+from core.database import SessionLocal, get_db
+from core.security import get_current_user, require_teacher
 from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
-from pagination import paginate
 from schemas import (
     MessageResponse,
     PaginatedResponse,
@@ -25,6 +23,7 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
+from services.pagination import paginate
 
 log = logging.getLogger(__name__)
 
@@ -91,17 +90,22 @@ def start_training(
 
 
 def _run_scoring_background(record_id: int, case_data: dict):
-    """后台线程中执行评分。使用 asyncio.run() 新建事件循环，因为:
-    - BackgroundTasks 对 sync 函数会在线程池执行
-    - 评分涉及 LLM 调用（async），需事件循环
-    - 若直接设为 async 函数则会阻塞主事件循环（评分耗时 30-120s）
-    """
-    SCORING_GLOBAL_TIMEOUT = 300  # 5 分钟全局超时
+    """后台线程中执行评分。使用 asyncio.run() 新建事件循环。"""
+    SCORING_GLOBAL_TIMEOUT = 300
 
     async def _do():
+        from services.llm_logging import LogWorker
+        from services.llm_router import ProfileRouter
+        from services.prompt_manager import PromptManager
+
         db = SessionLocal()
         local_client = httpx.AsyncClient(timeout=httpx.Timeout(180, connect=15.0))
-        local_sema = asyncio.Semaphore(LLM_CONCURRENT_LIMIT)
+        local_pm = PromptManager()
+        await local_pm.load_from_db()
+        local_router = ProfileRouter()
+        await local_router.load_from_db()
+        log_worker = LogWorker()
+        await log_worker.start()
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if not record:
@@ -112,7 +116,13 @@ def _run_scoring_background(record_id: int, case_data: dict):
             from services.scoring import evaluate_training
 
             await asyncio.wait_for(
-                evaluate_training(record_id, case_data, db, client=local_client, semaphore=local_sema),
+                evaluate_training(
+                    record_id, case_data, db,
+                    pm=local_pm,
+                    router=local_router,
+                    log_worker=log_worker,
+                    client=local_client,
+                ),
                 timeout=SCORING_GLOBAL_TIMEOUT,
             )
 
@@ -143,6 +153,7 @@ def _run_scoring_background(record_id: int, case_data: dict):
         finally:
             db.close()
             await local_client.aclose()
+            await log_worker.stop()
 
     try:
         try:

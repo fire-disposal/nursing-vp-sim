@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import secrets
 import string
@@ -6,10 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from auth import create_access_token, get_current_user, hash_password, require_teacher, verify_password
-from database import get_db
+from core.database import get_db
+from core.security import create_access_token, get_current_user, hash_password, require_teacher, verify_password
+from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
 from models import Class, User, UserClass
-from rate_limiter import login_rate_limit, register_rate_limit, reset_login_limit
 from schemas import (
     LoginRequest,
     OkResponse,
@@ -28,18 +29,18 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(
+async def login(
     req: LoginRequest,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[None, Depends(login_rate_limit)],
 ):
     user = db.query(User).filter(User.username == req.username).first()
-    if not user or not verify_password(req.password, user.password_hash):
+    if not user or not await asyncio.to_thread(verify_password, req.password, user.password_hash):
         log.warning(f"登录失败: username={req.username}", extra={"action": "login_failed"})
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
-    reset_login_limit(request)
+    await reset_login_limit(request)
     token = create_access_token({"user_id": user.id, "role": user.role})
     log.info(
         f"登录成功: username={req.username}", extra={"user_id": user.id, "user_role": user.role, "action": "login"}

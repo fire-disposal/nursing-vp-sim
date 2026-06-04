@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv
@@ -11,7 +11,7 @@ try:
     env_path = Path(__file__).resolve().parent.parent / ".env"
     load_dotenv(env_path)
 except ImportError:
-    logger.warning("python-dotenv 未安装，使用系统环境变量")
+    log.warning("python-dotenv 未安装，使用系统环境变量")
 
 ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "dev")
@@ -20,27 +20,31 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vptest")
 
 _raw_secret = os.getenv("SECRET_KEY", "")
-_SECRET_MIN_LENGTH = 32
-_SECRET_PLACEHOLDERS = {
-    "",
-    "change-me-to-a-random-secret-key",
-    "virtual-patient-secret-key-change-in-production",
-    "test-secret-key-for-dev-only",
-}
-if _raw_secret in _SECRET_PLACEHOLDERS:
-    raise RuntimeError(
-        "SECRET_KEY 未配置或仍为默认值。请在项目根目录的 .env 文件中设置一个随机字符串作为 SECRET_KEY。\n"
-        '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
-    )
-if len(_raw_secret) < _SECRET_MIN_LENGTH:
-    raise RuntimeError(
-        f"SECRET_KEY 长度不足（当前 {len(_raw_secret)} 字符，要求至少 {_SECRET_MIN_LENGTH} 字符）。\n"
-        "过短的密钥会导致 JWT 签名可被暴力破解。\n"
-        '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
-    )
 SECRET_KEY = _raw_secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+
+
+def validate_config():
+    _SECRET_MIN_LENGTH = 32
+    _SECRET_PLACEHOLDERS = {
+        "",
+        "change-me-to-a-random-secret-key",
+        "virtual-patient-secret-key-change-in-production",
+        "test-secret-key-for-dev-only",
+    }
+    if _raw_secret in _SECRET_PLACEHOLDERS:
+        raise RuntimeError(
+            "SECRET_KEY 未配置或仍为默认值。请在项目根目录的 .env 文件中设置一个随机字符串作为 SECRET_KEY。\n"
+            '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
+        )
+    if len(_raw_secret) < _SECRET_MIN_LENGTH:
+        raise RuntimeError(
+            f"SECRET_KEY 长度不足（当前 {len(_raw_secret)} 字符，要求至少 {_SECRET_MIN_LENGTH} 字符）。\n"
+            "过短的密钥会导致 JWT 签名可被暴力破解。\n"
+            '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
+        )
+
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
 LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
@@ -58,11 +62,11 @@ WECHAT_APPID = os.getenv("WECHAT_APPID", "")
 WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")
 
 # LLM 调用参数
-LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))  # 单次调用最大重试次数
-LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))  # 单次 HTTP 请求超时（秒）
-LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))  # 全局并发 LLM 调用数上限
-LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))  # HTTP 连接池大小
-LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))  # 空闲连接存活时间（秒）
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))
+LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))
+LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))
+LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))
 
 # LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
@@ -74,7 +78,6 @@ _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
 
 
 def get_llm_config(purpose: str) -> dict:
-    """返回某 purpose 的 LLM 调用参数。环境变量 LLM_CONFIG_JSON 可覆盖。"""
     import json as _json
     import os as _os
 
@@ -90,7 +93,6 @@ def get_llm_config(purpose: str) -> dict:
 
 
 def log_config(logger):
-    """输出脱敏后的关键配置（启动时调用）"""
     db = urlparse(DATABASE_URL)
     db_safe = f"{db.scheme}://{db.username}:***@{db.hostname}:{db.port}{db.path}"
 

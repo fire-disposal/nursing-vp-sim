@@ -1,6 +1,5 @@
 import os
 import sys
-from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -9,14 +8,15 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import models  # noqa: F401 — 确保所有表定义被注册到 Base.metadata
-from config import DATABASE_URL, ENV
-from database import Base
+from core.config import DATABASE_URL, ENV
+from core.database import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# fileConfig 会覆盖应用日志配置，禁用
+# if config.config_file_name is not None:
+#     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
@@ -41,7 +41,7 @@ def run_migrations_online():
             poolclass=pool.NullPool,
         )
     else:
-        from database import engine
+        from core.database import engine
 
         connectable = engine
 

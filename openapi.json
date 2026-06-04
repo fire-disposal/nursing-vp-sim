@@ -1726,7 +1726,6 @@
           "对话"
         ],
         "summary": "Send Message Stream",
-        "description": "流式发送消息：逐字返回 LLM 回复，大幅提升感知速度",
         "operationId": "send_message_stream_api_chat__record_id__message_stream_post",
         "security": [
           {
@@ -1984,7 +1983,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FeedbackListResponse"
+                  "$ref": "#/components/schemas/PaginatedResponse_FeedbackItem_"
                 }
               }
             }
@@ -4927,6 +4926,7 @@
           "label": {
             "type": "string",
             "maxLength": 80,
+            "minLength": 1,
             "title": "Label"
           },
           "raw_key": {
@@ -4949,18 +4949,21 @@
           },
           "price_input_per_1m": {
             "type": "number",
+            "minimum": 0.0,
             "title": "Price Input Per 1M",
             "default": 0
           },
           "price_output_per_1m": {
             "type": "number",
+            "minimum": 0.0,
             "title": "Price Output Per 1M",
             "default": 0
           },
           "monthly_cost_limit": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -4969,6 +4972,7 @@
             "title": "Monthly Cost Limit"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "label",
@@ -5136,7 +5140,8 @@
           "price_input_per_1m": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -5147,7 +5152,8 @@
           "price_output_per_1m": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -5158,7 +5164,8 @@
           "monthly_cost_limit": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "minimum": 0.0
               },
               {
                 "type": "null"
@@ -5167,6 +5174,7 @@
             "title": "Monthly Cost Limit"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "ApiSecretUpdate"
       },
@@ -5181,7 +5189,9 @@
             "title": "Skipped"
           },
           "errors": {
-            "items": {},
+            "items": {
+              "type": "string"
+            },
             "type": "array",
             "title": "Errors"
           }
@@ -5198,6 +5208,8 @@
         "properties": {
           "username": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Username"
           },
           "password": {
@@ -5207,10 +5219,13 @@
           },
           "display_name": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Display Name"
           },
           "role": {
             "type": "string",
+            "pattern": "^(student|teacher)$",
             "title": "Role",
             "default": "student"
           },
@@ -5237,6 +5252,7 @@
             "title": "Class Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "username",
@@ -5287,8 +5303,7 @@
         "type": "object",
         "required": [
           "id",
-          "name",
-          "description"
+          "name"
         ],
         "title": "CaseBrief"
       },
@@ -5300,6 +5315,7 @@
             "title": "Case Data"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "case_data"
@@ -5337,7 +5353,6 @@
         "required": [
           "id",
           "name",
-          "description",
           "case_data"
         ],
         "title": "CaseDetail"
@@ -5407,6 +5422,7 @@
             "title": "Current Case Data"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "description"
@@ -5535,6 +5551,7 @@
             "title": "Case Data"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "case_data"
@@ -5560,9 +5577,11 @@
           "content": {
             "type": "string",
             "maxLength": 4096,
+            "minLength": 1,
             "title": "Content"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "content"
@@ -5591,6 +5610,7 @@
         "properties": {
           "grade_id": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Grade Id"
           },
           "name": {
@@ -5600,6 +5620,7 @@
             "title": "Name"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "grade_id",
@@ -5718,7 +5739,8 @@
           "grade_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "exclusiveMinimum": 0.0
               },
               {
                 "type": "null"
@@ -5727,6 +5749,7 @@
             "title": "Grade Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "ClassUpdate"
       },
@@ -5746,7 +5769,10 @@
       "DurationStats": {
         "properties": {
           "daily": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "Daily"
           },
@@ -5855,37 +5881,6 @@
         ],
         "title": "FeedbackItem"
       },
-      "FeedbackListResponse": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/FeedbackItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "offset",
-          "limit"
-        ],
-        "title": "FeedbackListResponse"
-      },
       "FeedbackSubmit": {
         "properties": {
           "rating": {
@@ -5911,6 +5906,7 @@
             "title": "Content"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "rating",
@@ -5946,6 +5942,7 @@
             "title": "Name"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -5995,6 +5992,7 @@
             "title": "Name"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "name"
@@ -6361,16 +6359,19 @@
         "properties": {
           "secret_id": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Secret Id"
           },
           "model": {
             "type": "string",
             "maxLength": 80,
+            "minLength": 1,
             "title": "Model"
           },
           "purpose": {
             "type": "string",
             "maxLength": 40,
+            "minLength": 1,
             "title": "Purpose"
           },
           "label": {
@@ -6417,6 +6418,7 @@
             "title": "Monthly Cost Limit"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "secret_id",
@@ -6649,6 +6651,7 @@
             "title": "Status"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "LLMConfigUpdate"
       },
@@ -6671,18 +6674,27 @@
             "default": {}
           },
           "by_purpose": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "By Purpose"
           },
           "by_provider": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "By Provider",
             "default": []
           },
           "daily": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "Daily"
           }
@@ -6700,13 +6712,17 @@
         "properties": {
           "username": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Username"
           },
           "password": {
             "type": "string",
+            "minLength": 1,
             "title": "Password"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "username",
@@ -6783,9 +6799,11 @@
         "properties": {
           "content": {
             "type": "string",
+            "minLength": 1,
             "title": "Content"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "content"
@@ -6894,6 +6912,37 @@
           "limit"
         ],
         "title": "PaginatedResponse[CaseManageItem]"
+      },
+      "PaginatedResponse_FeedbackItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[FeedbackItem]"
       },
       "PaginatedResponse_LLMCallLogItem_": {
         "properties": {
@@ -7155,6 +7204,7 @@
           "purpose": {
             "type": "string",
             "maxLength": 40,
+            "minLength": 1,
             "title": "Purpose"
           },
           "name": {
@@ -7228,6 +7278,7 @@
             "default": false
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "purpose",
@@ -7282,7 +7333,10 @@
           "variables": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
                 "type": "array"
               },
               {
@@ -7420,6 +7474,7 @@
             "title": "Remark"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "PromptTemplateUpdate"
       },
@@ -7460,6 +7515,7 @@
             "title": "Variables"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "purpose",
@@ -7639,6 +7695,7 @@
             "title": "Question"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "question"
@@ -7739,6 +7796,8 @@
         "properties": {
           "username": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Username"
           },
           "password": {
@@ -7748,11 +7807,14 @@
           },
           "role": {
             "type": "string",
+            "pattern": "^(student|teacher)$",
             "title": "Role",
             "default": "student"
           },
           "display_name": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Display Name"
           },
           "student_id": {
@@ -7778,6 +7840,7 @@
             "title": "Class Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "username",
@@ -7828,7 +7891,10 @@
             "default": 3
           },
           "dimensions": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "Dimensions",
             "default": []
@@ -7902,7 +7968,9 @@
           "strengths": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
               },
               {
@@ -7914,7 +7982,9 @@
           "weaknesses": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
               },
               {
@@ -7926,7 +7996,9 @@
           "missed_content": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
               },
               {
@@ -8045,11 +8117,6 @@
         "required": [
           "id",
           "total_score",
-          "detail_scores",
-          "strengths",
-          "weaknesses",
-          "missed_content",
-          "suggestions",
           "created_at"
         ],
         "title": "ScoreItem"
@@ -8080,6 +8147,7 @@
             "title": "Comment"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "ScoreReviewRequest"
       },
@@ -8256,13 +8324,19 @@
             "title": "Avg Score"
           },
           "recent_records": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "Recent Records",
             "default": []
           },
           "daily": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "Daily",
             "default": []
@@ -8638,7 +8712,10 @@
           "required_inquiries": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
                 "type": "array"
               },
               {
@@ -8680,6 +8757,7 @@
             "title": "Case Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "case_id"
@@ -8712,7 +8790,10 @@
       "TrendStats": {
         "properties": {
           "daily": {
-            "items": {},
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
             "type": "array",
             "title": "Daily"
           },
@@ -8872,7 +8953,8 @@
           "password": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "minLength": 6
               },
               {
                 "type": "null"
@@ -8881,6 +8963,7 @@
             "title": "Password"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "UserUpdateRequest"
       },
@@ -8928,9 +9011,11 @@
         "properties": {
           "code": {
             "type": "string",
+            "minLength": 1,
             "title": "Code"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
@@ -8941,9 +9026,11 @@
         "properties": {
           "code": {
             "type": "string",
+            "minLength": 1,
             "title": "Code"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
@@ -9014,6 +9101,7 @@
         "properties": {
           "code": {
             "type": "string",
+            "minLength": 1,
             "title": "Code"
           },
           "display_name": {
@@ -9023,6 +9111,7 @@
             "title": "Display Name"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code",

@@ -1,13 +1,14 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from auth import hash_password, require_teacher
-from database import get_db
+from core.database import get_db
+from core.security import hash_password, require_teacher
 from models import ApiProvider, Class, LLMCallLog, Score, TrainingRecord, User, UserClass
 from models import Case as CaseModel
 from schemas import (
@@ -25,7 +26,6 @@ from schemas import (
 )
 
 log = logging.getLogger(__name__)
-from typing import Annotated
 
 from fastapi.responses import Response
 

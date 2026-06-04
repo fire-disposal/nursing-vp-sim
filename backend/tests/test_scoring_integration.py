@@ -13,9 +13,9 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
-from prompt_static import build_scoring_criteria, build_scoring_json_schema, build_scoring_rubric
-from rubrics import load_rubric
 from services.prompt_manager import render_template
+from services.prompt_static import build_scoring_criteria, build_scoring_json_schema, build_scoring_rubric
+from services.rubric_service import load_rubric
 from services.variable_registry import get_registry
 
 # ── 模拟场景数据 ──
@@ -286,7 +286,7 @@ class TestScoringFlowEndToEnd:
     """模拟完整评分数据流"""
 
     def test_full_prompt_rendering(self):
-        from services.prompt_manager import (
+        from prompts import (
             SCORING_SYSTEM,
             SCORING_USER,
         )
@@ -351,6 +351,10 @@ class TestScoringFlowEndToEnd:
                     ],
                 },
             },
+            "strengths": ["礼貌问候"],
+            "weaknesses": ["既往史不够深入"],
+            "missed_content": ["过敏史"],
+            "suggestions": "建议加强病史采集深度",
         }
         _validate_scoring_result(result)  # 不应抛异常
 

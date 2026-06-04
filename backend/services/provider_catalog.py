@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 
-_logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 _catalog: dict | None = None
 

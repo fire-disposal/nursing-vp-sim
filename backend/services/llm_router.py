@@ -2,10 +2,9 @@
 
 import asyncio
 import logging
-import threading
 from datetime import UTC, datetime, timedelta
 
-_logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 CIRCUIT_BREAKER_THRESHOLD = 5
 RATE_LIMIT_COOLDOWN_SECONDS = 60
@@ -16,27 +15,27 @@ _env_fallback_available = False
 _env_fallback_latency_ms: int | None = None
 _env_fallback_error: str | None = None
 _env_fallback_stats = {"call_count": 0, "total_tokens": 0, "total_cost": 0.0}
-_env_fallback_lock = threading.Lock()
+_env_fallback_lock = asyncio.Lock()
 
 
-def set_env_fallback_state(available: bool, latency_ms: int | None = None, error: str | None = None):
-    with _env_fallback_lock:
+async def set_env_fallback_state(available: bool, latency_ms: int | None = None, error: str | None = None):
+    async with _env_fallback_lock:
         global _env_fallback_available, _env_fallback_latency_ms, _env_fallback_error
         _env_fallback_available = available
         _env_fallback_latency_ms = latency_ms
         _env_fallback_error = error
 
 
-def _update_synthetic_stats(success: bool, tokens: int):
+async def _update_synthetic_stats(success: bool, tokens: int):
     if success:
-        with _env_fallback_lock:
+        async with _env_fallback_lock:
             _env_fallback_stats["call_count"] += 1
             _env_fallback_stats["total_tokens"] += tokens
             _env_fallback_stats["total_cost"] += 1.5 * tokens / 1_000_000
 
 
-def get_env_fallback_state() -> dict:
-    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+async def get_env_fallback_state() -> dict:
+    from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
 
     return {
         "available": _env_fallback_available,
@@ -88,7 +87,7 @@ class ProfileRouter:
     async def load_from_db(self):
         from sqlalchemy.orm import joinedload
 
-        from database import SessionLocal
+        from core.database import SessionLocal
         from models import ApiSecret as AS
         from models import LLMConfig as LC
 
@@ -116,9 +115,9 @@ class ProfileRouter:
                     self._bindings.setdefault(b.purpose, b)
                 self._global_degraded_until = None
 
-            _logger.info("ProfileRouter loaded: %d profiles, %d bindings", len(profiles), len(bindings))
+            log.info("ProfileRouter loaded: %d profiles, %d bindings", len(profiles), len(bindings))
         except Exception:
-            _logger.exception("ProfileRouter load failed")
+            log.exception("ProfileRouter load failed")
             raise
         finally:
             db.close()
@@ -147,10 +146,10 @@ class ProfileRouter:
                     profile.consecutive_failures = 0
                     return binding
 
-        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+        from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-            _logger.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)
+            log.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)
             return _SyntheticConfig(
                 label="DeepSeek (env)",
                 base_url=DEEPSEEK_BASE_URL,
@@ -171,9 +170,9 @@ class ProfileRouter:
             return decrypt_api_key(profile.encrypted_key)
         return decrypt_api_key(config.secret.encrypted_key)
 
-    def report_result(self, config, *, success: bool, tokens: int, latency_ms: int, error: str | None):
+    async def report_result(self, config, *, success: bool, tokens: int, latency_ms: int, error: str | None):
         if isinstance(config, _SyntheticConfig):
-            _update_synthetic_stats(success, tokens)
+            await _update_synthetic_stats(success, tokens)
             return
 
         profile = self._profiles.get(config.secret_id)
@@ -242,7 +241,7 @@ class ProfileRouter:
 
     @staticmethod
     def _persist_stats(profile):
-        from database import SessionLocal
+        from core.database import SessionLocal
         from models import ApiSecret as AS
 
         db = SessionLocal()
@@ -265,30 +264,8 @@ class ProfileRouter:
                     setattr(db_p, field, getattr(profile, field))
                 db.commit()
         except Exception:
-            _logger.exception("persist_stats failed for secret #%d", profile.id)
+            log.exception("persist_stats failed for secret #%d", profile.id)
             db.rollback()
         finally:
             db.close()
 
-
-_router: ProfileRouter | None = None
-_router_lock = asyncio.Lock()
-
-
-async def get_router() -> ProfileRouter:
-    global _router
-    if _router is not None:
-        return _router
-    async with _router_lock:
-        if _router is None:
-            _router = ProfileRouter()
-            await _router.load_from_db()
-    return _router
-
-
-async def refresh_router():
-    global _router
-    async with _router_lock:
-        if _router is None:
-            _router = ProfileRouter()
-    await _router.load_from_db()
