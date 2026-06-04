@@ -8,6 +8,7 @@
   <view class="content">
     <!-- 微信登录模式 -->
     <block wx:if="{{mode === 'wechat'}}">
+      <view class="error" wx:if="{{error}}">{{error}}</view>
       <view class="lottie-wrap">
         <lottie-player width="400" height="400" autoplay="{{true}}" loop="{{true}}" />
       </view>

@@ -27,7 +27,14 @@ Page({
     this.setData({ password: e.detail.value, error: "" })
   },
 
+  getErrorMessage(e: unknown, fallback: string): string {
+    if (typeof e === "string") return e
+    if (e && typeof e === "object" && "message" in e) return (e as Error).message
+    return fallback
+  },
+
   async handleWechatLogin() {
+    if (this.data.loading) return
     this.setData({ loading: true, error: "" })
     try {
       const loginRes = await new Promise<WechatMiniprogram.LoginSuccessCallbackResult>((resolve, reject) => {
@@ -48,7 +55,7 @@ Page({
 
       this.saveAndGo(res.access_token, res.role || "student", res.user_id || 0)
     } catch (e) {
-      this.setData({ error: (e as Error).message || "微信登录失败" })
+      this.setData({ error: this.getErrorMessage(e, "微信登录失败") })
     } finally {
       this.setData({ loading: false })
     }
@@ -65,10 +72,11 @@ Page({
           return
         }
         try {
+          this.setData({ loading: true })
           const regRes = await wechatRegister({ code, display_name: res.content.trim() })
           this.saveAndGo(regRes.access_token, regRes.role, regRes.user_id)
         } catch (e) {
-          this.setData({ loading: false, error: (e as Error).message || "注册失败" })
+          this.setData({ loading: false, error: this.getErrorMessage(e, "注册失败") })
         }
       },
       fail: () => {
@@ -78,6 +86,7 @@ Page({
   },
 
   async handleLogin() {
+    if (this.data.loading) return
     const { username, password } = this.data
     if (!username.trim() || !password.trim()) {
       this.setData({ error: "请输入用户名和密码" })
@@ -89,7 +98,7 @@ Page({
       const res = await login({ username: username.trim(), password })
       this.saveAndGo(res.access_token, res.role, res.user_id)
     } catch (e) {
-      this.setData({ error: (e as Error).message || "登录失败" })
+      this.setData({ error: this.getErrorMessage(e, "登录失败") })
     } finally {
       this.setData({ loading: false })
     }
