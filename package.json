@@ -15,7 +15,9 @@
     "tag:local": "node .husky/_/auto-tag.mjs",
     "api:spec": "cd backend && .venv\\Scripts\\python -c \"from main import app; import json; json.dump(app.openapi(), open('../openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2); print('spec written')\"",
     "api:generate": "cd frontend && npx openapi-typescript ../openapi.json -o src/api/api-types.gen.ts",
-    "api:update": "npm run api:spec && npm run api:generate"
+    "api:generate:miniapp": "node scripts/generate-miniapp-api.mjs",
+    "api:update": "npm run api:spec && npm run api:generate",
+    "api:update:all": "npm run api:spec && npm run api:generate && npm run api:generate:miniapp"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
