@@ -1,17 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  activatePrompt,
-  createPrompt,
-  deletePrompt,
-  fetchPrompts,
-  fetchSampleVars,
-  previewActivePrompt,
-  reloadPrompts,
-  updatePrompt,
-  validatePrompt,
-} from "@/api/api-client";
+import { activatePrompt, createPrompt, deletePrompt, fetchPrompts, fetchSampleVars, previewActivePrompt, updatePrompt, validatePrompt } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
@@ -367,15 +357,6 @@ export default function PromptManagementTab() {
       setValidation(data);
     } catch {
       toast.error("校验失败");
-    }
-  };
-
-  const handleReload = async () => {
-    try {
-      await reloadPrompts();
-      toast.success("模板已热加载");
-    } catch {
-      toast.error("热加载失败");
     }
   };
 

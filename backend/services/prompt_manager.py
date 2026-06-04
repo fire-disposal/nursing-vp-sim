@@ -157,6 +157,19 @@ class PromptManager:
         await self.load_from_db()
 
 
+def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
+    """硬编码兜底 - 永不返回 None。提示词内容来自 prompts/ 目录的独立文件。"""
+    if purpose == "qa":
+        return PromptTemplateObj(0, "qa", 0, QA_SYSTEM, None)
+    if purpose == "patient_chat":
+        return PromptTemplateObj(0, "patient_chat", 0, PATIENT_CHAT_SYSTEM, None)
+    if purpose == "scoring":
+        return PromptTemplateObj(0, "scoring", 0, SCORING_SYSTEM, SCORING_USER)
+    if purpose == "case_generation":
+        return PromptTemplateObj(0, "case_generation", 0, CASE_GENERATION_SYSTEM, None)
+    raise ValueError(f"Unknown prompt purpose: {purpose}")
+
+
 # ── 全局单例 ──
 
 _manager: PromptManager | None = None

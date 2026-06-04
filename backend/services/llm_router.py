@@ -27,11 +27,9 @@ def set_env_fallback_state(available: bool, latency_ms: int | None = None, error
 
 
 def _update_synthetic_stats(success: bool, tokens: int):
-    global _env_fallback_stats
     if success:
         _env_fallback_stats["call_count"] += 1
         _env_fallback_stats["total_tokens"] += tokens
-        # DeepSeek 定价：1 CNY/1M 输入, 2 CNY/1M 输出, 取 1.5 CNY 均值
         _env_fallback_stats["total_cost"] += 1.5 * tokens / 1_000_000
 
 
@@ -147,7 +145,7 @@ class ProfileRouter:
                     profile.consecutive_failures = 0
                     return binding
 
-        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+        from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
             _logger.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)

@@ -94,7 +94,7 @@ def build_scoring_json_schema(rubric: dict | None = None) -> str:
     lines.append("- `strengths`：必须至少包含2条具体行为描述，不能是空数组 []")
     lines.append("- `weaknesses`：必须至少包含2条具体行为描述，不能是空数组 []")
     lines.append("- `missed_content`：必须至少包含2条学生漏问的内容，不能是空数组 []")
-    lines.append("- `suggestions`：200-350字的个性化改进建议，不能是空字符串 \"\"")
+    lines.append('- `suggestions`：200-350字的个性化改进建议，不能是空字符串 ""')
     lines.append("")
     lines.append("JSON 结构：")
     lines.append("")
