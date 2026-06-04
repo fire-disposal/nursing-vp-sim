@@ -8,7 +8,14 @@ from auth import create_access_token, get_current_user, hash_password, require_t
 from database import get_db
 from models import Class, User, UserClass
 from rate_limiter import login_rate_limit, register_rate_limit, reset_login_limit
-from schemas import LoginRequest, RegisterRequest, TokenResponse, UserBrief
+from schemas import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    WechatBindRequest,
+    WechatLoginRequest,
+    WechatLoginResponse,
+), UserBrief
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +91,68 @@ def register(
         display_name=user.display_name,
         user_id=user.id,
     )
+
+
+@router.post("/wechat/login", response_model=WechatLoginResponse)
+async def wechat_login(
+    req: WechatLoginRequest,
+    db: Annotated[Session, Depends(get_db)],
+):
+    """微信小程序 code 登录。已知 openid → 签发 JWT；未知 → need_bind"""
+    from services.wechat import code2session
+
+    try:
+        session = await code2session(req.code)
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    openid = session.get("openid")
+    if not openid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="微信登录失败：无法获取 openid")
+
+    user = db.query(User).filter(User.wechat_openid == openid).first()
+    if not user:
+        return WechatLoginResponse(need_bind=True)
+
+    token = create_access_token({"user_id": user.id, "role": user.role})
+    log.info("微信登录成功: openid=%s user=%s", openid, user.username)
+    return WechatLoginResponse(
+        access_token=token,
+        role=user.role,
+        display_name=user.display_name,
+        user_id=user.id,
+    )
+
+
+@router.post("/wechat/bind", response_model=OkResponse)
+async def wechat_bind(
+    req: WechatBindRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """将当前已登录用户绑定微信 openid"""
+    from services.wechat import code2session
+
+    if current_user.wechat_openid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="已绑定微信，不可重复绑定")
+
+    try:
+        session = await code2session(req.code)
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    openid = session.get("openid")
+    if not openid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="微信登录失败：无法获取 openid")
+
+    existing = db.query(User).filter(User.wechat_openid == openid).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此微信已绑定其他账号")
+
+    current_user.wechat_openid = openid
+    db.commit()
+    log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid)
+    return OkResponse(message="微信绑定成功")
 
 
 @router.get("/me", response_model=UserBrief)

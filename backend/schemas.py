@@ -35,6 +35,23 @@ class TokenResponse(BaseModel):
     user_id: int
 
 
+class WechatLoginRequest(BaseModel):
+    code: str
+
+
+class WechatBindRequest(BaseModel):
+    code: str
+
+
+class WechatLoginResponse(BaseModel):
+    access_token: str | None = None
+    token_type: str = "bearer"
+    role: str | None = None
+    display_name: str | None = None
+    user_id: int | None = None
+    need_bind: bool = False
+
+
 class CaseBrief(BaseModel):
     id: int
     name: str

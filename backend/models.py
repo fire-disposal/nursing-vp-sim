@@ -85,6 +85,7 @@ class User(Base):
     role = Column(String(20), ForeignKey("roles.name", ondelete="RESTRICT"), nullable=False, default="student")
     display_name = Column(String(50), nullable=False)
     student_id = Column(String(30), nullable=True)
+    wechat_openid = Column(String(64), nullable=True, unique=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     training_records = relationship("TrainingRecord", back_populates="user")
