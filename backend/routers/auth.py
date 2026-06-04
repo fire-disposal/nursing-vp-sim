@@ -1,4 +1,6 @@
 import logging
+import secrets
+import string
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -162,11 +164,9 @@ async def wechat_bind(
 async def wechat_register(
     req: WechatRegisterRequest,
     db: Annotated[Session, Depends(get_db)],
+    _: Annotated[None, Depends(register_rate_limit)],
 ):
     """微信一键注册：通过 code 获取 openid，自动创建用户并返回 token"""
-    import secrets
-    import string
-
     from services.wechat import code2session
 
     try:
