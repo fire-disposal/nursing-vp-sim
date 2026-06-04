@@ -12,7 +12,7 @@ from core.config import DATABASE_URL, ENV
 from core.database import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1))
 
 # fileConfig 会覆盖应用日志配置，禁用
 # if config.config_file_name is not None:
