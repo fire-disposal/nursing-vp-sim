@@ -40,6 +40,6 @@
       <text class="switch-mode" bindtap="switchMode">← 返回微信登录</text>
     </block>
 
-    <text class="footer-text">虚拟患者 · 护理教学平台</text>
+
   </view>
 </view>
