@@ -349,6 +349,9 @@ export default function ChatTraining() {
         setLoading(false);
         if (abortRef.current === controller) abortRef.current = null;
       },
+      (reply: string) => {
+        setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, content: reply } : msg)));
+      },
       controller.signal,
     );
   };

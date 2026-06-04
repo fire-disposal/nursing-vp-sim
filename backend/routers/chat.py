@@ -83,11 +83,39 @@ async def send_message(
         log.exception(
             "patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id}
         )
-        raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
+        import random
+        reply = random.choice([
+            "嗯……这个我也不太清楚，平时没太注意。",
+            "你说这个我得想想……好像不是特别明显。",
+            "这个我说不太准，平时也没太留意。",
+            "哎呀，你突然这么问，我一下子想不起来了。",
+            "这个……以前好像有过，但具体怎样我记不太清了。",
+            "让我想想啊……嗯，好像没什么特别的。",
+            "这个医生倒是提过，但我没记住。",
+            "我平时不太在意这些，说不太上来。",
+        ])
+        log.info("LLM 失败兜底回复: record_id=%d", record_id)
 
-    sanitized, violations = sanitize_patient_reply(reply, case_data)
+    from services.patient_guard import correct_via_llm
+
+    sanitized, violations, needs_correction = sanitize_patient_reply(reply, case_data)
     if violations:
-        log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
+        log.info("patient_guard violations", extra={"record_id": record_id, "violations": violations})
+
+    if needs_correction:
+        try:
+            sanitized = await correct_via_llm(
+                sanitized, violations,
+                client=request.app.state.httpx_client,
+                router=request.app.state.llm_router,
+                log_worker=request.app.state.log_worker,
+                user_id=current_user.id,
+                record_id=record_id,
+                case_id=record.case_id,
+            )
+        except Exception:
+            log.exception("guard 修正失败，使用原回复")
+            sanitized = reply
 
     student_msg = Message(record_id=record_id, role="student", content=req.content)
     db.add(student_msg)
@@ -149,10 +177,24 @@ async def send_message_stream(
                     full_reply += chunk
                     yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-                sanitized, violations = sanitize_patient_reply(full_reply, case_data)
+                from services.patient_guard import correct_via_llm, sanitize_patient_reply
+
+                sanitized, violations, needs_correction = sanitize_patient_reply(full_reply, case_data)
                 if violations:
-                    log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
-                    yield f"data: {json.dumps({'sanitized': True, 'reply': sanitized, 'violations': violations}, ensure_ascii=False)}\n\n"
+                    log.info("patient_guard violations", extra={"record_id": record_id, "violations": violations})
+
+                if needs_correction:
+                    corrected = await correct_via_llm(
+                        sanitized, violations,
+                        client=request.app.state.httpx_client,
+                        router=request.app.state.llm_router,
+                        log_worker=request.app.state.log_worker,
+                        user_id=current_user.id,
+                        record_id=record_id,
+                        case_id=record.case_id,
+                    )
+                    yield f"data: {json.dumps({'sanitized': True, 'reply': corrected, 'violations': violations}, ensure_ascii=False)}\n\n"
+                    sanitized = corrected
 
                 student_msg = Message(record_id=record_id, role="student", content=req.content)
                 db.add(student_msg)
@@ -174,7 +216,18 @@ async def send_message_stream(
                 if full_reply:
                     yield f"data: {json.dumps({'content': full_reply, 'truncated': True, 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
                 else:
-                    yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+                    import random
+                    fallback = random.choice([
+                        "嗯……这个我也不太清楚，以前没太注意。",
+                        "你说这个我得想想……好像不是特别明显。",
+                        "这个我说不太准，平时也没太留意。",
+                        "哎呀，你突然这么问，我一下子想不起来了。",
+                        "让我想想啊……嗯，好像没什么特别的。",
+                        "这个医生倒是提过，但我没记住。",
+                    ])
+                    yield f"data: {json.dumps({'content': fallback}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
+                    return
             finally:
                 db.close()
 
