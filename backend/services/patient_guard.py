@@ -137,6 +137,50 @@ async def correct_via_llm(original: str, violations: list[str], client, router, 
         return original
 
 
+def _keyword_match(rule_or_text, target_text: str) -> bool:
+    if isinstance(rule_or_text, str):
+        return any(kw in target_text for kw in ["血", "咯血", "血丝", "痰中带血"])
+    triggers = rule_or_text.get("trigger_keywords", [])
+    return any(kw in target_text for kw in triggers)
+
+
+def get_revealed_topics(history_text: str, case_data: dict) -> set:
+    rules = case_data.get("hidden_info_rules", [])
+    if not rules:
+        return set()
+    revealed = set()
+    for rule in rules:
+        if _keyword_match(rule, history_text):
+            revealed.add(rule.get("topic", ""))
+    return revealed
+
+
+def get_allowed_hidden_info(case_data: dict, student_message: str,
+                            disclosed_topics: set) -> list[dict]:
+    rules = case_data.get("hidden_info_rules", [])
+    if not rules:
+        legacy_hidden = case_data.get("hidden_info", [])
+        result = []
+        for item in legacy_hidden:
+            topic = str(item)[:30]
+            if topic in disclosed_topics:
+                result.append({"topic": topic, "content": item, "triggered": True})
+            elif _keyword_match(item, student_message):
+                result.append({"topic": topic, "content": item, "triggered": True})
+            else:
+                result.append({"topic": topic, "content": item, "triggered": False})
+        return result
+
+    result = []
+    for rule in rules:
+        topic = rule.get("topic", "")
+        if topic in disclosed_topics or _keyword_match(rule, student_message):
+            result.append({**rule, "triggered": True})
+        else:
+            result.append({**rule, "triggered": False})
+    return result
+
+
 def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str], bool]:
     """检测回复中的问题。返回 (normalized, violations, needs_correction)。
     needs_correction=True 表示存在严重越界需要 LLM 二次修正。
