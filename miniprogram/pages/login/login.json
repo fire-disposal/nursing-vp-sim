@@ -1,1 +1,6 @@
-{}
+{
+  "usingComponents": {
+    "lottie-player": "/components/lottie-player/lottie-player"
+  },
+  "navigationStyle": "custom"
+}
