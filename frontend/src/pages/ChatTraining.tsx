@@ -285,6 +285,15 @@ export default function ChatTraining() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
 
+  useEffect(
+    () => () => {
+      voice.stopSpeak();
+      voice.stopListening();
+      voice.resetSpeakState();
+    },
+    [voice.stopSpeak, voice.stopListening, voice.resetSpeakState],
+  );
+
   const initialGreetingSpoken = useRef(false);
   useEffect(() => {
     if (initialGreetingSpoken.current || messages.length === 0) return;
@@ -532,7 +541,10 @@ export default function ChatTraining() {
                   "w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
                   voice.autoPlay && "border-primary bg-primary/10 text-primary hover:bg-primary/20",
                 )}
-                onClick={() => voice.setAutoPlay(!voice.autoPlay)}
+                onClick={() => {
+                  if (voice.autoPlay) voice.stopSpeak();
+                  voice.setAutoPlay(!voice.autoPlay);
+                }}
                 title={voice.autoPlay ? "关闭自动朗读" : "开启自动朗读"}
               >
                 {voice.autoPlay ? <Ear size={14} className="sm:size-[16px]" /> : <EarOff size={14} className="sm:size-[16px]" />}
