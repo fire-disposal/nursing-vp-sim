@@ -27,6 +27,7 @@ export async function sendMessageStream(
   onChunk: (text: string) => void,
   onDone: (id?: number) => void,
   onError: (msg: string) => void,
+  onSanitized?: (reply: string) => void,
   signal?: AbortSignal,
 ) {
   const token = localStorage.getItem("token");
@@ -69,6 +70,10 @@ export async function sendMessageStream(
         if (data.done) {
           onDone(data.id);
           return;
+        }
+        if (data.sanitized) {
+          onSanitized?.(data.reply);
+          continue;
         }
         if (data.content) {
           onChunk(data.content);
