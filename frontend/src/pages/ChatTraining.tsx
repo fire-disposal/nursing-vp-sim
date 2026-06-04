@@ -406,13 +406,16 @@ export default function ChatTraining() {
     }
   }, [remaining, toast.warning, toast.info]);
 
+  const executeEndRef = useRef(executeEnd);
+  executeEndRef.current = executeEnd;
+
   useEffect(() => {
     if (remaining === 0 && !ending && !showScore) {
       if (autoEndRef.current) return;
       autoEndRef.current = true;
-      executeEnd(true);
+      executeEndRef.current(true);
     }
-  }, [remaining, ending, showScore, executeEnd]);
+  }, [remaining, ending, showScore]);
 
   useEffect(() => {
     if (!ending) return;

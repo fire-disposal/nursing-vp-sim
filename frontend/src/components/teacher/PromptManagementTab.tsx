@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   activatePrompt,
   createPrompt,
@@ -418,7 +418,7 @@ export default function PromptManagementTab() {
           })()
         : null;
 
-  const extractVars = (text: string) => [...new Set((text.match(/\{#([^}#]+)#\}/g) || []).map((v) => v.slice(2, -2)))];
+  const extractVars = useCallback((text: string) => [...new Set((text.match(/\{#([^}#]+)#\}/g) || []).map((v) => v.slice(2, -2)))], []);
   const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt, extractVars]);
   const dbVars = (editedPrompt?.variables as VariableMeta[]) || [];
 
