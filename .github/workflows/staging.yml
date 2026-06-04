@@ -79,8 +79,6 @@ jobs:
           ssh "$USER@$HOST" << DEPLOY
             set -e
             cd /opt/nursing-vp-sim
-            printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            OLD_IMG=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null || echo "")
             echo ">> Staging v$VER"
             IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging pull
             IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
