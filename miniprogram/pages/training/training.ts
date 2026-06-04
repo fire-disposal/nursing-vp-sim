@@ -212,7 +212,7 @@ Page({
       title: "评分进行中",
       content: "评分仍在处理中，可在训练记录中查看结果",
       showCancel: false,
-      success: () => wx.redirectTo({ url: "/pages/home/home" }),
+      success: () => wx.switchTab({ url: "/pages/home/home" }),
     })
   },
 
@@ -223,11 +223,11 @@ Page({
         content: "训练还在进行中，离开不会结束训练，可在历史记录中继续",
         confirmText: "确认离开",
         success: (res) => {
-          if (res.confirm) wx.redirectTo({ url: "/pages/home/home" })
+          if (res.confirm) wx.switchTab({ url: "/pages/home/home" })
         },
       })
     } else {
-      wx.redirectTo({ url: "/pages/home/home" })
+      wx.switchTab({ url: "/pages/home/home" })
     }
   },
 })

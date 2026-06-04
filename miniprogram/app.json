@@ -3,15 +3,50 @@
     "pages/login/login",
     "pages/home/home",
     "pages/cases/cases",
-    "pages/training/training",
     "pages/history/history",
-    "pages/record-detail/record-detail"
+    "pages/training/training",
+    "pages/record-detail/record-detail",
+    "pages/profile/profile",
+    "pages/feedback/feedback"
   ],
   "window": {
     "navigationStyle": "custom",
     "backgroundColor": "#f5f6f8"
   },
+  "tabBar": {
+    "color": "#9ca3af",
+    "selectedColor": "#2563eb",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/icons/home.png",
+        "selectedIconPath": "assets/icons/home_active.png"
+      },
+      {
+        "pagePath": "pages/cases/cases",
+        "text": "训练",
+        "iconPath": "assets/icons/train.png",
+        "selectedIconPath": "assets/icons/train_active.png"
+      },
+      {
+        "pagePath": "pages/history/history",
+        "text": "记录",
+        "iconPath": "assets/icons/history.png",
+        "selectedIconPath": "assets/icons/history_active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/icons/profile.png",
+        "selectedIconPath": "assets/icons/profile_active.png"
+      }
+    ]
+  },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {}
 }
