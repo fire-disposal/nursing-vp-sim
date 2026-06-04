@@ -41,7 +41,7 @@ export default function Login() {
       <div className="relative z-10 flex w-full max-w-5xl items-center gap-8 px-6 py-10">
         <LoginIllustration />
 
-        <div className="w-full lg:flex-shrink-0 flex flex-col items-center lg:items-start">
+        <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start">
           <div className="mb-8 text-center lg:text-left">
             <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25 lg:mx-0">
               <Stethoscope size={32} className="text-primary-foreground" />
