@@ -3,10 +3,12 @@ App<IAppOption>({
     token: "",
     userId: 0,
     role: "",
-    // 本地开发（调试时取消注释下一行，并注释正式地址）
+    // 本地开发（调试时使用，另两个注释掉）
     baseUrl: "http://localhost:8000",
-    // 正式上线（上传前取消注释下一行，并注释本地地址）
-    // baseUrl: "https://api.your-domain.com",
+    // 测试服务器（test.205716.xyz → 127.0.0.1:9080）
+    // baseUrl: "https://test.205716.xyz",
+    // 正式服务器（iomt.205716.xyz → 127.0.0.1:9000）
+    // baseUrl: "https://iomt.205716.xyz",
   },
 
   onLaunch() {
