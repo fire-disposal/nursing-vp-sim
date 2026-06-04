@@ -155,3 +155,36 @@
     }
   }
 }
+
+@layer utilities {
+  @keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50%  { transform: translateY(-24px) translateX(12px); }
+  }
+  @keyframes float-delayed {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50%  { transform: translateY(-20px) translateX(-16px); }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.35; }
+    50%  { opacity: 0.65; }
+  }
+  .animate-float {
+    animation: float 10s ease-in-out infinite;
+    will-change: transform;
+  }
+  .animate-float-delayed {
+    animation: float-delayed 12s ease-in-out infinite;
+    will-change: transform;
+  }
+  .animate-breathe {
+    animation: breathe 8s ease-in-out infinite;
+    will-change: opacity;
+  }
+  .bg-grid-medical {
+    background-image:
+      linear-gradient(rgba(37, 99, 235, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37, 99, 235, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+}
