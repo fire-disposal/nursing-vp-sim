@@ -1,10 +1,12 @@
 import lottie from "lottie-web";
 import { useEffect, useRef, useState } from "react";
+import type { AnimationItem } from "lottie-web";
 import placeholderAnimation from "@/assets/lottie/medical-illustration.json";
 
 export default function LoginIllustration() {
   const [visible, setVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<AnimationItem | null>(null);
 
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");
@@ -30,15 +32,19 @@ export default function LoginIllustration() {
       },
     });
     anim.setSubframe(false);
+    animRef.current = anim;
 
-    return () => anim.destroy();
+    const ro = new ResizeObserver(() => anim.resize());
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+      anim.destroy();
+      animRef.current = null;
+    };
   }, [visible]);
 
   if (!visible) return null;
 
-  return (
-    <div className="hidden lg:flex lg:w-1/2 items-center justify-center">
-      <div ref={containerRef} className="w-full max-w-2xl [&>canvas]:!w-full [&>canvas]:!h-auto" />
-    </div>
-  );
+  return <div ref={containerRef} className="hidden lg:block flex-1" />;
 }
