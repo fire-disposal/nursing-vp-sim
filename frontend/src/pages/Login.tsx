@@ -43,11 +43,15 @@ export default function Login() {
 
         <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start">
           <div className="mb-8 text-center lg:text-left">
-            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25 lg:mx-0">
-              <Stethoscope size={32} className="text-primary-foreground" />
+            <div className="flex items-center justify-center gap-3 lg:justify-start">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
+                <Stethoscope size={24} className="text-primary-foreground" />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <h1 className="text-2xl font-bold tracking-tight">虚拟患者系统</h1>
+                <p className="text-sm text-muted-foreground">护理病史采集技能训练平台</p>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">虚拟患者系统</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">护理病史采集技能训练平台</p>
           </div>
 
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">

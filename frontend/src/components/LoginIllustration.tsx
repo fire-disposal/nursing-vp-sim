@@ -1,6 +1,6 @@
 import lottie from "lottie-web";
 import { useEffect, useRef, useState } from "react";
-import placeholderAnimation from "@/assets/lottie/medical-illustration.json";
+import placeholderAnimation from "@/assets/lottie/animation.json";
 
 export default function LoginIllustration() {
   const [visible, setVisible] = useState(false);
