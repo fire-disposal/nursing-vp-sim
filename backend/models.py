@@ -1,22 +1,8 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import (
-    BigInteger,
-    Boolean,
-    Column,
-    Date,
-    DateTime,
-    Float,
-    ForeignKey,
-    Index,
-    Integer,
-    Numeric,
-    String,
-    Text,
-    UniqueConstraint,
-)
+from sqlalchemy import BigInteger, Float, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
 
@@ -24,28 +10,28 @@ from core.database import Base
 class Role(Base):
     __tablename__ = "roles"
 
-    name = Column(String(20), primary_key=True)
-    display_name = Column(String(40), nullable=False)
-    is_system = Column(Boolean, nullable=False, default=False)
+    name: Mapped[str] = mapped_column(String(20), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(40))
+    is_system: Mapped[bool] = mapped_column(default=False)
 
 
 class RolePermission(Base):
     __tablename__ = "role_permissions"
     __table_args__ = (UniqueConstraint("role_name", "permission", name="ix_rp_role_perm"),)
 
-    id = Column(Integer, primary_key=True)
-    role_name = Column(String(20), ForeignKey("roles.name", ondelete="CASCADE"), nullable=False)
-    permission = Column(String(40), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    role_name: Mapped[str] = mapped_column(String(20), ForeignKey("roles.name", ondelete="CASCADE"))
+    permission: Mapped[str] = mapped_column(String(40))
 
 
 class Grade(Base):
     __tablename__ = "grades"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(40), unique=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(40), unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    classes = relationship("Class", back_populates="grade", cascade="all, delete-orphan")
+    classes: Mapped[list["Class"]] = relationship(back_populates="grade", cascade="all, delete-orphan")
 
 
 class Class(Base):
@@ -55,41 +41,41 @@ class Class(Base):
         Index("ix_classes_grade_id", "grade_id"),
     )
 
-    id = Column(Integer, primary_key=True)
-    grade_id = Column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(60), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    grade_id: Mapped[int] = mapped_column(Integer, ForeignKey("grades.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(60))
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    grade = relationship("Grade", back_populates="classes")
-    user_classes = relationship("UserClass", back_populates="class_", cascade="all, delete-orphan")
+    grade: Mapped["Grade"] = relationship(back_populates="classes")
+    user_classes: Mapped[list["UserClass"]] = relationship(back_populates="class_", cascade="all, delete-orphan")
 
 
 class UserClass(Base):
     __tablename__ = "user_class"
     __table_args__ = (Index("ix_user_class_class_id", "class_id"),)
 
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    class_id = Column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
-    joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    class_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
+    joined_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    user = relationship("User", back_populates="user_class")
-    class_ = relationship("Class", back_populates="user_classes")
+    user: Mapped["User"] = relationship(back_populates="user_class")
+    class_: Mapped["Class"] = relationship(back_populates="user_classes")
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    role = Column(String(20), ForeignKey("roles.name", ondelete="RESTRICT"), nullable=False, default="student")
-    display_name = Column(String(50), nullable=False)
-    student_id = Column(String(30), nullable=True)
-    wechat_openid = Column(String(64), nullable=True, unique=True, index=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), ForeignKey("roles.name", ondelete="RESTRICT"), default="student")
+    display_name: Mapped[str] = mapped_column(String(50))
+    student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    training_records = relationship("TrainingRecord", back_populates="user")
-    user_class = relationship("UserClass", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
+    user_class: Mapped["UserClass | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def has_permission(self, permission: str) -> bool:
         cache = getattr(self, "_permissions_cache", None)
@@ -104,11 +90,11 @@ class User(Base):
 class Case(Base):
     __tablename__ = "cases"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
-    case_data = Column(JSONB, nullable=False)  # 完整病例数据
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    case_data: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
 
 class TrainingRecord(Base):
@@ -120,273 +106,251 @@ class TrainingRecord(Base):
         Index("ix_tr_case_id", "case_id"),
     )
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    case_id = Column(Integer, ForeignKey("cases.id"), nullable=False)
-    status = Column(String(20), nullable=False, default="in_progress")  # in_progress / completed
-    scoring_status = Column(String(20), nullable=True)  # null / pending / processing / completed / failed
-    scoring_error = Column(Text, nullable=True)  # 评分失败时的错误信息
-    start_time = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    end_time = Column(DateTime(timezone=True), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id"))
+    status: Mapped[str] = mapped_column(String(20), default="in_progress")
+    scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_time: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    end_time: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    user = relationship("User", back_populates="training_records")
-    case = relationship("Case")
-    messages = relationship("Message", back_populates="record", order_by="Message.created_at")
-    score = relationship("Score", back_populates="record", uselist=False)
+    user: Mapped["User"] = relationship(back_populates="training_records")
+    case: Mapped["Case"] = relationship()
+    messages: Mapped[list["Message"]] = relationship(back_populates="record", order_by="Message.created_at")
+    score: Mapped["Score | None"] = relationship(back_populates="record", uselist=False)
 
 
 class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (Index("ix_msg_record_created", "record_id", "created_at"),)
 
-    id = Column(Integer, primary_key=True)
-    record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
-    role = Column(String(10), nullable=False)  # student / patient
-    content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"))
+    role: Mapped[str] = mapped_column(String(10))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    record = relationship("TrainingRecord", back_populates="messages")
+    record: Mapped["TrainingRecord"] = relationship(back_populates="messages")
 
 
 class Score(Base):
     __tablename__ = "scores"
 
-    id = Column(Integer, primary_key=True)
-    record_id = Column(Integer, ForeignKey("training_records.id"), unique=True, nullable=False)
-    total_score = Column(Float, nullable=False)
-    detail_scores = Column(JSONB, nullable=True)
-    strengths = Column(JSONB, nullable=True)
-    weaknesses = Column(JSONB, nullable=True)
-    missed_content = Column(JSONB, nullable=True)
-    suggestions = Column(Text, nullable=True)
-    # 评分标准版本追踪
-    rubric_version = Column(String(40), nullable=True)
-    model_name = Column(String(80), nullable=True)
-    prompt_version = Column(Integer, nullable=True, default=1)
-    score_scale = Column(Integer, nullable=True, default=100)
-    # 教师复核
-    review_status = Column(String(20), nullable=True)  # null / reviewed
-    reviewed_by = Column(Integer, nullable=True)
-    reviewed_at = Column(DateTime(timezone=True), nullable=True)
-    review_detail_scores = Column(JSONB, nullable=True)
-    review_comment = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"), unique=True)
+    total_score: Mapped[float] = mapped_column(Float)
+    detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    strengths: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    weaknesses: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    missed_content: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    suggestions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rubric_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    prompt_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
+    score_scale: Mapped[int | None] = mapped_column(Integer, nullable=True, default=100)
+    review_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    reviewed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    review_detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    review_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    record = relationship("TrainingRecord", back_populates="score")
+    record: Mapped["TrainingRecord"] = relationship(back_populates="score")
 
 
 class Note(Base):
     __tablename__ = "notes"
     __table_args__ = (Index("ix_notes_record_id", "record_id"),)
 
-    id = Column(Integer, primary_key=True)
-    record_id = Column(Integer, ForeignKey("training_records.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-
-# ── 评分标准（Rubric）──
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"))
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 class Rubric(Base):
-    """评分标准定义 —— 维度、条目、锚点，可从管理面板编辑"""
-
     __tablename__ = "rubrics"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(80), nullable=False, unique=True)
-    version = Column(String(40), nullable=False)
-    description = Column(Text, nullable=True)
-    total_max = Column(Integer, nullable=False, default=100)
-    raw_max = Column(Integer, nullable=False, default=57)
-    raw_scale = Column(Integer, nullable=False, default=3)
-    dimensions = Column(JSONB, nullable=False)
-    is_active = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    version: Mapped[str] = mapped_column(String(40))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_max: Mapped[int] = mapped_column(Integer, default=100)
+    raw_max: Mapped[int] = mapped_column(Integer, default=57)
+    raw_scale: Mapped[int] = mapped_column(Integer, default=3)
+    dimensions: Mapped[list] = mapped_column(JSONB)
+    is_active: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 class LLMCallLog(Base):
-    """记录每次 LLM 调用的元数据，用于成本监控和稳定性分析"""
-
     __tablename__ = "llm_call_logs"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    record_id = Column(Integer, ForeignKey("training_records.id"), nullable=True, index=True)
-    case_id = Column(Integer, ForeignKey("cases.id"), nullable=True, index=True)
-    purpose = Column(String(40), nullable=False, index=True)  # patient_chat / scoring / qa / other
-    provider_name = Column(String(40), nullable=False, default="deepseek")
-    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
-    config_id = Column(Integer, ForeignKey("llm_configs.id"), nullable=True, index=True)
-    model = Column(String(80), nullable=False)
-    temperature = Column(Float, nullable=True)
-    max_tokens = Column(Integer, nullable=True)
-    prompt_tokens = Column(Integer, nullable=True)
-    completion_tokens = Column(Integer, nullable=True)
-    total_tokens = Column(Integer, nullable=True)
-    token_estimated = Column(Integer, nullable=False, default=1)  # 0=真实usage, 1=估算
-    estimated_cost = Column(Float, nullable=True)
-    cost_currency = Column(String(10), nullable=True, default="CNY")
-    latency_ms = Column(Integer, nullable=True, index=True)
-    status = Column(String(20), nullable=False, index=True)  # success / failed / timeout / rate_limited / auth_error
-    error_type = Column(String(80), nullable=True, index=True)
-    error_message = Column(Text, nullable=True)
-    request_chars = Column(Integer, nullable=True)
-    response_chars = Column(Integer, nullable=True)
-    request_text = Column(Text, nullable=True)  # LLM 请求全文（调试用）
-    response_text = Column(Text, nullable=True)  # LLM 回复全文（调试用）
-    meta = Column(JSONB, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    record_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("training_records.id"), nullable=True, index=True)
+    case_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("cases.id"), nullable=True, index=True)
+    purpose: Mapped[str] = mapped_column(String(40), index=True)
+    provider_name: Mapped[str] = mapped_column(String(40), default="deepseek")
+    api_key_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
+    config_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("llm_configs.id"), nullable=True, index=True)
+    model: Mapped[str] = mapped_column(String(80))
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    token_estimated: Mapped[int] = mapped_column(Integer, default=1)
+    estimated_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cost_currency: Mapped[str | None] = mapped_column(String(10), nullable=True, default="CNY")
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    error_type: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    request_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(index=True, default=lambda: datetime.now(UTC))
 
-    api_key = relationship("ApiKey")
-    config = relationship("LLMConfig")
+    api_key: Mapped["ApiKey"] = relationship()
+    config: Mapped["LLMConfig"] = relationship()
 
 
 class QASession(Base):
     __tablename__ = "qa_sessions"
     __table_args__ = (Index("ix_qa_sessions_user_updated", "user_id", "updated_at"),)
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    title = Column(String(80), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    title: Mapped[str] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    user = relationship("User")
-    records = relationship("QARecord", back_populates="session", order_by="QARecord.created_at")
+    user: Mapped["User"] = relationship()
+    records: Mapped[list["QARecord"]] = relationship(back_populates="session", order_by="QARecord.created_at")
 
 
 class QARecord(Base):
-    """通用护理问答消息记录"""
-
     __tablename__ = "qa_records"
     __table_args__ = (Index("ix_qa_session_created", "session_id", "created_at"),)
 
-    id = Column(Integer, primary_key=True)
-    session_id = Column(Integer, ForeignKey("qa_sessions.id"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    role = Column(String(20), nullable=False)
-    content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(Integer, ForeignKey("qa_sessions.id"), index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    role: Mapped[str] = mapped_column(String(20))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(index=True, default=lambda: datetime.now(UTC))
 
-    user = relationship("User")
-    session = relationship("QASession", back_populates="records")
+    user: Mapped["User"] = relationship()
+    session: Mapped["QASession"] = relationship(back_populates="records")
 
 
 class ApiSecret(Base):
-    """API 档案 — 一份 API 连接的全部信息（密钥、端点、计费、状态）"""
-
     __tablename__ = "api_secrets"
     __table_args__ = (UniqueConstraint("encrypted_key", "key_suffix", name="uq_api_secret_key"),)
 
-    id = Column(Integer, primary_key=True)
-    label = Column(String(80), nullable=False)
-    encrypted_key = Column(Text, nullable=False)
-    key_suffix = Column(String(8), nullable=False)
-    base_url = Column(String(200), nullable=False, default="")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    label: Mapped[str] = mapped_column(String(80))
+    encrypted_key: Mapped[str] = mapped_column(Text)
+    key_suffix: Mapped[str] = mapped_column(String(8))
+    base_url: Mapped[str] = mapped_column(String(200), default="")
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    degraded_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    degraded_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
+    price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
+    monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
+    call_count_today: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens_today: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_cost_today: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
+    monthly_cost_used: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
+    stats_date: Mapped[datetime | None] = mapped_column(nullable=True)
+    stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    status = Column(String(20), nullable=False, default="active")
-    degraded_reason = Column(String(40), nullable=True)
-    degraded_until = Column(DateTime(timezone=True), nullable=True)
-
-    price_input_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
-    price_output_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
-    monthly_cost_limit = Column(Numeric(12, 6), nullable=True)
-
-    call_count_today = Column(Integer, nullable=False, default=0)
-    total_tokens_today = Column(BigInteger, nullable=False, default=0)
-    total_cost_today = Column(Numeric(12, 6), nullable=False, default=0)
-    monthly_cost_used = Column(Numeric(12, 6), nullable=False, default=0)
-    stats_date = Column(Date, nullable=True)
-    stats_month = Column(String(7), nullable=True)
-
-    consecutive_failures = Column(Integer, nullable=False, default=0)
-    last_used_at = Column(DateTime(timezone=True), nullable=True)
-
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    configs = relationship("LLMConfig", back_populates="secret", cascade="all, delete-orphan")
+    configs: Mapped[list["LLMConfig"]] = relationship(back_populates="secret", cascade="all, delete-orphan")
 
 
 class LLMConfig(Base):
-    """用途指派 — 某档案的某模型用于某用途"""
-
     __tablename__ = "llm_configs"
     __table_args__ = (UniqueConstraint("secret_id", "purpose", name="uq_llmconfig_profile_purpose"),)
 
-    id = Column(Integer, primary_key=True)
-    secret_id = Column(Integer, ForeignKey("api_secrets.id"), nullable=False)
-    label = Column(String(80), nullable=False, default="")
-    model = Column(String(80), nullable=False)
-    purpose = Column(String(40), nullable=False)
-    priority = Column(Integer, nullable=False, default=10)
-    weight = Column(Integer, nullable=False, default=10)
-    status = Column(String(20), nullable=False, default="active")
-    price_input_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
-    price_output_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
-    monthly_cost_limit = Column(Numeric(12, 6), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    secret_id: Mapped[int] = mapped_column(Integer, ForeignKey("api_secrets.id"))
+    label: Mapped[str] = mapped_column(String(80), default="")
+    model: Mapped[str] = mapped_column(String(80))
+    purpose: Mapped[str] = mapped_column(String(40))
+    priority: Mapped[int] = mapped_column(Integer, default=10)
+    weight: Mapped[int] = mapped_column(Integer, default=10)
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
+    price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
+    monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    secret = relationship("ApiSecret", back_populates="configs")
+    secret: Mapped["ApiSecret"] = relationship(back_populates="configs")
 
 
-# DEPRECATED:
+# DEPRECATED models — kept for migration compatibility
 class ApiProvider(Base):
     __tablename__ = "api_providers"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(40), unique=True, nullable=False)
-    display_name = Column(String(80), nullable=False)
-    base_url = Column(String(200), nullable=False)
-    api_type = Column(String(20), nullable=False, default="openai_compatible")
-    default_model = Column(String(80), nullable=False)
-    is_enabled = Column(Boolean, nullable=False, default=True)
-    priority = Column(Integer, nullable=False, default=100)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(40), unique=True)
+    display_name: Mapped[str] = mapped_column(String(80))
+    base_url: Mapped[str] = mapped_column(String(200))
+    api_type: Mapped[str] = mapped_column(String(20), default="openai_compatible")
+    default_model: Mapped[str] = mapped_column(String(80))
+    is_enabled: Mapped[bool] = mapped_column(default=True)
+    priority: Mapped[int] = mapped_column(Integer, default=100)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    keys = relationship("ApiKey", back_populates="provider", cascade="all, delete-orphan")
+    keys: Mapped[list["ApiKey"]] = relationship(back_populates="provider", cascade="all, delete-orphan")
 
 
-# DEPRECATED:
 class ApiKey(Base):
     __tablename__ = "api_keys"
 
-    id = Column(Integer, primary_key=True)
-    provider_id = Column(Integer, ForeignKey("api_providers.id"), nullable=False)
-    label = Column(String(80), nullable=False)
-    encrypted_key = Column(Text, nullable=False)
-    key_suffix = Column(String(8), nullable=False)
-    model = Column(String(80), nullable=True)
-    weight = Column(Integer, nullable=False, default=10)
-    status = Column(String(20), nullable=False, default="active")
-    price_input_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
-    price_output_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
-    currency = Column(String(10), nullable=False, default="CNY")
-    balance = Column(Numeric(12, 6), nullable=True)
-    monthly_cost_limit = Column(Numeric(12, 6), nullable=True)
-    call_count_today = Column(Integer, nullable=False, default=0)
-    total_tokens_today = Column(BigInteger, nullable=False, default=0)
-    total_cost_today = Column(Numeric(12, 6), nullable=False, default=0)
-    stats_date = Column(Date, nullable=True)
-    monthly_cost_used = Column(Numeric(12, 6), nullable=False, default=0)
-    stats_month = Column(String(7), nullable=True)
-    consecutive_failures = Column(Integer, nullable=False, default=0)
-    last_used_at = Column(DateTime(timezone=True), nullable=True)
-    rate_limit_until = Column(DateTime(timezone=True), nullable=True)
-    purpose = Column(String(40), nullable=False, default="*")
-    priority = Column(Integer, nullable=False, default=100)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider_id: Mapped[int] = mapped_column(Integer, ForeignKey("api_providers.id"))
+    label: Mapped[str] = mapped_column(String(80))
+    encrypted_key: Mapped[str] = mapped_column(Text)
+    key_suffix: Mapped[str] = mapped_column(String(8))
+    model: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    weight: Mapped[int] = mapped_column(Integer, default=10)
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
+    price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
+    currency: Mapped[str] = mapped_column(String(10), default="CNY")
+    balance: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
+    monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
+    call_count_today: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens_today: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_cost_today: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
+    stats_date: Mapped[datetime | None] = mapped_column(nullable=True)
+    monthly_cost_used: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
+    stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    rate_limit_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    purpose: Mapped[str] = mapped_column(String(40), default="*")
+    priority: Mapped[int] = mapped_column(Integer, default=100)
     __table_args__ = (Index("idx_api_keys_purpose", "purpose"),)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    provider = relationship("ApiProvider", back_populates="keys")
+    provider: Mapped["ApiProvider"] = relationship(back_populates="keys")
 
 
 class Feedback(Base):
@@ -397,31 +361,29 @@ class Feedback(Base):
         Index("ix_feedback_created_at", "created_at"),
     )
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    rating = Column(Integer, nullable=False)
-    tag = Column(String(20), nullable=False)
-    content = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    rating: Mapped[int] = mapped_column(Integer)
+    tag: Mapped[str] = mapped_column(String(20))
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    user = relationship("User")
+    user: Mapped["User"] = relationship()
 
 
 class PromptTemplate(Base):
-    """LLM 提示词模板"""
-
     __tablename__ = "prompt_templates"
 
-    id = Column(Integer, primary_key=True)
-    purpose = Column(String(40), nullable=False, index=True)
-    version = Column(Integer, nullable=False, default=1)
-    name = Column(String(80), nullable=True)
-    system_prompt = Column(Text, nullable=False)
-    user_prompt = Column(Text, nullable=True)
-    template_engine = Column(String(20), nullable=False, default="format")
-    variables = Column(JSONB, nullable=True)
-    is_active = Column(Boolean, nullable=False, default=False)
-    created_by = Column(String(80), nullable=True)
-    remark = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    purpose: Mapped[str] = mapped_column(String(40), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    system_prompt: Mapped[str] = mapped_column(Text)
+    user_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    template_engine: Mapped[str] = mapped_column(String(20), default="format")
+    variables: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=False)
+    created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    remark: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

@@ -2,7 +2,7 @@ import logging
 from urllib.parse import urlparse
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from core.config import DATABASE_URL
@@ -20,10 +20,13 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
 
-def _log_connection():
+class Base(DeclarativeBase):
+    pass
+
+
+def _log_connection() -> None:
     parsed = urlparse(DATABASE_URL)
     safe_url = f"{parsed.scheme}://{parsed.username}:***@{parsed.hostname}:{parsed.port}{parsed.path}"
     log.info("数据库连接: %s", safe_url)
@@ -51,7 +54,7 @@ def get_db():
         db.close()
 
 
-def init_db():
+def init_db() -> None:
     import os
 
     import models  # noqa: F401
