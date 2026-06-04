@@ -23,10 +23,36 @@ export interface UserProfile {
   created_at: string
 }
 
+export interface WechatLoginResponse {
+  access_token: string | null
+  token_type: string
+  role: string | null
+  display_name: string | null
+  user_id: number | null
+  need_bind: boolean
+}
+
+export interface WechatRegisterRequest {
+  code: string
+  display_name: string
+}
+
 export function login(data: LoginRequest) {
   return post<LoginResponse>("/api/auth/login", data as unknown as Record<string, unknown>)
 }
 
 export function getMe() {
   return get<UserProfile>("/api/auth/me")
+}
+
+export function wechatLogin(code: string) {
+  return post<WechatLoginResponse>("/api/auth/wechat/login", { code } as unknown as Record<string, unknown>)
+}
+
+export function wechatBind(code: string) {
+  return post<{ ok: boolean }>("/api/auth/wechat/bind", { code } as unknown as Record<string, unknown>)
+}
+
+export function wechatRegister(data: WechatRegisterRequest) {
+  return post<LoginResponse>("/api/auth/wechat/register", data as unknown as Record<string, unknown>)
 }
