@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { activatePrompt, createPrompt, deletePrompt, fetchPrompts, fetchSampleVars, previewActivePrompt, updatePrompt, validatePrompt } from "@/api/api-client";
+import { activatePrompt, createPrompt, deletePrompt, fetchPrompts, fetchSampleVars, updatePrompt, validatePrompt } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
@@ -189,9 +189,6 @@ export default function PromptManagementTab() {
   const [saving, setSaving] = useState(false);
   const [showActiveModal, setShowActiveModal] = useState(false);
   const [activeModalPurpose, setActiveModalPurpose] = useState("patient_chat");
-  const [previewData, setPreviewData] = useState<PromptPreviewResponse | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [showRendered, setShowRendered] = useState(true);
   const [showEditorPreview, setShowEditorPreview] = useState(false);
   const [savedForm, setSavedForm] = useState<PromptForm | null>(null);
   const [sampleVars, setSampleVars] = useState<Record<string, Record<string, string>>>({});
@@ -382,18 +379,9 @@ export default function PromptManagementTab() {
     setShowActiveModal(true);
   };
 
-  const handleActiveModalPurposeChange = async (p: string) => {
-    setActiveModalPurpose(p);
-    setShowRendered(true);
-    setPreviewLoading(true);
-    try {
-      const { data } = await previewActivePrompt(p);
-      setPreviewData(data);
-    } catch {
-      setPreviewData(null);
-    } finally {
-      setPreviewLoading(false);
-    }
+  const getEffectivePrompt = (purpose: string): PromptTemplateResponse | undefined => {
+    const versions = grouped[purpose] || [];
+    return versions.find((v) => v.is_active);
   };
 
   const editorTitle =
@@ -448,9 +436,7 @@ export default function PromptManagementTab() {
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span className="flex-1">{PURPOSE_LABELS[purpose]}</span>
                   <span className="text-xs text-muted-foreground/70 font-normal">
-                    {versions.filter((v) => v.is_active).length > 0
-                      ? `v${versions.find((v) => v.is_active)!.version} · ${versions.length}个版本`
-                      : `${versions.length}个版本`}
+                    {versions.length}个版本
                   </span>
                   <Button
                     variant="outline"
@@ -710,80 +696,55 @@ export default function PromptManagementTab() {
         )}
       </div>
 
-      <Modal open={showActiveModal} onClose={() => setShowActiveModal(false)} title={null} maxWidth={900}>
-        <div className="flex items-center gap-3 mb-4">
-          <select
-            value={activeModalPurpose}
-            onChange={(e) => handleActiveModalPurposeChange(e.target.value)}
-            className="py-2 px-3 border border-border rounded-lg text-sm bg-card text-foreground font-semibold"
-          >
-            {PURPOSES.map((p) => {
-              const av = grouped[p]?.find((t) => t.is_active);
-              return (
-                <option key={p} value={p}>
-                  {PURPOSE_LABELS[p]}
-                  {av ? ` · v${av.version}` : " · 未激活"}
-                </option>
-              );
-            })}
-          </select>
-          {previewData && <span className="text-sm text-muted-foreground/70">v{previewData.version}</span>}
-          {previewData && (
-            <div className="ml-auto flex gap-0.5 bg-muted rounded-lg p-0.5">
+      <Modal open={showActiveModal} onClose={() => setShowActiveModal(false)} title="生效版本一览" maxWidth={900}>
+        <div className="flex gap-2 mb-4 border-b border-border pb-3 overflow-x-auto">
+          {PURPOSES.filter((p) => p !== "*").map((p) => {
+            const eff = getEffectivePrompt(p);
+            return (
               <button
-                onClick={() => setShowRendered(true)}
+                key={p}
+                onClick={() => setActiveModalPurpose(p)}
                 className={cn(
-                  "px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer",
-                  showRendered ? "bg-primary text-white" : "bg-transparent text-muted-foreground",
+                  "px-3 py-1.5 rounded-lg border-none text-sm font-medium cursor-pointer whitespace-nowrap transition-colors",
+                  activeModalPurpose === p ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80",
                 )}
               >
-                渲染效果
+                {PURPOSE_LABELS[p]}
+                {eff?.is_builtin ? " · 内置" : eff ? ` · v${eff.version}` : ""}
               </button>
-              <button
-                onClick={() => setShowRendered(false)}
-                className={cn(
-                  "px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer",
-                  !showRendered ? "bg-primary text-white" : "bg-transparent text-muted-foreground",
-                )}
-              >
-                原始模板
-              </button>
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {previewLoading ? (
-          <div className="p-8 text-center text-muted-foreground/70">加载中...</div>
-        ) : previewData ? (
-          <>
-            <div className="mb-3">
-              <div className="text-xs font-semibold text-muted-foreground mb-1">System Prompt</div>
-              <pre className="m-0 p-3 bg-muted border border-border rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground max-h-[400px] overflow-auto leading-relaxed">
-                {showRendered ? previewData.system_prompt_rendered : renderHighlighted(previewData.system_prompt_raw)}
-              </pre>
-            </div>
-            {previewData.user_prompt_raw && (
+        {(() => {
+          const eff = getEffectivePrompt(activeModalPurpose);
+          if (!eff) return <div className="p-8 text-center text-muted-foreground/60">该场景暂无生效版本</div>;
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-semibold", eff.is_builtin ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700")}>
+                  {eff.is_builtin ? "系统内置" : `DB v${eff.version}`}
+                </span>
+                {!eff.is_builtin && <span className="text-sm font-medium">{eff.name}</span>}
+                {eff.is_builtin && <span className="text-xs text-muted-foreground">代码内硬编码，不在数据库中。无自定义版本时自动生效。</span>}
+              </div>
               <div className="mb-3">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">User Prompt Template</div>
-                <pre className="m-0 p-3 bg-muted border border-border rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground max-h-[300px] overflow-auto leading-relaxed">
-                  {showRendered ? previewData.user_prompt_rendered : renderHighlighted(previewData.user_prompt_raw)}
+                <div className="text-xs font-semibold text-muted-foreground mb-1">System Prompt ({eff.system_prompt.length} 字符)</div>
+                <pre className="m-0 p-3 bg-muted border border-border rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground max-h-[350px] overflow-auto leading-relaxed select-all">
+                  {eff.system_prompt}
                 </pre>
               </div>
-            )}
-            {showRendered && previewData.sample_vars && Object.keys(previewData.sample_vars).length > 0 && (
-              <div className="text-xs text-muted-foreground/70 mt-2">
-                预览替换变量:{" "}
-                {Object.entries(previewData.sample_vars).map(([k]) => (
-                  <code key={k} className="ml-1.5 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
-                    {k}
-                  </code>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="p-6 text-center text-muted-foreground/70">该场景暂未激活任何版本</div>
-        )}
+              {eff.user_prompt && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-1">User Prompt Template ({eff.user_prompt.length} 字符)</div>
+                  <pre className="m-0 p-3 bg-muted border border-border rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground max-h-[250px] overflow-auto leading-relaxed select-all">
+                    {eff.user_prompt}
+                  </pre>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

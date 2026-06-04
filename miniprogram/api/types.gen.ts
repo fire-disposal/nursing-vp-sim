@@ -13,21 +13,40 @@ export interface AdminStats {
 export interface ApiSecretCreate {
   label: string
   raw_key: string
+  base_url?: string | null
+  price_input_per_1m?: number
+  price_output_per_1m?: number
+  monthly_cost_limit?: number | null
 }
 
 export interface ApiSecretResponse {
   id: number
   label: string
   key_suffix: string
-  config_count?: number
+  base_url?: string
+  provider?: string
+  status?: string
+  degraded_reason?: string | null
+  degraded_until?: string | null
+  price_input_per_1m?: number
+  price_output_per_1m?: number
+  monthly_cost_limit?: number | null
+  call_count_today?: number
+  total_tokens_today?: number
   total_cost_today?: number
   monthly_cost_used?: number
+  config_count?: number
+  last_used_at?: string | null
   created_at: string
   updated_at: string
 }
 
 export interface ApiSecretUpdate {
   label?: string | null
+  base_url?: string | null
+  price_input_per_1m?: number | null
+  price_output_per_1m?: number | null
+  monthly_cost_limit?: number | null
 }
 
 export interface BatchCreateResult {
@@ -95,6 +114,10 @@ export interface CaseManageItem {
 
 export interface CaseUpdateRequest {
   case_data: Record<string, unknown>
+}
+
+export interface CatalogResponse {
+  providers?: ProviderPresetResponse[]
 }
 
 export interface ChatMessageRequest {
@@ -247,11 +270,11 @@ export interface LLMCallLogItem {
 
 export interface LLMConfigCreate {
   secret_id: number
-  label: string
-  base_url: string
   model: string
   purpose: string
+  label?: string
   priority?: number
+  weight?: number
   price_input_per_1m?: number
   price_output_per_1m?: number
   monthly_cost_limit?: number | null
@@ -262,37 +285,32 @@ export interface LLMConfigResponse {
   secret_id: number
   secret_label?: string
   secret_suffix?: string
-  label: string
-  base_url: string
+  base_url?: string
+  provider?: string
+  label?: string
   model: string
   purpose: string
-  priority: number
-  status: string
-  degraded_reason?: string | null
-  degraded_until?: string | null
-  price_input_per_1m: number
-  price_output_per_1m: number
+  priority?: number
+  weight?: number
+  status?: string
+  price_input_per_1m?: number
+  price_output_per_1m?: number
   monthly_cost_limit?: number | null
-  call_count_today: number
-  total_tokens_today: number
-  total_cost_today: number
-  monthly_cost_used: number
-  consecutive_failures: number
-  last_used_at?: string | null
   created_at: string
   updated_at: string
 }
 
 export interface LLMConfigUpdate {
-  label?: string | null
-  base_url?: string | null
+  secret_id?: number | null
   model?: string | null
   purpose?: string | null
+  label?: string | null
   priority?: number | null
-  status?: string | null
+  weight?: number | null
   price_input_per_1m?: number | null
   price_output_per_1m?: number | null
   monthly_cost_limit?: number | null
+  status?: string | null
 }
 
 export interface LLMStatsResponse {
@@ -318,6 +336,12 @@ export interface MessageItem {
 
 export interface MessageResponse {
   message: string
+}
+
+export interface ModelPresetItem {
+  name: string
+  price_input?: number
+  price_output?: number
 }
 
 export interface NoteCreateRequest {
@@ -427,6 +451,8 @@ export interface PromptTemplateResponse {
   remark: string | null
   created_at: string
   updated_at: string
+  is_builtin?: boolean
+  locked?: boolean
 }
 
 export interface PromptTemplateUpdate {
@@ -449,6 +475,13 @@ export interface PromptValidateResponse {
   errors?: string[]
   missing_vars?: string[]
   warnings?: string[]
+}
+
+export interface ProviderPresetResponse {
+  provider?: string
+  display_name?: string
+  base_url?: string
+  models?: ModelPresetItem[]
 }
 
 export interface QAAskResponse {
@@ -503,12 +536,6 @@ export interface RegisterRequest {
   display_name: string
   student_id?: string | null
   class_id?: number | null
-}
-
-export interface RubricBrief {
-  id: number
-  name: string
-  is_active?: boolean
 }
 
 export interface RubricResponse {
@@ -698,6 +725,28 @@ export interface ValidationError {
   type: string
   input?: unknown
   ctx?: Record<string, unknown>
+}
+
+export interface WechatBindRequest {
+  code: string
+}
+
+export interface WechatLoginRequest {
+  code: string
+}
+
+export interface WechatLoginResponse {
+  access_token?: string | null
+  token_type?: string
+  role?: string | null
+  display_name?: string | null
+  user_id?: number | null
+  need_bind?: boolean
+}
+
+export interface WechatRegisterRequest {
+  code: string
+  display_name: string
 }
 
 // ── API 函数 ──

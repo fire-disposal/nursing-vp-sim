@@ -131,7 +131,7 @@ export default function ApiManagementTab() {
 
   const handleQuickBind = async (purpose: string, secretId: number, model: string) => {
     try {
-      await createConfig({ secret_id: secretId, model, purpose, label: "" });
+      await createConfig({ secret_id: secretId, model, purpose, label: "", priority: 10, weight: 10, price_input_per_1m: 0, price_output_per_1m: 0 });
       toast.success("已绑定");
       invalidate();
     } catch (e: any) {

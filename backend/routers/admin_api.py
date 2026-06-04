@@ -77,6 +77,12 @@ async def create_secret(
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    for existing in db.query(ApiSecret).all():
+        try:
+            if decrypt_api_key(existing.encrypted_key) == data.raw_key:
+                raise HTTPException(409, "该 API Key 已存在，请勿重复添加")
+        except Exception:
+            continue
     suffix = data.raw_key[-4:] if len(data.raw_key) >= 4 else "****"
     s = ApiSecret(
         label=data.label,
