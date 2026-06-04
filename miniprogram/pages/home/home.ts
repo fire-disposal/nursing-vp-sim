@@ -1,4 +1,5 @@
 import { getDurationStats, getTrends } from "../../api/stats"
+import { getMe } from "../../api/auth"
 import { getRecords } from "../../api/training"
 import type { CaseBrief } from "../../api/cases"
 import { getCases } from "../../api/cases"
@@ -23,14 +24,16 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
-      const [duration, trends, cases, records] = await Promise.all([
+      const [duration, trends, cases, records, me] = await Promise.all([
         getDurationStats("month").catch(() => null),
         getTrends("month").catch(() => null),
         getCases({ limit: 5 }).catch(() => null),
         getRecords({ limit: 5 }).catch(() => null),
+        getMe().catch(() => null),
       ])
 
       this.setData({
+        userName: me?.display_name || "",
         totalSessions: duration?.total_sessions ?? 0,
         totalMinutes: duration?.total_minutes ?? 0,
         avgScore: trends?.avg_score ?? 0,
