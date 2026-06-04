@@ -3,13 +3,12 @@
     "target": "ES2020",
     "module": "CommonJS",
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "types": ["jest", "node"],
+    "paths": { "@/*": ["./*"] }
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules"]

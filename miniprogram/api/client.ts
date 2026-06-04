@@ -1,9 +1,29 @@
-const app = getApp<IAppOption>()
+function getApp_(): { globalData: { token: string; userId: number; role: string; baseUrl: string } } {
+  return (getApp() as any) || { globalData: { token: "", userId: 0, role: "", baseUrl: "https://api.your-domain.com" } }
+}
 
-const BASE_URL = app.globalData.baseUrl
+function getBaseUrl(): string {
+  return getApp_().globalData.baseUrl || "https://api.your-domain.com"
+}
 
 function getToken(): string {
-  return app.globalData.token || wx.getStorageSync("access_token") || ""
+  return getApp_().globalData.token || wx.getStorageSync("access_token") || ""
+}
+
+let _redirecting = false
+let _redirectTimer = 0
+
+function redirectToLogin() {
+  if (_redirecting) return
+  _redirecting = true
+  wx.removeStorageSync("access_token")
+  wx.removeStorageSync("user_id")
+  wx.removeStorageSync("role")
+  const app = getApp_()
+  app.globalData.token = ""
+  clearTimeout(_redirectTimer)
+  _redirectTimer = setTimeout(() => { _redirecting = false }, 2000) as unknown as number
+  wx.reLaunch({ url: "/pages/login/login" })
 }
 
 interface RequestOptions {
@@ -24,7 +44,7 @@ export function request<T>(
     wx.showLoading({ title: "加载中...", mask: true })
   }
 
-  let url = `${BASE_URL}${path}`
+  let url = `${getBaseUrl()}${path}`
   if (params) {
     const query = Object.entries(params)
       .filter(([, v]) => v !== undefined && v !== "")
@@ -32,6 +52,8 @@ export function request<T>(
       .join("&")
     if (query) url += `?${query}`
   }
+
+  const token = getToken()
 
   return new Promise<T>((resolve, reject) => {
     wx.request({
@@ -41,30 +63,35 @@ export function request<T>(
       timeout,
       header: {
         "Content-Type": "application/json",
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      success(res) {
+      success(res: any) {
         if (showLoading) wx.hideLoading()
         if (res.statusCode === 401) {
-          wx.removeStorageSync("access_token")
-          wx.removeStorageSync("user_id")
-          wx.removeStorageSync("role")
-          app.globalData.token = ""
-          wx.reLaunch({ url: "/pages/login/login" })
+          if (!token) {
+            redirectToLogin()
+            reject(new Error("unauthorized"))
+            return
+          }
+          redirectToLogin()
           reject(new Error("unauthorized"))
           return
         }
         if (res.statusCode >= 400) {
           const detail = (res.data as { detail?: string })?.detail || "请求失败"
-          wx.showToast({ title: detail, icon: "none" })
+          wx.showToast({ title: detail, icon: "none", duration: 2500 })
           reject(new Error(detail))
           return
         }
         resolve(res.data as T)
       },
-      fail(err) {
+      fail(err: any) {
         if (showLoading) wx.hideLoading()
-        wx.showToast({ title: "网络错误，请重试", icon: "none" })
+        if (err.errMsg?.includes("timeout")) {
+          wx.showToast({ title: "请求超时，请重试", icon: "none" })
+        } else {
+          wx.showToast({ title: "网络错误，请检查网络", icon: "none" })
+        }
         reject(err)
       },
     })
