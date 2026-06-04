@@ -37,7 +37,7 @@ export default function LoginIllustration() {
 
   return (
     <div className="hidden lg:flex lg:w-1/2 items-center justify-center">
-      <div ref={containerRef} className="w-full max-w-md" />
+      <div ref={containerRef} className="w-full max-w-md [transform:translateZ(0)]" />
     </div>
   );
 }
