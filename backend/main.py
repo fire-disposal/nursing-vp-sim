@@ -3,18 +3,14 @@ import logging
 import os
 import sys
 import time
-import uuid
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from config import APP_VERSION, log_config
-from database import SessionLocal, engine, get_db, init_db
+from database import engine, init_db
 from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, qa, stats, training
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
@@ -43,6 +39,7 @@ class _ColorFormatter(logging.Formatter):
 _handler = logging.StreamHandler(sys.stderr)
 _handler.setFormatter(_ColorFormatter(fmt="%(levelname)s %(name)s %(message)s"))
 logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
+logging.getLogger("alembic").setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 
@@ -89,14 +86,9 @@ async def _startup_verify_llm() -> bool:
         return False
 
 
-def _startup_db():
-    from database import _log_connection
-    _log_connection()
-    init_db()
-
-
 def _startup_seed():
     from auth import hash_password
+    from database import SessionLocal
     from models import Case, Role, RolePermission, Rubric, User
 
     db = SessionLocal()
@@ -170,6 +162,7 @@ def _startup_seed():
 
 def _startup_llm_seed():
     from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+    from database import SessionLocal
     from models import ApiSecret, LLMConfig
     from services.crypto_utils import encrypt_api_key
 
@@ -246,16 +239,18 @@ async def lifespan(app: FastAPI):
 
     # 2. 数据库
     _step("── 2/5 数据库 ──")
-    await asyncio.to_thread(_startup_db)
+    from database import _log_connection
+    _log_connection()
+    init_db()
     _step("  ✓ 数据库迁移完成")
 
     # 3. 种子
     _step("── 3/5 种子数据 ──")
-    await asyncio.to_thread(_startup_seed)
+    _startup_seed()
     _step("  ✓ 种子数据就绪")
 
     if llm_key_valid:
-        await asyncio.to_thread(_startup_llm_seed)
+        _startup_llm_seed()
         _step("  ✓ LLM 配置就绪")
 
     # 4. 基础设施
