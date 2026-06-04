@@ -4250,6 +4250,7 @@
           "Prompt管理"
         ],
         "summary": "Activate Prompt",
+        "description": "激活指定版本。prompt_id=0 表示切换到内置兜底（停用该 purpose 所有 DB 版本）。",
         "operationId": "activate_prompt_api_admin_prompts__prompt_id__activate_post",
         "security": [
           {
@@ -4264,6 +4265,22 @@
             "schema": {
               "type": "integer",
               "title": "Prompt Id"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purpose"
             }
           }
         ],

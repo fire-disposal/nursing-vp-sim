@@ -234,7 +234,17 @@ async def activate_prompt(
     prompt_id: int,
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[Session, Depends(get_db)],
+    purpose: str | None = None,
 ):
+    """激活指定版本。prompt_id=0 表示切换到内置兜底（停用该 purpose 所有 DB 版本）。"""
+    if prompt_id == 0:
+        if not purpose:
+            raise HTTPException(400, "切换到内置版本需要指定 purpose")
+        db.query(PT).filter(PT.purpose == purpose).update({"is_active": False})
+        db.commit()
+        await refresh_prompts()
+        return {"ok": True}
+
     await _activate(prompt_id, db)
     await refresh_prompts()
     return {"ok": True}

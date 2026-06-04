@@ -67,7 +67,7 @@ export default function ApiManagementTab() {
   });
 
   const getConfig = (purpose: string) => {
-    const items = (configsByPurpose[purpose] || []).sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    const items = (configsByPurpose[purpose] || []).sort((a, b) => ((a as any).priority || 0) - ((b as any).priority || 0));
     return items.find((c) => c.status === "active") || items[0] || null;
   };
 

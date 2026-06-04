@@ -223,6 +223,19 @@ export default function PromptManagementTab() {
       .catch(() => {});
   };
   const openEdit = (p: PromptTemplateResponse) => {
+    if (p.locked) {
+      setEditing(p.id);
+      setForm({
+        purpose: p.purpose,
+        name: p.name || "",
+        system_prompt: p.system_prompt,
+        user_prompt: p.user_prompt || "",
+        remark: p.remark || "",
+        activate: false,
+      });
+      setValidation(null);
+      return;
+    }
     setEditing(p.id);
     setForm({
       purpose: p.purpose,
@@ -276,11 +289,15 @@ export default function PromptManagementTab() {
   };
 
   const handleActivate = async (p: PromptTemplateResponse) => {
-    const ok = await confirm({ title: "切换版本", message: `「${PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ""}"？`, confirmText: "切换" });
+    const label = p.id === 0 ? "切换到内置兜底版本" : `切换到 v${p.version} "${p.name || ""}"`;
+    const msg = p.id === 0
+      ? `「${PURPOSE_LABELS[p.purpose]}」将停用所有自定义版本，恢复使用系统内置提示词。`
+      : `「${PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ""}"？`;
+    const ok = await confirm({ title: "切换版本", message: msg, confirmText: "切换" });
     if (!ok) return;
     try {
-      await activatePrompt(p.id);
-      toast.success(`已切换到 v${p.version}`);
+      await activatePrompt(p.id, p.id === 0 ? p.purpose : undefined);
+      toast.success(p.id === 0 ? `已切换「${PURPOSE_LABELS[p.purpose]}」到内置版本` : `已切换到 v${p.version}`);
       queryClient.invalidateQueries({ queryKey: ["prompts"] });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: unknown } } };
@@ -308,6 +325,7 @@ export default function PromptManagementTab() {
   };
 
   const editedPrompt = editing && editing !== "new" ? prompts.find((p) => p.id === editing) : null;
+  const isBuiltinEditing = editing === 0;
 
   const handleUpdateVarDesc = (varName: string, newDesc: string) => {
     if (!editedPrompt) return;
@@ -466,10 +484,10 @@ export default function PromptManagementTab() {
                       versions.map((v) => (
                         <div
                           key={v.id}
-                          onClick={() => !v.locked && openEdit(v)}
+                          onClick={() => openEdit(v)}
                           onDoubleClick={(e) => {
                             e.preventDefault();
-                            if (!v.is_active && !v.locked) handleActivate(v);
+                            if (!v.is_active) handleActivate(v);
                           }}
                           className={cn(
                             "flex items-center gap-2 px-4 py-2 border-t border-border transition-colors",
@@ -569,7 +587,7 @@ export default function PromptManagementTab() {
             <div className="grid grid-cols-2 gap-3 mb-3 max-[600px]:grid-cols-1">
               <div>
                 <label className="block text-sm font-semibold mb-1">版本名称</label>
-                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版" className={inputBase} />
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版" className={inputBase} readOnly={isBuiltinEditing} />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1">备注</label>
@@ -578,6 +596,7 @@ export default function PromptManagementTab() {
                   onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
                   placeholder="修改说明..."
                   className={inputBase}
+                  readOnly={isBuiltinEditing}
                 />
               </div>
             </div>
@@ -601,10 +620,10 @@ export default function PromptManagementTab() {
               <textarea
                 value={form.system_prompt}
                 onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
-                readOnly={showEditorPreview}
+                readOnly={showEditorPreview || isBuiltinEditing}
                 className={cn(
                   "flex-1 min-h-[200px] w-full p-2 rounded-lg text-sm font-mono resize-y",
-                  showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-border bg-card",
+                  showEditorPreview ? "border border-blue-300 bg-blue-50" : isBuiltinEditing ? "border border-amber-200 bg-amber-50" : "border border-border bg-card",
                   "text-foreground focus:outline-none focus:border-blue-500",
                 )}
               />
@@ -618,11 +637,11 @@ export default function PromptManagementTab() {
                 <textarea
                   value={form.user_prompt}
                   onChange={(e) => setForm((f) => ({ ...f, user_prompt: e.target.value }))}
-                  readOnly={showEditorPreview}
+                  readOnly={showEditorPreview || isBuiltinEditing}
                   rows={6}
                   className={cn(
                     "w-full p-2 rounded-lg text-sm font-mono resize-y",
-                    showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-border bg-card",
+                    showEditorPreview ? "border border-blue-300 bg-blue-50" : isBuiltinEditing ? "border border-amber-200 bg-amber-50" : "border border-border bg-card",
                     "text-foreground focus:outline-none focus:border-blue-500",
                   )}
                 />
@@ -671,10 +690,10 @@ export default function PromptManagementTab() {
               )}
               <Button
                 onClick={handleSave}
-                disabled={saving || showEditorPreview}
-                className={cn("ml-auto", saving || showEditorPreview ? "cursor-not-allowed opacity-60" : "cursor-pointer")}
+                disabled={saving || showEditorPreview || isBuiltinEditing}
+                className={cn("ml-auto", saving || showEditorPreview || isBuiltinEditing ? "cursor-not-allowed opacity-60" : "cursor-pointer")}
               >
-                {saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
+                {isBuiltinEditing ? "内置版本（只读）" : saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
               </Button>
               <Button
                 variant="outline"

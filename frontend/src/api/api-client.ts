@@ -279,7 +279,8 @@ export const updatePrompt = (id: number | string, data: Schemas["PromptTemplateU
 
 export const deletePrompt = (id: number | string) => api.delete<Schemas["OkResponse"]>(`/admin/prompts/${id}`);
 
-export const activatePrompt = (id: number | string) => api.post<Schemas["PromptTemplateResponse"]>(`/admin/prompts/${id}/activate`);
+export const activatePrompt = (id: number | string, purpose?: string) =>
+  api.post<Schemas["PromptTemplateResponse"]>(`/admin/prompts/${id}/activate${purpose ? `?purpose=${encodeURIComponent(purpose)}` : ""}`);
 
 export const validatePrompt = (data: Schemas["PromptValidateRequest"]) => api.post<Schemas["PromptValidateResponse"]>("/admin/prompts/validate", data);
 

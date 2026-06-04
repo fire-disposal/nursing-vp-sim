@@ -1186,7 +1186,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Activate Prompt */
+        /**
+         * Activate Prompt
+         * @description 激活指定版本。prompt_id=0 表示切换到内置兜底（停用该 purpose 所有 DB 版本）。
+         */
         post: operations["activate_prompt_api_admin_prompts__prompt_id__activate_post"];
         delete?: never;
         options?: never;
@@ -5480,7 +5483,9 @@ export interface operations {
     };
     activate_prompt_api_admin_prompts__prompt_id__activate_post: {
         parameters: {
-            query?: never;
+            query?: {
+                purpose?: string | null;
+            };
             header?: never;
             path: {
                 prompt_id: number;

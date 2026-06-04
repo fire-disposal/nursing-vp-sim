@@ -62,14 +62,14 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
         .catch(() => {});
       if (configData) {
         setSecretId(String(configData.secret_id || ""));
-        setLabel(configData.label || "");
+        setLabel((configData as any).label || "");
         setModel(configData.model || "");
         setPurpose(configData.purpose || "qa");
-        setPriority(configData.priority || 10);
+        setPriority((configData as any).priority || 10);
         setWeight((configData as any).weight || 10);
-        setPriceIn(configData.price_input_per_1m ?? 1);
-        setPriceOut(configData.price_output_per_1m ?? 2);
-        setMonthlyLimit(configData.monthly_cost_limit != null ? String(configData.monthly_cost_limit) : "");
+        setPriceIn((configData as any).price_input_per_1m ?? 1);
+        setPriceOut((configData as any).price_output_per_1m ?? 2);
+        setMonthlyLimit((configData as any).monthly_cost_limit != null ? String((configData as any).monthly_cost_limit) : "");
         setShowAdvanced(true);
       } else if (prefilled) {
         setSecretId(String(prefilled.secret_id || autoKey || ""));
