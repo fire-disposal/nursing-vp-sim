@@ -190,7 +190,7 @@ class TrainingRecordDetail(BaseModel):
     messages: list["MessageItem"]
     score: "ScoreItem | None" = None
     notes: list["NoteItem"] = []
-    required_inquiries: list[dict[str, Any]] | None = None
+    required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
 
 

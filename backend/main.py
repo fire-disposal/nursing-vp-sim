@@ -195,44 +195,54 @@ async def lifespan(app: FastAPI):
 
     # 2. 数据库
     log.info("── 2/5 数据库 ──")
-    init_db()
-    log.info("数据库迁移完成")
+    try:
+        init_db()
+        log.info("数据库迁移完成")
+    except Exception:
+        log.exception("数据库迁移失败")
+        raise
 
     # 3. 种子数据
     log.info("── 3/5 种子数据 ──")
-    await asyncio.to_thread(_seed_data)
-    log.info("种子数据就绪")
-    if llm_key_valid:
-        await asyncio.to_thread(_seed_llm)
-        log.info("LLM 配置就绪")
+    try:
+        await asyncio.to_thread(_seed_data)
+        log.info("种子数据就绪")
+        if llm_key_valid:
+            await asyncio.to_thread(_seed_llm)
+            log.info("LLM 配置就绪")
+    except Exception:
+        log.exception("种子数据初始化失败（非致命，继续启动）")
 
     # 4. 基础设施 —— 创建服务并挂载到 app.state
     log.info("── 4/5 基础设施 ──")
+    try:
+        import httpx
 
-    import httpx
+        from core.config import LLM_CONNECTION_KEEPALIVE, LLM_CONNECTION_POOL_SIZE
+        from services.llm_router import ProfileRouter
+        from services.prompt_manager import PromptManager
 
-    from core.config import LLM_CONNECTION_KEEPALIVE, LLM_CONNECTION_POOL_SIZE
-    from services.llm_router import ProfileRouter
-    from services.prompt_manager import PromptManager
+        app.state.rate_limiter = RateLimiter()
 
-    app.state.rate_limiter = RateLimiter()
+        app.state.httpx_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(60, connect=15.0),
+            limits=httpx.Limits(
+                max_connections=LLM_CONNECTION_POOL_SIZE,
+                max_keepalive_connections=LLM_CONNECTION_KEEPALIVE,
+                keepalive_expiry=30,
+            ),
+        )
 
-    app.state.httpx_client = httpx.AsyncClient(
-        timeout=httpx.Timeout(60, connect=15.0),
-        limits=httpx.Limits(
-            max_connections=LLM_CONNECTION_POOL_SIZE,
-            max_keepalive_connections=LLM_CONNECTION_KEEPALIVE,
-            keepalive_expiry=30,
-        ),
-    )
+        app.state.llm_router = ProfileRouter()
+        await app.state.llm_router.load_from_db()
+        log.info("密钥路由就绪")
 
-    app.state.llm_router = ProfileRouter()
-    await app.state.llm_router.load_from_db()
-    log.info("密钥路由就绪")
-
-    app.state.prompt_manager = PromptManager()
-    await app.state.prompt_manager.load_from_db()
-    log.info("提示词管理器就绪")
+        app.state.prompt_manager = PromptManager()
+        await app.state.prompt_manager.load_from_db()
+        log.info("提示词管理器就绪")
+    except Exception:
+        log.exception("基础设施初始化失败")
+        raise
 
     # 5. 后台服务
     log.info("── 5/5 后台服务 ──")

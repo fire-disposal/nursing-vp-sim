@@ -184,7 +184,7 @@ async def call_llm(
             latency_ms = int((time.perf_counter() - t0) * 1000)
 
             if resp.status_code == 429:
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
+                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {resp.text[:200]}")
                 last_error = "HTTP 429"
                 if attempt < max_retries + 1:
                     await asyncio.sleep(_backoff(attempt))
@@ -192,7 +192,7 @@ async def call_llm(
 
             if resp.status_code in _RETRYABLE_STATUSES:
                 last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
                 if attempt < max_retries:
                     await asyncio.sleep(_backoff(attempt))
                 continue
@@ -203,7 +203,7 @@ async def call_llm(
                 content = data["choices"][0]["message"]["content"]
             except (json.JSONDecodeError, KeyError, IndexError) as e:
                 last_error = f"Invalid response: {e}"
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
                 if attempt < max_retries:
                     await asyncio.sleep(_backoff(attempt))
                 continue
@@ -211,7 +211,7 @@ async def call_llm(
             usage = data.get("usage", {})
             total_tokens = usage.get("total_tokens", 0) or len(content) // 2
 
-            router.report_result(config, success=True, tokens=total_tokens, latency_ms=latency_ms, error=None)
+            await router.report_result(config, success=True, tokens=total_tokens, latency_ms=latency_ms, error=None)
 
             pi, po = ctx.pricing(config)
             ctx.log_success(log_worker, latency_ms, content, usage, price_input=pi, price_output=po)
@@ -220,7 +220,7 @@ async def call_llm(
         except _RETRYABLE_EXCEPTIONS as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
             if ctx.config_id:
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
+                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
                 await asyncio.sleep(_backoff(attempt))
@@ -229,7 +229,7 @@ async def call_llm(
                 raise
             last_error = str(e)[:200]
             if ctx.config_id:
-                router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
             if attempt < max_retries:
                 await asyncio.sleep(1)
             continue
@@ -314,11 +314,11 @@ async def call_llm_stream(
                     body = await resp.aread()
                     status_text = body.decode(errors="replace")[:200]
                     if resp.status_code == 429:
-                        router.report_result(config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {status_text}")
+                        await router.report_result(config, success=False, tokens=0, latency_ms=0, error=f"HTTP 429: {status_text}")
                         last_error = "HTTP 429"
                     elif resp.status_code in _RETRYABLE_STATUSES:
                         last_error = f"HTTP {resp.status_code}: {status_text}"
-                        router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+                        await router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
                     else:
                         last_error = f"HTTP {resp.status_code}: {status_text}"
                     if attempt < max_retries + 1:
@@ -341,20 +341,20 @@ async def call_llm_stream(
 
             latency_ms = int((time.perf_counter() - t0) * 1000)
             total_tokens = len(full_reply) // 2
-            router.report_result(config, success=True, tokens=total_tokens, latency_ms=latency_ms, error=None)
+            await router.report_result(config, success=True, tokens=total_tokens, latency_ms=latency_ms, error=None)
             pi, po = ctx.pricing(config)
             ctx.log_success(log_worker, latency_ms, full_reply, price_input=pi, price_output=po)
             return
 
         except _RETRYABLE_EXCEPTIONS as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
+            await router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
                 await asyncio.sleep(_backoff(attempt))
         except Exception as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
+            await router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
                 await asyncio.sleep(1)
