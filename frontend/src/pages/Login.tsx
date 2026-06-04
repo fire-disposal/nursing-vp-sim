@@ -38,7 +38,7 @@ export default function Login() {
       <div className="absolute size-96 rounded-full bg-teal-400/6 blur-2xl animate-float-delayed" style={{ right: "-5%", bottom: "5%" }} />
       <div className="absolute size-64 rounded-full bg-indigo-300/6 blur-2xl animate-breathe" style={{ left: "40%", top: "40%" }} />
 
-      <div className="relative z-10 flex w-full max-w-6xl items-center gap-8 px-6 py-10">
+      <div className="relative z-10 flex w-full max-w-5xl items-center gap-8 px-6 py-10">
         <LoginIllustration />
 
         <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start">
