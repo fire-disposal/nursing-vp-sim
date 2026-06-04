@@ -37,9 +37,6 @@ interface LLMStats {
   daily: { date: string; count: number; fail_count: number; total_cost?: number }[];
 }
 
-const inputClass =
-  "w-full h-9 border border-border rounded-md bg-card px-2.5 text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10";
-
 export default function MonitorTab() {
   const [offset, setOffset] = useState(0);
   const LIMIT = 20;

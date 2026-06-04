@@ -29,11 +29,9 @@ import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import EmptyState from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 
-type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];
 
 interface ScoreItemData {
@@ -310,7 +308,7 @@ export default function RecordDetail() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
-  const { confirm } = useConfirm();
+  const _confirm = useConfirm();
 
   const { data: record, isError: recordError } = useQuery({
     queryKey: ["recordDetail", id],
@@ -350,7 +348,7 @@ export default function RecordDetail() {
         }
         if (data.scoring_status === "failed") {
           queryClient.setQueryData(["recordDetail", id], data);
-          toast.error("评分再次失败: " + (data.scoring_error || "未知错误"));
+          toast.error(`评分再次失败: ${data.scoring_error || "未知错误"}`);
           break;
         }
       }

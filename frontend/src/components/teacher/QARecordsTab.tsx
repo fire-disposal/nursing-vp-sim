@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
-import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -10,13 +9,9 @@ import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
 
-type Schemas = components["schemas"];
-type QASessionAdminItem = Schemas["QASessionAdminItem"];
-type QAMessageItem = Schemas["QAMessageItem"];
-
 function truncate(text: string, maxLen: number): string {
   if (!text) return "";
-  return text.length > maxLen ? text.slice(0, maxLen) + "..." : text;
+  return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
 }
 
 const thClass = "sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border";
@@ -29,7 +24,7 @@ export default function QARecordsTab() {
   const [showPreview, setShowPreview] = useState(false);
   const LIMIT = 20;
 
-  const { error } = useToast();
+  const _toast = useToast();
 
   const { data: recordsData, isLoading } = useQuery({
     queryKey: ["qaHistory", offset],

@@ -13,7 +13,6 @@ import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
-type FeedbackItem = Schemas["FeedbackItem"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];
 
 const TAG_OPTIONS = [
@@ -154,12 +153,6 @@ function FeedbackChart() {
       </ResponsiveContainer>
     </div>
   );
-}
-
-interface PieDataItem {
-  name: string;
-  value: number;
-  idx: number;
 }
 
 interface RatingPieChartProps {

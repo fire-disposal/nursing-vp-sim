@@ -13,7 +13,6 @@ import EmptyState from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { getNurseAvatar } from "@/utils/avatar";
 
-type QASessionItem = components["schemas"]["QASessionItem"];
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 
 const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
@@ -106,7 +105,7 @@ export default function QA() {
             {
               id: -1,
               role: "assistant",
-              content: "抱歉，AI导师暂时无法回复：" + (axiosErr.response?.data?.detail || axiosErr.message || "网络错误"),
+              content: `抱歉，AI导师暂时无法回复：${axiosErr.response?.data?.detail || axiosErr.message || "网络错误"}`,
             } as QAMessageItem,
           ]);
         } finally {
@@ -133,7 +132,7 @@ export default function QA() {
           {
             id: -1,
             role: "assistant",
-            content: "抱歉，AI导师暂时无法回复：" + (axiosErr.response?.data?.detail || axiosErr.message || "未知错误"),
+            content: `抱歉，AI导师暂时无法回复：${axiosErr.response?.data?.detail || axiosErr.message || "未知错误"}`,
           } as QAMessageItem,
         ]);
       } finally {

@@ -8,7 +8,7 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
   loading: false,
 
   fetchGrades: async (): Promise<void> => {
-    const { grades, loading } = get();
+    const { grades: _grades, loading } = get();
     if (loading) return;
     set({ loading: true });
     try {

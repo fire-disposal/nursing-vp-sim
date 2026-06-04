@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
-type MessageItem = components["schemas"]["MessageItem"];
 
 interface ChatMessage {
   id: number;
@@ -290,7 +289,7 @@ export default function ChatTraining() {
   useEffect(() => {
     if (initialGreetingSpoken.current || messages.length === 0) return;
     const firstPatient = messages.find((m) => m.role === "patient");
-    if (firstPatient && firstPatient.content) {
+    if (firstPatient?.content) {
       initialGreetingSpoken.current = true;
       if (voice.autoPlay) {
         voice.speakRaw(firstPatient.content);

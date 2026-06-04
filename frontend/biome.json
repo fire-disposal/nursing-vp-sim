@@ -4,6 +4,13 @@
     "ignoreUnknown": true,
     "includes": ["src/**/*.{js,jsx,ts,tsx}", "*.{js,ts}"]
   },
+  "overrides": [
+    {
+      "includes": ["src/api/api-types.gen.ts"],
+      "linter": { "enabled": false },
+      "formatter": { "enabled": false }
+    }
+  ],
   "linter": {
     "enabled": true,
     "rules": {
@@ -18,8 +25,7 @@
         "noArrayIndexKey": "off"
       },
       "style": {
-        "noNonNullAssertion": "off",
-        "useTemplate": "off"
+        "noNonNullAssertion": "off"
       },
       "a11y": {
         "useButtonType": "off",

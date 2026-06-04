@@ -10,7 +10,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
 interface ConfirmOptions {

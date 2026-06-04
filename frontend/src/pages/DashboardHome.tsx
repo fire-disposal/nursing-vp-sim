@@ -36,7 +36,6 @@ import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
-type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 type DurationStats = components["schemas"]["DurationStats"];
 type AdminStats = components["schemas"]["AdminStats"];
 

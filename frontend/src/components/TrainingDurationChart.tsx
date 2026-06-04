@@ -4,9 +4,6 @@ import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip
 import EmptyState from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { getTrends } from "../api/api-client";
-import type { components } from "../api/api-types.gen";
-
-type TrendStats = components["schemas"]["TrendStats"];
 
 interface DayItem {
   date?: string;
