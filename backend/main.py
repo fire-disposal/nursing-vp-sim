@@ -375,7 +375,6 @@ def _seed_data():
         return
 
     import json
-    import os
 
     from auth import hash_password
     from database import SessionLocal
@@ -443,23 +442,24 @@ def _seed_data():
         # ── 管理员账号 (由环境变量提供凭证) ─────────────────
         admin_username = _os.environ.get("SEED_ADMIN_USERNAME", "")
         admin_password = _os.environ.get("SEED_ADMIN_PASSWORD", "")
-        if admin_username and admin_password:
-            admin_exists = db.query(User).filter(User.username == admin_username).first()
-            if not admin_exists:
-                db.add(
-                    User(
-                        username=admin_username,
-                        password_hash=hash_password(admin_password),
-                        role="teacher",
-                        display_name="管理员",
-                    )
+        if not admin_username or not admin_password:
+            admin_username = "admin"
+            admin_password = "admin123"
+            log.warning("⚠ SEED_ADMIN_USERNAME/SEED_ADMIN_PASSWORD 未设置，使用默认凭证 admin/admin123")
+        admin_exists = db.query(User).filter(User.username == admin_username).first()
+        if not admin_exists:
+            db.add(
+                User(
+                    username=admin_username,
+                    password_hash=hash_password(admin_password),
+                    role="teacher",
+                    display_name="管理员",
                 )
-                db.commit()
-                log.info("✓ 管理员账号已创建 (%s)", admin_username)
-            else:
-                log.info("→ 管理员账号已存在, 跳过")
+            )
+            db.commit()
+            log.info("✓ 管理员账号已创建 (%s)", admin_username)
         else:
-            log.warning("⚠ SEED_ADMIN_USERNAME/SEED_ADMIN_PASSWORD 未设置，跳过管理员创建")
+            log.info("→ 管理员账号已存在, 跳过")
 
         # ── 测试学生 + 病例 (仅首次) ─────────────────────
         student_count = db.query(User).filter(User.username != "admin").count()
