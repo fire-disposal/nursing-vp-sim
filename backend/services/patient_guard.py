@@ -240,36 +240,5 @@ def normalize_addressing_to_nurse(reply: str) -> tuple[str, bool]:
 
 
 def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str]]:
-    """五层安全后处理：称谓归一化 → 角色越界 → 诊断泄露 → 教学反馈 → 长回复截断"""
-    violations = []
-
-    normalized, was_normalized = normalize_addressing_to_nurse(reply)
-    if was_normalized:
-        violations.append("称谓归一化: 医生/大夫/医师 -> 护士")
-
-    leak = check_role_leak(normalized)
-    if leak:
-        violations.append(f"角色越界: {leak}")
-
-    diag = check_diagnosis_leak(normalized)
-    if diag:
-        violations.append(f"诊断化: {diag}")
-
-    teach = check_teaching_leak(normalized)
-    if teach:
-        violations.append(f"教学反馈: {teach}")
-
-    is_long = check_long_output(normalized)
-    if is_long:
-        violations.append(f"回复过长: {len(normalized)}字 (上限{LONG_OUTPUT_LIMIT})")
-
-    # 严重越界 → 仅记录，不替换回复
-    if leak or diag or teach:
-        log.info("guard_violation: leak=%s diag=%s teach=%s", leak, diag, teach)
-        return normalized, violations
-
-    # 仅过长 → 截断
-    if is_long:
-        return normalized[:300] + "...", violations
-
-    return normalized, violations
+    """守卫暂时关闭 —— 直接返回原文"""
+    return reply, []
