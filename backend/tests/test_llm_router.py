@@ -7,13 +7,12 @@ from services.llm_router import ProfileRouter, _SyntheticConfig
 
 
 def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx", status="active"):
-    s = ApiSecret(
+    return ApiSecret(
         id=id, label=label, encrypted_key=key, key_suffix=suffix, status=status,
         consecutive_failures=0, price_input_per_1m=0, price_output_per_1m=0,
         call_count_today=0, total_tokens_today=0, total_cost_today=0,
         monthly_cost_used=0,
     )
-    return s
 
 
 def _make_config(id, secret, purpose="qa", model="test-model", status="active"):
