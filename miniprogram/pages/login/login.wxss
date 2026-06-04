@@ -23,13 +23,13 @@
 }
 
 .lottie-wrap {
-  width: 400rpx; height: 400rpx; margin-bottom: 16rpx;
+  width: 500rpx; height: 500rpx; margin-bottom: 16rpx;
 }
 
 .brand { text-align: center; margin-bottom: 48rpx; }
 .brand-compact { text-align: center; margin-bottom: 40rpx; }
-.brand-title { display: block; font-size: 40rpx; font-weight: 700; color: #111827; margin-bottom: 8rpx; }
-.brand-desc { display: block; font-size: 26rpx; color: #6b7280; }
+.brand-title { display: block; font-size: 48rpx; font-weight: 700; color: #111827; margin-bottom: 8rpx; }
+.brand-desc { display: block; font-size: 30rpx; color: #6b7280; }
 
 .wechat-btn {
   width: 100%; max-width: 600rpx; height: 96rpx;
