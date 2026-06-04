@@ -125,24 +125,26 @@ async def lifespan(app: FastAPI):
     except Exception:
         raise
 
-    # ── 步骤 3: 种子数据 ──
-    try:
-        await asyncio.wait_for(asyncio.to_thread(_seed_data), timeout=30)
-        log.info("✓ 种子数据就绪")
-    except TimeoutError:
-        log.exception("✗ 种子数据初始化超时 (30s)")
-    except Exception:
-        log.exception("✗ 种子数据初始化失败")
+    # ── 步骤 3: 种子数据（后台运行，不阻塞启动） ──
+    async def _seed_async():
+        try:
+            await asyncio.to_thread(_seed_data)
+            log.info("✓ 种子数据就绪")
+        except Exception:
+            log.exception("✗ 种子数据初始化失败")
+
+    asyncio.create_task(_seed_async())
 
     # ── 步骤 4: LLM 配置 + router + prompt ──
     if llm_key_valid:
-        try:
-            await asyncio.wait_for(asyncio.to_thread(_seed_llm_configs), timeout=10)
-            log.info("✓ LLM 配置就绪")
-        except TimeoutError:
-            log.exception("⚠ LLM 配置种子超时 (10s)")
-        except Exception:
-            log.exception("⚠ LLM 配置种子失败")
+        async def _seed_llm_async():
+            try:
+                await asyncio.to_thread(_seed_llm_configs)
+                log.info("✓ LLM 配置就绪")
+            except Exception:
+                log.exception("⚠ LLM 配置种子失败")
+
+        asyncio.create_task(_seed_llm_async())
     try:
         from services.llm_router import refresh_router
 
