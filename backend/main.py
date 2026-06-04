@@ -447,7 +447,7 @@ def _seed_data():
         if not admin_username or not admin_password:
             admin_username = "admin"
             admin_password = "admin123"
-            log.warning("⚠ SEED_ADMIN_USERNAME/SEED_ADMIN_PASSWORD 未设置，使用默认凭证 admin/admin123")
+            log.warning("⚠ SEED_ADMIN_* 未设置，使用默认凭证 admin/admin123。生产环境请务必在环境变量中配置。")
         admin_exists = db.query(User).filter(User.username == admin_username).first()
         if not admin_exists:
             db.add(
