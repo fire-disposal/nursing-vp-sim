@@ -29,7 +29,7 @@ Component({
   methods: {
     loadDataAndInit() {
       try {
-        const data = require("../../assets/lottie/animation.json")
+        const data = require("../../assets/lottie/animation")
         this.setData({ animationData: data as Record<string, unknown> })
         setTimeout(() => {
           this.initAnimation()
