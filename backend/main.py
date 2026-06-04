@@ -2,11 +2,26 @@ import asyncio
 import logging
 import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)-8s %(name)s %(message)s",
-    stream=sys.stderr,
-)
+_RESET = "\033[0m"
+_COLORS = {
+    logging.DEBUG: "\033[36m",     # cyan
+    logging.INFO: "\033[32m",      # green
+    logging.WARNING: "\033[33m",   # yellow
+    logging.ERROR: "\033[31m",     # red
+    logging.CRITICAL: "\033[35m",  # magenta
+}
+_NAME_COLOR = "\033[34m"           # blue for logger name
+
+class _ColorFormatter(logging.Formatter):
+    def format(self, record):
+        lvl_color = _COLORS.get(record.levelno, "")
+        record.levelname = f"{lvl_color}{record.levelname:<8}{_RESET}"
+        record.name = f"{_NAME_COLOR}{record.name}{_RESET}"
+        return super().format(record)
+
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(_ColorFormatter(fmt="%(levelname)s %(name)s %(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[_handler], force=True)
 import os
 import time
 import uuid
@@ -125,44 +140,41 @@ async def lifespan(app: FastAPI):
     except Exception:
         raise
 
-    # ── 步骤 3: 种子数据（后台运行，不阻塞启动） ──
-    async def _seed_async():
-        try:
-            await asyncio.to_thread(_seed_data)
-            log.info("✓ 种子数据就绪")
-        except Exception:
-            log.exception("✗ 种子数据初始化失败")
+    # ── 步骤 3: 种子数据 + LLM 配置 ──
+    try:
+        await asyncio.to_thread(_seed_data)
+        log.info("✓ 种子数据就绪")
+    except Exception:
+        log.exception("✗ 种子数据初始化失败")
+        import sys; sys.stderr.flush()
+        raise
 
-    asyncio.create_task(_seed_async())
-
-    # ── 步骤 4: LLM 配置 + router + prompt ──
     if llm_key_valid:
-        async def _seed_llm_async():
-            try:
-                await asyncio.to_thread(_seed_llm_configs)
-                log.info("✓ LLM 配置就绪")
-            except Exception:
-                log.exception("⚠ LLM 配置种子失败")
+        try:
+            await asyncio.to_thread(_seed_llm_configs)
+            log.info("✓ LLM 配置就绪")
+        except Exception:
+            log.exception("⚠ LLM 配置种子失败，使用环境变量兜底")
+            import sys; sys.stderr.flush()
 
-        asyncio.create_task(_seed_llm_async())
+    # ── 步骤 4: 基础设施加载 ──
     try:
         from services.llm_router import refresh_router
-
         await asyncio.wait_for(refresh_router(), timeout=10)
         log.info("✓ 密钥路由就绪")
-    except TimeoutError:
-        log.exception("✗ 密钥路由加载超时 (10s)")
     except Exception:
         log.exception("✗ 密钥路由加载失败")
+        import sys; sys.stderr.flush()
+        raise
+
     try:
         from services.prompt_manager import get_prompt_manager
-
         await asyncio.wait_for(get_prompt_manager(), timeout=10)
         log.info("✓ 提示词管理器就绪")
-    except TimeoutError:
-        log.exception("✗ 提示词管理器加载超时 (10s)")
     except Exception:
         log.exception("✗ 提示词管理器加载失败")
+        import sys; sys.stderr.flush()
+        raise
 
     # ── 步骤 5: 后台服务 ──
     from services.llm_logging import start_worker, stop_worker
