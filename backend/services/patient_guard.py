@@ -163,9 +163,7 @@ def get_allowed_hidden_info(case_data: dict, student_message: str,
         result = []
         for item in legacy_hidden:
             topic = str(item)[:30]
-            if topic in disclosed_topics:
-                result.append({"topic": topic, "content": item, "triggered": True})
-            elif _keyword_match(item, student_message):
+            if topic in disclosed_topics or _keyword_match(item, student_message):
                 result.append({"topic": topic, "content": item, "triggered": True})
             else:
                 result.append({"topic": topic, "content": item, "triggered": False})
