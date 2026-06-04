@@ -1,10 +1,13 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
 import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
@@ -23,7 +26,7 @@ const TAG_OPTIONS = [
   { label: "其他", value: "other" },
 ];
 
-const TAG_BADGE_VARIANT: Record<string, string> = {
+const TAG_VARIANT: Record<string, "info" | "danger" | "success" | "warning" | "neutral"> = {
   feature: "info",
   bug: "danger",
   experience: "success",
@@ -51,15 +54,6 @@ const EMOTION_MAP: Record<number, string> = {
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
 const PIE_LABELS = ["\u{1F61E} 很差", "\u{1F610} 较差", "\u{1F642} 一般", "\u{1F60A} 满意", "\u{1F60D} 很满意"];
-
-interface FeedbackChartData {
-  name: string;
-  rating_1: number;
-  rating_2: number;
-  rating_3: number;
-  rating_4: number;
-  rating_5: number;
-}
 
 function FeedbackChart() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -106,7 +100,7 @@ function FeedbackChart() {
     initialData: [],
   });
 
-  if (isLoading) return <div className="h-[200px] flex items-center justify-center text-gray-400">加载图表...</div>;
+  if (isLoading) return <div className="h-[200px] flex items-center justify-center text-muted-foreground/70">加载图表...</div>;
   if (data.length === 0) return null;
 
   const colorMap: Record<string, string> = { rating_1: "#ef4444", rating_2: "#f97316", rating_3: "#eab308", rating_4: "#22c55e", rating_5: "#3b82f6" };
@@ -121,14 +115,14 @@ function FeedbackChart() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-normal m-0 flex items-center gap-1.5">
+        <h3 className="text-sm font-normal flex items-center gap-1.5">
           <BarChart3 size={14} />
           {weekLabel}反馈分布
         </h3>
         <div className="flex gap-0.5">
           <button
             onClick={() => setWeekOffset((v) => v - 1)}
-            className="flex items-center px-1.5 py-0.5 border border-gray-200 rounded-sm bg-white cursor-pointer"
+            className="flex items-center px-1.5 py-0.5 border border-border rounded-sm bg-card cursor-pointer"
           >
             <ChevronLeft size={12} />
           </button>
@@ -136,7 +130,7 @@ function FeedbackChart() {
             onClick={() => setWeekOffset((v) => v + 1)}
             disabled={weekOffset >= 0}
             className={cn(
-              "flex items-center px-1.5 py-0.5 border border-gray-200 rounded-sm bg-white",
+              "flex items-center px-1.5 py-0.5 border border-border rounded-sm bg-card",
               weekOffset >= 0 ? "cursor-default opacity-40" : "cursor-pointer",
             )}
           >
@@ -208,7 +202,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 
   return (
     <div className="flex-[1_1_300px] min-w-[280px]">
-      <h3 className="text-sm font-normal m-0 mb-2 flex items-center gap-1.5">
+      <h3 className="text-sm font-normal mb-2 flex items-center gap-1.5">
         <MessageSquare size={14} />
         评价分布
       </h3>
@@ -272,7 +266,7 @@ export default function FeedbackTab() {
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6">
+    <div className="rounded-xl border border-border bg-card shadow-sm p-6">
       <div className="flex gap-6 mb-4 flex-wrap">
         <div className="flex-[1_1_300px] min-w-0">
           <FeedbackChart />
@@ -280,30 +274,31 @@ export default function FeedbackTab() {
         <RatingPieChart tag={tag} dateFrom={dateFrom} dateTo={dateTo} />
       </div>
 
-      <div className="flex gap-2 flex-wrap items-center justify-between rounded-[10px] border border-gray-200 bg-gray-50 p-3.5 mb-4">
+      <div className="flex gap-2 flex-wrap items-center justify-between rounded-xl border border-border bg-muted shadow-sm p-3.5 mb-4">
         <div className="flex gap-2 items-end flex-wrap">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">开始日期</label>
+            <label className="block text-xs text-muted-foreground mb-1">开始日期</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
-              className="py-1.5 px-2.5 rounded-lg border border-gray-200 text-sm"
+              className="py-1.5 px-2.5 rounded-lg border border-border text-sm"
             />
           </div>
-          <span className="text-gray-400 text-sm self-end pb-[7px]">—</span>
+          <span className="text-muted-foreground/70 text-sm self-end pb-1.5">—</span>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+            <label className="block text-xs text-muted-foreground mb-1">结束日期</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => handleFilterChange("dateTo", e.target.value)}
-              className="py-1.5 px-2.5 rounded-lg border border-gray-200 text-sm"
+              className="py-1.5 px-2.5 rounded-lg border border-border text-sm"
             />
           </div>
           {(dateFrom || dateTo) && (
-            <button
-              className="py-1.5 px-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer text-sm text-gray-500 self-end"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setDateFrom("");
                 setDateTo("");
@@ -311,7 +306,7 @@ export default function FeedbackTab() {
               }}
             >
               清除
-            </button>
+            </Button>
           )}
         </div>
 
@@ -321,9 +316,7 @@ export default function FeedbackTab() {
               key={opt.value}
               className={cn(
                 "px-4 py-1.5 rounded-full border text-sm cursor-pointer transition-colors",
-                tag === opt.value
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600",
+                tag === opt.value ? "bg-primary text-white border-blue-600" : "border-border bg-card text-gray-600 hover:border-blue-400 hover:text-primary",
               )}
               onClick={() => setTag(opt.value)}
             >
@@ -333,44 +326,25 @@ export default function FeedbackTab() {
         </div>
       </div>
 
-      <div className="mb-4 text-sm text-gray-500">共 {total} 条反馈</div>
+      <div className="mb-4 text-sm text-muted-foreground">共 {total} 条反馈</div>
 
       {isLoading ? (
         <LoadingState />
       ) : feedbacks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-          <div className="text-gray-400 mb-2.5">
-            <MessageSquare size={42} />
-          </div>
-          <div>暂无反馈</div>
-        </div>
+        <EmptyState icon={MessageSquare} title="暂无反馈" />
       ) : (
         <div className="flex flex-col gap-2">
           {feedbacks.map((fb) => (
-            <div key={fb.id} className="py-2.5 px-3.5 border border-gray-200 rounded-lg bg-white">
+            <div key={fb.id} className="py-2.5 px-3.5 border border-border rounded-lg bg-card">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base">{EMOTION_MAP[fb.rating] || ""}</span>
                   <span className="font-semibold text-sm">{fb.user_name}</span>
                 </div>
-                <span
-                  className={`inline-flex h-5 items-center gap-1 rounded-4xl border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
-                    TAG_BADGE_VARIANT[fb.tag] === "info"
-                      ? "bg-blue-100 text-blue-700"
-                      : TAG_BADGE_VARIANT[fb.tag] === "danger"
-                        ? "bg-red-100 text-red-700"
-                        : TAG_BADGE_VARIANT[fb.tag] === "success"
-                          ? "bg-green-100 text-green-700"
-                          : TAG_BADGE_VARIANT[fb.tag] === "warning"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {TAG_LABEL[fb.tag] || fb.tag}
-                </span>
+                <Badge variant={TAG_VARIANT[fb.tag] || "neutral"}>{TAG_LABEL[fb.tag] || fb.tag}</Badge>
               </div>
-              {fb.content && <div className="text-sm text-gray-900 mb-1 leading-relaxed">{fb.content}</div>}
-              <div className="text-xs text-gray-400">{new Date(fb.created_at).toLocaleString("zh-CN")}</div>
+              {fb.content && <div className="text-sm text-foreground mb-1 leading-relaxed">{fb.content}</div>}
+              <div className="text-xs text-muted-foreground/70">{new Date(fb.created_at).toLocaleString("zh-CN")}</div>
             </div>
           ))}
         </div>

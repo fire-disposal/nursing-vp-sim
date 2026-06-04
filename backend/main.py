@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 
@@ -6,8 +7,6 @@ logging.basicConfig(
     format="%(levelname)-8s %(name)s %(message)s",
     stream=sys.stderr,
 )
-
-import asyncio
 import os
 import time
 import uuid
@@ -99,41 +98,98 @@ async def lifespan(app: FastAPI):
         "                        |___/    虚拟患者训练系统"
     )
     log_config(log)
+    # ── 步骤 1: LLM 密钥验证 ──
+    try:
+        llm_key_valid = await asyncio.wait_for(_verify_llm_key(), timeout=15)
+        if llm_key_valid:
+            log.info("✓ LLM 密钥验证通过")
+        else:
+            log.warning("⚠ LLM 密钥验证失败，将使用回退策略")
+    except TimeoutError:
+        log.exception("✗ LLM 密钥验证超时 (15s)")
+        llm_key_valid = False
+    except Exception:
+        log.exception("✗ LLM 密钥验证异常")
+        llm_key_valid = False
 
-    llm_key_valid = await _verify_llm_key()
-
+    # ── 步骤 2: 数据库连接 + 迁移 ──
     from database import _log_connection
 
-    _log_connection()
-    init_db()
     try:
-        _seed_data()
-    except Exception as e:
-        log.warning("种子数据初始化失败(非致命): %s", e)
+        await asyncio.wait_for(asyncio.to_thread(_log_connection), timeout=15)
+        log.info("✓ 数据库连接成功")
+    except TimeoutError:
+        log.exception("✗ 数据库连接超时 (15s)，请检查 PostgreSQL 服务状态")
+        raise RuntimeError("数据库连接超时") from None
+    except Exception:
+        raise
+
+    try:
+        await asyncio.wait_for(asyncio.to_thread(init_db), timeout=60)
+        log.info("✓ 数据库迁移完成")
+    except TimeoutError:
+        log.exception("✗ 数据库迁移超时 (60s)")
+        raise RuntimeError("数据库迁移超时") from None
+    except Exception:
+        raise
+
+    # ── 步骤 3: 种子数据 ──
+    try:
+        await asyncio.wait_for(asyncio.to_thread(_seed_data), timeout=30)
+        log.info("✓ 种子数据就绪")
+    except TimeoutError:
+        log.exception("✗ 种子数据初始化超时 (30s)")
+    except Exception:
+        log.exception("✗ 种子数据初始化失败")
+
+    # ── 步骤 4: LLM 配置 + router + prompt ──
     if llm_key_valid:
-        _seed_llm_configs()
+        try:
+            await asyncio.wait_for(asyncio.to_thread(_seed_llm_configs), timeout=10)
+            log.info("✓ LLM 配置就绪")
+        except TimeoutError:
+            log.exception("⚠ LLM 配置种子超时 (10s)")
+        except Exception:
+            log.exception("⚠ LLM 配置种子失败")
     try:
         from services.llm_router import refresh_router
 
-        await refresh_router()
-    except Exception as e:
-        log.exception("ConfigRouter 初始化失败: %s", e)
-    # 初始化 PromptManager 并 seed 默认模板
+        await asyncio.wait_for(refresh_router(), timeout=10)
+        log.info("✓ 密钥路由就绪")
+    except TimeoutError:
+        log.exception("✗ 密钥路由加载超时 (10s)")
+    except Exception:
+        log.exception("✗ 密钥路由加载失败")
     try:
         from services.prompt_manager import get_prompt_manager
 
-        await get_prompt_manager()
-        log.info("PromptManager 初始化完成")
-    except Exception as e:
-        log.exception("PromptManager 初始化失败: %s", e)
-    # 启动 LLM 日志消费者
+        await asyncio.wait_for(get_prompt_manager(), timeout=10)
+        log.info("✓ 提示词管理器就绪")
+    except TimeoutError:
+        log.exception("✗ 提示词管理器加载超时 (10s)")
+    except Exception:
+        log.exception("✗ 提示词管理器加载失败")
+
+    # ── 步骤 5: 后台服务 ──
     from services.llm_logging import start_worker, stop_worker
 
     await start_worker()
+    log.info("✓ LLM 日志写入器已启动")
     # 限流器后台清理（每 10 分钟）
     from rate_limiter import _limiter as rate_limiter
 
     shutdown_flag = False
+
+    _loop = asyncio.get_running_loop()
+
+    def _handle_task_exception(loop, ctx):
+        msg = ctx.get("message", "")
+        exc = ctx.get("exception")
+        task = ctx.get("task")
+        task_name = getattr(task, "get_name", lambda: "?")() if task else "?"
+        log.error("asyncio task 异常 %s: %s | %s", task_name, msg, exc, extra={"task_name": task_name})
+
+    _loop.set_exception_handler(_handle_task_exception)
 
     async def _cleanup_loop():
         while not shutdown_flag:

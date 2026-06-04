@@ -1,9 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Activity, BarChart3, Download, Server, TrendingUp, Zap } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import Badge from "@/components/ui/Badge";
 import Pagination from "@/components/ui/Pagination";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type LLMCallLogItem = Schemas["LLMCallLogItem"];
@@ -33,6 +36,9 @@ interface LLMStats {
   by_purpose: { purpose: string; count: number; avg_latency_ms: number; error_count: number }[];
   daily: { date: string; count: number; fail_count: number; total_cost?: number }[];
 }
+
+const inputClass =
+  "w-full h-9 border border-border rounded-md bg-card px-2.5 text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10";
 
 export default function MonitorTab() {
   const [offset, setOffset] = useState(0);
@@ -72,8 +78,8 @@ export default function MonitorTab() {
 
   if (!stats) {
     return (
-      <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>
-        <Activity size={36} style={{ marginBottom: 12 }} />
+      <div className="rounded-xl border border-border bg-card shadow-sm p-10 text-center text-muted-foreground/70">
+        <Activity size={36} className="mx-auto mb-3" />
         <div>正在加载监控数据...</div>
       </div>
     );
@@ -93,96 +99,82 @@ export default function MonitorTab() {
 
   return (
     <>
-      <div style={{ marginBottom: 20 }}>
-        <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)" }}>今日概览</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <div className="mb-5">
+        <h3 className="text-[0.95rem] font-semibold mb-3 text-muted-foreground">今日概览</h3>
+        <div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
           {statCards.map((s, i) => (
-            <div key={i} className="card" style={{ textAlign: "center", padding: 20 }}>
-              <div style={{ color: "var(--text-secondary)", fontSize: "0.8rem", marginBottom: 6 }}>{s.label}</div>
-              <div
-                style={{
-                  fontSize: "1.8rem",
-                  fontWeight: 700,
-                  color: s.color === "green" ? "var(--color-success)" : s.color === "amber" ? "var(--color-warning)" : "var(--color-primary)",
-                }}
-              >
+            <div key={i} className="rounded-xl border border-border bg-card shadow-sm p-5 text-center">
+              <div className="text-muted-foreground text-xs mb-1.5">{s.label}</div>
+              <div className={cn("text-[1.8rem] font-bold", s.color === "green" ? "text-green-600" : s.color === "amber" ? "text-amber-500" : "text-primary")}>
                 {s.value}
               </div>
-              <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: 2 }}>{s.sub}</div>
+              <div className="text-[0.7rem] text-muted-foreground/70 mt-0.5">{s.sub}</div>
             </div>
           ))}
         </div>
       </div>
 
       {stats.by_provider?.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4 mb-5">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
             <BarChart3 size={14} /> 按 Provider 统计 (7日)
           </h3>
-          <table className="data-table" style={{ margin: 0 }}>
-            <thead>
-              <tr>
-                <th>Provider</th>
-                <th>次数</th>
-                <th>费用</th>
-                <th>错误</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.by_provider.map((p) => (
-                <tr key={p.provider}>
-                  <td style={{ fontWeight: 600 }}>{p.provider}</td>
-                  <td>{p.count}</td>
-                  <td style={{ color: "var(--amber-500)" }}>¥{p.total_cost.toFixed(4)}</td>
-                  <td>
-                    <span className={`badge ${p.error_count > 0 ? "badge-danger" : "badge-success"}`}>{p.error_count}</span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    Provider
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    次数
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    费用
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    错误
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {stats.by_provider.map((p) => (
+                  <tr key={p.provider}>
+                    <td className="px-4 py-3 border-b border-border font-semibold">{p.provider}</td>
+                    <td className="px-4 py-3 border-b border-border">{p.count}</td>
+                    <td className="px-4 py-3 border-b border-border text-amber-500">¥{p.total_cost.toFixed(4)}</td>
+                    <td className="px-4 py-3 border-b border-border">
+                      <Badge variant={p.error_count > 0 ? "danger" : "success"}>{p.error_count}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {stats.daily.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, padding: 20 }}>
-          <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: 16, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="rounded-xl border border-border bg-card shadow-sm p-5 mb-5">
+          <h3 className="text-[0.95rem] font-semibold mb-4 text-muted-foreground flex items-center gap-1.5">
             <TrendingUp size={16} /> 近30天每日调用趋势
           </h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 120, paddingTop: 8 }}>
+          <div className="flex items-end gap-1 h-[120px] pt-2">
             {stats.daily.map((d) => {
               const maxCount = Math.max(...stats.daily.map((x) => x.count), 1);
               const h = Math.max(4, (d.count / maxCount) * 100);
               const failRatio = d.count > 0 ? d.fail_count / d.count : 0;
               return (
-                <div
-                  key={d.date}
-                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}
-                  title={`${d.date}: ${d.count}次 · ¥${(d.total_cost ?? 0).toFixed(4)}`}
-                >
-                  <div style={{ fontSize: "0.55rem", color: "var(--text-tertiary)", marginBottom: 2 }}>{d.count || ""}</div>
+                <div key={d.date} className="flex-1 flex flex-col items-center min-w-0" title={`${d.date}: ${d.count}次 · ¥${(d.total_cost ?? 0).toFixed(4)}`}>
+                  <div className="text-[0.55rem] text-muted-foreground/70 mb-0.5">{d.count || ""}</div>
                   <div
+                    className="w-full rounded-t-sm opacity-85 min-h-[2px]"
                     style={{
-                      width: "100%",
                       height: `${h}%`,
                       background: failRatio > 0.2 ? "var(--red-400)" : "var(--blue-400)",
-                      borderRadius: "2px 2px 0 0",
-                      opacity: 0.85,
-                      minHeight: 2,
                     }}
                   />
-                  <div
-                    style={{
-                      fontSize: "0.55rem",
-                      color: "var(--text-tertiary)",
-                      marginTop: 4,
-                      transform: "rotate(-45deg)",
-                      transformOrigin: "top left",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {d.date.slice(5)}
-                  </div>
+                  <div className="text-[0.55rem] text-muted-foreground/70 mt-1 -rotate-45 origin-top-left whitespace-nowrap">{d.date.slice(5)}</div>
                 </div>
               );
             })}
@@ -190,50 +182,60 @@ export default function MonitorTab() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 20 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="grid grid-cols-[1fr_2fr] gap-4 mb-5 max-[1000px]:grid-cols-1">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
             <Activity size={14} /> 按用途统计 (7日)
           </h3>
-          <table className="data-table" style={{ margin: 0 }}>
-            <thead>
-              <tr>
-                <th>用途</th>
-                <th>次数</th>
-                <th>延迟</th>
-                <th>错误</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.by_purpose.map((p) => (
-                <tr key={p.purpose}>
-                  <td>
-                    <span className="badge badge-info">{PURPOSE_LABELS[p.purpose] || p.purpose}</span>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{p.count}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{p.avg_latency_ms}ms</td>
-                  <td>
-                    <span className={`badge ${p.error_count > 0 ? "badge-danger" : "badge-success"}`}>{p.error_count}</span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    用途
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    次数
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    延迟
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    错误
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {stats.by_purpose.map((p) => (
+                  <tr key={p.purpose}>
+                    <td className="px-4 py-3 border-b border-border">
+                      <Badge variant="info">{PURPOSE_LABELS[p.purpose] || p.purpose}</Badge>
+                    </td>
+                    <td className="px-4 py-3 border-b border-border font-semibold">{p.count}</td>
+                    <td className="px-4 py-3 border-b border-border text-muted-foreground">{p.avg_latency_ms}ms</td>
+                    <td className="px-4 py-3 border-b border-border">
+                      <Badge variant={p.error_count > 0 ? "danger" : "success"}>{p.error_count}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-1.5">
             <Server size={14} /> 最近训练调用日志
           </h3>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="flex gap-2 mb-3 flex-wrap justify-between">
+            <div className="flex gap-2 flex-wrap">
               <select
                 value={filters.purpose}
                 onChange={(e) => {
                   setFilters((f) => ({ ...f, purpose: e.target.value }));
                   setOffset(0);
                 }}
-                style={{ fontSize: "0.8rem", padding: "4px 8px" }}
+                className="text-xs py-1 px-2 border border-border rounded-md bg-card"
               >
                 <option value="">全部用途</option>
                 {Object.entries(PURPOSE_LABELS).map(([k, v]) => (
@@ -248,7 +250,7 @@ export default function MonitorTab() {
                   setFilters((f) => ({ ...f, status: e.target.value }));
                   setOffset(0);
                 }}
-                style={{ fontSize: "0.8rem", padding: "4px 8px" }}
+                className="text-xs py-1 px-2 border border-border rounded-md bg-card"
               >
                 <option value="">全部状态</option>
                 <option value="success">成功</option>
@@ -258,70 +260,74 @@ export default function MonitorTab() {
             </div>
             <button
               onClick={() => exportMutation.mutate()}
-              style={{
-                fontSize: "0.8rem",
-                padding: "4px 12px",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-surface)",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-              }}
+              className="flex items-center gap-1 text-xs py-1 px-3 border border-border rounded-md bg-card text-gray-600 cursor-pointer hover:bg-muted"
             >
               <Download size={13} /> 导出CSV
             </button>
           </div>
           {isLoading ? (
-            <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>加载中...</div>
+            <div className="text-center py-6 text-muted-foreground/70">加载中...</div>
           ) : logs.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 24, color: "var(--text-tertiary)" }}>
-              <Zap size={28} />
-              <div style={{ fontSize: "0.85rem", marginTop: 8 }}>暂无日志记录</div>
-            </div>
+            <EmptyState icon={Zap} title="暂无日志记录" className="py-6" />
           ) : (
             <>
-              <table className="data-table" style={{ margin: 0 }}>
-                <thead>
-                  <tr>
-                    <th>时间</th>
-                    <th>用途</th>
-                    <th>Provider</th>
-                    <th>状态</th>
-                    <th>延迟</th>
-                    <th>Token</th>
-                    <th>费用</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((item) => (
-                    <tr key={item.id}>
-                      <td style={{ fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                        {new Date(item.created_at).toLocaleString("zh-CN")}
-                      </td>
-                      <td>
-                        <span className="badge badge-info">{purposeLabel(item)}</span>
-                      </td>
-                      <td style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{item.provider_name || "-"}</td>
-                      <td>
-                        <span className={`badge ${item.status === "success" ? "badge-success" : "badge-danger"}`}>
-                          {item.status}
-                          {item.error_count > 0 ? ` (${item.error_count}错)` : ""}
-                        </span>
-                      </td>
-                      <td style={{ color: "var(--text-secondary)" }}>
-                        {item.latency_ms != null ? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}` : "-"}
-                      </td>
-                      <td style={{ fontSize: "0.8rem" }}>{item.total_tokens != null ? `${item.total_tokens}${item.token_estimated ? "~" : ""}` : "-"}</td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--amber-500)" }}>
-                        {item.estimated_cost != null ? `¥${Number(item.estimated_cost).toFixed(4)}` : "-"}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        时间
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        用途
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        Provider
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        状态
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        延迟
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        Token
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        费用
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {logs.map((item) => (
+                      <tr key={item.id}>
+                        <td className="px-4 py-3 border-b border-border text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(item.created_at).toLocaleString("zh-CN")}
+                        </td>
+                        <td className="px-4 py-3 border-b border-border">
+                          <Badge variant="info">{purposeLabel(item)}</Badge>
+                        </td>
+                        <td className="px-4 py-3 border-b border-border text-xs text-muted-foreground/70">{item.provider_name || "-"}</td>
+                        <td className="px-4 py-3 border-b border-border">
+                          <Badge variant={item.status === "success" ? "success" : "danger"}>
+                            {item.status}
+                            {item.error_count > 0 ? ` (${item.error_count}错)` : ""}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 border-b border-border text-muted-foreground">
+                          {item.latency_ms != null ? `${item.latency_ms}ms${item.is_aggregated ? " 均" : ""}` : "-"}
+                        </td>
+                        <td className="px-4 py-3 border-b border-border text-sm">
+                          {item.total_tokens != null ? `${item.total_tokens}${item.token_estimated ? "~" : ""}` : "-"}
+                        </td>
+                        <td className="px-4 py-3 border-b border-border text-sm text-amber-500">
+                          {item.estimated_cost != null ? `¥${Number(item.estimated_cost).toFixed(4)}` : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <Pagination total={logTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
             </>
           )}

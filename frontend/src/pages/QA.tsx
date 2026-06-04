@@ -1,5 +1,6 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Lightbulb, Menu, Plus, Send, Trash2 } from "lucide-react";
+import { Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,6 +9,7 @@ import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import Button from "@/components/ui/Button";
 import { getNurseAvatar } from "@/utils/avatar";
 import { cn } from "@/lib/utils";
 
@@ -15,12 +17,6 @@ type QASessionItem = components["schemas"]["QASessionItem"];
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 
 const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
-
-interface OptimisticMessage {
-  id: number;
-  role: string;
-  content: string;
-}
 
 const BUBBLE_CONTENT_CLASSES = [
   "whitespace-pre-wrap break-words",
@@ -76,6 +72,7 @@ export default function QA() {
         const res = await getQASessionMessages(sessionId);
         setActiveSessionId(sessionId);
         setMessages(res.data || []);
+        setShowSidebar(false);
       } catch {
         toast.error("加载会话消息失败");
       }
@@ -175,6 +172,7 @@ export default function QA() {
   const handleNewChat = () => {
     setActiveSessionId(null);
     setMessages([]);
+    setShowSidebar(false);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
@@ -183,88 +181,98 @@ export default function QA() {
   return (
     <Layout>
       <div className="flex h-[calc(100vh-64px)] overflow-hidden">
-        {showSidebar && <div className="fixed inset-0 z-[199] bg-black/40 md:hidden" onClick={() => setShowSidebar(false)} />}
+        {showSidebar && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setShowSidebar(false)} />}
+
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-[200] flex w-[260px] min-w-[260px] flex-col bg-[#fafbfc] shadow-[2px_0_20px_rgba(0,0,0,0.15)] transition-transform duration-250",
+            "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-card transition-transform duration-300",
+            "md:static md:translate-x-0",
             showSidebar ? "translate-x-0" : "-translate-x-full",
-            "md:static md:translate-x-0 md:border-r md:border-border md:shadow-none",
           )}
         >
-          <button
-            className="flex shrink-0 items-center gap-2 m-3.5 px-4 py-2.5 border border-border rounded-lg bg-white cursor-pointer text-sm text-gray-700 transition-all hover:bg-gray-100 hover:border-blue-600 hover:text-blue-600"
-            onClick={handleNewChat}
-          >
-            <Plus size={16} />
-            <span>新对话</span>
-          </button>
-          <div className="flex-1 overflow-y-auto px-2 pb-2">
+          <div className="flex items-center justify-between p-4 border-b">
+            <h2 className="text-sm font-semibold">对话记录</h2>
+            <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setShowSidebar(false)}>
+              <X size={16} />
+            </Button>
+          </div>
+
+          <div className="p-3 border-b">
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={handleNewChat}>
+              <Plus size={16} />
+              新对话
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
             {sessions.map((s) => (
-              <div
+              <button
                 key={s.id}
+                type="button"
                 className={cn(
-                  "grid grid-cols-[1fr_auto] grid-rows-[auto_auto] gap-y-0.5 gap-x-2 px-3 py-2.5 mb-0.5 rounded-lg cursor-pointer transition-colors relative group",
-                  activeSessionId === s.id ? "bg-[#e8edf5]" : "hover:bg-[#e8edf5]",
+                  "group flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition-colors",
+                  activeSessionId === s.id ? "bg-muted" : "hover:bg-muted/50",
                 )}
                 onClick={() => switchSession(s.id)}
               >
-                <span className="text-sm text-gray-800 truncate">{s.title}</span>
-                <span className="text-xs text-gray-400">{new Date(s.updated_at).toLocaleDateString()}</span>
-                <button
-                  className="row-span-2 col-start-2 self-center opacity-0 group-hover:opacity-100 bg-transparent border-none text-gray-400 cursor-pointer p-1 rounded transition-all hover:text-red-500 hover:bg-red-100"
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{s.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{new Date(s.updated_at).toLocaleDateString()}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                   onClick={(e) => handleDeleteSession(e, s.id)}
                 >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+                  <Trash2 size={12} />
+                </Button>
+              </button>
             ))}
-            {sessions.length === 0 && <div className="py-6 px-4 text-center text-gray-400 text-sm">暂无历史对话</div>}
+            {sessions.length === 0 && <EmptyState title="暂无历史对话" className="py-8" />}
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0 bg-white relative">
-          <button
-            className="flex md:hidden absolute top-2 left-2 z-10 size-[34px] border border-gray-200 rounded-lg bg-white cursor-pointer items-center justify-center text-gray-500"
-            onClick={() => setShowSidebar(true)}
-            title="会话列表"
-          >
-            <Menu size={18} />
-          </button>
+        <main className="flex-1 flex flex-col min-w-0 bg-background">
+          <Button variant="outline" size="icon-sm" className="absolute top-2 left-2 z-30 md:hidden" onClick={() => setShowSidebar(true)}>
+            <Menu size={16} />
+          </Button>
+
           {messages.length > 0 && (
-            <div className="flex flex-col gap-4 pt-6 px-6 flex-1 overflow-y-auto">
+            <div className="flex flex-col gap-4 px-4 sm:px-6 pt-14 md:pt-6 pb-4 flex-1 overflow-y-auto">
               {messages.map((m, i) => {
                 const isUser = m.role === "user";
                 return (
                   <div key={i} className={cn("flex items-end gap-2", isUser ? "justify-end" : "justify-start")}>
                     {!isUser && (
-                      <div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-[#e8edf5] text-blue-600">
+                      <div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary">
                         <Bot size={18} />
                       </div>
                     )}
                     <div
                       className={cn(
-                        "max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
-                        isUser ? "bg-blue-600 text-white rounded-br-md" : "bg-[#f4f5f7] text-gray-800 rounded-bl-md",
+                        "max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+                        isUser ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md",
                       )}
                     >
-                      <div className={cn(BUBBLE_CONTENT_CLASSES, !isUser || BUBBLE_CONTENT_USER)}>
+                      <div className={cn(BUBBLE_CONTENT_CLASSES, isUser && BUBBLE_CONTENT_USER)}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                       </div>
                     </div>
-                    {isUser && <img className="size-8 rounded-full shrink-0 object-cover bg-gray-100" src={nurseAvatar} alt="护士" />}
+                    {isUser && <img className="size-8 rounded-full shrink-0 object-cover bg-muted" src={nurseAvatar} alt="护士" />}
                   </div>
                 );
               })}
               {loading && (
                 <div className="flex items-end gap-2 justify-start">
-                  <div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-[#e8edf5] text-blue-600">
+                  <div className="size-8 rounded-full shrink-0 flex items-center justify-center bg-primary/10 text-primary">
                     <Bot size={18} />
                   </div>
-                  <div className="max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-[#f4f5f7] text-gray-800">
+                  <div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted">
                     <div className="flex gap-1 py-1">
-                      <span className="size-2 rounded-full bg-gray-400 animate-[qa-bounce_1.4s_ease-in-out_infinite_both] [animation-delay:-0.32s]" />
-                      <span className="size-2 rounded-full bg-gray-400 animate-[qa-bounce_1.4s_ease-in-out_infinite_both] [animation-delay:-0.16s]" />
-                      <span className="size-2 rounded-full bg-gray-400 animate-[qa-bounce_1.4s_ease-in-out_infinite_both]" />
+                      <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
+                      <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
+                      <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce" />
                     </div>
                   </div>
                 </div>
@@ -274,15 +282,16 @@ export default function QA() {
           )}
 
           {messages.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 pb-6 text-center">
-              <Lightbulb size={48} className="text-blue-300 mb-2" />
-              <h2 className="text-2xl font-semibold text-gray-800">护理问答</h2>
-              <p className="text-gray-500 text-base max-w-[360px]">向AI护理导师提问，获取专业的护理学知识解答</p>
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 pb-6 pt-14 md:pt-0 text-center">
+              <Lightbulb size={48} className="text-primary/30 mb-2" />
+              <h2 className="text-2xl font-semibold">护理问答</h2>
+              <p className="text-muted-foreground text-sm max-w-sm">向AI护理导师提问，获取专业的护理学知识解答</p>
               <div className="flex flex-wrap gap-2 justify-center mt-2">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
-                    className="px-4 py-2 border border-gray-300 rounded-[20px] bg-white text-sm text-gray-700 cursor-pointer transition-all hover:border-blue-600 hover:text-blue-600 hover:bg-blue-50"
+                    type="button"
+                    className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer"
                     onClick={() => sendMessage(s)}
                   >
                     {s}
@@ -292,23 +301,19 @@ export default function QA() {
             </div>
           )}
 
-          <div className="flex gap-2.5 items-center border-t border-gray-200 px-6 py-4">
+          <div className="flex gap-2 items-center border-t p-4">
             <input
               ref={inputRef}
-              className="w-full border border-gray-200 rounded-lg bg-gray-50 text-gray-900 text-sm px-3 py-2 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"
+              className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入您的问题..."
               disabled={loading}
             />
-            <button
-              className="inline-flex items-center justify-center size-10 rounded-lg bg-blue-600 text-white cursor-pointer transition-colors shrink-0 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={() => sendMessage()}
-              disabled={loading || !input.trim()}
-            >
+            <Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()}>
               <Send size={16} />
-            </button>
+            </Button>
           </div>
         </main>
       </div>

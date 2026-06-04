@@ -99,7 +99,10 @@ export interface UseVoiceReturn {
 export default function useVoice(config: UseVoiceConfig = {}): UseVoiceReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [autoPlay, setAutoPlay] = useState<boolean>(() => localStorage.getItem("voiceAutoPlay") === "true");
+  const [autoPlay, setAutoPlay] = useState<boolean>(() => {
+    const stored = localStorage.getItem("voiceAutoPlay");
+    return stored === null ? true : stored === "true";
+  });
 
   useEffect(() => {
     localStorage.setItem("voiceAutoPlay", autoPlay ? "true" : "false");

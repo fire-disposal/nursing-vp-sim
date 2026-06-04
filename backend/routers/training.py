@@ -145,7 +145,10 @@ def _run_scoring_background(record_id: int, case_data: dict):
             await local_client.aclose()
 
     try:
-        asyncio.run(_do())
+        try:
+            asyncio.run(_do())
+        except Exception as e:
+            log.exception("后台评分线程异常 (record_id=%d): %s", record_id, e)
     finally:
         _release_scoring(record_id)
 

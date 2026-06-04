@@ -1,5 +1,6 @@
-﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronRight, Eye, Hash, Layers, Play, Plus, RefreshCw, Trash2 } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useEffect, useMemo, useState } from "react";
 import {
   activatePrompt,
@@ -14,8 +15,10 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
+import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type PromptTemplateResponse = Schemas["PromptTemplateResponse"];
@@ -80,7 +83,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-2 bg-gray-50">
+    <div className="border border-border rounded-lg p-2 bg-muted">
       <div className="flex items-center justify-between mb-1">
         <code className="text-sm font-semibold text-blue-700">
           {"{#}"}
@@ -89,7 +92,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
         </code>
         <div className="flex items-center gap-1">
           {isSystem && <span className="text-[0.625rem] bg-amber-100 text-amber-700 px-1 rounded-full leading-[17px] whitespace-nowrap">系统注入</span>}
-          <span className="text-xs text-gray-400 bg-gray-100 px-1.5 rounded-full">{meta.type || "string"}</span>
+          <span className="text-xs text-muted-foreground/70 bg-gray-100 px-1.5 rounded-full">{meta.type || "string"}</span>
         </div>
       </div>
 
@@ -110,14 +113,14 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
       ) : (
         <div
           onClick={() => setEditing(true)}
-          className={`text-xs mb-1 cursor-pointer py-0.5 ${meta.desc ? "text-gray-500 not-italic" : "text-gray-400 italic"}`}
+          className={cn("text-xs mb-1 cursor-pointer py-0.5", meta.desc ? "text-muted-foreground not-italic" : "text-muted-foreground/70 italic")}
           title="点击编辑描述"
         >
           {meta.desc || "点击添加描述..."}
         </div>
       )}
 
-      <div className="text-xs text-gray-400 leading-relaxed">
+      <div className="text-xs text-muted-foreground/70 leading-relaxed">
         {editingSource ? (
           <div className="mb-0.5">
             <input
@@ -135,7 +138,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
         ) : (
           <div
             onClick={() => setEditingSource(true)}
-            className={`cursor-pointer ${meta.source ? "text-gray-500 not-italic" : "text-gray-400 italic"}`}
+            className={cn("cursor-pointer", meta.source ? "text-muted-foreground not-italic" : "text-muted-foreground/70 italic")}
             title="点击编辑来源说明"
           >
             {meta.source ? `来源：${meta.source}` : "点击添加来源说明..."}
@@ -144,7 +147,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
         {meta.example && <div className="whitespace-pre-wrap max-h-[60px] overflow-hidden">示例：{meta.example}</div>}
         <div className="mt-0.5">
           {isSystem ? (
-            <div className="text-xs text-gray-400 italic">默认值：由系统运行时注入，不可编辑</div>
+            <div className="text-xs text-muted-foreground/70 italic">默认值：由系统运行时注入，不可编辑</div>
           ) : editingDefault ? (
             <input
               value={defaultDraft}
@@ -160,7 +163,7 @@ const VariableCard = ({ vName, meta, onUpdateDesc, onUpdateDefault, onUpdateSour
           ) : (
             <div
               onClick={() => setEditingDefault(true)}
-              className={`cursor-pointer ${meta.default_value ? "text-gray-500 not-italic" : "text-gray-400 italic"}`}
+              className={cn("cursor-pointer", meta.default_value ? "text-muted-foreground not-italic" : "text-muted-foreground/70 italic")}
               title="点击设置默认值（自定义变量在调用点未提供值时使用）"
             >
               默认值：{meta.default_value || "(点击设置)"}
@@ -433,59 +436,60 @@ export default function PromptManagementTab() {
     );
   };
 
-  const inputBase =
-    "w-full py-1 px-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 font-[inherit] box-border focus:outline-none focus:border-blue-500";
+  const inputBase = "w-full py-1 px-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:border-blue-500";
 
   return (
     <div>
       <div className="mb-4 flex gap-2">
-        <button
-          onClick={handleReload}
-          className="flex items-center gap-1 py-2 px-4 border border-amber-400 rounded-lg bg-amber-50 text-amber-700 cursor-pointer text-sm font-semibold"
-        >
+        <Button variant="outline" className="border-amber-400 bg-amber-50 text-amber-700" onClick={handleReload}>
           <RefreshCw size={13} /> 热加载
-        </button>
+        </Button>
+        <Button variant="outline" className="border-blue-600 text-blue-600" onClick={handleShowActive}>
+          <Eye size={13} /> 查看生效版本
+        </Button>
         <button
           onClick={handleShowActive}
-          className="flex items-center gap-1 py-2 px-4 border border-blue-600 rounded-lg bg-white text-blue-600 cursor-pointer text-sm font-semibold"
+          className="flex items-center gap-1 py-2 px-4 border border-blue-600 rounded-lg bg-card text-primary cursor-pointer text-sm font-semibold"
         >
           <Eye size={13} /> 查看生效版本
         </button>
       </div>
 
-      <div className="grid grid-cols-[340px_1fr] gap-4 items-start min-h-[calc(100vh-180px)]">
-        <div className="rounded-xl border border-gray-200 bg-white p-0 overflow-hidden">
+      <div className="grid grid-cols-[340px_1fr] gap-4 items-start min-h-[calc(100vh-180px)] max-[900px]:grid-cols-1">
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden max-[900px]:hidden">
           {PURPOSES.map((purpose) => {
             const versions = grouped[purpose] || [];
             const isOpen = expanded[purpose] !== false;
             return (
-              <div key={purpose} className="border-b border-gray-200 last:border-b-0">
+              <div key={purpose} className="border-b border-border last:border-b-0">
                 <div
                   onClick={() => toggle(purpose)}
-                  className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none font-semibold text-sm bg-gray-50 text-gray-900"
+                  className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none font-semibold text-sm bg-muted text-foreground"
                 >
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span className="flex-1">{PURPOSE_LABELS[purpose]}</span>
-                  <span className="text-xs text-gray-400 font-normal">
+                  <span className="text-xs text-muted-foreground/70 font-normal">
                     {versions.filter((v) => v.is_active).length > 0
                       ? `v${versions.find((v) => v.is_active)!.version} · ${versions.length}个版本`
                       : `${versions.length}个版本`}
                   </span>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="bg-blue-50 border-blue-200 text-blue-600"
                     onClick={(e) => {
                       e.stopPropagation();
                       openNew(purpose);
                     }}
-                    className="bg-blue-50 border border-blue-200 rounded-lg text-blue-600 cursor-pointer px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-0.5"
                     title="新增"
                   >
                     <Plus size={13} /> 新增
-                  </button>
+                  </Button>
                 </div>
                 {isOpen && (
                   <div>
                     {versions.length === 0 ? (
-                      <div className="px-4 py-3 text-gray-400 text-sm">暂无模板</div>
+                      <EmptyState icon={Layers} title="暂无模板" className="py-3" />
                     ) : (
                       versions.map((v) => (
                         <div
@@ -495,25 +499,24 @@ export default function PromptManagementTab() {
                             e.preventDefault();
                             if (!v.is_active) handleActivate(v);
                           }}
-                          className={`flex items-center gap-2 px-4 py-2 border-t border-gray-200 cursor-pointer transition-colors ${
-                            editing === v.id ? "bg-blue-50" : v.is_active ? "bg-green-50" : "bg-transparent"
-                          }`}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 border-t border-border cursor-pointer transition-colors",
+                            editing === v.id ? "bg-blue-50" : v.is_active ? "bg-green-50" : "bg-transparent",
+                          )}
                         >
-                          <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-white border border-gray-200 min-w-[28px] text-center">
-                            v{v.version}
-                          </span>
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-card border border-border min-w-[28px] text-center">v{v.version}</span>
                           <span className="flex-1 text-sm overflow-hidden text-ellipsis whitespace-nowrap">{v.name || "-"}</span>
                           {v.is_active ? (
                             <span className="text-xs px-1.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap inline-flex items-center gap-0.5">
                               <CheckCircle size={10} /> 激活
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-400">未激活</span>
+                            <span className="text-xs text-muted-foreground/70">未激活</span>
                           )}
                           <div onClick={(e) => e.stopPropagation()} className="flex gap-0.5">
-                            <button onClick={() => handleDelete(v)} className="bg-transparent border-none text-red-400 cursor-pointer p-0.5" title="删除">
+                            <Button variant="ghost" size="sm" className="text-destructive p-0.5" onClick={() => handleDelete(v)} title="删除">
                               <Trash2 size={13} />
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))
@@ -525,11 +528,34 @@ export default function PromptManagementTab() {
           })}
         </div>
 
+        <div className="max-[900px]:block hidden mb-3">
+          <select
+            value={editing !== "new" && editing ? prompts.find((p) => p.id === editing)?.purpose || "" : editing === "new" ? form.purpose : ""}
+            onChange={(e) => {
+              const p = prompts.find((pt) => pt.id === Number(e.target.value));
+              if (p) openEdit(p);
+              else if (e.target.value) openNew(e.target.value);
+            }}
+            className="w-full py-2 px-3 border border-border rounded-lg text-sm bg-card"
+          >
+            <option value="">选择模板编辑...</option>
+            {PURPOSES.map((purpose) => (
+              <optgroup key={purpose} label={PURPOSE_LABELS[purpose]}>
+                {(grouped[purpose] || []).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    v{v.version} {v.name || PURPOSE_LABELS[purpose]}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
         {editing && (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 flex flex-col h-full">
+          <div className="rounded-xl border border-border bg-card shadow-sm p-6 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-3">
-              <h4 className="m-0 text-base flex-1">{editorTitle}</h4>
-              {editedPrompt && <span className="text-xs text-gray-400">更新于 {new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}</span>}
+              <h4 className="text-base font-semibold flex-1">{editorTitle}</h4>
+              {editedPrompt && <span className="text-xs text-muted-foreground/70">更新于 {new Date(editedPrompt.updated_at).toLocaleString("zh-CN")}</span>}
             </div>
 
             {editing === "new" && (
@@ -538,7 +564,7 @@ export default function PromptManagementTab() {
                 <select
                   value={form.purpose}
                   onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
-                  className="w-full py-2 px-3 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
+                  className="w-full py-2 px-3 border border-border rounded-lg text-sm bg-card text-foreground"
                 >
                   {PURPOSES.map((p) => (
                     <option key={p} value={p}>
@@ -548,7 +574,7 @@ export default function PromptManagementTab() {
                 </select>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-3 mb-3 max-[600px]:grid-cols-1">
               <div>
                 <label className="block text-sm font-semibold mb-1">版本名称</label>
                 <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="v2-优化版" className={inputBase} />
@@ -567,13 +593,14 @@ export default function PromptManagementTab() {
               <div className="flex items-center justify-between mb-1">
                 <label className="text-sm font-semibold">System Prompt</label>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">{form.system_prompt.length} 字符</span>
+                  <span className="text-xs text-muted-foreground/70">{form.system_prompt.length} 字符</span>
                   <button
                     type="button"
                     onClick={togglePreview}
-                    className={`px-2 py-0.5 border border-blue-300 rounded-sm text-xs font-semibold cursor-pointer ${
-                      showEditorPreview ? "bg-blue-500 text-white" : "bg-white text-blue-600"
-                    }`}
+                    className={cn(
+                      "px-2 py-0.5 border border-blue-300 rounded-sm text-xs font-semibold cursor-pointer",
+                      showEditorPreview ? "bg-blue-500 text-white" : "bg-card text-primary",
+                    )}
                   >
                     {showEditorPreview ? "编辑" : "预览填充"}
                   </button>
@@ -583,31 +610,35 @@ export default function PromptManagementTab() {
                 value={form.system_prompt}
                 onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
                 readOnly={showEditorPreview}
-                className={`flex-1 min-h-[200px] w-full p-2 rounded-lg text-sm font-mono resize-y box-border ${
-                  showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-gray-200 bg-white"
-                } text-gray-900`}
+                className={cn(
+                  "flex-1 min-h-[200px] w-full p-2 rounded-lg text-sm font-mono resize-y",
+                  showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-border bg-card",
+                  "text-foreground focus:outline-none focus:border-blue-500",
+                )}
               />
             </div>
             {form.purpose === "scoring" && (
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-sm font-semibold">User Prompt Template</label>
-                  <span className="text-xs text-gray-400">{(form.user_prompt || "").length} 字符</span>
+                  <span className="text-xs text-muted-foreground/70">{(form.user_prompt || "").length} 字符</span>
                 </div>
                 <textarea
                   value={form.user_prompt}
                   onChange={(e) => setForm((f) => ({ ...f, user_prompt: e.target.value }))}
                   readOnly={showEditorPreview}
                   rows={6}
-                  className={`w-full p-2 rounded-lg text-sm font-mono resize-y box-border ${
-                    showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-gray-200 bg-white"
-                  } text-gray-900`}
+                  className={cn(
+                    "w-full p-2 rounded-lg text-sm font-mono resize-y",
+                    showEditorPreview ? "border border-blue-300 bg-blue-50" : "border border-border bg-card",
+                    "text-foreground focus:outline-none focus:border-blue-500",
+                  )}
                 />
               </div>
             )}
             <div className="mb-3 flex items-start gap-3 flex-wrap">
               <div className="flex-1 min-w-[200px]">
-                <div className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1">
+                <div className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
                   <Hash size={12} /> 模板变量 {currentVars.length > 0 && `(${currentVars.length})`}
                 </div>
                 {currentVars.length > 0 ? (
@@ -627,70 +658,59 @@ export default function PromptManagementTab() {
                     })}
                   </div>
                 ) : (
-                  <span className="text-xs text-gray-400">无变量（纯静态 prompt）</span>
+                  <span className="text-xs text-muted-foreground/70">无变量（纯静态 prompt）</span>
                 )}
               </div>
             </div>
             {validation && (
-              <div className={`p-3 rounded-lg mb-3 text-sm ${validation.valid ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+              <div className={cn("p-3 rounded-lg mb-3 text-sm", validation.valid ? "bg-green-50 text-green-700" : "bg-destructive/10 text-destructive")}>
                 {validation.valid ? "校验通过" : validation.errors.join("; ")}
                 {validation.missing_vars?.length > 0 && <div className="mt-1">变量未声明: {validation.missing_vars.join(", ")}</div>}
               </div>
             )}
-            <div className="flex gap-2">
-              <button
-                onClick={handleValidate}
-                className="flex items-center gap-1 py-2 px-4 border border-gray-200 rounded-lg bg-white text-gray-900 cursor-pointer text-sm"
-              >
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={handleValidate}>
                 <Play size={14} /> 校验语法
-              </button>
+              </Button>
               {editedPrompt && !editedPrompt.is_active && (
-                <button
-                  onClick={() => handleActivate(editedPrompt)}
-                  className="flex items-center gap-1 py-2 px-4 border border-green-400 rounded-lg bg-green-50 text-green-700 cursor-pointer text-sm font-semibold"
-                >
+                <Button variant="outline" className="border-green-400 bg-green-50 text-green-700" onClick={() => handleActivate(editedPrompt)}>
                   <CheckCircle size={14} /> 保存并激活
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 onClick={handleSave}
                 disabled={saving || showEditorPreview}
-                className={`py-2 px-4 border-none rounded-lg text-white text-sm ml-auto ${
-                  saving || showEditorPreview ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                }`}
-                style={{ background: "var(--primary)" }}
+                className={cn("ml-auto", saving || showEditorPreview ? "cursor-not-allowed opacity-60" : "cursor-pointer")}
               >
                 {saving ? "保存中..." : editing === "new" ? "创建版本" : "保存修改"}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   if (showEditorPreview && savedForm) setForm({ ...savedForm });
                   setShowEditorPreview(false);
                   setSavedForm(null);
                   setEditing(null);
                 }}
-                className="py-2 px-4 border border-gray-200 rounded-lg bg-white text-gray-500 cursor-pointer text-sm"
               >
                 取消
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {!editing && (
-          <div className="rounded-xl border border-gray-200 bg-white p-8 flex flex-col items-center justify-center min-h-[300px]">
-            <Layers size={40} className="text-gray-400 opacity-50 mb-4" />
-            <div className="text-base font-semibold text-gray-500 mb-1">选择左侧版本进行编辑</div>
-            <div className="text-sm text-gray-400 mb-4">
-              点击版本名打开编辑器，或点击左侧 <Plus size={12} className="inline align-middle text-blue-600" /> 为场景创建新版本
+          <div className="rounded-xl border border-border bg-card shadow-sm p-8 flex flex-col items-center justify-center min-h-[300px]">
+            <Layers size={40} className="text-muted-foreground/70 opacity-50 mb-4" />
+            <div className="text-base font-semibold text-muted-foreground mb-1">选择左侧版本进行编辑</div>
+            <div className="text-sm text-muted-foreground/70 mb-4">
+              点击版本名打开编辑器，或点击左侧 <Plus size={12} className="inline align-middle text-primary" /> 为场景创建新版本
             </div>
             {!prompts.length && (
-              <button
-                onClick={() => openNew("patient_chat")}
-                className="flex items-center gap-1 py-2 px-6 border-none rounded-lg bg-blue-600 text-white cursor-pointer text-sm font-semibold"
-              >
+              <Button onClick={() => openNew("patient_chat")}>
                 <Plus size={14} /> 创建第一个版本
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -701,7 +721,7 @@ export default function PromptManagementTab() {
           <select
             value={activeModalPurpose}
             onChange={(e) => handleActiveModalPurposeChange(e.target.value)}
-            className="py-2 px-3 border border-gray-200 rounded-lg text-sm bg-white text-gray-900 font-semibold"
+            className="py-2 px-3 border border-border rounded-lg text-sm bg-card text-foreground font-semibold"
           >
             {PURPOSES.map((p) => {
               const av = grouped[p]?.find((t) => t.is_active);
@@ -713,22 +733,24 @@ export default function PromptManagementTab() {
               );
             })}
           </select>
-          {previewData && <span className="text-sm text-gray-400">v{previewData.version}</span>}
+          {previewData && <span className="text-sm text-muted-foreground/70">v{previewData.version}</span>}
           {previewData && (
-            <div className="ml-auto flex gap-0.5 bg-gray-50 rounded-lg p-0.5">
+            <div className="ml-auto flex gap-0.5 bg-muted rounded-lg p-0.5">
               <button
                 onClick={() => setShowRendered(true)}
-                className={`px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer ${
-                  showRendered ? "bg-blue-600 text-white" : "bg-transparent text-gray-500"
-                }`}
+                className={cn(
+                  "px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer",
+                  showRendered ? "bg-primary text-white" : "bg-transparent text-muted-foreground",
+                )}
               >
                 渲染效果
               </button>
               <button
                 onClick={() => setShowRendered(false)}
-                className={`px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer ${
-                  !showRendered ? "bg-blue-600 text-white" : "bg-transparent text-gray-500"
-                }`}
+                className={cn(
+                  "px-3 py-1 border-none rounded-sm text-xs font-semibold cursor-pointer",
+                  !showRendered ? "bg-primary text-white" : "bg-transparent text-muted-foreground",
+                )}
               >
                 原始模板
               </button>
@@ -737,25 +759,25 @@ export default function PromptManagementTab() {
         </div>
 
         {previewLoading ? (
-          <div className="p-8 text-center text-gray-400">加载中...</div>
+          <div className="p-8 text-center text-muted-foreground/70">加载中...</div>
         ) : previewData ? (
           <>
             <div className="mb-3">
-              <div className="text-xs font-semibold text-gray-500 mb-1">System Prompt</div>
-              <pre className="m-0 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono whitespace-pre-wrap text-gray-900 max-h-[400px] overflow-auto leading-relaxed">
+              <div className="text-xs font-semibold text-muted-foreground mb-1">System Prompt</div>
+              <pre className="m-0 p-3 bg-muted border border-border rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground max-h-[400px] overflow-auto leading-relaxed">
                 {showRendered ? previewData.system_prompt_rendered : renderHighlighted(previewData.system_prompt_raw)}
               </pre>
             </div>
             {previewData.user_prompt_raw && (
               <div className="mb-3">
-                <div className="text-xs font-semibold text-gray-500 mb-1">User Prompt Template</div>
-                <pre className="m-0 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono whitespace-pre-wrap text-gray-900 max-h-[300px] overflow-auto leading-relaxed">
+                <div className="text-xs font-semibold text-muted-foreground mb-1">User Prompt Template</div>
+                <pre className="m-0 p-3 bg-muted border border-border rounded-lg text-sm font-mono whitespace-pre-wrap text-foreground max-h-[300px] overflow-auto leading-relaxed">
                   {showRendered ? previewData.user_prompt_rendered : renderHighlighted(previewData.user_prompt_raw)}
                 </pre>
               </div>
             )}
             {showRendered && previewData.sample_vars && Object.keys(previewData.sample_vars).length > 0 && (
-              <div className="text-xs text-gray-400 mt-2">
+              <div className="text-xs text-muted-foreground/70 mt-2">
                 预览替换变量:{" "}
                 {Object.entries(previewData.sample_vars).map(([k]) => (
                   <code key={k} className="ml-1.5 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
@@ -766,7 +788,7 @@ export default function PromptManagementTab() {
             )}
           </>
         ) : (
-          <div className="p-6 text-center text-gray-400">该场景暂未激活任何版本</div>
+          <div className="p-6 text-center text-muted-foreground/70">该场景暂未激活任何版本</div>
         )}
       </Modal>
     </div>

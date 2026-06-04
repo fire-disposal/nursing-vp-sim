@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
+import EmptyState from "@/components/ui/EmptyState";
 import { getTrends } from "../api/api-client";
 import type { components } from "../api/api-types.gen";
 
@@ -91,8 +92,8 @@ export default function TrainingDurationChart() {
       </div>
 
       {isLoading ? (
-        <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm border border-dashed border-border rounded-md bg-muted">
-          正在加载训练统计...
+        <div className="h-[200px] flex items-center justify-center border border-dashed border-border rounded-md bg-muted">
+          <EmptyState title="正在加载训练统计..." />
         </div>
       ) : chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height={220}>
@@ -115,8 +116,8 @@ export default function TrainingDurationChart() {
           </ComposedChart>
         </ResponsiveContainer>
       ) : (
-        <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm border border-dashed border-border rounded-md bg-muted">
-          暂无训练统计数据
+        <div className="h-[200px] flex items-center justify-center border border-dashed border-border rounded-md bg-muted">
+          <EmptyState title="暂无训练统计数据" />
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-﻿import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
+import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "@/api/api-client";
@@ -7,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
+import { cn } from "@/lib/utils";
 import type { ClassItem, Grade } from "@/types/store";
 import ClassFilter from "./ClassFilter";
 
@@ -48,6 +49,21 @@ interface ClassFilterParams {
 interface UsersTabProps {
   currentUserId?: number;
 }
+
+const inputClass =
+  "w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus:outline-none focus:border-blue-500 focus:bg-card focus:ring-2 focus:ring-blue-500/10";
+
+const btnPrimary =
+  "inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors border-none cursor-pointer";
+
+const btnSecondary =
+  "inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer";
+
+const btnDanger =
+  "inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-destructive/10 text-destructive hover:bg-red-200 transition-colors border-none cursor-pointer";
+
+const selectClass =
+  "w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus:outline-none focus:border-blue-500 focus:bg-card focus:ring-2 focus:ring-blue-500/10";
 
 export default function UsersTab({ currentUserId }: UsersTabProps) {
   const [users, setUsers] = useState<UserBrief[]>([]);
@@ -311,16 +327,12 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
       .catch(() => setter([]));
   }
 
-  const inputClass =
-    "w-full h-[42px] px-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-900 font-[inherit] text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10";
+  const filterSelectClass = "py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card";
 
   return (
     <>
       <div className="mb-4 flex gap-3">
-        <button
-          className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-          onClick={() => setShowRegister(!showRegister)}
-        >
+        <button className={btnPrimary} onClick={() => setShowRegister(!showRegister)}>
           {showRegister ? (
             "取消"
           ) : (
@@ -330,7 +342,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           )}
         </button>
         <button
-          className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          className={btnSecondary}
           onClick={() => {
             setShowBatchImport(true);
             setBatchText("");
@@ -344,22 +356,25 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
       </div>
 
       {showRegister && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 mb-5">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-6 mb-5">
           <h3 className="mb-4 font-semibold text-lg">添加用户</h3>
           {regMsg && (
             <div
-              className={`px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left ${regMsg.includes("成功") ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}
+              className={cn(
+                "px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left",
+                regMsg.includes("成功") ? "bg-green-50 text-green-600" : "bg-destructive/10 text-red-500",
+              )}
             >
               {regMsg}
             </div>
           )}
           <form onSubmit={handleRegister} className="flex gap-3 flex-wrap items-end">
             <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">用户名</label>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">用户名</label>
               <input value={regForm.username} onChange={(e) => setRegForm({ ...regForm, username: e.target.value })} required className={inputClass} />
             </div>
             <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">密码</label>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">密码</label>
               <input
                 type="password"
                 value={regForm.password}
@@ -371,22 +386,22 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               />
             </div>
             <div className="flex-[1_1_100px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">角色</label>
-              <select value={regForm.role} onChange={(e) => setRegForm({ ...regForm, role: e.target.value })} className={inputClass}>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">角色</label>
+              <select value={regForm.role} onChange={(e) => setRegForm({ ...regForm, role: e.target.value })} className={selectClass}>
                 <option value="student">学生</option>
                 <option value="teacher">教师</option>
               </select>
             </div>
             <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">姓名</label>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">姓名</label>
               <input value={regForm.display_name} onChange={(e) => setRegForm({ ...regForm, display_name: e.target.value })} required className={inputClass} />
             </div>
             <div className="flex-[1_1_100px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">学号</label>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">学号</label>
               <input value={regForm.student_id} onChange={(e) => setRegForm({ ...regForm, student_id: e.target.value })} className={inputClass} />
             </div>
             <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">年级</label>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">年级</label>
               <select
                 value={regGrade}
                 onChange={(e) => {
@@ -394,7 +409,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                   setRegForm({ ...regForm, class_id: "" });
                   loadClassesForGrade(e.target.value, setRegClasses);
                 }}
-                className={inputClass}
+                className={selectClass}
               >
                 <option value="">不指定</option>
                 {grades.map((g) => (
@@ -405,12 +420,12 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               </select>
             </div>
             <div className="flex-[1_1_120px]">
-              <label className="block text-xs text-gray-500 font-semibold mb-1">班级</label>
+              <label className="block text-xs text-muted-foreground font-semibold mb-1">班级</label>
               <select
                 value={regForm.class_id}
                 onChange={(e) => setRegForm({ ...regForm, class_id: e.target.value })}
                 disabled={!regGrade}
-                className={inputClass}
+                className={selectClass}
               >
                 <option value="">不指定</option>
                 {regClasses.map((c) => (
@@ -420,109 +435,118 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors h-[42px]"
-            >
+            <button type="submit" className={cn(btnPrimary, "h-10")}>
               注册
             </button>
           </form>
         </div>
       )}
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="rounded-xl border border-border bg-card shadow-sm p-6">
         <div className="mb-3 flex gap-2 items-center">
           <div className="relative flex-1 max-w-[320px]">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70" />
             <input
               ref={searchRef}
               type="text"
               placeholder="搜索用户名、姓名或学号..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full py-[7px] pl-[30px] pr-2.5 border border-gray-200 rounded-lg text-sm font-[inherit]"
+              className="w-full py-1.5 pl-[30px] pr-2.5 border border-border rounded-lg text-sm"
             />
           </div>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="py-[7px] px-2.5 border border-gray-200 rounded-lg text-sm font-[inherit] bg-white"
-          >
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className={filterSelectClass}>
             <option value="">全部角色</option>
             <option value="student">学生</option>
             <option value="teacher">教师</option>
           </select>
           <ClassFilter onChange={setClassParam} />
-          <span className="text-sm text-gray-500 whitespace-nowrap">共 {userTotal} 人</span>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">共 {userTotal} 人</span>
         </div>
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">用户名</th>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">姓名</th>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">角色</th>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">班级</th>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">学号</th>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
-                注册时间
-              </th>
-              <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="cursor-pointer hover:bg-gray-50" onClick={() => navigate(`/admin/users/${u.id}`)}>
-                <td className="px-4 py-3 border-b border-gray-200">{u.username}</td>
-                <td className="px-4 py-3 border-b border-gray-200">{u.display_name}</td>
-                <td className="px-4 py-3 border-b border-gray-200">
-                  <span
-                    className={`inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold ${u.role === "teacher" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-700"}`}
-                  >
-                    {u.role === "teacher" ? "教师" : "学生"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 border-b border-gray-200 text-gray-500 text-sm">
-                  {u.grade_name && u.class_name ? `${u.grade_name} ${u.class_name}` : u.class_name || "-"}
-                </td>
-                <td className="px-4 py-3 border-b border-gray-200 text-gray-500">{u.student_id || "-"}</td>
-                <td className="px-4 py-3 border-b border-gray-200 text-sm text-gray-500">{new Date(u.created_at).toLocaleString("zh-CN")}</td>
-                <td className="px-4 py-3 border-b border-gray-200">
-                  <div className="flex gap-2">
-                    <button
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditUser(u);
-                      }}
-                      title="编辑"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteUser(u);
-                      }}
-                      title="删除"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  用户名
+                </th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  姓名
+                </th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  角色
+                </th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  班级
+                </th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  学号
+                </th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  注册时间
+                </th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  操作
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/admin/users/${u.id}`)}>
+                  <td className="px-4 py-3 border-b border-border">{u.username}</td>
+                  <td className="px-4 py-3 border-b border-border">{u.display_name}</td>
+                  <td className="px-4 py-3 border-b border-border">
+                    <span
+                      className={cn(
+                        "inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
+                        u.role === "teacher" ? "bg-blue-50 text-primary" : "bg-green-50 text-green-700",
+                      )}
+                    >
+                      {u.role === "teacher" ? "教师" : "学生"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 border-b border-border text-muted-foreground text-sm">
+                    {u.grade_name && u.class_name ? `${u.grade_name} ${u.class_name}` : u.class_name || "-"}
+                  </td>
+                  <td className="px-4 py-3 border-b border-border text-muted-foreground">{u.student_id || "-"}</td>
+                  <td className="px-4 py-3 border-b border-border text-sm text-muted-foreground">{new Date(u.created_at).toLocaleString("zh-CN")}</td>
+                  <td className="px-4 py-3 border-b border-border">
+                    <div className="flex gap-2">
+                      <button
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditUser(u);
+                        }}
+                        title="编辑"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
+                        className={btnDanger}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteUser(u);
+                        }}
+                        title="删除"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <Pagination total={userTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
 
-      {/* Edit User Modal */}
       <Modal open={showEditUser} onClose={() => setShowEditUser(false)} title={`编辑用户: ${editUser?.display_name}`} maxWidth={480}>
-        {editUserMsg && <div className="bg-red-50 text-red-500 px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">{editUserMsg}</div>}
+        {editUserMsg && <div className="bg-destructive/10 text-red-500 px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">{editUserMsg}</div>}
         <form onSubmit={handleSaveUser}>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 font-semibold mb-1">姓名</label>
+            <label className="block text-xs text-muted-foreground font-semibold mb-1">姓名</label>
             <input
               className={inputClass}
               value={editUserForm.display_name}
@@ -531,20 +555,20 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
             />
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 font-semibold mb-1">学号</label>
+            <label className="block text-xs text-muted-foreground font-semibold mb-1">学号</label>
             <input className={inputClass} value={editUserForm.student_id} onChange={(e) => setEditUserForm((f) => ({ ...f, student_id: e.target.value }))} />
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 font-semibold mb-1">角色</label>
-            <select className={inputClass} value={editUserForm.role} onChange={(e) => setEditUserForm((f) => ({ ...f, role: e.target.value }))}>
+            <label className="block text-xs text-muted-foreground font-semibold mb-1">角色</label>
+            <select className={selectClass} value={editUserForm.role} onChange={(e) => setEditUserForm((f) => ({ ...f, role: e.target.value }))}>
               <option value="student">学生</option>
               <option value="teacher">教师</option>
             </select>
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 font-semibold mb-1">年级</label>
+            <label className="block text-xs text-muted-foreground font-semibold mb-1">年级</label>
             <select
-              className={inputClass}
+              className={selectClass}
               value={editGrade}
               onChange={(e) => {
                 setEditGrade(e.target.value);
@@ -561,9 +585,9 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
             </select>
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 font-semibold mb-1">班级</label>
+            <label className="block text-xs text-muted-foreground font-semibold mb-1">班级</label>
             <select
-              className={inputClass}
+              className={selectClass}
               value={editUserForm.class_id}
               onChange={(e) => setEditUserForm((f) => ({ ...f, class_id: e.target.value }))}
               disabled={!editGrade}
@@ -577,7 +601,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
             </select>
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 font-semibold mb-1">新密码（留空不修改）</label>
+            <label className="block text-xs text-muted-foreground font-semibold mb-1">新密码（留空不修改）</label>
             <input
               type="password"
               className={inputClass}
@@ -588,24 +612,16 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
             />
           </div>
           <div className="flex gap-3 justify-end mt-4">
-            <button
-              type="button"
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-              onClick={() => setShowEditUser(false)}
-            >
+            <button type="button" className={btnSecondary} onClick={() => setShowEditUser(false)}>
               取消
             </button>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-            >
+            <button type="submit" className={btnPrimary}>
               保存
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Batch Import Modal */}
       <Modal
         open={showBatchImport}
         onClose={() => {
@@ -630,10 +646,10 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               setBatchText(e.target.value);
               parseBatchText(e.target.value);
             }}
-            className="w-full font-mono text-sm p-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+            className="w-full font-mono text-sm p-2 border border-border rounded-lg focus:outline-none focus:border-blue-500"
             disabled={batchImporting}
           />
-          <div className="text-xs text-gray-500 mt-1">格式：用户名,密码,姓名,角色,学号,班级ID（可选）</div>
+          <div className="text-xs text-muted-foreground mt-1">格式：用户名,密码,姓名,角色,学号,班级ID（可选）</div>
         </div>
         <div className="mb-3 flex items-center gap-3 flex-wrap">
           <label className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer">
@@ -653,7 +669,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
               disabled={batchImporting}
             />
           </label>
-          <span className="text-blue-500 cursor-pointer font-medium hover:underline text-sm" onClick={handleDownloadTemplate}>
+          <span className="text-primary cursor-pointer font-medium hover:underline text-sm" onClick={handleDownloadTemplate}>
             <Download size={14} className="inline align-middle mr-0.5 -mt-0.5" />
             下载模板
           </span>
@@ -666,45 +682,48 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
         {batchPreview.length > 0 && (
           <div className="mb-4">
             <div className="font-semibold text-sm mb-2">预览（{batchPreview.length} 名用户）</div>
-            <div className="max-h-[200px] overflow-auto border border-gray-200 rounded-lg">
-              <table className="w-full border-collapse text-sm m-0">
+            <div className="max-h-[200px] overflow-auto border border-border rounded-lg">
+              <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                       用户名
                     </th>
-                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                       密码
                     </th>
-                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                       姓名
                     </th>
-                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                       角色
                     </th>
-                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                       学号
                     </th>
-                    <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                       班级ID
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {batchPreview.map((u, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 border-b border-gray-200">{u.username}</td>
-                      <td className="px-4 py-3 border-b border-gray-200">{"*".repeat(Math.min(u.password.length, 8))}</td>
-                      <td className="px-4 py-3 border-b border-gray-200">{u.display_name}</td>
-                      <td className="px-4 py-3 border-b border-gray-200">
+                    <tr key={i} className="hover:bg-muted">
+                      <td className="px-4 py-3 border-b border-border">{u.username}</td>
+                      <td className="px-4 py-3 border-b border-border">{"*".repeat(Math.min(u.password.length, 8))}</td>
+                      <td className="px-4 py-3 border-b border-border">{u.display_name}</td>
+                      <td className="px-4 py-3 border-b border-border">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold ${u.role === "teacher" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-700"}`}
+                          className={cn(
+                            "inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
+                            u.role === "teacher" ? "bg-blue-50 text-primary" : "bg-green-50 text-green-700",
+                          )}
                         >
                           {u.role === "teacher" ? "教师" : "学生"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-500">{u.student_id || "-"}</td>
-                      <td className="px-4 py-3 border-b border-gray-200 text-gray-500">{u.class_id || "-"}</td>
+                      <td className="px-4 py-3 border-b border-border text-muted-foreground">{u.student_id || "-"}</td>
+                      <td className="px-4 py-3 border-b border-border text-muted-foreground">{u.class_id || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -714,9 +733,10 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
         )}
         {batchResult && (
           <div
-            className={`mb-4 px-4 py-3 rounded-lg text-sm ${
-              batchResult.created > 0 ? "bg-green-50 border border-green-300" : "bg-amber-50 border border-amber-300"
-            }`}
+            className={cn(
+              "mb-4 px-4 py-3 rounded-lg text-sm",
+              batchResult.created > 0 ? "bg-green-50 border border-green-300" : "bg-amber-50 border border-amber-300",
+            )}
           >
             <div>
               创建成功: <strong className="text-green-500">{batchResult.created}</strong> 名
@@ -727,15 +747,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           </div>
         )}
         <div className="flex gap-3 justify-end">
-          <button
-            className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
-            onClick={() => setShowBatchImport(false)}
-            disabled={batchImporting}
-          >
+          <button className={btnSecondary} onClick={() => setShowBatchImport(false)} disabled={batchImporting}>
             取消
           </button>
           <button
-            className="inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={cn(btnPrimary, "disabled:opacity-50 disabled:cursor-not-allowed")}
             disabled={batchPreview.length === 0 || batchImporting}
             onClick={handleBatchImport}
           >

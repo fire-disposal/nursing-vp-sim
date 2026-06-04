@@ -1,5 +1,6 @@
-﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ChevronDown, ChevronUp, Code, Layout, Plus, Trash2 } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { activateRubric, createRubric, deleteRubric, fetchRubrics, updateRubric } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -176,26 +177,26 @@ export default function RubricTab() {
         </Button>
       </div>
 
-      {rubrics.length === 0 && <div className="text-center text-gray-400 py-10">暂无评分标准</div>}
+      {rubrics.length === 0 && <EmptyState icon={Layout} title="暂无评分标准" />}
 
       <div className="flex flex-col gap-2">
         {rubrics.map((r) => (
-          <div key={r.id} className="border border-gray-200 rounded-lg bg-white">
+          <div key={r.id} className="border border-border rounded-lg bg-card">
             <div className="flex items-center justify-between px-4 py-3 cursor-pointer" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
               <div>
                 <div className="font-semibold text-sm flex items-center gap-2">
-                  {r.name} <span className="text-xs text-gray-400 font-normal">v{r.version}</span>
+                  {r.name} <span className="text-xs text-muted-foreground/70 font-normal">v{r.version}</span>
                   {r.is_active && <span className="text-[0.625rem] bg-green-100 text-green-700 px-1.5 rounded-full">当前</span>}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {r.description || "无描述"} · {dimCount(r)} · 满分{r.total_max}
                 </div>
               </div>
-              <span className="text-gray-400">{expandedId === r.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+              <span className="text-muted-foreground/70">{expandedId === r.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
             </div>
 
             {expandedId === r.id && (
-              <div className="border-t border-gray-200 px-4 py-3 bg-gray-50 rounded-b-lg">
+              <div className="border-t border-border px-4 py-3 bg-muted rounded-b-lg">
                 <div className="flex gap-1.5 mb-3">
                   {!r.is_active && (
                     <Button size="sm" onClick={() => handleActivate(r.id)}>
@@ -206,35 +207,35 @@ export default function RubricTab() {
                     编辑
                   </Button>
                   {!r.is_active && (
-                    <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => setDeleteTarget(r)}>
+                    <Button size="sm" variant="ghost" className="text-red-500 hover:bg-destructive/10" onClick={() => setDeleteTarget(r)}>
                       <Trash2 size={12} />
                     </Button>
                   )}
                 </div>
 
                 {((r.dimensions as RubricDimension[]) || []).length === 0 ? (
-                  <div className="text-gray-400 text-sm">暂无评估维度</div>
+                  <EmptyState icon={Layout} title="暂无评估维度" className="py-4" />
                 ) : (
                   ((r.dimensions as RubricDimension[]) || []).map((dim, i) => (
                     <div key={i} className="mb-3">
                       <div className="font-semibold text-sm mb-1.5 flex items-baseline gap-2">
                         {dim.name}
-                        <span className="text-xs text-gray-400 font-normal">
+                        <span className="text-xs text-muted-foreground/70 font-normal">
                           {dim.items?.length || 0}项 · 满分{dim.max}分
                         </span>
                       </div>
-                      {dim.description && <div className="text-xs text-gray-500 mb-1.5">{dim.description}</div>}
+                      {dim.description && <div className="text-xs text-muted-foreground mb-1.5">{dim.description}</div>}
                       <div className="pl-2">
                         {(dim.items || []).map((item, j) => (
-                          <div key={j} className="mb-1 px-2 py-1 rounded-sm bg-white border border-gray-200">
+                          <div key={j} className="mb-1 px-2 py-1 rounded-sm bg-card border border-border">
                             <div className="text-xs font-medium mb-0.5">
                               {j + 1}. {item.name}
                             </div>
                             {item.anchors && (
-                              <div className="text-xs text-gray-500 pl-2">
+                              <div className="text-xs text-muted-foreground pl-2">
                                 {Object.entries(item.anchors).map(([k, v]) => (
                                   <div key={k} className="mb-0.5">
-                                    <span className="text-gray-400 font-medium">{k}分：</span>
+                                    <span className="text-muted-foreground/70 font-medium">{k}分：</span>
                                     {String(v)}
                                   </div>
                                 ))}
@@ -271,7 +272,7 @@ export default function RubricTab() {
             <div className="flex-1">
               <label className="text-sm font-medium">名称</label>
               <input
-                className="w-full py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                className="w-full py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="nursing_history_v1"
@@ -280,7 +281,7 @@ export default function RubricTab() {
             <div>
               <label className="text-sm font-medium">版本</label>
               <input
-                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formVersion}
                 onChange={(e) => setFormVersion(e.target.value)}
               />
@@ -290,7 +291,7 @@ export default function RubricTab() {
           <div>
             <label className="text-sm font-medium">描述</label>
             <input
-              className="w-full py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+              className="w-full py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
               value={formDesc}
               onChange={(e) => setFormDesc(e.target.value)}
               placeholder="简要说明该评分标准的用途"
@@ -302,7 +303,7 @@ export default function RubricTab() {
               <label className="text-sm">展示满分</label>
               <input
                 type="number"
-                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formTotalMax}
                 onChange={(e) => setFormTotalMax(Number(e.target.value))}
               />
@@ -311,7 +312,7 @@ export default function RubricTab() {
               <label className="text-sm">原始满分</label>
               <input
                 type="number"
-                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formRawMax}
                 onChange={(e) => setFormRawMax(Number(e.target.value))}
               />
@@ -320,7 +321,7 @@ export default function RubricTab() {
               <label className="text-sm">原始刻度</label>
               <input
                 type="number"
-                className="w-20 py-1.5 px-2.5 border border-gray-200 rounded-md bg-white text-sm font-[inherit] text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                 value={formRawScale}
                 onChange={(e) => setFormRawScale(Number(e.target.value))}
               />
@@ -331,7 +332,7 @@ export default function RubricTab() {
             <div className="flex justify-between items-center mb-1.5">
               <label className="text-sm font-medium">
                 评估维度与条目
-                <span className="font-normal text-gray-400 text-xs ml-1.5">
+                <span className="font-normal text-muted-foreground/70 text-xs ml-1.5">
                   ({formDims.length}维度 · {formDims.reduce((s, d) => s + (d.items?.length || 0), 0)}条目)
                 </span>
               </label>
@@ -365,14 +366,14 @@ export default function RubricTab() {
             ) : (
               <div>
                 <textarea
-                  className="w-full font-mono text-xs py-2 px-2.5 border border-gray-200 rounded-md bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+                  className="w-full font-mono text-xs py-2 px-2.5 border border-border rounded-md bg-card focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                   value={jsonText}
                   onChange={(e) => applyJsonDims(e.target.value)}
                   rows={18}
                 />
               </div>
             )}
-            {dimError && <div className="text-red-600 text-xs mt-1">{dimError}</div>}
+            {dimError && <div className="text-destructive text-xs mt-1">{dimError}</div>}
           </div>
         </div>
       </Modal>

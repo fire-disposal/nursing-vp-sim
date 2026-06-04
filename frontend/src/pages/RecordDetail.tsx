@@ -1,20 +1,21 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   BarChart3,
+  CheckCircle,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
-  ClipboardList,
   Clock,
   Download,
   Edit3,
   FileText,
+  Lightbulb,
   MessageCircle,
   MessageSquare,
-  RefreshCw,
-  ShieldCheck,
-  User,
-  X,
 } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
+import { RefreshCw, ShieldCheck, ThumbsDown, ThumbsUp, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
@@ -23,7 +24,7 @@ import Layout from "@/components/Layout";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
-import PageHeader from "@/components/ui/PageHeader";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import useAuthStore from "@/stores/authStore";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,10 @@ interface DetailScoreCategory {
 interface ScoreData {
   total_score: number;
   detail_scores?: Record<string, DetailScoreCategory>;
+  strengths?: string[];
+  weaknesses?: string[];
+  missed_content?: string[];
+  suggestions?: string;
   rubric_version?: string;
 }
 
@@ -68,32 +73,37 @@ function ReviewItem({ item, editedScore, onChange }: ReviewItemProps) {
   const currentScore = editedScore !== undefined ? editedScore : item.score;
 
   return (
-    <div className="mb-1.5">
-      <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-50 border border-border flex-wrap gap-2">
+    <div className="mb-2">
+      <div className="flex justify-between items-center px-3 py-2.5 rounded-lg bg-muted/50 border border-border flex-wrap gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium text-gray-700">{item.name}</span>
+            <span className="text-sm font-medium">{item.name}</span>
             {hasEvidence && (
-              <button onClick={() => setExpanded(!expanded)} className="border-0 bg-transparent cursor-pointer p-0 text-gray-400 flex">
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="border-0 bg-transparent p-0 text-muted-foreground flex hover:text-foreground transition-colors"
+              >
                 {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </button>
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-xs text-gray-400">AI 评分: </span>
-            <span className={cn("text-xs font-bold", item.score >= 3 ? "text-green-700" : item.score >= 2 ? "text-amber-700" : "text-red-600")}>
+            <span className="text-xs text-muted-foreground">AI 评分: </span>
+            <span className={cn("text-xs font-bold", item.score >= 3 ? "text-green-600" : item.score >= 2 ? "text-amber-600" : "text-red-600")}>
               {item.score}/3
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {[1, 2, 3].map((s) => (
             <button
               key={s}
               onClick={() => onChange(item.id, s)}
               className={cn(
-                "w-8 h-8 rounded-lg text-sm cursor-pointer transition-all",
-                currentScore === s ? "border-2 border-primary bg-blue-50 text-primary font-bold" : "border border-gray-300 bg-white text-gray-500 font-medium",
+                "w-8 h-8 rounded-lg text-sm font-medium transition-all",
+                currentScore === s
+                  ? "border-2 border-primary bg-primary/10 text-primary"
+                  : "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground",
               )}
             >
               {s}
@@ -102,19 +112,19 @@ function ReviewItem({ item, editedScore, onChange }: ReviewItemProps) {
         </div>
       </div>
       {expanded && hasEvidence && (
-        <div className="ml-3 mr-1 my-1 px-2.5 py-2 rounded-md bg-gray-50 border border-border text-xs leading-relaxed">
+        <div className="ml-3 mt-2 px-3 py-2.5 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed">
           {item.evidence && (
-            <div className={cn(item.reason && "mb-1")}>
-              <span className="font-semibold text-gray-500 flex items-center gap-1">
-                <MessageSquare size={10} /> 证据
+            <div className={cn(item.reason && "mb-2")}>
+              <span className="font-semibold text-muted-foreground flex items-center gap-1 mb-0.5">
+                <MessageSquare size={11} /> 证据
               </span>
-              <span className="text-gray-700">{item.evidence}</span>
+              <span className="text-foreground/80">{item.evidence}</span>
             </div>
           )}
           {item.reason && (
             <div>
-              <span className="font-semibold text-gray-500">理由：</span>
-              <span className="text-gray-700">{item.reason}</span>
+              <span className="font-semibold text-muted-foreground">理由：</span>
+              <span className="text-foreground/80">{item.reason}</span>
             </div>
           )}
         </div>
@@ -171,23 +181,32 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }: ReviewEd
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-8 max-w-[640px] w-[92vw] max-h-[90vh] overflow-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[200]" onClick={onClose}>
+      <div
+        className="bg-card rounded-2xl p-6 sm:p-8 max-w-[640px] w-[94vw] max-h-[90vh] overflow-auto shadow-xl border border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-5">
           <div>
-            <h2 className="text-lg font-bold">教师复核评分</h2>
+            <h2 className="text-lg font-semibold">教师复核评分</h2>
             <span className="text-xs text-muted-foreground">逐项审核 AI 评分，可修改每项分值</span>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-border bg-white cursor-pointer flex items-center justify-center">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center hover:bg-muted transition-colors"
+          >
             <X size={16} />
           </button>
         </div>
 
         {isNewFormat ? (
           categories.map(([catName, catData]) => (
-            <div key={catName} className="mb-4">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                {catName}（{catData.score}/{catData.max}）
+            <div key={catName} className="mb-5">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
+                <span>{catName}</span>
+                <Badge variant="neutral">
+                  {catData.score}/{catData.max}
+                </Badge>
               </div>
               {(catData.items || []).map((item) => (
                 <ReviewItem key={item.id} item={item} editedScore={editedScores[item.id]} onChange={handleScoreChange} />
@@ -195,35 +214,81 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }: ReviewEd
             </div>
           ))
         ) : (
-          <div className="text-sm text-gray-500 py-4 text-center">此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。</div>
+          <div className="text-sm text-muted-foreground py-8 text-center border border-dashed border-border rounded-xl">
+            此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。
+          </div>
         )}
 
         <div className="mt-4">
-          <label className="text-sm font-semibold text-gray-700 block mb-1.5">复核备注</label>
+          <label className="text-sm font-semibold block mb-1.5">复核备注</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="可选：对评分调整的说明..."
             rows={3}
-            className="w-full px-3 py-2.5 rounded-lg border border-input text-sm resize-y font-[inherit]"
+            className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-y placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary"
           />
         </div>
 
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="flex justify-end gap-2 mt-5">
           <button
-            className="inline-flex items-center gap-1.5 px-[22px] py-2 rounded-lg border border-border bg-transparent text-gray-700 text-sm font-medium cursor-pointer transition hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={onClose}
             disabled={submitting}
           >
             取消
           </button>
           <button
-            className="inline-flex items-center gap-1.5 px-[22px] py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium cursor-pointer transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleSubmit}
             disabled={submitting}
           >
             {submitting ? "提交中..." : "提交复核"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScoreItem({ item }: { item: ScoreItemData }) {
+  const [expanded, setExpanded] = useState(item.score < 2);
+  const hasEvidence = item.evidence || item.reason;
+
+  return (
+    <div className="mb-1">
+      <div
+        onClick={() => hasEvidence && setExpanded(!expanded)}
+        className={cn(
+          "flex justify-between items-center px-3 py-2 rounded-lg transition-colors",
+          hasEvidence ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
+          item.score >= 3 ? "bg-green-50 dark:bg-green-950/20" : item.score >= 2 ? "bg-amber-50 dark:bg-amber-950/20" : "bg-red-50 dark:bg-red-950/20",
+        )}
+      >
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {hasEvidence && <span className="text-muted-foreground shrink-0">{expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>}
+          <span className="text-sm truncate">{item.name}</span>
+        </div>
+        <span className={cn("text-sm font-bold ml-2 shrink-0", item.score >= 3 ? "text-green-600" : item.score >= 2 ? "text-amber-600" : "text-red-600")}>
+          {item.score}/3
+        </span>
+      </div>
+      <div className={cn("overflow-hidden transition-all duration-300", expanded && hasEvidence ? "max-h-[300px] opacity-100 mt-1 ml-4" : "max-h-0 opacity-0")}>
+        <div className="p-3 rounded-lg bg-muted/30 border border-border text-sm leading-relaxed">
+          {item.evidence && (
+            <div className={item.reason ? "mb-2" : ""}>
+              <span className="font-semibold text-muted-foreground flex items-center gap-1 mb-0.5">
+                <MessageSquare size={11} /> 证据
+              </span>
+              <span className="text-foreground/80">{item.evidence}</span>
+            </div>
+          )}
+          {item.reason && (
+            <div>
+              <span className="font-semibold text-muted-foreground">理由：</span>
+              <span className="text-foreground/80">{item.reason}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -240,6 +305,7 @@ export default function RecordDetail() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
+  const { confirm } = useConfirm();
 
   const { data: record, isError: recordError } = useQuery({
     queryKey: ["recordDetail", id],
@@ -327,7 +393,12 @@ export default function RecordDetail() {
   if (!record) {
     return (
       <Layout>
-        <div className="text-center py-16 text-muted-foreground">加载中...</div>
+        <div className="flex items-center justify-center py-24 text-muted-foreground">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-muted border-t-primary rounded-full animate-spin" />
+            <span className="text-sm">加载中...</span>
+          </div>
+        </div>
       </Layout>
     );
   }
@@ -342,151 +413,247 @@ export default function RecordDetail() {
 
   const recordScore = record.score as ScoreData | null;
   const messages = (record.messages || []) as MessageData[];
+  const hasScore = !!record.score;
+  const detailScores = recordScore?.detail_scores || {};
+  const categories = Object.entries(detailScores);
+  const hasDetailItems = categories.some(([, v]) => v && typeof v === "object" && Array.isArray(v.items) && v.items.length > 0);
 
   return (
     <Layout>
-      <PageHeader title="记录详情" subtitle={`训练记录 #${record.id}`} icon={FileText} backTo="/history" />
+      <div className="max-w-4xl mx-auto space-y-6">
+        <nav className="flex items-center gap-2 text-sm">
+          <button
+            onClick={() => navigate("/history")}
+            className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft size={16} />
+            <span>训练记录</span>
+          </button>
+          <ChevronRight size={14} className="text-muted-foreground/50" />
+          <span className="font-medium text-foreground">#{record.id}</span>
+        </nav>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5 mb-6">
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-            <User size={22} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-base font-bold leading-tight">{(record as { user_display_name?: string }).user_display_name}</div>
-            <div className="text-xs text-muted-foreground">学生</div>
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-lg bg-cyan-50 text-cyan-500 flex items-center justify-center shrink-0">
-            <ClipboardList size={22} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-base font-bold leading-tight">{record.case_name}</div>
-            <div className="text-xs text-muted-foreground">病例</div>
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-            <Clock size={22} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-2xl font-bold leading-tight">{duration != null ? `${duration}分钟` : "-"}</div>
-            <div className="text-xs text-muted-foreground">训练时长</div>
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-lg bg-green-50 text-green-500 flex items-center justify-center shrink-0">
-            <BarChart3 size={22} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-2xl font-bold leading-tight">{recordScore?.total_score ?? "-"}</div>
-            <div className="text-xs text-muted-foreground">得分</div>
-          </div>
-        </div>
-      </div>
-
-      {record.status === "completed" && !record.score && (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-amber-700 font-semibold">
-                {record.scoring_status === "pending" || record.scoring_status === "processing" ? "评分正在生成中..." : "暂无评分"}
-              </h3>
-              <p className="text-sm text-amber-700 mt-1">
-                {record.scoring_status === "pending" || record.scoring_status === "processing"
-                  ? "AI 正在分析对话内容，预计几秒到一分钟内完成。"
-                  : record.scoring_status === "failed"
-                    ? `评分失败: ${record.scoring_error || "未知错误"}`
-                    : "评分尚未生成"}
-              </p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+              <User size={18} />
             </div>
-            {record.scoring_status === "failed" && (
-              <button
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium cursor-pointer transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleRetryScoring}
-                disabled={retrying}
-              >
-                <RefreshCw size={14} className={cn(retrying && "animate-spin")} />
-                <span>{retrying ? "重试中..." : "重新评分"}</span>
-              </button>
-            )}
+            <div className="min-w-0">
+              <div className="text-base font-bold truncate">{(record as { user_display_name?: string }).user_display_name || "-"}</div>
+              <div className="text-xs text-muted-foreground">学生</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
+              <FileText size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-base font-bold truncate">{record.case_name || "-"}</div>
+              <div className="text-xs text-muted-foreground">病例</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
+              <Clock size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl font-bold">{duration != null ? `${duration}分钟` : "-"}</div>
+              <div className="text-xs text-muted-foreground">训练时长</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400">
+              <BarChart3 size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl font-bold">{recordScore?.total_score ?? "-"}</div>
+              <div className="text-xs text-muted-foreground">{hasScore ? `得分 / ${scoreMax}` : "得分"}</div>
+            </div>
           </div>
         </div>
-      )}
 
-      {record.score && (
-        <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-indigo-50 to-sky-50">
-          <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="m-0">评分结果</h3>
-              {isReviewed ? (
-                <Badge variant="success">
-                  <ShieldCheck size={12} /> 教师已复核
-                </Badge>
-              ) : (
-                <Badge variant="info">AI 初评</Badge>
-              )}
-              {isReviewed && review?.reviewed_by_name && (
-                <span className="text-xs text-muted-foreground">
-                  复核人: {review.reviewed_by_name}
-                  {review.reviewed_at && ` · ${new Date(review.reviewed_at).toLocaleDateString("zh-CN")}`}
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {isTeacher && (
+        {record.status === "completed" && !record.score && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <div>
+                <h3 className="font-semibold text-amber-700 dark:text-amber-400">
+                  {record.scoring_status === "pending" || record.scoring_status === "processing" ? "评分正在生成中..." : "暂无评分"}
+                </h3>
+                <p className="text-sm text-amber-700/80 dark:text-amber-400/80 mt-1">
+                  {record.scoring_status === "pending" || record.scoring_status === "processing"
+                    ? "AI 正在分析对话内容，预计几秒到一分钟内完成。"
+                    : record.scoring_status === "failed"
+                      ? `评分失败: ${record.scoring_error || "未知错误"}`
+                      : "评分尚未生成"}
+                </p>
+              </div>
+              {record.scoring_status === "failed" && (
                 <button
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-transparent text-gray-700 text-xs font-medium cursor-pointer transition hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => setShowReviewEditor(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  onClick={handleRetryScoring}
+                  disabled={retrying}
                 >
-                  <Edit3 size={14} /> {isReviewed ? "修改复核" : "复核评分"}
+                  <RefreshCw size={14} className={cn(retrying && "animate-spin")} />
+                  <span>{retrying ? "重试中..." : "重新评分"}</span>
                 </button>
               )}
-              <button
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium cursor-pointer transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => setShowScore(true)}
-              >
-                查看详细评分
-              </button>
-              <button
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-transparent text-gray-700 text-xs font-medium cursor-pointer transition hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleExport}
-              >
-                <Download size={14} />
-                导出记录
-              </button>
             </div>
           </div>
-          <div className="text-[2.5rem] font-extrabold text-primary">
-            {(record.score as ScoreData).total_score}
-            <span className="text-base text-muted-foreground font-normal"> / {scoreMax}分</span>
-          </div>
-          {isReviewed && review?.review_comment && (
-            <div className="mt-2.5 px-3 py-2 rounded-md bg-white/70 text-sm text-gray-700 border border-border">
-              <span className="font-semibold text-gray-500">复核备注：</span>
-              {review.review_comment}
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
+        {hasScore && recordScore && (
+          <div className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-base font-semibold">评分结果</h3>
+                {isReviewed ? (
+                  <Badge variant="success">
+                    <ShieldCheck size={12} /> 教师已复核
+                  </Badge>
+                ) : (
+                  <Badge variant="info">AI 初评</Badge>
+                )}
+                {isReviewed && review?.reviewed_by_name && (
+                  <span className="text-xs text-muted-foreground">
+                    复核人: {review.reviewed_by_name}
+                    {review.reviewed_at && ` · ${new Date(review.reviewed_at).toLocaleDateString("zh-CN")}`}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isTeacher && (
+                  <button
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted hover:border-primary/50 transition-colors"
+                    onClick={() => setShowReviewEditor(true)}
+                  >
+                    <Edit3 size={14} /> {isReviewed ? "修改复核" : "复核评分"}
+                  </button>
+                )}
+                <button
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                  onClick={() => setShowScore(true)}
+                >
+                  查看详细评分
+                </button>
+                <button
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted hover:border-primary/50 transition-colors"
+                  onClick={handleExport}
+                >
+                  <Download size={14} />
+                  导出记录
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-extrabold text-primary">{recordScore.total_score}</span>
+              <span className="text-base text-muted-foreground">/ {scoreMax} 分</span>
+            </div>
+
+            {isReviewed && review?.review_comment && (
+              <div className="px-4 py-3 rounded-lg bg-muted/50 border border-border text-sm">
+                <span className="font-semibold text-muted-foreground">复核备注：</span>
+                <span>{review.review_comment}</span>
+              </div>
+            )}
+
+            {hasDetailItems && (
+              <div className="space-y-4 pt-2 border-t border-border">
+                {categories.map(([catName, catData]) => {
+                  if (!catData || !Array.isArray(catData.items) || catData.items.length === 0) return null;
+                  const pct = catData.max > 0 ? Math.round((catData.score / catData.max) * 100) : 0;
+                  return (
+                    <div key={catName} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold">{catName}</span>
+                        <span className="text-sm text-muted-foreground tabular-nums">
+                          {catData.score}/{catData.max}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-700",
+                            pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500",
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="space-y-0.5 mt-2">
+                        {catData.items.map((item, i) => (
+                          <ScoreItem key={item.id || i} item={item} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {recordScore.strengths && recordScore.strengths.length > 0 && (
+              <div className="pt-2 border-t border-border">
+                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                  <ThumbsUp size={16} className="text-green-500" />
+                  表现较好
+                </h4>
+                <ul className="space-y-1.5">
+                  {recordScore.strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <CheckCircle size={14} className="text-green-500 shrink-0 mt-0.5" />
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {recordScore.weaknesses && recordScore.weaknesses.length > 0 && (
+              <div className="pt-2 border-t border-border">
+                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                  <ThumbsDown size={16} className="text-amber-500" />
+                  需要改善
+                </h4>
+                <ul className="space-y-1.5">
+                  {recordScore.weaknesses.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="size-3.5 rounded-full border-2 border-amber-400 shrink-0 mt-0.5" />
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {recordScore.suggestions && (
+              <div className="pt-2 border-t border-border">
+                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                  <Lightbulb size={16} className="text-blue-500" />
+                  改进建议
+                </h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">{recordScore.suggestions}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+          <h3 className="flex items-center gap-2 text-sm font-semibold mb-4">
             <MessageCircle size={18} />
             对话回放 ({messages.length}条消息)
           </h3>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-6 max-h-[400px] overflow-y-auto">
-          {messages.map((msg) => (
-            <div key={msg.id} className="mb-2.5 text-sm leading-relaxed">
-              <span className={cn("font-semibold mr-2", msg.role === "student" ? "text-primary" : "text-teal-600")}>
-                {msg.role === "student" ? "学生：" : "患者："}
-              </span>
-              <span>{msg.content}</span>
-            </div>
-          ))}
+          <div className="rounded-lg bg-muted/50 p-4 sm:p-6 max-h-[400px] overflow-y-auto space-y-2">
+            {messages.map((msg) => (
+              <div key={msg.id} className="text-sm leading-relaxed">
+                <span className={cn("font-semibold mr-2", msg.role === "student" ? "text-primary" : "text-teal-600 dark:text-teal-400")}>
+                  {msg.role === "student" ? "学生：" : "患者："}
+                </span>
+                <span className="text-foreground/80">{msg.content}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

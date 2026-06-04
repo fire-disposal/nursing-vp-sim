@@ -1,5 +1,6 @@
 ﻿import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, startTraining } from "@/api/api-client";
@@ -8,11 +9,14 @@ import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
+import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
+const DIFFICULTY_COLORS: Record<number, string> = { 1: "success", 2: "warning", 3: "danger" };
 const LIMIT = 50;
 
 interface PatientSummary {
@@ -61,22 +65,24 @@ export default function CaseSelect() {
         backTo="/home"
       />
 
-      <div className="mb-6 rounded-xl border border-amber-200 p-6" style={{ background: "linear-gradient(135deg, #fef3c7, #fffbeb)" }}>
-        <div className="flex gap-3 items-start">
-          <Lightbulb size={24} color="#f59e0b" />
-          <div className="flex-1">
-            <strong>提示：</strong>每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
+      <div className="space-y-6">
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 sm:p-5">
+          <div className="flex gap-3 items-start">
+            <Lightbulb size={20} className="text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              <span className="font-semibold">提示：</span>每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="mb-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             type="button"
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-lg px-[22px] py-[9px] text-sm font-medium cursor-pointer transition-all",
-              difficultyFilter === 0 ? "bg-blue-600 text-white hover:bg-blue-700" : "text-gray-700 hover:bg-gray-100",
+              "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              difficultyFilter === 0
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
             onClick={() => {
               setDifficultyFilter(0);
@@ -90,8 +96,10 @@ export default function CaseSelect() {
               type="button"
               key={d}
               className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-lg px-[22px] py-[9px] text-sm font-medium cursor-pointer transition-all",
-                difficultyFilter === d ? "bg-blue-600 text-white hover:bg-blue-700" : "text-gray-700 hover:bg-gray-100",
+                "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                difficultyFilter === d
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
               onClick={() => {
                 setDifficultyFilter(d);
@@ -102,54 +110,54 @@ export default function CaseSelect() {
             </button>
           ))}
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">加载中...</div>
-      ) : filteredCases.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center text-muted-foreground">
-          <AlertTriangle size={40} className="mb-3 opacity-40" />
-          <p>暂无病例</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
-          {filteredCases.map((c) => {
-            const summary = getPatientSummary(c.patient_summary);
-            return (
-              <div
-                key={c.id}
-                className="bg-card border border-border rounded-xl p-6 flex flex-col gap-3 cursor-pointer transition-shadow transition-transform duration-200 hover:shadow-lg hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between">
-                  <h3 className="text-lg font-semibold">{c.name}</h3>
-                  <span className="flex gap-0.5">{getDifficultyStars(c.difficulty)}</span>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">{c.description}</p>
-                {typeof summary.gender === "string" && (
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <User size={14} />
-                      {summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}
-                    </span>
-                    {typeof summary.age === "number" && <span>{summary.age}岁</span>}
-                    {typeof summary.chief_complaint === "string" && <span className="truncate">主诉：{summary.chief_complaint}</span>}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="text-sm text-muted-foreground">加载中...</span>
+          </div>
+        ) : filteredCases.length === 0 ? (
+          <div className="rounded-xl border bg-card">
+            <EmptyState icon={AlertTriangle} title="暂无病例" />
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredCases.map((c) => {
+              const summary = getPatientSummary(c.patient_summary);
+              const isStarting = startMutation.isPending && startMutation.variables === c.id;
+              const diffLabel = DIFFICULTY_LABELS[c.difficulty || 1];
+              return (
+                <div key={c.id} className="group flex flex-col gap-3 rounded-xl border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-base font-semibold leading-snug">{c.name}</h3>
+                    <span className="flex gap-0.5 shrink-0 mt-0.5">{getDifficultyStars(c.difficulty)}</span>
                   </div>
-                )}
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-[22px] py-[9px] text-sm font-medium cursor-pointer transition-all mt-auto bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => startMutation.mutate(c.id)}
-                  disabled={startMutation.isPending}
-                >
-                  {startMutation.isPending && startMutation.variables === c.id ? "启动中..." : "开始训练"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  <div className="flex items-center gap-2">
+                    <Badge variant={DIFFICULTY_COLORS[c.difficulty || 1] as "success" | "warning" | "danger" | "default"}>{diffLabel}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{c.description}</p>
+                  {typeof summary.gender === "string" && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <User size={14} />
+                        {summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}
+                      </span>
+                      {typeof summary.age === "number" && <span>{summary.age}岁</span>}
+                      {typeof summary.chief_complaint === "string" && <span className="truncate max-w-[180px]">主诉：{summary.chief_complaint}</span>}
+                    </div>
+                  )}
+                  <Button className="mt-auto w-full" onClick={() => startMutation.mutate(c.id)} disabled={startMutation.isPending}>
+                    {isStarting ? "启动中..." : "开始训练"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-      <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
+        <div className="rounded-xl border bg-card px-4 py-3">
+          <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
+        </div>
+      </div>
     </Layout>
   );
 }

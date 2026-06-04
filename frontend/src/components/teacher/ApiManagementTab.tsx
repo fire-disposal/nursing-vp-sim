@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, ChevronDown, ChevronRight, Edit3, Plus, RefreshCw, Trash2 } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import {
   createConfig,
@@ -17,6 +18,7 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { cn } from "@/lib/utils";
 import SecretModal from "./SecretModal";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
@@ -31,13 +33,14 @@ const PURPOSES = [
 ];
 
 const PROVIDER_COLORS: Record<string, string> = { deepseek: "#4f6ef7", openai: "#10a37f", ollama: "#8b5cf6" };
-const statusDot = (s: string) => ({
-  width: 7,
-  height: 7,
-  borderRadius: "50%",
-  display: "inline-block",
-  background: { active: "var(--green-500)", degraded: "var(--amber-500)", disabled: "var(--red-400)" }[s] || "#999",
-});
+
+const STATUS_DOT: Record<string, string> = {
+  active: "bg-green-500",
+  degraded: "bg-amber-500",
+  disabled: "bg-red-400",
+};
+
+const selectClass = "py-0.5 px-1.5 border border-border rounded-md text-sm bg-card";
 
 export default function ApiManagementTab() {
   const toast = useToast();
@@ -137,151 +140,82 @@ export default function ApiManagementTab() {
     }
   };
 
-  const S = {
-    card: {
-      border: "1px solid var(--border-color)",
-      borderRadius: "var(--radius-md)",
-      overflow: "hidden",
-      marginBottom: "var(--space-3)",
-    } as React.CSSProperties,
-    row: {
-      display: "flex",
-      alignItems: "center",
-      padding: "var(--space-2) var(--space-3)",
-      borderBottom: "1px solid var(--border-color)",
-      gap: "var(--space-3)",
-    } as React.CSSProperties,
-    rowLast: { display: "flex", alignItems: "center", padding: "var(--space-2) var(--space-3)", gap: "var(--space-3)" } as React.CSSProperties,
-    btn: {
-      padding: "var(--space-1) var(--space-3)",
-      border: "none",
-      borderRadius: "var(--radius-md)",
-      background: "var(--color-primary)",
-      color: "#fff",
-      cursor: "pointer",
-      fontSize: "0.82rem",
-      display: "flex",
-      alignItems: "center",
-      gap: 4,
-    } as React.CSSProperties,
-  };
-
   return (
     <>
-      {/* Env fallback */}
-      <div style={{ marginBottom: "var(--space-3)", fontSize: "0.78rem" }}>
+      <div className="mb-3 text-xs">
         <button
           onClick={() => setShowFallback((v) => !v)}
-          style={{
-            background: "none",
-            border: "none",
-            color: "var(--text-tertiary)",
-            cursor: "pointer",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
+          className="bg-transparent border-none text-muted-foreground/70 cursor-pointer p-0 flex items-center gap-1 text-xs"
         >
           {showFallback ? <ChevronDown size={12} /> : <ChevronRight size={12} />} 环境兜底
-          {envFallback && <span style={{ ...statusDot(envFallback.available ? "active" : "disabled") }} />}
-          <span style={{ fontFamily: "monospace", fontSize: "0.7rem" }}>sk-...{envFallback?.key_suffix || "****"}</span>
+          {envFallback && <span className={cn("inline-block w-[7px] h-[7px] rounded-full", envFallback.available ? "bg-green-500" : "bg-red-400")} />}
+          <span className="font-mono text-[0.7rem]">sk-...{envFallback?.key_suffix || "****"}</span>
         </button>
         {showFallback && envFallback && (
-          <div
-            style={{
-              marginTop: 4,
-              padding: "var(--space-1) var(--space-3)",
-              background: "var(--bg-surface-subtle)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-secondary)",
-            }}
-          >
+          <div className="mt-1 py-1 px-3 bg-muted rounded-md text-muted-foreground text-xs">
             {envFallback.model_flash}/{envFallback.model_pro} @ {envFallback.base_url}
           </div>
         )}
       </div>
 
-      {/* API Profiles */}
-      <div style={{ marginBottom: "var(--space-4)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>API 档案</h3>
+      <div className="mb-4">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-sm font-semibold text-gray-700">API 档案</h3>
           <button
             onClick={() => {
               setEditingSecret(null);
               setShowSecretModal(true);
             }}
-            style={S.btn}
+            className="inline-flex items-center gap-1 py-1 px-3 border-none rounded-md bg-primary text-white cursor-pointer text-sm"
           >
             <Plus size={14} /> 新建档案
           </button>
         </div>
         {secrets.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "var(--space-5)",
-              color: "var(--text-tertiary)",
-              border: "1px dashed var(--border-color)",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.85rem",
-            }}
-          >
-            暂无档案 · 新建一个 API Key 档案以开始使用
+          <div className="border border-dashed border-border rounded-md">
+            <EmptyState title="暂无档案" description="新建一个 API Key 档案以开始使用" />
           </div>
         ) : (
-          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+          <div className="flex gap-2 flex-wrap">
             {secrets.map((s) => {
               const provider = (s as any).provider || "custom";
               const myConfigs = configs.filter((c) => c.secret_id === s.id);
+              const secStatus = (s as any).status;
+              const statusLabel = secStatus === "active" ? "正常" : secStatus === "degraded" ? "熔断" : "关闭";
+              const statusColor = secStatus === "active" ? "text-green-600" : secStatus === "degraded" ? "text-amber-600" : "text-red-500";
               return (
-                <div key={s.id} className="card" style={{ flex: "1 1 240px", maxWidth: 320, padding: "var(--space-2) var(--space-3)", position: "relative" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                <div key={s.id} className="flex-1 min-w-[240px] max-w-[320px] rounded-lg border border-border bg-card p-3 relative">
+                  <div className="flex items-center gap-1.5 mb-0.5">
                     <span
+                      className="inline-block px-1.5 rounded-full text-[0.65rem] font-semibold"
                       style={{
-                        display: "inline-block",
-                        padding: "0 6px",
-                        borderRadius: "var(--radius-full)",
-                        fontSize: "0.65rem",
-                        fontWeight: 600,
                         background: `${PROVIDER_COLORS[provider] || "#999"}18`,
                         color: PROVIDER_COLORS[provider] || "#666",
                       }}
                     >
                       {provider}
                     </span>
-                    <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{s.label}</span>
-                    <span
-                      style={{
-                        marginLeft: "auto",
-                        fontSize: "0.7rem",
-                        color: (s as any).status === "active" ? "var(--green-600)" : (s as any).status === "degraded" ? "var(--amber-600)" : "var(--red-500)",
-                      }}
-                    >
-                      {(s as any).status === "active" ? "正常" : (s as any).status === "degraded" ? "熔断" : "关闭"}
-                    </span>
+                    <span className="font-semibold text-sm">{s.label}</span>
+                    <span className={cn("ml-auto text-[0.7rem]", statusColor)}>{statusLabel}</span>
                   </div>
-                  <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)" }}>
-                    <span style={{ fontFamily: "monospace" }}>sk-...{s.key_suffix}</span>
-                    {(s as any).base_url && <span style={{ marginLeft: 6, color: "var(--text-tertiary)" }}>{(s as any).base_url}</span>}
+                  <div className="text-[0.68rem] text-muted-foreground">
+                    <span className="font-mono">sk-...{s.key_suffix}</span>
+                    {(s as any).base_url && <span className="ml-1.5 text-muted-foreground/70">{(s as any).base_url}</span>}
                   </div>
-                  <div style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 2 }}>
+                  <div className="text-[0.68rem] text-muted-foreground/70 mt-0.5">
                     {myConfigs.length} 用途 · 本月 ¥{Number(s.monthly_cost_used || 0).toFixed(2)}
                   </div>
-                  <div style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 2 }}>
+                  <div className="absolute top-1 right-1 flex gap-0.5">
                     <button
                       onClick={() => {
                         setEditingSecret(s);
                         setShowSecretModal(true);
                       }}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
+                      className="bg-transparent border-none cursor-pointer text-muted-foreground/70 p-0.5"
                     >
                       <Edit3 size={12} />
                     </button>
-                    <button
-                      onClick={() => handleDeleteSecret(s)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red-400)", padding: 2 }}
-                    >
+                    <button onClick={() => handleDeleteSecret(s)} className="bg-transparent border-none cursor-pointer text-red-400 p-0.5">
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -292,32 +226,31 @@ export default function ApiManagementTab() {
         )}
       </div>
 
-      {/* Purpose Assignments */}
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>用途指派</h3>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-sm font-semibold text-gray-700">用途指派</h3>
           <button
             onClick={() =>
               reloadRouter()
                 .then(() => toast.success("已重载"))
                 .catch(() => toast.error("失败"))
             }
-            style={{ ...S.btn, background: "var(--bg-surface-subtle)", color: "var(--text-primary)", border: "1px solid var(--border-color)" }}
+            className="inline-flex items-center gap-1 py-1 px-3 border border-border rounded-md bg-muted text-gray-700 cursor-pointer text-sm"
           >
             <RefreshCw size={14} />
           </button>
         </div>
-        <div style={S.card}>
+        <div className="border border-border rounded-lg overflow-hidden mb-3">
           {PURPOSES.map((p, i) => {
             const cfg = getConfig(p.key);
             const isLast = i === PURPOSES.length - 1;
             return (
-              <div key={p.key} style={isLast ? S.rowLast : S.row}>
-                <div style={{ width: 100, flexShrink: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{p.label}</div>
-                  <div style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>{p.desc}</div>
+              <div key={p.key} className={cn("flex items-center py-2 px-3 gap-3", !isLast && "border-b border-border")}>
+                <div className="w-[100px] shrink-0">
+                  <div className="font-semibold text-sm">{p.label}</div>
+                  <div className="text-[0.65rem] text-muted-foreground/70">{p.desc}</div>
                 </div>
-                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                <div className="flex-1 flex items-center gap-2 flex-wrap">
                   {cfg ? (
                     <>
                       <select
@@ -328,13 +261,7 @@ export default function ApiManagementTab() {
                           await deleteConfig(cfg.id);
                           invalidate();
                         }}
-                        style={{
-                          padding: "2px 6px",
-                          border: "1px solid var(--border-color)",
-                          borderRadius: "var(--radius-md)",
-                          fontSize: "0.8rem",
-                          background: "#fff",
-                        }}
+                        className={selectClass}
                       >
                         {secrets.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -350,14 +277,7 @@ export default function ApiManagementTab() {
                           await deleteConfig(cfg.id);
                           invalidate();
                         }}
-                        style={{
-                          padding: "2px 6px",
-                          border: "1px solid var(--border-color)",
-                          borderRadius: "var(--radius-md)",
-                          fontSize: "0.8rem",
-                          background: "#fff",
-                          fontFamily: "monospace",
-                        }}
+                        className={cn(selectClass, "font-mono")}
                       >
                         {getModelsForSecret(cfg.secret_id).map((m: any) => (
                           <option key={m.name} value={m.name}>
@@ -367,69 +287,50 @@ export default function ApiManagementTab() {
                         {!getModelsForSecret(cfg.secret_id).find((m: any) => m.name === cfg.model) && <option value={cfg.model}>{cfg.model}</option>}
                       </select>
                       <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: "0.78rem",
-                          color: cfg.status === "active" ? "var(--green-700)" : cfg.status === "degraded" ? "var(--amber-700)" : "var(--red-600)",
-                        }}
+                        className={cn(
+                          "inline-flex items-center gap-1 text-sm",
+                          cfg.status === "active" ? "text-green-700" : cfg.status === "degraded" ? "text-amber-700" : "text-destructive",
+                        )}
                       >
-                        <span style={statusDot(cfg.status)} />
+                        <span className={cn("inline-block w-[7px] h-[7px] rounded-full", STATUS_DOT[cfg.status] || "bg-gray-400")} />
                         {cfg.status === "active" ? "正常" : cfg.status === "degraded" ? "熔断" : "关闭"}
                       </span>
-                      <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+                      <span className="text-[0.7rem] text-muted-foreground/70">
                         {cfg.status === "active" && (cfg as any).call_count_today ? `${(cfg as any).call_count_today}次` : ""}
                       </span>
                     </>
                   ) : (
-                    <span style={{ fontSize: "0.82rem", color: "var(--text-tertiary)" }}>未指派</span>
+                    <span className="text-sm text-muted-foreground/70">未指派</span>
                   )}
                 </div>
-                <div style={{ flexShrink: 0, display: "flex", gap: 4, alignItems: "center" }}>
+                <div className="shrink-0 flex gap-1 items-center">
                   {cfg ? (
                     <>
                       {cfg.status === "degraded" ? (
-                        <button
-                          onClick={() => handleReset(cfg)}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--amber-500)", padding: 2 }}
-                          title="恢复"
-                        >
+                        <button onClick={() => handleReset(cfg)} className="bg-transparent border-none cursor-pointer text-amber-500 p-0.5" title="恢复">
                           <RefreshCw size={12} />
                         </button>
                       ) : (
                         <button
                           onClick={() => handleToggle(cfg)}
                           title={cfg.status === "active" ? "停用" : "启用"}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 2,
-                            color: cfg.status === "active" ? "var(--red-400)" : "var(--green-500)",
-                            fontSize: "0.7rem",
-                            fontWeight: 600,
-                          }}
+                          className={cn(
+                            "bg-transparent border-none cursor-pointer p-0.5 text-xs font-semibold",
+                            cfg.status === "active" ? "text-red-400" : "text-green-500",
+                          )}
                         >
                           {cfg.status === "active" ? "停" : "启"}
                         </button>
                       )}
-                      <button
-                        onClick={() => handleTest(cfg)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2 }}
-                        title="测试"
-                      >
+                      <button onClick={() => handleTest(cfg)} className="bg-transparent border-none cursor-pointer text-muted-foreground/70 p-0.5" title="测试">
                         <Activity size={12} />
                       </button>
-                      <button
-                        onClick={() => handleDeleteConfig(cfg)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red-400)", padding: 2 }}
-                      >
+                      <button onClick={() => handleDeleteConfig(cfg)} className="bg-transparent border-none cursor-pointer text-red-400 p-0.5">
                         <Trash2 size={12} />
                       </button>
                     </>
                   ) : (
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <div className="flex gap-1 items-center">
                       <select
                         onChange={(e) => {
                           const sid = Number(e.target.value);
@@ -437,13 +338,7 @@ export default function ApiManagementTab() {
                           const models = getModelsForSecret(sid);
                           handleQuickBind(p.key, sid, models[0]?.name || "deepseek-v4-flash");
                         }}
-                        style={{
-                          padding: "2px 6px",
-                          border: "1px solid var(--border-color)",
-                          borderRadius: "var(--radius-md)",
-                          fontSize: "0.75rem",
-                          background: "#fff",
-                        }}
+                        className="py-0.5 px-1.5 border border-border rounded-md text-xs bg-card"
                       >
                         <option value="">选择档案...</option>
                         {secrets.map((s) => (
@@ -452,7 +347,7 @@ export default function ApiManagementTab() {
                           </option>
                         ))}
                       </select>
-                      <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>选择档案即可绑定</span>
+                      <span className="text-[0.7rem] text-muted-foreground/70">选择档案即可绑定</span>
                     </div>
                   )}
                 </div>

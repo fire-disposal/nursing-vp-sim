@@ -5,6 +5,7 @@
   HelpCircle,
   Home,
   Info,
+  LogOut,
   Menu,
   MessageSquare,
   Server,
@@ -14,14 +15,15 @@
   Users,
   X,
 } from "lucide-react";
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/Button";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import useAuthStore from "../stores/authStore";
 import { APP_VERSION } from "../version";
 import { useFeedback } from "./FeedbackProvider";
 import Modal from "./ui/Modal";
-import { cn } from "@/lib/utils";
 
 interface NavLinkItem {
   to: string;
@@ -56,16 +58,11 @@ export default function Layout({ children }: { children: ReactNode }) {
   const logout = useAuthStore((s) => s.logout);
   const isTeacher = user?.role === "teacher";
   const links = isTeacher ? teacherLinks : studentLinks;
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const { openFeedback } = useFeedback();
 
-  const closeMenu = () => setMobileMenuOpen(false);
-
-  const handleOpenFeedback = () => {
-    setAboutOpen(false);
-    openFeedback();
-  };
+  const close = () => setMobileOpen(false);
 
   const handleLogout = () => {
     logout();
@@ -74,20 +71,27 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {mobileMenuOpen && <div className="fixed inset-0 z-40 bg-black/30 md:hidden" onClick={closeMenu} />}
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={close} />}
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[200px] flex-col bg-gray-800 text-gray-300 transition-transform duration-300 ease-out md:translate-x-0",
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card transition-transform duration-300 ease-out md:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="px-4 pb-3.5 pt-6">
-          <h2 className="text-base font-bold text-white">虚拟患者系统</h2>
-          <span className="mt-0.5 block text-xs text-gray-400">护理病史采集训练</span>
+        <div className="flex h-14 items-center gap-2.5 px-4">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+            <Stethoscope size={16} className="text-primary-foreground" />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">虚拟患者系统</div>
+            <div className="text-xs text-muted-foreground">护理训练平台</div>
+          </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-px px-2 py-1.5">
+        <Separator />
+
+        <nav className="flex-1 overflow-y-auto px-2 py-2">
           {links.map((link) => {
             const Icon = link.icon;
             return (
@@ -95,77 +99,85 @@ export default function Layout({ children }: { children: ReactNode }) {
                 key={link.to}
                 to={link.to}
                 end={link.to === "/home" || link.to === "/admin"}
-                onClick={closeMenu}
+                onClick={close}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-gray-300 no-underline transition-colors hover:bg-white/5 hover:text-white",
-                    isActive && "bg-primary text-white hover:bg-primary",
+                    "mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
+                    isActive && "bg-primary/10 text-primary",
                   )
                 }
               >
-                <Icon size={16} />
+                <Icon size={17} />
                 {link.label}
               </NavLink>
             );
           })}
         </nav>
 
-        <div className="border-t border-white/5 px-3.5 py-3">
-          <div className="mb-2.5 flex items-center gap-2">
-            <div className="flex size-[30px] items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+        <Separator />
+
+        <div className="p-3">
+          <div className="mb-3 flex items-center gap-2.5 rounded-lg bg-muted/50 px-3 py-2.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
               {(user?.display_name || "U")[0]}
             </div>
-            <div>
-              <div className="text-sm font-medium text-white">{user?.display_name}</div>
-              <div className="text-xs text-gray-400">{isTeacher ? "教师" : "学生"}</div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium">{user?.display_name}</div>
+              <div className="text-xs text-muted-foreground">{isTeacher ? "教师" : "学生"}</div>
             </div>
           </div>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              className="flex cursor-pointer items-center gap-1.5 rounded-md bg-white/5 px-2.5 py-1.5 text-xs text-gray-400 hover:bg-white/10 hover:text-white"
-              onClick={() => setAboutOpen(true)}
-            >
-              <Info size={14} />
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs" onClick={() => setAboutOpen(true)}>
+              <Info size={13} />
               关于
-            </button>
-            <button
-              type="button"
-              className="flex flex-1 cursor-pointer items-center rounded-md bg-white/5 px-3 py-1.5 text-xs text-gray-400 hover:bg-red-500/15 hover:text-red-300"
-              onClick={handleLogout}
-            >
-              退出登录
-            </button>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs text-destructive hover:text-destructive" onClick={handleLogout}>
+              <LogOut size={13} />
+              退出
+            </Button>
           </div>
         </div>
 
-        <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于" maxWidth={380}>
-          <div className="space-y-2 py-2 text-center">
-            <h3 className="text-lg font-semibold">虚拟患者系统</h3>
-            <p className="text-sm text-muted-foreground">护理病史采集技能训练平台</p>
-            <p className="border-t border-border pt-4 text-sm text-muted-foreground">版本 {APP_VERSION}</p>
-            <button
-              type="button"
-              className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border bg-background px-4 py-2 text-sm text-foreground hover:bg-muted"
-              onClick={handleOpenFeedback}
+        <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于系统">
+          <div className="space-y-3 py-2 text-center">
+            <div className="flex justify-center">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary shadow">
+                <Stethoscope size={24} className="text-primary-foreground" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">虚拟患者系统</h3>
+              <p className="text-sm text-muted-foreground">护理病史采集技能训练平台</p>
+              <p className="mt-2 text-xs text-muted-foreground">版本 {APP_VERSION}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                setAboutOpen(false);
+                openFeedback();
+              }}
             >
               <MessageSquare size={14} />
               意见反馈
-            </button>
+            </Button>
           </div>
         </Modal>
       </aside>
 
-      <main className="ml-0 min-h-screen flex-1 p-8 md:ml-[200px]">
-        <button
-          type="button"
-          className="mb-4 cursor-pointer rounded-lg border border-border bg-white p-2 text-gray-500 hover:bg-gray-50 md:hidden"
-          onClick={() => setMobileMenuOpen((v) => !v)}
-          aria-label={mobileMenuOpen ? "关闭菜单" : "打开菜单"}
-        >
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        {children}
+      <main className="flex-1 md:ml-60" style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}>
+        <div className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden">
+          <button
+            type="button"
+            className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+          <span className="text-sm font-semibold">虚拟患者系统</span>
+        </div>
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );

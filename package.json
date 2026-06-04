@@ -6,7 +6,7 @@
   "scripts": {
     "prepare": "husky",
     "dev": "concurrently -n BE,FE -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && set PYTHONIOENCODING=utf-8 && set FORCE_COLOR=1 && .venv\\Scripts\\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level info",
+    "dev:backend": "cd backend && set PYTHONIOENCODING=utf-8 && set FORCE_COLOR=1 && .venv\\Scripts\\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
     "dev:frontend": "cd frontend && set FORCE_COLOR=1 && npm run dev",
     "db:migrate": "cd backend && .venv\\Scripts\\python -m alembic upgrade head",
     "db:migration": "cd backend && .venv\\Scripts\\python -m alembic revision --autogenerate -m",

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 
 interface ClassFilterParams {
@@ -13,6 +14,8 @@ interface ClassFilterProps {
   className?: string;
 }
 
+const selectClass = "py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card";
+
 export default function ClassFilter({ gradeId, classId, onChange, className = "" }: ClassFilterProps) {
   const { grades, classes, fetchGrades, fetchClasses } = useGradesClassesStore();
   const [selGrade, setSelGrade] = useState<string>(gradeId != null ? String(gradeId) : "");
@@ -21,7 +24,6 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
 
   useEffect(() => {
     fetchGrades();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchGrades]);
 
   useEffect(() => {
@@ -31,7 +33,6 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
     }
     onChange?.({ grade_id: selGrade ? Number(selGrade) : null, class_id: null });
     setSelClass("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selGrade, onChange]);
 
   const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -49,20 +50,8 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
   };
 
   return (
-    <div className={`class-filter ${className}`} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-      <select
-        value={selGrade}
-        onChange={handleGradeChange}
-        className="filter-select"
-        style={{
-          padding: "7px 10px",
-          border: "1px solid var(--gray-200)",
-          borderRadius: "var(--radius-md)",
-          fontSize: "0.82rem",
-          fontFamily: "inherit",
-          background: "#fff",
-        }}
-      >
+    <div className={cn("flex gap-2 items-center", className)}>
+      <select value={selGrade} onChange={handleGradeChange} className={selectClass}>
         <option value="">全部年级</option>
         {grades.map((g) => (
           <option key={g.id} value={g.id}>
@@ -70,20 +59,7 @@ export default function ClassFilter({ gradeId, classId, onChange, className = ""
           </option>
         ))}
       </select>
-      <select
-        value={selClass}
-        onChange={handleClassChange}
-        className="filter-select"
-        disabled={!selGrade}
-        style={{
-          padding: "7px 10px",
-          border: "1px solid var(--gray-200)",
-          borderRadius: "var(--radius-md)",
-          fontSize: "0.82rem",
-          fontFamily: "inherit",
-          background: "#fff",
-        }}
-      >
+      <select value={selClass} onChange={handleClassChange} disabled={!selGrade} className={selectClass}>
         <option value="">全部班级</option>
         {classes.map((c) => (
           <option key={c.id} value={c.id}>

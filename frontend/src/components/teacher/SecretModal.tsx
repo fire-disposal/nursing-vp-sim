@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createSecret, updateSecret } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
+import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 
 type Schemas = components["schemas"];
@@ -13,6 +14,8 @@ interface SecretModalProps {
   onClose: () => void;
   onSaved: () => void;
 }
+
+const inputClass = "w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus:outline-none focus:border-blue-500";
 
 export default function SecretModal({ open, secret, onClose, onSaved }: SecretModalProps) {
   const [label, setLabel] = useState("");
@@ -54,66 +57,28 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <div className="flex flex-col gap-3">
         <label>
-          <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>标签</div>
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="如: DeepSeek 个人账号"
-            style={{
-              width: "100%",
-              padding: "var(--space-2) var(--space-3)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.85rem",
-              boxSizing: "border-box",
-            }}
-          />
+          <div className="mb-1 font-semibold text-sm">标签</div>
+          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="如: DeepSeek 个人账号" className={inputClass} />
         </label>
         <label>
-          <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>API 端点 (Base URL)</div>
-          <input
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://api.deepseek.com"
-            style={{
-              width: "100%",
-              padding: "var(--space-2) var(--space-3)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--radius-md)",
-              fontSize: "0.85rem",
-              boxSizing: "border-box",
-              fontFamily: "monospace",
-            }}
-          />
+          <div className="mb-1 font-semibold text-sm">API 端点 (Base URL)</div>
+          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.deepseek.com" className={`${inputClass} font-mono`} />
         </label>
         {!isEdit && (
           <label>
-            <div style={{ marginBottom: 4, fontWeight: 600, fontSize: "0.85rem" }}>API Key</div>
-            <input
-              type="password"
-              value={rawKey}
-              onChange={(e) => setRawKey(e.target.value)}
-              placeholder="sk-..."
-              style={{
-                width: "100%",
-                padding: "var(--space-2) var(--space-3)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "var(--radius-md)",
-                fontSize: "0.85rem",
-                boxSizing: "border-box",
-              }}
-            />
+            <div className="mb-1 font-semibold text-sm">API Key</div>
+            <input type="password" value={rawKey} onChange={(e) => setRawKey(e.target.value)} placeholder="sk-..." className={inputClass} />
           </label>
         )}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
-          <button onClick={onClose} className="btn btn-secondary">
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
             取消
-          </button>
-          <button onClick={handleSave} disabled={saving} className="btn btn-primary">
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? "保存中..." : "保存"}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

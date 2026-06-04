@@ -30,9 +30,9 @@ const AdminGradesClasses = lazy(() => import("@/pages/admin/GradesClassesPage"))
 
 function PageLoader() {
   return (
-    <div className="page-loader">
-      <div className="spinner" />
-      <p>加载中...</p>
+    <div className="flex h-screen flex-col items-center justify-center gap-3">
+      <div className="size-8 animate-spin rounded-full border-[3px] border-primary/30 border-t-primary" />
+      <p className="text-sm text-muted-foreground">加载中...</p>
     </div>
   );
 }

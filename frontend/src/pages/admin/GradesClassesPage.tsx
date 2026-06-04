@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
@@ -24,6 +24,8 @@ const CLASS_COLUMNS = [
   { key: "created_at", label: "创建时间", render: (v: string) => (v ? new Date(v).toLocaleDateString("zh-CN") : "") },
 ];
 
+const selectClass = "px-2.5 py-1.5 border border-border rounded-md text-sm bg-card";
+
 export default function GradesClassesPage() {
   const [tab, setTab] = useState<"grades" | "classes">("grades");
   const [gradeFilter, setGradeFilter] = useState("");
@@ -38,11 +40,9 @@ export default function GradesClassesPage() {
 
   useEffect(() => {
     fetchGrades();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchGrades]);
   useEffect(() => {
     fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradeFilter, fetchClasses]);
 
   const openCreate = () => {
@@ -117,6 +117,9 @@ export default function GradesClassesPage() {
     { key: "classes", label: "班级管理" },
   ];
 
+  const columns = tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS;
+  const items = tab === "grades" ? grades : classes;
+
   return (
     <Layout>
       <div>
@@ -126,14 +129,14 @@ export default function GradesClassesPage() {
           actions={<Button onClick={openCreate}>新建{tab === "grades" ? "年级" : "班级"}</Button>}
         />
 
-        <div className="flex gap-0 mb-4 border-b-2 border-gray-200">
+        <div className="flex gap-0 mb-4 border-b-2 border-border">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key as "grades" | "classes")}
               className={cn(
                 "px-6 py-2 border-none bg-transparent cursor-pointer border-b-2 mb-[-2px]",
-                tab === t.key ? "font-semibold text-primary border-primary" : "font-normal text-gray-500 border-transparent",
+                tab === t.key ? "font-semibold text-primary border-primary" : "font-normal text-muted-foreground border-transparent",
               )}
             >
               {t.label}
@@ -143,11 +146,7 @@ export default function GradesClassesPage() {
 
         {tab === "classes" && (
           <div className="mb-4">
-            <select
-              value={gradeFilter}
-              onChange={(e) => setGradeFilter(e.target.value)}
-              className="px-2.5 py-[7px] border border-gray-200 rounded-[var(--radius-md)] text-sm bg-white"
-            >
+            <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className={selectClass}>
               <option value="">全部年级</option>
               {grades.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -158,40 +157,39 @@ export default function GradesClassesPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-[var(--radius-xl)] p-6 border border-gray-200">
+        <div className="bg-card rounded-xl shadow-sm p-6 border border-border overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                {(tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS).map((col) => (
+                {columns.map((col) => (
                   <th
                     key={col.key}
-                    className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200"
+                    className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border"
                   >
                     {col.label}
                   </th>
                 ))}
-                <th className="text-left px-4 py-2.5 bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider border-b border-gray-200">操作</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                  操作
+                </th>
               </tr>
             </thead>
             <tbody>
-              {(tab === "grades" ? grades : classes).map((item) => (
-                <tr key={item.id} className="group">
-                  {(tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS).map((col) => (
-                    <td
-                      key={col.key}
-                      className={cn("px-4 py-3 border-b border-gray-200 group-hover:bg-gray-50", col.key === "created_at" && "text-xs text-gray-500")}
-                    >
+              {items.map((item) => (
+                <tr key={item.id} className="group hover:bg-muted">
+                  {columns.map((col) => (
+                    <td key={col.key} className={cn("px-4 py-3 border-b border-border", col.key === "created_at" && "text-xs text-muted-foreground")}>
                       {col.render
                         ? col.render(String((item as unknown as Record<string, unknown>)[col.key]))
                         : String((item as unknown as Record<string, unknown>)[col.key] || "")}
                     </td>
                   ))}
-                  <td className="px-4 py-3 border-b border-gray-200 group-hover:bg-gray-50">
+                  <td className="px-4 py-3 border-b border-border">
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                         编辑
                       </Button>
-                      <Button variant="ghost" size="sm" className="danger" onClick={() => setDeleteTarget(item)}>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:bg-destructive/10" onClick={() => setDeleteTarget(item)}>
                         删除
                       </Button>
                     </div>
@@ -220,7 +218,7 @@ export default function GradesClassesPage() {
               <select
                 value={formGradeId}
                 onChange={(e) => setFormGradeId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-[var(--radius-md)] text-sm bg-white"
+                className="w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus:outline-none focus:border-blue-500"
               >
                 <option value="">请选择年级</option>
                 {grades.map((g) => (
@@ -233,7 +231,7 @@ export default function GradesClassesPage() {
           )}
           <FormField label="名称">
             <input
-              className="w-full px-3 py-2 border border-gray-200 rounded-[var(--radius-md)] text-sm"
+              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-blue-500"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}

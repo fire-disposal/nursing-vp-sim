@@ -1,12 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
 import { useEffect, useRef, useState } from "react";
 import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
+import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type CaseManageItem = Schemas["CaseManageItem"];
@@ -90,17 +94,11 @@ const NEW_CASE_TEMPLATE: CaseData = {
   },
 };
 
-const IN_STYLE: React.CSSProperties = {
-  width: "100%",
-  padding: "var(--space-2) var(--space-3)",
-  border: "1px solid var(--border-color)",
-  borderRadius: "var(--radius-md)",
-  fontSize: "0.85rem",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-  background: "var(--bg-surface)",
-  color: "var(--text-primary)",
-};
+const inputClass =
+  "w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10";
+
+const textareaClass =
+  "w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 resize-y";
 
 function buildCaseData(form: CaseForm): CaseData {
   return {
@@ -365,14 +363,16 @@ export default function CasesTab() {
     setCaseForm((prev) => ({ ...prev, [field]: value }));
   const updateList = (field: string, text: string) => setCaseForm((prev) => ({ ...prev, [field]: text.split("\n").filter((s) => s.trim()) }));
 
+  const difficultyLabel = (d: number) => (d === 1 ? "初级" : d === 2 ? "中级" : d === 3 ? "高级" : "-");
+
   return (
     <>
-      <div style={{ marginBottom: 16, display: "flex", gap: 12 }}>
-        <button className="btn btn-primary" onClick={openNew}>
+      <div className="mb-4 flex gap-3">
+        <Button onClick={openNew}>
           <Plus size={16} /> 添加病例
-        </button>
-        <button
-          className="btn"
+        </Button>
+        <Button
+          variant="outline"
           onClick={() => {
             openNew();
             setShowAiPanel(true);
@@ -382,152 +382,176 @@ export default function CasesTab() {
             setAiReferenceText("");
             setAiError("");
           }}
-          style={{
-            background: "var(--purple-50)",
-            border: "1px solid var(--purple-300)",
-            color: "var(--purple-700)",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
+          className="border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
         >
           <Wand2 size={16} /> AI 生成病例
-        </button>
+        </Button>
       </div>
 
-      <div className="card">
-        <div className="filter-bar">
-          <div className="filter-row">
-            <div className="filter-item">
-              <label>病例名称</label>
-              <input placeholder="模糊搜索..." value={searchText || ""} onChange={(e) => setFilterName(e.target.value)} />
-            </div>
-            <div className="filter-item">
-              <label>困难程度</label>
-              <select value={filters.difficulty || ""} onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value }))}>
+      <div className="rounded-xl border border-border bg-card shadow-sm p-6">
+        <div className="mb-4 rounded-xl border border-border bg-muted p-4">
+          <div className="flex gap-3 flex-wrap">
+            <label className="flex-1 min-w-[160px]">
+              <span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">病例名称</span>
+              <input placeholder="模糊搜索..." value={searchText || ""} onChange={(e) => setFilterName(e.target.value)} className={inputClass} />
+            </label>
+            <label className="flex-1 min-w-[160px]">
+              <span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">困难程度</span>
+              <select value={filters.difficulty || ""} onChange={(e) => setFilters((f) => ({ ...f, difficulty: e.target.value }))} className={inputClass}>
                 <option value="">全部</option>
                 <option value="1">初级</option>
                 <option value="2">中级</option>
                 <option value="3">高级</option>
               </select>
-            </div>
+            </label>
           </div>
         </div>
 
-        <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>共 {total} 条</span>
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">共 {total} 条</span>
         </div>
         {cases.length === 0 ? (
-          <div className="empty-state">
-            <div className="icon">
-              <ClipboardList size={42} />
-            </div>
-            <div>暂无病例，点击上方按钮添加</div>
-          </div>
+          <EmptyState icon={ClipboardList} title="暂无病例，点击上方按钮添加" />
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>病例名称</th>
-                <th>难度</th>
-                <th>患者</th>
-                <th>主诉</th>
-                <th>时限</th>
-                <th>训练次数</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cases.map((c) => (
-                <tr key={c.id}>
-                  <td style={{ fontWeight: 500 }}>{c.name}</td>
-                  <td>{c.difficulty === 1 ? "初级" : c.difficulty === 2 ? "中级" : c.difficulty === 3 ? "高级" : "-"}</td>
-                  <td>
-                    {c.patient_name
-                      ? `${c.patient_name}${c.patient_age ? ` · ${c.patient_age}岁` : ""}${c.patient_gender ? ` · ${c.patient_gender}` : ""}`
-                      : "-"}
-                  </td>
-                  <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.chief_complaint || "-"}</td>
-                  <td>
-                    <span className="badge badge-info">{c.time_limit || 20} 分钟</span>
-                  </td>
-                  <td style={{ color: c.training_count > 0 ? "var(--color-primary)" : "var(--text-tertiary)", fontWeight: 500 }}>{c.training_count}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button className="btn btn-sm" onClick={() => openEdit(c)} title="编辑">
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(c)}
-                        disabled={c.training_count > 0}
-                        title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    病例名称
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    难度
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    患者
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    主诉
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    时限
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    训练次数
+                  </th>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    操作
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {cases.map((c) => (
+                  <tr key={c.id} className="hover:bg-muted">
+                    <td className="px-4 py-3 border-b border-border font-medium">{c.name}</td>
+                    <td className="px-4 py-3 border-b border-border">{difficultyLabel(c.difficulty)}</td>
+                    <td className="px-4 py-3 border-b border-border">
+                      {c.patient_name
+                        ? `${c.patient_name}${c.patient_age ? ` · ${c.patient_age}岁` : ""}${c.patient_gender ? ` · ${c.patient_gender}` : ""}`
+                        : "-"}
+                    </td>
+                    <td className="px-4 py-3 border-b border-border max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
+                      {c.chief_complaint || "-"}
+                    </td>
+                    <td className="px-4 py-3 border-b border-border">
+                      <Badge variant="info">{c.time_limit || 20} 分钟</Badge>
+                    </td>
+                    <td className={cn("px-4 py-3 border-b border-border font-medium", c.training_count > 0 ? "text-primary" : "text-muted-foreground/70")}>
+                      {c.training_count}
+                    </td>
+                    <td className="px-4 py-3 border-b border-border">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="编辑">
+                          <Edit3 size={14} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => handleDelete(c)}
+                          disabled={c.training_count > 0}
+                          title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
       </div>
 
       <Modal open={showEditor} onClose={() => setShowEditor(false)} title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"} maxWidth={800}>
-        {caseMsg && <div className={caseMsg.includes("成功") || caseMsg.includes("导入成功") ? "success-msg" : "error-msg"}>{caseMsg}</div>}
-        <div style={{ marginBottom: "var(--space-4)" }}>
+        {caseMsg && (
+          <div
+            className={cn(
+              "px-3.5 py-2.5 rounded-lg text-sm mb-4",
+              caseMsg.includes("成功") || caseMsg.includes("导入成功") ? "bg-green-50 text-green-600" : "bg-destructive/10 text-red-500",
+            )}
+          >
+            {caseMsg}
+          </div>
+        )}
+        <div className="mb-4">
           <button
             type="button"
-            className="btn btn-sm"
             onClick={() => {
               setShowAiPanel(!showAiPanel);
               setAiError("");
             }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              background: showAiPanel ? "var(--purple-50)" : "transparent",
-              border: "1px solid var(--purple-300)",
-              color: "var(--purple-700)",
-            }}
+            className={cn(
+              "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-purple-300 transition-colors",
+              showAiPanel ? "bg-purple-50 text-purple-700" : "bg-transparent text-purple-600 hover:bg-purple-50",
+            )}
           >
             <Wand2 size={14} /> {showAiPanel ? "收起 AI 面板" : "展开 AI 面板"}
           </button>
           {showAiPanel && (
-            <div
-              className="card"
-              style={{ marginTop: "var(--space-3)", padding: "var(--space-4)", background: "var(--purple-25)", border: "1px solid var(--purple-100)" }}
-            >
-              <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-                <button type="button" className={`btn btn-sm ${aiMode === "quick" ? "btn-primary" : ""}`} onClick={() => setAiMode("quick")}>
+            <div className="mt-3 p-4 rounded-lg bg-purple-50/50 border border-purple-100">
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setAiMode("quick")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
+                    aiMode === "quick" ? "bg-primary text-white border-blue-600" : "bg-card text-gray-600 border-border hover:bg-muted",
+                  )}
+                >
                   快速生成
                 </button>
-                <button type="button" className={`btn btn-sm ${aiMode === "reference" ? "btn-primary" : ""}`} onClick={() => setAiMode("reference")}>
+                <button
+                  type="button"
+                  onClick={() => setAiMode("reference")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
+                    aiMode === "reference" ? "bg-primary text-white border-blue-600" : "bg-card text-gray-600 border-border hover:bg-muted",
+                  )}
+                >
                   参考资料生成
                 </button>
               </div>
-              <div className="form-group">
-                <label>病例描述 *</label>
+              <div className="mb-3">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">病例描述 *</label>
                 <textarea
                   rows={2}
                   value={aiDescription}
                   onChange={(e) => setAiDescription(e.target.value)}
                   placeholder="一句话描述，如：糖尿病足溃疡老年患者，有10年糖尿病史..."
-                  style={IN_STYLE}
+                  className={textareaClass}
                 />
               </div>
               {aiMode === "reference" && (
                 <>
-                  <div className="form-group">
-                    <label>参考现有病例（多选）</label>
+                  <div className="mb-3">
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">参考现有病例（多选）</label>
                     <select
                       multiple
                       value={aiReferenceCaseIds.map(String)}
                       onChange={(e) => setAiReferenceCaseIds(Array.from(e.target.selectedOptions, (o) => Number(o.value)))}
-                      style={{ ...IN_STYLE, minHeight: 100 }}
+                      className="w-full min-h-[100px] px-2.5 py-1.5 border border-border rounded-md text-sm bg-card"
                     >
                       {cases.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -537,30 +561,20 @@ export default function CasesTab() {
                       ))}
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label>自由参考资料</label>
+                  <div className="mb-3">
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">自由参考资料</label>
                     <textarea
                       rows={3}
                       value={aiReferenceText}
                       onChange={(e) => setAiReferenceText(e.target.value)}
                       placeholder="粘贴临床笔记、文献摘要等参考内容..."
-                      style={IN_STYLE}
+                      className={textareaClass}
                     />
                   </div>
                 </>
               )}
-              {aiError && (
-                <div className="error-msg" style={{ marginBottom: "var(--space-2)" }}>
-                  {aiError}
-                </div>
-              )}
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => handleAiGenerate(null)}
-                disabled={aiGenerating}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
-              >
+              {aiError && <div className="bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm mb-3">{aiError}</div>}
+              <Button onClick={() => handleAiGenerate(null)} disabled={aiGenerating}>
                 {aiGenerating ? (
                   <>⟳ 生成中...</>
                 ) : (
@@ -568,50 +582,69 @@ export default function CasesTab() {
                     <Sparkles size={14} /> 生成完整病例
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           )}
         </div>
-        <form onSubmit={handleSave} className="case-editor-form">
-          <fieldset>
-            <legend>基础信息</legend>
-            <div className="form-row">
-              <div className="form-group" style={{ flex: 2 }}>
-                <label>病例名称 *</label>
-                <input value={caseForm.name} onChange={(e) => updateField("name", e.target.value)} required />
+        <form onSubmit={handleSave} className="flex flex-col gap-3">
+          <fieldset className="border border-border rounded-lg p-4">
+            <legend className="text-sm font-semibold text-gray-700 px-1">基础信息</legend>
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex-[2] min-w-[200px]">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">病例名称 *</label>
+                <input value={caseForm.name} onChange={(e) => updateField("name", e.target.value)} required className={inputClass} />
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>训练时限 (分钟)</label>
-                <input type="number" min={5} max={120} value={caseForm.time_limit} onChange={(e) => updateField("time_limit", Number(e.target.value))} />
+              <div className="flex-1 min-w-[120px]">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">训练时限 (分钟)</label>
+                <input
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={caseForm.time_limit}
+                  onChange={(e) => updateField("time_limit", Number(e.target.value))}
+                  className={inputClass}
+                />
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>困难程度</label>
-                <select value={caseForm.difficulty} onChange={(e) => updateField("difficulty", Number(e.target.value))}>
+              <div className="flex-1 min-w-[120px]">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">困难程度</label>
+                <select value={caseForm.difficulty} onChange={(e) => updateField("difficulty", Number(e.target.value))} className={inputClass}>
                   <option value={1}>初级</option>
                   <option value={2}>中级</option>
                   <option value={3}>高级</option>
                 </select>
               </div>
             </div>
-            <div className="form-group">
-              <label>病例描述</label>
-              <input value={caseForm.description} onChange={(e) => updateField("description", e.target.value)} placeholder="一句话描述此病例的训练目标" />
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-muted-foreground mb-1">病例描述</label>
+              <input
+                value={caseForm.description}
+                onChange={(e) => updateField("description", e.target.value)}
+                placeholder="一句话描述此病例的训练目标"
+                className={inputClass}
+              />
             </div>
           </fieldset>
-          <fieldset>
-            <legend>患者信息</legend>
-            <div className="form-row">
-              <div className="form-group" style={{ flex: 2 }}>
-                <label>姓名</label>
-                <input value={caseForm.patient_name} onChange={(e) => updateField("patient_name", e.target.value)} />
+          <fieldset className="border border-border rounded-lg p-4">
+            <legend className="text-sm font-semibold text-gray-700 px-1">患者信息</legend>
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex-[2] min-w-[200px]">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">姓名</label>
+                <input value={caseForm.patient_name} onChange={(e) => updateField("patient_name", e.target.value)} className={inputClass} />
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>年龄</label>
-                <input type="number" min={0} max={120} value={caseForm.patient_age} onChange={(e) => updateField("patient_age", Number(e.target.value))} />
+              <div className="flex-1 min-w-[120px]">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">年龄</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={caseForm.patient_age}
+                  onChange={(e) => updateField("patient_age", Number(e.target.value))}
+                  className={inputClass}
+                />
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>性别</label>
-                <select value={caseForm.patient_gender} onChange={(e) => updateField("patient_gender", e.target.value)}>
+              <div className="flex-1 min-w-[120px]">
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">性别</label>
+                <select value={caseForm.patient_gender} onChange={(e) => updateField("patient_gender", e.target.value)} className={inputClass}>
                   <option value="">--</option>
                   <option value="男">男</option>
                   <option value="女">女</option>
@@ -619,60 +652,76 @@ export default function CasesTab() {
               </div>
             </div>
           </fieldset>
-          <fieldset>
-            <legend>临床信息</legend>
-            <div className="form-group">
-              <label>主诉</label>
-              <input value={caseForm.chief_complaint} onChange={(e) => updateField("chief_complaint", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>开场白</label>
-              <textarea rows={2} value={caseForm.opening_line} onChange={(e) => updateField("opening_line", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>现病史</label>
-              <textarea rows={3} value={caseForm.present_illness} onChange={(e) => updateField("present_illness", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>既往史</label>
-              <textarea rows={2} value={caseForm.past_history} onChange={(e) => updateField("past_history", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>用药史</label>
-              <textarea rows={2} value={caseForm.medication_history} onChange={(e) => updateField("medication_history", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>过敏史</label>
-              <input value={caseForm.allergy_history} onChange={(e) => updateField("allergy_history", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>家族史</label>
-              <textarea rows={2} value={caseForm.family_history} onChange={(e) => updateField("family_history", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>社会史 / 生活习惯</label>
-              <textarea rows={2} value={caseForm.social_history} onChange={(e) => updateField("social_history", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>沟通风格描述</label>
-              <textarea rows={2} value={caseForm.communication_style} onChange={(e) => updateField("communication_style", e.target.value)} />
+          <fieldset className="border border-border rounded-lg p-4">
+            <legend className="text-sm font-semibold text-gray-700 px-1">临床信息</legend>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">主诉</label>
+                <input value={caseForm.chief_complaint} onChange={(e) => updateField("chief_complaint", e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">开场白</label>
+                <textarea rows={2} value={caseForm.opening_line} onChange={(e) => updateField("opening_line", e.target.value)} className={textareaClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">现病史</label>
+                <textarea
+                  rows={3}
+                  value={caseForm.present_illness}
+                  onChange={(e) => updateField("present_illness", e.target.value)}
+                  className={textareaClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">既往史</label>
+                <textarea rows={2} value={caseForm.past_history} onChange={(e) => updateField("past_history", e.target.value)} className={textareaClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">用药史</label>
+                <textarea
+                  rows={2}
+                  value={caseForm.medication_history}
+                  onChange={(e) => updateField("medication_history", e.target.value)}
+                  className={textareaClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">过敏史</label>
+                <input value={caseForm.allergy_history} onChange={(e) => updateField("allergy_history", e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">家族史</label>
+                <textarea rows={2} value={caseForm.family_history} onChange={(e) => updateField("family_history", e.target.value)} className={textareaClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">社会史 / 生活习惯</label>
+                <textarea rows={2} value={caseForm.social_history} onChange={(e) => updateField("social_history", e.target.value)} className={textareaClass} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1">沟通风格描述</label>
+                <textarea
+                  rows={2}
+                  value={caseForm.communication_style}
+                  onChange={(e) => updateField("communication_style", e.target.value)}
+                  className={textareaClass}
+                />
+              </div>
             </div>
           </fieldset>
-          <fieldset>
-            <legend>
+          <fieldset className="border border-border rounded-lg p-4">
+            <legend className="text-sm font-semibold text-gray-700 px-1">
               <button
                 type="button"
-                className="btn btn-sm"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                style={{ display: "flex", alignItems: "center", gap: 4 }}
+                className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-lg bg-transparent border-none cursor-pointer hover:bg-gray-100"
               >
                 {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />} 高级字段
               </button>
             </legend>
             {showAdvanced && (
-              <>
-                <div className="form-group">
-                  <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div className="flex flex-col gap-3 mt-3">
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
                     隐藏信息（一行一条）
                     <button
                       type="button"
@@ -681,24 +730,21 @@ export default function CasesTab() {
                         if (!showAiPanel) setShowAiPanel(true);
                         handleAiGenerate("hidden_info");
                       }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                        color: "var(--purple-500)",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
+                      className="bg-transparent border-none cursor-pointer p-0 text-purple-500 flex items-center"
                       title="AI 建议"
                     >
                       <Sparkles size={13} />
                     </button>
                   </label>
-                  <textarea rows={4} value={(caseForm.hidden_info || []).join("\n")} onChange={(e) => updateList("hidden_info", e.target.value)} />
+                  <textarea
+                    rows={4}
+                    value={(caseForm.hidden_info || []).join("\n")}
+                    onChange={(e) => updateList("hidden_info", e.target.value)}
+                    className={textareaClass}
+                  />
                 </div>
-                <div className="form-group">
-                  <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
                     必须问到的内容（一行一条）
                     <button
                       type="button"
@@ -707,15 +753,7 @@ export default function CasesTab() {
                         if (!showAiPanel) setShowAiPanel(true);
                         handleAiGenerate("required_inquiries");
                       }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                        color: "var(--purple-500)",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
+                      className="bg-transparent border-none cursor-pointer p-0 text-purple-500 flex items-center"
                       title="AI 建议"
                     >
                       <Sparkles size={13} />
@@ -725,10 +763,11 @@ export default function CasesTab() {
                     rows={4}
                     value={(caseForm.required_inquiries || []).join("\n")}
                     onChange={(e) => updateList("required_inquiries", e.target.value)}
+                    className={textareaClass}
                   />
                 </div>
-                <div className="form-group">
-                  <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
                     评分标准 (JSON)
                     <button
                       type="button"
@@ -737,15 +776,7 @@ export default function CasesTab() {
                         if (!showAiPanel) setShowAiPanel(true);
                         handleAiGenerate("scoring_criteria");
                       }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                        color: "var(--purple-500)",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
+                      className="bg-transparent border-none cursor-pointer p-0 text-purple-500 flex items-center"
                       title="AI 建议"
                     >
                       <Sparkles size={13} />
@@ -753,7 +784,7 @@ export default function CasesTab() {
                   </label>
                   <textarea
                     rows={6}
-                    style={{ fontFamily: "monospace", fontSize: "0.8rem" }}
+                    className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs font-mono bg-card resize-y focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
                     value={JSON.stringify(caseForm.scoring_criteria, null, 2)}
                     onChange={(e) => {
                       try {
@@ -764,22 +795,20 @@ export default function CasesTab() {
                     }}
                   />
                 </div>
-              </>
+              </div>
             )}
           </fieldset>
-          <div className="form-group">
-            <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: "fit-content" }}>
+          <div>
+            <label className="inline-flex items-center gap-1 text-sm text-primary cursor-pointer hover:underline">
               <Upload size={14} /> 从 JSON 文件导入
-              <input type="file" accept=".json" onChange={handleJsonImport} style={{ display: "none" }} />
+              <input type="file" accept=".json" onChange={handleJsonImport} className="hidden" />
             </label>
           </div>
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 16 }}>
-            <button type="button" className="btn" onClick={() => setShowEditor(false)}>
+          <div className="flex gap-3 justify-end mt-4">
+            <Button variant="outline" type="button" onClick={() => setShowEditor(false)}>
               取消
-            </button>
-            <button type="submit" className="btn btn-primary">
-              {editingCase ? "保存修改" : "创建病例"}
-            </button>
+            </Button>
+            <Button type="submit">{editingCase ? "保存修改" : "创建病例"}</Button>
           </div>
         </form>
       </Modal>
