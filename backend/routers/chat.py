@@ -109,67 +109,78 @@ async def send_message_stream(
     req: ChatMessageRequest,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
 ):
     """流式发送消息：逐字返回 LLM 回复，大幅提升感知速度"""
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
-    if record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="只能在自己训练中发送消息")
-    if record.status != "in_progress":
-        raise HTTPException(status_code=400, detail="训练已结束")
+    from database import SessionLocal
 
-    check_chat_limit(current_user.id)
+    db = SessionLocal()
+    try:
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="训练记录不存在")
+        if record.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="只能在自己训练中发送消息")
+        if record.status != "in_progress":
+            raise HTTPException(status_code=400, detail="训练已结束")
 
-    case = db.query(Case).filter(Case.id == record.case_id).first()
-    case_data = case.case_data or {}
+        check_chat_limit(current_user.id)
 
-    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
+        case = db.query(Case).filter(Case.id == record.case_id).first()
+        case_data = case.case_data or {}
 
-    rid = getattr(request.state, "request_id", None)
+        messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+        llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id)
 
-    async def generate():
-        full_reply = ""
-        try:
-            async for chunk in call_llm_stream(
-                llm_messages,
-                purpose="patient_chat",
-                user_id=current_user.id,
-                record_id=record_id,
-                case_id=record.case_id,
-                log_meta={"request_id": rid} if rid else None,
-                **get_llm_config("patient_chat"),
-            ):
-                full_reply += chunk
-                yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+        rid = getattr(request.state, "request_id", None)
 
-            sanitized, violations = sanitize_patient_reply(full_reply, case_data)
-            if violations:
-                log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
-                yield f"data: {json.dumps({'sanitized': True, 'reply': sanitized, 'violations': violations}, ensure_ascii=False)}\n\n"
+        async def generate():
+            full_reply = ""
+            try:
+                async for chunk in call_llm_stream(
+                    llm_messages,
+                    purpose="patient_chat",
+                    user_id=current_user.id,
+                    record_id=record_id,
+                    case_id=record.case_id,
+                    log_meta={"request_id": rid} if rid else None,
+                    **get_llm_config("patient_chat"),
+                ):
+                    full_reply += chunk
+                    yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-            student_msg = Message(record_id=record_id, role="student", content=req.content)
-            db.add(student_msg)
-            patient_msg = Message(record_id=record_id, role="patient", content=sanitized)
-            db.add(patient_msg)
-            db.commit()
-            db.refresh(patient_msg)
+                sanitized, violations = sanitize_patient_reply(full_reply, case_data)
+                if violations:
+                    log.info("patient_guard", extra={"record_id": record_id, "violations": violations})
+                    yield f"data: {json.dumps({'sanitized': True, 'reply': sanitized, 'violations': violations}, ensure_ascii=False)}\n\n"
 
-            log.info(
-                f"流式消息已记录: record_id={record_id}",
-                extra={"user_id": current_user.id, "user_role": current_user.role},
-            )
-            yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
-        except Exception as e:
-            log.exception(
-                "patient_chat 流式LLM调用失败",
-                extra={"error": str(e), "user_id": current_user.id, "record_id": record_id},
-            )
-            if full_reply:
-                yield f"data: {json.dumps({'content': full_reply, 'truncated': True, 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
-            else:
-                yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+                student_msg = Message(record_id=record_id, role="student", content=req.content)
+                db.add(student_msg)
+                patient_msg = Message(record_id=record_id, role="patient", content=sanitized)
+                db.add(patient_msg)
+                db.commit()
+                db.refresh(patient_msg)
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+                log.info(
+                    f"流式消息已记录: record_id={record_id}",
+                    extra={"user_id": current_user.id, "user_role": current_user.role},
+                )
+                yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
+            except Exception as e:
+                log.exception(
+                    "patient_chat 流式LLM调用失败",
+                    extra={"error": str(e), "user_id": current_user.id, "record_id": record_id},
+                )
+                if full_reply:
+                    yield f"data: {json.dumps({'content': full_reply, 'truncated': True, 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+                else:
+                    yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+            finally:
+                db.close()
+
+        return StreamingResponse(generate(), media_type="text/event-stream")
+    except HTTPException:
+        db.close()
+        raise
+    except Exception:
+        db.close()
+        raise

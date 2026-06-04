@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import threading
 from datetime import UTC, datetime, timedelta
 
 _logger = logging.getLogger(__name__)
@@ -14,23 +15,24 @@ GLOBAL_DEGRADED_TTL_SECONDS = 30
 _env_fallback_available = False
 _env_fallback_latency_ms: int | None = None
 _env_fallback_error: str | None = None
-
-# 环境变量兜底的调用统计（不持久化到 DB，仅内存）
 _env_fallback_stats = {"call_count": 0, "total_tokens": 0, "total_cost": 0.0}
+_env_fallback_lock = threading.Lock()
 
 
 def set_env_fallback_state(available: bool, latency_ms: int | None = None, error: str | None = None):
-    global _env_fallback_available, _env_fallback_latency_ms, _env_fallback_error
-    _env_fallback_available = available
-    _env_fallback_latency_ms = latency_ms
-    _env_fallback_error = error
+    with _env_fallback_lock:
+        global _env_fallback_available, _env_fallback_latency_ms, _env_fallback_error
+        _env_fallback_available = available
+        _env_fallback_latency_ms = latency_ms
+        _env_fallback_error = error
 
 
 def _update_synthetic_stats(success: bool, tokens: int):
     if success:
-        _env_fallback_stats["call_count"] += 1
-        _env_fallback_stats["total_tokens"] += tokens
-        _env_fallback_stats["total_cost"] += 1.5 * tokens / 1_000_000
+        with _env_fallback_lock:
+            _env_fallback_stats["call_count"] += 1
+            _env_fallback_stats["total_tokens"] += tokens
+            _env_fallback_stats["total_cost"] += 1.5 * tokens / 1_000_000
 
 
 def get_env_fallback_state() -> dict:
@@ -263,6 +265,7 @@ class ProfileRouter:
                     setattr(db_p, field, getattr(profile, field))
                 db.commit()
         except Exception:
+            _logger.exception("persist_stats failed for secret #%d", profile.id)
             db.rollback()
         finally:
             db.close()
@@ -285,6 +288,7 @@ async def get_router() -> ProfileRouter:
 
 async def refresh_router():
     global _router
-    if _router is None:
-        _router = ProfileRouter()
+    async with _router_lock:
+        if _router is None:
+            _router = ProfileRouter()
     await _router.load_from_db()

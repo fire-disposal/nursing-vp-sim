@@ -189,6 +189,7 @@ async def get_prompt_manager() -> PromptManager:
 
 async def refresh_prompts():
     global _manager
-    if _manager is None:
-        _manager = PromptManager()
+    async with _manager_lock:
+        if _manager is None:
+            _manager = PromptManager()
     await _manager.load_from_db()
