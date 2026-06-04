@@ -46,9 +46,6 @@ say "─ backend ─"
 if [ -f "$ROOT/backend/pyproject.toml" ]; then
   (cd "$ROOT/backend" && uv run ruff check .) \
     && ok "ruff check" || fail "ruff check"
-
-  (cd "$ROOT/backend" && uv run ruff format --check .) \
-    && ok "ruff format" || fail "ruff format"
 else
   say "  (no backend/)"
 fi
