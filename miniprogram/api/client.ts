@@ -1,9 +1,9 @@
 function getApp_(): { globalData: { token: string; userId: number; role: string; baseUrl: string } } {
-  return (getApp() as any) || { globalData: { token: "", userId: 0, role: "", baseUrl: "https://api.your-domain.com" } }
+  return (getApp() as any) || { globalData: { token: "", userId: 0, role: "", baseUrl: "http://localhost:8000" } }
 }
 
 function getBaseUrl(): string {
-  return getApp_().globalData.baseUrl || "https://api.your-domain.com"
+  return getApp_().globalData.baseUrl || "http://localhost:8000"
 }
 
 function getToken(): string {

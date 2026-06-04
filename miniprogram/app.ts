@@ -3,6 +3,7 @@ App<IAppOption>({
     token: "",
     userId: 0,
     role: "",
+    // 本地开发用 localhost，上线前改为正式域名 https://api.your-domain.com
     baseUrl: "http://localhost:8000",
   },
 
