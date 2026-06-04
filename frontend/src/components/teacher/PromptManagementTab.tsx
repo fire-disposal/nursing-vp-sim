@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type PromptTemplateResponse = Schemas["PromptTemplateResponse"];
-type PromptPreviewResponse = Schemas["PromptPreviewResponse"];
 type PromptValidateResponse = Schemas["PromptValidateResponse"];
 
 const PURPOSES = ["patient_chat", "scoring", "qa", "case_generation", "*"];
@@ -329,11 +328,11 @@ export default function PromptManagementTab() {
     queryClient.setQueryData<PromptTemplateResponse[]>(["prompts"], (prev) =>
       (prev ?? []).map((p) => {
         if (p.id !== editedPrompt.id) return p;
-        const updatedVars = ((p.variables || []) as VariableMeta[]).map((v) => (v.name === varName ? { ...v, desc: newDesc } : v));
+        const updatedVars = ((p.variables || []) as unknown as VariableMeta[]).map((v) => (v.name === varName ? { ...v, desc: newDesc } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
           updatedVars.push({ name: varName, desc: newDesc });
         }
-        return { ...p, variables: updatedVars as unknown[] };
+        return { ...p, variables: updatedVars as unknown as { [key: string]: unknown }[] };
       }),
     );
   };
@@ -343,11 +342,11 @@ export default function PromptManagementTab() {
     queryClient.setQueryData<PromptTemplateResponse[]>(["prompts"], (prev) =>
       (prev ?? []).map((p) => {
         if (p.id !== editedPrompt.id) return p;
-        const updatedVars = ((p.variables || []) as VariableMeta[]).map((v) => (v.name === varName ? { ...v, default_value: newDefault } : v));
+        const updatedVars = ((p.variables || []) as unknown as VariableMeta[]).map((v) => (v.name === varName ? { ...v, default_value: newDefault } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
           updatedVars.push({ name: varName, default_value: newDefault });
         }
-        return { ...p, variables: updatedVars as unknown[] };
+        return { ...p, variables: updatedVars as unknown as { [key: string]: unknown }[] };
       }),
     );
   };
@@ -357,11 +356,11 @@ export default function PromptManagementTab() {
     queryClient.setQueryData<PromptTemplateResponse[]>(["prompts"], (prev) =>
       (prev ?? []).map((p) => {
         if (p.id !== editedPrompt.id) return p;
-        const updatedVars = ((p.variables || []) as VariableMeta[]).map((v) => (v.name === varName ? { ...v, source: newSource } : v));
+        const updatedVars = ((p.variables || []) as unknown as VariableMeta[]).map((v) => (v.name === varName ? { ...v, source: newSource } : v));
         if (!updatedVars.find((v) => v.name === varName)) {
           updatedVars.push({ name: varName, source: newSource });
         }
-        return { ...p, variables: updatedVars as unknown[] };
+        return { ...p, variables: updatedVars as unknown as { [key: string]: unknown }[] };
       }),
     );
   };
@@ -396,21 +395,7 @@ export default function PromptManagementTab() {
 
   const extractVars = useCallback((text: string) => [...new Set((text.match(/\{#([^}#]+)#\}/g) || []).map((v) => v.slice(2, -2)))], []);
   const currentVars = useMemo(() => extractVars(form.system_prompt + (form.user_prompt || "")), [form.system_prompt, form.user_prompt, extractVars]);
-  const dbVars = (editedPrompt?.variables as VariableMeta[]) || [];
-
-  const renderHighlighted = (text: string | null) => {
-    if (!text) return text;
-    const parts = text.split(/(\{#[^}#]+#\})/g);
-    return parts.map((part, i) =>
-      /\{#[^}#]+#\}/.test(part) ? (
-        <span key={i} className="bg-blue-100 text-blue-700 font-bold rounded px-0.5">
-          {part}
-        </span>
-      ) : (
-        part
-      ),
-    );
-  };
+  const dbVars = (editedPrompt?.variables as unknown as VariableMeta[]) || [];
 
   const inputBase = "w-full py-1 px-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:border-blue-500";
 

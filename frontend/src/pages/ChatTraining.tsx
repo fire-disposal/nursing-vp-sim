@@ -251,14 +251,14 @@ export default function ChatTraining() {
         if (cancelled) return;
         const detail = data as TrainingRecordDetail;
         setMessages(
-          ((detail.messages || []) as ChatMessage[]).map((m) => ({
+          ((detail.messages || []) as unknown as ChatMessage[]).map((m) => ({
             ...m,
             streaming: false,
           })),
         );
         if (detail.case_name) setCaseTitle(detail.case_name);
-        if (detail.required_inquiries) setRequiredInquiries(detail.required_inquiries as string[]);
-        if (detail.patient_info) setPatientInfo(detail.patient_info as PatientInfo);
+        if (detail.required_inquiries) setRequiredInquiries(detail.required_inquiries as unknown as string[]);
+        if (detail.patient_info) setPatientInfo(detail.patient_info as unknown as PatientInfo);
         const r =
           detail.remaining_seconds != null
             ? detail.remaining_seconds

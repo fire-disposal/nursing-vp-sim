@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];
+type FeedbackItem = Schemas["FeedbackItem"];
 
 const TAG_OPTIONS = [
   { label: "全部", value: "" },
@@ -327,7 +328,7 @@ export default function FeedbackTab() {
         <EmptyState icon={MessageSquare} title="暂无反馈" />
       ) : (
         <div className="flex flex-col gap-2">
-          {feedbacks.map((fb) => (
+          {feedbacks.map((fb: FeedbackItem) => (
             <div key={fb.id} className="py-2.5 px-3.5 border border-border rounded-lg bg-card">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">

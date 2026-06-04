@@ -73,10 +73,10 @@ export default function UserDetailPage() {
     );
   }
 
-  const daily = (student.daily || []) as DailyItem[];
+  const daily = (student.daily || []) as unknown as DailyItem[];
   const hasChartData = daily.length > 0;
   const formatDate = (d: StudentDetail) => new Date(d.created_at).toLocaleDateString("zh-CN");
-  const recentRecords = (student.recent_records || []) as RecentRecord[];
+  const recentRecords = (student.recent_records || []) as unknown as RecentRecord[];
 
   return (
     <Layout>

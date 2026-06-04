@@ -29,7 +29,7 @@ interface RubricItem {
 
 function dimCount(r: RubricResponse) {
   if (!r.dimensions) return "0个维度";
-  const dims = r.dimensions as RubricDimension[];
+  const dims = r.dimensions as unknown as RubricDimension[];
   let items = 0;
   for (const d of dims) items += (d.items || []).length;
   return `${dims.length}个维度 · ${items}项条目`;
@@ -101,7 +101,7 @@ export default function RubricTab() {
     setFormTotalMax(r.total_max);
     setFormRawMax(r.raw_max);
     setFormRawScale(r.raw_scale);
-    const dims = (r.dimensions as RubricDimension[]) || [];
+    const dims = (r.dimensions as unknown as RubricDimension[]) || [];
     applyStructuredDims(dims);
     setEditorMode("structured");
     setShowModal(true);
@@ -213,10 +213,10 @@ export default function RubricTab() {
                   )}
                 </div>
 
-                {((r.dimensions as RubricDimension[]) || []).length === 0 ? (
+                {((r.dimensions as unknown as RubricDimension[]) || []).length === 0 ? (
                   <EmptyState icon={Layout} title="暂无评估维度" className="py-4" />
                 ) : (
-                  ((r.dimensions as RubricDimension[]) || []).map((dim, i) => (
+                  ((r.dimensions as unknown as RubricDimension[]) || []).map((dim, i) => (
                     <div key={i} className="mb-3">
                       <div className="font-semibold text-sm mb-1.5 flex items-baseline gap-2">
                         {dim.name}
