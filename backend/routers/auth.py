@@ -17,6 +17,7 @@ from schemas import (
     WechatBindRequest,
     WechatLoginRequest,
     WechatLoginResponse,
+    WechatRegisterRequest,
 )
 
 log = logging.getLogger(__name__)
@@ -155,6 +156,58 @@ async def wechat_bind(
     db.commit()
     log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid)
     return OkResponse(message="微信绑定成功")
+
+
+@router.post("/wechat/register", response_model=TokenResponse)
+async def wechat_register(
+    req: WechatRegisterRequest,
+    db: Annotated[Session, Depends(get_db)],
+):
+    """微信一键注册：通过 code 获取 openid，自动创建用户并返回 token"""
+    import secrets
+    import string
+
+    from services.wechat import code2session
+
+    try:
+        session = await code2session(req.code)
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    openid = session.get("openid")
+    if not openid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="微信登录失败：无法获取 openid")
+
+    existing = db.query(User).filter(User.wechat_openid == openid).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此微信已注册，请直接登录")
+
+    suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    username = f"wx_{suffix}"
+    while db.query(User).filter(User.username == username).first():
+        suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+        username = f"wx_{suffix}"
+
+    random_password = secrets.token_urlsafe(16)
+    user = User(
+        username=username,
+        password_hash=hash_password(random_password),
+        role="student",
+        display_name=req.display_name,
+        wechat_openid=openid,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"user_id": user.id, "role": user.role})
+    log.info("微信注册成功: openid=%s username=%s", openid, username)
+    return TokenResponse(
+        access_token=token,
+        role=user.role,
+        display_name=user.display_name,
+        user_id=user.id,
+    )
 
 
 @router.get("/me", response_model=UserBrief)

@@ -43,6 +43,11 @@ class WechatBindRequest(BaseModel):
     code: str
 
 
+class WechatRegisterRequest(BaseModel):
+    code: str
+    display_name: str = Field(min_length=1, max_length=50)
+
+
 class WechatLoginResponse(BaseModel):
     access_token: str | None = None
     token_type: str = "bearer"
