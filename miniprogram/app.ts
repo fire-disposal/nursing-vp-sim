@@ -3,8 +3,10 @@ App<IAppOption>({
     token: "",
     userId: 0,
     role: "",
-    // 本地开发用 localhost，上线前改为正式域名 https://api.your-domain.com
+    // 本地开发（调试时取消注释下一行，并注释正式地址）
     baseUrl: "http://localhost:8000",
+    // 正式上线（上传前取消注释下一行，并注释本地地址）
+    // baseUrl: "https://api.your-domain.com",
   },
 
   onLaunch() {
