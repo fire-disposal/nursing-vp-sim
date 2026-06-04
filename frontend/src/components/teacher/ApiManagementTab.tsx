@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, ChevronDown, ChevronRight, Edit3, Plus, RefreshCw, Trash2 } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import {
   createConfig,
@@ -18,6 +17,7 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import SecretModal from "./SecretModal";
 

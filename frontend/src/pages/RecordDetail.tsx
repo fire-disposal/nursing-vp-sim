@@ -13,9 +13,13 @@ import {
   Lightbulb,
   MessageCircle,
   MessageSquare,
+  RefreshCw,
+  ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
+  User,
+  X,
 } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
-import { RefreshCw, ShieldCheck, ThumbsDown, ThumbsUp, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
@@ -25,8 +29,9 @@ import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import useAuthStore from "@/stores/authStore";
+import EmptyState from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
+import useAuthStore from "@/stores/authStore";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];

@@ -1,16 +1,16 @@
 ﻿import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, startTraining } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];

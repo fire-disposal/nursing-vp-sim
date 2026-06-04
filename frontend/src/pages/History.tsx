@@ -1,20 +1,20 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Loader2, RefreshCw, Trash2 } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteRecord, getRecords } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
-import PageHeader from "@/components/ui/PageHeader";
-import Pagination from "@/components/ui/Pagination";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import useAuthStore from "@/stores/authStore";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
+import PageHeader from "@/components/ui/PageHeader";
+import Pagination from "@/components/ui/Pagination";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import useAuthStore from "@/stores/authStore";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 

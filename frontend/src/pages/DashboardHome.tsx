@@ -16,7 +16,6 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "@/api/api-client";
@@ -27,13 +26,14 @@ import { useToast } from "@/components/Toast";
 import TrainingDurationChart from "@/components/TrainingDurationChart";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import EmptyState from "@/components/ui/EmptyState";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
-import useAuthStore from "@/stores/authStore";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import useAuthStore from "@/stores/authStore";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];

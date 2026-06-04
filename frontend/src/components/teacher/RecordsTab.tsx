@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Download, Trash2 } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteRecord, exportRecords, getManageCases, getRecords } from "@/api/api-client";
@@ -9,6 +8,7 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
 

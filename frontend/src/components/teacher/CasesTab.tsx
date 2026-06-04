@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, ClipboardList, Edit3, Plus, Sparkles, Trash2, Upload, Wand2 } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useEffect, useRef, useState } from "react";
 import { createCase, deleteCase, generateCase, getCaseDetail, getManageCases, updateCase } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -8,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";

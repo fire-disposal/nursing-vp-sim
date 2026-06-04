@@ -1,21 +1,21 @@
 ﻿import { useQuery } from "@tanstack/react-query";
 import { Activity, BarChart3, ClipboardList, Clock, Medal, Target, TrendingUp, Trophy } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentRanking, getTeacherSummary, getTrends } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
 import StatCard from "@/components/ui/StatCard";
 import { LegacyTabs } from "@/components/ui/Tabs";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
-import { cn } from "@/lib/utils";
 
 type TrendStats = components["schemas"]["TrendStats"];
 type TeacherSummaryItem = components["schemas"]["TeacherSummaryItem"];

@@ -1,8 +1,8 @@
 ﻿import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { cn } from "@/lib/utils";
 import EmptyState from "@/components/ui/EmptyState";
+import { cn } from "@/lib/utils";
 import { getTrends } from "../api/api-client";
 import type { components } from "../api/api-types.gen";
 

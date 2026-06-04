@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
-import EmptyState from "@/components/ui/EmptyState";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
@@ -8,6 +7,7 @@ import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
 import LoadingState from "@/components/ui/LoadingState";
 import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";

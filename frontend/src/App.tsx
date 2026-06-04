@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { Toaster } from "@/components/ui/sonner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { Toaster } from "@/components/ui/sonner";
 import useAuthStore from "@/stores/authStore";
 
 const queryClient = new QueryClient({

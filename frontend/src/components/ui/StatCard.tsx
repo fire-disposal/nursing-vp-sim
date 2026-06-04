@@ -1,4 +1,4 @@
-import { type ElementType, type ReactNode } from "react";
+import type { ElementType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type StatColor = "blue" | "green" | "amber" | "red" | "teal";

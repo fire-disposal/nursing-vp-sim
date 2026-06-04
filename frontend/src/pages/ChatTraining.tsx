@@ -8,8 +8,8 @@ import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import useVoice from "@/hooks/useVoice";
-import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 import { cn } from "@/lib/utils";
+import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
 type MessageItem = components["schemas"]["MessageItem"];

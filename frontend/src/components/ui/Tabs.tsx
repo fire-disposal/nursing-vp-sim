@@ -1,6 +1,6 @@
-import { type LucideIcon } from "lucide-react";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { cva, type VariantProps } from "class-variance-authority";
+import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -98,5 +98,5 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return <TabsPrimitive.Panel data-slot="tabs-content" className={cn("flex-1 text-sm outline-none", className)} {...props} />;
 }
 
-export { Tabs, LegacyTabs, TabsList, TabsTrigger, TabsContent, tabsListVariants };
+export { LegacyTabs, Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants };
 export default LegacyTabs;
