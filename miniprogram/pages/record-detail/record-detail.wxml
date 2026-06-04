@@ -31,18 +31,40 @@
       <text class="text-secondary">暂无评分</text>
     </view>
 
-    <view class="section" wx:if="{{strengths.length > 0}}">
+    <view class="section">
       <view class="section-title">✓ 优势</view>
-      <view wx:for="{{strengths}}" wx:key="*this" class="list-item">
-        <text>{{item}}</text>
+      <view wx:if="{{strengths.length > 0}}">
+        <view wx:for="{{strengths}}" wx:key="*this" class="list-item">
+          <text>{{item}}</text>
+        </view>
       </view>
+      <text wx:else class="text-secondary">AI 未生成此部分内容</text>
     </view>
 
-    <view class="section" wx:if="{{weaknesses.length > 0}}">
+    <view class="section">
       <view class="section-title">⚠ 待改善</view>
-      <view wx:for="{{weaknesses}}" wx:key="*this" class="list-item">
-        <text>{{item}}</text>
+      <view wx:if="{{weaknesses.length > 0}}">
+        <view wx:for="{{weaknesses}}" wx:key="*this" class="list-item">
+          <text>{{item}}</text>
+        </view>
       </view>
+      <text wx:else class="text-secondary">AI 未生成此部分内容</text>
+    </view>
+
+    <view class="section">
+      <view class="section-title">✗ 漏问内容</view>
+      <view wx:if="{{missedContent.length > 0}}">
+        <view wx:for="{{missedContent}}" wx:key="*this" class="list-item">
+          <text>{{item}}</text>
+        </view>
+      </view>
+      <text wx:else class="text-secondary">AI 未生成此部分内容</text>
+    </view>
+
+    <view class="section">
+      <view class="section-title">✦ 改进建议</view>
+      <text wx:if="{{suggestions}}" class="text-body">{{suggestions}}</text>
+      <text wx:else class="text-secondary">AI 未生成改进建议</text>
     </view>
 
     <view class="section" wx:if="{{record.messages && record.messages.length > 0}}">

@@ -129,19 +129,21 @@ def _coerce_numeric_fields(obj: dict):
 
 
 def _validate_scoring_result(result: dict, rubric: dict | None = None):
-    """校验评分结果的必要字段。对 LLM 可能遗漏的可选字段填默认值，仅核心字段缺失才拒绝。"""
-    # 可选字段：LLM 可能遗漏，填默认值而非拒绝
-    optional_defaults = {
+    """校验评分结果的必要字段。反馈字段（strengths/weaknesses/missed_content/suggestions）为必填，
+    缺失或为空将拒绝评分结果，触发重试机制。"""
+
+    # 类型修正：对可能写错的字段填正确类型（仅修正类型，不填业务值）
+    type_defaults = {
         "strengths": [],
         "weaknesses": [],
         "missed_content": [],
         "suggestions": "",
     }
-    for field, default in optional_defaults.items():
-        if field not in result or not isinstance(result[field], type(default)):
+    for field, default in type_defaults.items():
+        if field in result and not isinstance(result[field], type(default)):
             result[field] = default
 
-    # 核心字段：缺失则拒绝
+    # 核心数值字段：缺失则拒绝
     essential_fields = {
         "total_score": (int, float),
         "detail_scores": dict,
@@ -161,6 +163,25 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
         if type_errors:
             parts.append(f"类型错误: {', '.join(type_errors)}")
         raise ValueError(f"LLM评分结果不完整: {'; '.join(parts)}")
+
+    # 反馈字段：必填，缺失或为空拒绝并触发重试
+    feedback_required = [
+        ("strengths", list),
+        ("weaknesses", list),
+        ("missed_content", list),
+        ("suggestions", str),
+    ]
+    empty_feedback = []
+    for field, expected_type in feedback_required:
+        value = result.get(field)
+        if value is None:
+            empty_feedback.append(f"{field}(缺失)")
+        elif not isinstance(value, expected_type):
+            empty_feedback.append(f"{field}(类型错误)")
+        elif (expected_type is list and len(value) == 0) or (expected_type is str and not value.strip()):
+            empty_feedback.append(f"{field}(为空)")
+    if empty_feedback:
+        raise ValueError(f"LLM评分反馈字段不完整: {', '.join(empty_feedback)}。strengths/weaknesses/missed_content/suggestions 均为必填项，缺一不可。")
 
     # 软校验 evidence/reason 字段（不阻塞评分，仅告警）
     if rubric:

@@ -285,6 +285,10 @@ export default function ChatTraining() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
   const initialGreetingSpoken = useRef(false);
   useEffect(() => {
     if (initialGreetingSpoken.current || messages.length === 0) return;

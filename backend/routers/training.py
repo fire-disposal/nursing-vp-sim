@@ -426,11 +426,17 @@ def submit_score_review(
 
     if req.detail_scores is not None:
         score.review_detail_scores = req.detail_scores
-        # 重算总分：累加所有维度 score
         new_total = 0.0
         for dim_data in req.detail_scores.values():
             if isinstance(dim_data, dict):
-                new_total += dim_data.get("score", 0)
+                raw_score = dim_data.get("score", 0)
+                dim_max_100 = dim_data.get("max", 0)
+                items = dim_data.get("items", [])
+                if isinstance(items, list) and len(items) > 0 and dim_max_100 > 0:
+                    raw_max_dim = len(items) * 3
+                    new_total += round(raw_score * dim_max_100 / raw_max_dim, 1)
+                else:
+                    new_total += raw_score
         score.total_score = round(new_total, 1)
     if req.comment is not None:
         score.review_comment = req.comment

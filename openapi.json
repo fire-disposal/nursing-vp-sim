@@ -92,6 +92,137 @@
         ]
       }
     },
+    "/api/auth/wechat/login": {
+      "post": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "Wechat Login",
+        "description": "微信小程序 code 登录。已知 openid → 签发 JWT；未知 → need_bind",
+        "operationId": "wechat_login_api_auth_wechat_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WechatLoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/wechat/bind": {
+      "post": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "Wechat Bind",
+        "description": "将当前已登录用户绑定微信 openid",
+        "operationId": "wechat_bind_api_auth_wechat_bind_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatBindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/auth/wechat/register": {
+      "post": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "Wechat Register",
+        "description": "微信一键注册：通过 code 获取 openid，自动创建用户并返回 token",
+        "operationId": "wechat_register_api_auth_wechat_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/me": {
       "get": {
         "tags": [
@@ -1248,7 +1379,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "搜索用户名/姓名/学号",
               "title": "Search"
             },
@@ -1259,7 +1397,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "角色筛选 student/teacher",
               "title": "Role"
             },
@@ -2485,7 +2630,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Tag"
             }
           },
@@ -3388,8 +3540,8 @@
         "tags": [
           "API管理"
         ],
-        "summary": "Reset Config",
-        "operationId": "reset_config_api_admin_api_configs__config_id__reset_post",
+        "summary": "Reset Profile",
+        "operationId": "reset_profile_api_admin_api_configs__config_id__reset_post",
         "security": [
           {
             "HTTPBearer": []
@@ -3529,6 +3681,62 @@
         ]
       }
     },
+    "/api/admin/api/model-presets": {
+      "get": {
+        "tags": [
+          "API管理"
+        ],
+        "summary": "List Model Presets",
+        "operationId": "list_model_presets_api_admin_api_model_presets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/api/health": {
+      "get": {
+        "tags": [
+          "API管理"
+        ],
+        "summary": "Health Check",
+        "operationId": "health_check_api_admin_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HealthCheckItem"
+                  },
+                  "type": "array",
+                  "title": "Response Health Check Api Admin Api Health Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/api/fallback": {
       "get": {
         "tags": [
@@ -3579,36 +3787,6 @@
         ]
       }
     },
-    "/api/admin/api/health": {
-      "get": {
-        "tags": [
-          "API管理"
-        ],
-        "summary": "Health Check",
-        "operationId": "health_check_api_admin_api_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HealthCheckItem"
-                  },
-                  "type": "array",
-                  "title": "Response Health Check Api Admin Api Health Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/admin/api/rubrics": {
       "get": {
         "tags": [
@@ -3623,7 +3801,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/RubricBrief"
+                    "$ref": "#/components/schemas/RubricResponse"
                   },
                   "type": "array",
                   "title": "Response List Rubrics Api Admin Api Rubrics Get"
@@ -4756,6 +4934,39 @@
             "maxLength": 500,
             "minLength": 10,
             "title": "Raw Key"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "price_input_per_1m": {
+            "type": "number",
+            "title": "Price Input Per 1M",
+            "default": 0
+          },
+          "price_output_per_1m": {
+            "type": "number",
+            "title": "Price Output Per 1M",
+            "default": 0
+          },
+          "monthly_cost_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Cost Limit"
           }
         },
         "type": "object",
@@ -4779,9 +4990,73 @@
             "type": "string",
             "title": "Key Suffix"
           },
-          "config_count": {
+          "base_url": {
+            "type": "string",
+            "title": "Base Url",
+            "default": ""
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "active"
+          },
+          "degraded_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded Reason"
+          },
+          "degraded_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded Until"
+          },
+          "price_input_per_1m": {
+            "type": "number",
+            "title": "Price Input Per 1M",
+            "default": 0
+          },
+          "price_output_per_1m": {
+            "type": "number",
+            "title": "Price Output Per 1M",
+            "default": 0
+          },
+          "monthly_cost_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Cost Limit"
+          },
+          "call_count_today": {
             "type": "integer",
-            "title": "Config Count",
+            "title": "Call Count Today",
+            "default": 0
+          },
+          "total_tokens_today": {
+            "type": "integer",
+            "title": "Total Tokens Today",
             "default": 0
           },
           "total_cost_today": {
@@ -4793,6 +5068,23 @@
             "type": "number",
             "title": "Monthly Cost Used",
             "default": 0
+          },
+          "config_count": {
+            "type": "integer",
+            "title": "Config Count",
+            "default": 0
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
           },
           "created_at": {
             "type": "string",
@@ -4828,6 +5120,51 @@
               }
             ],
             "title": "Label"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "price_input_per_1m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Input Per 1M"
+          },
+          "price_output_per_1m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Output Per 1M"
+          },
+          "monthly_cost_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Cost Limit"
           }
         },
         "type": "object",
@@ -5203,6 +5540,20 @@
           "case_data"
         ],
         "title": "CaseUpdateRequest"
+      },
+      "CatalogResponse": {
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderPresetResponse"
+            },
+            "type": "array",
+            "title": "Providers",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "CatalogResponse"
       },
       "ChatMessageRequest": {
         "properties": {
@@ -6012,16 +6363,6 @@
             "type": "integer",
             "title": "Secret Id"
           },
-          "label": {
-            "type": "string",
-            "maxLength": 80,
-            "title": "Label"
-          },
-          "base_url": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Base Url"
-          },
           "model": {
             "type": "string",
             "maxLength": 80,
@@ -6031,41 +6372,11 @@
             "type": "string",
             "maxLength": 40,
             "title": "Purpose"
-          },
-          "priority": {
-            "type": "integer",
-            "maximum": 10000.0,
-            "minimum": 1.0,
-            "title": "Priority",
-            "default": 100
-          },
-          "price_input_per_1m": {
-            "type": "number",
-            "title": "Price Input Per 1M",
-            "default": 0
-          },
-          "price_output_per_1m": {
-            "type": "number",
-            "title": "Price Output Per 1M",
-            "default": 0
-          },
-          "monthly_cost_limit": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Monthly Cost Limit"
           }
         },
         "type": "object",
         "required": [
           "secret_id",
-          "label",
-          "base_url",
           "model",
           "purpose"
         ],
@@ -6091,13 +6402,15 @@
             "title": "Secret Suffix",
             "default": ""
           },
-          "label": {
-            "type": "string",
-            "title": "Label"
-          },
           "base_url": {
             "type": "string",
-            "title": "Base Url"
+            "title": "Base Url",
+            "default": ""
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": ""
           },
           "model": {
             "type": "string",
@@ -6107,87 +6420,10 @@
             "type": "string",
             "title": "Purpose"
           },
-          "priority": {
-            "type": "integer",
-            "title": "Priority"
-          },
           "status": {
             "type": "string",
-            "title": "Status"
-          },
-          "degraded_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Degraded Reason"
-          },
-          "degraded_until": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Degraded Until"
-          },
-          "price_input_per_1m": {
-            "type": "number",
-            "title": "Price Input Per 1M"
-          },
-          "price_output_per_1m": {
-            "type": "number",
-            "title": "Price Output Per 1M"
-          },
-          "monthly_cost_limit": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Monthly Cost Limit"
-          },
-          "call_count_today": {
-            "type": "integer",
-            "title": "Call Count Today"
-          },
-          "total_tokens_today": {
-            "type": "integer",
-            "title": "Total Tokens Today"
-          },
-          "total_cost_today": {
-            "type": "number",
-            "title": "Total Cost Today"
-          },
-          "monthly_cost_used": {
-            "type": "number",
-            "title": "Monthly Cost Used"
-          },
-          "consecutive_failures": {
-            "type": "integer",
-            "title": "Consecutive Failures"
-          },
-          "last_used_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Used At"
+            "title": "Status",
+            "default": "active"
           },
           "created_at": {
             "type": "string",
@@ -6204,19 +6440,8 @@
         "required": [
           "id",
           "secret_id",
-          "label",
-          "base_url",
           "model",
           "purpose",
-          "priority",
-          "status",
-          "price_input_per_1m",
-          "price_output_per_1m",
-          "call_count_today",
-          "total_tokens_today",
-          "total_cost_today",
-          "monthly_cost_used",
-          "consecutive_failures",
           "created_at",
           "updated_at"
         ],
@@ -6224,29 +6449,16 @@
       },
       "LLMConfigUpdate": {
         "properties": {
-          "label": {
+          "secret_id": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 80
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Label"
-          },
-          "base_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Base Url"
+            "title": "Secret Id"
           },
           "model": {
             "anyOf": [
@@ -6272,19 +6484,6 @@
             ],
             "title": "Purpose"
           },
-          "priority": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 10000.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority"
-          },
           "status": {
             "anyOf": [
               {
@@ -6296,39 +6495,6 @@
               }
             ],
             "title": "Status"
-          },
-          "price_input_per_1m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Price Input Per 1M"
-          },
-          "price_output_per_1m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Price Output Per 1M"
-          },
-          "monthly_cost_limit": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Monthly Cost Limit"
           }
         },
         "type": "object",
@@ -6437,6 +6603,29 @@
           "message"
         ],
         "title": "MessageResponse"
+      },
+      "ModelPresetItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price_input": {
+            "type": "number",
+            "title": "Price Input",
+            "default": 0
+          },
+          "price_output": {
+            "type": "number",
+            "title": "Price Output",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ModelPresetItem"
       },
       "NoteCreateRequest": {
         "properties": {
@@ -6985,6 +7174,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "is_builtin": {
+            "type": "boolean",
+            "title": "Is Builtin",
+            "default": false
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked",
+            "default": false
           }
         },
         "type": "object",
@@ -7152,6 +7351,35 @@
           "valid"
         ],
         "title": "PromptValidateResponse"
+      },
+      "ProviderPresetResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": ""
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "default": ""
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url",
+            "default": ""
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelPresetItem"
+            },
+            "type": "array",
+            "title": "Models",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "ProviderPresetResponse"
       },
       "QAAskResponse": {
         "properties": {
@@ -7405,29 +7633,6 @@
           "display_name"
         ],
         "title": "RegisterRequest"
-      },
-      "RubricBrief": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name"
-        ],
-        "title": "RubricBrief"
       },
       "RubricResponse": {
         "properties": {
@@ -8566,6 +8771,112 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WechatBindRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "WechatBindRequest"
+      },
+      "WechatLoginRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "WechatLoginRequest"
+      },
+      "WechatLoginResponse": {
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "need_bind": {
+            "type": "boolean",
+            "title": "Need Bind",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "WechatLoginResponse"
+      },
+      "WechatRegisterRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "display_name"
+        ],
+        "title": "WechatRegisterRequest"
       }
     },
     "securitySchemes": {

@@ -80,17 +80,17 @@ class TestScoringPromptSanity:
 
     def test_render_system_prompt_no_double_braces(self):
         """核心验证：渲染后的 prompt 不能包含 {{ 或 }}（双大括号会误导 LLM）"""
-        from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
+        from prompts import SCORING_SYSTEM
 
-        system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
+        system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
         assert "{{" not in system, "发现双左大括号 - LLM 会被误导"
         assert "}}" not in system, "发现双右大括号 - LLM 会被误导"
 
     def test_render_user_prompt_no_double_braces(self):
-        from services.prompt_manager import _HARDCODED_SCORING_USER
+        from prompts import SCORING_USER
 
-        user = render_template(_HARDCODED_SCORING_USER, conversation_text=_MOCK_CONVERSATION)
+        user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
         assert "{{" not in user, "发现双左大括号"
         assert "}}" not in user, "发现双右大括号"
@@ -154,9 +154,9 @@ class TestScoringPromptSanity:
 
     def test_full_system_prompt_structure(self):
         """模拟 LLM 收到的完整 system prompt 应包含所有关键段落"""
-        from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
+        from prompts import SCORING_SYSTEM
 
-        system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
+        system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
 
         checks = [
             ("版本信息", "护理病史采集训练评分标准"),
@@ -287,12 +287,12 @@ class TestScoringFlowEndToEnd:
 
     def test_full_prompt_rendering(self):
         from services.prompt_manager import (
-            _HARDCODED_SCORING_SYSTEM,
-            _HARDCODED_SCORING_USER,
+            SCORING_SYSTEM,
+            SCORING_USER,
         )
 
-        system = render_template(_HARDCODED_SCORING_SYSTEM, **_make_scoring_kwargs())
-        user = render_template(_HARDCODED_SCORING_USER, conversation_text=_MOCK_CONVERSATION)
+        system = render_template(SCORING_SYSTEM, **_make_scoring_kwargs())
+        user = render_template(SCORING_USER, conversation_text=_MOCK_CONVERSATION)
 
         assert len(system) > 500, "System prompt 过短"
         assert len(user) > 50, "User prompt 过短"
@@ -365,9 +365,9 @@ class TestScoringFlowEndToEnd:
         sample = get_registry().get_sample_kwargs("scoring")
         assert sample, "scoring sample vars 为空"
 
-        from services.prompt_manager import _HARDCODED_SCORING_SYSTEM
+        from prompts import SCORING_SYSTEM
 
-        rendered = render_template(_HARDCODED_SCORING_SYSTEM, **sample)
+        rendered = render_template(SCORING_SYSTEM, **sample)
         assert len(rendered) > 1000
         assert "{{" not in rendered
         assert "}}" not in rendered

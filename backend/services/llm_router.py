@@ -15,12 +15,24 @@ _env_fallback_available = False
 _env_fallback_latency_ms: int | None = None
 _env_fallback_error: str | None = None
 
+# 环境变量兜底的调用统计（不持久化到 DB，仅内存）
+_env_fallback_stats = {"call_count": 0, "total_tokens": 0, "total_cost": 0.0}
+
 
 def set_env_fallback_state(available: bool, latency_ms: int | None = None, error: str | None = None):
     global _env_fallback_available, _env_fallback_latency_ms, _env_fallback_error
     _env_fallback_available = available
     _env_fallback_latency_ms = latency_ms
     _env_fallback_error = error
+
+
+def _update_synthetic_stats(success: bool, tokens: int):
+    global _env_fallback_stats
+    if success:
+        _env_fallback_stats["call_count"] += 1
+        _env_fallback_stats["total_tokens"] += tokens
+        # DeepSeek 定价：1 CNY/1M 输入, 2 CNY/1M 输出, 取 1.5 CNY 均值
+        _env_fallback_stats["total_cost"] += 1.5 * tokens / 1_000_000
 
 
 def get_env_fallback_state() -> dict:
@@ -35,6 +47,9 @@ def get_env_fallback_state() -> dict:
         "model_pro": DEEPSEEK_MODEL_PRO,
         "latency_ms": _env_fallback_latency_ms,
         "error": _env_fallback_error,
+        "call_count": _env_fallback_stats["call_count"],
+        "total_tokens": _env_fallback_stats["total_tokens"],
+        "total_cost": round(_env_fallback_stats["total_cost"], 4),
     }
 
 
@@ -139,7 +154,7 @@ class ProfileRouter:
             return _SyntheticConfig(
                 label="DeepSeek (env)",
                 base_url=DEEPSEEK_BASE_URL,
-                model=DEEPSEEK_MODEL_PRO if purpose == "scoring" else DEEPSEEK_MODEL,
+                model=DEEPSEEK_MODEL,
                 raw_key=DEEPSEEK_API_KEY,
             )
 
@@ -158,6 +173,7 @@ class ProfileRouter:
 
     def report_result(self, config, *, success: bool, tokens: int, latency_ms: int, error: str | None):
         if isinstance(config, _SyntheticConfig):
+            _update_synthetic_stats(success, tokens)
             return
 
         profile = self._profiles.get(config.secret_id)

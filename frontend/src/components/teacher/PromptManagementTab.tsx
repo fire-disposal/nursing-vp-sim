@@ -441,18 +441,9 @@ export default function PromptManagementTab() {
   return (
     <div>
       <div className="mb-4 flex gap-2">
-        <Button variant="outline" className="border-amber-400 bg-amber-50 text-amber-700" onClick={handleReload}>
-          <RefreshCw size={13} /> 热加载
-        </Button>
         <Button variant="outline" className="border-blue-600 text-blue-600" onClick={handleShowActive}>
           <Eye size={13} /> 查看生效版本
         </Button>
-        <button
-          onClick={handleShowActive}
-          className="flex items-center gap-1 py-2 px-4 border border-blue-600 rounded-lg bg-card text-primary cursor-pointer text-sm font-semibold"
-        >
-          <Eye size={13} /> 查看生效版本
-        </button>
       </div>
 
       <div className="grid grid-cols-[340px_1fr] gap-4 items-start min-h-[calc(100vh-180px)] max-[900px]:grid-cols-1">
@@ -494,29 +485,49 @@ export default function PromptManagementTab() {
                       versions.map((v) => (
                         <div
                           key={v.id}
-                          onClick={() => openEdit(v)}
+                          onClick={() => !v.locked && openEdit(v)}
                           onDoubleClick={(e) => {
                             e.preventDefault();
-                            if (!v.is_active) handleActivate(v);
+                            if (!v.is_active && !v.locked) handleActivate(v);
                           }}
                           className={cn(
-                            "flex items-center gap-2 px-4 py-2 border-t border-border cursor-pointer transition-colors",
-                            editing === v.id ? "bg-blue-50" : v.is_active ? "bg-green-50" : "bg-transparent",
+                            "flex items-center gap-2 px-4 py-2 border-t border-border transition-colors",
+                            v.locked
+                              ? "bg-amber-50/50 cursor-default"
+                              : editing === v.id
+                                ? "bg-blue-50 cursor-pointer"
+                                : v.is_active
+                                  ? "bg-green-50 cursor-pointer"
+                                  : "bg-transparent cursor-pointer",
                           )}
                         >
-                          <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-card border border-border min-w-[28px] text-center">v{v.version}</span>
+                          {v.locked ? (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-amber-100 border border-amber-200 min-w-[36px] text-center text-amber-700">
+                              内置
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-card border border-border min-w-[28px] text-center">
+                              v{v.version}
+                            </span>
+                          )}
                           <span className="flex-1 text-sm overflow-hidden text-ellipsis whitespace-nowrap">{v.name || "-"}</span>
                           {v.is_active ? (
                             <span className="text-xs px-1.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap inline-flex items-center gap-0.5">
-                              <CheckCircle size={10} /> 激活
+                              <CheckCircle size={10} /> {v.locked ? "内置生效" : "激活"}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground/70">未激活</span>
                           )}
                           <div onClick={(e) => e.stopPropagation()} className="flex gap-0.5">
-                            <Button variant="ghost" size="sm" className="text-destructive p-0.5" onClick={() => handleDelete(v)} title="删除">
-                              <Trash2 size={13} />
-                            </Button>
+                            {v.locked ? (
+                              <span className="text-xs text-muted-foreground/50 p-0.5" title="内置提示词不可删除">
+                                🔒
+                              </span>
+                            ) : (
+                              <Button variant="ghost" size="sm" className="text-destructive p-0.5" onClick={() => handleDelete(v)} title="删除">
+                                <Trash2 size={13} />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))

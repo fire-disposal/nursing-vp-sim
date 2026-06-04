@@ -1,5 +1,6 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   ArrowLeft,
   BarChart3,
   CheckCircle,
@@ -596,12 +597,12 @@ export default function RecordDetail() {
               </div>
             )}
 
-            {recordScore.strengths && recordScore.strengths.length > 0 && (
-              <div className="pt-2 border-t border-border">
-                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
-                  <ThumbsUp size={16} className="text-green-500" />
-                  表现较好
-                </h4>
+            <div className="pt-2 border-t border-border">
+              <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                <ThumbsUp size={16} className="text-green-500" />
+                表现较好
+              </h4>
+              {recordScore.strengths && recordScore.strengths.length > 0 ? (
                 <ul className="space-y-1.5">
                   {recordScore.strengths.map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -610,15 +611,17 @@ export default function RecordDetail() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+              )}
+            </div>
 
-            {recordScore.weaknesses && recordScore.weaknesses.length > 0 && (
-              <div className="pt-2 border-t border-border">
-                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
-                  <ThumbsDown size={16} className="text-amber-500" />
-                  需要改善
-                </h4>
+            <div className="pt-2 border-t border-border">
+              <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                <ThumbsDown size={16} className="text-amber-500" />
+                需要改善
+              </h4>
+              {recordScore.weaknesses && recordScore.weaknesses.length > 0 ? (
                 <ul className="space-y-1.5">
                   {recordScore.weaknesses.map((w, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -627,16 +630,45 @@ export default function RecordDetail() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+              )}
+            </div>
 
-            {recordScore.suggestions && (
+            <div className="pt-2 border-t border-border">
+              <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                <AlertTriangle size={16} className="text-red-500" />
+                漏问内容
+              </h4>
+              {recordScore.missed_content && recordScore.missed_content.length > 0 ? (
+                <ul className="space-y-1.5">
+                  {recordScore.missed_content.map((m, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <X size={14} className="text-red-400 shrink-0 mt-0.5" />
+                      <span>{m}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+              )}
+            </div>
+
+            {recordScore.suggestions ? (
               <div className="pt-2 border-t border-border">
                 <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
                   <Lightbulb size={16} className="text-blue-500" />
                   改进建议
                 </h4>
                 <p className="text-sm text-muted-foreground leading-relaxed">{recordScore.suggestions}</p>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-border">
+                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+                  <Lightbulb size={16} className="text-blue-500" />
+                  改进建议
+                </h4>
+                <p className="text-sm text-muted-foreground/50 italic">AI 未生成改进建议，可重新评分获取完整报告</p>
               </div>
             )}
           </div>

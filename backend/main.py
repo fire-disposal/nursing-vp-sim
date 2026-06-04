@@ -379,7 +379,7 @@ def _seed_data():
 
     from auth import hash_password
     from database import SessionLocal
-    from models import Case, PromptTemplate, Role, RolePermission, Rubric, User
+    from models import Case, Role, RolePermission, Rubric, User
 
     db = SessionLocal()
     try:
@@ -439,42 +439,6 @@ def _seed_data():
                 log.info("✓ 评分标准已导入 (nursing_history_v1)")
         else:
             log.info("→ 评分标准已存在, 跳过")
-
-        # ── Prompt 模板 v1 ─────────────────────────────────
-        if db.query(PromptTemplate).count() == 0:
-            from services.prompt_manager import (
-                _HARDCODED_CASE_GENERATION,
-                _HARDCODED_PATIENT_CHAT,
-                _HARDCODED_QA,
-                _HARDCODED_SCORING_SYSTEM,
-                _HARDCODED_SCORING_USER,
-            )
-            from services.variable_registry import get_registry
-
-            registry = get_registry()
-            defaults = [
-                ("qa", "v1-默认QA", _HARDCODED_QA, None),
-                ("patient_chat", "v1-默认患者对话", _HARDCODED_PATIENT_CHAT, None),
-                ("scoring", "v1-默认评分", _HARDCODED_SCORING_SYSTEM, _HARDCODED_SCORING_USER),
-                ("case_generation", "v1-默认病例生成", _HARDCODED_CASE_GENERATION, None),
-            ]
-            for purpose, name, system_prompt, user_prompt in defaults:
-                db.add(
-                    PromptTemplate(
-                        purpose=purpose,
-                        version=1,
-                        name=name,
-                        system_prompt=system_prompt,
-                        user_prompt=user_prompt,
-                        variables=registry.get_variables_jsonb(purpose),
-                        is_active=True,
-                        created_by="system",
-                    )
-                )
-            db.commit()
-            log.info("✓ Prompt 模板 v1 已创建 (4 个)")
-        else:
-            log.info("→ Prompt 模板已存在, 跳过")
 
         # ── 管理员账号 (由环境变量提供凭证) ─────────────────
         admin_username = _os.environ.get("SEED_ADMIN_USERNAME", "")
@@ -537,39 +501,80 @@ def _seed_data():
 
 
 def _seed_llm_configs():
-    """将 .env 中的 DEEPSEEK_API_KEY 写入 DB (仅首次，密钥连通性已验证)"""
-    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+    """确保 DB 存在与 .env 密钥一致的记录，实现准确的费用追踪。
+
+    策略：用加密密钥哈希查找匹配记录，无匹配则新建。
+    每次启动自动同步定价和用途指派。
+    """
+    from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
     from database import SessionLocal
     from models import ApiSecret, LLMConfig
     from services.crypto_utils import encrypt_api_key
 
+    PURPOSE_CONFIGS = [
+        ("scoring", DEEPSEEK_MODEL),
+        ("patient_chat", DEEPSEEK_MODEL),
+        ("qa", DEEPSEEK_MODEL),
+        ("case_generation", DEEPSEEK_MODEL),
+        ("*", DEEPSEEK_MODEL),
+    ]
+
     db = SessionLocal()
     try:
-        if db.query(LLMConfig).count() > 0:
-            log.info("→ LLM 配置已存在, 跳过 seed")
-            return
-
+        env_encrypted = encrypt_api_key(DEEPSEEK_API_KEY)
         suffix = DEEPSEEK_API_KEY[-4:]
-        secret = ApiSecret(
-            label="初始服务密钥",
-            encrypted_key=encrypt_api_key(DEEPSEEK_API_KEY),
-            key_suffix=suffix,
-            base_url=DEEPSEEK_BASE_URL,
-        )
-        db.add(secret)
-        db.flush()
 
-        db.add_all(
-            [
-                LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL_PRO, purpose="scoring"),
-                LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="patient_chat"),
-                LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="qa"),
-                LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="case_generation"),
-                LLMConfig(secret_id=secret.id, model=DEEPSEEK_MODEL, purpose="*"),
-            ]
-        )
+        matched = None
+        for s in db.query(ApiSecret).all():
+            if s.encrypted_key == env_encrypted:
+                matched = s
+                break
+
+        if matched:
+            changed = False
+            if matched.base_url != DEEPSEEK_BASE_URL:
+                matched.base_url = DEEPSEEK_BASE_URL
+                changed = True
+            if float(matched.price_input_per_1m or 0) == 0:
+                matched.price_input_per_1m = 1.0
+                changed = True
+            if float(matched.price_output_per_1m or 0) == 0:
+                matched.price_output_per_1m = 2.0
+                changed = True
+            if matched.key_suffix != suffix:
+                matched.key_suffix = suffix
+                changed = True
+            if changed:
+                db.commit()
+                log.info("✓ 种子密钥已同步（匹配 ID=%d, key=...%s）", matched.id, suffix)
+            secret = matched
+        else:
+            secret = ApiSecret(
+                label="初始服务密钥",
+                encrypted_key=env_encrypted,
+                key_suffix=suffix,
+                base_url=DEEPSEEK_BASE_URL,
+                price_input_per_1m=1.0,
+                price_output_per_1m=2.0,
+            )
+            db.add(secret)
+            db.flush()
+            log.info("✓ 种子密钥已创建（key=...%s）", suffix)
+
+        for purpose, model in PURPOSE_CONFIGS:
+            cfg = db.query(LLMConfig).filter(
+                LLMConfig.secret_id == secret.id,
+                LLMConfig.purpose == purpose,
+            ).first()
+            if cfg:
+                if cfg.model != model:
+                    cfg.model = model
+                    db.commit()
+            else:
+                db.add(LLMConfig(secret_id=secret.id, model=model, purpose=purpose))
+
         db.commit()
-        log.info("✓ LLM seed 完成: 1 档案 + 5 用途指派")
+        log.info("✓ LLM 种子确保完成: secret#%d + %d 用途指派", secret.id, len(PURPOSE_CONFIGS))
     except Exception as e:
         log.exception("LLM seed 失败: %s", e)
         db.rollback()

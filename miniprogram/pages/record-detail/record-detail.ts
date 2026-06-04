@@ -44,4 +44,12 @@ Page({
   get weaknesses(): string[] {
     return this.data.record?.score?.weaknesses || []
   },
+
+  get missedContent(): string[] {
+    return this.data.record?.score?.missed_content || []
+  },
+
+  get suggestions(): string {
+    return this.data.record?.score?.suggestions || ""
+  },
 })

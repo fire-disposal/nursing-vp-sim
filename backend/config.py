@@ -66,9 +66,9 @@ LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))  # �
 
 # LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
-    "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.6, "max_retries": 2},
+    "patient_chat": {"timeout": 20, "max_tokens": 120, "temperature": 0.6, "max_retries": 2},
     "qa": {"timeout": 30, "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
-    "scoring": {"timeout": 120, "max_tokens": 4096, "temperature": 0, "max_retries": 3},
+    "scoring": {"timeout": 90, "max_tokens": 2048, "temperature": 0, "max_retries": 3},
     "case_generation": {"timeout": 120, "max_tokens": 4096, "temperature": 0.3, "max_retries": 3},
 }
 

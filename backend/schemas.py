@@ -445,6 +445,7 @@ class LLMConfigCreate(BaseModel):
 
 
 class LLMConfigUpdate(BaseModel):
+    secret_id: int | None = None
     model: str | None = Field(None, max_length=80)
     purpose: str | None = Field(None, max_length=40)
     status: str | None = Field(None, pattern="^(active|disabled)$")
@@ -502,6 +503,8 @@ class PromptTemplateResponse(BaseModel):
     remark: str | None
     created_at: datetime
     updated_at: datetime
+    is_builtin: bool = False
+    locked: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

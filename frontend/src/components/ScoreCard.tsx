@@ -158,12 +158,12 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
             );
           })}
 
-        {score.strengths && score.strengths.length > 0 && (
-          <div className="mb-4">
-            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
-              <CheckCircle size={16} color="#22c55e" />
-              表现较好
-            </h4>
+        <div className="mb-4">
+          <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
+            <CheckCircle size={16} color="#22c55e" />
+            表现较好
+          </h4>
+          {score.strengths && score.strengths.length > 0 ? (
             <ul className="pl-6">
               {score.strengths.map((s, i) => (
                 <li key={i} className="text-sm text-gray-600 mb-0.5">
@@ -171,15 +171,17 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-muted-foreground/50 italic pl-6">AI 未生成此部分内容，可重新评分获取完整报告</p>
+          )}
+        </div>
 
-        {score.weaknesses && score.weaknesses.length > 0 && (
-          <div className="mb-4">
-            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
-              <AlertTriangle size={16} color="#f59e0b" />
-              需要改善
-            </h4>
+        <div className="mb-4">
+          <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
+            <AlertTriangle size={16} color="#f59e0b" />
+            需要改善
+          </h4>
+          {score.weaknesses && score.weaknesses.length > 0 ? (
             <ul className="pl-6">
               {score.weaknesses.map((w, i) => (
                 <li key={i} className="text-sm text-gray-600 mb-0.5">
@@ -187,15 +189,17 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-muted-foreground/50 italic pl-6">AI 未生成此部分内容，可重新评分获取完整报告</p>
+          )}
+        </div>
 
-        {score.missed_content && score.missed_content.length > 0 && (
-          <div className="mb-4">
-            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
-              <AlertTriangle size={16} color="#ef4444" />
-              漏问内容
-            </h4>
+        <div className="mb-4">
+          <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
+            <AlertTriangle size={16} color="#ef4444" />
+            漏问内容
+          </h4>
+          {score.missed_content && score.missed_content.length > 0 ? (
             <ul className="pl-6">
               {score.missed_content.map((m, i) => (
                 <li key={i} className="text-sm text-gray-600 mb-0.5">
@@ -203,18 +207,22 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-muted-foreground/50 italic pl-6">AI 未生成此部分内容，可重新评分获取完整报告</p>
+          )}
+        </div>
 
-        {score.suggestions && (
-          <div className="mb-4">
-            <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
-              <Lightbulb size={16} color="#2563eb" />
-              改进建议
-            </h4>
+        <div className="mb-4">
+          <h4 className="flex items-center gap-1.5 text-sm mb-1.5">
+            <Lightbulb size={16} color="#2563eb" />
+            改进建议
+          </h4>
+          {score.suggestions ? (
             <div className="text-sm text-gray-600">{score.suggestions}</div>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-muted-foreground/50 italic pl-6">AI 未生成改进建议，可重新评分获取完整报告</p>
+          )}
+        </div>
 
         {(onRetry || onGoHome) && (
           <div className="flex gap-3 mt-7 justify-center">

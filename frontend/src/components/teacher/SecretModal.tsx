@@ -21,6 +21,9 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
   const [label, setLabel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [rawKey, setRawKey] = useState("");
+  const [priceInput, setPriceInput] = useState("0.5");
+  const [priceOutput, setPriceOutput] = useState("0.5");
+  const [monthlyLimit, setMonthlyLimit] = useState("");
   const [saving, setSaving] = useState(false);
   const { success, error } = useToast();
   const isEdit = secret != null;
@@ -30,6 +33,9 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
       setLabel(secret?.label || "");
       setBaseUrl((secret as any)?.base_url || "");
       setRawKey("");
+      setPriceInput(String((secret as any)?.price_input_per_1m ?? 0.5));
+      setPriceOutput(String((secret as any)?.price_output_per_1m ?? 0.5));
+      setMonthlyLimit((secret as any)?.monthly_cost_limit ? String((secret as any).monthly_cost_limit) : "");
     }
   }, [open, secret]);
 
@@ -38,11 +44,16 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
     if (!isEdit && !rawKey.trim()) return;
     setSaving(true);
     try {
+      const pricing = {
+        price_input_per_1m: parseFloat(priceInput) || 0,
+        price_output_per_1m: parseFloat(priceOutput) || 0,
+        monthly_cost_limit: monthlyLimit ? parseFloat(monthlyLimit) : null,
+      };
       if (isEdit) {
-        await updateSecret(secret.id, { label: label.trim(), base_url: baseUrl.trim() } as any);
+        await updateSecret(secret.id, { label: label.trim(), base_url: baseUrl.trim(), ...pricing } as any);
         success("密钥已更新");
       } else {
-        await createSecret({ label: label.trim(), raw_key: rawKey.trim(), base_url: baseUrl.trim() || undefined } as any);
+        await createSecret({ label: label.trim(), raw_key: rawKey.trim(), base_url: baseUrl.trim() || undefined, ...pricing } as any);
         success("密钥已创建");
       }
       onSaved();
@@ -72,6 +83,28 @@ export default function SecretModal({ open, secret, onClose, onSaved }: SecretMo
             <input type="password" value={rawKey} onChange={(e) => setRawKey(e.target.value)} placeholder="sk-..." className={inputClass} />
           </label>
         )}
+        <div className="grid grid-cols-2 gap-3">
+          <label>
+            <div className="mb-1 font-semibold text-sm">输入价格 (¥/1M tokens)</div>
+            <input type="number" step="0.01" min="0" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} className={inputClass} />
+          </label>
+          <label>
+            <div className="mb-1 font-semibold text-sm">输出价格 (¥/1M tokens)</div>
+            <input type="number" step="0.01" min="0" value={priceOutput} onChange={(e) => setPriceOutput(e.target.value)} className={inputClass} />
+          </label>
+        </div>
+        <label>
+          <div className="mb-1 font-semibold text-sm">月度预算上限 (¥, 留空不限制)</div>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={monthlyLimit}
+            onChange={(e) => setMonthlyLimit(e.target.value)}
+            placeholder="如: 100.00"
+            className={inputClass}
+          />
+        </label>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>
             取消

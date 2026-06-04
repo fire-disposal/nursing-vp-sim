@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ChevronDown, ChevronRight, Edit3, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Activity, Edit3, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
   createConfig,
@@ -13,6 +13,7 @@ import {
   resetConfig,
   testConfig,
   toggleConfig,
+  updateConfig,
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
@@ -48,7 +49,6 @@ export default function ApiManagementTab() {
   const { confirm } = useConfirm();
   const [showSecretModal, setShowSecretModal] = useState(false);
   const [editingSecret, setEditingSecret] = useState<ApiSecretResponse | null>(null);
-  const [showFallback, setShowFallback] = useState(false);
 
   const { data: secrets = [] } = useQuery({ queryKey: ["apiSecrets"], queryFn: () => fetchSecrets().then((r) => r.data) });
   const { data: configs = [] } = useQuery({ queryKey: ["apiConfigs"], queryFn: () => fetchConfigs(undefined).then((r) => r.data) });
@@ -142,20 +142,14 @@ export default function ApiManagementTab() {
 
   return (
     <>
-      <div className="mb-3 text-xs">
-        <button
-          onClick={() => setShowFallback((v) => !v)}
-          className="bg-transparent border-none text-muted-foreground/70 cursor-pointer p-0 flex items-center gap-1 text-xs"
-        >
-          {showFallback ? <ChevronDown size={12} /> : <ChevronRight size={12} />} 环境兜底
-          {envFallback && <span className={cn("inline-block w-[7px] h-[7px] rounded-full", envFallback.available ? "bg-green-500" : "bg-red-400")} />}
-          <span className="font-mono text-[0.7rem]">sk-...{envFallback?.key_suffix || "****"}</span>
-        </button>
-        {showFallback && envFallback && (
-          <div className="mt-1 py-1 px-3 bg-muted rounded-md text-muted-foreground text-xs">
-            {envFallback.model_flash}/{envFallback.model_pro} @ {envFallback.base_url}
-          </div>
-        )}
+      <div className="mb-3 text-xs flex items-center gap-2 text-muted-foreground/60">
+        <span className={cn("inline-block w-[6px] h-[6px] rounded-full", envFallback?.available ? "bg-green-400" : "bg-red-400")} />
+        <span className="font-mono text-[0.7rem]">env: sk-...{envFallback?.key_suffix || "****"}</span>
+        {envFallback?.call_count ? (
+          <span>
+            {envFallback.call_count}次 · ¥{envFallback.total_cost}
+          </span>
+        ) : null}
       </div>
 
       <div className="mb-4">
@@ -257,8 +251,7 @@ export default function ApiManagementTab() {
                         value={cfg.secret_id}
                         onChange={async (e) => {
                           const newSid = Number(e.target.value);
-                          await createConfig({ secret_id: newSid, model: cfg.model, purpose: p.key } as any);
-                          await deleteConfig(cfg.id);
+                          await updateConfig(cfg.id, { secret_id: newSid } as any);
                           invalidate();
                         }}
                         className={selectClass}
@@ -273,8 +266,7 @@ export default function ApiManagementTab() {
                         value={cfg.model}
                         onChange={async (e) => {
                           const newModel = e.target.value;
-                          await createConfig({ secret_id: cfg.secret_id, model: newModel, purpose: p.key } as any);
-                          await deleteConfig(cfg.id);
+                          await updateConfig(cfg.id, { model: newModel } as any);
                           invalidate();
                         }}
                         className={cn(selectClass, "font-mono")}

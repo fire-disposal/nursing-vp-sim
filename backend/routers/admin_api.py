@@ -204,7 +204,7 @@ async def update_config(
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
         raise HTTPException(404, "指派不存在")
-    for f in ("model", "purpose", "status"):
+    for f in ("secret_id", "model", "purpose", "status"):
         val = getattr(data, f, None)
         if val is not None:
             setattr(cfg, f, val)

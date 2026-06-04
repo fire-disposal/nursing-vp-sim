@@ -56,7 +56,55 @@ def list_prompts(
     q = db.query(PT).order_by(PT.purpose, PT.version.desc())
     if purpose:
         q = q.filter(PT.purpose == purpose)
-    return q.all()
+    db_prompts = list(q.all())
+
+    builtins = _build_builtin_prompt_entries(purpose, db_prompts)
+    return db_prompts + builtins
+
+
+def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[PT]) -> list[PromptTemplateResponse]:
+    """为每个 purpose 生成内置提示词条目（锁定，不可编辑/删除）"""
+    from datetime import UTC, datetime
+
+    from prompts import CASE_GENERATION_SYSTEM, PATIENT_CHAT_SYSTEM, QA_SYSTEM, SCORING_SYSTEM, SCORING_USER
+
+    BUILTIN_MAP: dict[str, tuple[str, str | None, str]] = {
+        "patient_chat": (PATIENT_CHAT_SYSTEM, None, "虚拟患者对话 — 内置兜底"),
+        "scoring": (SCORING_SYSTEM, SCORING_USER, "训练评分 — 内置兜底"),
+        "qa": (QA_SYSTEM, None, "护理学问答 — 内置兜底"),
+        "case_generation": (CASE_GENERATION_SYSTEM, None, "病例生成 — 内置兜底"),
+    }
+
+    builtin_registry = get_registry()
+    now = datetime.now(UTC)
+    results: list[PromptTemplateResponse] = []
+
+    for p, (system, user, label) in BUILTIN_MAP.items():
+        if purpose_filter and p != purpose_filter:
+            continue
+
+        has_active_db = any(t.purpose == p and t.is_active for t in db_prompts)
+
+        var_meta = builtin_registry.get_variables_jsonb(p)
+        results.append(PromptTemplateResponse(
+            id=0,
+            purpose=p,
+            version=0,
+            name=f"内置版本 — {label}",
+            system_prompt=system,
+            user_prompt=user,
+            template_engine="hardcoded",
+            variables=var_meta,
+            is_active=not has_active_db,
+            created_by="system",
+            remark="系统内置兜底提示词，不在数据库中。无 DB 激活版本时自动使用。",
+            created_at=now,
+            updated_at=now,
+            is_builtin=True,
+            locked=True,
+        ))
+
+    return results
 
 
 @router.post("", status_code=201, response_model=PromptTemplateResponse)
