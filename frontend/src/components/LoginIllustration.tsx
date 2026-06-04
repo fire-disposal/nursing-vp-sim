@@ -23,12 +23,7 @@ export default function LoginIllustration() {
       renderer: "svg",
       loop: true,
       autoplay: true,
-      rendererSettings: {
-        preserveAspectRatio: "xMidYMid meet",
-        progressiveLoad: true,
-      },
     });
-    anim.setSubframe(false);
 
     return () => anim.destroy();
   }, [visible]);

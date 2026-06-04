@@ -178,19 +178,15 @@
   }
   .animate-float {
     animation: float 8s ease-in-out infinite;
-    will-change: transform;
   }
   .animate-float-delayed {
     animation: float-delayed 10s ease-in-out infinite;
-    will-change: transform;
   }
   .animate-breathe {
     animation: breathe 6s ease-in-out infinite;
-    will-change: opacity;
   }
   .animate-rotate-slow {
     animation: rotate-slow 60s linear infinite;
-    will-change: transform;
   }
   .bg-grid-medical {
     background-image:
