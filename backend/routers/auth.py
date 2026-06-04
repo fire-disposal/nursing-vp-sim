@@ -12,10 +12,11 @@ from schemas import (
     LoginRequest,
     RegisterRequest,
     TokenResponse,
+    UserBrief,
     WechatBindRequest,
     WechatLoginRequest,
     WechatLoginResponse,
-), UserBrief
+)
 
 log = logging.getLogger(__name__)
 
