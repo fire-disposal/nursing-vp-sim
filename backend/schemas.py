@@ -442,12 +442,24 @@ class LLMConfigCreate(BaseModel):
     secret_id: int
     model: str = Field(..., max_length=80)
     purpose: str = Field(..., max_length=40)
+    label: str = Field("", max_length=80)
+    priority: int = Field(10, ge=0)
+    weight: int = Field(10, ge=0, le=100)
+    price_input_per_1m: float = Field(0, ge=0)
+    price_output_per_1m: float = Field(0, ge=0)
+    monthly_cost_limit: float | None = Field(None, ge=0)
 
 
 class LLMConfigUpdate(BaseModel):
     secret_id: int | None = None
     model: str | None = Field(None, max_length=80)
     purpose: str | None = Field(None, max_length=40)
+    label: str | None = Field(None, max_length=80)
+    priority: int | None = Field(None, ge=0)
+    weight: int | None = Field(None, ge=0, le=100)
+    price_input_per_1m: float | None = Field(None, ge=0)
+    price_output_per_1m: float | None = Field(None, ge=0)
+    monthly_cost_limit: float | None = Field(None, ge=0)
     status: str | None = Field(None, pattern="^(active|disabled)$")
 
 
@@ -458,9 +470,15 @@ class LLMConfigResponse(BaseModel):
     secret_suffix: str = ""
     base_url: str = ""
     provider: str = ""
+    label: str = ""
     model: str
     purpose: str
+    priority: int = 10
+    weight: int = 10
     status: str = "active"
+    price_input_per_1m: float = 0
+    price_output_per_1m: float = 0
+    monthly_cost_limit: float | None = None
     created_at: datetime
     updated_at: datetime
 

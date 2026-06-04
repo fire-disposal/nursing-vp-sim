@@ -67,7 +67,7 @@ export default function ApiManagementTab() {
   });
 
   const getConfig = (purpose: string) => {
-    const items = (configsByPurpose[purpose] || []).sort((a, b) => ((a as any).priority || 0) - ((b as any).priority || 0));
+    const items = (configsByPurpose[purpose] || []).sort((a, b) => (a.priority || 0) - (b.priority || 0));
     return items.find((c) => c.status === "active") || items[0] || null;
   };
 
@@ -75,7 +75,7 @@ export default function ApiManagementTab() {
     if (!presets) return [];
     const secret = secrets.find((s) => s.id === secretId);
     if (!secret) return [];
-    const baseUrl = (secret as any).base_url || "";
+    const baseUrl = secret.base_url || "";
     for (const p of presets.providers) {
       if (p.base_url && baseUrl.startsWith(p.base_url)) return p.models;
     }
@@ -131,7 +131,7 @@ export default function ApiManagementTab() {
 
   const handleQuickBind = async (purpose: string, secretId: number, model: string) => {
     try {
-      await createConfig({ secret_id: secretId, model, purpose } as any);
+      await createConfig({ secret_id: secretId, model, purpose, label: "" });
       toast.success("已绑定");
       invalidate();
     } catch (e: any) {
@@ -172,9 +172,9 @@ export default function ApiManagementTab() {
         ) : (
           <div className="flex gap-2 flex-wrap">
             {secrets.map((s) => {
-              const provider = (s as any).provider || "custom";
+              const provider = s.provider || "custom";
               const myConfigs = configs.filter((c) => c.secret_id === s.id);
-              const secStatus = (s as any).status;
+              const secStatus = s.status;
               const statusLabel = secStatus === "active" ? "正常" : secStatus === "degraded" ? "熔断" : "关闭";
               const statusColor = secStatus === "active" ? "text-green-600" : secStatus === "degraded" ? "text-amber-600" : "text-red-500";
               return (
@@ -194,10 +194,10 @@ export default function ApiManagementTab() {
                   </div>
                   <div className="text-[0.68rem] text-muted-foreground">
                     <span className="font-mono">sk-...{s.key_suffix}</span>
-                    {(s as any).base_url && <span className="ml-1.5 text-muted-foreground/70">{(s as any).base_url}</span>}
+                    {s.base_url && <span className="ml-1.5 text-muted-foreground/70">{s.base_url}</span>}
                   </div>
                   <div className="text-[0.68rem] text-muted-foreground/70 mt-0.5">
-                    {myConfigs.length} 用途 · 本月 ¥{Number(s.monthly_cost_used || 0).toFixed(2)}
+                    {myConfigs.length} 用途 · 本月 ¥{Number(s.monthly_cost_used).toFixed(2)}
                   </div>
                   <div className="absolute top-1 right-1 flex gap-0.5">
                     <button
@@ -251,7 +251,7 @@ export default function ApiManagementTab() {
                         value={cfg.secret_id}
                         onChange={async (e) => {
                           const newSid = Number(e.target.value);
-                          await updateConfig(cfg.id, { secret_id: newSid } as any);
+                          await updateConfig(cfg.id, { secret_id: newSid });
                           invalidate();
                         }}
                         className={selectClass}
@@ -266,7 +266,7 @@ export default function ApiManagementTab() {
                         value={cfg.model}
                         onChange={async (e) => {
                           const newModel = e.target.value;
-                          await updateConfig(cfg.id, { model: newModel } as any);
+                          await updateConfig(cfg.id, { model: newModel });
                           invalidate();
                         }}
                         className={cn(selectClass, "font-mono")}

@@ -6389,6 +6389,49 @@
             "type": "string",
             "maxLength": 40,
             "title": "Purpose"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Label",
+            "default": ""
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priority",
+            "default": 10
+          },
+          "weight": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Weight",
+            "default": 10
+          },
+          "price_input_per_1m": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Price Input Per 1M",
+            "default": 0
+          },
+          "price_output_per_1m": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Price Output Per 1M",
+            "default": 0
+          },
+          "monthly_cost_limit": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Cost Limit"
           }
         },
         "type": "object",
@@ -6429,6 +6472,11 @@
             "title": "Provider",
             "default": ""
           },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
           "model": {
             "type": "string",
             "title": "Model"
@@ -6437,10 +6485,41 @@
             "type": "string",
             "title": "Purpose"
           },
+          "priority": {
+            "type": "integer",
+            "title": "Priority",
+            "default": 10
+          },
+          "weight": {
+            "type": "integer",
+            "title": "Weight",
+            "default": 10
+          },
           "status": {
             "type": "string",
             "title": "Status",
             "default": "active"
+          },
+          "price_input_per_1m": {
+            "type": "number",
+            "title": "Price Input Per 1M",
+            "default": 0
+          },
+          "price_output_per_1m": {
+            "type": "number",
+            "title": "Price Output Per 1M",
+            "default": 0
+          },
+          "monthly_cost_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Cost Limit"
           },
           "created_at": {
             "type": "string",
@@ -6500,6 +6579,79 @@
               }
             ],
             "title": "Purpose"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          },
+          "price_input_per_1m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Input Per 1M"
+          },
+          "price_output_per_1m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Output Per 1M"
+          },
+          "monthly_cost_limit": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Cost Limit"
           },
           "status": {
             "anyOf": [

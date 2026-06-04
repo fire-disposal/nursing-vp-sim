@@ -151,9 +151,15 @@ def list_configs(
                 secret_suffix=s.key_suffix if s else "",
                 base_url=s.base_url or "" if s else "",
                 provider=infer_provider_name(s.base_url) if s and s.base_url else "",
+                label=c.label or "",
                 model=c.model,
                 purpose=c.purpose,
+                priority=c.priority or 10,
+                weight=c.weight or 10,
                 status=c.status,
+                price_input_per_1m=float(c.price_input_per_1m or 0),
+                price_output_per_1m=float(c.price_output_per_1m or 0),
+                monthly_cost_limit=float(c.monthly_cost_limit) if c.monthly_cost_limit is not None else None,
                 created_at=c.created_at,
                 updated_at=c.updated_at,
             )
@@ -181,12 +187,28 @@ async def create_config(
     )
     if existing:
         existing.model = data.model
+        existing.label = data.label or ""
+        existing.priority = data.priority
+        existing.weight = data.weight
+        existing.price_input_per_1m = data.price_input_per_1m
+        existing.price_output_per_1m = data.price_output_per_1m
+        existing.monthly_cost_limit = data.monthly_cost_limit
         existing.status = "active"
         db.commit()
         await refresh_router()
         return {"id": existing.id}
 
-    cfg = LLMConfig(secret_id=data.secret_id, model=data.model, purpose=data.purpose)
+    cfg = LLMConfig(
+        secret_id=data.secret_id,
+        model=data.model,
+        purpose=data.purpose,
+        label=data.label or "",
+        priority=data.priority,
+        weight=data.weight,
+        price_input_per_1m=data.price_input_per_1m,
+        price_output_per_1m=data.price_output_per_1m,
+        monthly_cost_limit=data.monthly_cost_limit,
+    )
     db.add(cfg)
     db.commit()
     db.refresh(cfg)
@@ -204,7 +226,7 @@ async def update_config(
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
         raise HTTPException(404, "指派不存在")
-    for f in ("secret_id", "model", "purpose", "status"):
+    for f in ("secret_id", "model", "purpose", "status", "label", "priority", "weight", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit"):
         val = getattr(data, f, None)
         if val is not None:
             setattr(cfg, f, val)

@@ -254,7 +254,7 @@ export default function PromptManagementTab() {
   };
 
   useEffect(() => {
-    if (!editing) setValidation(null);
+    if (editing == null) setValidation(null);
   }, [editing]);
 
   const grouped: Record<string, PromptTemplateResponse[]> = {};
@@ -289,10 +289,10 @@ export default function PromptManagementTab() {
   };
 
   const handleActivate = async (p: PromptTemplateResponse) => {
-    const label = p.id === 0 ? "切换到内置兜底版本" : `切换到 v${p.version} "${p.name || ""}"`;
-    const msg = p.id === 0
-      ? `「${PURPOSE_LABELS[p.purpose]}」将停用所有自定义版本，恢复使用系统内置提示词。`
-      : `「${PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ""}"？`;
+    const msg =
+      p.id === 0
+        ? `「${PURPOSE_LABELS[p.purpose]}」将停用所有自定义版本，恢复使用系统内置提示词。`
+        : `「${PURPOSE_LABELS[p.purpose]}」切换到 v${p.version} "${p.name || ""}"？`;
     const ok = await confirm({ title: "切换版本", message: msg, confirmText: "切换" });
     if (!ok) return;
     try {
@@ -324,7 +324,7 @@ export default function PromptManagementTab() {
     }
   };
 
-  const editedPrompt = editing && editing !== "new" ? prompts.find((p) => p.id === editing) : null;
+  const editedPrompt = editing != null && editing !== "new" ? prompts.find((p) => p.id === editing) : null;
   const isBuiltinEditing = editing === 0;
 
   const handleUpdateVarDesc = (varName: string, newDesc: string) => {
@@ -379,18 +379,7 @@ export default function PromptManagementTab() {
   };
 
   const handleShowActive = async () => {
-    setActiveModalPurpose("patient_chat");
-    setShowRendered(true);
     setShowActiveModal(true);
-    setPreviewLoading(true);
-    try {
-      const { data } = await previewActivePrompt("patient_chat");
-      setPreviewData(data);
-    } catch {
-      setPreviewData(null);
-    } finally {
-      setPreviewLoading(false);
-    }
   };
 
   const handleActiveModalPurposeChange = async (p: string) => {
@@ -490,14 +479,8 @@ export default function PromptManagementTab() {
                             if (!v.is_active) handleActivate(v);
                           }}
                           className={cn(
-                            "flex items-center gap-2 px-4 py-2 border-t border-border transition-colors",
-                            v.locked
-                              ? "bg-amber-50/50 cursor-default"
-                              : editing === v.id
-                                ? "bg-blue-50 cursor-pointer"
-                                : v.is_active
-                                  ? "bg-green-50 cursor-pointer"
-                                  : "bg-transparent cursor-pointer",
+                            "flex items-center gap-2 px-4 py-2 border-t border-border cursor-pointer transition-colors",
+                            v.locked ? "bg-amber-50/50 hover:bg-amber-100/50" : editing === v.id ? "bg-blue-50" : v.is_active ? "bg-green-50" : "bg-transparent",
                           )}
                         >
                           {v.locked ? (
@@ -540,7 +523,7 @@ export default function PromptManagementTab() {
 
         <div className="max-[900px]:block hidden mb-3">
           <select
-            value={editing !== "new" && editing ? prompts.find((p) => p.id === editing)?.purpose || "" : editing === "new" ? form.purpose : ""}
+            value={editing !== "new" && editing != null ? prompts.find((p) => p.id === editing)?.purpose || "" : editing === "new" ? form.purpose : ""}
             onChange={(e) => {
               const p = prompts.find((pt) => pt.id === Number(e.target.value));
               if (p) openEdit(p);
@@ -561,7 +544,7 @@ export default function PromptManagementTab() {
           </select>
         </div>
 
-        {editing && (
+        {editing != null && (
           <div className="rounded-xl border border-border bg-card shadow-sm p-6 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-3">
               <h4 className="text-base font-semibold flex-1">{editorTitle}</h4>
@@ -711,7 +694,7 @@ export default function PromptManagementTab() {
           </div>
         )}
 
-        {!editing && (
+        {editing == null && (
           <div className="rounded-xl border border-border bg-card shadow-sm p-8 flex flex-col items-center justify-center min-h-[300px]">
             <Layers size={40} className="text-muted-foreground/70 opacity-50 mb-4" />
             <div className="text-base font-semibold text-muted-foreground mb-1">选择左侧版本进行编辑</div>

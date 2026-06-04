@@ -62,14 +62,14 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
         .catch(() => {});
       if (configData) {
         setSecretId(String(configData.secret_id || ""));
-        setLabel((configData as any).label || "");
+        setLabel(configData.label || "");
         setModel(configData.model || "");
         setPurpose(configData.purpose || "qa");
-        setPriority((configData as any).priority || 10);
-        setWeight((configData as any).weight || 10);
-        setPriceIn((configData as any).price_input_per_1m ?? 1);
-        setPriceOut((configData as any).price_output_per_1m ?? 2);
-        setMonthlyLimit((configData as any).monthly_cost_limit != null ? String((configData as any).monthly_cost_limit) : "");
+        setPriority(configData.priority || 10);
+        setWeight(configData.weight || 10);
+        setPriceIn(configData.price_input_per_1m ?? 1);
+        setPriceOut(configData.price_output_per_1m ?? 2);
+        setMonthlyLimit(configData.monthly_cost_limit != null ? String(configData.monthly_cost_limit) : "");
         setShowAdvanced(true);
       } else if (prefilled) {
         setSecretId(String(prefilled.secret_id || autoKey || ""));
@@ -113,7 +113,7 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
         weight: 10,
         price_input_per_1m: modelVal.includes("pro") ? 1 : 0.5,
         price_output_per_1m: modelVal.includes("pro") ? 2 : 0.5,
-      } as any);
+      });
       success("已创建");
       onSaved();
       onClose();
@@ -135,7 +135,7 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
       price_input_per_1m: priceIn,
       price_output_per_1m: priceOut,
       monthly_cost_limit: monthlyLimit ? Number(monthlyLimit) : undefined,
-    } as any;
+    };
     if (!payload.secret_id) {
       error("请选择密钥");
       return;
@@ -176,7 +176,7 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
         </select>
         {selectedSecret && (
           <div className="text-[0.72rem] text-muted-foreground/70 mt-0.5">
-            {(selectedSecret as any).provider || "custom"} · {(selectedSecret as any).base_url || ""}
+            {selectedSecret.provider || "custom"} · {selectedSecret.base_url || ""}
           </div>
         )}
       </div>

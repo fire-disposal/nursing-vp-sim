@@ -320,9 +320,15 @@ class LLMConfig(Base):
 
     id = Column(Integer, primary_key=True)
     secret_id = Column(Integer, ForeignKey("api_secrets.id"), nullable=False)
+    label = Column(String(80), nullable=False, default="")
     model = Column(String(80), nullable=False)
     purpose = Column(String(40), nullable=False)
+    priority = Column(Integer, nullable=False, default=10)
+    weight = Column(Integer, nullable=False, default=10)
     status = Column(String(20), nullable=False, default="active")
+    price_input_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
+    price_output_per_1m = Column(Numeric(10, 6), nullable=False, default=0)
+    monthly_cost_limit = Column(Numeric(12, 6), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

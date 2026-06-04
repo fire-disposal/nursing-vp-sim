@@ -1989,6 +1989,33 @@ export interface components {
             model: string;
             /** Purpose */
             purpose: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Priority
+             * @default 10
+             */
+            priority: number;
+            /**
+             * Weight
+             * @default 10
+             */
+            weight: number;
+            /**
+             * Price Input Per 1M
+             * @default 0
+             */
+            price_input_per_1m: number;
+            /**
+             * Price Output Per 1M
+             * @default 0
+             */
+            price_output_per_1m: number;
+            /** Monthly Cost Limit */
+            monthly_cost_limit?: number | null;
         };
         /** LLMConfigResponse */
         LLMConfigResponse: {
@@ -2016,15 +2043,42 @@ export interface components {
              * @default
              */
             provider: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
             /** Model */
             model: string;
             /** Purpose */
             purpose: string;
             /**
+             * Priority
+             * @default 10
+             */
+            priority: number;
+            /**
+             * Weight
+             * @default 10
+             */
+            weight: number;
+            /**
              * Status
              * @default active
              */
             status: string;
+            /**
+             * Price Input Per 1M
+             * @default 0
+             */
+            price_input_per_1m: number;
+            /**
+             * Price Output Per 1M
+             * @default 0
+             */
+            price_output_per_1m: number;
+            /** Monthly Cost Limit */
+            monthly_cost_limit?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -2044,6 +2098,18 @@ export interface components {
             model?: string | null;
             /** Purpose */
             purpose?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Priority */
+            priority?: number | null;
+            /** Weight */
+            weight?: number | null;
+            /** Price Input Per 1M */
+            price_input_per_1m?: number | null;
+            /** Price Output Per 1M */
+            price_output_per_1m?: number | null;
+            /** Monthly Cost Limit */
+            monthly_cost_limit?: number | null;
             /** Status */
             status?: string | null;
         };
