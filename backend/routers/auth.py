@@ -10,6 +10,7 @@ from models import Class, User, UserClass
 from rate_limiter import login_rate_limit, register_rate_limit, reset_login_limit
 from schemas import (
     LoginRequest,
+    OkResponse,
     RegisterRequest,
     TokenResponse,
     UserBrief,
