@@ -27,11 +27,11 @@ fi
 say "─ frontend ─"
 
 if [ -f "$ROOT/frontend/package.json" ]; then
-  (cd "$ROOT/frontend" && npx biome check src/ --max-diagnostics 20) \
+  (cd "$ROOT/frontend" && ./node_modules/.bin/biome check src/ --max-diagnostics 20) \
     && ok "biome lint" || fail "biome lint"
 
   if [ -z "$PREUSH_FAST" ]; then
-    (cd "$ROOT/frontend" && npx tsc --noEmit) \
+    (cd "$ROOT/frontend" && ./node_modules/.bin/tsc --noEmit) \
       && ok "tsc typecheck" || fail "tsc typecheck"
   else
     say "  (tsc typecheck skipped — PREUSH_FAST)"

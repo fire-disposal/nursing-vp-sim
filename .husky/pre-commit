@@ -1,5 +1,6 @@
 #!/bin/sh
-cd frontend
-npx biome format --write src/
-cd ..
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT/frontend" || exit 1
+./node_modules/.bin/biome format --write src/
+cd "$ROOT"
 git add frontend/src/
