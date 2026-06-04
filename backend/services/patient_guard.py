@@ -161,6 +161,6 @@ def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str],
     needs_correction = bool(leak or diag or teach)
 
     if not needs_correction and len(normalized) > LONG_OUTPUT_LIMIT:
-        return normalized[:300] + "...", violations + [f"截断: {len(normalized)}字"], False
+        return normalized[:300] + "...", [*violations, f"截断: {len(normalized)}字"], False
 
     return normalized, violations, needs_correction
