@@ -32,6 +32,7 @@ TEACHING_LEAK_PATTERNS = [
 ]
 
 LONG_OUTPUT_LIMIT = 400
+GUARD_MIN_LENGTH = 160
 
 UNKNOWN_FALLBACKS = [
     "这个我不太清楚，平时也没太注意。",
@@ -158,7 +159,7 @@ def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str],
     if teach:
         violations.append(f"教学反馈: {teach}")
 
-    needs_correction = bool(leak or diag or teach)
+    needs_correction = bool(leak or diag or teach) and len(normalized) >= GUARD_MIN_LENGTH
 
     if not needs_correction and len(normalized) > LONG_OUTPUT_LIMIT:
         return normalized[:300] + "...", [*violations, f"截断: {len(normalized)}字"], False
