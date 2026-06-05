@@ -100,43 +100,52 @@ def _seed_data():
             db.flush()
             log.info("默认学校已创建")
 
-        # 2. 确保系统模板角色存在 (school_id=NULL)
+        # 2. 确保系统模板角色存在，并同步权限 (school_id=NULL)
         template_roles = {}
-        existing_templates = db.query(Role).filter(Role.school_id.is_(None)).all()
-        if not existing_templates:
-            for name, display_name in SYSTEM_ROLES:
+        for name, display_name in SYSTEM_ROLES:
+            template = db.query(Role).filter(Role.name == name, Role.school_id.is_(None)).first()
+            if not template:
                 template = Role(name=name, display_name=display_name, school_id=None, is_system=True)
                 db.add(template)
                 db.flush()
-                template_roles[name] = template.id
-                for perm in SYSTEM_PERMISSIONS.get(name, []):
-                    db.add(RolePermission(role_id=template.id, permission=perm))
-            db.commit()
-            log.info("系统模板角色已初始化")
-        else:
-            for r in existing_templates:
-                template_roles[r.name] = r.id
+            template_roles[name] = template.id
+        db.commit()
 
-        # 3. 确保默认学校的角色存在
-        school_roles = db.query(Role).filter(Role.school_id == school.id).all()
+        # 清理并重建模板角色的权限
+        for role_name, perms in SYSTEM_PERMISSIONS.items():
+            rid = template_roles.get(role_name)
+            if not rid:
+                continue
+            existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == rid).all()}
+            target = set(perms)
+            for p in existing - target:
+                db.query(RolePermission).filter(RolePermission.role_id == rid, RolePermission.permission == p).delete()
+            for p in target - existing:
+                db.add(RolePermission(role_id=rid, permission=p))
+        db.commit()
+
+        # 3. 确保默认学校的角色存在，并同步权限
         school_role_ids = {}
-        if not school_roles:
-            for name, display_name in SYSTEM_ROLES:
+        for name, display_name in SYSTEM_ROLES:
+            role = db.query(Role).filter(Role.name == name, Role.school_id == school.id).first()
+            if not role:
                 role = Role(name=name, display_name=display_name, school_id=school.id, is_system=True)
                 db.add(role)
                 db.flush()
-                school_role_ids[name] = role.id
-            db.commit()
-            for name, perms in SYSTEM_PERMISSIONS.items():
-                rid = school_role_ids.get(name)
-                if rid:
-                    for perm in perms:
-                        db.add(RolePermission(role_id=rid, permission=perm))
-            db.commit()
-            log.info("默认学校角色已初始化")
-        else:
-            for r in school_roles:
-                school_role_ids[r.name] = r.id
+            school_role_ids[name] = role.id
+        db.commit()
+
+        for role_name, perms in SYSTEM_PERMISSIONS.items():
+            rid = school_role_ids.get(role_name)
+            if not rid:
+                continue
+            existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == rid).all()}
+            target = set(perms)
+            for p in existing - target:
+                db.query(RolePermission).filter(RolePermission.role_id == rid, RolePermission.permission == p).delete()
+            for p in target - existing:
+                db.add(RolePermission(role_id=rid, permission=p))
+        db.commit()
 
         # 4. 评分标准
         if db.query(Rubric).count() == 0:
@@ -161,10 +170,17 @@ def _seed_data():
         # 5. 超级管理员
         username = os.environ.get("SEED_ADMIN_USERNAME", "admin")
         password = os.environ.get("SEED_ADMIN_PASSWORD", "admin123")
+        sa_role_id = school_role_ids.get("super_admin")
         if not os.environ.get("SEED_ADMIN_USERNAME"):
             log.warning("SEED_ADMIN_* 未设置，使用默认 admin/admin123")
-        if not db.query(User).filter(User.username == username).first():
-            sa_role_id = school_role_ids.get("super_admin")
+        admin_user = db.query(User).filter(User.username == username).first()
+        if admin_user:
+            if admin_user.role_id != sa_role_id or admin_user.school_id != school.id:
+                admin_user.role_id = sa_role_id
+                admin_user.school_id = school.id
+                db.commit()
+                log.info("超级管理员角色已修正 (%s → super_admin)", username)
+        else:
             db.add(User(
                 username=username,
                 password_hash=hash_password(password),
