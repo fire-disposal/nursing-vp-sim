@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { api } from "@/api/axios-instance";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { api } from "@/api/axios-instance";
 import Modal from "@/components/ui/Modal";
 
 interface SchoolItem {
