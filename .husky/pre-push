@@ -14,7 +14,11 @@ ok()   { echo "  ${GREEN}ok${NC}  $1"; }
 fail() { echo "  ${RED}FAIL${NC} $1"; PASS=1; }
 
 pattern='^v([0-9]{4})\.([0-9]{2})\.([0-9]{2})-([1-9][0-9]*)$'
-today=$(date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d)
+today=$(date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d 2>/dev/null || echo "")
+
+if [ -z "$today" ]; then
+  echo "  ${RED}WARNING${NC}: cannot determine today's date, date validation skipped"
+fi
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
@@ -30,11 +34,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         continue
       fi
 
-      # 2. Validate date
-      tag_date=$(echo "$tag" | sed -E 's/^v([0-9]{4}\.[0-9]{2}\.[0-9]{2})-.*/\1/')
-      if [ "$tag_date" != "$today" ]; then
-        fail "tag date $tag_date != today $today"
-        continue
+      # 2. Validate date (skip if cannot determine today)
+      if [ -n "$today" ]; then
+        tag_date=$(echo "$tag" | sed -E 's/^v([0-9]{4}\.[0-9]{2}\.[0-9]{2})-.*/\1/')
+        if [ "$tag_date" != "$today" ]; then
+          fail "tag date $tag_date != today $today"
+          continue
+        fi
       fi
 
       # 3. Validate counter
