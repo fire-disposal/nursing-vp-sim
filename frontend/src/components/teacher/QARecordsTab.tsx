@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Eye, MessageCircle } from "lucide-react";
-import { useState } from "react";
+import { Eye, MessageCircle, Search } from "lucide-react";
+import { useRef, useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
@@ -19,6 +19,9 @@ const tdClass = "px-4 py-3 border-b border-border";
 
 export default function QARecordsTab() {
   const [offset, setOffset] = useState(0);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const [previewSessionId, setPreviewSessionId] = useState<number | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
   const [showPreview, setShowPreview] = useState(false);
@@ -26,9 +29,18 @@ export default function QARecordsTab() {
 
   const _toast = useToast();
 
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setSearch(value);
+      setOffset(0);
+    }, 200);
+  };
+
   const { data: recordsData, isLoading } = useQuery({
-    queryKey: ["qaHistory", offset],
-    queryFn: () => getQAHistoryAll({ offset, limit: LIMIT }).then((r) => r.data),
+    queryKey: ["qaHistory", offset, search],
+    queryFn: () => getQAHistoryAll({ offset, limit: LIMIT, search: search || undefined }).then((r) => r.data),
     placeholderData: (prev) => prev,
   });
 
@@ -64,7 +76,19 @@ export default function QARecordsTab() {
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm p-6">
-      <div className="mb-3 text-muted-foreground text-sm">共 {total} 条问答会话</div>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="搜索学生..."
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+          />
+        </div>
+        <span className="text-sm text-muted-foreground">共 {total} 条问答会话</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>

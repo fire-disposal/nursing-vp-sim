@@ -1,7 +1,8 @@
 """角色管理 (school_admin 可管理本校角色)"""
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -24,8 +25,12 @@ router = APIRouter(prefix="/api/admin/roles", tags=["角色管理"])
 def list_roles(
     current_user: User = Depends(require_permission("role_manage")),
     db: Session = Depends(get_db),
+    search: Annotated[str, Query(default="")] = "",
 ):
-    roles = db.query(Role).filter(Role.school_id == current_user.school_id).order_by(Role.id).all()
+    query = db.query(Role).filter(Role.school_id == current_user.school_id)
+    if search:
+        query = query.filter(Role.display_name.ilike(f"%{search}%"))
+    roles = query.order_by(Role.id).all()
 
     result = []
     for r in roles:

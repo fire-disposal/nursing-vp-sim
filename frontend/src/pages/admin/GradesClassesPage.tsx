@@ -1,4 +1,4 @@
-import { GraduationCap, Loader2 } from "lucide-react";
+import { GraduationCap, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
@@ -31,6 +31,8 @@ const selectClass = "px-2.5 py-1.5 border border-border rounded-md text-sm bg-ca
 export default function GradesClassesPage() {
   const [tab, setTab] = useState<"grades" | "classes">("grades");
   const [gradeFilter, setGradeFilter] = useState("");
+  const [gradeSearch, setGradeSearch] = useState("");
+  const [classSearch, setClassSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [formName, setFormName] = useState("");
@@ -137,7 +139,11 @@ export default function GradesClassesPage() {
   ];
 
   const columns = tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS;
-  const items = tab === "grades" ? grades : classes;
+  const rawItems = tab === "grades" ? grades : classes;
+
+  const filteredGrades = grades.filter((g: Grade) => !gradeSearch || g.name.toLowerCase().includes(gradeSearch.toLowerCase()));
+  const filteredClasses = classes.filter((c: ClassItem) => !classSearch || c.name.toLowerCase().includes(classSearch.toLowerCase()));
+  const items = tab === "grades" ? filteredGrades : filteredClasses;
 
   return (
     <Layout>
@@ -164,7 +170,17 @@ export default function GradesClassesPage() {
         </div>
 
         {tab === "classes" && (
-          <div className="mb-4">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="relative flex-1 max-w-xs">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="搜索班级..."
+                value={classSearch}
+                onChange={(e) => setClassSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+              />
+            </div>
             <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} className={selectClass}>
               <option value="">全部年级</option>
               {grades.map((g) => (
@@ -173,6 +189,21 @@ export default function GradesClassesPage() {
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {tab === "grades" && (
+          <div className="mb-4">
+            <div className="relative flex-1 max-w-xs">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="搜索年级..."
+                value={gradeSearch}
+                onChange={(e) => setGradeSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+              />
+            </div>
           </div>
         )}
 

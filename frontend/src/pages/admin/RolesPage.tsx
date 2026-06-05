@@ -1,5 +1,5 @@
-import { Loader2, Plus, Save, Shield, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Loader2, Plus, Save, Search, Shield, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
@@ -45,12 +45,21 @@ export default function RolesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const { confirm } = useConfirm();
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setSearch(value), 200);
+  };
 
   const loadRoles = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/admin/roles");
+      const { data } = await api.get("/admin/roles", { params: { search: search || undefined } });
       setRoles(data || []);
     } catch {
       toast.error("加载角色列表失败");
@@ -61,7 +70,7 @@ export default function RolesPage() {
 
   useEffect(() => {
     loadRoles();
-  }, []);
+  }, [search]);
 
   const togglePerm = (perm: string) => {
     setEditPerms((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]));
@@ -118,8 +127,17 @@ export default function RolesPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">角色管理</h1>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="搜索角色..."
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+            />
+          </div>
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={16} /> 新建角色
           </Button>

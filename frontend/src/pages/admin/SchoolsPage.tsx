@@ -1,5 +1,5 @@
-import { Building2, Loader2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Building2, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
@@ -9,6 +9,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
+import Pagination from "@/components/ui/Pagination";
 
 interface SchoolItem {
   id: number;
@@ -26,13 +27,29 @@ export default function SchoolsPage() {
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminDisplayName, setAdminDisplayName] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 50;
   const { confirm } = useConfirm();
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setSearch(value);
+      setOffset(0);
+    }, 200);
+  };
 
   const loadSchools = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/admin/schools", { params: { limit: 100 } });
+      const { data } = await api.get("/admin/schools", { params: { search: search || undefined, limit: LIMIT, offset } });
       setSchools(data.items || []);
+      setTotal(data.total || 0);
     } catch {
       toast.error("加载学校列表失败");
     } finally {
@@ -42,7 +59,7 @@ export default function SchoolsPage() {
 
   useEffect(() => {
     loadSchools();
-  }, []);
+  }, [search, offset]);
 
   const handleCreate = async () => {
     if (!name.trim() || !adminUsername.trim() || !adminPassword || !adminDisplayName.trim()) {
@@ -81,8 +98,17 @@ export default function SchoolsPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">学校管理</h1>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="搜索学校名称..."
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+            />
+          </div>
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={16} /> 新建学校
           </Button>
@@ -124,6 +150,12 @@ export default function SchoolsPage() {
             </table>
           )}
         </div>
+
+        {total > LIMIT && (
+          <div className="mt-4 flex justify-center">
+            <Pagination offset={offset} limit={LIMIT} total={total} onChange={(v) => setOffset(v)} />
+          </div>
+        )}
 
         <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建学校">
           <div className="space-y-4 py-2">
