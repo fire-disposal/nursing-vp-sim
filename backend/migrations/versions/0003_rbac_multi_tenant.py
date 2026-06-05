@@ -81,7 +81,7 @@ def upgrade() -> None:
         op.drop_constraint("roles_pkey", "roles", type_="primary")
     op.create_primary_key("roles_pkey", "roles", ["id_new"])
     op.alter_column("roles", "id_new", new_column_name="id", nullable=False)
-    op.create_unique_constraint("uq_roles_name", "roles", ["name"])
+    op.create_unique_constraint("uq_roles_school_name", "roles", ["school_id", "name"])
 
     op.create_foreign_key("fk_roles_school", "roles", "schools", ["school_id"], ["id"], ondelete="CASCADE")
 
@@ -172,7 +172,7 @@ def downgrade() -> None:
         op.drop_column("role_permissions", "role_id")
 
     _safe_drop_fk("roles", "fk_roles_school")
-    _safe_drop_unique("roles", "uq_roles_name")
+    _safe_drop_unique("roles", "uq_roles_school_name")
     if _has_constraint("roles", "roles_pkey"):
         op.drop_constraint("roles_pkey", "roles", type_="primary")
     op.create_primary_key("roles_pkey", "roles", ["name"])

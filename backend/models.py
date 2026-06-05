@@ -17,9 +17,10 @@ class School(Base):
 
 class Role(Base):
     __tablename__ = "roles"
+    __table_args__ = (UniqueConstraint("school_id", "name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(20), unique=True)
+    name: Mapped[str] = mapped_column(String(20))
     display_name: Mapped[str] = mapped_column(String(40))
     school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True)
     is_system: Mapped[bool] = mapped_column(default=False)
