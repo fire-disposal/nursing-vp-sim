@@ -4,7 +4,12 @@ import re
 import threading
 from datetime import UTC, datetime
 
-from core.config import AUTO_SCORE_COVERED_INQUIRIES_MIN, AUTO_SCORE_STUDENT_CHARS_MIN, AUTO_SCORE_AI_CHARS_MIN, CLEANUP_INTERVAL_SECONDS
+from core.config import (
+    AUTO_SCORE_AI_CHARS_MIN,
+    AUTO_SCORE_COVERED_INQUIRIES_MIN,
+    AUTO_SCORE_STUDENT_CHARS_MIN,
+    CLEANUP_INTERVAL_SECONDS,
+)
 from core.database import SessionLocal
 from models import Case, Message, TrainingRecord
 
