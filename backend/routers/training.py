@@ -62,17 +62,19 @@ def start_training(
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
 
+    case_data = case.case_data or {}
+    time_limit = case_data.get("time_limit", 20)
     record = TrainingRecord(
         user_id=current_user.id,
         case_id=case.id,
         status="in_progress",
+        time_limit=time_limit,
     )
     db.add(record)
     db.commit()
     db.refresh(record)
 
     # 从病例中获取患者姓名用于开场问候
-    case_data = case.case_data or {}
     patient_info = case_data.get("patient_info", {})
     patient_name = patient_info.get("name", "患者")
     greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
@@ -340,7 +342,7 @@ def get_record_detail(
     note_records = db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
 
     case_data = case.case_data or {} if case else {}
-    time_limit = case_data.get("time_limit", 20)
+    time_limit = record.time_limit or 20
     remaining_seconds = None
     if record.status == "in_progress" and record.start_time:
         elapsed = (datetime.now(UTC) - record.start_time).total_seconds()

@@ -112,6 +112,7 @@ class TrainingRecord(Base):
     status: Mapped[str] = mapped_column(String(20), default="in_progress")
     scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    time_limit: Mapped[int] = mapped_column(Integer, default=20)
     start_time: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     end_time: Mapped[datetime | None] = mapped_column(nullable=True)
 
