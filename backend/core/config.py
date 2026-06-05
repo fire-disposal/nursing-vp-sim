@@ -92,6 +92,12 @@ def get_llm_config(purpose: str) -> dict:
             pass
     return _LLM_PURPOSE_DEFAULTS.get(purpose, _LLM_PURPOSE_DEFAULTS["patient_chat"])
 
+# 自动结算与智能评分
+CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "30"))
+AUTO_SCORE_COVERED_INQUIRIES_MIN = int(os.getenv("AUTO_SCORE_COVERED_INQUIRIES_MIN", "5"))
+AUTO_SCORE_STUDENT_CHARS_MIN = int(os.getenv("AUTO_SCORE_STUDENT_CHARS_MIN", "200"))
+AUTO_SCORE_AI_CHARS_MIN = int(os.getenv("AUTO_SCORE_AI_CHARS_MIN", "500"))
+
 
 def log_config(logger):
     db = urlparse(DATABASE_URL)
@@ -109,4 +115,7 @@ def log_config(logger):
     logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)
+    logger.info("  自动结算:   每 %d 秒 (门槛: 采集点>=%d 学生>=%d字 AI>=%d字)",
+                CLEANUP_INTERVAL_SECONDS, AUTO_SCORE_COVERED_INQUIRIES_MIN,
+                AUTO_SCORE_STUDENT_CHARS_MIN, AUTO_SCORE_AI_CHARS_MIN)
     logger.info("──────────────────────────────────────")
