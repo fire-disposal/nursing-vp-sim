@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import require_teacher
+from core.security import require_permission
 from models import Class, Grade, User, UserClass
 from schemas import ClassCreate, ClassResponse, ClassUpdate, MessageResponse
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/admin/classes", tags=["班级管理"])
 @router.get("", response_model=list[ClassResponse])
 def list_classes(
     grade_id: Annotated[int | None, Query()] = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("grade_class_manage")),
     db: Session = Depends(get_db),
 ):
     q = db.query(Class, Grade.name.label("grade_name"))
@@ -43,10 +43,10 @@ def list_classes(
 @router.post("", response_model=ClassResponse)
 def create_class(
     body: ClassCreate,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    grade = db.query(Grade).filter(Grade.id == body.grade_id).first()
+    grade = db.query(Grade).filter(Grade.id == body.grade_id, Grade.school_id == current_user.school_id).first()
     if not grade:
         raise HTTPException(status_code=404, detail="年级不存在")
     dup = db.query(Class).filter(Class.grade_id == body.grade_id, Class.name == body.name).first()
@@ -70,7 +70,7 @@ def create_class(
 def update_class(
     class_id: int,
     body: ClassUpdate,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     cls = db.query(Class).filter(Class.id == class_id).first()
@@ -111,7 +111,7 @@ def update_class(
 @router.delete("/{class_id}", response_model=MessageResponse)
 def delete_class(
     class_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     cls = db.query(Class).filter(Class.id == class_id).first()

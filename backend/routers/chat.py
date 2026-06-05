@@ -125,7 +125,7 @@ async def send_message(
     db.commit()
     db.refresh(patient_msg)
 
-    log.info(f"消息已记录: record_id={record_id}", extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(f"消息已记录: record_id={record_id}", extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""})
     return ChatMessageResponse(role="patient", content=sanitized)
 
 
@@ -206,7 +206,7 @@ async def send_message_stream(
 
                 log.info(
                     f"流式消息已记录: record_id={record_id}",
-                    extra={"user_id": current_user.id, "user_role": current_user.role},
+                    extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
                 )
                 yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
             except Exception as e:

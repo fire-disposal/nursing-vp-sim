@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import get_current_user, require_teacher
+from core.security import get_current_user, require_permission
 from models import Case, TrainingRecord, User
 from schemas import (
     CaseBrief,
@@ -85,7 +85,7 @@ def list_cases_manage(
     name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
     difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
     db: Session = Depends(get_db),
-    _=Depends(require_teacher),
+    _=Depends(require_permission("case_manage")),
 ):
     """教师查看所有病例（含训练次数统计）"""
     query = db.query(Case).order_by(Case.created_at.desc())
@@ -134,7 +134,7 @@ def list_cases_manage(
 async def generate_case(
     data: CaseGenerateRequest,
     request: Request,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("case_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     if not data.description.strip():
@@ -204,7 +204,7 @@ def get_case(case_id: int, db: Annotated[Session, Depends(get_db)], _=Depends(ge
 def create_case(
     req: CaseCreateRequest,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """创建新病例"""
     cd = req.case_data
@@ -220,7 +220,7 @@ def create_case(
     db.refresh(case)
     log.info(
         f"病例创建: case_id={case.id} case_name={case.name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return _to_manage_item(case, 0)
 
@@ -230,7 +230,7 @@ def update_case(
     case_id: int,
     req: CaseUpdateRequest,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """编辑病例"""
     case = db.query(Case).filter(Case.id == case_id).first()
@@ -246,7 +246,7 @@ def update_case(
     db.refresh(case)
     log.info(
         f"病例编辑: case_id={case_id} case_name={case.name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar() or 0
     return _to_manage_item(case, count)
@@ -256,7 +256,7 @@ def update_case(
 def delete_case(
     case_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """删除病例（仅当无训练记录时允许）"""
     case = db.query(Case).filter(Case.id == case_id).first()
@@ -273,6 +273,6 @@ def delete_case(
     db.commit()
     log.info(
         f"病例删除: case_id={case_id} case_name={case_name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "病例已删除"}

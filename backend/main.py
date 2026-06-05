@@ -15,6 +15,8 @@ from middleware.rate_limits import RateLimiter
 from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, qa, stats, training
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
+from routers.admin_roles import router as admin_roles_router
+from routers.admin_schools import router as admin_schools_router
 
 log = logging.getLogger(__name__)
 
@@ -410,6 +412,8 @@ for mod in [auth, admin, admin_classes, admin_grades, cases, chat, export, feedb
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)
+app.include_router(admin_schools_router)
+app.include_router(admin_roles_router)
 
 
 @app.get("/api/health")

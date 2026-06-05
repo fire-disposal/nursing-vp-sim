@@ -7,14 +7,14 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from core.database import get_db
-from core.security import get_current_user, require_teacher
+from core.security import get_current_user, require_permission
 from models import Case, Message, Score, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
 
 
 @router.get("/records")
-def export_records(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
+def export_records(current_user: Annotated[User, Depends(require_permission("export_data"))], db: Annotated[Session, Depends(get_db)]):
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
 
     def generate():
@@ -92,7 +92,7 @@ def export_record_detail(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
-    if current_user.role != "teacher" and record.user_id != current_user.id:
+    if not current_user.has_permission("export_data") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权导出此记录")
 
     lines = []

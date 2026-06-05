@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import get_current_user, require_teacher
+from core.security import get_current_user, require_permission
 from models import Feedback, User
 from schemas import (
     FeedbackDailyItem,
@@ -40,7 +40,7 @@ def submit_feedback(
 
 @router.get("/admin/feedback", response_model=PaginatedResponse[FeedbackItem])
 def admin_list_feedback(
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("feedback_review"))],
     db: Annotated[Session, Depends(get_db)],
     tag: Annotated[str | None, Query()] = None,
     date_from: Annotated[str | None, Query()] = None,
@@ -96,7 +96,7 @@ def admin_list_feedback(
 
 @router.get("/admin/feedback/stats", response_model=list[FeedbackDailyItem])
 def feedback_stats(
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("feedback_review"))],
     db: Annotated[Session, Depends(get_db)],
     date_from: Annotated[str | None, Query()] = None,
     date_to: Annotated[str | None, Query()] = None,

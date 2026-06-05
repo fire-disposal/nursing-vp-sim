@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import get_current_user, require_teacher
+from core.security import get_current_user, require_permission
 from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
 from schemas import (
@@ -118,7 +118,7 @@ async def create_session(
 
     log.info(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return QAAskResponse(session_id=session.id, answer=answer)
 
@@ -192,7 +192,7 @@ async def ask_in_session(
 
     log.info(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return QAAskResponse(session_id=session.id, answer=answer)
 
@@ -226,7 +226,7 @@ def delete_session(
     db.delete(session)
     db.commit()
 
-    log.info(f"会话删除: session_id={session_id}", extra={"user_id": current_user.id, "user_role": current_user.role})
+    log.info(f"会话删除: session_id={session_id}", extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""})
     return {"message": "删除成功"}
 
 
@@ -265,7 +265,7 @@ async def ask_question_legacy(
 
 @router.get("/history/all", response_model=PaginatedResponse[QASessionAdminItem])
 def get_all_qa_history(
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("stats_view"))],
     db: Annotated[Session, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -307,7 +307,7 @@ def get_all_qa_history(
 @router.get("/history/all/{session_id}/messages", response_model=list[QAMessageItem])
 def get_session_messages_admin(
     session_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("stats_view"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     return db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
