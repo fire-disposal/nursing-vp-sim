@@ -739,10 +739,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
                         <span
                           className={cn(
                             "inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
-                            u.role === "teacher" ? "bg-blue-50 text-primary" : "bg-green-50 text-green-700",
+                            u.role === "super_admin" || u.role === "school_admin"
+                              ? "bg-red-50 text-red-700"
+                              : u.role === "teacher"
+                                ? "bg-blue-50 text-primary"
+                                : "bg-green-50 text-green-700",
                           )}
                         >
-                          {u.role === "teacher" ? "教师" : "学生"}
+                          {roles.find((r) => r.name === u.role)?.display_name || u.role}
                         </span>
                       </td>
                       <td className="px-4 py-3 border-b border-border text-muted-foreground">{u.student_id || "-"}</td>

@@ -39,14 +39,14 @@ const allLinks: NavLinkItem[] = [
   { to: "/history", icon: ClipboardList, label: "训练记录" },
   { to: "/qa", icon: HelpCircle, label: "护理问答" },
   { to: "/stats", icon: BarChart3, label: "训练统计" },
-  { to: "/admin", icon: Settings, label: "训练管理", permission: "score_review" },
   { to: "/admin/users", icon: Users, label: "用户管理", permission: "user_manage" },
+  { to: "/admin/roles", icon: Shield, label: "角色管理", permission: "role_manage" },
+  { to: "/admin/schools", icon: GraduationCap, label: "学校管理", permission: "school_manage" },
   { to: "/admin/grades-classes", icon: GraduationCap, label: "班级管理", permission: "grade_class_manage" },
   { to: "/admin/cases", icon: UserSearch, label: "病例管理", permission: "case_manage" },
-  { to: "/admin/roles", icon: Shield, label: "角色管理", permission: "role_manage" },
+  { to: "/admin", icon: Settings, label: "训练管理", permission: "score_review" },
   { to: "/admin/llm", icon: Server, label: "LLM 管理", permission: "llm_monitor" },
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
-  { to: "/admin/schools", icon: GraduationCap, label: "学校管理", permission: "school_manage" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {

@@ -52,11 +52,9 @@ def _release_scoring(record_id: int):
 @router.post("/start", response_model=TrainingStartResponse)
 def start_training(
     req: TrainingStartRequest,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("training_access"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    if current_user.role.name != "student":
-        raise HTTPException(status_code=403, detail="仅学生可以开始训练")
 
     case = db.query(Case).filter(Case.id == req.case_id).first()
     if not case:

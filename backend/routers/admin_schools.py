@@ -18,36 +18,9 @@ from schemas import (
 
 log = logging.getLogger(__name__)
 
+from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
+
 router = APIRouter(prefix="/api/admin/schools", tags=["学校管理"])
-
-SYSTEM_PERMISSIONS = {
-    "super_admin": [
-        "user_manage", "role_manage", "grade_class_manage", "case_manage",
-        "training_access", "score_review", "stats_view", "qa_access",
-        "llm_monitor", "api_manage", "prompt_manage", "feedback_review",
-        "export_data", "record_notes", "school_manage",
-    ],
-    "school_admin": [
-        "user_manage", "role_manage", "grade_class_manage", "case_manage",
-        "training_access", "score_review", "stats_view", "qa_access",
-        "llm_monitor", "feedback_review", "export_data", "record_notes",
-    ],
-    "teacher": [
-        "grade_class_manage", "case_manage", "training_access",
-        "score_review", "stats_view", "feedback_review",
-        "export_data", "record_notes",
-    ],
-    "student": [
-        "training_access", "qa_access",
-    ],
-}
-
-SYSTEM_ROLES = [
-    ("super_admin", "超级管理员"),
-    ("school_admin", "学校管理员"),
-    ("teacher", "教师"),
-    ("student", "学生"),
-]
 
 
 @router.get("", response_model=PaginatedResponse[SchoolResponse])

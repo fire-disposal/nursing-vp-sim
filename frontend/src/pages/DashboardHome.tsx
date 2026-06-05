@@ -83,20 +83,29 @@ export default function DashboardHome() {
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
 
+  const perms = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user_permissions") || "[]") as string[];
+    } catch {
+      return [];
+    }
+  })();
+  const isAdmin = perms.includes("score_review") || perms.includes("user_manage");
+
   const { data: casesData } = useQuery({
     queryKey: ["cases"],
     queryFn: () => getCases().then((r) => r.data),
-    enabled: user?.role === "student",
+    enabled: !isAdmin,
   });
   const { data: durationData } = useQuery({
     queryKey: ["durationStats"],
     queryFn: () => getDurationStats().then((r) => r.data),
-    enabled: user?.role === "student",
+    enabled: !isAdmin,
   });
   const { data: statsData } = useQuery({
     queryKey: ["adminStats"],
     queryFn: () => getStats().then((r) => r.data),
-    enabled: user?.role === "teacher",
+    enabled: isAdmin,
   });
   const { data: recordsData } = useQuery({
     queryKey: ["records", "recent"],
@@ -137,7 +146,7 @@ export default function DashboardHome() {
     );
   }
 
-  if (user?.role === "teacher") {
+  if (isAdmin) {
     return <TeacherDashboard stats={stats} records={records} handleExport={handleExport} navigate={navigate} />;
   }
 
