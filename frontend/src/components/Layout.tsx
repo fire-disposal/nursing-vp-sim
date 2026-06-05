@@ -10,6 +10,7 @@
   MessageSquare,
   Server,
   Settings,
+  Shield,
   Stethoscope,
   UserSearch,
   Users,
@@ -29,35 +30,41 @@ interface NavLinkItem {
   to: string;
   icon: typeof Home;
   label: string;
+  permission?: string;
 }
 
-const studentLinks: NavLinkItem[] = [
+const allLinks: NavLinkItem[] = [
   { to: "/home", icon: Home, label: "首页" },
-  { to: "/cases", icon: Stethoscope, label: "病例训练" },
+  { to: "/cases", icon: Stethoscope, label: "病例训练", permission: "training_access" },
   { to: "/history", icon: ClipboardList, label: "训练记录" },
   { to: "/qa", icon: HelpCircle, label: "护理问答" },
   { to: "/stats", icon: BarChart3, label: "训练统计" },
-];
-
-const teacherLinks: NavLinkItem[] = [
-  { to: "/home", icon: Home, label: "首页" },
-  { to: "/history", icon: ClipboardList, label: "训练记录" },
-  { to: "/qa", icon: HelpCircle, label: "护理问答" },
-  { to: "/stats", icon: BarChart3, label: "训练统计" },
-  { to: "/admin", icon: Settings, label: "训练管理" },
-  { to: "/admin/users", icon: Users, label: "用户管理" },
-  { to: "/admin/grades-classes", icon: GraduationCap, label: "班级管理" },
-  { to: "/admin/cases", icon: UserSearch, label: "病例管理" },
-  { to: "/admin/llm", icon: Server, label: "LLM 管理" },
-  { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈" },
+  { to: "/admin", icon: Settings, label: "训练管理", permission: "score_review" },
+  { to: "/admin/users", icon: Users, label: "用户管理", permission: "user_manage" },
+  { to: "/admin/grades-classes", icon: GraduationCap, label: "班级管理", permission: "grade_class_manage" },
+  { to: "/admin/cases", icon: UserSearch, label: "病例管理", permission: "case_manage" },
+  { to: "/admin/roles", icon: Shield, label: "角色管理", permission: "role_manage" },
+  { to: "/admin/llm", icon: Server, label: "LLM 管理", permission: "llm_monitor" },
+  { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
+  { to: "/admin/schools", icon: GraduationCap, label: "学校管理", permission: "school_manage" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const isTeacher = user?.role === "teacher";
-  const links = isTeacher ? teacherLinks : studentLinks;
+  function getVisibleLinks(): NavLinkItem[] {
+    const permsStr = localStorage.getItem("user_permissions");
+    if (!permsStr) return allLinks.filter(l => !l.permission);
+    try {
+      const perms: string[] = JSON.parse(permsStr);
+      return allLinks.filter((link) => !link.permission || perms.includes(link.permission));
+    } catch {
+      return allLinks.filter(l => !l.permission);
+    }
+  }
+
+  const links = getVisibleLinks();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const { openFeedback } = useFeedback();
@@ -123,7 +130,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
             <div className="min-w-0">
               <div className="truncate text-sm font-medium">{user?.display_name}</div>
-              <div className="text-xs text-muted-foreground">{isTeacher ? "教师" : "学生"}</div>
+              <div className="text-xs text-muted-foreground">{user?.role || "用户"}</div>
             </div>
           </div>
           <div className="flex gap-1">

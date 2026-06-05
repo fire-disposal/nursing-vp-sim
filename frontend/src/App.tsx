@@ -27,6 +27,8 @@ const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
 const AdminLLM = lazy(() => import("@/pages/admin/LLMManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
 const AdminGradesClasses = lazy(() => import("@/pages/admin/GradesClassesPage"));
+const AdminSchools = lazy(() => import("@/pages/admin/SchoolsPage"));
+const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
 
 function PageLoader() {
   return (
@@ -37,10 +39,22 @@ function PageLoader() {
   );
 }
 
-function ProtectedRoute({ children, role }: { children: ReactNode; role?: "student" | "teacher" }) {
+function ProtectedRoute({ children, role, permission }: { children: ReactNode; role?: string; permission?: string }) {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   if (!token || !user) return <Navigate to="/login" replace />;
+
+  if (permission) {
+    const permsStr = localStorage.getItem("user_permissions");
+    if (!permsStr) return <Navigate to="/login" replace />;
+    try {
+      const perms: string[] = JSON.parse(permsStr);
+      if (!perms.includes(permission)) return <Navigate to="/login" replace />;
+    } catch {
+      return <Navigate to="/login" replace />;
+    }
+  }
+
   if (role && user.role !== role) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -67,7 +81,7 @@ export default function App() {
                   <Route
                     path="/cases"
                     element={
-                      <ProtectedRoute role="student">
+                      <ProtectedRoute permission="training_access">
                         <CaseSelect />
                       </ProtectedRoute>
                     }
@@ -75,7 +89,7 @@ export default function App() {
                   <Route
                     path="/training/:recordId"
                     element={
-                      <ProtectedRoute role="student">
+                      <ProtectedRoute permission="training_access">
                         <ChatTraining />
                       </ProtectedRoute>
                     }
@@ -115,7 +129,7 @@ export default function App() {
                   <Route
                     path="/admin"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="score_review">
                         <Admin />
                       </ProtectedRoute>
                     }
@@ -123,7 +137,7 @@ export default function App() {
                   <Route
                     path="/admin/llm"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="llm_monitor">
                         <AdminLLM />
                       </ProtectedRoute>
                     }
@@ -131,7 +145,7 @@ export default function App() {
                   <Route
                     path="/admin/cases"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="case_manage">
                         <AdminCases />
                       </ProtectedRoute>
                     }
@@ -139,7 +153,7 @@ export default function App() {
                   <Route
                     path="/admin/users/:userId"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="user_manage">
                         <AdminUserDetail />
                       </ProtectedRoute>
                     }
@@ -147,7 +161,7 @@ export default function App() {
                   <Route
                     path="/admin/users"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="user_manage">
                         <AdminUsers />
                       </ProtectedRoute>
                     }
@@ -155,7 +169,7 @@ export default function App() {
                   <Route
                     path="/admin/grades-classes"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="grade_class_manage">
                         <AdminGradesClasses />
                       </ProtectedRoute>
                     }
@@ -163,11 +177,13 @@ export default function App() {
                   <Route
                     path="/admin/feedback"
                     element={
-                      <ProtectedRoute role="teacher">
+                      <ProtectedRoute permission="feedback_review">
                         <AdminFeedback />
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/admin/schools" element={<ProtectedRoute permission="school_manage"><AdminSchools /></ProtectedRoute>} />
+                  <Route path="/admin/roles" element={<ProtectedRoute permission="role_manage"><AdminRoles /></ProtectedRoute>} />
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
               </Suspense>
