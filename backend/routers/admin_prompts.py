@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import require_teacher
+from core.security import require_permission
 from models import PromptTemplate as PT
 from models import User
 from schemas import (
@@ -50,7 +50,7 @@ def _dedup_variables(variables: list[dict]) -> list[dict]:
 @router.get("", response_model=list[PromptTemplateResponse])
 def list_prompts(
     purpose: str | None = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("prompt_manage")),
     db: Session = Depends(get_db),
 ):
     q = db.query(PT).order_by(PT.purpose, PT.version.desc())
@@ -120,7 +120,7 @@ def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[P
 async def create_prompt(
     data: PromptTemplateCreate,
     request: Request,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     max_v = db.query(PT).filter(PT.purpose == data.purpose).order_by(PT.version.desc()).first()
@@ -183,7 +183,7 @@ async def update_prompt(
     prompt_id: int,
     data: PromptTemplateUpdate,
     request: Request,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
@@ -227,7 +227,7 @@ async def update_prompt(
 @router.delete("/{prompt_id}", response_model=OkResponse)
 async def delete_prompt(
     prompt_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
@@ -244,7 +244,7 @@ async def delete_prompt(
 async def activate_prompt(
     prompt_id: int,
     request: Request,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],
     purpose: str | None = None,
 ):
@@ -272,7 +272,7 @@ async def _activate(prompt_id: int, db: Session):
 
 
 @router.post("/validate", response_model=PromptValidateResponse)
-def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, Depends(require_teacher)]):
+def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
     errors = []
     missing = []
     vars_set = _extract_vars(data.system_prompt) | _extract_vars(data.user_prompt)
@@ -305,13 +305,13 @@ def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, D
 
 
 @router.post("/reload")
-async def reload_prompts_endpoint(request: Request, current_user: Annotated[User, Depends(require_teacher)]):
+async def reload_prompts_endpoint(request: Request, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
     await request.app.state.prompt_manager.reload()
     return {"ok": True}
 
 
 @router.get("/sample-vars", response_model=SampleVarsResponse)
-def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_teacher)]):
+def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
     known = {"patient_chat", "scoring", "qa", "case_generation"}
     if purpose not in known:
         raise HTTPException(404, f"未知 purpose: {purpose}")
@@ -321,7 +321,7 @@ def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_
 @router.get("/active/preview", response_model=PromptPreviewResponse)
 async def preview_active_prompt(
     purpose: str,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     pt = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()

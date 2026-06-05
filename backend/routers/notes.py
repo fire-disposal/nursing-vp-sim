@@ -19,7 +19,7 @@ def get_notes(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
-    if current_user.role != "teacher" and record.user_id != current_user.id:
+    if not current_user.has_permission("record_notes") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看")
 
     return db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()

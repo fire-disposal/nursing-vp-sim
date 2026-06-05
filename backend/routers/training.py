@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import SessionLocal, get_db
-from core.security import get_current_user, require_teacher
+from core.security import get_current_user, require_permission
 from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
 from schemas import (
     MessageResponse,
@@ -55,7 +55,7 @@ def start_training(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    if current_user.role != "student":
+    if current_user.role.name != "student":
         raise HTTPException(status_code=403, detail="仅学生可以开始训练")
 
     case = db.query(Case).filter(Case.id == req.case_id).first()
@@ -86,7 +86,7 @@ def start_training(
 
     log.info(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_start"},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
@@ -203,7 +203,7 @@ def end_training(
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
         f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
-        extra={"user_id": current_user.id, "user_role": current_user.role, "action": "training_end"},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_end"},
     )
     return {
         "message": "训练已结束，评分正在后台生成中",
@@ -223,7 +223,7 @@ def retry_scoring(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="训练记录不存在")
-    if current_user.role != "teacher" and record.user_id != current_user.id:
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权操作此记录")
     if record.status != "completed":
         raise HTTPException(status_code=400, detail="训练尚未结束")
@@ -266,7 +266,7 @@ def get_records(
     """获取训练记录列表。学生只看自己的，教师看全部并支持多维过滤。"""
     base = db.query(TrainingRecord)
 
-    if current_user.role != "teacher":
+    if not current_user.has_permission("score_review"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
     else:
         if student_name:
@@ -333,7 +333,7 @@ def get_record_detail(
         raise HTTPException(status_code=404, detail="记录不存在")
 
     # 权限检查：学生只能看自己的，教师看全部
-    if current_user.role != "teacher" and record.user_id != current_user.id:
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看此记录")
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
@@ -379,7 +379,7 @@ def delete_record(
         raise HTTPException(status_code=404, detail="训练记录不存在")
 
     # 权限检查
-    if current_user.role != "teacher" and record.user_id != current_user.id:
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权删除此记录")
 
     # 级联删除关联数据
@@ -392,7 +392,7 @@ def delete_record(
 
     log.info(
         f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "训练记录已删除"}
 
@@ -403,7 +403,7 @@ def delete_record(
 @router.get("/records/{record_id}/review", response_model=ScoreReviewResponse)
 def get_score_review(
     record_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("score_review"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     score = db.query(Score).filter(Score.record_id == record_id).first()
@@ -430,7 +430,7 @@ def get_score_review(
 def submit_score_review(
     record_id: int,
     req: ScoreReviewRequest,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("score_review"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     score = db.query(Score).filter(Score.record_id == record_id).first()
@@ -462,7 +462,7 @@ def submit_score_review(
 
     log.info(
         f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
 
     reviewer_name = current_user.display_name

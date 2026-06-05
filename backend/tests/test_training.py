@@ -76,7 +76,7 @@ class TestEndTraining:
 
     def test_end_other_user_training(self, client, student, test_case, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
         _, token = student
         # Start as student1
@@ -88,10 +88,12 @@ class TestEndTraining:
         record_id = resp.json()["record_id"]
 
         # Create another student
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         other = User(
             username="other_student",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="Other",
         )
         db_session.add(other)
@@ -136,7 +138,7 @@ class TestEndTraining:
 class TestRecords:
     def test_student_sees_only_own(self, client, student, test_case, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
         _user, token = student
         # Start + complete one training for student1
@@ -157,10 +159,12 @@ class TestRecords:
             )
 
         # Create another student with their own record
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         other = User(
             username="s2",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="S2",
         )
         db_session.add(other)

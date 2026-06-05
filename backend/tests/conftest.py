@@ -32,12 +32,17 @@ def engine():
 
     with eng.connect() as conn:
         conn.execute(
+            Base.metadata.tables["schools"]
+            .insert()
+            .values([{"name": "默认学校"}])
+        )
+        conn.execute(
             Base.metadata.tables["roles"]
             .insert()
             .values(
                 [
-                    {"name": "teacher", "display_name": "教师", "is_system": True},
-                    {"name": "student", "display_name": "学生", "is_system": True},
+                    {"name": "teacher", "display_name": "教师", "is_system": True, "school_id": 1},
+                    {"name": "student", "display_name": "学生", "is_system": True, "school_id": 1},
                 ]
             )
         )
@@ -46,7 +51,7 @@ def engine():
             .insert()
             .values(
                 [
-                    {"role_name": "teacher", "permission": p}
+                    {"role_id": 1, "permission": p}
                     for p in [
                         "teacher_access",
                         "user_manage",
@@ -56,10 +61,12 @@ def engine():
                         "api_manage",
                         "prompt_manage",
                         "grade_class_manage",
+                        "stats_view",
+                        "feedback_review",
                     ]
                 ]
                 + [
-                    {"role_name": "student", "permission": p}
+                    {"role_id": 2, "permission": p}
                     for p in [
                         "training_access",
                         "qa_access",
@@ -130,10 +137,13 @@ def client(engine, db_session):
 @pytest.fixture
 def teacher(client, db_session):
     """Create a teacher user and return (user, token)."""
+    from models import Role
+    teacher_role = db_session.query(Role).filter(Role.name == "teacher").first()
     user = User(
         username="teacher1",
         password_hash=hash_password("teacher123"),
-        role="teacher",
+        role_id=teacher_role.id,
+        school_id=1,
         display_name="张老师",
     )
     db_session.add(user)
@@ -147,10 +157,13 @@ def teacher(client, db_session):
 @pytest.fixture
 def student(client, db_session):
     """Create a student user and return (user, token)."""
+    from models import Role
+    student_role = db_session.query(Role).filter(Role.name == "student").first()
     user = User(
         username="student1",
         password_hash=hash_password("student123"),
-        role="student",
+        role_id=student_role.id,
+        school_id=1,
         display_name="李明",
         student_id="20240001",
     )

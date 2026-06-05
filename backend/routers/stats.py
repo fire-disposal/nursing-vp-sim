@@ -6,8 +6,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import get_current_user, require_teacher
-from models import Class, Grade, Score, TrainingRecord, User, UserClass
+from core.security import get_current_user, require_permission
+from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
     ClassSummaryItemSchema,
     DurationStats,
@@ -44,7 +44,7 @@ def get_duration_stats(
         TrainingRecord.start_time >= since,
     )
 
-    if current_user.role != "teacher":
+    if not current_user.has_permission("stats_view"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
 
     rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
@@ -84,7 +84,7 @@ def get_trends(
         )
     )
 
-    if current_user.role != "teacher":
+    if not current_user.has_permission("stats_view"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
 
     rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
@@ -111,9 +111,11 @@ def teacher_summary(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     class_id: Annotated[int | None, Query()] = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("stats_view")),
     db: Session = Depends(get_db),
 ):
+    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
+    student_role_id = student_role.id if student_role else -1
     base = (
         db.query(
             User.id.label("user_id"),
@@ -126,7 +128,7 @@ def teacher_summary(
             ).label("total_minutes"),
         )
         .outerjoin(TrainingRecord, (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed"))
-        .filter(User.role == "student")
+        .filter(User.role_id == student_role_id)
     )
     if class_id is not None:
         base = base.filter(User.id.in_(db.query(UserClass.user_id).filter(UserClass.class_id == class_id)))
@@ -152,9 +154,11 @@ def student_ranking(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     class_id: Annotated[int | None, Query()] = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("stats_view")),
     db: Session = Depends(get_db),
 ):
+    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
+    student_role_id = student_role.id if student_role else -1
     sub = (
         db.query(
             User.id.label("user_id"),
@@ -171,7 +175,7 @@ def student_ranking(
         )
         .outerjoin(TrainingRecord, (TrainingRecord.user_id == User.id) & (TrainingRecord.status == "completed"))
         .outerjoin(Score, Score.record_id == TrainingRecord.id)
-        .filter(User.role == "student")
+        .filter(User.role_id == student_role_id)
     )
     if class_id is not None:
         sub = sub.filter(User.id.in_(db.query(UserClass.user_id).filter(UserClass.class_id == class_id)))
@@ -199,7 +203,7 @@ def student_ranking(
 @router.get("/class-summary", response_model=list[ClassSummaryItemSchema])
 def class_summary(
     grade_id: Annotated[int | None, Query()] = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("stats_view")),
     db: Session = Depends(get_db),
 ):
     q = db.query(Class, Grade.name.label("grade_name"))

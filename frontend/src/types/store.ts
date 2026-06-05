@@ -1,11 +1,31 @@
 export interface User {
   user_id: number;
   username?: string;
-  role: "student" | "teacher";
+  role: string;
   display_name: string;
   avatar?: string;
   grade?: string;
   className?: string;
+  school_id?: number;
+  school_name?: string;
+}
+
+export interface School {
+  id: number;
+  name: string;
+  teacher_count: number;
+  student_count: number;
+  created_at: string;
+}
+
+export interface RoleItem {
+  id: number;
+  name: string;
+  display_name: string;
+  is_system: boolean;
+  school_id: number | null;
+  permissions: string[];
+  user_count: number;
 }
 
 export interface Grade {

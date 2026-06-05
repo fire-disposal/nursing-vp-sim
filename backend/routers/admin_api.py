@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import require_teacher
+from core.security import require_permission
 from models import ApiSecret, LLMConfig, Rubric, User
 from schemas import (
     ApiSecretCreate,
@@ -43,7 +43,7 @@ router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 
 
 @router.get("/secrets", response_model=list[ApiSecretResponse])
-def list_secrets(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
+def list_secrets(current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]):
     secrets = db.query(ApiSecret).order_by(ApiSecret.created_at.desc()).all()
     result = []
     for s in secrets:
@@ -77,7 +77,7 @@ def list_secrets(current_user: Annotated[User, Depends(require_teacher)], db: An
 @router.post("/secrets", status_code=201, response_model=SecretCreateResponse)
 async def create_secret(
     data: ApiSecretCreate,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     for existing in db.query(ApiSecret).all():
@@ -107,7 +107,7 @@ async def create_secret(
 def update_secret(
     secret_id: int,
     data: ApiSecretUpdate,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
@@ -123,7 +123,7 @@ def update_secret(
 
 @router.delete("/secrets/{secret_id}", response_model=OkResponse)
 async def delete_secret(
-    secret_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    secret_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
@@ -142,7 +142,7 @@ async def delete_secret(
 @router.get("/configs", response_model=list[LLMConfigResponse])
 def list_configs(
     purpose: Annotated[str | None, Query()] = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("api_manage")),
     db: Session = Depends(get_db),
 ):
     q = db.query(LLMConfig)
@@ -181,7 +181,7 @@ def list_configs(
 async def create_config(
     data: LLMConfigCreate,
     request: Request,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     secret = db.query(ApiSecret).filter(ApiSecret.id == data.secret_id).first()
@@ -232,7 +232,7 @@ async def update_config(
     config_id: int,
     data: LLMConfigUpdate,
     request: Request,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
@@ -249,7 +249,7 @@ async def update_config(
 
 @router.delete("/configs/{config_id}", response_model=OkResponse)
 async def delete_config(
-    config_id: int, request: Request, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -262,7 +262,7 @@ async def delete_config(
 
 @router.post("/configs/{config_id}/toggle", response_model=ToggleStatusResponse)
 async def toggle_config(
-    config_id: int, request: Request, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -275,7 +275,7 @@ async def toggle_config(
 
 @router.post("/configs/{config_id}/reset", response_model=OkResponse)
 async def reset_profile(
-    config_id: int, request: Request, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -294,7 +294,7 @@ async def reset_profile(
 
 @router.post("/configs/{config_id}/test", response_model=TestResultItem)
 async def test_config(
-    config_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    config_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -314,7 +314,7 @@ async def test_config(
 
 @router.post("/configs/test-all", response_model=TestAllResultsResponse)
 async def test_all_configs(
-    current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     secrets = db.query(ApiSecret).all()
     results = []
@@ -343,13 +343,13 @@ async def test_all_configs(
 
 
 @router.post("/reload", response_model=OkResponse)
-async def reload_router(request: Request, current_user: Annotated[User, Depends(require_teacher)]):
+async def reload_router(request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))]):
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
 @router.get("/model-presets", response_model=CatalogResponse)
-def list_model_presets(current_user: Annotated[User, Depends(require_teacher)]):
+def list_model_presets(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
     catalog = get_catalog()
     providers = []
     for p in catalog["providers"]:
@@ -373,7 +373,7 @@ def list_model_presets(current_user: Annotated[User, Depends(require_teacher)]):
 
 @router.get("/health", response_model=list[HealthCheckItem])
 async def health_check(
-    current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     secrets = db.query(ApiSecret).all()
     results = []
@@ -402,13 +402,13 @@ async def health_check(
 
 
 @router.get("/fallback")
-async def get_env_fallback(current_user: Annotated[User, Depends(require_teacher)]):
+async def get_env_fallback(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
 
     return await get_env_fallback_state()
 
 
 @router.post("/fallback/test", response_model=TestResultItem)
-async def test_env_fallback(current_user: Annotated[User, Depends(require_teacher)]):
+async def test_env_fallback(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
     from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 
     if not DEEPSEEK_API_KEY:
@@ -433,12 +433,12 @@ async def test_env_fallback(current_user: Annotated[User, Depends(require_teache
 
 
 @router.get("/rubrics", response_model=list[RubricResponse])
-def list_rubrics(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
+def list_rubrics(current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]):
     return db.query(Rubric).order_by(Rubric.created_at.desc()).all()
 
 
 @router.get("/rubrics/active", response_model=RubricResponse)
-def get_active_rubric(current_user: Annotated[User, Depends(require_teacher)]):
+def get_active_rubric(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
     from services.rubric_service import load_active_rubric
 
     active = load_active_rubric()
@@ -449,7 +449,7 @@ def get_active_rubric(current_user: Annotated[User, Depends(require_teacher)]):
 
 @router.post("/rubrics", status_code=201, response_model=RubricResponse)
 def create_rubric(
-    data: dict, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    data: dict, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     from services.rubric_service import validate_dimensions
 
@@ -478,7 +478,7 @@ def create_rubric(
 def update_rubric(
     rubric_id: int,
     data: dict,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     from services.rubric_service import validate_dimensions
@@ -500,7 +500,7 @@ def update_rubric(
 
 @router.delete("/rubrics/{rubric_id}", response_model=OkResponse)
 def delete_rubric(
-    rubric_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    rubric_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:
@@ -514,7 +514,7 @@ def delete_rubric(
 
 @router.post("/rubrics/{rubric_id}/activate", response_model=OkResponse)
 def activate_rubric(
-    rubric_id: int, current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]
+    rubric_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:

@@ -27,9 +27,16 @@ const useAuthStore = create<AuthState>((set, get) => ({
   login: async (username: string, password: string): Promise<User> => {
     const { data } = await apiLogin(username, password);
     localStorage.setItem("token", data.access_token);
-    const user: User = { user_id: data.user_id, role: data.role as User["role"], display_name: data.display_name };
+    const user: User = {
+      user_id: data.user_id,
+      role: data.role,
+      display_name: data.display_name,
+      school_id: (data as any).school_id ?? undefined,
+      school_name: (data as any).school_name ?? undefined,
+    };
     localStorage.setItem("user", JSON.stringify(user));
-    console.log("[authStore] 登录成功:", user.role, user.display_name);
+    const perms = (data as any).permissions || [];
+    localStorage.setItem("user_permissions", JSON.stringify(perms));
     set({ user, token: data.access_token });
     return user;
   },
@@ -37,7 +44,11 @@ const useAuthStore = create<AuthState>((set, get) => ({
   refreshUser: async (): Promise<void> => {
     try {
       const { data } = await getMe();
-      const user: User = { user_id: data.id, role: data.role as User["role"], display_name: data.display_name };
+      const user: User = {
+        user_id: data.id,
+        role: data.role,
+        display_name: data.display_name,
+      };
       localStorage.setItem("user", JSON.stringify(user));
       set({ user });
     } catch {
@@ -49,6 +60,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
   logout: (): void => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("user_permissions");
     set({ user: null, token: null });
   },
 }));

@@ -8,8 +8,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from core.security import hash_password, require_teacher
-from models import ApiProvider, Class, LLMCallLog, Score, TrainingRecord, User, UserClass
+from core.security import hash_password, require_permission
+from models import ApiProvider, Class, LLMCallLog, Role, Score, TrainingRecord, User, UserClass
 from models import Case as CaseModel
 from schemas import (
     AdminStats,
@@ -40,10 +40,10 @@ def list_users(
     role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None,
     class_id: Annotated[int | None, Query()] = None,
     grade_id: Annotated[int | None, Query()] = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("user_manage")),
     db: Session = Depends(get_db),
 ):
-    q = db.query(User)
+    q = db.query(User).filter(User.school_id == current_user.school_id)
     if class_id is not None or grade_id is not None:
         q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
         if class_id is not None:
@@ -61,10 +61,14 @@ def list_users(
             )
         )
     if role:
-        q = q.filter(User.role == role)
+        role_obj = db.query(Role).filter(Role.name == role, Role.school_id == current_user.school_id).first()
+        q = q.filter(User.role_id == role_obj.id) if role_obj else q.filter(User.role_id == -1)
     total = q.count()
     users = (
-        q.options(joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade))
+        q.options(
+            joinedload(User.role),
+            joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade)
+        )
         .order_by(User.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -79,7 +83,7 @@ def list_users(
             UserBrief(
                 id=u.id,
                 username=u.username,
-                role=u.role,
+                role=u.role.name if u.role else "",
                 display_name=u.display_name,
                 student_id=u.student_id,
                 created_at=u.created_at,
@@ -95,7 +99,7 @@ def list_users(
 def update_user(
     user_id: int,
     req: UserUpdateRequest,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     user = db.query(User).filter(User.id == user_id).first()
@@ -107,9 +111,10 @@ def update_user(
     if req.student_id is not None:
         user.student_id = req.student_id or None
     if req.role is not None:
-        if req.role not in ("student", "teacher"):
-            raise HTTPException(status_code=400, detail="角色必须为 student 或 teacher")
-        user.role = req.role
+        role_obj = db.query(Role).filter(Role.name == req.role, Role.school_id == current_user.school_id).first()
+        if not role_obj:
+            raise HTTPException(status_code=400, detail="角色不存在")
+        user.role_id = role_obj.id
     if req.password is not None and req.password:
         if len(req.password) < 6:
             raise HTTPException(status_code=400, detail="密码长度不能少于6位")
@@ -135,7 +140,7 @@ def update_user(
 
     user = (
         db.query(User)
-        .options(joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade))
+        .options(joinedload(User.role), joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade))
         .filter(User.id == user_id)
         .first()
     )
@@ -145,12 +150,12 @@ def update_user(
 
     log.info(
         f"用户更新: target_id={user_id} target_name={user.username}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return UserBrief(
         id=user.id,
         username=user.username,
-        role=user.role,
+        role=user.role.name if user.role else "",
         display_name=user.display_name,
         student_id=user.student_id,
         created_at=user.created_at,
@@ -163,10 +168,13 @@ def update_user(
 @router.get("/users/{user_id}/detail", response_model=StudentDetail)
 def get_user_detail(
     user_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    user = db.query(User).filter(User.id == user_id, User.role == "student").first()
+    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
+    user = db.query(User).options(joinedload(User.role)).filter(
+        User.id == user_id, User.role_id == student_role.id if student_role else -1, User.school_id == current_user.school_id
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在或不是学生")
 
@@ -252,7 +260,7 @@ def get_user_detail(
     return StudentDetail(
         id=user.id,
         username=user.username,
-        role=user.role,
+        role=user.role.name if user.role else "",
         display_name=user.display_name,
         student_id=user.student_id,
         created_at=user.created_at,
@@ -267,7 +275,7 @@ def get_user_detail(
 @router.delete("/users/{user_id}", response_model=MessageResponse)
 def delete_user(
     user_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     if user_id == current_user.id:
@@ -289,7 +297,7 @@ def delete_user(
     db.commit()
     log.info(
         f"用户删除: target_id={user_id} target_name={target_name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "用户已删除"}
 
@@ -297,7 +305,7 @@ def delete_user(
 @router.post("/users/batch", response_model=BatchCreateResult)
 def batch_create_users(
     users: list[BatchUserItem],
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     created = 0
@@ -328,11 +336,17 @@ def batch_create_users(
             errors.append(f"第{i}行跳过 {u.username}: 班级ID {u.class_id} 不存在")
             skipped += 1
             continue
+        role_obj = db.query(Role).filter(Role.name == u.role, Role.school_id == current_user.school_id).first()
+        if not role_obj:
+            errors.append(f"第{i}行跳过 {u.username}: 角色 {u.role} 不存在")
+            skipped += 1
+            continue
         user = User(
             username=u.username,
             password_hash=hash_password(u.password),
             display_name=u.display_name,
-            role=u.role,
+            role_id=role_obj.id,
+            school_id=current_user.school_id,
             student_id=u.student_id or None,
         )
         db.add(user)
@@ -343,14 +357,18 @@ def batch_create_users(
     db.commit()
     log.info(
         f"批量导入: created={created} skipped={skipped}",
-        extra={"user_id": current_user.id, "user_role": current_user.role},
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"created": created, "skipped": skipped, "errors": errors}
 
 
 @router.get("/stats", response_model=AdminStats)
-def get_stats(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
-    total_students = db.query(User).filter(User.role == "student").count()
+def get_stats(current_user: Annotated[User, Depends(require_permission("stats_view"))], db: Annotated[Session, Depends(get_db)]):
+    student_role_id = None
+    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
+    if student_role:
+        student_role_id = student_role.id
+    total_students = db.query(User).filter(User.role_id == student_role_id, User.school_id == current_user.school_id).count() if student_role_id else 0
     total_records = db.query(TrainingRecord).count()
     completed_records = db.query(TrainingRecord).filter(TrainingRecord.status == "completed").count()
     avg_score = db.query(func.avg(Score.total_score)).scalar()
@@ -411,7 +429,7 @@ def _build_llm_stats(db: Session, since: datetime):
 
 
 @router.get("/llm-stats", response_model=LLMStatsResponse)
-def get_llm_stats(current_user: Annotated[User, Depends(require_teacher)], db: Annotated[Session, Depends(get_db)]):
+def get_llm_stats(current_user: Annotated[User, Depends(require_permission("llm_monitor"))], db: Annotated[Session, Depends(get_db)]):
     now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)
@@ -499,7 +517,7 @@ def get_llm_logs(
     date_from: str | None = None,
     date_to: str | None = None,
     aggregate_patient_chat: bool = True,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("llm_monitor")),
     db: Session = Depends(get_db),
 ):
     """返回 LLM 调用日志。aggregate_patient_chat=true 时将同一训练下的 patient_chat 聚合为一条训练级记录。"""
@@ -640,7 +658,7 @@ def get_llm_logs(
 @router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
 def get_llm_log_detail(
     log_id: int,
-    current_user: Annotated[User, Depends(require_teacher)],
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     """查看单条 LLM 调用日志详情（含请求/响应全文）"""
@@ -654,7 +672,7 @@ def get_llm_log_detail(
 def export_llm_logs_csv(
     date_from: str | None = None,
     date_to: str | None = None,
-    current_user: User = Depends(require_teacher),
+    current_user: User = Depends(require_permission("llm_monitor")),
     db: Session = Depends(get_db),
 ):
     """导出 LLM 调用日志为 CSV 文件"""

@@ -30,7 +30,7 @@ class RegisterRequest(BaseModel):
     model_config = _REQ_CFG
     username: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=6)
-    role: str = Field(default="student", pattern="^(student|teacher)$")
+    role: str = Field(default="student", min_length=1, max_length=20)
     display_name: str = Field(min_length=1, max_length=50)
     student_id: str | None = None
     class_id: int | None = None
@@ -43,6 +43,9 @@ class TokenResponse(BaseModel):
     role: str
     display_name: str
     user_id: int
+    school_id: int | None = None
+    school_name: str | None = None
+    permissions: list[str] = []
 
 
 # ── WeChat ──
@@ -70,6 +73,9 @@ class WechatLoginResponse(BaseModel):
     role: str | None = None
     display_name: str | None = None
     user_id: int | None = None
+    school_id: int | None = None
+    school_name: str | None = None
+    permissions: list[str] = []
     need_bind: bool = False
 
 
@@ -308,7 +314,7 @@ class BatchUserItem(BaseModel):
     username: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=6)
     display_name: str = Field(min_length=1, max_length=50)
-    role: str = Field(default="student", pattern="^(student|teacher)$")
+    role: str = Field(default="student", min_length=1, max_length=20)
     student_id: str | None = None
     class_id: int | None = None
 
@@ -781,6 +787,51 @@ class TestResultItem(BaseModel):
 
 class TestAllResultsResponse(BaseModel):
     results: list[TestResultItem]
+
+
+# ── School ──
+
+class SchoolCreate(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=80)
+    admin_username: str = Field(min_length=1, max_length=50)
+    admin_password: str = Field(min_length=6)
+    admin_display_name: str = Field(min_length=1, max_length=50)
+
+
+class SchoolResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    teacher_count: int = 0
+    student_count: int = 0
+    created_at: datetime
+
+
+# ── Role ──
+
+class RoleCreateRequest(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=20)
+    display_name: str = Field(min_length=1, max_length=40)
+    permissions: list[str] = Field(default_factory=list)
+
+
+class RoleUpdateRequest(BaseModel):
+    model_config = _REQ_CFG
+    display_name: str | None = Field(default=None, max_length=40)
+    permissions: list[str] | None = None
+
+
+class RoleResponse(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    display_name: str
+    is_system: bool = False
+    school_id: int | None = None
+    permissions: list[str] = []
+    user_count: int = 0
 
 
 # ── Generic ──

@@ -4,12 +4,14 @@
 class TestLogin:
     def test_login_success(self, client, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         user = User(
             username="testuser",
             password_hash=hash_password("pass123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="测试",
         )
         db_session.add(user)
@@ -24,12 +26,14 @@ class TestLogin:
 
     def test_login_wrong_password(self, client, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         user = User(
             username="testuser2",
             password_hash=hash_password("pass123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="测试",
         )
         db_session.add(user)
@@ -65,11 +69,12 @@ class TestRegister:
 
     def test_register_duplicate_username(self, client, teacher, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
         _, token = teacher
 
-        db_session.add(User(username="dup", password_hash=hash_password("x"), role="student", display_name="Dup"))
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
+        db_session.add(User(username="dup", password_hash=hash_password("x"), role_id=student_role.id, school_id=1, display_name="Dup"))
         db_session.commit()
 
         resp = client.post(
@@ -139,12 +144,14 @@ class TestWechatRegister:
     def test_wechat_register_duplicate_openid(self, client, db_session, monkeypatch):
         """微信注册：重复 openid 应返回 400"""
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         user = User(
             username="existing_wx_user",
             password_hash=hash_password("x"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="已有用户",
             wechat_openid="dup_openid_002",
         )
