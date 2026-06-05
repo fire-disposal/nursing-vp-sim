@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-push: tag format validation only (CI handles the rest)
+# Pre-push: tag format & counter validation
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,20 +13,48 @@ say()  { echo "${CYAN}$1${NC}"; }
 ok()   { echo "  ${GREEN}ok${NC}  $1"; }
 fail() { echo "  ${RED}FAIL${NC} $1"; PASS=1; }
 
-pattern='^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(-[1-9][0-9]*)?$'
+pattern='^v([0-9]{4})\.([0-9]{2})\.([0-9]{2})-([1-9][0-9]*)$'
+today=$(date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d)
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
     refs/tags/*)
       tag="${remote_ref#refs/tags/}"
+
+      # 1. Pattern match
       if ! echo "$tag" | grep -qE "$pattern"; then
         echo ""
         echo "  Invalid tag: $tag"
-        echo "  Expected: vYYYY.MM.DD or vYYYY.MM.DD-N"
-        PASS=1
-      else
-        ok "tag $tag"
+        echo "  Expected: vYYYY.MM.DD-N  (e.g. v${today}-1)"
+        fail "tag format"
+        continue
       fi
+
+      # 2. Validate date
+      tag_date=$(echo "$tag" | sed -E 's/^v([0-9]{4}\.[0-9]{2}\.[0-9]{2})-.*/\1/')
+      if [ "$tag_date" != "$today" ]; then
+        fail "tag date $tag_date != today $today"
+        continue
+      fi
+
+      # 3. Validate counter
+      tag_num=$(echo "$tag" | sed -E 's/^v[0-9.]+-//')
+      prefix="v${today}-"
+
+      existing=$(git tag -l "${prefix}*" | sed "s/${prefix}//" | sort -n)
+      if [ -z "$existing" ]; then
+        highest=0
+      else
+        highest=$(echo "$existing" | tail -1)
+      fi
+      expected=$((highest + 1))
+
+      if [ "$tag_num" -ne "$expected" ]; then
+        fail "tag ${tag}: expected counter ${expected} (highest today: ${highest:-none}), got ${tag_num}"
+        continue
+      fi
+
+      ok "tag $tag"
       ;;
   esac
 done
