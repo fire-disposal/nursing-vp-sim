@@ -196,7 +196,7 @@ class LLMCallLog(Base):
     case_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("cases.id"), nullable=True, index=True)
     purpose: Mapped[str] = mapped_column(String(40), index=True)
     provider_name: Mapped[str] = mapped_column(String(40), default="deepseek")
-    api_key_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("api_keys.id"), nullable=True, index=True)
+    api_key_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     config_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("llm_configs.id"), nullable=True, index=True)
     model: Mapped[str] = mapped_column(String(80))
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -218,7 +218,6 @@ class LLMCallLog(Base):
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(index=True, default=lambda: datetime.now(UTC))
 
-    api_key: Mapped["ApiKey"] = relationship()
     config: Mapped["LLMConfig"] = relationship()
 
 
@@ -315,42 +314,6 @@ class ApiProvider(Base):
     priority: Mapped[int] = mapped_column(Integer, default=100)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    keys: Mapped[list["ApiKey"]] = relationship(back_populates="provider", cascade="all, delete-orphan")
-
-
-class ApiKey(Base):
-    __tablename__ = "api_keys"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    provider_id: Mapped[int] = mapped_column(Integer, ForeignKey("api_providers.id"))
-    label: Mapped[str] = mapped_column(String(80))
-    encrypted_key: Mapped[str] = mapped_column(Text)
-    key_suffix: Mapped[str] = mapped_column(String(8))
-    model: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    weight: Mapped[int] = mapped_column(Integer, default=10)
-    status: Mapped[str] = mapped_column(String(20), default="active")
-    price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
-    price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
-    currency: Mapped[str] = mapped_column(String(10), default="CNY")
-    balance: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
-    monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
-    call_count_today: Mapped[int] = mapped_column(Integer, default=0)
-    total_tokens_today: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_cost_today: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
-    stats_date: Mapped[datetime | None] = mapped_column(nullable=True)
-    monthly_cost_used: Mapped[float] = mapped_column(Numeric(12, 6), default=0)
-    stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
-    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
-    last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    rate_limit_until: Mapped[datetime | None] = mapped_column(nullable=True)
-    purpose: Mapped[str] = mapped_column(String(40), default="*")
-    priority: Mapped[int] = mapped_column(Integer, default=100)
-    __table_args__ = (Index("idx_api_keys_purpose", "purpose"),)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    provider: Mapped["ApiProvider"] = relationship(back_populates="keys")
 
 
 class Feedback(Base):
