@@ -218,7 +218,7 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
             改进建议
           </h4>
           {score.suggestions ? (
-            <div className="text-sm text-gray-600">{score.suggestions}</div>
+            <div className="text-sm text-gray-600 pl-6">{score.suggestions}</div>
           ) : (
             <p className="text-sm text-muted-foreground/50 italic pl-6">AI 未生成改进建议，可重新评分获取完整报告</p>
           )}
