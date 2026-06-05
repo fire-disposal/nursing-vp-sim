@@ -81,7 +81,6 @@ interface GradeInfo {
 export default function DashboardHome() {
   const navigate = useNavigate();
   const toast = useToast();
-  const user = useAuthStore((s) => s.user);
 
   const perms = (() => {
     try {
