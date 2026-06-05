@@ -1297,6 +1297,24 @@
               "default": 50,
               "title": "Limit"
             }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -1442,6 +1460,24 @@
               "title": "Difficulty"
             },
             "description": "困难程度 1=初级 2=中级 3=高级"
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -1783,6 +1819,31 @@
         "summary": "Export Records",
         "description": "导出所有训练记录为CSV（流式写入，避免全量加载内存）",
         "operationId": "export_records_api_export_records_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1791,13 +1852,18 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/export/record/{record_id}": {
@@ -1975,6 +2041,24 @@
               "default": 20,
               "title": "Limit"
             }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2046,6 +2130,24 @@
               ],
               "title": "Date To"
             }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2594,6 +2696,24 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2695,6 +2815,24 @@
               "title": "Period"
             },
             "description": "统计周期: week / month / all"
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2745,6 +2883,24 @@
               "title": "Period"
             },
             "description": "统计周期: week / month / all"
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2953,6 +3109,24 @@
               ],
               "title": "Grade Id"
             }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -3266,6 +3440,24 @@
               ],
               "title": "Class Id"
             }
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "super_admin 按学校筛选",
+              "title": "School Id"
+            },
+            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -4851,6 +5043,356 @@
         }
       }
     },
+    "/api/admin/schools": {
+      "get": {
+        "tags": [
+          "学校管理"
+        ],
+        "summary": "List Schools",
+        "operationId": "list_schools_api_admin_schools_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_SchoolResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "学校管理"
+        ],
+        "summary": "Create School",
+        "operationId": "create_school_api_admin_schools_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/schools/{school_id}": {
+      "delete": {
+        "tags": [
+          "学校管理"
+        ],
+        "summary": "Delete School",
+        "operationId": "delete_school_api_admin_schools__school_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/roles": {
+      "get": {
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "List Roles",
+        "operationId": "list_roles_api_admin_roles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleResponse"
+                  },
+                  "title": "Response List Roles Api Admin Roles Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "Create Role",
+        "operationId": "create_role_api_admin_roles_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/roles/{role_id}": {
+      "put": {
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "Update Role",
+        "operationId": "update_role_api_admin_roles__role_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "Delete Role",
+        "operationId": "delete_role_api_admin_roles__role_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -5225,7 +5767,8 @@
           },
           "role": {
             "type": "string",
-            "pattern": "^(student|teacher)$",
+            "maxLength": 20,
+            "minLength": 1,
             "title": "Role",
             "default": "student"
           },
@@ -7037,6 +7580,37 @@
         ],
         "title": "PaginatedResponse[RankingItem]"
       },
+      "PaginatedResponse_SchoolResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SchoolResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[SchoolResponse]"
+      },
       "PaginatedResponse_TeacherSummaryItem_": {
         "properties": {
           "items": {
@@ -7807,7 +8381,8 @@
           },
           "role": {
             "type": "string",
-            "pattern": "^(student|teacher)$",
+            "maxLength": 20,
+            "minLength": 1,
             "title": "Role",
             "default": "student"
           },
@@ -7848,6 +8423,121 @@
           "display_name"
         ],
         "title": "RegisterRequest"
+      },
+      "RoleCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "display_name"
+        ],
+        "title": "RoleCreateRequest"
+      },
+      "RoleResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "is_system": {
+            "type": "boolean",
+            "title": "Is System",
+            "default": false
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "default": []
+          },
+          "user_count": {
+            "type": "integer",
+            "title": "User Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "display_name"
+        ],
+        "title": "RoleResponse"
+      },
+      "RoleUpdateRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RoleUpdateRequest"
       },
       "RubricResponse": {
         "properties": {
@@ -7942,6 +8632,76 @@
           "vars"
         ],
         "title": "SampleVarsResponse"
+      },
+      "SchoolCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "admin_username": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Admin Username"
+          },
+          "admin_password": {
+            "type": "string",
+            "minLength": 6,
+            "title": "Admin Password"
+          },
+          "admin_display_name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Admin Display Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "admin_username",
+          "admin_password",
+          "admin_display_name"
+        ],
+        "title": "SchoolCreate"
+      },
+      "SchoolResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "teacher_count": {
+            "type": "integer",
+            "title": "Teacher Count",
+            "default": 0
+          },
+          "student_count": {
+            "type": "integer",
+            "title": "Student Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "SchoolResponse"
       },
       "ScoreItem": {
         "properties": {
@@ -8324,19 +9084,13 @@
             "title": "Avg Score"
           },
           "recent_records": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
+            "items": {},
             "type": "array",
             "title": "Recent Records",
             "default": []
           },
           "daily": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
+            "items": {},
             "type": "array",
             "title": "Daily",
             "default": []
@@ -8499,6 +9253,36 @@
           "user_id": {
             "type": "integer",
             "title": "User Id"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "default": []
           }
         },
         "type": "object",
@@ -8712,10 +9496,7 @@
           "required_inquiries": {
             "anyOf": [
               {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
+                "items": {},
                 "type": "array"
               },
               {
@@ -8839,6 +9620,10 @@
             "type": "string",
             "title": "Role"
           },
+          "role_display_name": {
+            "type": "string",
+            "title": "Role Display Name"
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -8898,6 +9683,7 @@
           "id",
           "username",
           "role",
+          "role_display_name",
           "display_name",
           "student_id",
           "created_at"
@@ -9087,6 +9873,36 @@
               }
             ],
             "title": "User Id"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "default": []
           },
           "need_bind": {
             "type": "boolean",

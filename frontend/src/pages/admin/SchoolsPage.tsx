@@ -1,5 +1,6 @@
-import { Building2, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { Building2, ExternalLink, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
+import useSchoolStore from "@/stores/schoolStore";
 
 interface SchoolItem {
   id: number;
@@ -21,6 +23,8 @@ interface SchoolItem {
 
 export default function SchoolsPage() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const { setSelectedSchool } = useSchoolStore();
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -141,9 +145,24 @@ export default function SchoolsPage() {
                     <td className="px-4 py-3">{s.student_count}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}</td>
                     <td className="px-4 py-3">
-                      <Button variant="ghost" size="sm" className="text-destructive h-8" onClick={() => handleDelete(s.id, s.name)}>
-                        <Trash2 size={14} />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            setSelectedSchool(s.id);
+                            navigate("/home");
+                          }}
+                          title="进入此学校管理"
+                        >
+                          <ExternalLink size={14} className="mr-1" />
+                          进入管理
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive h-8" onClick={() => handleDelete(s.id, s.name)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

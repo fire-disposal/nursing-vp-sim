@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
+from middleware.dependencies import resolve_school_filter
 from models import Case, TrainingRecord, User
 from schemas import (
     CaseBrief,
@@ -53,10 +54,14 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
 def list_cases(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     query = db.query(Case).order_by(Case.id)
+    effective_school = resolve_school_filter(current_user, school_id)
+    if effective_school is not None:
+        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     items, total = paginate(query, offset, limit)
     return PaginatedResponse(
         items=[
@@ -84,11 +89,15 @@ def list_cases_manage(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
     difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     db: Session = Depends(get_db),
-    _=Depends(require_permission("case_manage")),
+    current_user=Depends(require_permission("case_manage")),
 ):
     """教师查看所有病例（含训练次数统计）"""
     query = db.query(Case).order_by(Case.created_at.desc())
+    effective_school = resolve_school_filter(current_user, school_id)
+    if effective_school is not None:
+        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     if name:
         query = query.filter(Case.name.ilike(f"%{name}%"))
     if difficulty is not None:
@@ -214,6 +223,7 @@ def create_case(
         name=cd["name"],
         description=cd.get("description", ""),
         case_data=cd,
+        school_id=current_user.school_id,
     )
     db.add(case)
     db.commit()

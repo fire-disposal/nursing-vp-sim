@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import SessionLocal, get_db
 from core.security import get_current_user, require_permission
+from middleware.dependencies import resolve_school_filter
 from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
 from schemas import (
     MessageResponse,
@@ -260,9 +261,14 @@ def get_records(
     date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     """获取训练记录列表。学生只看自己的，教师看全部并支持多维过滤。"""
+    effective_school = resolve_school_filter(current_user, school_id)
     base = db.query(TrainingRecord)
+
+    if effective_school is not None:
+        base = base.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
 
     if not current_user.has_permission("score_review"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
@@ -330,9 +336,14 @@ def get_record_detail(
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
 
-    # 权限检查：学生只能看自己的，教师看全部
+    # 权限检查：学生只能看自己的，教师看全部（但限定学校）
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看此记录")
+
+    record_user = db.query(User).filter(User.id == record.user_id).first()
+    effective_school = resolve_school_filter(current_user)
+    if effective_school is not None and (not record_user or record_user.school_id != effective_school):
+        raise HTTPException(status_code=404, detail="记录不存在")
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
     user = db.query(User).filter(User.id == record.user_id).first()
@@ -379,6 +390,11 @@ def delete_record(
     # 权限检查
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权删除此记录")
+
+    record_user = db.query(User).filter(User.id == record.user_id).first()
+    effective_school = resolve_school_filter(current_user)
+    if effective_school is not None and (not record_user or record_user.school_id != effective_school):
+        raise HTTPException(status_code=404, detail="训练记录不存在")
 
     # 级联删除关联数据
     db.query(Message).filter(Message.record_id == record_id).delete()

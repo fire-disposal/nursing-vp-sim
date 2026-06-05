@@ -1334,6 +1334,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Schools */
+        get: operations["list_schools_api_admin_schools_get"];
+        put?: never;
+        /** Create School */
+        post: operations["create_school_api_admin_schools_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/schools/{school_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete School */
+        delete: operations["delete_school_api_admin_schools__school_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Roles */
+        get: operations["list_roles_api_admin_roles_get"];
+        put?: never;
+        /** Create Role */
+        post: operations["create_role_api_admin_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/roles/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Role */
+        put: operations["update_role_api_admin_roles__role_id__put"];
+        post?: never;
+        /** Delete Role */
+        delete: operations["delete_role_api_admin_roles__role_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -2251,6 +2322,17 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PaginatedResponse[SchoolResponse] */
+        PaginatedResponse_SchoolResponse_: {
+            /** Items */
+            items: components["schemas"]["SchoolResponse"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** PaginatedResponse[TeacherSummaryItem] */
         PaginatedResponse_TeacherSummaryItem_: {
             /** Items */
@@ -2573,6 +2655,48 @@ export interface components {
             /** Class Id */
             class_id?: number | null;
         };
+        /** RoleCreateRequest */
+        RoleCreateRequest: {
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
+            /** Permissions */
+            permissions?: string[];
+        };
+        /** RoleResponse */
+        RoleResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Is System
+             * @default false
+             */
+            is_system: boolean;
+            /** School Id */
+            school_id?: number | null;
+            /**
+             * Permissions
+             * @default []
+             */
+            permissions: string[];
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
+        };
+        /** RoleUpdateRequest */
+        RoleUpdateRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Permissions */
+            permissions?: string[] | null;
+        };
         /** RubricResponse */
         RubricResponse: {
             /** Id */
@@ -2632,6 +2756,39 @@ export interface components {
             vars: {
                 [key: string]: unknown;
             };
+        };
+        /** SchoolCreate */
+        SchoolCreate: {
+            /** Name */
+            name: string;
+            /** Admin Username */
+            admin_username: string;
+            /** Admin Password */
+            admin_password: string;
+            /** Admin Display Name */
+            admin_display_name: string;
+        };
+        /** SchoolResponse */
+        SchoolResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Teacher Count
+             * @default 0
+             */
+            teacher_count: number;
+            /**
+             * Student Count
+             * @default 0
+             */
+            student_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** ScoreItem */
         ScoreItem: {
@@ -2752,16 +2909,12 @@ export interface components {
              * Recent Records
              * @default []
              */
-            recent_records: {
-                [key: string]: unknown;
-            }[];
+            recent_records: unknown[];
             /**
              * Daily
              * @default []
              */
-            daily: {
-                [key: string]: unknown;
-            }[];
+            daily: unknown[];
         };
         /** TeacherSummaryItem */
         TeacherSummaryItem: {
@@ -2825,6 +2978,15 @@ export interface components {
             display_name: string;
             /** User Id */
             user_id: number;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
+            /**
+             * Permissions
+             * @default []
+             */
+            permissions: string[];
         };
         /** TrainingRecordBrief */
         TrainingRecordBrief: {
@@ -2893,9 +3055,7 @@ export interface components {
              */
             notes: components["schemas"]["NoteItem"][];
             /** Required Inquiries */
-            required_inquiries?: {
-                [key: string]: unknown;
-            }[] | null;
+            required_inquiries?: unknown[] | null;
             /** Patient Info */
             patient_info?: {
                 [key: string]: unknown;
@@ -2939,6 +3099,8 @@ export interface components {
             username: string;
             /** Role */
             role: string;
+            /** Role Display Name */
+            role_display_name: string;
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -3006,6 +3168,15 @@ export interface components {
             display_name?: string | null;
             /** User Id */
             user_id?: number | null;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
+            /**
+             * Permissions
+             * @default []
+             */
+            permissions: string[];
             /**
              * Need Bind
              * @default false
@@ -3775,6 +3946,8 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -3844,6 +4017,8 @@ export interface operations {
                 name?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4073,7 +4248,10 @@ export interface operations {
     };
     export_records_api_export_records_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4087,6 +4265,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4163,6 +4350,8 @@ export interface operations {
                 date_to?: string | null;
                 offset?: number;
                 limit?: number;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4195,6 +4384,8 @@ export interface operations {
             query?: {
                 date_from?: string | null;
                 date_to?: string | null;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4542,6 +4733,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4605,6 +4798,8 @@ export interface operations {
             query?: {
                 /** @description 统计周期: week / month / all */
                 period?: string;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4637,6 +4832,8 @@ export interface operations {
             query?: {
                 /** @description 统计周期: week / month / all */
                 period?: string;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4734,6 +4931,8 @@ export interface operations {
         parameters: {
             query?: {
                 grade_id?: number | null;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4872,6 +5071,8 @@ export interface operations {
                 /** @description 结束日期 ISO 格式 (含) */
                 date_to?: string | null;
                 class_id?: number | null;
+                /** @description super_admin 按学校筛选 */
+                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -5928,6 +6129,232 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PromptPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_schools_api_admin_schools_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_SchoolResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_school_api_admin_schools_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_school_api_admin_schools__school_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_api_admin_roles_get: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_role_api_admin_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_api_admin_roles__role_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_role_api_admin_roles__role_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
                 };
             };
             /** @description Validation Error */

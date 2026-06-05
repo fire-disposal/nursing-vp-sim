@@ -1,7 +1,10 @@
 ﻿import {
   BarChart3,
   Building2,
+  Check,
+  ChevronsUpDown,
   ClipboardList,
+  Globe,
   GraduationCap,
   HelpCircle,
   Home,
@@ -17,12 +20,14 @@
   Users,
   X,
 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { api } from "@/api/axios-instance";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import useAuthStore from "../stores/authStore";
+import useSchoolStore from "../stores/schoolStore";
 import { APP_VERSION } from "../version";
 import { useFeedback } from "./FeedbackProvider";
 import Modal from "./ui/Modal";
@@ -65,13 +70,38 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { selectedSchoolId, setSelectedSchool, isSuperAdmin } = useSchoolStore();
 
   const links = useMemo(() => getVisibleLinks(), [user]);
   const userLinks = links.filter((l) => !l.to.startsWith("/admin"));
   const adminLinks = links.filter((l) => l.to.startsWith("/admin"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [schoolSelectorOpen, setSchoolSelectorOpen] = useState(false);
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const { openFeedback } = useFeedback();
+
+  const isAdmin = isSuperAdmin();
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.get("/admin/schools", { params: { limit: 200 } }).then((r) => {
+        setSchools(r.data.items || []);
+      });
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin && user?.school_id) {
+      setSelectedSchool(user.school_id);
+    }
+  }, [isAdmin, user?.school_id, setSelectedSchool]);
+
+  const currentSchoolName = isAdmin
+    ? selectedSchoolId == null
+      ? "全局视角"
+      : schools.find((s) => s.id === selectedSchoolId)?.name || "选择学校"
+    : user?.school_name || "";
 
   const close = () => setMobileOpen(false);
 
@@ -101,7 +131,73 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <Separator />
+        {currentSchoolName && (
+          <>
+            <Separator />
+            <div className="px-3 py-2">
+              {isAdmin ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    onClick={() => setSchoolSelectorOpen((v) => !v)}
+                    aria-label="切换学校"
+                  >
+                    <Building2 size={13} />
+                    <span className="truncate flex-1 text-left">{currentSchoolName}</span>
+                    <ChevronsUpDown size={12} />
+                  </button>
+                  {schoolSelectorOpen && (
+                    <div className="absolute left-0 top-full mt-1 z-[60] w-48 rounded-lg border border-border bg-card shadow-lg py-1">
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent transition-colors",
+                          selectedSchoolId == null && "bg-primary/10 text-primary font-semibold",
+                        )}
+                        onClick={() => {
+                          setSelectedSchool(null);
+                          setSchoolSelectorOpen(false);
+                        }}
+                      >
+                        <Globe size={13} />
+                        全局视角
+                        {selectedSchoolId == null && <Check size={13} className="ml-auto" />}
+                      </button>
+                      <Separator className="my-0.5" />
+                      {schools.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent transition-colors",
+                            selectedSchoolId === s.id && "bg-primary/10 text-primary font-semibold",
+                          )}
+                          onClick={() => {
+                            setSelectedSchool(s.id);
+                            setSchoolSelectorOpen(false);
+                          }}
+                        >
+                          <Building2 size={13} />
+                          <span className="truncate">{s.name}</span>
+                          {selectedSchoolId === s.id && <Check size={13} className="ml-auto" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {schoolSelectorOpen && <div className="fixed inset-0 z-[59]" onClick={() => setSchoolSelectorOpen(false)} />}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+                  <Building2 size={13} />
+                  <span className="truncate">{currentSchoolName}</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {!currentSchoolName && <Separator />}
 
         <nav className="flex-1 overflow-y-auto px-2 py-2">
           {userLinks.map((link) => {
@@ -217,7 +313,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <span className="text-sm font-semibold">虚拟患者系统</span>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-semibold">虚拟患者系统</span>
+            {currentSchoolName && <span className="ml-2 text-xs text-muted-foreground">· {currentSchoolName}</span>}
+          </div>
         </div>
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>

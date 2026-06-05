@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
+from middleware.dependencies import resolve_school_filter
 from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
     ClassSummaryItemSchema,
@@ -26,8 +27,10 @@ def get_duration_stats(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     period: Annotated[str, Query(description="统计周期: week / month / all")] = "month",
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     now = datetime.now(UTC)
+    effective_school = resolve_school_filter(current_user, school_id)
     if period == "week":
         since = now - timedelta(days=7)
     elif period == "month":
@@ -61,8 +64,10 @@ def get_trends(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     period: Annotated[str, Query(description="统计周期: week / month / all")] = "month",
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     now = datetime.now(UTC)
+    effective_school = resolve_school_filter(current_user, school_id)
     if period == "week":
         since = now - timedelta(days=7)
     elif period == "month":
@@ -86,6 +91,8 @@ def get_trends(
 
     if not current_user.has_permission("stats_view"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
+    elif effective_school is not None:
+        base = base.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
 
     rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
 
@@ -203,11 +210,15 @@ def student_ranking(
 @router.get("/class-summary", response_model=list[ClassSummaryItemSchema])
 def class_summary(
     grade_id: Annotated[int | None, Query()] = None,
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     current_user: User = Depends(require_permission("stats_view")),
     db: Session = Depends(get_db),
 ):
+    effective_school = resolve_school_filter(current_user, school_id)
     q = db.query(Class, Grade.name.label("grade_name"))
     q = q.join(Grade, Grade.id == Class.grade_id)
+    if effective_school is not None:
+        q = q.filter(Grade.school_id == effective_school)
     if grade_id is not None:
         q = q.filter(Class.grade_id == grade_id)
     rows = q.order_by(Grade.name, Class.name).all()

@@ -2,20 +2,26 @@ import csv
 import io
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
+from middleware.dependencies import resolve_school_filter
 from models import Case, Message, Score, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
 
 
 @router.get("/records")
-def export_records(current_user: Annotated[User, Depends(require_permission("export_data"))], db: Annotated[Session, Depends(get_db)]):
+def export_records(
+    current_user: Annotated[User, Depends(require_permission("export_data"))],
+    db: Annotated[Session, Depends(get_db)],
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
+):
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
+    effective_school = resolve_school_filter(current_user, school_id)
 
     def generate():
         buf = io.StringIO()
@@ -43,7 +49,7 @@ def export_records(current_user: Annotated[User, Depends(require_permission("exp
         buf.truncate(0)
         buf.seek(0)
 
-        records = (
+        query = (
             db.query(TrainingRecord)
             .options(
                 selectinload(TrainingRecord.user),
@@ -51,9 +57,10 @@ def export_records(current_user: Annotated[User, Depends(require_permission("exp
                 selectinload(TrainingRecord.score),
                 selectinload(TrainingRecord.messages),
             )
-            .order_by(TrainingRecord.start_time.desc())
-            .yield_per(100)
         )
+        if effective_school is not None:
+            query = query.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
+        records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100)
 
         for r in records:
             writer.writerow(

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
+from middleware.dependencies import resolve_school_filter
 from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
 from schemas import (
@@ -269,7 +270,9 @@ def get_all_qa_history(
     db: Annotated[Session, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
+    effective_school = resolve_school_filter(current_user, school_id)
     base = (
         db.query(
             QASession.id,
@@ -283,9 +286,10 @@ def get_all_qa_history(
         )
         .outerjoin(User, QASession.user_id == User.id)
         .outerjoin(QARecord, QARecord.session_id == QASession.id)
-        .group_by(QASession.id, User.display_name, User.student_id)
-        .order_by(QASession.updated_at.desc())
     )
+    if effective_school is not None:
+        base = base.filter(User.school_id == effective_school)
+    base = base.group_by(QASession.id, User.display_name, User.student_id).order_by(QASession.updated_at.desc())
 
     rows, total = paginate(base, offset, limit)
     items = [
