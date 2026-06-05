@@ -596,7 +596,7 @@ export default function CasesTab() {
             <div className="flex gap-3 flex-wrap">
               <div className="flex-[2] min-w-[200px]">
                 <label className="block text-xs font-semibold text-muted-foreground mb-1">病例名称 *</label>
-                <input value={caseForm.name} onChange={(e) => updateField("name", e.target.value)} required className={inputClass} />
+                <input value={caseForm.name} onChange={(e) => updateField("name", e.target.value)} required maxLength={100} className={inputClass} />
               </div>
               <div className="flex-1 min-w-[120px]">
                 <label className="block text-xs font-semibold text-muted-foreground mb-1">训练时限 (分钟)</label>
