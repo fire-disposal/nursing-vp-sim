@@ -143,6 +143,10 @@ export const deleteUser = (id: number | string) => api.delete<Schemas["MessageRe
 
 export const getStudentDetail = (userId: number | string) => api.get<Schemas["StudentDetail"]>(`/admin/users/${userId}/detail`);
 
+// Roles
+export const getRoles = () =>
+  api.get<{ id: number; name: string; display_name: string; is_system: boolean; permissions: string[]; user_count: number }[]>("/admin/roles");
+
 // Case management
 export const getManageCases = (params: Record<string, unknown> = {}) => api.get<Schemas["PaginatedResponse_CaseManageItem_"]>("/cases/manage/list", { params });
 

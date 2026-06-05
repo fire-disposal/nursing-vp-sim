@@ -1,7 +1,7 @@
 import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { batchCreateUsers, deleteUser, getClasses, getGrades, getUsers, register, updateUser } from "@/api/api-client";
+import { batchCreateUsers, deleteUser, getClasses, getGrades, getRoles, getUsers, register, updateUser } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -39,6 +39,11 @@ interface EditUserForm {
   role: string;
   password: string;
   class_id: string;
+}
+
+interface RoleOption {
+  name: string;
+  display_name: string;
 }
 
 interface ClassFilterParams {
@@ -93,6 +98,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
   const [regClasses, setRegClasses] = useState<ClassItem[]>([]);
   const [editClasses, setEditClasses] = useState<ClassItem[]>([]);
   const [allClasses, setAllClasses] = useState<ClassItem[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const toast = useToast();
   const { confirm } = useConfirm();
   const navigate = useNavigate();
@@ -125,6 +131,10 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
     getClasses({})
       .then((res) => setAllClasses(res.data))
+      .catch(() => {});
+
+    getRoles()
+      .then((res) => setRoles(res.data))
       .catch(() => {});
   }, []);
 
@@ -388,8 +398,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
             <div className="flex-[1_1_100px]">
               <label className="block text-xs text-muted-foreground font-semibold mb-1">角色</label>
               <select value={regForm.role} onChange={(e) => setRegForm({ ...regForm, role: e.target.value })} className={selectClass}>
-                <option value="student">学生</option>
-                <option value="teacher">教师</option>
+                {roles.map((r) => (
+                  <option key={r.name} value={r.name}>
+                    {r.display_name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex-[1_1_120px]">
@@ -457,8 +470,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           </div>
           <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className={filterSelectClass}>
             <option value="">全部角色</option>
-            <option value="student">学生</option>
-            <option value="teacher">教师</option>
+            {roles.map((r) => (
+              <option key={r.name} value={r.name}>
+                {r.display_name}
+              </option>
+            ))}
           </select>
           <ClassFilter onChange={setClassParam} />
           <span className="text-sm text-muted-foreground whitespace-nowrap">共 {userTotal} 人</span>
@@ -561,8 +577,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           <div className="mb-4">
             <label className="block text-xs text-muted-foreground font-semibold mb-1">角色</label>
             <select className={selectClass} value={editUserForm.role} onChange={(e) => setEditUserForm((f) => ({ ...f, role: e.target.value }))}>
-              <option value="student">学生</option>
-              <option value="teacher">教师</option>
+              {roles.map((r) => (
+                <option key={r.name} value={r.name}>
+                  {r.display_name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="mb-4">

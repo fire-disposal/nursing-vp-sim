@@ -323,10 +323,6 @@ def batch_create_users(
             errors.append(f"第{i}行跳过 {u.username}: 密码长度不能少于6位")
             skipped += 1
             continue
-        if u.role not in ("student", "teacher"):
-            errors.append(f"第{i}行跳过 {u.username}: 角色无效")
-            skipped += 1
-            continue
         existing = db.query(User).filter(User.username == u.username).first()
         if existing:
             errors.append(f"第{i}行跳过 {u.username}: 用户名已存在")
