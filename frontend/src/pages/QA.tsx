@@ -19,7 +19,7 @@ const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断�
 
 const BUBBLE_CONTENT_CLASSES = [
   "whitespace-pre-wrap break-words",
-  "[&_p]:mb-1 [&_p:last-child]:mb-0",
+  "[&_p]:mb-0.5 [&_p:last-child]:mb-0",
   "[&_code]:bg-black/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono",
   "[&_pre]:bg-black/[0.06] [&_pre]:p-2.5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-2",
   "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-sm",
@@ -250,7 +250,7 @@ export default function QA() {
                     )}
                     <div
                       className={cn(
-                        "max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+                        "max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-normal",
                         isUser ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted text-foreground rounded-bl-md",
                       )}
                     >
