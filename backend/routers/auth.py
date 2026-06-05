@@ -243,6 +243,7 @@ def get_me(current_user: Annotated[User, Depends(get_current_user)]):
         id=current_user.id,
         username=current_user.username,
         role=current_user.role.name if current_user.role else "",
+        role_display_name=current_user.role.display_name if current_user.role else "",
         display_name=current_user.display_name,
         student_id=current_user.student_id,
         created_at=current_user.created_at,

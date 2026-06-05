@@ -275,6 +275,7 @@ class UserBrief(BaseModel):
     id: int
     username: str
     role: str
+    role_display_name: str
     display_name: str
     student_id: str | None
     class_id: int | None = None
