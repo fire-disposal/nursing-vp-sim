@@ -1,10 +1,11 @@
-import { AlertCircle, Download, Edit3, FileText, Plus, Search, Trash2, Upload, Users } from "lucide-react";
+import { AlertCircle, Download, Edit3, FileText, Loader2, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { batchCreateUsers, deleteUser, getClasses, getGrades, getRoles, getUsers, register, updateUser } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,7 @@ const selectClass =
 
 export default function UsersTab({ currentUserId }: UsersTabProps) {
   const [users, setUsers] = useState<UserBrief[]>([]);
+  const [loading, setLoading] = useState(true);
   const [userTotal, setUserTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const LIMIT = 50;
@@ -105,6 +107,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
   const loadUsers = useCallback(
     (_offset?: number) => {
+      setLoading(true);
       const params: Record<string, unknown> = { offset: _offset != null ? _offset : offset, limit: LIMIT };
       if (search) params.search = search;
       if (roleFilter) params.role = roleFilter;
@@ -115,7 +118,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           setUsers(data.items);
           setUserTotal(data.total);
         })
-        .catch(() => toast.error("加载用户列表失败"));
+        .catch(() => toast.error("加载用户列表失败"))
+        .finally(() => setLoading(false));
     },
     [offset, search, roleFilter, classParam, toast],
   );
@@ -479,87 +483,97 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
           <ClassFilter onChange={setClassParam} />
           <span className="text-sm text-muted-foreground whitespace-nowrap">共 {userTotal} 人</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  用户名
-                </th>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  姓名
-                </th>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  角色
-                </th>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  班级
-                </th>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  学号
-                </th>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  注册时间
-                </th>
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/admin/users/${u.id}`)}>
-                  <td className="px-4 py-3 border-b border-border">{u.username}</td>
-                  <td className="px-4 py-3 border-b border-border">{u.display_name}</td>
-                  <td className="px-4 py-3 border-b border-border">
-                    <span
-                      className={cn(
-                        "inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
-                        u.role === "super_admin" || u.role === "school_admin"
-                          ? "bg-red-50 text-red-700"
-                          : u.role === "teacher"
-                            ? "bg-blue-50 text-primary"
-                            : "bg-green-50 text-green-700",
-                      )}
-                    >
-                      {roles.find((r) => r.name === u.role)?.display_name || u.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 border-b border-border text-muted-foreground text-sm">
-                    {u.grade_name && u.class_name ? `${u.grade_name} ${u.class_name}` : u.class_name || "-"}
-                  </td>
-                  <td className="px-4 py-3 border-b border-border text-muted-foreground">{u.student_id || "-"}</td>
-                  <td className="px-4 py-3 border-b border-border text-sm text-muted-foreground">{new Date(u.created_at).toLocaleString("zh-CN")}</td>
-                  <td className="px-4 py-3 border-b border-border">
-                    <div className="flex gap-2">
-                      <button
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditUser(u);
-                        }}
-                        title="编辑"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        className={btnDanger}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteUser(u);
-                        }}
-                        title="删除"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <Pagination total={userTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
+        {loading && users.length === 0 ? (
+          <div className="flex justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : users.length === 0 ? (
+          <EmptyState icon={Users} title="暂无用户" description="注册第一个用户后这里会显示" />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      用户名
+                    </th>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      姓名
+                    </th>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      角色
+                    </th>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      班级
+                    </th>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      学号
+                    </th>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      注册时间
+                    </th>
+                    <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/admin/users/${u.id}`)}>
+                      <td className="px-4 py-3 border-b border-border">{u.username}</td>
+                      <td className="px-4 py-3 border-b border-border">{u.display_name}</td>
+                      <td className="px-4 py-3 border-b border-border">
+                        <span
+                          className={cn(
+                            "inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
+                            u.role === "super_admin" || u.role === "school_admin"
+                              ? "bg-red-50 text-red-700"
+                              : u.role === "teacher"
+                                ? "bg-blue-50 text-primary"
+                                : "bg-green-50 text-green-700",
+                          )}
+                        >
+                          {roles.find((r) => r.name === u.role)?.display_name || u.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 border-b border-border text-muted-foreground text-sm">
+                        {u.grade_name && u.class_name ? `${u.grade_name} ${u.class_name}` : u.class_name || "-"}
+                      </td>
+                      <td className="px-4 py-3 border-b border-border text-muted-foreground">{u.student_id || "-"}</td>
+                      <td className="px-4 py-3 border-b border-border text-sm text-muted-foreground">{new Date(u.created_at).toLocaleString("zh-CN")}</td>
+                      <td className="px-4 py-3 border-b border-border">
+                        <div className="flex gap-2">
+                          <button
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditUser(u);
+                            }}
+                            title="编辑"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            className={btnDanger}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteUser(u);
+                            }}
+                            title="删除"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination total={userTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
+          </>
+        )}
       </div>
 
       <Modal open={showEditUser} onClose={() => setShowEditUser(false)} title={`编辑用户: ${editUser?.display_name}`} maxWidth={480}>

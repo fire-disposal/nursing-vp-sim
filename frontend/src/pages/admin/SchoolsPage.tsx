@@ -1,10 +1,11 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Building2, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
@@ -19,6 +20,7 @@ interface SchoolItem {
 
 export default function SchoolsPage() {
   const [schools, setSchools] = useState<SchoolItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
@@ -27,11 +29,14 @@ export default function SchoolsPage() {
   const { confirm } = useConfirm();
 
   const loadSchools = async () => {
+    setLoading(true);
     try {
       const { data } = await api.get("/admin/schools", { params: { limit: 100 } });
       setSchools(data.items || []);
     } catch {
       toast.error("加载学校列表失败");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,32 +89,40 @@ export default function SchoolsPage() {
         </div>
 
         <div className="rounded-xl border bg-card">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b text-left text-sm text-muted-foreground">
-                <th className="px-4 py-3">学校名称</th>
-                <th className="px-4 py-3">教师数</th>
-                <th className="px-4 py-3">学生数</th>
-                <th className="px-4 py-3">创建时间</th>
-                <th className="px-4 py-3">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {schools.map((s) => (
-                <tr key={s.id} className="border-b last:border-0 text-sm">
-                  <td className="px-4 py-3 font-medium">{s.name}</td>
-                  <td className="px-4 py-3">{s.teacher_count}</td>
-                  <td className="px-4 py-3">{s.student_count}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}</td>
-                  <td className="px-4 py-3">
-                    <Button variant="ghost" size="sm" className="text-destructive h-8" onClick={() => handleDelete(s.id, s.name)}>
-                      <Trash2 size={14} />
-                    </Button>
-                  </td>
+          {loading && schools.length === 0 ? (
+            <div className="flex justify-center py-12">
+              <Loader2 size={24} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : schools.length === 0 ? (
+            <EmptyState icon={Building2} title="暂无学校" description="创建第一个学校后这里会显示" />
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b text-left text-sm text-muted-foreground">
+                  <th className="px-4 py-3">学校名称</th>
+                  <th className="px-4 py-3">教师数</th>
+                  <th className="px-4 py-3">学生数</th>
+                  <th className="px-4 py-3">创建时间</th>
+                  <th className="px-4 py-3">操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {schools.map((s) => (
+                  <tr key={s.id} className="border-b last:border-0 text-sm">
+                    <td className="px-4 py-3 font-medium">{s.name}</td>
+                    <td className="px-4 py-3">{s.teacher_count}</td>
+                    <td className="px-4 py-3">{s.student_count}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}</td>
+                    <td className="px-4 py-3">
+                      <Button variant="ghost" size="sm" className="text-destructive h-8" onClick={() => handleDelete(s.id, s.name)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建学校">

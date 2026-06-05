@@ -1,8 +1,10 @@
+import { GraduationCap, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
@@ -36,7 +38,8 @@ export default function GradesClassesPage() {
   const toast = useToast();
   const { confirm } = useConfirm();
 
-  const { grades, classes, fetchGrades, fetchClasses, createGrade, updateGrade, deleteGrade, createClass, updateClass, deleteClass } = useGradesClassesStore();
+  const { grades, classes, loading, fetchGrades, fetchClasses, createGrade, updateGrade, deleteGrade, createClass, updateClass, deleteClass } =
+    useGradesClassesStore();
 
   useEffect(() => {
     fetchGrades();
@@ -174,51 +177,63 @@ export default function GradesClassesPage() {
         )}
 
         <div className="bg-card rounded-xl shadow-sm p-6 border border-border overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border"
-                  >
-                    {col.label}
-                  </th>
-                ))}
-                <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className="group hover:bg-muted">
+          {loading && items.length === 0 ? (
+            <div className="flex justify-center py-12">
+              <Loader2 size={24} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={GraduationCap}
+              title={tab === "grades" ? "暂无年级" : "暂无班级"}
+              description={tab === "grades" ? "创建第一个年级后这里会显示" : "创建第一个班级后这里会显示"}
+            />
+          ) : (
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
                   {columns.map((col) => (
-                    <td key={col.key} className={cn("px-4 py-3 border-b border-border", col.key === "created_at" && "text-xs text-muted-foreground")}>
-                      {col.render
-                        ? col.render(String((item as unknown as Record<string, unknown>)[col.key]))
-                        : String((item as unknown as Record<string, unknown>)[col.key] || "")}
-                    </td>
+                    <th
+                      key={col.key}
+                      className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border"
+                    >
+                      {col.label}
+                    </th>
                   ))}
-                  <td className="px-4 py-3 border-b border-border">
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                        编辑
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:bg-destructive/10"
-                        onClick={() => (tab === "grades" ? handleDeleteGrade(item as Grade) : handleDeleteClass(item as ClassItem))}
-                      >
-                        删除
-                      </Button>
-                    </div>
-                  </td>
+                  <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                    操作
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className="group hover:bg-muted">
+                    {columns.map((col) => (
+                      <td key={col.key} className={cn("px-4 py-3 border-b border-border", col.key === "created_at" && "text-xs text-muted-foreground")}>
+                        {col.render
+                          ? col.render(String((item as unknown as Record<string, unknown>)[col.key]))
+                          : String((item as unknown as Record<string, unknown>)[col.key] || "")}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3 border-b border-border">
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
+                          编辑
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:bg-destructive/10"
+                          onClick={() => (tab === "grades" ? handleDeleteGrade(item as Grade) : handleDeleteClass(item as ClassItem))}
+                        >
+                          删除
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <Modal
