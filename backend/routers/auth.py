@@ -8,10 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.login_strategies import LoginStrategy, get_strategy_registry
 from core.security import create_access_token, get_current_user, hash_password, require_permission, verify_password
 from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
 from models import Class, Role, RolePermission, School, User, UserClass
 from schemas import (
+    ChangePasswordRequest,
     LoginRequest,
     OkResponse,
     RegisterRequest,
@@ -28,23 +30,13 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    req: LoginRequest,
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
-    _: Annotated[None, Depends(login_rate_limit)],
-):
-    user = db.query(User).filter(User.username == req.username).first()
-    if not user or not await asyncio.to_thread(verify_password, req.password, user.password_hash):
-        log.warning(f"登录失败: username={req.username}", extra={"action": "login_failed"})
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
-
-    await reset_login_limit(request)
-    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else ""})
-    log.info(
-        f"登录成功: username={req.username}", extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"}
-    )
+def _build_token_response(user: User, db: Session) -> TokenResponse:
+    token = create_access_token({
+        "user_id": user.id,
+        "role_id": user.role_id,
+        "school_id": user.school_id,
+        "role": user.role.name if user.role else "",
+    })
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     permissions = [r.permission for r in rows]
     return TokenResponse(
@@ -56,6 +48,24 @@ async def login(
         school_name=user.school.name if user.school else None,
         permissions=permissions,
     )
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    req: LoginRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[None, Depends(login_rate_limit)],
+):
+    strategy = get_strategy_registry()["password"](db)
+    user = await strategy.authenticate({"username": req.username, "password": req.password})
+    if user is None:
+        log.warning("登录失败: username=%s", req.username, extra={"action": "login_failed"})
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
+
+    await reset_login_limit(request)
+    log.info("登录成功: username=%s", req.username, extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"})
+    return _build_token_response(user, db)
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -98,7 +108,8 @@ def register(
     db.commit()
     db.refresh(user)
     log.info(
-        f"用户注册: target_id={user.id} target_name={user.username} role={user.role.name if user.role else ''}",
+        "用户注册: target_id=%d target_name=%s role=%s",
+        user.id, user.username, user.role.name if user.role else "",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "register"},
     )
     return TokenResponse(
@@ -116,7 +127,7 @@ async def wechat_login(
     req: WechatLoginRequest,
     db: Annotated[Session, Depends(get_db)],
 ):
-    """微信小程序 code 登录。已知 openid → 签发 JWT；未知 → need_bind"""
+    """微信小程序 code 登录。code → openid → 策略匹配 → JWT"""
     from services.wechat import code2session
 
     try:
@@ -128,8 +139,9 @@ async def wechat_login(
     if not openid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="微信登录失败：无法获取 openid")
 
-    user = db.query(User).filter(User.wechat_openid == openid).first()
-    if not user:
+    strategy = get_strategy_registry()["wechat"](db)
+    user = await strategy.authenticate({"openid": openid})
+    if user is None:
         return WechatLoginResponse(need_bind=True)
 
     token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else ""})
@@ -153,7 +165,6 @@ async def wechat_bind(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """将当前已登录用户绑定微信 openid"""
     from services.wechat import code2session
 
     if current_user.wechat_openid:
@@ -184,7 +195,6 @@ async def wechat_register(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[None, Depends(register_rate_limit)],
 ):
-    """微信一键注册：通过 code 获取 openid，自动创建用户并返回 token"""
     from services.wechat import code2session
 
     try:
@@ -248,3 +258,34 @@ def get_me(current_user: Annotated[User, Depends(get_current_user)]):
         student_id=current_user.student_id,
         created_at=current_user.created_at,
     )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
+    token = create_access_token({"user_id": current_user.id, "role_id": current_user.role_id, "school_id": current_user.school_id, "role": current_user.role.name if current_user.role else ""})
+    rows = db.query(RolePermission.permission).filter(RolePermission.role_id == current_user.role_id).all()
+    permissions = [r.permission for r in rows]
+    log.info("Token 刷新: user_id=%d", current_user.id)
+    return TokenResponse(
+        access_token=token,
+        role=current_user.role.name if current_user.role else "",
+        display_name=current_user.display_name,
+        user_id=current_user.id,
+        school_id=current_user.school_id,
+        school_name=current_user.school.name if current_user.school else None,
+        permissions=permissions,
+    )
+
+
+@router.put("/change-password", response_model=OkResponse)
+async def change_password(
+    req: ChangePasswordRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    if not await asyncio.to_thread(verify_password, req.old_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
+    current_user.password_hash = hash_password(req.new_password)
+    db.commit()
+    log.info("密码修改: user_id=%d", current_user.id)
+    return OkResponse(message="密码修改成功")
