@@ -47,7 +47,12 @@ export async function sendMessageStream(
     return;
   }
 
-  const reader = resp.body!.getReader();
+  if (!resp.body) {
+    onError("响应体为空");
+    return;
+  }
+
+  const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
 

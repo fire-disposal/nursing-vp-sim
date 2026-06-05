@@ -126,7 +126,11 @@ export default function ScoreCard({ score, onClose, onRetry, onGoHome }: ScoreCa
             <h2 className="text-lg font-bold">训练评分报告</h2>
             {rubricLabel && <span className="text-xs text-muted-foreground/60">{rubricLabel}</span>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-border bg-card cursor-pointer flex items-center justify-center">
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg border border-border bg-card cursor-pointer flex items-center justify-center"
+            aria-label="关闭评分"
+          >
             <X size={16} />
           </button>
         </div>

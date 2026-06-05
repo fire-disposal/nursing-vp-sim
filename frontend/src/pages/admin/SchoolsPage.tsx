@@ -1,8 +1,8 @@
 import { Building2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
+import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
@@ -20,6 +20,7 @@ interface SchoolItem {
 }
 
 export default function SchoolsPage() {
+  const toast = useToast();
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);

@@ -17,7 +17,7 @@
   Users,
   X,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/separator";
@@ -50,22 +50,23 @@ const allLinks: NavLinkItem[] = [
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
 ];
 
+function getVisibleLinks(): NavLinkItem[] {
+  const permsStr = localStorage.getItem("user_permissions");
+  if (!permsStr) return allLinks.filter((l) => !l.permission);
+  try {
+    const perms: string[] = JSON.parse(permsStr);
+    return allLinks.filter((link) => !link.permission || perms.includes(link.permission));
+  } catch {
+    return allLinks.filter((l) => !l.permission);
+  }
+}
+
 export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  function getVisibleLinks(): NavLinkItem[] {
-    const permsStr = localStorage.getItem("user_permissions");
-    if (!permsStr) return allLinks.filter((l) => !l.permission);
-    try {
-      const perms: string[] = JSON.parse(permsStr);
-      return allLinks.filter((link) => !link.permission || perms.includes(link.permission));
-    } catch {
-      return allLinks.filter((l) => !l.permission);
-    }
-  }
 
-  const links = getVisibleLinks();
+  const links = useMemo(() => getVisibleLinks(), [user]);
   const userLinks = links.filter((l) => !l.to.startsWith("/admin"));
   const adminLinks = links.filter((l) => l.to.startsWith("/admin"));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -81,9 +82,10 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={close} />}
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={close} role="presentation" />}
 
       <aside
+        aria-label="主导航"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border bg-card transition-transform duration-300 ease-out md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -210,6 +212,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             type="button"
             className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
             onClick={() => setMobileOpen((v) => !v)}
+            aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>

@@ -188,7 +188,7 @@ async def update_prompt(
 ):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
     if not pt:
-        raise HTTPException(404, "模板不存在")
+        raise HTTPException(status_code=404, detail="模板不存在")
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(pt, k, v)
     if any(k in data.model_dump(exclude_none=True) for k in ("system_prompt", "user_prompt")):
@@ -232,9 +232,9 @@ async def delete_prompt(
 ):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
     if not pt:
-        raise HTTPException(404, "模板不存在")
+        raise HTTPException(status_code=404, detail="模板不存在")
     if pt.is_active:
-        raise HTTPException(400, "不能删除当前激活的模板，请先激活其他版本")
+        raise HTTPException(status_code=400, detail="不能删除当前激活的模板，请先激活其他版本")
     db.delete(pt)
     db.commit()
     return {"ok": True}
@@ -251,7 +251,7 @@ async def activate_prompt(
     """激活指定版本。prompt_id=0 表示切换到内置兜底（停用该 purpose 所有 DB 版本）。"""
     if prompt_id == 0:
         if not purpose:
-            raise HTTPException(400, "切换到内置版本需要指定 purpose")
+            raise HTTPException(status_code=400, detail="切换到内置版本需要指定 purpose")
         db.query(PT).filter(PT.purpose == purpose).update({"is_active": False})
         db.commit()
         await request.app.state.prompt_manager.reload()
@@ -265,7 +265,7 @@ async def activate_prompt(
 async def _activate(prompt_id: int, db: Session):
     pt = db.query(PT).filter(PT.id == prompt_id).first()
     if not pt:
-        raise HTTPException(404, "模板不存在")
+        raise HTTPException(status_code=404, detail="模板不存在")
     db.query(PT).filter(PT.purpose == pt.purpose).update({"is_active": False})
     pt.is_active = True
     db.commit()
@@ -314,7 +314,7 @@ async def reload_prompts_endpoint(request: Request, current_user: Annotated[User
 def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
     known = {"patient_chat", "scoring", "qa", "case_generation"}
     if purpose not in known:
-        raise HTTPException(404, f"未知 purpose: {purpose}")
+        raise HTTPException(status_code=404, detail=f"未知 purpose: {purpose}")
     return {"purpose": purpose, "vars": get_registry().get_sample_kwargs(purpose)}
 
 
@@ -326,7 +326,7 @@ async def preview_active_prompt(
 ):
     pt = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()
     if not pt:
-        raise HTTPException(404, f"「{purpose}」没有激活的模板")
+        raise HTTPException(status_code=404, detail=f"「{purpose}」没有激活的模板")
     sample = get_registry().get_sample_kwargs(purpose)
     # 合并自定义变量（不在 registry 中但模板自带 default_value 的变量）
     for v in pt.variables or []:

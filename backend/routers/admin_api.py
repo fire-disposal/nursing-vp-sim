@@ -83,7 +83,7 @@ async def create_secret(
     for existing in db.query(ApiSecret).all():
         try:
             if decrypt_api_key(existing.encrypted_key) == data.raw_key:
-                raise HTTPException(409, "该 API Key 已存在，请勿重复添加")
+                raise HTTPException(status_code=409, detail="该 API Key 已存在，请勿重复添加")
         except Exception as exc:
             log.debug("decrypt check skipped: %s", exc)
             continue
@@ -112,7 +112,7 @@ def update_secret(
 ):
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
-        raise HTTPException(404, "档案不存在")
+        raise HTTPException(status_code=404, detail="档案不存在")
     for field in ("label", "base_url", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit"):
         val = getattr(data, field, None)
         if val is not None:
@@ -127,10 +127,10 @@ async def delete_secret(
 ):
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
-        raise HTTPException(404, "档案不存在")
+        raise HTTPException(status_code=404, detail="档案不存在")
     count = db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id).count()
     if count > 0:
-        raise HTTPException(400, f"该档案有 {count} 个用途绑定，先解除")
+        raise HTTPException(status_code=400, detail=f"该档案有 {count} 个用途绑定，先解除")
     db.delete(s)
     db.commit()
     return {"ok": True}
@@ -186,7 +186,7 @@ async def create_config(
 ):
     secret = db.query(ApiSecret).filter(ApiSecret.id == data.secret_id).first()
     if not secret:
-        raise HTTPException(404, "档案不存在")
+        raise HTTPException(status_code=404, detail="档案不存在")
 
     existing = (
         db.query(LLMConfig)
@@ -237,7 +237,7 @@ async def update_config(
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
-        raise HTTPException(404, "指派不存在")
+        raise HTTPException(status_code=404, detail="指派不存在")
     for f in ("secret_id", "model", "purpose", "status", "label", "priority", "weight", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit"):
         val = getattr(data, f, None)
         if val is not None:
@@ -253,7 +253,7 @@ async def delete_config(
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
-        raise HTTPException(404, "指派不存在")
+        raise HTTPException(status_code=404, detail="指派不存在")
     db.delete(cfg)
     db.commit()
     await request.app.state.llm_router.load_from_db()
@@ -266,7 +266,7 @@ async def toggle_config(
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
-        raise HTTPException(404, "指派不存在")
+        raise HTTPException(status_code=404, detail="指派不存在")
     cfg.status = "active" if cfg.status == "disabled" else "disabled"
     db.commit()
     await request.app.state.llm_router.load_from_db()
@@ -279,7 +279,7 @@ async def reset_profile(
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
-        raise HTTPException(404, "指派不存在")
+        raise HTTPException(status_code=404, detail="指派不存在")
     secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
     if secret:
         secret.status = "active"
@@ -298,7 +298,7 @@ async def test_config(
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
-        raise HTTPException(404, "指派不存在")
+        raise HTTPException(status_code=404, detail="指派不存在")
     secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
     api_key = decrypt_api_key(secret.encrypted_key)
     base_url = secret.base_url or ""
@@ -443,7 +443,7 @@ def get_active_rubric(current_user: Annotated[User, Depends(require_permission("
 
     active = load_active_rubric()
     if not active:
-        raise HTTPException(404, "没有激活的评分标准")
+        raise HTTPException(status_code=404, detail="没有激活的评分标准")
     return active
 
 
@@ -455,10 +455,10 @@ def create_rubric(
 
     dims = data.get("dimensions")
     if not dims:
-        raise HTTPException(400, "dimensions 不能为空")
+        raise HTTPException(status_code=400, detail="dimensions 不能为空")
     errors = validate_dimensions(dims)
     if errors:
-        raise HTTPException(400, "; ".join(errors))
+        raise HTTPException(status_code=400, detail="; ".join(errors))
     rubric = Rubric(
         name=data.get("name", ""),
         version=data.get("version", "1.0"),
@@ -485,11 +485,11 @@ def update_rubric(
 
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:
-        raise HTTPException(404, "评分标准不存在")
+        raise HTTPException(status_code=404, detail="评分标准不存在")
     if "dimensions" in data:
         errors = validate_dimensions(data["dimensions"])
         if errors:
-            raise HTTPException(400, "; ".join(errors))
+            raise HTTPException(status_code=400, detail="; ".join(errors))
         rubric.dimensions = data["dimensions"]
     for field in ("name", "version", "description", "total_max", "raw_max", "raw_scale"):
         if field in data:
@@ -504,9 +504,9 @@ def delete_rubric(
 ):
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:
-        raise HTTPException(404, "评分标准不存在")
+        raise HTTPException(status_code=404, detail="评分标准不存在")
     if rubric.is_active:
-        raise HTTPException(400, "不能删除当前激活的评分标准")
+        raise HTTPException(status_code=400, detail="不能删除当前激活的评分标准")
     db.delete(rubric)
     db.commit()
     return {"ok": True}
@@ -518,7 +518,7 @@ def activate_rubric(
 ):
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:
-        raise HTTPException(404, "评分标准不存在")
+        raise HTTPException(status_code=404, detail="评分标准不存在")
     db.query(Rubric).update({"is_active": False})
     rubric.is_active = True
     db.commit()

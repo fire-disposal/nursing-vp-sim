@@ -1,7 +1,7 @@
 import { Send } from "lucide-react";
 import { useState } from "react";
+import { submitFeedback } from "@/api/api-client";
 import { cn } from "@/lib/utils";
-import { submitFeedback } from "../api/api-client";
 import { useToast } from "./Toast";
 import Modal from "./ui/Modal";
 

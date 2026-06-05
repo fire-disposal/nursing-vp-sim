@@ -138,7 +138,7 @@ async def generate_case(
     db: Annotated[Session, Depends(get_db)],
 ):
     if not data.description.strip():
-        raise HTTPException(400, "描述不能为空")
+        raise HTTPException(status_code=400, detail="描述不能为空")
 
     reference_material = ""
     if data.mode == "reference":
@@ -148,7 +148,7 @@ async def generate_case(
             found_ids = {c.id for c in ref_cases}
             missing = [cid for cid in data.reference_case_ids if cid not in found_ids]
             if missing:
-                raise HTTPException(404, f"参考病例不存在: {missing}")
+                raise HTTPException(status_code=404, detail=f"参考病例不存在: {missing}")
             for c in ref_cases:
                 parts.append(f"--- 参考病例: {c.name} ---\n{format_case_for_prompt(c.case_data)}")
         if data.reference_text:
@@ -183,7 +183,7 @@ async def generate_case(
         )
     except Exception as e:
         log.exception("case_generation LLM call failed")
-        raise HTTPException(500, f"AI 生成失败: {e!s}")
+        raise HTTPException(status_code=500, detail=f"AI 生成失败: {e!s}")
 
     if data.field:
         field_value = result.get("field_value") or result.get(data.field)

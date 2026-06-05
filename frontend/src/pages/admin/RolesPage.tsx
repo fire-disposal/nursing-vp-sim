@@ -1,8 +1,8 @@
 import { Loader2, Plus, Save, Search, Shield, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
+import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
@@ -38,6 +38,7 @@ const ALL_PERMISSIONS = [
 ];
 
 export default function RolesPage() {
+  const toast = useToast();
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<number | null>(null);

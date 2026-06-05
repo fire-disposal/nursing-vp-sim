@@ -45,11 +45,14 @@ const useAuthStore = create<AuthState>((set, get) => ({
   refreshUser: async (): Promise<void> => {
     try {
       const { data } = await getMe();
+      const current = get().user;
       const user: User = {
         user_id: data.id,
         role: data.role,
         role_display_name: (data as any).role_display_name || data.role,
         display_name: data.display_name,
+        school_id: current?.school_id ?? (data as any).school_id ?? undefined,
+        school_name: current?.school_name ?? (data as any).school_name ?? undefined,
       };
       localStorage.setItem("user", JSON.stringify(user));
       set({ user });

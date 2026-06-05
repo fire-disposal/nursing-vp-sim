@@ -76,6 +76,7 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }: Inquir
         className="relative flex items-center gap-1 px-2 h-8 rounded-md border border-border bg-card text-xs sm:text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-primary/50 shrink-0"
         onClick={onToggle}
         title="采集进度"
+        aria-label="采集进度"
       >
         <ListChecks size={13} className="sm:size-[16px]" />
         <span>
@@ -97,6 +98,7 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }: Inquir
           <button
             onClick={onToggle}
             className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center hover:bg-muted transition-colors"
+            aria-label="关闭进度面板"
           >
             <X size={14} />
           </button>
@@ -141,7 +143,7 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }: Inquir
         </div>
       </div>
 
-      {isOpen && <div onClick={onToggle} className="fixed inset-0 bg-black/30 z-[999]" />}
+      {isOpen && <div onClick={onToggle} className="fixed inset-0 bg-black/30 z-[999]" role="presentation" />}
     </>
   );
 }
@@ -294,7 +296,7 @@ export default function ChatTraining() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  });
+  }, [messages]);
 
   useEffect(
     () => () => {
@@ -427,7 +429,8 @@ export default function ChatTraining() {
     if (remaining === 0 && !autoEndRef.current) {
       toast.info("训练时间已结束，正在自动评分...");
     }
-  }, [remaining, toast.warning, toast.info]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining]);
 
   const executeEndRef = useRef(executeEnd);
   executeEndRef.current = executeEnd;
@@ -511,6 +514,7 @@ export default function ChatTraining() {
               navigate("/home");
             }}
             title="返回首页"
+            aria-label="返回首页"
           >
             <ArrowLeft size={16} className="sm:size-[18px]" />
           </button>
@@ -560,6 +564,7 @@ export default function ChatTraining() {
                   voice.setAutoPlay(!voice.autoPlay);
                 }}
                 title={voice.autoPlay ? "关闭自动朗读" : "开启自动朗读"}
+                aria-label={voice.autoPlay ? "关闭自动朗读" : "开启自动朗读"}
               >
                 {voice.autoPlay ? <Ear size={14} className="sm:size-[16px]" /> : <EarOff size={14} className="sm:size-[16px]" />}
               </button>
@@ -569,6 +574,7 @@ export default function ChatTraining() {
               className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={handleEnd}
               disabled={ending || messages.length <= 1}
+              aria-label="结束训练"
             >
               <Phone size={13} className="sm:size-[15px] sm:block hidden" />
               <span className="sm:hidden">结束</span>
@@ -676,6 +682,7 @@ export default function ChatTraining() {
             onClick={toggleVoice}
             disabled={loading || ending || remaining === 0}
             title={voice.isListening ? "停止录音" : "语音输入"}
+            aria-label={voice.isListening ? "停止录音" : "语音输入"}
           >
             {voice.isListening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>
@@ -695,6 +702,7 @@ export default function ChatTraining() {
           className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
           onClick={handleSend}
           disabled={!input.trim() || loading || ending || remaining === 0}
+          aria-label="发送消息"
         >
           <Send size={17} />
         </button>

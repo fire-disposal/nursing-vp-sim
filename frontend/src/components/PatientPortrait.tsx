@@ -1,7 +1,7 @@
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { getPatientAvatar, type PatientInfo } from "../utils/avatar";
+import { getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 
 interface PatientPortraitProps {
   patientInfo?: PatientInfo | null;

@@ -662,7 +662,7 @@ def get_llm_log_detail(
     """查看单条 LLM 调用日志详情（含请求/响应全文）"""
     entry = db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
     if not entry:
-        raise HTTPException(404, "日志不存在")
+        raise HTTPException(status_code=404, detail="日志不存在")
     return entry
 
 
