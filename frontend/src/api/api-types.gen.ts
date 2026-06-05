@@ -49,7 +49,7 @@ export interface paths {
         put?: never;
         /**
          * Wechat Login
-         * @description 微信小程序 code 登录。已知 openid → 签发 JWT；未知 → need_bind
+         * @description 微信小程序 code 登录。code → openid → 策略匹配 → JWT
          */
         post: operations["wechat_login_api_auth_wechat_login_post"];
         delete?: never;
@@ -67,10 +67,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Wechat Bind
-         * @description 将当前已登录用户绑定微信 openid
-         */
+        /** Wechat Bind */
         post: operations["wechat_bind_api_auth_wechat_bind_post"];
         delete?: never;
         options?: never;
@@ -87,10 +84,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Wechat Register
-         * @description 微信一键注册：通过 code 获取 openid，自动创建用户并返回 token
-         */
+        /** Wechat Register */
         post: operations["wechat_register_api_auth_wechat_register_post"];
         delete?: never;
         options?: never;

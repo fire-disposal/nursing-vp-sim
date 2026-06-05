@@ -98,7 +98,7 @@
           "认证"
         ],
         "summary": "Wechat Login",
-        "description": "微信小程序 code 登录。已知 openid → 签发 JWT；未知 → need_bind",
+        "description": "微信小程序 code 登录。code → openid → 策略匹配 → JWT",
         "operationId": "wechat_login_api_auth_wechat_login_post",
         "requestBody": {
           "content": {
@@ -140,7 +140,6 @@
           "认证"
         ],
         "summary": "Wechat Bind",
-        "description": "将当前已登录用户绑定微信 openid",
         "operationId": "wechat_bind_api_auth_wechat_bind_post",
         "requestBody": {
           "content": {
@@ -187,7 +186,6 @@
           "认证"
         ],
         "summary": "Wechat Register",
-        "description": "微信一键注册：通过 code 获取 openid，自动创建用户并返回 token",
         "operationId": "wechat_register_api_auth_wechat_register_post",
         "requestBody": {
           "content": {

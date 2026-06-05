@@ -52,7 +52,7 @@ export interface ApiSecretUpdate {
 export interface BatchCreateResult {
   created: number
   skipped: number
-  errors: unknown[]
+  errors: string[]
 }
 
 export interface BatchUserItem {
@@ -68,7 +68,7 @@ export interface CaseBrief {
   id: number
   name: string
   difficulty?: number
-  description: string | null
+  description?: string | null
   patient_summary?: Record<string, unknown> | null
 }
 
@@ -79,7 +79,7 @@ export interface CaseCreateRequest {
 export interface CaseDetail {
   id: number
   name: string
-  description: string | null
+  description?: string | null
   case_data: Record<string, unknown>
 }
 
@@ -118,6 +118,11 @@ export interface CaseUpdateRequest {
 
 export interface CatalogResponse {
   providers?: ProviderPresetResponse[]
+}
+
+export interface ChangePasswordRequest {
+  old_password: string
+  new_password: string
 }
 
 export interface ChatMessageRequest {
@@ -164,7 +169,7 @@ export interface ConfigCreateResponse {
 }
 
 export interface DurationStats {
-  daily: unknown[]
+  daily: Record<string, unknown>[]
   total_minutes: number
   total_sessions: number
 }
@@ -186,13 +191,6 @@ export interface FeedbackItem {
   tag: string
   content?: string | null
   created_at: string
-}
-
-export interface FeedbackListResponse {
-  items: FeedbackItem[]
-  total: number
-  offset: number
-  limit: number
 }
 
 export interface FeedbackSubmit {
@@ -317,9 +315,9 @@ export interface LLMStatsResponse {
   today: Record<string, unknown>
   week: Record<string, unknown>
   month?: Record<string, unknown>
-  by_purpose: unknown[]
-  by_provider?: unknown[]
-  daily: unknown[]
+  by_purpose: Record<string, unknown>[]
+  by_provider?: Record<string, unknown>[]
+  daily: Record<string, unknown>[]
 }
 
 export interface LoginRequest {
@@ -373,6 +371,13 @@ export interface PaginatedResponse_CaseManageItem_ {
   limit: number
 }
 
+export interface PaginatedResponse_FeedbackItem_ {
+  items: FeedbackItem[]
+  total: number
+  offset: number
+  limit: number
+}
+
 export interface PaginatedResponse_LLMCallLogItem_ {
   items: LLMCallLogItem[]
   total: number
@@ -389,6 +394,13 @@ export interface PaginatedResponse_QASessionAdminItem_ {
 
 export interface PaginatedResponse_RankingItem_ {
   items: RankingItem[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface PaginatedResponse_SchoolResponse_ {
+  items: SchoolResponse[]
   total: number
   offset: number
   limit: number
@@ -445,7 +457,7 @@ export interface PromptTemplateResponse {
   system_prompt: string
   user_prompt: string | null
   template_engine: string
-  variables: unknown[] | null
+  variables: Record<string, unknown>[] | null
   is_active: boolean
   created_by: string | null
   remark: string | null
@@ -538,6 +550,27 @@ export interface RegisterRequest {
   class_id?: number | null
 }
 
+export interface RoleCreateRequest {
+  name: string
+  display_name: string
+  permissions?: string[]
+}
+
+export interface RoleResponse {
+  id: number
+  name: string
+  display_name: string
+  is_system?: boolean
+  school_id?: number | null
+  permissions?: string[]
+  user_count?: number
+}
+
+export interface RoleUpdateRequest {
+  display_name?: string | null
+  permissions?: string[] | null
+}
+
 export interface RubricResponse {
   id: number
   name: string
@@ -546,7 +579,7 @@ export interface RubricResponse {
   total_max?: number
   raw_max?: number
   raw_scale?: number
-  dimensions?: unknown[]
+  dimensions?: Record<string, unknown>[]
   is_active?: boolean
   created_at: string
   updated_at: string
@@ -557,14 +590,29 @@ export interface SampleVarsResponse {
   vars: Record<string, unknown>
 }
 
+export interface SchoolCreate {
+  name: string
+  admin_username: string
+  admin_password: string
+  admin_display_name: string
+}
+
+export interface SchoolResponse {
+  id: number
+  name: string
+  teacher_count?: number
+  student_count?: number
+  created_at: string
+}
+
 export interface ScoreItem {
   id: number
   total_score: number
-  detail_scores: Record<string, unknown> | null
-  strengths: unknown[] | null
-  weaknesses: unknown[] | null
-  missed_content: unknown[] | null
-  suggestions: string | null
+  detail_scores?: Record<string, unknown> | null
+  strengths?: string[] | null
+  weaknesses?: string[] | null
+  missed_content?: string[] | null
+  suggestions?: string | null
   rubric_version?: string | null
   model_name?: string | null
   prompt_version?: number | null
@@ -647,6 +695,9 @@ export interface TokenResponse {
   role: string
   display_name: string
   user_id: number
+  school_id?: number | null
+  school_name?: string | null
+  permissions?: string[]
 }
 
 export interface TrainingRecordBrief {
@@ -693,7 +744,7 @@ export interface TrainingStartResponse {
 }
 
 export interface TrendStats {
-  daily: unknown[]
+  daily: Record<string, unknown>[]
   total_sessions: number
   total_minutes: number
   avg_score?: number | null
@@ -703,6 +754,7 @@ export interface UserBrief {
   id: number
   username: string
   role: string
+  role_display_name: string
   display_name: string
   student_id: string | null
   class_id?: number | null
@@ -741,6 +793,9 @@ export interface WechatLoginResponse {
   role?: string | null
   display_name?: string | null
   user_id?: number | null
+  school_id?: number | null
+  school_name?: string | null
+  permissions?: string[]
   need_bind?: boolean
 }
 
