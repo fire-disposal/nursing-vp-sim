@@ -1,25 +1,32 @@
-﻿import { Activity, Stethoscope } from "lucide-react";
-import { type FormEvent, useState } from "react";
+﻿import { zodResolver } from "@hookform/resolvers/zod";
+import { Activity, Stethoscope } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import LoginIllustration from "@/components/LoginIllustration";
 import { Button } from "@/components/ui/Button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
 
 export default function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { username: "", password: "" },
+  });
+
+  const onSubmit = async (values: LoginFormValues) => {
     setError("");
     setLoading(true);
     try {
-      await login(username, password);
+      await login(values.username, values.password);
       navigate("/home");
     } catch (err: unknown) {
       console.error("[Login] failed:", err);
@@ -62,30 +69,51 @@ export default function Login() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="用户名"
-                autoComplete="username"
-                required
-                autoFocus
-                className="h-11"
-              />
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="密码"
-                autoComplete="current-password"
-                required
-                className="h-11"
-              />
-              <Button type="submit" disabled={loading} className="h-11 w-full">
-                {loading ? "登录中..." : "登 录"}
-              </Button>
-            </form>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="sr-only">用户名</FormLabel>
+                      <FormControl>
+                        <Input type="text" placeholder="用户名" autoComplete="username" autoFocus className="h-11" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="sr-only">密码</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="密码" autoComplete="current-password" className="h-11" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="size-4 rounded border-border"
+                  />
+                  <label htmlFor="remember" className="text-xs text-muted-foreground cursor-pointer">
+                    记住我
+                  </label>
+                </div>
+                <Button type="submit" disabled={loading} className="h-11 w-full">
+                  {loading ? "登录中..." : "登 录"}
+                </Button>
+              </form>
+            </Form>
           </div>
 
           <p className="mt-6 text-center text-xs text-muted-foreground lg:text-left lg:pl-0">虚拟患者 · 护理教学平台</p>

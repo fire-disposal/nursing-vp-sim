@@ -48,6 +48,12 @@ class TokenResponse(BaseModel):
     permissions: list[str] = []
 
 
+class ChangePasswordRequest(BaseModel):
+    model_config = _REQ_CFG
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=6, max_length=128)
+
+
 # ── WeChat ──
 
 class WechatLoginRequest(BaseModel):
@@ -106,6 +112,11 @@ class CaseCreateRequest(BaseModel):
 class CaseUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     case_data: dict[str, Any]
+
+
+class CaseNameRequest(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=100)
 
 
 class CaseManageItem(BaseModel):

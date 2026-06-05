@@ -64,7 +64,7 @@ export default function SchoolsPage() {
 
   useEffect(() => {
     loadSchools();
-  }, [search, offset]);
+  }, [loadSchools]);
 
   const handleCreate = async () => {
     if (!name.trim() || !adminUsername.trim() || !adminPassword || !adminDisplayName.trim()) {
@@ -92,7 +92,7 @@ export default function SchoolsPage() {
     });
     if (!ok) return;
     try {
-      await api.delete("/admin/schools/" + id);
+      await api.delete(`/admin/schools/${id}`);
       toast.success("学校已删除");
       loadSchools();
     } catch (e: any) {

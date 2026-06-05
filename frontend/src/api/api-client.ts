@@ -10,6 +10,11 @@ export const register = (data: Schemas["RegisterRequest"]) => api.post<Schemas["
 
 export const getMe = () => api.get<Schemas["UserBrief"]>("/auth/me");
 
+export const refreshToken = () => api.post<Schemas["TokenResponse"]>("/auth/refresh");
+
+export const changePassword = (oldPassword: string, newPassword: string) =>
+  api.put<Schemas["OkResponse"]>("/auth/change-password", { old_password: oldPassword, new_password: newPassword });
+
 // Cases
 export const getCases = (params: Record<string, unknown> = {}) => api.get<Schemas["PaginatedResponse_CaseBrief_"]>("/cases", { params });
 

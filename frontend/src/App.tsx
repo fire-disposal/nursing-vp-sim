@@ -42,18 +42,10 @@ function PageLoader() {
 function ProtectedRoute({ children, role, permission }: { children: ReactNode; role?: string; permission?: string }) {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const permissions = useAuthStore((s) => s.permissions);
   if (!token || !user) return <Navigate to="/login" replace />;
 
-  if (permission) {
-    const permsStr = localStorage.getItem("user_permissions");
-    if (!permsStr) return <Navigate to="/login" replace />;
-    try {
-      const perms: string[] = JSON.parse(permsStr);
-      if (!perms.includes(permission)) return <Navigate to="/login" replace />;
-    } catch {
-      return <Navigate to="/login" replace />;
-    }
-  }
+  if (permission && !permissions.includes(permission)) return <Navigate to="/login" replace />;
 
   if (role && user.role !== role) return <Navigate to="/login" replace />;
   return <>{children}</>;

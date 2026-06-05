@@ -255,6 +255,10 @@ export default function CasesTab() {
       setCaseMsg("请输入病例名称");
       return;
     }
+    if (caseData.name.trim().length > 100) {
+      setCaseMsg("病例名称不能超过100个字符");
+      return;
+    }
     try {
       if (editingCase) {
         await updateCase(editingCase.id, { case_data: caseData });

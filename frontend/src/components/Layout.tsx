@@ -9,6 +9,7 @@
   HelpCircle,
   Home,
   Info,
+  Key,
   LogOut,
   Menu,
   MessageSquare,
@@ -22,8 +23,10 @@
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { changePassword } from "@/api/api-client";
 import { api } from "@/api/axios-instance";
-import { Button } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import useAuthStore from "../stores/authStore";
@@ -55,31 +58,29 @@ const allLinks: NavLinkItem[] = [
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
 ];
 
-function getVisibleLinks(): NavLinkItem[] {
-  const permsStr = localStorage.getItem("user_permissions");
-  if (!permsStr) return allLinks.filter((l) => !l.permission);
-  try {
-    const perms: string[] = JSON.parse(permsStr);
-    return allLinks.filter((link) => !link.permission || perms.includes(link.permission));
-  } catch {
-    return allLinks.filter((l) => !l.permission);
-  }
-}
-
 export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const permissions = useAuthStore((s) => s.permissions);
   const logout = useAuthStore((s) => s.logout);
   const { selectedSchoolId, setSelectedSchool, isSuperAdmin } = useSchoolStore();
 
-  const links = useMemo(() => getVisibleLinks(), [user]);
+  const links = useMemo(() => {
+    return allLinks.filter((link) => !link.permission || permissions.includes(link.permission));
+  }, [permissions]);
   const userLinks = links.filter((l) => !l.to.startsWith("/admin"));
   const adminLinks = links.filter((l) => l.to.startsWith("/admin"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [schoolSelectorOpen, setSchoolSelectorOpen] = useState(false);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const { openFeedback } = useFeedback();
+
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [pwdMsg, setPwdMsg] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   const isAdmin = isSuperAdmin();
 
@@ -108,6 +109,34 @@ export default function Layout({ children }: { children: ReactNode }) {
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleChangePassword = async () => {
+    setPwdMsg("");
+    if (!oldPassword || !newPassword) {
+      setPwdMsg("请填写完整");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwdMsg("新密码至少 6 个字符");
+      return;
+    }
+    setPwdLoading(true);
+    try {
+      await changePassword(oldPassword, newPassword);
+      setPwdMsg("密码修改成功");
+      setTimeout(() => {
+        setPasswordOpen(false);
+        setOldPassword("");
+        setNewPassword("");
+        setPwdMsg("");
+      }, 1000);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setPwdMsg(e.response?.data?.detail || "修改失败");
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   return (
@@ -262,17 +291,44 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="text-xs text-muted-foreground">{user?.role_display_name || user?.role || "用户"}</div>
             </div>
           </div>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs" onClick={() => setAboutOpen(true)}>
+          <div className="flex gap-1 flex-wrap">
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setPasswordOpen(true)}>
+              <Key size={13} />
+              密码
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setAboutOpen(true)}>
               <Info size={13} />
               关于
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 flex-1 text-xs text-destructive hover:text-destructive" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={handleLogout}>
               <LogOut size={13} />
               退出
             </Button>
           </div>
         </div>
+
+        <Modal open={passwordOpen} onClose={() => setPasswordOpen(false)} title="修改密码">
+          <div className="space-y-3 py-2">
+            {pwdMsg && (
+              <div
+                className={cn("px-3 py-2 rounded-lg text-sm", pwdMsg.includes("成功") ? "bg-green-50 text-green-600" : "bg-destructive/10 text-destructive")}
+              >
+                {pwdMsg}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium mb-1">原密码</label>
+              <Input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="输入原密码" className="h-10" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">新密码</label>
+              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="至少 6 个字符" className="h-10" />
+            </div>
+            <Button className="w-full" onClick={handleChangePassword} disabled={pwdLoading}>
+              {pwdLoading ? "修改中..." : "确认修改"}
+            </Button>
+          </div>
+        </Modal>
 
         <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于系统">
           <div className="space-y-3 py-2 text-center">

@@ -219,6 +219,8 @@ def create_case(
     cd = req.case_data
     if not cd.get("name"):
         raise HTTPException(status_code=400, detail="病例数据必须包含 name 字段")
+    if len(str(cd.get("name", ""))) > 100:
+        raise HTTPException(status_code=400, detail="病例名称不能超过100个字符")
     case = Case(
         name=cd["name"],
         description=cd.get("description", ""),
@@ -249,6 +251,8 @@ def update_case(
     cd = req.case_data
     if not cd.get("name"):
         raise HTTPException(status_code=400, detail="病例数据必须包含 name 字段")
+    if len(str(cd.get("name", ""))) > 100:
+        raise HTTPException(status_code=400, detail="病例名称不能超过100个字符")
     case.name = cd["name"]
     case.description = cd.get("description", "")
     case.case_data = cd

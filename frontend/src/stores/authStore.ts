@@ -1,8 +1,25 @@
 import { create } from "zustand";
-import { login as apiLogin, getMe } from "@/api/api-client";
+import { login as apiLogin, refreshToken as apiRefreshToken, getMe } from "@/api/api-client";
 import type { AuthState, User } from "../types/store";
 
-const useAuthStore = create<AuthState>((set, get) => ({
+interface ExtendedAuthState extends AuthState {
+  permissions: string[];
+  isRefreshing: boolean;
+  refreshAuth: () => Promise<boolean>;
+}
+
+const loadPermissions = (): string[] => {
+  try {
+    const p = localStorage.getItem("user_permissions");
+    return p ? JSON.parse(p) : [];
+  } catch {
+    return [];
+  }
+};
+
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+const useAuthStore = create<ExtendedAuthState>((set, get) => ({
   user: ((): User | null => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
@@ -23,6 +40,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
   token: ((): string | null => {
     return localStorage.getItem("token") || null;
   })(),
+  permissions: loadPermissions(),
+  isRefreshing: false,
 
   login: async (username: string, password: string): Promise<User> => {
     const { data } = await apiLogin(username, password);
@@ -38,8 +57,27 @@ const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem("user", JSON.stringify(user));
     const perms = (data as any).permissions || [];
     localStorage.setItem("user_permissions", JSON.stringify(perms));
-    set({ user, token: data.access_token });
+    set({ user, token: data.access_token, permissions: perms });
+
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => get().refreshAuth(), 50 * 60 * 1000);
+
     return user;
+  },
+
+  refreshAuth: async (): Promise<boolean> => {
+    try {
+      const { data } = await apiRefreshToken();
+      localStorage.setItem("token", data.access_token);
+      const perms = (data as any).permissions || [];
+      localStorage.setItem("user_permissions", JSON.stringify(perms));
+      set({ token: data.access_token, permissions: perms });
+      return true;
+    } catch {
+      console.warn("[authStore] refreshAuth 失败，强制登出");
+      get().logout();
+      return false;
+    }
   },
 
   refreshUser: async (): Promise<void> => {
@@ -63,10 +101,14 @@ const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: (): void => {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("user_permissions");
-    set({ user: null, token: null });
+    set({ user: null, token: null, permissions: [] });
   },
 }));
 

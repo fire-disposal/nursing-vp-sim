@@ -52,6 +52,7 @@ export interface AuthState {
   login: (username: string, password: string) => Promise<User>;
   refreshUser: () => Promise<void>;
   logout: () => void;
+  permissions: string[];
 }
 
 export interface GradesClassesState {

@@ -1,4 +1,21 @@
-﻿import { ArrowLeft, CheckCircle2, Circle, Clock, Ear, EarOff, ListChecks, Mic, MicOff, Phone, Send, Volume2, VolumeX, X } from "lucide-react";
+﻿import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Ear,
+  EarOff,
+  ListChecks,
+  Mic,
+  MicOff,
+  Phone,
+  RefreshCw,
+  Send,
+  Volume2,
+  VolumeX,
+  WifiOff,
+  X,
+} from "lucide-react";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail, sendMessageStream } from "@/api/api-client";
@@ -177,10 +194,12 @@ export default function ChatTraining() {
   const progressSpeedRef = useRef(0);
   const prevShowScoreRef = useRef(false);
   const scoreCancelRef = useRef(false);
+  const failedMessageRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const { confirm } = useConfirm();
   const voice = useVoice({ patientGender: patientInfo?.gender, patientAge: patientInfo?.age });
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const toggleVoice = () => {
     voice.startListening().then(
@@ -228,6 +247,20 @@ export default function ChatTraining() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => {
+      setIsOnline(false);
+      toast.warning("网络已断开");
+    };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [toast.warning]);
 
   useEffect(() => {
     const isActive = () => remaining != null && remaining > 0 && !score && !ending;
@@ -296,7 +329,7 @@ export default function ChatTraining() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, []);
 
   useEffect(
     () => () => {
@@ -319,10 +352,14 @@ export default function ChatTraining() {
     }
   }, [messages, voice.autoPlay, voice.speakRaw]);
 
-  const handleSend = async () => {
-    const content = input.trim();
+  const handleSend = async (retryContent?: string) => {
+    const content = retryContent || input.trim();
     if (!content || loading) return;
-    setInput("");
+    if (retryContent) {
+      failedMessageRef.current = null;
+    } else {
+      setInput("");
+    }
     const studentMsgId = Date.now();
     const patientMsgId = studentMsgId + 1;
     setMessages((prev) => [
@@ -357,8 +394,8 @@ export default function ChatTraining() {
       },
       (error: string) => {
         toast.error(error);
-        setMessages((prev) => prev.filter((msg) => msg.id !== patientMsgId));
-        setInput(content);
+        setMessages((prev) => prev.filter((msg) => msg.id !== patientMsgId && msg.id !== studentMsgId));
+        failedMessageRef.current = content;
         setLoading(false);
         if (abortRef.current === controller) abortRef.current = null;
       },
@@ -430,7 +467,7 @@ export default function ChatTraining() {
       toast.info("训练时间已结束，正在自动评分...");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
+  }, [remaining, toast.warning, toast.info]);
 
   const executeEndRef = useRef(executeEnd);
   executeEndRef.current = executeEnd;
@@ -680,7 +717,7 @@ export default function ChatTraining() {
               voice.isListening && "border-destructive bg-destructive/10 text-destructive",
             )}
             onClick={toggleVoice}
-            disabled={loading || ending || remaining === 0}
+            disabled={loading || ending || remaining === 0 || !isOnline}
             title={voice.isListening ? "停止录音" : "语音输入"}
             aria-label={voice.isListening ? "停止录音" : "语音输入"}
           >
@@ -688,20 +725,37 @@ export default function ChatTraining() {
           </button>
         )}
 
+        {!isOnline && (
+          <div className="flex items-center gap-1.5 text-xs text-amber-600 shrink-0">
+            <WifiOff size={14} />
+            <span className="hidden sm:inline">网络已断开</span>
+          </div>
+        )}
+
+        {failedMessageRef.current && !loading ? (
+          <button
+            className="flex items-center gap-1.5 px-3 h-10 rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium shrink-0 hover:bg-amber-100 transition-colors"
+            onClick={() => handleSend(failedMessageRef.current!)}
+          >
+            <RefreshCw size={14} />
+            <span>重新发送</span>
+          </button>
+        ) : null}
+
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder={remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
-          disabled={loading || ending || remaining === 0}
+          placeholder={!isOnline ? "网络已断开" : remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
+          disabled={loading || ending || remaining === 0 || !isOnline}
           className="flex-1 h-10 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-background transition-all disabled:opacity-50"
         />
 
         <button
           className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
-          onClick={handleSend}
-          disabled={!input.trim() || loading || ending || remaining === 0}
+          onClick={() => handleSend()}
+          disabled={!input.trim() || loading || ending || remaining === 0 || !isOnline}
           aria-label="发送消息"
         >
           <Send size={17} />

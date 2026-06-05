@@ -71,7 +71,7 @@ export default function RolesPage() {
 
   useEffect(() => {
     loadRoles();
-  }, [search]);
+  }, [loadRoles]);
 
   const togglePerm = (perm: string) => {
     setEditPerms((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]));
@@ -87,7 +87,7 @@ export default function RolesPage() {
 
   const saveEdit = async (roleId: number) => {
     try {
-      await api.put("/admin/roles/" + roleId, { permissions: editPerms });
+      await api.put(`/admin/roles/${roleId}`, { permissions: editPerms });
       toast.success("权限已保存");
       setEditId(null);
       loadRoles();
@@ -120,7 +120,7 @@ export default function RolesPage() {
     });
     if (!ok) return;
     try {
-      await api.delete("/admin/roles/" + id);
+      await api.delete(`/admin/roles/${id}`);
       toast.success("角色已删除");
       loadRoles();
     } catch (e: any) {
