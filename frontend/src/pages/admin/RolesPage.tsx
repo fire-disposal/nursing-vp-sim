@@ -77,6 +77,9 @@ export default function RolesPage() {
   };
 
   const startEdit = (role: RoleItem) => {
+    if (editId !== null && editId !== role.id) {
+      if (!window.confirm("放弃当前编辑的修改？")) return;
+    }
     setEditId(role.id);
     setEditPerms([...role.permissions]);
   };
@@ -208,7 +211,15 @@ export default function RolesPage() {
           )}
         </div>
 
-        <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建角色">
+        <Modal
+          open={showCreate}
+          onClose={() => {
+            setNewName("");
+            setNewDisplayName("");
+            setShowCreate(false);
+          }}
+          title="新建角色"
+        >
           <div className="space-y-4 py-2">
             <div>
               <Label>角色标识</Label>

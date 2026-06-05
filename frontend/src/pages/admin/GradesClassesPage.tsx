@@ -269,7 +269,12 @@ export default function GradesClassesPage() {
 
         <Modal
           open={modalOpen}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setFormName("");
+            setFormGradeId("");
+            setEditId(null);
+            setModalOpen(false);
+          }}
           title={editId ? `编辑${tab === "grades" ? "年级" : "班级"}` : `新建${tab === "grades" ? "年级" : "班级"}`}
           footer={
             <>

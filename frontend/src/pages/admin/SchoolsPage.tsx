@@ -157,7 +157,17 @@ export default function SchoolsPage() {
           </div>
         )}
 
-        <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建学校">
+        <Modal
+          open={showCreate}
+          onClose={() => {
+            setName("");
+            setAdminUsername("");
+            setAdminPassword("");
+            setAdminDisplayName("");
+            setShowCreate(false);
+          }}
+          title="新建学校"
+        >
           <div className="space-y-4 py-2">
             <div>
               <Label>学校名称</Label>
