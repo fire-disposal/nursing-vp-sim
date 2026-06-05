@@ -16,16 +16,6 @@ class WeChatLoginStrategy(LoginStrategy):
         if not openid:
             return None
 
-        from models import UserIdentity
-
-        identity = (
-            self.db.query(UserIdentity)
-            .filter(UserIdentity.external_id == openid)
-            .first()
-        )
-        if identity:
-            return identity.user
-
         user = self.db.query(User).filter(User.wechat_openid == openid).first()
         if user:
             return user

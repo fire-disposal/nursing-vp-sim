@@ -81,7 +81,22 @@ jobs:
             cd /opt/nursing-vp-sim
             printf '%s' "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             echo ">> Staging v$VER"
-            IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging pull
+
+            for attempt in \$(seq 1 5); do
+              echo "  Pull attempt \$attempt/5..."
+              if IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging pull 2>&1; then
+                echo "  ✓ Pull ok"
+                break
+              fi
+              if [ "\$attempt" = "5" ]; then
+                echo "  ✗ Pull failed after 5 attempts"
+                exit 1
+              fi
+              echo "  ⚠ Pull failed, retrying in 15s..."
+              sleep 15
+            done
+
+            OLD_IMG=\$(docker inspect --format '{{.Config.Image}}' nursing-backend-staging 2>/dev/null || echo "")
             IMAGE_VERSION=$VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d --remove-orphans
             echo ">> Health check..."
             OK=false

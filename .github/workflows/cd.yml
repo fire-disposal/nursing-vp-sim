@@ -61,7 +61,15 @@ jobs:
             fi
             echo "✓ v$VER matches staging. Promoting to production..."
 
-            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull
+            IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || {
+              echo "  ⚠ First pull attempt failed, retrying after 10s..."
+              sleep 10
+              IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || {
+                echo "  ⚠ Second pull attempt failed, retrying after 30s..."
+                sleep 30
+                IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env pull || exit 1
+              }
+            }
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
 
             echo ">> Health check..."
