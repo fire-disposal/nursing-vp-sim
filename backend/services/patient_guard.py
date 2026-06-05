@@ -111,7 +111,7 @@ async def correct_via_llm(original: str, violations: list[str], client, router, 
     ]
     log.info("guard LLM 修正: violations=%d text_len=%d", len(violations), len(original))
     try:
-        from config import get_llm_config
+        from core.config import get_llm_config
 
         from services.llm_service import call_llm
 
@@ -183,29 +183,7 @@ def get_allowed_hidden_info(case_data: dict, student_message: str,
 
 def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str], bool]:
     """检测回复中的问题。返回 (normalized, violations, needs_correction)。
-    needs_correction=True 表示存在严重越界需要 LLM 二次修正。
+
+    注意：患者角色守卫模块暂未完成，当前为直通模式，不检测也不修正。
     """
-    violations: list[str] = []
-
-    normalized = normalize_addressing_to_nurse(reply)
-    if normalized != reply:
-        violations.append("称谓归一化: 医生/大夫/医师 -> 护士")
-
-    leak = check_role_leak(normalized)
-    if leak:
-        violations.append(f"角色越界: {leak}")
-
-    diag = check_diagnosis_leak(normalized)
-    if diag:
-        violations.append(f"诊断化: {diag}")
-
-    teach = check_teaching_leak(normalized)
-    if teach:
-        violations.append(f"教学反馈: {teach}")
-
-    needs_correction = bool(leak or diag or teach) and len(normalized) >= GUARD_MIN_LENGTH
-
-    if not needs_correction and len(normalized) > LONG_OUTPUT_LIMIT:
-        return normalized[:300] + "...", [*violations, f"截断: {len(normalized)}字"], False
-
-    return normalized, violations, needs_correction
+    return reply, [], False

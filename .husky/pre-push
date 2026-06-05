@@ -1,9 +1,5 @@
 #!/bin/sh
-# Pre-push quality gates — local CI mirror.
-#  SKIP_PREPUSH=1    git push    → skip all checks
-#  PREUSH_FAST=1     git push    → skip frontend typecheck (slower)
-#  npm run tag                    → auto-generate valid tag
-
+# Pre-push: tag format validation only (CI handles the rest)
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,40 +13,6 @@ say()  { echo "${CYAN}$1${NC}"; }
 ok()   { echo "  ${GREEN}ok${NC}  $1"; }
 fail() { echo "  ${RED}FAIL${NC} $1"; PASS=1; }
 
-# ── escape hatch ──────────────────────────────────────────────
-if [ -n "$SKIP_PREPUSH" ]; then
-  say "SKIP_PREPUSH  set — bypassing all quality checks"
-  exit 0
-fi
-
-# ── frontend ──────────────────────────────────────────────────
-say "─ frontend ─"
-
-if [ -f "$ROOT/frontend/package.json" ]; then
-  (cd "$ROOT/frontend" && ./node_modules/.bin/biome check src/ --max-diagnostics 20) \
-    && ok "biome lint" || fail "biome lint"
-
-  if [ -z "$PREUSH_FAST" ]; then
-    (cd "$ROOT/frontend" && ./node_modules/.bin/tsc --noEmit) \
-      && ok "tsc typecheck" || fail "tsc typecheck"
-  else
-    say "  (tsc typecheck skipped — PREUSH_FAST)"
-  fi
-else
-  say "  (no frontend/)"
-fi
-
-# ── backend ───────────────────────────────────────────────────
-say "─ backend ─"
-
-if [ -f "$ROOT/backend/pyproject.toml" ]; then
-  (cd "$ROOT/backend" && uv run ruff check .) \
-    && ok "ruff check" || fail "ruff check"
-else
-  say "  (no backend/)"
-fi
-
-# ── tag format validation (existing) ──────────────────────────
 pattern='^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(-[1-9][0-9]*)?$'
 
 while read -r local_ref local_sha remote_ref remote_sha; do
@@ -61,19 +23,19 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         echo ""
         echo "  Invalid tag: $tag"
         echo "  Expected: vYYYY.MM.DD or vYYYY.MM.DD-N"
-        echo "  Use 'npm run tag' to auto-generate and push a valid tag."
         PASS=1
+      else
+        ok "tag $tag"
       fi
       ;;
   esac
 done
 
-# ── result ────────────────────────────────────────────────────
 echo ""
 if [ $PASS -eq 0 ]; then
   echo "  ${GREEN}pre-push ok${NC}"
 else
-  echo "  ${RED}pre-push FAILED${NC} — fix above and retry, or SKIP_PREPUSH=1 to bypass"
+  echo "  ${RED}pre-push FAILED${NC}"
 fi
 echo ""
 

@@ -1,6 +1,8 @@
 #!/bin/sh
+# Pre-commit: format + lint staged files only (fast)
+set -e
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
 cd "$ROOT/frontend" || exit 1
-./node_modules/.bin/biome format --write src/
-cd "$ROOT"
-git add frontend/src/
+npx lint-staged
