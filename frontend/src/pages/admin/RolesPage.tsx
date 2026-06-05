@@ -5,6 +5,7 @@ import { api } from "@/api/axios-instance";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Layout from "@/components/Layout";
 import Modal from "@/components/ui/Modal";
 
 interface RoleItem {
@@ -104,86 +105,88 @@ export default function RolesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">角色管理</h1>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus size={16} /> 新建角色
-        </Button>
-      </div>
-
-      <div className="space-y-3">
-        {roles.map((role) => (
-          <div key={role.id} className="rounded-xl border bg-card p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="font-semibold">{role.display_name}</span>
-                <code className="ml-2 text-xs text-muted-foreground">{role.name}</code>
-                {role.is_system && <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">系统</span>}
-                <span className="ml-2 text-xs text-muted-foreground">{role.user_count} 用户</span>
-              </div>
-              <div className="flex gap-2">
-                {editId === role.id ? (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => saveEdit(role.id)}>
-                      <Save size={14} /> 保存
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
-                      <X size={14} />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => startEdit(role)}>
-                      编辑权限
-                    </Button>
-                    {!role.is_system && (
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(role.id, role.name)}>
-                        <Trash2 size={14} />
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-            {editId === role.id ? (
-              <div className="grid grid-cols-3 gap-2 mt-3">
-                {ALL_PERMISSIONS.map((p) => (
-                  <label key={p.key} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input type="checkbox" checked={editPerms.includes(p.key)} onChange={() => togglePerm(p.key)} className="size-4" />
-                    {p.label}
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {role.permissions.length === 0 && <span className="text-xs text-muted-foreground">无权限</span>}
-                {role.permissions.map((p) => (
-                  <span key={p} className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                    {ALL_PERMISSIONS.find((ap) => ap.key === p)?.label || p}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建角色">
-        <div className="space-y-4 py-2">
-          <div>
-            <Label>角色标识</Label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="英文标识，如：intern_teacher" />
-          </div>
-          <div>
-            <Label>显示名称</Label>
-            <Input value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} placeholder="如：见习教师" />
-          </div>
-          <Button className="w-full" onClick={handleCreate}>
-            创建角色
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">角色管理</h1>
+          <Button onClick={() => setShowCreate(true)}>
+            <Plus size={16} /> 新建角色
           </Button>
         </div>
-      </Modal>
-    </div>
+
+        <div className="space-y-3">
+          {roles.map((role) => (
+            <div key={role.id} className="rounded-xl border bg-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="font-semibold">{role.display_name}</span>
+                  <code className="ml-2 text-xs text-muted-foreground">{role.name}</code>
+                  {role.is_system && <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">系统</span>}
+                  <span className="ml-2 text-xs text-muted-foreground">{role.user_count} 用户</span>
+                </div>
+                <div className="flex gap-2">
+                  {editId === role.id ? (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => saveEdit(role.id)}>
+                        <Save size={14} /> 保存
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
+                        <X size={14} />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => startEdit(role)}>
+                        编辑权限
+                      </Button>
+                      {!role.is_system && (
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(role.id, role.name)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+              {editId === role.id ? (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {ALL_PERMISSIONS.map((p) => (
+                    <label key={p.key} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input type="checkbox" checked={editPerms.includes(p.key)} onChange={() => togglePerm(p.key)} className="size-4" />
+                      {p.label}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {role.permissions.length === 0 && <span className="text-xs text-muted-foreground">无权限</span>}
+                  {role.permissions.map((p) => (
+                    <span key={p} className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                      {ALL_PERMISSIONS.find((ap) => ap.key === p)?.label || p}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建角色">
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>角色标识</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="英文标识，如：intern_teacher" />
+            </div>
+            <div>
+              <Label>显示名称</Label>
+              <Input value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} placeholder="如：见习教师" />
+            </div>
+            <Button className="w-full" onClick={handleCreate}>
+              创建角色
+            </Button>
+          </div>
+        </Modal>
+      </div>
+    </Layout>
   );
 }
