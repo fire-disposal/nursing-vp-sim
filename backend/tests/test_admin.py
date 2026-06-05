@@ -158,13 +158,15 @@ class TestLLMLogs:
 
     def test_get_llm_logs_with_data(self, client, teacher, db_session, test_case):
         from core.security import hash_password
-        from models import LLMCallLog, TrainingRecord
+        from models import LLMCallLog, Role, TrainingRecord
         from models import User as UserModel
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         student = UserModel(
             username="logtest",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="测试学生",
         )
         db_session.add(student)
@@ -238,13 +240,15 @@ class TestLLMLogs:
     def test_get_llm_logs_aggregation(self, client, teacher, db_session, test_case):
         """聚合模式下 patient_chat 应合并为一条训练级记录"""
         from core.security import hash_password
-        from models import LLMCallLog, TrainingRecord
+        from models import LLMCallLog, Role, TrainingRecord
         from models import User as UserModel
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         student = UserModel(
             username="aggtest",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="聚合测试",
         )
         db_session.add(student)
@@ -311,13 +315,15 @@ class TestLLMLogs:
     def test_get_llm_logs_estimated_cost_zero(self, client, teacher, db_session, test_case):
         """estimated_cost 为 0 的聚合行不应因 falsy 而变成 None"""
         from core.security import hash_password
-        from models import LLMCallLog, TrainingRecord
+        from models import LLMCallLog, Role, TrainingRecord
         from models import User as UserModel
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         student = UserModel(
             username="zerocost",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="零费用",
         )
         db_session.add(student)
@@ -404,12 +410,14 @@ class TestUserManagement:
 
     def test_update_user(self, client, teacher, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         u = User(
             username="editme",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="旧名字",
         )
         db_session.add(u)
@@ -426,12 +434,14 @@ class TestUserManagement:
 
     def test_delete_user(self, client, teacher, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         u = User(
             username="deleteme",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="待删除",
         )
         db_session.add(u)
@@ -447,13 +457,17 @@ class TestUserManagement:
 
     def test_get_users_search(self, client, teacher, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
+
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
+        teacher_role = db_session.query(Role).filter(Role.name == "teacher").first()
 
         db_session.add(
             User(
                 username="zhangsan",
                 password_hash=hash_password("123"),
-                role="student",
+                role_id=student_role.id,
+                school_id=1,
                 display_name="张三",
                 student_id="202401",
             )
@@ -462,7 +476,8 @@ class TestUserManagement:
             User(
                 username="lisi",
                 password_hash=hash_password("123"),
-                role="teacher",
+                role_id=teacher_role.id,
+                school_id=1,
                 display_name="李四",
                 student_id="202402",
             )
@@ -471,7 +486,8 @@ class TestUserManagement:
             User(
                 username="wangwu",
                 password_hash=hash_password("123"),
-                role="student",
+                role_id=student_role.id,
+                school_id=1,
                 display_name="王五",
                 student_id="202403",
             )
@@ -512,12 +528,14 @@ class TestStudentDetail:
 
     def test_get_detail_empty(self, client, teacher, db_session):
         from core.security import hash_password
-        from models import User
+        from models import Role, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         s = User(
             username="emptystudent",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="空学生",
             student_id="S000",
         )
@@ -539,12 +557,14 @@ class TestStudentDetail:
         from datetime import datetime
 
         from core.security import hash_password
-        from models import Score, TrainingRecord, User
+        from models import Role, Score, TrainingRecord, User
 
+        student_role = db_session.query(Role).filter(Role.name == "student").first()
         s = User(
             username="activestudent",
             password_hash=hash_password("123"),
-            role="student",
+            role_id=student_role.id,
+            school_id=1,
             display_name="学霸",
             student_id="TOP001",
         )
