@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
 import { Plus, Save, Trash2, X } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 
 interface RoleItem {
@@ -52,12 +51,12 @@ export default function RolesPage() {
     }
   };
 
-  useEffect(() => { loadRoles(); }, []);
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
   const togglePerm = (perm: string) => {
-    setEditPerms((prev) =>
-      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]
-    );
+    setEditPerms((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]));
   };
 
   const startEdit = (role: RoleItem) => {
@@ -84,7 +83,9 @@ export default function RolesPage() {
     try {
       await api.post("/admin/roles", { name: newName, display_name: newDisplayName, permissions: [] });
       toast.success("角色已创建，请编辑权限");
-      setNewName(""); setNewDisplayName(""); setShowCreate(false);
+      setNewName("");
+      setNewDisplayName("");
+      setShowCreate(false);
       loadRoles();
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || "创建失败");
@@ -106,7 +107,9 @@ export default function RolesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">角色管理</h1>
-        <Button onClick={() => setShowCreate(true)}><Plus size={16} /> 新建角色</Button>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus size={16} /> 新建角色
+        </Button>
       </div>
 
       <div className="space-y-3">
@@ -122,12 +125,18 @@ export default function RolesPage() {
               <div className="flex gap-2">
                 {editId === role.id ? (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => saveEdit(role.id)}><Save size={14} /> 保存</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)}><X size={14} /></Button>
+                    <Button size="sm" variant="outline" onClick={() => saveEdit(role.id)}>
+                      <Save size={14} /> 保存
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
+                      <X size={14} />
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => startEdit(role)}>编辑权限</Button>
+                    <Button size="sm" variant="outline" onClick={() => startEdit(role)}>
+                      编辑权限
+                    </Button>
                     {!role.is_system && (
                       <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(role.id, role.name)}>
                         <Trash2 size={14} />
@@ -150,7 +159,9 @@ export default function RolesPage() {
               <div className="flex flex-wrap gap-1">
                 {role.permissions.length === 0 && <span className="text-xs text-muted-foreground">无权限</span>}
                 {role.permissions.map((p) => (
-                  <span key={p} className="text-xs bg-muted px-1.5 py-0.5 rounded">{ALL_PERMISSIONS.find((ap) => ap.key === p)?.label || p}</span>
+                  <span key={p} className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                    {ALL_PERMISSIONS.find((ap) => ap.key === p)?.label || p}
+                  </span>
                 ))}
               </div>
             )}
@@ -168,7 +179,9 @@ export default function RolesPage() {
             <Label>显示名称</Label>
             <Input value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} placeholder="如：见习教师" />
           </div>
-          <Button className="w-full" onClick={handleCreate}>创建角色</Button>
+          <Button className="w-full" onClick={handleCreate}>
+            创建角色
+          </Button>
         </div>
       </Modal>
     </div>

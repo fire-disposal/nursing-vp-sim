@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { api } from "@/api/axios-instance";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { api } from "@/api/axios-instance";
 import Modal from "@/components/ui/Modal";
 
 interface SchoolItem {
@@ -32,7 +32,9 @@ export default function SchoolsPage() {
     }
   };
 
-  useEffect(() => { loadSchools(); }, []);
+  useEffect(() => {
+    loadSchools();
+  }, []);
 
   const handleCreate = async () => {
     if (!name.trim() || !adminUsername.trim() || !adminPassword || !adminDisplayName.trim()) {
@@ -42,7 +44,10 @@ export default function SchoolsPage() {
     try {
       await api.post("/admin/schools", { name, admin_username: adminUsername, admin_password: adminPassword, admin_display_name: adminDisplayName });
       toast.success("学校创建成功");
-      setName(""); setAdminUsername(""); setAdminPassword(""); setAdminDisplayName("");
+      setName("");
+      setAdminUsername("");
+      setAdminPassword("");
+      setAdminDisplayName("");
       setShowCreate(false);
       loadSchools();
     } catch (e: any) {
@@ -65,7 +70,9 @@ export default function SchoolsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">学校管理</h1>
-        <Button onClick={() => setShowCreate(true)}><Plus size={16} /> 新建学校</Button>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus size={16} /> 新建学校
+        </Button>
       </div>
 
       <div className="rounded-xl border bg-card">
@@ -115,7 +122,9 @@ export default function SchoolsPage() {
             <Label>管理员显示名</Label>
             <Input value={adminDisplayName} onChange={(e) => setAdminDisplayName(e.target.value)} placeholder="管理员姓名" />
           </div>
-          <Button className="w-full" onClick={handleCreate}>创建学校</Button>
+          <Button className="w-full" onClick={handleCreate}>
+            创建学校
+          </Button>
         </div>
       </Modal>
     </div>

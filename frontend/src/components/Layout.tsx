@@ -55,12 +55,12 @@ export default function Layout({ children }: { children: ReactNode }) {
   const logout = useAuthStore((s) => s.logout);
   function getVisibleLinks(): NavLinkItem[] {
     const permsStr = localStorage.getItem("user_permissions");
-    if (!permsStr) return allLinks.filter(l => !l.permission);
+    if (!permsStr) return allLinks.filter((l) => !l.permission);
     try {
       const perms: string[] = JSON.parse(permsStr);
       return allLinks.filter((link) => !link.permission || perms.includes(link.permission));
     } catch {
-      return allLinks.filter(l => !l.permission);
+      return allLinks.filter((l) => !l.permission);
     }
   }
 

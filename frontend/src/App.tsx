@@ -182,8 +182,22 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="/admin/schools" element={<ProtectedRoute permission="school_manage"><AdminSchools /></ProtectedRoute>} />
-                  <Route path="/admin/roles" element={<ProtectedRoute permission="role_manage"><AdminRoles /></ProtectedRoute>} />
+                  <Route
+                    path="/admin/schools"
+                    element={
+                      <ProtectedRoute permission="school_manage">
+                        <AdminSchools />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/roles"
+                    element={
+                      <ProtectedRoute permission="role_manage">
+                        <AdminRoles />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
               </Suspense>
