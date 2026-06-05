@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/Button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
@@ -23,6 +24,7 @@ export default function SchoolsPage() {
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminDisplayName, setAdminDisplayName] = useState("");
+  const { confirm } = useConfirm();
 
   const loadSchools = async () => {
     try {
@@ -57,7 +59,11 @@ export default function SchoolsPage() {
   };
 
   const handleDelete = async (id: number, schoolName: string) => {
-    if (!window.confirm("确定要删除学校「" + schoolName + "」？此操作不可恢复。")) return;
+    const ok = await confirm({
+      title: "删除学校",
+      message: `确定要删除学校「${schoolName}」？此操作不可恢复。`,
+    });
+    if (!ok) return;
     try {
       await api.delete("/admin/schools/" + id);
       toast.success("学校已删除");

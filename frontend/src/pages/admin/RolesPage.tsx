@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/Button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
@@ -42,6 +43,7 @@ export default function RolesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
+  const { confirm } = useConfirm();
 
   const loadRoles = async () => {
     try {
@@ -94,7 +96,11 @@ export default function RolesPage() {
   };
 
   const handleDelete = async (id: number, name: string) => {
-    if (!window.confirm("确定要删除角色「" + name + "」？")) return;
+    const ok = await confirm({
+      title: "删除角色",
+      message: `确定要删除角色「${name}」？`,
+    });
+    if (!ok) return;
     try {
       await api.delete("/admin/roles/" + id);
       toast.success("角色已删除");

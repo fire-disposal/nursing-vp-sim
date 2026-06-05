@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import FormField from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
@@ -30,11 +30,11 @@ export default function GradesClassesPage() {
   const [tab, setTab] = useState<"grades" | "classes">("grades");
   const [gradeFilter, setGradeFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Grade | ClassItem | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [formName, setFormName] = useState("");
   const [formGradeId, setFormGradeId] = useState("");
   const toast = useToast();
+  const { confirm } = useConfirm();
 
   const { grades, classes, fetchGrades, fetchClasses, createGrade, updateGrade, deleteGrade, createClass, updateClass, deleteClass } = useGradesClassesStore();
 
@@ -93,23 +93,39 @@ export default function GradesClassesPage() {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
+  const handleDeleteGrade = async (item: Grade) => {
+    const ok = await confirm({
+      title: "删除年级",
+      message: `确定要删除年级「${item.name}」吗？将同时删除该年级下所有班级，学生班级归属将被清除。`,
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      if (tab === "grades") {
-        await deleteGrade(deleteTarget.id);
-        fetchGrades();
-        fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
-      } else {
-        await deleteClass(deleteTarget.id);
-        fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
-      }
+      await deleteGrade(item.id);
+      fetchGrades();
+      fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
       toast.success("已删除");
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } };
       toast.error(err.response?.data?.detail || "操作失败");
     }
-    setDeleteTarget(null);
+  };
+
+  const handleDeleteClass = async (item: ClassItem) => {
+    const ok = await confirm({
+      title: "删除班级",
+      message: `确定要删除班级「${item.name}」吗？该班级中学生将变为无归属状态。`,
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteClass(item.id);
+      fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
+      toast.success("已删除");
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      toast.error(err.response?.data?.detail || "操作失败");
+    }
   };
 
   const tabs = [
@@ -189,7 +205,12 @@ export default function GradesClassesPage() {
                       <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                         编辑
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:bg-destructive/10" onClick={() => setDeleteTarget(item)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:bg-destructive/10"
+                        onClick={() => (tab === "grades" ? handleDeleteGrade(item as Grade) : handleDeleteClass(item as ClassItem))}
+                      >
                         删除
                       </Button>
                     </div>
@@ -238,19 +259,6 @@ export default function GradesClassesPage() {
             />
           </FormField>
         </Modal>
-
-        <ConfirmDialog
-          open={!!deleteTarget}
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-          title={`删除${tab === "grades" ? "年级" : "班级"}`}
-          message={
-            tab === "grades"
-              ? `确定要删除年级「${deleteTarget?.name}」吗？将同时删除该年级下所有班级，学生班级归属将被清除。`
-              : `确定要删除班级「${deleteTarget?.name}」吗？该班级中学生将变为无归属状态。`
-          }
-          danger
-        />
       </div>
     </Layout>
   );
