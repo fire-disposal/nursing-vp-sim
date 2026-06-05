@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from core.config import APP_VERSION, log_config, validate_config
+from core.config import APP_VERSION, CLEANUP_INTERVAL_SECONDS, log_config, validate_config
 from core.database import engine, init_db
 from core.logging_setup import setup_logging
 from middleware.rate_limits import RateLimiter
@@ -254,6 +254,11 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
     app.state._cleanup_task = cleanup_task
 
+    from services.auto_settlement import run_cleanup_loop
+    settlement_task = asyncio.create_task(run_cleanup_loop())
+    app.state._settlement_task = settlement_task
+    log.info("自动结算就绪 (间隔=%ds)", CLEANUP_INTERVAL_SECONDS)
+
     _loop = asyncio.get_running_loop()
     _loop.set_exception_handler(_handle_task_exception)
 
@@ -266,6 +271,9 @@ async def lifespan(app: FastAPI):
     cleanup_task.cancel()
     with suppress(asyncio.CancelledError):
         await cleanup_task
+    settlement_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await settlement_task
     await app.state.log_worker.stop()
     if app.state.httpx_client:
         await app.state.httpx_client.aclose()
