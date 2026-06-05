@@ -164,6 +164,7 @@ export default function ChatTraining() {
   const [showInquirySidebar, setShowInquirySidebar] = useState(false);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [showPortrait, setShowPortrait] = useState(true);
+  const [recordStatus, setRecordStatus] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -259,6 +260,16 @@ export default function ChatTraining() {
         if (detail.case_name) setCaseTitle(detail.case_name);
         if (detail.required_inquiries) setRequiredInquiries(detail.required_inquiries as unknown as string[]);
         if (detail.patient_info) setPatientInfo(detail.patient_info as unknown as PatientInfo);
+        setRecordStatus(detail.status || null);
+        if (detail.status === "completed") {
+          setRemaining(null);
+          setTimerActive(false);
+          if (detail.score) {
+            setScore(detail.score as ScoreData);
+            setShowScore(true);
+          }
+          return;
+        }
         const r =
           detail.remaining_seconds != null
             ? detail.remaining_seconds
@@ -580,6 +591,12 @@ export default function ChatTraining() {
               </div>
               <p className="text-sm font-medium text-foreground/70">请按照护理评估流程与患者交流</p>
               <span className="text-xs block mt-1 text-muted-foreground/70">从主诉开始，逐步了解现病史、既往史、用药史等信息</span>
+            </div>
+          )}
+
+          {remaining == null && recordStatus === "completed" && !score && messages.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 mb-3 text-sm text-amber-700 dark:text-amber-400">
+              训练已结束，暂无评分。可在记录详情中请求评分。
             </div>
           )}
 
