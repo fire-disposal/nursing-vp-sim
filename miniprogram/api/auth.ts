@@ -1,4 +1,4 @@
-import { get, post } from "./client"
+import { get, post, request } from "./client"
 
 export interface LoginRequest {
   username: string
@@ -55,4 +55,12 @@ export function wechatBind(code: string) {
 
 export function wechatRegister(data: WechatRegisterRequest) {
   return post<LoginResponse>("/api/auth/wechat/register", data as unknown as Record<string, unknown>)
+}
+
+export function refreshToken() {
+  return post<LoginResponse>("/api/auth/refresh")
+}
+
+export function changePassword(oldPassword: string, newPassword: string) {
+  return request<{ ok: boolean; message: string }>("PUT", "/api/auth/change-password", { old_password: oldPassword, new_password: newPassword } as unknown as Record<string, unknown>)
 }
