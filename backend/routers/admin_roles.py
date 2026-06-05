@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/admin/roles", tags=["角色管理"])
 def list_roles(
     current_user: User = Depends(require_permission("role_manage")),
     db: Session = Depends(get_db),
-    search: Annotated[str, Query(default="")] = "",
+    search: Annotated[str, Query()] = "",
 ):
     query = db.query(Role).filter(Role.school_id == current_user.school_id)
     if search:
