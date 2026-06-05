@@ -112,7 +112,7 @@ class ProfileRouter:
                 self._profiles = {p.id: p for p in profiles}
                 self._bindings = {}
                 for b in bindings:
-                    self._bindings.setdefault(b.purpose, b)
+                    self._bindings[b.purpose] = b
                 self._global_degraded_until = None
 
             log.info("ProfileRouter loaded: %d profiles, %d bindings", len(profiles), len(bindings))
