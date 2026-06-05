@@ -1,7 +1,7 @@
 ﻿import {
   BarChart3,
-  ClipboardList,
   Building2,
+  ClipboardList,
   GraduationCap,
   HelpCircle,
   Home,
