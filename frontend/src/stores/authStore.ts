@@ -30,6 +30,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
     const user: User = {
       user_id: data.user_id,
       role: data.role,
+      role_display_name: (data as any).role_display_name || data.role,
       display_name: data.display_name,
       school_id: (data as any).school_id ?? undefined,
       school_name: (data as any).school_name ?? undefined,
@@ -47,6 +48,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       const user: User = {
         user_id: data.id,
         role: data.role,
+        role_display_name: (data as any).role_display_name || data.role,
         display_name: data.display_name,
       };
       localStorage.setItem("user", JSON.stringify(user));

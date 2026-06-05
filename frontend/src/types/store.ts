@@ -2,6 +2,7 @@ export interface User {
   user_id: number;
   username?: string;
   role: string;
+  role_display_name: string;
   display_name: string;
   avatar?: string;
   grade?: string;
