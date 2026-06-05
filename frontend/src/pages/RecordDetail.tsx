@@ -494,14 +494,14 @@ export default function RecordDetail() {
                       : "评分尚未生成"}
                 </p>
               </div>
-              {record.scoring_status === "failed" && (
+              {(record.scoring_status === "failed" || record.scoring_status == null) && (
                 <button
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   onClick={handleRetryScoring}
                   disabled={retrying}
                 >
                   <RefreshCw size={14} className={cn(retrying && "animate-spin")} />
-                  <span>{retrying ? "重试中..." : "重新评分"}</span>
+                  <span>{retrying ? "请求中..." : record.scoring_status === "failed" ? "重新评分" : "请求评分"}</span>
                 </button>
               )}
             </div>
