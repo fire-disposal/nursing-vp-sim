@@ -69,7 +69,12 @@ def upgrade() -> None:
     _safe_add_column("roles", sa.Column("id_new", sa.Integer(), autoincrement=True, nullable=True))
     _safe_add_column("roles", sa.Column("school_id", sa.Integer(), nullable=True))
 
-    op.execute("UPDATE roles SET id_new = CASE WHEN name = 'teacher' THEN 1 WHEN name = 'student' THEN 2 ELSE 3 END")
+    op.execute("""
+        UPDATE roles r
+        SET id_new = seq.rn
+        FROM (SELECT name, row_number() OVER (ORDER BY name) AS rn FROM roles) AS seq
+        WHERE r.name = seq.name
+    """)
     op.execute("UPDATE roles SET school_id = NULL")
 
     if _has_constraint("roles", "roles_pkey"):

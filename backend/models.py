@@ -46,7 +46,7 @@ class Grade(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     classes: Mapped[list["Class"]] = relationship(back_populates="grade", cascade="all, delete-orphan")
-    school: Mapped["School | None"] = relationship()
+    school: Mapped["School"] = relationship()
 
 
 class Class(Base):
@@ -92,8 +92,8 @@ class User(Base):
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
     user_class: Mapped["UserClass | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
-    role: Mapped["Role | None"] = relationship()
-    school: Mapped["School | None"] = relationship()
+    role: Mapped["Role"] = relationship()
+    school: Mapped["School"] = relationship()
 
     def has_permission(self, permission: str) -> bool:
         cache = getattr(self, "_permissions_cache", None)
