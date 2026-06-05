@@ -30,26 +30,6 @@ class Base(DeclarativeBase):
     pass
 
 
-def _log_connection() -> None:
-    parsed = urlparse(DATABASE_URL)
-    safe_url = f"{parsed.scheme}://{parsed.username}:***@{parsed.hostname}:{parsed.port}{parsed.path}"
-    log.info("数据库连接: %s", safe_url)
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-            if parsed.scheme.startswith("postgres"):
-                result = conn.execute(text("SELECT current_database(), version()"))
-                row = result.fetchone()
-                db_name = row[0]
-                pg_ver = row[1].split(",")[0] if row[1] else "unknown"
-                log.info("数据库连接成功 → %s (PostgreSQL %s)", db_name, pg_ver)
-            else:
-                raise RuntimeError(f"不支持的数据库类型: {parsed.scheme}。只支持 PostgreSQL。")
-    except Exception as e:
-        log.exception("数据库连接失败: %s: %s", type(e).__name__, e)
-        raise
-
-
 def get_db():
     db = SessionLocal()
     try:

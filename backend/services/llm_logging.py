@@ -139,6 +139,12 @@ class LogWorker:
         if batch:
             self._flush(batch)
 
+    async def _drain_on_overflow(self, entry: dict):
+        try:
+            await asyncio.wait_for(self._queue.put(entry), timeout=2.0)
+        except (asyncio.TimeoutError, asyncio.QueueFull):
+            log.error("llm log overflow drain failed, entry lost")
+
     @staticmethod
     def _flush(items: list[dict]):
         from models import LLMCallLog
@@ -222,7 +228,12 @@ class LogWorker:
         try:
             self._queue.put_nowait(entry)
         except asyncio.QueueFull:
-            log.warning(
-                "llm log queue full, entry logged as JSON fallback: %s",
-                _json.dumps(entry, ensure_ascii=False, default=str)[:2000],
+            log.error(
+                "llm log queue full (%d), triggering emergency drain", self._queue.maxsize
             )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._drain_on_overflow(entry))
+            except RuntimeError:
+                log.error("llm log queue overflow, entry lost: %s",
+                          _json.dumps(entry, ensure_ascii=False, default=str)[:500])

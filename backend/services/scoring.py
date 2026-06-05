@@ -359,7 +359,7 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
 
 
 def _convert_to_100_scale(result: dict, raw_max: int):
-    if raw_max == 100:
+    if raw_max == 100 or raw_max <= 0:
         return
     factor = 100.0 / raw_max
     result["total_score"] = round(result["total_score"] * factor)

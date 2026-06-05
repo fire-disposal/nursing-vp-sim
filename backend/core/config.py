@@ -89,7 +89,7 @@ def get_llm_config(purpose: str) -> dict:
             if purpose in overrides:
                 return overrides[purpose]
         except _json.JSONDecodeError:
-            pass
+            log.warning("LLM_CONFIG_JSON 解析失败，使用默认配置")
     return _LLM_PURPOSE_DEFAULTS.get(purpose, _LLM_PURPOSE_DEFAULTS["patient_chat"])
 
 # 自动结算与智能评分

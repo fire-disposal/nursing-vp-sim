@@ -215,7 +215,14 @@ async def send_message_stream(
                     extra={"error": str(e), "user_id": current_user.id, "record_id": record_id},
                 )
                 if full_reply:
+                    student_msg = Message(record_id=record_id, role="student", content=req.content)
+                    db.add(student_msg)
+                    patient_msg = Message(record_id=record_id, role="patient", content=full_reply)
+                    db.add(patient_msg)
+                    db.commit()
+                    db.refresh(patient_msg)
                     yield f"data: {json.dumps({'content': full_reply, 'truncated': True, 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
                 else:
                     import random
                     fallback = random.choice([
@@ -226,9 +233,14 @@ async def send_message_stream(
                         "让我想想啊……嗯，好像没什么特别的。",
                         "这个医生倒是提过，但我没记住。",
                     ])
+                    student_msg = Message(record_id=record_id, role="student", content=req.content)
+                    db.add(student_msg)
+                    patient_msg = Message(record_id=record_id, role="patient", content=fallback)
+                    db.add(patient_msg)
+                    db.commit()
+                    db.refresh(patient_msg)
                     yield f"data: {json.dumps({'content': fallback}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
-                    return
+                    yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
             finally:
                 db.close()
 

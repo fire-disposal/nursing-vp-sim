@@ -95,12 +95,14 @@ def _cleanup_once():
                 record.end_time = now
 
                 if should_auto_score(messages, case_data):
-                    record.scoring_status = "pending"
-                    db.commit()
-
                     from routers.training import _run_scoring_background, _try_acquire_scoring
 
-                    if _try_acquire_scoring(record.id):
+                    if not _try_acquire_scoring(record.id):
+                        log.warning("自动结算: record_id=%d 评分锁已被占用，跳过评分", record.id)
+                    else:
+                        record.scoring_status = "pending"
+                        db.commit()
+
                         t = threading.Thread(
                             target=_run_scoring_background,
                             args=(record.id, case_data),
@@ -117,8 +119,6 @@ def _cleanup_once():
                             sum(len(m.content) for m in messages if m.role == "student"),
                             sum(len(m.content) for m in messages if m.role == "patient"),
                         )
-                    else:
-                        log.warning("自动结算: record_id=%d 评分锁已被占用，跳过评分", record.id)
                 else:
                     db.commit()
                     log.info(

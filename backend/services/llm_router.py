@@ -175,30 +175,33 @@ class ProfileRouter:
             await _update_synthetic_stats(success, tokens)
             return
 
-        profile = self._profiles.get(config.secret_id)
-        if not profile:
-            return
+        async with self._state_lock:
+            profile = self._profiles.get(config.secret_id)
+            if not profile:
+                return
 
-        now = datetime.now(UTC)
-        if success:
-            profile.consecutive_failures = 0
-            if profile.status == "degraded":
-                profile.status = "active"
-                profile.degraded_reason = None
-                profile.degraded_until = None
-            self._update_stats(profile, tokens)
-        elif error and "429" in error:
-            profile.status = "degraded"
-            profile.degraded_reason = "rate_limited"
-            profile.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
-        else:
-            profile.consecutive_failures += 1
-            if profile.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            now = datetime.now(UTC)
+            if success:
+                profile.consecutive_failures = 0
+                if profile.status == "degraded":
+                    profile.status = "active"
+                    profile.degraded_reason = None
+                    profile.degraded_until = None
+                self._update_stats(profile, tokens)
+            elif error and "429" in error:
                 profile.status = "degraded"
-                profile.degraded_reason = "consecutive_failures"
-                profile.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
+                profile.degraded_reason = "rate_limited"
+                profile.degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+            else:
+                profile.consecutive_failures += 1
+                if profile.consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                    profile.status = "degraded"
+                    profile.degraded_reason = "consecutive_failures"
+                    profile.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
 
-        if profile.status == "degraded" or profile.call_count_today % 5 == 0:
+            should_persist = profile.status == "degraded" or profile.call_count_today % 5 == 0
+
+        if should_persist:
             self._persist_stats(profile)
 
     def _update_stats(self, profile, tokens: int):

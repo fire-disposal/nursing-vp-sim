@@ -7,9 +7,10 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from core.config import APP_VERSION, CLEANUP_INTERVAL_SECONDS, log_config, validate_config
-from core.database import engine, init_db
+from core.database import engine, get_db, init_db
 from core.logging_setup import setup_logging
 from middleware.rate_limits import RateLimiter
 from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, qa, stats, training
@@ -413,5 +414,24 @@ app.include_router(admin_roles_router)
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "version": APP_VERSION}
+async def health(request: Request):
+    health_info = {"status": "ok", "version": APP_VERSION}
+    try:
+        db = next(get_db())
+        try:
+            db.execute(text("SELECT 1"))
+            health_info["db"] = "ok"
+        finally:
+            db.close()
+    except Exception:
+        health_info["db"] = "error"
+        health_info["status"] = "degraded"
+    try:
+        from services.llm_router import get_env_fallback_state
+        fb = await get_env_fallback_state()
+        health_info["llm"] = "ok" if fb.get("available") else "unavailable"
+        if not fb.get("available"):
+            health_info["status"] = "degraded"
+    except Exception:
+        health_info["llm"] = "unknown"
+    return health_info
