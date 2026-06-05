@@ -43,11 +43,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         fi
       fi
 
-      # 3. Validate counter
+      # 3. Validate counter (exclude the tag being pushed)
       tag_num=$(echo "$tag" | sed -E 's/^v[0-9.]+-//')
       prefix="v${today}-"
 
-      existing=$(git tag -l "${prefix}*" | sed "s/${prefix}//" | sort -n)
+      existing=$(git tag -l "${prefix}*" | grep -v "^${tag}$" | sed "s/${prefix}//" | sort -n)
       if [ -z "$existing" ]; then
         highest=0
       else
