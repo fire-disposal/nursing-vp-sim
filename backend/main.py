@@ -57,25 +57,86 @@ async def _verify_llm() -> bool:
 def _seed_data():
     from core.database import SessionLocal
     from core.security import hash_password
-    from models import Case, Role, RolePermission, Rubric, User
+    from models import Case, Role, RolePermission, Rubric, School, User
+
+    SYSTEM_PERMISSIONS = {
+        "super_admin": [
+            "user_manage", "role_manage", "grade_class_manage", "case_manage",
+            "training_access", "score_review", "stats_view", "qa_access",
+            "llm_monitor", "api_manage", "prompt_manage", "feedback_review",
+            "export_data", "record_notes", "school_manage",
+        ],
+        "school_admin": [
+            "user_manage", "role_manage", "grade_class_manage", "case_manage",
+            "training_access", "score_review", "stats_view", "qa_access",
+            "llm_monitor", "feedback_review", "export_data", "record_notes",
+        ],
+        "teacher": [
+            "grade_class_manage", "case_manage", "training_access",
+            "score_review", "stats_view", "feedback_review",
+            "export_data", "record_notes",
+        ],
+        "student": [
+            "training_access", "qa_access",
+        ],
+    }
+
+    SYSTEM_ROLES = [
+        ("super_admin", "超级管理员"),
+        ("school_admin", "学校管理员"),
+        ("teacher", "教师"),
+        ("student", "学生"),
+    ]
 
     db = SessionLocal()
     try:
-        if db.query(Role).count() == 0:
-            db.add_all([
-                Role(name="teacher", display_name="教师", is_system=True),
-                Role(name="student", display_name="学生", is_system=True),
-            ])
+        # 1. 确保默认学校存在
+        school = db.query(School).filter(School.name == "默认学校").first()
+        if not school:
+            school = School(name="默认学校")
+            db.add(school)
             db.flush()
-            for perm_list, role_name in [
-                (["teacher_access", "user_manage", "case_manage", "score_review", "llm_monitor", "api_manage", "prompt_manage", "grade_class_manage"], "teacher"),
-                (["training_access", "qa_access"], "student"),
-            ]:
-                for p in perm_list:
-                    db.add(RolePermission(role_name=role_name, permission=p))
-            db.commit()
-            log.info("RBAC 已初始化")
+            log.info("默认学校已创建")
 
+        # 2. 确保系统模板角色存在 (school_id=NULL)
+        template_roles = {}
+        existing_templates = db.query(Role).filter(Role.school_id.is_(None)).all()
+        if not existing_templates:
+            for name, display_name in SYSTEM_ROLES:
+                template = Role(name=name, display_name=display_name, school_id=None, is_system=True)
+                db.add(template)
+                db.flush()
+                template_roles[name] = template.id
+                for perm in SYSTEM_PERMISSIONS.get(name, []):
+                    db.add(RolePermission(role_id=template.id, permission=perm))
+            db.commit()
+            log.info("系统模板角色已初始化")
+        else:
+            for r in existing_templates:
+                template_roles[r.name] = r.id
+
+        # 3. 确保默认学校的角色存在
+        school_roles = db.query(Role).filter(Role.school_id == school.id).all()
+        school_role_ids = {}
+        if not school_roles:
+            for name, display_name in SYSTEM_ROLES:
+                role = Role(name=name, display_name=display_name, school_id=school.id, is_system=True)
+                db.add(role)
+                db.flush()
+                school_role_ids[name] = role.id
+            db.commit()
+            for name, perms in SYSTEM_PERMISSIONS.items():
+                rid = school_role_ids.get(name)
+                if rid:
+                    for perm in perms:
+                        db.add(RolePermission(role_id=rid, permission=perm))
+            db.commit()
+            log.info("默认学校角色已初始化")
+        else:
+            for r in school_roles:
+                school_role_ids[r.name] = r.id
+
+        # 4. 评分标准
         if db.query(Rubric).count() == 0:
             rubric_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "rubrics", "nursing_history_v1.json")
             if os.path.isfile(rubric_path):
@@ -95,18 +156,35 @@ def _seed_data():
                 db.commit()
                 log.info("评分标准已导入")
 
+        # 5. 超级管理员
         username = os.environ.get("SEED_ADMIN_USERNAME", "admin")
         password = os.environ.get("SEED_ADMIN_PASSWORD", "admin123")
         if not os.environ.get("SEED_ADMIN_USERNAME"):
             log.warning("SEED_ADMIN_* 未设置，使用默认 admin/admin123")
         if not db.query(User).filter(User.username == username).first():
-            db.add(User(username=username, password_hash=hash_password(password), role="teacher", display_name="管理员"))
+            sa_role_id = school_role_ids.get("super_admin")
+            db.add(User(
+                username=username,
+                password_hash=hash_password(password),
+                role_id=sa_role_id,
+                school_id=school.id,
+                display_name="超级管理员",
+            ))
             db.commit()
-            log.info("管理员已创建 (%s)", username)
+            log.info("超级管理员已创建 (%s)", username)
 
+        # 6. 测试学生和病例 (仅首次初始化)
         if db.query(User).filter(User.username != username).count() == 0:
+            student_role_id = school_role_ids.get("student")
             for i in range(1, 6):
-                db.add(User(username=f"student{i}", password_hash=hash_password("123456"), role="student", display_name=f"学生{i}", student_id=f"202400{i:02d}"))
+                db.add(User(
+                    username=f"student{i}",
+                    password_hash=hash_password("123456"),
+                    role_id=student_role_id,
+                    school_id=school.id,
+                    display_name=f"学生{i}",
+                    student_id=f"202400{i:02d}",
+                ))
             log.info("测试学生已创建 (student1-5 / 123456)")
 
             cases_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cases")
@@ -116,7 +194,7 @@ def _seed_data():
                     import json as _json
                     with open(os.path.join(cases_dir, fname), encoding="utf-8") as f:
                         d = _json.load(f)
-                    db.add(Case(name=d.get("name", fname), description=d.get("description", ""), case_data=d))
+                    db.add(Case(name=d.get("name", fname), description=d.get("description", ""), case_data=d, school_id=None))
                     case_count += 1
             db.commit()
             log.info("内置病例已导入 (%d)", case_count)

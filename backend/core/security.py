@@ -4,7 +4,7 @@ import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from core.database import get_db
@@ -41,17 +41,24 @@ def get_current_user(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = (
+        db.query(User)
+        .options(joinedload(User.role), joinedload(User.school))
+        .filter(User.id == user_id)
+        .first()
+    )
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
 
-    rows = db.query(RolePermission.permission).filter(RolePermission.role_name == user.role).all()
+    rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     user.set_permissions_cache({r.permission for r in rows})
 
     return user
 
 
-def require_teacher(current_user: User = Depends(get_current_user)) -> User:
-    if not current_user.has_permission("teacher_access"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要教师权限")
-    return current_user
+def require_permission(permission: str):
+    def checker(current_user: User = Depends(get_current_user)) -> User:
+        if not current_user.has_permission(permission):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
+        return current_user
+    return checker
