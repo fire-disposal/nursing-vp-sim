@@ -51,6 +51,13 @@ rollback_to() {
     entry=$(sed -n "${line_num}p" "$HISTORY_FILE")
     IFS='|' read -r ver ts backend_img frontend_img <<< "$entry"
 
+    if [[ -z "$backend_img" ]]; then
+        backend_img="ghcr.io/fire-disposal/nursing-vp-sim-backend:${ver}"
+    fi
+    if [[ -z "$frontend_img" ]]; then
+        frontend_img="ghcr.io/fire-disposal/nursing-vp-sim-frontend:${ver}"
+    fi
+
     echo ""
     msg_info "将回滚到:"
     echo "    版本:   ${GREEN}${ver}${NC}"
@@ -73,15 +80,33 @@ rollback_to() {
 
     echo ""
     msg_ok "拉取镜像..."
-    docker pull "$backend_img"
-    docker pull "$frontend_img"
+    docker pull "$backend_img" || msg_fatal "后端镜像拉取失败"
+    docker pull "$frontend_img" || msg_fatal "前端镜像拉取失败"
 
     msg_ok "更新 compose 配置..."
     sed -i "s|image: .*nursing-vp-sim-backend:.*|image: ${backend_img}|" docker-compose.yml
     sed -i "s|image: .*nursing-vp-sim-frontend:.*|image: ${frontend_img}|" docker-compose.yml
 
     msg_ok "重启服务..."
-    docker compose up -d
+    docker compose up -d --remove-orphans
+
+    echo ""
+    msg_ok "健康检查..."
+    OK=false
+    for i in $(seq 1 30); do
+        S=$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+        case "$S" in
+            healthy) echo "  ✓ healthy ($((i * 2))s)"; OK=true; break ;;
+            unhealthy)
+                msg_fatal "容器不健康，请手动检查" ;;
+        esac
+        sleep 2
+    done
+    if [[ "$OK" != "true" ]]; then
+        msg_fatal "健康检查超时，请手动检查"
+    fi
+
+    curl -sf http://127.0.0.1:9001/api/health || msg_warn "API 健康检查失败 (可能正常启动中)"
 
     echo ""
     msg_ok "回滚完成，服务已恢复至 ${ver}"

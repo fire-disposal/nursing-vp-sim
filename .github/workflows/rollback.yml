@@ -30,4 +30,5 @@ jobs:
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          ssh "$USER@$HOST" "cd /opt/nursing-vp-sim && bash rollback.sh --yes ${{ inputs.version }}"
+          scp rollback.sh "$USER@$HOST":/opt/nursing-vp-sim/rollback.sh
+          ssh "$USER@$HOST" "chmod +x /opt/nursing-vp-sim/rollback.sh && cd /opt/nursing-vp-sim && bash rollback.sh --yes ${{ inputs.version }}"

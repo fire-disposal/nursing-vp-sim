@@ -20,6 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize owner
+        id: owner
+        run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
@@ -35,6 +39,13 @@ jobs:
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
           scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
           scp rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
+
+          echo ">> Deploy nginx config"
+          scp deploy/nginx/iomt.205716.xyz.conf "$USER@$HOST":/etc/nginx/sites-enabled/iomt.205716.xyz.conf
+          scp deploy/nginx/snippets/block-scanners.conf "$USER@$HOST":/etc/nginx/snippets/block-scanners.conf
+          scp deploy/nginx/snippets/maintenance.nginx.conf "$USER@$HOST":/etc/nginx/snippets/maintenance.nginx.conf
+          scp deploy/nginx/maintenance.html "$USER@$HOST":$DEPLOY_DIR/maintenance.html
+          ssh "$USER@$HOST" "sudo nginx -t && sudo nginx -s reload || echo 'nginx reload skipped (config test failed)'"
 
           ssh "$USER@$HOST" << DEPLOY
             set -e
@@ -93,7 +104,7 @@ jobs:
             [ "\$OK" = true ] || { echo "  ✗ timeout (unhealthy?)"; exit 1; }
 
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
-            echo "\$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .version-history
+            echo "\$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:\$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:\$VER" >> .version-history
             tail -5 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
             echo ">> Production v$VER ✓"
             docker image prune -f

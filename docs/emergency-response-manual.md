@@ -210,6 +210,35 @@ sudo nginx -s reload
 
 ---
 
+### 场景 1.8: 需要紧急维护通知
+
+**开启维护模式** (通过 GitHub Actions):
+
+1. 前往 GitHub Actions → "Maintenance Mode Toggle" → Run workflow
+2. 选择环境 (staging / production) 和动作 (enable)
+3. 所有用户访问将显示维护页面，API 返回 503
+
+**手动开启** (如果 Action 不可用):
+```bash
+# SSH 到服务器
+ssh user@<server_ip>
+
+# 开启生产维护
+sudo touch /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s reload
+
+# 开启预发布维护
+sudo touch /opt/nursing-vp-sim/maintenance.staging.on && sudo nginx -t && sudo nginx -s reload
+
+# 关闭维护
+sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s reload
+```
+
+**维护页面**: 部署在 `/opt/nursing-vp-sim/maintenance.html`
+
+**注意**: 维护模式在 Nginx 层面拦截，后端容器可正常操作（部署、评分、备份等）。
+
+---
+
 ## 2. 已知薄弱点 (不完善/半成品) 及应对
 
 以下模块存在已知不完善或功能缺失，应在值班期间重点关注。
@@ -234,24 +263,15 @@ sudo nginx -s reload
 
 ### 2.3 无 Nginx 级速率限制
 
-- **文件**: `deploy/nginx-prod.conf`, `deploy/nginx-staging.conf`
+- **文件**: `deploy/nginx/` (宿主机 nginx 配置)
 - **风险**: 仅 Python 层 rate limit (内存型), 大流量攻击仍能消耗 FastAPI 资源
-- **应对**: 在 nginx 中添加 `limit_req_zone` + `limit_req`
-  ```nginx
-  limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
-  limit_req_zone $binary_remote_addr zone=login:10m rate=5r/s;
-  ```
+- **应对**: 在 `deploy/nginx/snippets/` 中添加 rate limit snippet
 
-### 2.4 Nginx 安全头缺失
+### 2.4 Nginx 安全头（外部已完善，容器 nginx 已补充）
 
-- **文件**: `nginx.conf` (容器内 nginx)
-- **缺失**: HSTS, CSP, X-Frame-Options, Referrer-Policy
-- **风险**: 若从非 HTTPS 环境访问 (开发/内网), 缺少防护
-- **外部 nginx** (`deploy/nginx-*.conf`) 有部分安全头但缺 HSTS
-- **应对**: 外部 nginx 中添加:
-  ```nginx
-  add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
-  ```
+- **宿主机**: `deploy/nginx/iomt.205716.xyz.conf` 包含 X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS
+- **容器**: `nginx.conf` 包含安全头 + gzip
+- **Staging**: 无 HSTS（合理，避免浏览器缓存影响切换）
 
 ### 2.5 JWT Token 无主动撤销机制
 
@@ -271,11 +291,12 @@ sudo nginx -s reload
 - **风险**: 生产部署前 DB 备份使用 `|| echo "  (skip)"`, 备份失败会被静默忽略
 - **应对**: 部署前手动确认备份有效: `ls -la /tmp/nursing_db_backup_*.sql.gz`
 
-### 2.8 Staging 证书配置问题
+### 2.8 Staging 共用生产 SSL 证书
 
-- **文件**: `deploy/nginx-staging.conf:23`
-- **风险**: Staging nginx 引用了生产域名的 SSL 证书路径 (`iomt.205716.xyz`)
-- **应对**: 确认 staging 有自己的证书, 或共用泛域名证书
+- **文件**: `deploy/nginx/test.205716.xyz.conf:24`
+- **现状**: Staging 引用 `iomt.205716.xyz` 的 Let's Encrypt 证书
+- **风险**: 若生产证书到期 Staging 也受影响；CN 不匹配浏览器可能有警告但不影响功能
+- **应对**: 可接受（Staging 为内部测试环境），生产证书续期后 Staging 自动恢复
 
 ### 2.9 LLM 环境变量兜底无限额
 
