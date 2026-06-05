@@ -7,31 +7,46 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
 
 
+class School(Base):
+    __tablename__ = "schools"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+
 class Role(Base):
     __tablename__ = "roles"
 
-    name: Mapped[str] = mapped_column(String(20), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(20), unique=True)
     display_name: Mapped[str] = mapped_column(String(40))
+    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True)
     is_system: Mapped[bool] = mapped_column(default=False)
+
+    school: Mapped["School | None"] = relationship()
 
 
 class RolePermission(Base):
     __tablename__ = "role_permissions"
-    __table_args__ = (UniqueConstraint("role_name", "permission", name="ix_rp_role_perm"),)
+    __table_args__ = (UniqueConstraint("role_id", "permission", name="ix_rp_role_perm"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    role_name: Mapped[str] = mapped_column(String(20), ForeignKey("roles.name", ondelete="CASCADE"))
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id", ondelete="CASCADE"))
     permission: Mapped[str] = mapped_column(String(40))
 
 
 class Grade(Base):
     __tablename__ = "grades"
+    __table_args__ = (UniqueConstraint("school_id", "name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(40), unique=True)
+    name: Mapped[str] = mapped_column(String(40))
+    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     classes: Mapped[list["Class"]] = relationship(back_populates="grade", cascade="all, delete-orphan")
+    school: Mapped["School | None"] = relationship()
 
 
 class Class(Base):
@@ -68,7 +83,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(20), ForeignKey("roles.name", ondelete="RESTRICT"), default="student")
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id", ondelete="RESTRICT"))
+    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"))
     display_name: Mapped[str] = mapped_column(String(50))
     student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
@@ -76,6 +92,8 @@ class User(Base):
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
     user_class: Mapped["UserClass | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
+    role: Mapped["Role | None"] = relationship()
+    school: Mapped["School | None"] = relationship()
 
     def has_permission(self, permission: str) -> bool:
         cache = getattr(self, "_permissions_cache", None)
@@ -94,7 +112,10 @@ class Case(Base):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     case_data: Mapped[dict] = mapped_column(JSONB)
+    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+    school: Mapped["School | None"] = relationship()
 
 
 class TrainingRecord(Base):
