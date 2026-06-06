@@ -745,6 +745,197 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questionnaires/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Templates */
+        get: operations["list_templates_api_questionnaires_templates_get"];
+        put?: never;
+        /** Create Template */
+        post: operations["create_template_api_questionnaires_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Template */
+        get: operations["get_template_api_questionnaires_templates__template_id__get"];
+        /** Update Template */
+        put: operations["update_template_api_questionnaires_templates__template_id__put"];
+        post?: never;
+        /** Delete Template */
+        delete: operations["delete_template_api_questionnaires_templates__template_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/templates/{template_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Question */
+        post: operations["add_question_api_questionnaires_templates__template_id__questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Question */
+        put: operations["update_question_api_questionnaires_questions__question_id__put"];
+        post?: never;
+        /** Delete Question */
+        delete: operations["delete_question_api_questionnaires_questions__question_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/templates/{template_id}/case-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Assign Cases */
+        put: operations["assign_cases_api_questionnaires_templates__template_id__case_assignments_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check Questionnaire */
+        get: operations["check_questionnaire_api_questionnaires_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Questionnaire */
+        post: operations["submit_questionnaire_api_questionnaires_responses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/my-responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Responses */
+        get: operations["my_responses_api_questionnaires_my_responses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/responses/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Responses */
+        get: operations["list_responses_api_questionnaires_responses__template_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/responses/{template_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Response Stats */
+        get: operations["response_stats_api_questionnaires_responses__template_id__stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questionnaires/responses/{template_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Responses */
+        get: operations["export_responses_api_questionnaires_responses__template_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats/duration": {
         parameters: {
             query?: never;
@@ -1610,6 +1801,21 @@ export interface components {
             /** Class Id */
             class_id?: number | null;
         };
+        /** CaseAssignmentRequest */
+        CaseAssignmentRequest: {
+            /** Case Ids */
+            case_ids: number[];
+            /**
+             * Is Required
+             * @default true
+             */
+            is_required: boolean;
+            /**
+             * Trigger Event
+             * @default before_training
+             */
+            trigger_event: string;
+        };
         /** CaseBrief */
         CaseBrief: {
             /** Id */
@@ -2346,6 +2552,28 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PaginatedResponse[QuestionnaireResponseItem] */
+        PaginatedResponse_QuestionnaireResponseItem_: {
+            /** Items */
+            items: components["schemas"]["QuestionnaireResponseItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** PaginatedResponse[QuestionnaireTemplateResponse] */
+        PaginatedResponse_QuestionnaireTemplateResponse_: {
+            /** Items */
+            items: components["schemas"]["QuestionnaireTemplateResponse"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** PaginatedResponse[RankingItem] */
         PaginatedResponse_RankingItem_: {
             /** Items */
@@ -2640,6 +2868,317 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** QuestionStatsItem */
+        QuestionStatsItem: {
+            /** Question Id */
+            question_id: number;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Question Type
+             * @default
+             */
+            question_type: string;
+            /**
+             * Response Count
+             * @default 0
+             */
+            response_count: number;
+            /** Avg Likert */
+            avg_likert?: number | null;
+            /** Choice Distribution */
+            choice_distribution?: {
+                [key: string]: number;
+            };
+            /** Text Answers */
+            text_answers?: string[];
+        };
+        /** QuestionnaireAnswerItem */
+        QuestionnaireAnswerItem: {
+            /** Question Id */
+            question_id: number;
+            /**
+             * Question Content
+             * @default
+             */
+            question_content: string;
+            /**
+             * Question Type
+             * @default
+             */
+            question_type: string;
+            /** Options */
+            options?: string[] | null;
+            /** Answer Value */
+            answer_value?: string | null;
+        };
+        /** QuestionnaireAnswerSubmit */
+        QuestionnaireAnswerSubmit: {
+            /** Question Id */
+            question_id: number;
+            /** Answer Value */
+            answer_value?: string | null;
+        };
+        /** QuestionnaireCheckResponse */
+        QuestionnaireCheckResponse: {
+            /** Has Pending */
+            has_pending: boolean;
+            /** Template Id */
+            template_id?: number | null;
+            /** Response Id */
+            response_id?: number | null;
+            template?: components["schemas"]["QuestionnaireTemplateDetailResponse"] | null;
+            /**
+             * Is Required
+             * @default true
+             */
+            is_required: boolean;
+            /**
+             * Trigger Event
+             * @default before_training
+             */
+            trigger_event: string;
+        };
+        /** QuestionnaireQuestionCreate */
+        QuestionnaireQuestionCreate: {
+            /** Content */
+            content: string;
+            /** Question Type */
+            question_type: string;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+            /** Options */
+            options?: string[] | null;
+        };
+        /** QuestionnaireQuestionResponse */
+        QuestionnaireQuestionResponse: {
+            /** Id */
+            id: number;
+            /** Template Id */
+            template_id: number;
+            /** Content */
+            content: string;
+            /** Question Type */
+            question_type: string;
+            /** Required */
+            required: boolean;
+            /** Sort Order */
+            sort_order: number;
+            /** Options */
+            options?: string[] | null;
+        };
+        /** QuestionnaireQuestionUpdate */
+        QuestionnaireQuestionUpdate: {
+            /** Content */
+            content?: string | null;
+            /** Question Type */
+            question_type?: string | null;
+            /** Required */
+            required?: boolean | null;
+            /** Sort Order */
+            sort_order?: number | null;
+            /** Options */
+            options?: string[] | null;
+        };
+        /** QuestionnaireResponseItem */
+        QuestionnaireResponseItem: {
+            /** Id */
+            id: number;
+            /** Template Id */
+            template_id: number;
+            /**
+             * Template Title
+             * @default
+             */
+            template_title: string;
+            /** User Id */
+            user_id: number;
+            /**
+             * User Name
+             * @default
+             */
+            user_name: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Record Id */
+            record_id?: number | null;
+            /** Status */
+            status: string;
+            /**
+             * Answers
+             * @default []
+             */
+            answers: components["schemas"]["QuestionnaireAnswerItem"][];
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** QuestionnaireStatsResponse */
+        QuestionnaireStatsResponse: {
+            /** Template Id */
+            template_id: number;
+            /**
+             * Template Title
+             * @default
+             */
+            template_title: string;
+            /**
+             * Total Assigned
+             * @default 0
+             */
+            total_assigned: number;
+            /**
+             * Total Completed
+             * @default 0
+             */
+            total_completed: number;
+            /**
+             * Completion Rate
+             * @default 0
+             */
+            completion_rate: number;
+            /**
+             * Questions
+             * @default []
+             */
+            questions: components["schemas"]["QuestionStatsItem"][];
+        };
+        /** QuestionnaireSubmitRequest */
+        QuestionnaireSubmitRequest: {
+            /** Template Id */
+            template_id: number;
+            /** Case Id */
+            case_id?: number | null;
+            /** Record Id */
+            record_id?: number | null;
+            /** Answers */
+            answers: components["schemas"]["QuestionnaireAnswerSubmit"][];
+        };
+        /** QuestionnaireTemplateCreate */
+        QuestionnaireTemplateCreate: {
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /**
+             * Questions
+             * @default []
+             */
+            questions: components["schemas"]["QuestionnaireQuestionCreate"][];
+        };
+        /** QuestionnaireTemplateDetailResponse */
+        QuestionnaireTemplateDetailResponse: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Question Count
+             * @default 0
+             */
+            question_count: number;
+            /**
+             * Response Count
+             * @default 0
+             */
+            response_count: number;
+            /** School Id */
+            school_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Questions
+             * @default []
+             */
+            questions: components["schemas"]["QuestionnaireQuestionResponse"][];
+            /**
+             * Case Ids
+             * @default []
+             */
+            case_ids: number[];
+        };
+        /** QuestionnaireTemplateResponse */
+        QuestionnaireTemplateResponse: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Question Count
+             * @default 0
+             */
+            question_count: number;
+            /**
+             * Response Count
+             * @default 0
+             */
+            response_count: number;
+            /** School Id */
+            school_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** QuestionnaireTemplateUpdate */
+        QuestionnaireTemplateUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** RankingItem */
         RankingItem: {
@@ -4868,6 +5407,506 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QAMessageItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_templates_api_questionnaires_templates_get: {
+        parameters: {
+            query?: {
+                type?: string | null;
+                offset?: number;
+                limit?: number;
+                school_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_QuestionnaireTemplateResponse_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_template_api_questionnaires_templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionnaireTemplateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireTemplateDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_template_api_questionnaires_templates__template_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireTemplateDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_template_api_questionnaires_templates__template_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionnaireTemplateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireTemplateDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_template_api_questionnaires_templates__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_question_api_questionnaires_templates__template_id__questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionnaireQuestionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireQuestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_question_api_questionnaires_questions__question_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionnaireQuestionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireQuestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_question_api_questionnaires_questions__question_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_cases_api_questionnaires_templates__template_id__case_assignments_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_questionnaire_api_questionnaires_check_get: {
+        parameters: {
+            query?: {
+                case_id?: number | null;
+                record_id?: number | null;
+                /** @description 触发事件: before_training / after_scoring / manual */
+                trigger?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_questionnaire_api_questionnaires_responses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionnaireSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireResponseItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_responses_api_questionnaires_my_responses_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_QuestionnaireResponseItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_responses_api_questionnaires_responses__template_id__get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+                school_id?: number | null;
+            };
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_QuestionnaireResponseItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    response_stats_api_questionnaires_responses__template_id__stats_get: {
+        parameters: {
+            query?: {
+                school_id?: number | null;
+            };
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireStatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_responses_api_questionnaires_responses__template_id__export_get: {
+        parameters: {
+            query?: {
+                school_id?: number | null;
+            };
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

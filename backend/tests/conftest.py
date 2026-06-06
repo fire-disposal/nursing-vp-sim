@@ -63,6 +63,8 @@ def engine():
                         "grade_class_manage",
                         "stats_view",
                         "feedback_review",
+                        "questionnaire_manage",
+                        "export_data",
                     ]
                 ]
                 + [

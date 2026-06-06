@@ -21,9 +21,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail, sendMessageStream } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import PatientPortrait from "@/components/PatientPortrait";
+import { type CheckResponse, QuestionnaireModal } from "@/components/QuestionnaireModal";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import useVoice from "@/hooks/useVoice";
 import { cn } from "@/lib/utils";
 import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
@@ -200,6 +202,22 @@ export default function ChatTraining() {
   const { confirm } = useConfirm();
   const voice = useVoice({ patientGender: patientInfo?.gender, patientAge: patientInfo?.age });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [caseId, setCaseId] = useState<number | null>(null);
+  const [showPreQuestionnaire, setShowPreQuestionnaire] = useState(false);
+  const [showPostQuestionnaire, setShowPostQuestionnaire] = useState(false);
+
+  const preTest = useQuestionnaire({
+    caseId,
+    trigger: "before_training",
+    onComplete: () => setShowPreQuestionnaire(false),
+  });
+
+  const postTest = useQuestionnaire({
+    caseId,
+    recordId: recordId ? Number(recordId) : null,
+    trigger: "after_scoring",
+    onComplete: () => setShowPostQuestionnaire(false),
+  });
 
   const toggleVoice = () => {
     voice.startListening().then(
@@ -295,6 +313,7 @@ export default function ChatTraining() {
         if (detail.case_name) setCaseTitle(detail.case_name);
         if (detail.required_inquiries) setRequiredInquiries(detail.required_inquiries as unknown as string[]);
         if (detail.patient_info) setPatientInfo(detail.patient_info as unknown as PatientInfo);
+        if (detail.case_id) setCaseId(detail.case_id);
         setRecordStatus(detail.status || null);
         if (detail.status === "completed") {
           setRemaining(null);
@@ -315,6 +334,9 @@ export default function ChatTraining() {
           const m = detail.messages[0].content.match(/我是(.+?)[。，]/);
           if (m) setPatientName(m[1]);
         }
+        preTest.check().then((result) => {
+          if (result?.has_pending) setShowPreQuestionnaire(true);
+        });
       })
       .catch(() => {
         if (!cancelled) {
@@ -423,6 +445,9 @@ export default function ChatTraining() {
         if (detail.data.scoring_status === "completed" && detail.data.score) {
           setScore(detail.data.score as ScoreData);
           setShowScore(true);
+          postTest.check().then((result) => {
+            if (result?.has_pending) setShowPostQuestionnaire(true);
+          });
           break;
         }
         if (detail.data.scoring_status === "failed") {
@@ -799,6 +824,28 @@ export default function ChatTraining() {
               state: { feedbackPrompt: Date.now() },
             })
           }
+        />
+      )}
+
+      {showPreQuestionnaire && preTest.checkResponse && (
+        <QuestionnaireModal
+          open={showPreQuestionnaire}
+          onComplete={() => setShowPreQuestionnaire(false)}
+          onSkip={() => setShowPreQuestionnaire(false)}
+          checkResponse={preTest.checkResponse}
+          loading={preTest.isLoading}
+          onSubmit={preTest.submit}
+        />
+      )}
+
+      {showPostQuestionnaire && postTest.checkResponse && (
+        <QuestionnaireModal
+          open={showPostQuestionnaire}
+          onComplete={() => setShowPostQuestionnaire(false)}
+          onSkip={() => setShowPostQuestionnaire(false)}
+          checkResponse={postTest.checkResponse}
+          loading={postTest.isLoading}
+          onSubmit={postTest.submit}
         />
       )}
 
