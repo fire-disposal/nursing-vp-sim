@@ -112,7 +112,7 @@ export default function AdminDebugPage() {
       } catch {
         /* ignore */
       }
-    }, 2000);
+    }, 5000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
