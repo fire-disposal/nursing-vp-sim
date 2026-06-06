@@ -1,13 +1,16 @@
-import { Activity, ArrowLeft, Brain, Bug, ClipboardList, Heart, Info, MessageCircle, RefreshCw, Send, Stethoscope, Timer } from "lucide-react";
+import { Activity, ArrowLeft, Brain, Bug, ClipboardList, Heart, MessageCircle, RefreshCw, Send, Stethoscope, Timer } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { endTraining, getCases, getTrainingState, sendMessageStream, startTraining, triggerInitiative, updateTrainingFeatures } from "@/api/api-client";
+import { endTraining, getCases, getTrainingState, startTraining, triggerInitiative, updateTrainingFeatures } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import ChatBubble from "@/components/ChatBubble";
 import Layout from "@/components/Layout";
 import OperationPanel from "@/components/OperationPanel";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
+import { useChatStream } from "@/hooks/useChatStream";
+import { useTypingFreeze } from "@/hooks/useTypingFreeze";
 import { cn } from "@/lib/utils";
 import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
 
@@ -21,13 +24,6 @@ interface TrainingState {
   exam_anchors: Record<string, unknown>;
   config: { id: string; mode: string; features: Record<string, boolean> };
   initiative: { elapsed_seconds: number; threshold_seconds: number; percent: number };
-}
-
-interface ChatMessage {
-  id?: number;
-  role: string;
-  content: string;
-  streaming?: boolean;
 }
 
 const PERSONALITY_LABELS: Record<string, Record<string, string>> = {
@@ -69,20 +65,18 @@ export default function AdminDebugPage() {
   const [cases, setCases] = useState<CaseBrief[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [recordId, setRecordId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { messages, setMessages, send, loading, abortRef } = useChatStream(recordId);
+  const { typingFrozen, markTyping } = useTypingFreeze();
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [state, setState] = useState<TrainingState | null>(null);
-  const [opResults, setOpResults] = useState<OperationResult[]>([]);
+  const [opResults, _setOpResults] = useState<OperationResult[]>([]);
   const [showDebug, setShowDebug] = useState(true);
   const [msgTimestamps, setMsgTimestamps] = useState<number[]>([]);
   const initiativeFiredRef = useRef(false);
-  const [typingFrozen, setTypingFrozen] = useState(false);
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     getCases({ limit: 50 }).then((r) => setCases(r.data.items || []));
@@ -90,7 +84,7 @@ export default function AdminDebugPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  });
 
   useEffect(() => {
     if (!recordId || ending) return;
@@ -104,7 +98,7 @@ export default function AdminDebugPage() {
           initiativeFiredRef.current = true;
           const trigger = await triggerInitiative(recordId);
           if (trigger.data.triggered && trigger.data.message) {
-            setMessages((prev) => [...prev, { role: "patient", content: trigger.data.message as string }]);
+            setMessages((prev) => [...prev, { id: Date.now(), role: "patient", content: trigger.data.message as string }]);
             setMsgTimestamps((prev) => [...prev, Date.now()]);
           }
           setTimeout(() => {
@@ -118,7 +112,7 @@ export default function AdminDebugPage() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [recordId, ending]);
+  }, [recordId, ending, loading, typingFrozen, setMessages]);
 
   const refreshState = async () => {
     if (!recordId) return;
@@ -132,15 +126,15 @@ export default function AdminDebugPage() {
 
   const handleStart = async () => {
     if (!selectedCaseId) return;
-    setLoading(true);
+    setStarting(true);
     try {
       const r = await startTraining(selectedCaseId, "free-exploration");
       setRecordId(r.data.record_id);
-      setMessages([{ role: "patient", content: r.data.greeting }]);
+      setMessages([{ id: Date.now(), role: "patient", content: r.data.greeting }]);
       setMsgTimestamps([Date.now()]);
       await refreshState();
     } finally {
-      setLoading(false);
+      setStarting(false);
     }
   };
 
@@ -148,79 +142,11 @@ export default function AdminDebugPage() {
     const content = (retryContent ?? input).trim();
     if (!content || !recordId || loading) return;
     setInput("");
-    setLoading(true);
-
-    const isOperation = content.startsWith("/") || content.startsWith("测") || content.startsWith("观察");
-    const studentMsg: ChatMessage = { role: "student", content };
-    if (!isOperation) {
-      setMessages((prev) => [...prev, studentMsg]);
-    }
     setMsgTimestamps((prev) => [...prev, Date.now()]);
-
-    if (isOperation) {
-      setMessages((prev) => [...prev, { role: "system", content: `正在${content}...` }]);
-    }
-
+    if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-
-    const patientPlaceholder: ChatMessage = { role: "patient", content: "", streaming: true };
-    if (!isOperation) {
-      setMessages((prev) => [...prev, patientPlaceholder]);
-    }
-
-    try {
-      await sendMessageStream(
-        recordId,
-        content,
-        (chunk: string) => {
-          setMessages((prev) => {
-            const next = [...prev];
-            let found = false;
-            for (let idx = next.length - 1; idx >= 0; idx--) {
-              if (next[idx]?.streaming) {
-                next[idx] = { ...next[idx], content: next[idx].content + chunk };
-                found = true;
-                break;
-              }
-            }
-            if (!found) {
-              next.push({ role: "patient", content: chunk, streaming: true });
-            }
-            return next;
-          });
-        },
-        () => {
-          setMessages((prev) => {
-            const next = [...prev];
-            for (let idx = next.length - 1; idx >= 0; idx--) {
-              if (next[idx]?.streaming) {
-                next[idx] = { ...next[idx], streaming: false };
-                return next;
-              }
-            }
-            return next;
-          });
-          setMsgTimestamps((prev) => [...prev, Date.now()]);
-          setLoading(false);
-          refreshState();
-        },
-        (errMsg: string) => {
-          setMessages((prev) => prev.filter((m) => !m.streaming));
-          setLoading(false);
-        },
-        undefined,
-        (sysMsg: string) => {
-          setMessages((prev) => [...prev, { role: "system", content: sysMsg }]);
-        },
-        controller.signal,
-      );
-    } catch {
-      setMessages((prev) => prev.filter((m) => !m.streaming && m.content !== content));
-      setLoading(false);
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-    }
+    await send(content);
   };
 
   const handleEnd = async (navigateAfter = true) => {
@@ -237,7 +163,7 @@ export default function AdminDebugPage() {
     }
   };
 
-  const caseData = cases.find((c) => c.id === selectedCaseId);
+  const _caseData = cases.find((c) => c.id === selectedCaseId);
   const patientMsgs = msgTimestamps.filter((_, i) => i % 2 === 1);
   const lastResponseTime = patientMsgs.length >= 2 ? ((patientMsgs[patientMsgs.length - 1] - patientMsgs[patientMsgs.length - 2]) / 1000).toFixed(1) : null;
 
@@ -264,8 +190,8 @@ export default function AdminDebugPage() {
                     </option>
                   ))}
                 </select>
-                <Button onClick={handleStart} disabled={!selectedCaseId || loading} className="w-full">
-                  {loading ? "启动中..." : "开始调试 (自由探索模式)"}
+                <Button onClick={handleStart} disabled={!selectedCaseId || starting || loading} className="w-full">
+                  {starting ? "启动中..." : "开始调试 (自由探索模式)"}
                 </Button>
               </div>
             </div>
@@ -324,30 +250,9 @@ export default function AdminDebugPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.map((msg, i) =>
-                  msg.role === "system" ? (
-                    <div key={i} className="flex justify-center">
-                      <div className="flex items-start gap-2 max-w-[85%] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
-                        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                        <div className="whitespace-pre-wrap leading-relaxed text-blue-800">{msg.content}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={i} className={cn("flex gap-2", msg.role === "student" ? "justify-end" : "justify-start")}>
-                      {msg.role === "patient" && <img className="w-7 h-7 rounded-full shrink-0 bg-muted" src={getPatientAvatar()} alt="" />}
-                      <div
-                        className={cn(
-                          "max-w-[75%] rounded-xl px-3 py-2 text-sm leading-relaxed",
-                          msg.role === "student" ? "bg-primary text-primary-foreground" : "bg-muted",
-                          msg.streaming && "after:content-['|'] after:animate-pulse",
-                        )}
-                      >
-                        {msg.content || (msg.streaming ? "" : "")}
-                      </div>
-                      {msg.role === "student" && <img className="w-7 h-7 rounded-full shrink-0 bg-muted" src={getNurseAvatar()} alt="" />}
-                    </div>
-                  ),
-                )}
+                {messages.map((msg, i) => (
+                  <ChatBubble key={msg.id ?? i} message={msg} patientAvatar={getPatientAvatar()} nurseAvatar={getNurseAvatar()} />
+                ))}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -359,9 +264,7 @@ export default function AdminDebugPage() {
                   value={input}
                   onChange={(e) => {
                     setInput(e.target.value);
-                    setTypingFrozen(true);
-                    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-                    typingTimerRef.current = setTimeout(() => setTypingFrozen(false), 2000);
+                    markTyping();
                   }}
                   onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && !e.shiftKey && handleSend()}
                   placeholder="输入消息测试新交互流程..."
@@ -473,7 +376,7 @@ export default function AdminDebugPage() {
                   {Object.entries(state.personality).map(([dim, val]) => {
                     const Icon = PERSONALITY_ICONS[dim] || Brain;
                     const barW = (personalityBarValue(val as string) / 5) * 100;
-                    const label = (PERSONALITY_LABELS[dim] || {})[val as string] || val;
+                    const label = PERSONALITY_LABELS[dim]?.[val as string] ?? val;
                     return (
                       <div key={dim} className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
@@ -562,8 +465,7 @@ export default function AdminDebugPage() {
                       onClick={async () => {
                         if (!recordId) return;
                         try {
-                          const r = await updateTrainingFeatures(recordId, { [k]: !v });
-                          const newFeatures = r.data.features || {};
+                          await updateTrainingFeatures(recordId, { [k]: !v });
                           setState((prev) => (prev ? { ...prev, config: { ...prev.config, features: { ...prev.config.features, [k]: !v } } } : null));
                         } catch {
                           /* ignore */
