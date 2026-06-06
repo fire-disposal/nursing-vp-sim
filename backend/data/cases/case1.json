@@ -104,8 +104,8 @@
     "skin": "口唇轻度发绀，皮肤干燥"
   },
   "personality": {
-    "health_literacy": "normal",
-    "verbosity": "terse",
+    "health_literacy": "high",
+    "verbosity": "normal",
     "anxiety_trait": "anxious",
     "patience": "normal"
   },
