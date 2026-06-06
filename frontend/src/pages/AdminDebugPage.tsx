@@ -150,19 +150,24 @@ export default function AdminDebugPage() {
     setInput("");
     setLoading(true);
 
+    const isOperation = content.startsWith("/") || content.startsWith("测") || content.startsWith("观察");
     const studentMsg: ChatMessage = { role: "student", content };
-    setMessages((prev) => [...prev, studentMsg]);
+    if (!isOperation) {
+      setMessages((prev) => [...prev, studentMsg]);
+    }
     setMsgTimestamps((prev) => [...prev, Date.now()]);
 
-    if (content.startsWith("/")) {
-      setMessages((prev) => [...prev, { role: "system", content: `执行操作: ${content}\n（等待系统返回数据...）` }]);
+    if (isOperation) {
+      setMessages((prev) => [...prev, { role: "system", content: `正在${content}...` }]);
     }
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     const patientPlaceholder: ChatMessage = { role: "patient", content: "", streaming: true };
-    setMessages((prev) => [...prev, patientPlaceholder]);
+    if (!isOperation) {
+      setMessages((prev) => [...prev, patientPlaceholder]);
+    }
 
     try {
       await sendMessageStream(
@@ -171,11 +176,16 @@ export default function AdminDebugPage() {
         (chunk: string) => {
           setMessages((prev) => {
             const next = [...prev];
+            let found = false;
             for (let idx = next.length - 1; idx >= 0; idx--) {
               if (next[idx]?.streaming) {
                 next[idx] = { ...next[idx], content: next[idx].content + chunk };
+                found = true;
                 break;
               }
+            }
+            if (!found) {
+              next.push({ role: "patient", content: chunk, streaming: true });
             }
             return next;
           });
@@ -186,7 +196,7 @@ export default function AdminDebugPage() {
             for (let idx = next.length - 1; idx >= 0; idx--) {
               if (next[idx]?.streaming) {
                 next[idx] = { ...next[idx], streaming: false };
-                break;
+                return next;
               }
             }
             return next;
