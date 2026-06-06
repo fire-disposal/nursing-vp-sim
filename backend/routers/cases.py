@@ -32,9 +32,30 @@ from services.virtual_patient_prompt import format_case_for_prompt
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
 
+def _personality_label(p: dict) -> str:
+    """人格维度简要标签，如'高素养·絮叨·安宁·耐心'"""
+    if not p:
+        return ""
+    parts = []
+    map_lit = {"low": "低素养", "normal": "中等", "high": "高素养"}
+    map_verb = {"terse": "寡言", "normal": "正常", "verbose": "絮叨"}
+    map_anx = {"calm": "安宁", "normal": "平常", "anxious": "焦虑"}
+    map_pat = {"low": "急躁", "normal": "正常", "high": "耐心"}
+    if p.get("health_literacy"):
+        parts.append(map_lit.get(p["health_literacy"], ""))
+    if p.get("verbosity"):
+        parts.append(map_verb.get(p["verbosity"], ""))
+    if p.get("anxiety_trait"):
+        parts.append(map_anx.get(p["anxiety_trait"], ""))
+    if p.get("patience"):
+        parts.append(map_pat.get(p["patience"], ""))
+    return "·".join(filter(None, parts))
+
+
 def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
     cd = case.case_data or {}
     info = cd.get("patient_info", {})
+    personality = cd.get("personality", {})
     return CaseManageItem(
         id=case.id,
         name=case.name,
@@ -45,6 +66,7 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
         chief_complaint=cd.get("chief_complaint", ""),
         time_limit=cd.get("time_limit", 20),
         difficulty=cd.get("difficulty", 1),
+        patient_personality=_personality_label(personality),
         created_at=case.created_at,
         training_count=training_count,
     )
@@ -221,6 +243,14 @@ def create_case(
         raise HTTPException(status_code=400, detail="病例数据必须包含 name 字段")
     if len(str(cd.get("name", ""))) > 100:
         raise HTTPException(status_code=400, detail="病例名称不能超过100个字符")
+    if "personality" not in cd:
+        cd["personality"] = {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"}
+    if "deep_background" not in cd:
+        cd["deep_background"] = {}
+    if "exam_anchors" not in cd:
+        cd["exam_anchors"] = {}
+    if "example_dialogues" not in cd:
+        cd["example_dialogues"] = []
     case = Case(
         name=cd["name"],
         description=cd.get("description", ""),

@@ -114,6 +114,7 @@ export interface CaseManageItem {
   chief_complaint?: string
   time_limit?: number
   difficulty?: number
+  patient_personality?: string
   created_at: string
   training_count?: number
 }
@@ -138,6 +139,7 @@ export interface ChatMessageRequest {
 export interface ChatMessageResponse {
   role: string
   content: string
+  operation?: Record<string, unknown> | null
 }
 
 export interface ClassCreate {
@@ -178,6 +180,12 @@ export interface DurationStats {
   daily: Record<string, unknown>[]
   total_minutes: number
   total_sessions: number
+}
+
+export interface EmotionStateResponse {
+  score: number
+  state: string
+  note: string
 }
 
 export interface FeedbackDailyItem {
@@ -235,6 +243,18 @@ export interface HealthCheckItem {
   status: string
   latency_ms?: number | null
   error?: string | null
+}
+
+export interface InitiativeStateResponse {
+  elapsed_seconds: number
+  threshold_seconds: number
+  percent: number
+}
+
+export interface InitiativeTriggerResponse {
+  triggered: boolean
+  message?: string | null
+  id?: number | null
 }
 
 export interface LLMCallLogItem {
@@ -357,6 +377,25 @@ export interface NoteItem {
   content: string
   created_at: string
   updated_at: string
+}
+
+export interface NursingRecordResponse {
+  id: number
+  record_id: number
+  subjective?: string | null
+  objective?: string | null
+  assessment?: string | null
+  plan?: string | null
+  status: string
+  updated_at: string
+}
+
+export interface NursingRecordSave {
+  subjective?: string | null
+  objective?: string | null
+  assessment?: string | null
+  plan?: string | null
+  status?: string
 }
 
 export interface OkResponse {
@@ -886,12 +925,24 @@ export interface TrainingRecordDetail {
 
 export interface TrainingStartRequest {
   case_id: number
+  config_id?: string | null
 }
 
 export interface TrainingStartResponse {
   record_id: number
   greeting: string
   case_name?: string
+}
+
+export interface TrainingStateResponse {
+  record_id: number
+  case_id: number
+  emotion: EmotionStateResponse
+  personality?: Record<string, unknown>
+  deep_background_keys?: string[]
+  exam_anchors?: Record<string, unknown>
+  config?: Record<string, unknown>
+  initiative: InitiativeStateResponse
 }
 
 export interface TrendStats {

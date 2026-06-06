@@ -30,6 +30,7 @@ const AdminGradesClasses = lazy(() => import("@/pages/admin/GradesClassesPage"))
 const AdminSchools = lazy(() => import("@/pages/admin/SchoolsPage"));
 const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
 const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
+const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
 
 function PageLoader() {
   return (
@@ -196,6 +197,14 @@ export default function App() {
                     element={
                       <ProtectedRoute permission="questionnaire_manage">
                         <AdminQuestionnaires />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/debug"
+                    element={
+                      <ProtectedRoute permission="score_review">
+                        <AdminDebug />
                       </ProtectedRoute>
                     }
                   />

@@ -1,5 +1,6 @@
 ﻿import {
   BarChart3,
+  Bug,
   Building2,
   Check,
   ChevronsUpDown,
@@ -58,6 +59,7 @@ const allLinks: NavLinkItem[] = [
   { to: "/admin/llm", icon: Server, label: "LLM 管理", permission: "llm_monitor" },
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
   { to: "/admin/questionnaires", icon: ClipboardCheck, label: "问卷管理", permission: "questionnaire_manage" },
+  { to: "/admin/debug", icon: Bug, label: "调试工坊", permission: "score_review" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {

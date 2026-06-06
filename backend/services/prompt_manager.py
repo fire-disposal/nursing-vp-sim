@@ -104,6 +104,7 @@ class PromptManager:
 
         db = SessionLocal()
         try:
+            self._sync_builtin_patient_chat(db)
             rows = db.query(PT).filter(PT.is_active).all()
 
             new_cache = {}
@@ -148,6 +149,23 @@ class PromptManager:
 
     async def reload(self):
         await self.load_from_db()
+
+    @staticmethod
+    def _sync_builtin_patient_chat(db):
+        """强制同步 patient_chat 内置模板到 DB，确保新变量格式可用。"""
+        from models import PromptTemplate as PT
+        from prompts.patient_chat import PATIENT_CHAT_SYSTEM
+
+        existing = db.query(PT).filter(PT.purpose == "patient_chat", PT.is_active).all()
+        if existing:
+            needs_update = any("hidden_info_rules" in t.system_prompt for t in existing)
+            if not needs_update:
+                return
+            for t in existing:
+                t.is_active = False
+                t.system_prompt = PATIENT_CHAT_SYSTEM
+            db.commit()
+            log.info("patient_chat 模板已同步到 Character Card 格式 (v%d→v%d)", existing[0].version, existing[0].version + 1)
 
 
 def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:

@@ -130,6 +130,7 @@ class CaseManageItem(BaseModel):
     chief_complaint: str = ""
     time_limit: int = 20
     difficulty: int = 1
+    patient_personality: str = ""
     created_at: datetime
     training_count: int = 0
 
@@ -156,6 +157,7 @@ class CaseGenerateResponse(BaseModel):
 class TrainingStartRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
+    config_id: str | None = None
 
 
 class TrainingStartResponse(BaseModel):
@@ -174,6 +176,7 @@ class ChatMessageResponse(BaseModel):
     model_config = _RESP_CFG
     role: str
     content: str
+    operation: dict | None = None
 
 
 class TrainingRecordBrief(BaseModel):
@@ -209,6 +212,7 @@ class TrainingRecordDetail(BaseModel):
     notes: list["NoteItem"] = []
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
+    features: dict[str, bool] = Field(default_factory=dict)
 
 
 class ScoringTriggerResponse(BaseModel):
@@ -999,3 +1003,40 @@ class QuestionStatsItem(BaseModel):
     avg_likert: float | None = None
     choice_distribution: dict[str, int] = Field(default_factory=dict)
     text_answers: list[str] = Field(default_factory=list)
+
+
+# ── Training State (debug) ──
+
+class EmotionStateResponse(BaseModel):
+    score: int
+    state: str
+    note: str
+
+
+class FeatureConfigResponse(BaseModel):
+    id: str | None = None
+    mode: str | None = None
+    features: dict[str, bool] = Field(default_factory=dict)
+
+
+class InitiativeStateResponse(BaseModel):
+    elapsed_seconds: float
+    threshold_seconds: float
+    percent: float
+
+
+class TrainingStateResponse(BaseModel):
+    record_id: int
+    case_id: int
+    emotion: EmotionStateResponse
+    personality: dict[str, str] = Field(default_factory=dict)
+    deep_background_keys: list[str] = Field(default_factory=list)
+    exam_anchors: dict = Field(default_factory=dict)
+    config: FeatureConfigResponse
+    initiative: InitiativeStateResponse
+
+
+class InitiativeTriggerResponse(BaseModel):
+    triggered: bool
+    message: str | None = None
+    id: int | None = None

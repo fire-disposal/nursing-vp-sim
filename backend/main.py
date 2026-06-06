@@ -13,7 +13,7 @@ from core.config import APP_VERSION, CLEANUP_INTERVAL_SECONDS, log_config, valid
 from core.database import engine, get_db, init_db
 from core.logging_setup import setup_logging
 from middleware.rate_limits import RateLimiter
-from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, qa, questionnaires, stats, training
+from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, nursing_records, qa, questionnaires, stats, training
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
@@ -204,7 +204,19 @@ def _seed_llm():
         env_encrypted = encrypt_api_key(DEEPSEEK_API_KEY)
         suffix = DEEPSEEK_API_KEY[-4:]
 
-        matched = next((s for s in db.query(ApiSecret).all() if s.encrypted_key == env_encrypted), None)
+        # 清理重复密钥（同 label + suffix 只保留第一个）
+        dupes = db.query(ApiSecret).filter(
+            ApiSecret.label == "初始服务密钥",
+            ApiSecret.key_suffix == suffix,
+        ).order_by(ApiSecret.id).all()
+        if len(dupes) > 1:
+            for d in dupes[1:]:
+                db.query(LLMConfig).filter(LLMConfig.secret_id == d.id).delete()
+                db.delete(d)
+            db.commit()
+            log.info("清理重复密钥: %d → %d", len(dupes), 1)
+
+        matched = dupes[0] if dupes else None
         if matched:
             changed = any([
                 matched.base_url != DEEPSEEK_BASE_URL,
@@ -405,7 +417,7 @@ app.add_middleware(
 )
 
 # ── 路由注册 ──
-for mod in [auth, admin, admin_classes, admin_grades, cases, chat, export, feedback, notes, qa, questionnaires, stats, training]:
+for mod in [auth, admin, admin_classes, admin_grades, cases, chat, export, feedback, notes, nursing_records, qa, questionnaires, stats, training]:
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)

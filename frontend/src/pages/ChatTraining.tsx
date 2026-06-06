@@ -1,43 +1,24 @@
-﻿import {
-  ArrowLeft,
-  CheckCircle2,
-  Circle,
-  Clock,
-  Ear,
-  EarOff,
-  ListChecks,
-  Mic,
-  MicOff,
-  Phone,
-  RefreshCw,
-  Send,
-  Volume2,
-  VolumeX,
-  WifiOff,
-  X,
-} from "lucide-react";
+﻿import { ArrowLeft, CheckCircle2, Circle, Clock, Ear, EarOff, ListChecks, Mic, MicOff, Phone, RefreshCw, Send, WifiOff, X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { endTraining, getRecordDetail, sendMessageStream } from "@/api/api-client";
+import { endTraining, getRecordDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import ChatBubble from "@/components/ChatBubble";
+import OperationPanel from "@/components/OperationPanel";
 import PatientPortrait from "@/components/PatientPortrait";
 import { type CheckResponse, QuestionnaireModal } from "@/components/QuestionnaireModal";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useChatStream } from "@/hooks/useChatStream";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
+import { useTypingFreeze } from "@/hooks/useTypingFreeze";
 import useVoice from "@/hooks/useVoice";
 import { cn } from "@/lib/utils";
+import type { ChatMessage } from "@/types/chat";
 import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
-
-interface ChatMessage {
-  id: number;
-  role: string;
-  content: string;
-  streaming?: boolean;
-}
 
 interface ScoreData {
   total_score: number;
@@ -169,9 +150,7 @@ function InquirySidebar({ inquiries, studentMessages, isOpen, onToggle }: Inquir
 
 export default function ChatTraining() {
   const { recordId } = useParams<{ recordId: string }>();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [ending, setEnding] = useState(false);
   const [score, setScore] = useState<ScoreData | null>(null);
   const [showScore, setShowScore] = useState(false);
@@ -187,7 +166,6 @@ export default function ChatTraining() {
   const [showPortrait, setShowPortrait] = useState(true);
   const [recordStatus, setRecordStatus] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoEndRef = useRef(false);
   const warned5Ref = useRef(false);
@@ -201,10 +179,25 @@ export default function ChatTraining() {
   const toast = useToast();
   const { confirm } = useConfirm();
   const voice = useVoice({ patientGender: patientInfo?.gender, patientAge: patientInfo?.age });
+
+  const pendingContentRef = useRef("");
+  const { messages, setMessages, send, loading, abortRef } = useChatStream(recordId ? Number(recordId) : null, {
+    onPatientChunk: (chunk: string) => voice.speakStreamChunk(chunk),
+    onPatientDone: () => voice.flushStreamSpeak(),
+    onError: (err: string) => {
+      toast.error(err);
+      failedMessageRef.current = pendingContentRef.current;
+    },
+  });
+
+  const { typingFrozen: _typingFrozen, markTyping } = useTypingFreeze();
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [caseId, setCaseId] = useState<number | null>(null);
   const [showPreQuestionnaire, setShowPreQuestionnaire] = useState(false);
   const [showPostQuestionnaire, setShowPostQuestionnaire] = useState(false);
+  const [operationResults, setOperationResults] = useState<{ type: string; label: string; value: string; unit?: string }[]>([]);
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
 
   const preTest = useQuestionnaire({
     caseId,
@@ -314,6 +307,9 @@ export default function ChatTraining() {
         if (detail.required_inquiries) setRequiredInquiries(detail.required_inquiries as unknown as string[]);
         if (detail.patient_info) setPatientInfo(detail.patient_info as unknown as PatientInfo);
         if (detail.case_id) setCaseId(detail.case_id);
+        if ((detail as Record<string, unknown>).features) {
+          setFeatures((detail as Record<string, unknown>).features as Record<string, boolean>);
+        }
         setRecordStatus(detail.status || null);
         if (detail.status === "completed") {
           setRemaining(null);
@@ -382,50 +378,12 @@ export default function ChatTraining() {
     } else {
       setInput("");
     }
-    const studentMsgId = Date.now();
-    const patientMsgId = studentMsgId + 1;
-    setMessages((prev) => [
-      ...prev,
-      { role: "student", content, id: studentMsgId },
-      {
-        role: "patient",
-        content: "",
-        id: patientMsgId,
-        streaming: true,
-      },
-    ]);
-    setLoading(true);
-
+    pendingContentRef.current = content;
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     voice.resetSpeakState();
-
-    await sendMessageStream(
-      Number(recordId),
-      content,
-      (chunk: string) => {
-        setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, content: msg.content + chunk } : msg)));
-        voice.speakStreamChunk(chunk);
-      },
-      (doneId?: number) => {
-        setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, streaming: false, id: doneId || msg.id } : msg)));
-        voice.flushStreamSpeak();
-        setLoading(false);
-        if (abortRef.current === controller) abortRef.current = null;
-      },
-      (error: string) => {
-        toast.error(error);
-        setMessages((prev) => prev.filter((msg) => msg.id !== patientMsgId && msg.id !== studentMsgId));
-        failedMessageRef.current = content;
-        setLoading(false);
-        if (abortRef.current === controller) abortRef.current = null;
-      },
-      (reply: string) => {
-        setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, content: reply } : msg)));
-      },
-      controller.signal,
-    );
+    await send(content);
   };
 
   const executeEnd = async (isAuto = false) => {
@@ -669,32 +627,15 @@ export default function ChatTraining() {
           )}
 
           {messages.map((msg, i) => (
-            <div key={msg.id || i} className={cn("flex items-end gap-2", msg.role === "student" ? "justify-end" : "justify-start")}>
-              {msg.role === "patient" && (
-                <img className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted" src={getPatientAvatar(patientInfo)} alt="患者" />
-              )}
-              <div
-                className={cn(
-                  "msg-bubble max-w-[80%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl text-sm leading-relaxed break-words",
-                  msg.role === "student" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card text-foreground border border-border rounded-bl-md",
-                  msg.streaming && "streaming",
-                )}
-              >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              </div>
-              {msg.role === "student" && (
-                <img className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted" src={getNurseAvatar()} alt="护士" />
-              )}
-              {msg.role === "patient" && !msg.streaming && !voice.autoPlay && voice.speechSupported.synthesis && (
-                <button
-                  className="w-7 h-7 rounded-md border border-border bg-card flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors sm:opacity-0 sm:group-hover:opacity-100 group opacity-100"
-                  onClick={() => handleSpeakToggle(msg.content)}
-                  title={voice.isSpeaking ? "停止朗读" : "朗读"}
-                >
-                  {voice.isSpeaking ? <VolumeX size={13} /> : <Volume2 size={13} />}
-                </button>
-              )}
-            </div>
+            <ChatBubble
+              key={msg.id ?? i}
+              message={msg}
+              patientAvatar={getPatientAvatar(patientInfo)}
+              nurseAvatar={getNurseAvatar()}
+              showSpeakButton={voice.speechSupported.synthesis && !voice.autoPlay}
+              isSpeaking={voice.isSpeaking}
+              onSpeakToggle={handleSpeakToggle}
+            />
           ))}
 
           {loading && !messages.some((m) => m.streaming) && (
@@ -734,6 +675,19 @@ export default function ChatTraining() {
         </div>
       </div>
 
+      {features.physical_exam && (
+        <div className="flex items-center gap-2 px-3 sm:px-6 py-1.5 bg-card border-t border-border shrink-0">
+          <OperationPanel
+            onOperation={(cmd) => {
+              setInput(cmd);
+              handleSend(cmd);
+            }}
+            results={operationResults}
+            disabled={loading || ending || remaining === 0 || !isOnline}
+          />
+        </div>
+      )}
+
       <div className="flex items-center gap-2 px-3 sm:px-6 py-3 bg-card border-t border-border shrink-0">
         {voice.speechSupported.recognition && (
           <button
@@ -770,7 +724,10 @@ export default function ChatTraining() {
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            markTyping();
+          }}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSend()}
           placeholder={!isOnline ? "网络已断开" : remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
           disabled={loading || ending || remaining === 0 || !isOnline}
@@ -850,16 +807,6 @@ export default function ChatTraining() {
       )}
 
       <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        .msg-bubble.streaming::after {
-          content: "|";
-          animation: blink 0.8s infinite;
-          color: var(--primary);
-          font-weight: 700;
-        }
         .typing-dots {
           display: flex;
           gap: 4px;

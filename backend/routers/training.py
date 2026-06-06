@@ -19,12 +19,25 @@ from schemas import (
     ScoreReviewRequest,
     ScoreReviewResponse,
     ScoringTriggerResponse,
+    InitiativeTriggerResponse,
     TrainingRecordBrief,
     TrainingRecordDetail,
     TrainingStartRequest,
     TrainingStartResponse,
+    TrainingStateResponse,
+)
+from services.patient_ai import (
+    cleanup_emotion,
+    cleanup_initiative,
+    generate_initiative,
+    get_emotion,
+    get_initiative_seconds,
+    should_initiate,
+    update_initiative_timer,
 )
 from services.pagination import paginate
+from services.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
+from services.session_config import get_config, list_configs
 
 log = logging.getLogger(__name__)
 
@@ -63,11 +76,19 @@ def start_training(
 
     case_data = case.case_data or {}
     time_limit = case_data.get("time_limit", 20)
+
+    config_id = req.config_id or "standard-assessment"
+    config = get_config(config_id)
+    if config:
+        time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit)
+
     record = TrainingRecord(
         user_id=current_user.id,
         case_id=case.id,
         status="in_progress",
         time_limit=time_limit,
+        config_id=config_id,
+        config_snapshot=config,
     )
     db.add(record)
     db.commit()
@@ -88,6 +109,12 @@ def start_training(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
+
+
+@router.get("/configs")
+def get_session_configs():
+    """返回可用的会话配置列表"""
+    return list_configs()
 
 
 def _run_scoring_background(record_id: int, case_data: dict):
@@ -194,8 +221,12 @@ def end_training(
     db.commit()
 
     from services.chat_session import cleanup_topics
+    from services.emotion_engine import cleanup_emotion
+    from services.patient_initiative import cleanup_initiative
 
     cleanup_topics(record_id)
+    cleanup_emotion(record_id)
+    cleanup_initiative(record_id)
 
     background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
 
@@ -375,6 +406,7 @@ def get_record_detail(
         notes=note_records,
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
+        features=resolve_features(record.config_snapshot),
     )
 
 
@@ -489,3 +521,123 @@ def submit_score_review(
         review_detail_scores=score.review_detail_scores,
         review_comment=score.review_comment,
     )
+
+
+@router.get("/{record_id}/state", response_model=TrainingStateResponse)
+def get_training_state(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """调试端点：返回当前训练的患者内部状态（情绪/人格/配置/操作检测）"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    case_data = case.case_data or {}
+
+    emotion = get_emotion(record_id)
+    config = record.config_snapshot or {}
+
+    personality = case_data.get("personality", {})
+    elapsed, threshold = get_initiative_seconds(record_id, personality, emotion.score)
+
+    return {
+        "record_id": record_id,
+        "case_id": record.case_id,
+        "emotion": {
+            "score": emotion.score,
+            "state": emotion.state,
+            "note": emotion.note,
+        },
+        "personality": personality,
+        "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
+        "exam_anchors": {
+            k: v for k, v in case_data.get("exam_anchors", {}).items()
+        },
+        "config": {
+            "id": record.config_id,
+            "mode": config.get("mode"),
+            "features": resolve_features(record.config_snapshot),
+        },
+        "initiative": {
+            "elapsed_seconds": round(elapsed, 1),
+            "threshold_seconds": round(threshold, 1),
+            "percent": round(min(100, elapsed / threshold * 100), 1),
+        },
+    }
+
+
+@router.post("/{record_id}/initiative/trigger", response_model=InitiativeTriggerResponse)
+def trigger_initiative(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """触发患者主动行为。返回自然语言消息或 None（时机未到）。"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    if not is_enabled(record, "patient_initiative"):
+        return {"triggered": False, "message": None}
+
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
+
+    case_data = case.case_data or {}
+    personality = case_data.get("personality", {})
+    emotion = get_emotion(record_id)
+
+    if not should_initiate(record_id, personality, emotion.score):
+        return {"triggered": False, "message": None}
+
+    msg = generate_initiative(
+        personality,
+        emotion.score,
+        emotion.state,
+        wait_seconds=60,
+    )
+
+    if msg:
+        now = datetime.now(UTC)
+        patient_msg = Message(record_id=record_id, role="patient", content=msg, created_at=now)
+        db.add(patient_msg)
+        db.commit()
+        db.refresh(patient_msg)
+        update_initiative_timer(record_id, len(msg))
+        return {"triggered": True, "message": msg, "id": patient_msg.id}
+
+    return {"triggered": False, "message": None}
+
+
+@router.put("/{record_id}/config/features")
+def update_training_features(
+    record_id: int,
+    features: dict,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """更新训练会话的功能开关（调试用）"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    valid_keys = set(FEATURE_FLAGS.keys())
+    for k in features:
+        if k not in valid_keys:
+            raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
+
+    snapshot = dict(record.config_snapshot or {})
+    snapshot["features"] = {**snapshot.get("features", {}), **features}
+    record.config_snapshot = snapshot
+    db.commit()
+    return {"ok": True, "features": resolve_features(record.config_snapshot)}

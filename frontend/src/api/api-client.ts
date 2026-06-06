@@ -20,7 +20,8 @@ export const getCases = (params: Record<string, unknown> = {}) => api.get<Schema
 
 export const getCaseDetail = (id: number | string) => api.get<Schemas["CaseDetail"]>(`/cases/${id}`);
 
-export const startTraining = (caseId: number | string) => api.post<Schemas["TrainingStartResponse"]>("/training/start", { case_id: caseId });
+export const startTraining = (caseId: number | string, configId?: string) =>
+  api.post<Schemas["TrainingStartResponse"]>("/training/start", { case_id: caseId, config_id: configId });
 
 // Chat
 export const sendMessage = (recordId: number | string, content: string, signal?: AbortSignal) =>
@@ -33,6 +34,7 @@ export async function sendMessageStream(
   onDone: (id?: number) => void,
   onError: (msg: string) => void,
   onSanitized?: (reply: string) => void,
+  onSystem?: (text: string) => void,
   signal?: AbortSignal,
 ) {
   const token = localStorage.getItem("token");
@@ -79,6 +81,10 @@ export async function sendMessageStream(
         }
         if (data.sanitized) {
           onSanitized?.(data.reply);
+          continue;
+        }
+        if (data.system) {
+          onSystem?.(data.system);
           continue;
         }
         if (data.done) {
@@ -308,3 +314,46 @@ export const reloadPrompts = () => api.post<Schemas["OkResponse"]>("/admin/promp
 export const previewActivePrompt = (purpose: string) => api.get<Schemas["PromptPreviewResponse"]>("/admin/prompts/active/preview", { params: { purpose } });
 
 export const fetchSampleVars = (purpose: string) => api.get<Schemas["SampleVarsResponse"]>("/admin/prompts/sample-vars", { params: { purpose } });
+
+// Session Configs
+export const getSessionConfigs = () => api.get<Record<string, unknown>[]>("/training/configs");
+
+// Training State (debug)
+export const getTrainingState = (recordId: number) => api.get<Schemas["TrainingStateResponse"]>(`/training/${recordId}/state`);
+
+export const triggerInitiative = (recordId: number) => api.post<Schemas["InitiativeTriggerResponse"]>(`/training/${recordId}/initiative/trigger`);
+
+export const updateTrainingFeatures = (recordId: number, features: Record<string, boolean>) =>
+  api.put<{ ok: boolean; features: Record<string, boolean> }>(`/training/${recordId}/config/features`, features);
+
+// Nursing Records
+export const getNursingRecord = (recordId: number) => api.get<Record<string, unknown>>(`/nursing-records/${recordId}`);
+
+export const saveNursingRecord = (recordId: number, data: Record<string, unknown>) => api.post<Record<string, unknown>>(`/nursing-records/${recordId}`, data);
+
+// Questionnaires
+export const getQuestionnairesTemplates = (params?: Record<string, unknown>) =>
+  api.get<Schemas["PaginatedResponse_QuestionnaireTemplateResponse_"]>("/questionnaires/templates", { params });
+
+export const createQuestionnaireTemplate = (data: Schemas["QuestionnaireTemplateCreate"]) =>
+  api.post<Schemas["QuestionnaireTemplateDetailResponse"]>("/questionnaires/templates", data);
+
+export const getQuestionnaireTemplate = (id: number) => api.get<Schemas["QuestionnaireTemplateDetailResponse"]>(`/questionnaires/templates/${id}`);
+
+export const updateQuestionnaireTemplate = (id: number, data: Schemas["QuestionnaireTemplateUpdate"]) =>
+  api.put<Schemas["QuestionnaireTemplateDetailResponse"]>(`/questionnaires/templates/${id}`, data);
+
+export const deleteQuestionnaireTemplate = (id: number) => api.delete<Schemas["OkResponse"]>(`/questionnaires/templates/${id}`);
+
+export const checkQuestionnaire = (params: { case_id?: number; record_id?: number; trigger?: string }) =>
+  api.get<Schemas["QuestionnaireCheckResponse"]>("/questionnaires/check", { params });
+
+export const submitQuestionnaire = (data: Schemas["QuestionnaireSubmitRequest"]) =>
+  api.post<Schemas["QuestionnaireResponseItem"]>("/questionnaires/responses", data);
+
+export const getQuestionnaireResponses = (templateId: number, params?: Record<string, unknown>) =>
+  api.get<Schemas["PaginatedResponse_QuestionnaireResponseItem_"]>(`/questionnaires/responses/${templateId}`, { params });
+
+export const getQuestionnaireStats = (templateId: number) => api.get<Schemas["QuestionnaireStatsResponse"]>(`/questionnaires/responses/${templateId}/stats`);
+
+export const exportQuestionnaireCSV = (templateId: number) => api.get(`/questionnaires/responses/${templateId}/export`, { responseType: "blob" });
