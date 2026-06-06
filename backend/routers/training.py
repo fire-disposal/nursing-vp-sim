@@ -24,6 +24,8 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
+from services.emotion_engine import get_emotion
+from services.exam_handler import detect_operation, handle_operation
 from services.pagination import paginate
 from services.session_config import get_config, list_configs
 
@@ -504,3 +506,43 @@ def submit_score_review(
         review_detail_scores=score.review_detail_scores,
         review_comment=score.review_comment,
     )
+
+
+@router.get("/{record_id}/state")
+def get_training_state(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """调试端点：返回当前训练的患者内部状态（情绪/人格/配置/操作检测）"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    case_data = case.case_data or {}
+
+    emotion = get_emotion(record_id)
+    config = record.config_snapshot or {}
+
+    return {
+        "record_id": record_id,
+        "case_id": record.case_id,
+        "emotion": {
+            "score": emotion.score,
+            "state": emotion.state,
+            "note": emotion.note,
+        },
+        "personality": case_data.get("personality", {}),
+        "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
+        "exam_anchors": {
+            k: v for k, v in case_data.get("exam_anchors", {}).items()
+        },
+        "config": {
+            "id": record.config_id,
+            "mode": config.get("mode"),
+            "features": config.get("features", {}),
+        },
+    }
