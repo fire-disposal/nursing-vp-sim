@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.execute("CREATE SEQUENCE IF NOT EXISTS roles_id_seq OWNED BY roles.id")
     op.execute("ALTER TABLE roles ALTER COLUMN id SET DEFAULT nextval('roles_id_seq')")
-    op.execute("SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM roles))")
+    op.execute("SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 1) FROM roles))")
 
     conn = op.get_bind()
     insp = sa.inspect(conn)

@@ -1,0 +1,81 @@
+<view class="page">
+  <view class="header">
+    <view class="header-title">{{checkResponse.template.title || '问卷'}}</view>
+    <view class="header-desc" wx:if="{{checkResponse.template.description}}">{{checkResponse.template.description}}</view>
+  </view>
+
+  <view class="content" wx:if="{{!loading}}">
+    <view class="question-list">
+      <view class="question-item" wx:for="{{checkResponse.template.questions}}" wx:key="id" wx:for-index="idx">
+        <view class="q-label">
+          <text class="q-index">{{idx + 1}}.</text>
+          <text class="q-content">{{item.content}}</text>
+          <text class="q-required" wx:if="{{item.required}}">*</text>
+        </view>
+
+        <view class="q-options" wx:if="{{item.question_type === 'likert_5'}}">
+          <view class="likert-row">
+            <view
+              class="likert-item {{answers[item.id] == val ? 'likert-active' : ''}}"
+              wx:for="{{[1, 2, 3, 4, 5]}}"
+              wx:for-item="val"
+              wx:key="*this"
+              data-question-id="{{item.id}}"
+              data-value="{{val}}"
+              bindtap="onAnswer"
+            >
+              <text class="likert-num">{{val}}</text>
+            </view>
+          </view>
+          <view class="likert-labels">
+            <text class="likert-label">非常不同意</text>
+            <text class="likert-label text-right">非常同意</text>
+          </view>
+        </view>
+
+        <view class="q-options" wx:if="{{item.question_type === 'multiple_choice'}}">
+          <view
+            class="choice-item {{answers[item.id] == opt ? 'choice-active' : ''}}"
+            wx:for="{{item.options}}"
+            wx:for-item="opt"
+            wx:key="*this"
+            data-question-id="{{item.id}}"
+            data-value="{{opt}}"
+            bindtap="onAnswer"
+          >
+            <view class="choice-radio">
+              <view class="radio-dot" wx:if="{{answers[item.id] == opt}}"></view>
+            </view>
+            <text>{{opt}}</text>
+          </view>
+        </view>
+
+        <view class="q-options" wx:if="{{item.question_type === 'short_text'}}">
+          <textarea
+            class="text-input"
+            value="{{answers[item.id] || ''}}"
+            data-question-id="{{item.id}}"
+            bindinput="onTextInput"
+            placeholder="请输入您的回答..."
+            auto-height
+            maxlength="500"
+          />
+        </view>
+      </view>
+    </view>
+
+    <view class="error-msg" wx:if="{{error}}">{{error}}</view>
+
+    <view class="footer">
+      <button class="btn-skip" wx:if="{{!checkResponse.is_required}}" bindtap="onSkip">跳过</button>
+      <button class="btn-submit" bindtap="onSubmit" disabled="{{submitting}}">
+        {{submitting ? '提交中...' : '提交'}}
+      </button>
+    </view>
+  </view>
+
+  <view class="loading-state" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>

@@ -64,6 +64,12 @@ export interface BatchUserItem {
   class_id?: number | null
 }
 
+export interface CaseAssignmentRequest {
+  case_ids: number[]
+  is_required?: boolean
+  trigger_event?: string
+}
+
 export interface CaseBrief {
   id: number
   name: string
@@ -392,6 +398,20 @@ export interface PaginatedResponse_QASessionAdminItem_ {
   limit: number
 }
 
+export interface PaginatedResponse_QuestionnaireResponseItem_ {
+  items: QuestionnaireResponseItem[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface PaginatedResponse_QuestionnaireTemplateResponse_ {
+  items: QuestionnaireTemplateResponse[]
+  total: number
+  offset: number
+  limit: number
+}
+
 export interface PaginatedResponse_RankingItem_ {
   items: RankingItem[]
   total: number
@@ -528,6 +548,137 @@ export interface QASessionItem {
   title: string
   created_at: string
   updated_at: string
+}
+
+export interface QuestionStatsItem {
+  question_id: number
+  content?: string
+  question_type?: string
+  response_count?: number
+  avg_likert?: number | null
+  choice_distribution?: Record<string, unknown>
+  text_answers?: string[]
+}
+
+export interface QuestionnaireAnswerItem {
+  question_id: number
+  question_content?: string
+  question_type?: string
+  options?: string[] | null
+  answer_value?: string | null
+}
+
+export interface QuestionnaireAnswerSubmit {
+  question_id: number
+  answer_value?: string | null
+}
+
+export interface QuestionnaireCheckResponse {
+  has_pending: boolean
+  template_id?: number | null
+  response_id?: number | null
+  template?: QuestionnaireTemplateDetailResponse | null
+  is_required?: boolean
+  trigger_event?: string
+}
+
+export interface QuestionnaireQuestionCreate {
+  content: string
+  question_type: string
+  required?: boolean
+  sort_order?: number
+  options?: string[] | null
+}
+
+export interface QuestionnaireQuestionResponse {
+  id: number
+  template_id: number
+  content: string
+  question_type: string
+  required: boolean
+  sort_order: number
+  options?: string[] | null
+}
+
+export interface QuestionnaireQuestionUpdate {
+  content?: string | null
+  question_type?: string | null
+  required?: boolean | null
+  sort_order?: number | null
+  options?: string[] | null
+}
+
+export interface QuestionnaireResponseItem {
+  id: number
+  template_id: number
+  template_title?: string
+  user_id: number
+  user_name?: string
+  case_id?: number | null
+  record_id?: number | null
+  status: string
+  answers?: QuestionnaireAnswerItem[]
+  completed_at?: string | null
+  created_at: string
+}
+
+export interface QuestionnaireStatsResponse {
+  template_id: number
+  template_title?: string
+  total_assigned?: number
+  total_completed?: number
+  completion_rate?: number
+  questions?: QuestionStatsItem[]
+}
+
+export interface QuestionnaireSubmitRequest {
+  template_id: number
+  case_id?: number | null
+  record_id?: number | null
+  answers: QuestionnaireAnswerSubmit[]
+}
+
+export interface QuestionnaireTemplateCreate {
+  title: string
+  type: string
+  description?: string | null
+  is_active?: boolean
+  questions?: QuestionnaireQuestionCreate[]
+}
+
+export interface QuestionnaireTemplateDetailResponse {
+  id: number
+  title: string
+  type: string
+  description?: string | null
+  is_active: boolean
+  question_count?: number
+  response_count?: number
+  school_id?: number | null
+  created_at: string
+  updated_at: string
+  questions?: QuestionnaireQuestionResponse[]
+  case_ids?: number[]
+}
+
+export interface QuestionnaireTemplateResponse {
+  id: number
+  title: string
+  type: string
+  description?: string | null
+  is_active: boolean
+  question_count?: number
+  response_count?: number
+  school_id?: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface QuestionnaireTemplateUpdate {
+  title?: string | null
+  type?: string | null
+  description?: string | null
+  is_active?: boolean | null
 }
 
 export interface RankingItem {

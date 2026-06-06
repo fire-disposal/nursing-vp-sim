@@ -3,17 +3,18 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "user_manage", "role_manage", "grade_class_manage", "case_manage",
         "training_access", "score_review", "stats_view", "qa_access",
         "llm_monitor", "api_manage", "prompt_manage", "feedback_review",
-        "export_data", "record_notes", "school_manage",
+        "export_data", "record_notes", "school_manage", "questionnaire_manage",
     ],
     "school_admin": [
         "user_manage", "role_manage", "grade_class_manage", "case_manage",
         "training_access", "score_review", "stats_view", "qa_access",
         "llm_monitor", "feedback_review", "export_data", "record_notes",
+        "questionnaire_manage",
     ],
     "teacher": [
         "grade_class_manage", "case_manage", "training_access",
         "score_review", "stats_view", "feedback_review",
-        "export_data", "record_notes",
+        "export_data", "record_notes", "questionnaire_manage",
     ],
     "student": [
         "training_access", "qa_access",

@@ -3,6 +3,7 @@
   Building2,
   Check,
   ChevronsUpDown,
+  ClipboardCheck,
   ClipboardList,
   Globe,
   GraduationCap,
@@ -56,6 +57,7 @@ const allLinks: NavLinkItem[] = [
   { to: "/admin", icon: Settings, label: "训练管理", permission: "score_review" },
   { to: "/admin/llm", icon: Server, label: "LLM 管理", permission: "llm_monitor" },
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
+  { to: "/admin/questionnaires", icon: ClipboardCheck, label: "问卷管理", permission: "questionnaire_manage" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
