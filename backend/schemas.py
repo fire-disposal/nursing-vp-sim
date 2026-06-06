@@ -212,6 +212,7 @@ class TrainingRecordDetail(BaseModel):
     notes: list["NoteItem"] = []
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
+    features: dict[str, bool] = Field(default_factory=dict)
 
 
 class ScoringTriggerResponse(BaseModel):

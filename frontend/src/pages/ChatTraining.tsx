@@ -190,13 +190,14 @@ export default function ChatTraining() {
     },
   });
 
-  const { typingFrozen, markTyping } = useTypingFreeze();
+  const { typingFrozen: _typingFrozen, markTyping } = useTypingFreeze();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [caseId, setCaseId] = useState<number | null>(null);
   const [showPreQuestionnaire, setShowPreQuestionnaire] = useState(false);
   const [showPostQuestionnaire, setShowPostQuestionnaire] = useState(false);
   const [operationResults, setOperationResults] = useState<{ type: string; label: string; value: string; unit?: string }[]>([]);
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
 
   const preTest = useQuestionnaire({
     caseId,
@@ -306,6 +307,9 @@ export default function ChatTraining() {
         if (detail.required_inquiries) setRequiredInquiries(detail.required_inquiries as unknown as string[]);
         if (detail.patient_info) setPatientInfo(detail.patient_info as unknown as PatientInfo);
         if (detail.case_id) setCaseId(detail.case_id);
+        if ((detail as Record<string, unknown>).features) {
+          setFeatures((detail as Record<string, unknown>).features as Record<string, boolean>);
+        }
         setRecordStatus(detail.status || null);
         if (detail.status === "completed") {
           setRemaining(null);
@@ -671,16 +675,18 @@ export default function ChatTraining() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 px-3 sm:px-6 py-1.5 bg-card border-t border-border shrink-0">
-        <OperationPanel
-          onOperation={(cmd) => {
-            setInput(cmd);
-            handleSend(cmd);
-          }}
-          results={operationResults}
-          disabled={loading || ending || remaining === 0 || !isOnline}
-        />
-      </div>
+      {features.physical_exam && (
+        <div className="flex items-center gap-2 px-3 sm:px-6 py-1.5 bg-card border-t border-border shrink-0">
+          <OperationPanel
+            onOperation={(cmd) => {
+              setInput(cmd);
+              handleSend(cmd);
+            }}
+            results={operationResults}
+            disabled={loading || ending || remaining === 0 || !isOnline}
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-2 px-3 sm:px-6 py-3 bg-card border-t border-border shrink-0">
         {voice.speechSupported.recognition && (

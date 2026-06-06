@@ -406,6 +406,7 @@ def get_record_detail(
         notes=note_records,
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
+        features=resolve_features(record.config_snapshot),
     )
 
 
@@ -639,4 +640,4 @@ def update_training_features(
     snapshot["features"] = {**snapshot.get("features", {}), **features}
     record.config_snapshot = snapshot
     db.commit()
-    return {"ok": True, "features": snapshot["features"]}
+    return {"ok": True, "features": resolve_features(record.config_snapshot)}

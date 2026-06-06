@@ -16,7 +16,6 @@ from schemas import ChatMessageRequest, ChatMessageResponse
 from services.feature_flags import is_enabled
 from services.llm_service import call_llm, call_llm_stream
 from prompts.patient_chat import PATIENT_DYNAMIC
-from prompts.patient_chat import PATIENT_DYNAMIC
 from services.patient_ai import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
