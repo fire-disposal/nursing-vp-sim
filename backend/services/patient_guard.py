@@ -1,189 +1,35 @@
-"""患者角色守卫模块
+"""患者角色守卫 — 仅身份泄露检测。其余行为约束由 prompt 工程负责。"""
 
-纯 Python 规则检测 + 二次 LLM 修正。
-策略：先放行原文流式输出，仅在检测到严重越界时调用 LLM 修正。
-"""
 import logging
-import re
-
-import httpx
 
 log = logging.getLogger(__name__)
 
-ROLE_LEAK_PATTERNS = [
-    "作为护士", "作为医生", "作为老师", "作为AI", "我是AI", "我是人工智能",
-    "我是语言模型", "作为语言模型", "由AI", "由人工智能", "我是虚拟患者",
-    "我是病例", "根据系统", "根据设定", "你应该问", "你可以询问",
-    "你可以继续问", "建议你询问", "你漏掉了", "你还没有问", "你忘了问",
-    "你遗漏了", "评分标准", "教学反馈", "我建议你", "正确的问诊",
-    "护理学生应该", "你问得很好", "你问得不错", "下一个该问",
-    "请继续问诊", "根据病例", "根据我的病历", "作为患者角色",
-    "我是一个AI", "角色扮演", "按照设定", "你应该关注", "你的任务是",
-    "你可以问一下", "这位患者", "本患者", "该患者",
+IDENTITY_LEAK_PATTERNS = [
+    "我是AI",
+    "我是人工智能",
+    "我是虚拟患者",
+    "我是模拟",
+    "作为AI",
+    "评分标准",
+    "教学反馈",
+    "该问的",
+    "你应该继续问",
+    "你的表现",
+    "这套系统",
+    "训练模式",
+    "病例",
 ]
 
-DIAGNOSIS_PATTERNS = [
-    "诊断为", "我判断", "应该是", "急性加重", "护理诊断为", "糖尿病足",
-    "感染扩散", "需要抗生素", "你患有", "你得了", "你可能得了",
-    "这属于", "并发症是", "治疗方案", "需要住院",
-]
 
-TEACHING_LEAK_PATTERNS = [
-    "你应该继续", "你还需要问", "建议你", "这次训练", "你的表现",
-    "不完整", "不正确", "该问的",
-]
-
-LONG_OUTPUT_LIMIT = 400
-GUARD_MIN_LENGTH = 160
-
-UNKNOWN_FALLBACKS = [
-    "这个我不太清楚，平时也没太注意。",
-    "这个我记不太清了。",
-    "这方面我说不准，之前也没人跟我详细说过。",
-    "这个医生没跟我说过，我也不太明白。",
-]
-
-ADDRESSING_SKIP_PREFIXES = ["医生说", "以前医生", "医生给我", "医生让我", "医生开", "医生说过的"]
+def has_identity_leak(reply: str) -> bool:
+    """检测患者回复是否泄露了 AI/模拟身份。"""
+    reply_lower = reply.lower()
+    for pattern in IDENTITY_LEAK_PATTERNS:
+        if pattern.lower() in reply_lower:
+            return True
+    return False
 
 
-def detect_violations(reply: str) -> tuple[str | None, str | None, str | None]:
-    """检测回复中的越界问题，返回 (role_leak, diagnosis, teaching)"""
-    role = check_role_leak(reply)
-    diag = check_diagnosis_leak(reply)
-    teach = check_teaching_leak(reply)
-    return role, diag, teach
-
-
-def has_critical_violation(reply: str) -> bool:
-    role, diag, teach = detect_violations(reply)
-    return role is not None or diag is not None or teach is not None
-
-
-def check_role_leak(reply: str) -> str | None:
-    for pattern in ROLE_LEAK_PATTERNS:
-        if pattern in reply:
-            return pattern
-    return None
-
-
-def check_diagnosis_leak(reply: str) -> str | None:
-    for pattern in DIAGNOSIS_PATTERNS:
-        if pattern in reply:
-            return pattern
-    return None
-
-
-def check_teaching_leak(reply: str) -> str | None:
-    for pattern in TEACHING_LEAK_PATTERNS:
-        if pattern in reply:
-            return pattern
-    return None
-
-
-def normalize_addressing_to_nurse(reply: str) -> str:
-    """将患者对学生的直接称呼从'医生/大夫/医师'归一化为'护士'"""
-    if not reply or not reply.strip():
-        return reply
-    text = reply.strip()
-    for prefix in ADDRESSING_SKIP_PREFIXES:
-        if text.startswith(prefix):
-            return reply
-    for title in ["医生", "大夫", "医师"]:
-        m = re.match(r"^([^\u4e00-\u9fff]*)" + re.escape(title) + r"(你好|您好|，|,)", text)
-        if m:
-            return m.group(1) + "护士" + m.group(2) + text[m.end():]
-    return reply
-
-
-async def correct_via_llm(original: str, violations: list[str], client, router, log_worker, user_id: int, record_id: int, case_id: int) -> str:
-    """调用 LLM 修正角色越界回复。共用 call_llm 基础设施并记录日志。"""
-    violation_desc = "\n".join(f"- {v}" for v in violations)
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "修正以下虚拟患者回复中的角色越界问题，保留原文语气和信息。\n"
-                f"问题: {violation_desc}\n"
-                "规则: 去除 AI/教学口吻，去除对学生评价，诊断改为患者式模糊表达。"
-            ),
-        },
-        {"role": "user", "content": original},
-    ]
-    log.info("guard LLM 修正: violations=%d text_len=%d", len(violations), len(original))
-    try:
-        from core.config import get_llm_config
-
-        from services.llm_service import call_llm
-
-        cfg = get_llm_config("patient_chat")
-        corrected = await call_llm(
-            messages,
-            purpose="patient_chat",
-            temperature=0.3,
-            max_tokens=min(cfg.get("max_tokens", 512), 512),
-            timeout=cfg.get("timeout", 15),
-            max_retries=1,
-            user_id=user_id,
-            record_id=record_id,
-            case_id=case_id,
-            client=client,
-            router=router,
-            log_worker=log_worker,
-        )
-        result = corrected.strip() or original
-        if result != original:
-            log.info("guard LLM 修正完成: before=%d after=%d", len(original), len(result))
-        return result
-    except (RuntimeError, httpx.HTTPError, OSError, ValueError, KeyError):
-        log.exception("guard LLM 修正失败，回退原文")
-        return original
-
-
-def _keyword_match(rule_or_text, target_text: str) -> bool:
-    if isinstance(rule_or_text, str):
-        return any(kw in target_text for kw in ["血", "咯血", "血丝", "痰中带血"])
-    triggers = rule_or_text.get("trigger_keywords", [])
-    return any(kw in target_text for kw in triggers)
-
-
-def get_revealed_topics(history_text: str, case_data: dict) -> set:
-    rules = case_data.get("hidden_info_rules", [])
-    if not rules:
-        return set()
-    revealed = set()
-    for rule in rules:
-        if _keyword_match(rule, history_text):
-            revealed.add(rule.get("topic", ""))
-    return revealed
-
-
-def get_allowed_hidden_info(case_data: dict, student_message: str,
-                            disclosed_topics: set) -> list[dict]:
-    rules = case_data.get("hidden_info_rules", [])
-    if not rules:
-        legacy_hidden = case_data.get("hidden_info", [])
-        result = []
-        for item in legacy_hidden:
-            topic = str(item)[:30]
-            if topic in disclosed_topics or _keyword_match(item, student_message):
-                result.append({"topic": topic, "content": item, "triggered": True})
-            else:
-                result.append({"topic": topic, "content": item, "triggered": False})
-        return result
-
-    result = []
-    for rule in rules:
-        topic = rule.get("topic", "")
-        if topic in disclosed_topics or _keyword_match(rule, student_message):
-            result.append({**rule, "triggered": True})
-        else:
-            result.append({**rule, "triggered": False})
-    return result
-
-
-def sanitize_patient_reply(reply: str, case_data: dict) -> tuple[str, list[str], bool]:
-    """检测回复中的问题。返回 (normalized, violations, needs_correction)。
-
-    注意：患者角色守卫模块暂未完成，当前为直通模式，不检测也不修正。
-    """
-    return reply, [], False
+def get_identity_correction_note() -> str:
+    """返回身份泄露时的 Author's Note 修正提示。"""
+    return "【注意：你在扮演真实患者，你是人不是AI。用患者的语气自然回应，不要提及任何关于训练、评分、系统的内容。】"
