@@ -36,6 +36,7 @@ from services.patient_ai import (
     update_initiative_timer,
 )
 from services.pagination import paginate
+from services.feature_flags import is_enabled
 from services.session_config import get_config, list_configs
 
 log = logging.getLogger(__name__)
@@ -581,6 +582,9 @@ def trigger_initiative(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
+
+    if not is_enabled(record, "patient_initiative"):
+        return {"triggered": False, "message": None}
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
     if not case:

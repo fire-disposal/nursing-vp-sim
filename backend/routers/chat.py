@@ -194,7 +194,8 @@ async def send_message(
     db.add(patient_msg)
     db.commit()
     db.refresh(patient_msg)
-    update_initiative_timer(record_id, len(reply))
+    if is_enabled(record, "patient_initiative"):
+        update_initiative_timer(record_id, len(reply))
 
     log.info("消息已记录: record_id=%d", extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""})
     return ChatMessageResponse(role="patient", content=reply)
@@ -311,7 +312,8 @@ async def send_message_stream(
                 db.add(patient_msg)
                 db.commit()
                 db.refresh(patient_msg)
-                update_initiative_timer(record_id, len(full_reply))
+                if is_enabled(record, "patient_initiative"):
+                    update_initiative_timer(record_id, len(full_reply))
 
                 log.info(
                     "流式消息已记录: record_id=%d",
