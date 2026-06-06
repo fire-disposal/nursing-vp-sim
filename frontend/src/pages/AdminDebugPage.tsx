@@ -78,6 +78,8 @@ export default function AdminDebugPage() {
   const [showDebug, setShowDebug] = useState(true);
   const [msgTimestamps, setMsgTimestamps] = useState<number[]>([]);
   const [initiativeFired, setInitiativeFired] = useState(false);
+  const [typingFrozen, setTypingFrozen] = useState(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -93,6 +95,7 @@ export default function AdminDebugPage() {
   useEffect(() => {
     if (!recordId || ending) return;
     pollRef.current = setInterval(async () => {
+      if (typingFrozen || loading) return;
       try {
         const r = await getTrainingState(recordId);
         const s = r.data;
@@ -304,7 +307,12 @@ export default function AdminDebugPage() {
                 <input
                   type="text"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    setTypingFrozen(true);
+                    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+                    typingTimerRef.current = setTimeout(() => setTypingFrozen(false), 2000);
+                  }}
                   onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && !e.shiftKey && handleSend()}
                   placeholder="输入消息测试新交互流程..."
                   disabled={loading || ending}
