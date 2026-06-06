@@ -13,7 +13,7 @@ from core.config import APP_VERSION, CLEANUP_INTERVAL_SECONDS, log_config, valid
 from core.database import engine, get_db, init_db
 from core.logging_setup import setup_logging
 from middleware.rate_limits import RateLimiter
-from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, qa, questionnaires, stats, training
+from routers import admin, admin_classes, admin_grades, auth, cases, chat, export, feedback, notes, nursing_records, qa, questionnaires, stats, training
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
@@ -405,7 +405,7 @@ app.add_middleware(
 )
 
 # ── 路由注册 ──
-for mod in [auth, admin, admin_classes, admin_grades, cases, chat, export, feedback, notes, qa, questionnaires, stats, training]:
+for mod in [auth, admin, admin_classes, admin_grades, cases, chat, export, feedback, notes, nursing_records, qa, questionnaires, stats, training]:
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)

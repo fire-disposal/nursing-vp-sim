@@ -456,3 +456,22 @@ class CaseQuestionnaire(Base):
 
     case: Mapped["Case"] = relationship()
     template: Mapped["QuestionnaireTemplate"] = relationship()
+
+
+class NursingRecord(Base):
+    __tablename__ = "nursing_records"
+    __table_args__ = (Index("ix_nr_record_id", "record_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", ondelete="CASCADE"), unique=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    subjective: Mapped[str | None] = mapped_column(Text, nullable=True)
+    objective: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assessment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+    record: Mapped["TrainingRecord"] = relationship()
+    user: Mapped["User"] = relationship()
