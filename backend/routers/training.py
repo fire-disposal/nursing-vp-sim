@@ -591,7 +591,28 @@ def trigger_initiative(
     emotion = get_emotion(record_id)
 
     if not should_initiate(record_id, personality, emotion.score):
-        return {"triggered": False, "message": None}
+    return {"triggered": False, "message": None}
+
+
+@router.put("/{record_id}/config/features")
+def update_training_features(
+    record_id: int,
+    features: dict,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """更新训练会话的功能开关（调试用）"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    snapshot = dict(record.config_snapshot or {})
+    snapshot["features"] = {**snapshot.get("features", {}), **features}
+    record.config_snapshot = snapshot
+    db.commit()
+    return {"ok": True, "features": snapshot["features"]}
 
     msg = generate_initiative(
         personality,

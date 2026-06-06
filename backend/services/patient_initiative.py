@@ -74,14 +74,14 @@ def generate_initiative(
     anxiety_trait = personality.get("anxiety_trait", "normal")
 
     # ── 触发阈值（根据性格调整）──
-    base_threshold = 25.0  # 基础静默阈值（秒）
+    base_threshold = 30.0  # 基础静默阈值（秒）
 
     patience_bias = {"low": -8, "normal": 0, "high": +10}
     anxiety_bias = {"anxious": -5, "normal": 0, "calm": +5}
     emotion_bias = emotion_score * -3  # 情绪越负面，越早触发
 
     threshold = base_threshold + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + emotion_bias
-    threshold = max(10, min(60, threshold))  # 夹在 10-60 秒
+    threshold = max(15, min(90, threshold))  # 夹在 15-90 秒
 
     if wait_seconds < threshold:
         return None
@@ -153,8 +153,8 @@ def get_initiative_seconds(record_id: int, personality: dict, emotion_score: int
     patience_bias = {"low": -8, "normal": 0, "high": +10}
     anxiety_bias = {"anxious": -5, "normal": 0, "calm": +5}
     emotion_bias = emotion_score * -3
-    threshold = 25.0 + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + emotion_bias
-    threshold = max(10, min(60, threshold))
+    threshold = 30.0 + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + emotion_bias
+    threshold = max(15, min(90, threshold))
 
     return elapsed, threshold
 

@@ -1,8 +1,8 @@
-import { Activity, ArrowLeft, Brain, Bug, Heart, Info, MessageCircle, RefreshCw, Send, Stethoscope, Timer } from "lucide-react";
+import { Activity, ArrowLeft, Brain, Bug, ClipboardList, Heart, Info, MessageCircle, RefreshCw, Send, Stethoscope, Timer } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { endTraining, getCases, getTrainingState, sendMessageStream, startTraining, triggerInitiative } from "@/api/api-client";
+import { endTraining, getCases, getTrainingState, sendMessageStream, startTraining, triggerInitiative, updateTrainingFeatures } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import Layout from "@/components/Layout";
 import OperationPanel from "@/components/OperationPanel";
@@ -77,7 +77,7 @@ export default function AdminDebugPage() {
   const [opResults, setOpResults] = useState<OperationResult[]>([]);
   const [showDebug, setShowDebug] = useState(true);
   const [msgTimestamps, setMsgTimestamps] = useState<number[]>([]);
-  const [initiativeFired, setInitiativeFired] = useState(false);
+  const initiativeFiredRef = useRef(false);
   const [typingFrozen, setTypingFrozen] = useState(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -100,14 +100,16 @@ export default function AdminDebugPage() {
         const r = await getTrainingState(recordId);
         const s = r.data;
         setState(s as unknown as TrainingState);
-        if (s.initiative?.percent >= 100 && !initiativeFired) {
-          setInitiativeFired(true);
+        if (s.initiative?.percent >= 100 && !initiativeFiredRef.current) {
+          initiativeFiredRef.current = true;
           const trigger = await triggerInitiative(recordId);
           if (trigger.data.triggered && trigger.data.message) {
             setMessages((prev) => [...prev, { role: "patient", content: trigger.data.message as string }]);
             setMsgTimestamps((prev) => [...prev, Date.now()]);
           }
-          setTimeout(() => setInitiativeFired(false), 2000);
+          setTimeout(() => {
+            initiativeFiredRef.current = false;
+          }, 3000);
         }
       } catch {
         /* ignore */
@@ -116,7 +118,7 @@ export default function AdminDebugPage() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [recordId, ending, initiativeFired]);
+  }, [recordId, ending]);
 
   const refreshState = async () => {
     if (!recordId) return;
@@ -211,14 +213,17 @@ export default function AdminDebugPage() {
     }
   };
 
-  const handleEnd = async () => {
+  const handleEnd = async (navigateAfter = true) => {
     if (!recordId) return;
     setEnding(true);
     try {
       await endTraining(recordId);
     } finally {
       setEnding(false);
-      navigate("/home");
+      setRecordId(null);
+      setMessages([]);
+      setState(null);
+      if (navigateAfter) navigate("/home");
     }
   };
 
@@ -258,20 +263,51 @@ export default function AdminDebugPage() {
             <>
               <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => navigate("/home")} className="p-1.5 rounded-md hover:bg-muted">
+                  <button
+                    onClick={() => {
+                      handleEnd();
+                      navigate("/cases");
+                    }}
+                    className="p-1.5 rounded-md hover:bg-muted"
+                    title="返回病例选择"
+                  >
                     <ArrowLeft size={16} />
                   </button>
-                  <span className="text-sm font-medium">{caseData?.name}</span>
+                  <select
+                    value={selectedCaseId ?? ""}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      if (id) {
+                        setSelectedCaseId(id);
+                        handleEnd();
+                      }
+                    }}
+                    className="text-sm font-medium bg-transparent border-0 cursor-pointer hover:bg-muted rounded px-1 py-0.5 max-w-[140px] truncate"
+                  >
+                    {cases.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">DEBUG</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => navigate("/history")}
+                    className="text-xs px-2 py-1 rounded border border-border hover:bg-muted flex items-center gap-1"
+                    title="历史记录"
+                  >
+                    <ClipboardList size={12} />
+                    历史
+                  </button>
                   <button
                     onClick={() => setShowDebug(!showDebug)}
                     className={cn("text-xs px-2 py-1 rounded border", showDebug ? "border-primary bg-primary/10 text-primary" : "border-border")}
                   >
                     {showDebug ? "隐藏调试" : "显示调试"}
                   </button>
-                  <button onClick={handleEnd} disabled={ending} className="text-xs px-2 py-1 rounded border border-destructive/50 text-destructive">
+                  <button onClick={() => handleEnd()} disabled={ending} className="text-xs px-2 py-1 rounded border border-destructive/50 text-destructive">
                     {ending ? "结束中..." : "结束"}
                   </button>
                 </div>
@@ -511,9 +547,25 @@ export default function AdminDebugPage() {
               {state?.config?.features && (
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(state.config.features).map(([k, v]) => (
-                    <span key={k} className={cn("px-1.5 py-0.5 rounded text-[10px]", v ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground")}>
+                    <button
+                      key={k}
+                      onClick={async () => {
+                        if (!recordId) return;
+                        try {
+                          const r = await updateTrainingFeatures(recordId, { [k]: !v });
+                          const newFeatures = r.data.features || {};
+                          setState((prev) => (prev ? { ...prev, config: { ...prev.config, features: { ...prev.config.features, [k]: !v } } } : null));
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] cursor-pointer border transition-colors hover:opacity-80",
+                        v ? "bg-green-100 text-green-700 border-green-300" : "bg-muted text-muted-foreground border-border",
+                      )}
+                    >
                       {k}: {v ? "ON" : "OFF"}
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
