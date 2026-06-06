@@ -1,7 +1,9 @@
-import { ArrowLeft, Bug, Heart, RefreshCw, Send, X } from "lucide-react";
+import { Activity, ArrowLeft, Brain, Bug, Heart, Info, MessageCircle, RefreshCw, Send, Stethoscope, Timer } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { endTraining, getCases, getTrainingState } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
 import OperationPanel from "@/components/OperationPanel";
@@ -10,13 +12,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
 import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
 
-interface CaseBrief {
-  id: number;
-  name: string;
-  difficulty: number;
-  description?: string;
-  patient_summary?: { name: string; age: number; gender: string };
-}
+type CaseBrief = components["schemas"]["CaseBrief"];
 
 interface ChatMessage {
   id?: number;
@@ -39,11 +35,38 @@ interface TrainingState {
   config: { id: string; mode: string; features: Record<string, boolean> };
 }
 
-interface OperationResult {
-  type: string;
-  label: string;
-  value: string;
-  unit?: string;
+const PERSONALITY_LABELS: Record<string, Record<string, string>> = {
+  health_literacy: { low: "低素养", normal: "中等", high: "高素养" },
+  verbosity: { terse: "寡言", normal: "正常", verbose: "絮叨" },
+  anxiety_trait: { calm: "安宁", normal: "平常", anxious: "焦虑" },
+  patience: { low: "急躁", normal: "正常", high: "耐心" },
+};
+
+const PERSONALITY_BAR_COLORS: Record<string, string> = {
+  health_literacy: "bg-blue-500",
+  verbosity: "bg-purple-500",
+  anxiety_trait: "bg-amber-500",
+  patience: "bg-emerald-500",
+};
+
+const PERSONALITY_ICONS: Record<string, typeof Brain> = {
+  health_literacy: Brain,
+  verbosity: MessageCircle,
+  anxiety_trait: Heart,
+  patience: Timer,
+};
+
+function personalityBarValue(val: string): number {
+  const scale: Record<string, number> = {
+    low: 1,
+    terse: 1,
+    calm: 1,
+    normal: 3,
+    high: 5,
+    verbose: 5,
+    anxious: 5,
+  };
+  return scale[val] ?? 3;
 }
 
 export default function AdminDebugPage() {
@@ -58,11 +81,12 @@ export default function AdminDebugPage() {
   const [state, setState] = useState<TrainingState | null>(null);
   const [opResults, setOpResults] = useState<OperationResult[]>([]);
   const [showDebug, setShowDebug] = useState(true);
+  const [msgTimestamps, setMsgTimestamps] = useState<number[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    api.get("/api/cases", { params: { limit: 50 } }).then((r: { data: { items: CaseBrief[] } }) => setCases(r.data.items));
+    getCases({ limit: 50 }).then((r) => setCases(r.data.items || []));
   }, []);
 
   useEffect(() => {
@@ -72,8 +96,8 @@ export default function AdminDebugPage() {
   const refreshState = async () => {
     if (!recordId) return;
     try {
-      const r = await api.get(`/api/training/${recordId}/state`);
-      setState(r.data);
+      const r = await getTrainingState(recordId);
+      setState(r.data as unknown as TrainingState);
     } catch {
       /* ignore */
     }
@@ -83,9 +107,13 @@ export default function AdminDebugPage() {
     if (!selectedCaseId) return;
     setLoading(true);
     try {
-      const r = await api.post("/api/training/start", { case_id: selectedCaseId, config_id: "free-exploration" });
+      const r = await api.post<{ record_id: number; greeting: string }>("/training/start", {
+        case_id: selectedCaseId,
+        config_id: "free-exploration",
+      });
       setRecordId(r.data.record_id);
       setMessages([{ role: "patient", content: r.data.greeting }]);
+      setMsgTimestamps([Date.now()]);
       await refreshState();
     } finally {
       setLoading(false);
@@ -100,17 +128,20 @@ export default function AdminDebugPage() {
 
     const studentMsg: ChatMessage = { role: "student", content };
     setMessages((prev) => [...prev, studentMsg]);
+    setMsgTimestamps((prev) => [...prev, Date.now()]);
+
+    if (content.startsWith("/")) {
+      setMessages((prev) => [...prev, { role: "system", content: `执行操作: ${content}\n（等待系统返回数据...）` }]);
+    }
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
+      const token = localStorage.getItem("access_token") || "";
       const resp = await fetch(`/api/chat/${recordId}/message/stream`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content }),
         signal: controller.signal,
       });
@@ -119,8 +150,7 @@ export default function AdminDebugPage() {
       if (!reader) throw new Error("No reader");
 
       let fullReply = "";
-      setMessages((prev) => [...prev, { role: "patient", content: "", streaming: true }]);
-
+      let bubbleAdded = false;
       const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
@@ -131,25 +161,30 @@ export default function AdminDebugPage() {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.content) {
+                if (!bubbleAdded) {
+                  setMessages((prev) => [...prev, { role: "patient", content: data.content, streaming: true }]);
+                  bubbleAdded = true;
+                } else {
+                  fullReply += data.content;
+                  setMessages((prev) => {
+                    const next = [...prev];
+                    const last = next[next.length - 1];
+                    if (last?.streaming) next[next.length - 1] = { ...last, content: fullReply };
+                    return next;
+                  });
+                }
                 fullReply += data.content;
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const lastIdx = next.length - 1;
-                  if (next[lastIdx]?.streaming) {
-                    next[lastIdx] = { ...next[lastIdx], content: fullReply };
-                  }
-                  return next;
-                });
               }
               if (data.done) break;
             } catch {
-              /* ignore parse errors */
+              /* ignore */
             }
           }
         }
       }
 
-      setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)));
+      setMessages((prev) => prev.map((m) => (m.streaming ? ({ ...m, content: fullReply, streaming: false } as ChatMessage) : m)));
+      setMsgTimestamps((prev) => [...prev, Date.now()]);
       await refreshState();
     } catch (err: unknown) {
       if ((err as Error).name !== "AbortError") {
@@ -161,11 +196,11 @@ export default function AdminDebugPage() {
     }
   };
 
-  const endTraining = async () => {
+  const handleEnd = async () => {
     if (!recordId) return;
     setEnding(true);
     try {
-      await api.post(`/api/training/${recordId}/end`);
+      await endTraining(recordId);
     } finally {
       setEnding(false);
       navigate("/home");
@@ -173,6 +208,8 @@ export default function AdminDebugPage() {
   };
 
   const caseData = cases.find((c) => c.id === selectedCaseId);
+  const patientMsgs = msgTimestamps.filter((_, i) => i % 2 === 1);
+  const lastResponseTime = patientMsgs.length >= 2 ? ((patientMsgs[patientMsgs.length - 1] - patientMsgs[patientMsgs.length - 2]) / 1000).toFixed(1) : null;
 
   return (
     <Layout>
@@ -193,7 +230,7 @@ export default function AdminDebugPage() {
                   <option value="">选择病例...</option>
                   {cases.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} (★{c.difficulty}) {c.patient_summary ? `— ${c.patient_summary.name}` : ""}
+                      {c.name} (★{c.difficulty}) {c.patient_summary ? `— ${((c.patient_summary as Record<string, unknown>).name as string) || ""}` : ""}
                     </option>
                   ))}
                 </select>
@@ -219,28 +256,37 @@ export default function AdminDebugPage() {
                   >
                     {showDebug ? "隐藏调试" : "显示调试"}
                   </button>
-                  <button onClick={endTraining} disabled={ending} className="text-xs px-2 py-1 rounded border border-destructive/50 text-destructive">
+                  <button onClick={handleEnd} disabled={ending} className="text-xs px-2 py-1 rounded border border-destructive/50 text-destructive">
                     {ending ? "结束中..." : "结束"}
                   </button>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.map((msg, i) => (
-                  <div key={i} className={cn("flex gap-2", msg.role === "student" ? "justify-end" : "justify-start")}>
-                    {msg.role === "patient" && <img className="w-7 h-7 rounded-full shrink-0 bg-muted" src={getPatientAvatar()} alt="" />}
-                    <div
-                      className={cn(
-                        "max-w-[75%] rounded-xl px-3 py-2 text-sm leading-relaxed",
-                        msg.role === "student" ? "bg-primary text-primary-foreground" : "bg-muted",
-                        msg.streaming && "after:content-['|'] after:animate-pulse",
-                      )}
-                    >
-                      {msg.content}
+                {messages.map((msg, i) =>
+                  msg.role === "system" ? (
+                    <div key={i} className="flex justify-center">
+                      <div className="flex items-start gap-2 max-w-[85%] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
+                        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <div className="whitespace-pre-wrap leading-relaxed text-blue-800">{msg.content}</div>
+                      </div>
                     </div>
-                    {msg.role === "student" && <img className="w-7 h-7 rounded-full shrink-0 bg-muted" src={getNurseAvatar()} alt="" />}
-                  </div>
-                ))}
+                  ) : (
+                    <div key={i} className={cn("flex gap-2", msg.role === "student" ? "justify-end" : "justify-start")}>
+                      {msg.role === "patient" && <img className="w-7 h-7 rounded-full shrink-0 bg-muted" src={getPatientAvatar()} alt="" />}
+                      <div
+                        className={cn(
+                          "max-w-[75%] rounded-xl px-3 py-2 text-sm leading-relaxed",
+                          msg.role === "student" ? "bg-primary text-primary-foreground" : "bg-muted",
+                          msg.streaming && "after:content-['|'] after:animate-pulse",
+                        )}
+                      >
+                        {msg.content || (msg.streaming ? "" : "")}
+                      </div>
+                      {msg.role === "student" && <img className="w-7 h-7 rounded-full shrink-0 bg-muted" src={getNurseAvatar()} alt="" />}
+                    </div>
+                  ),
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -251,7 +297,7 @@ export default function AdminDebugPage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                  onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && !e.shiftKey && handleSend()}
                   placeholder="输入消息测试新交互流程..."
                   disabled={loading || ending}
                   className="flex-1 h-10 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
@@ -273,77 +319,142 @@ export default function AdminDebugPage() {
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
                 <Heart className="h-4 w-4 text-rose-500" />
-                情绪状态机
+                情绪引擎
               </h4>
               {state ? (
                 <>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-300",
-                          state.emotion.score >= 1 ? "bg-green-500" : state.emotion.score <= -1 ? "bg-red-500" : "bg-amber-400",
-                        )}
-                        style={{ width: `${((state.emotion.score + 2) / 4) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-mono tabular-nums w-6">{state.emotion.score > 0 ? `+${state.emotion.score}` : state.emotion.score}</span>
+                    <span
+                      className={cn(
+                        "text-xs font-medium px-1.5 py-0.5 rounded",
+                        state.emotion.score >= 1
+                          ? "bg-green-100 text-green-700"
+                          : state.emotion.score <= -1
+                            ? "bg-red-100 text-red-700"
+                            : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {state.emotion.state} ({state.emotion.score > 0 ? `+${state.emotion.score}` : state.emotion.score})
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{state.emotion.note}</p>
-                  <div className="text-xs space-y-1 bg-muted/50 rounded p-2">
-                    <span className="font-medium">人格:</span>{" "}
-                    {Object.entries(state.personality || {}).map(([k, v]) => (
-                      <span key={k} className="ml-1 px-1 py-0.5 rounded bg-border/50">
-                        {k}: {v}
-                      </span>
-                    ))}
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        state.emotion.score >= 1 ? "bg-green-500" : state.emotion.score <= -1 ? "bg-red-500" : "bg-amber-400",
+                      )}
+                      style={{ width: `${((state.emotion.score + 2) / 4) * 100}%` }}
+                    />
                   </div>
-                  <div className="text-xs space-y-1 bg-muted/50 rounded p-2">
-                    <span className="font-medium">背景字段:</span> {state.deep_background_keys.join(" · ") || "(无)"}
-                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{state.emotion.note}</p>
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground">加载中...</p>
               )}
-              <button onClick={refreshState} className="text-xs text-primary hover:underline">
-                <RefreshCw className="inline h-3 w-3 mr-1" />
-                刷新状态
+              <button onClick={refreshState} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" />
+                刷新
               </button>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-              <h4 className="text-sm font-semibold">会话配置</h4>
-              {state?.config && (
-                <div className="text-xs space-y-1">
-                  <div>
-                    模式: <span className="font-medium">{state.config.mode}</span>
-                  </div>
-                  <div>
-                    配置: <span className="font-medium">{state.config.id}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {Object.entries(state.config.features || {}).map(([k, v]) => (
-                      <span key={k} className={cn("px-1.5 py-0.5 rounded text-[10px]", v ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground")}>
-                        {k}: {v ? "ON" : "OFF"}
-                      </span>
-                    ))}
-                  </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Brain className="h-4 w-4 text-purple-500" />
+                患者人格
+              </h4>
+              {state?.personality && Object.keys(state.personality).length > 0 ? (
+                <div className="space-y-2">
+                  {Object.entries(state.personality).map(([dim, val]) => {
+                    const Icon = PERSONALITY_ICONS[dim] || Brain;
+                    const barW = (personalityBarValue(val as string) / 5) * 100;
+                    const label = (PERSONALITY_LABELS[dim] || {})[val as string] || val;
+                    return (
+                      <div key={dim} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <Icon className="h-3 w-3 text-muted-foreground" />
+                            {dim === "health_literacy" ? "健康素养" : dim === "verbosity" ? "健谈度" : dim === "anxiety_trait" ? "焦虑倾向" : "耐心度"}
+                          </span>
+                          <span className="text-muted-foreground">{label}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className={cn("h-full rounded-full", PERSONALITY_BAR_COLORS[dim] || "bg-primary")} style={{ width: `${barW}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">(未配置人格)</p>
               )}
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-              <h4 className="text-sm font-semibold">查体锚点</h4>
-              {state?.exam_anchors && (
-                <div className="text-xs space-y-1 font-mono max-h-40 overflow-y-auto">
-                  {Object.keys(state.exam_anchors).length === 0
-                    ? "(该病例未配置查体锚点)"
-                    : Object.entries(state.exam_anchors).map(([k, v]) => (
-                        <div key={k} className="flex justify-between">
-                          <span className="text-muted-foreground">{k}</span>
-                          <span>{typeof v === "string" ? v : JSON.stringify(v)}</span>
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-blue-500" />
+                对话统计
+              </h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-muted/50 rounded p-2">
+                  <span className="text-muted-foreground">总消息</span>
+                  <div className="text-lg font-semibold">{messages.length}</div>
+                </div>
+                <div className="bg-muted/50 rounded p-2">
+                  <span className="text-muted-foreground">患者回复</span>
+                  <div className="text-lg font-semibold">{patientMsgs.length}</div>
+                </div>
+                <div className="bg-muted/50 rounded p-2">
+                  <span className="text-muted-foreground">间隔</span>
+                  <div className="text-lg font-semibold">{lastResponseTime ? `${lastResponseTime}s` : "—"}</div>
+                </div>
+                <div className="bg-muted/50 rounded p-2">
+                  <span className="text-muted-foreground">配置</span>
+                  <div className="text-sm font-semibold">{state?.config.mode || "—"}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Stethoscope className="h-4 w-4 text-emerald-500" />
+                体征锚点
+              </h4>
+              {state?.exam_anchors && Object.keys(state.exam_anchors).length > 0 ? (
+                <div className="space-y-2 text-xs">
+                  {Object.entries(state.exam_anchors).map(([k, v]) => (
+                    <div key={k} className="bg-muted/50 rounded p-2">
+                      <div className="font-medium text-muted-foreground mb-0.5">
+                        {k === "vital_signs" ? "生命体征" : k === "auscultation" ? "听诊" : k === "skin" ? "皮肤" : k === "pain_score" ? "疼痛评分" : k}
+                      </div>
+                      {typeof v === "string" ? (
+                        <span className="font-mono">{v}</span>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {Object.entries(v).map(([sk, sv]) => (
+                            <div key={sk} className="flex justify-between">
+                              <span className="text-muted-foreground">{sk}</span>
+                              <span className="font-mono">{String(sv)}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">(无查体锚点)</p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+              <h4 className="text-sm font-semibold">功能开关</h4>
+              {state?.config?.features && (
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(state.config.features).map(([k, v]) => (
+                    <span key={k} className={cn("px-1.5 py-0.5 rounded text-[10px]", v ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground")}>
+                      {k}: {v ? "ON" : "OFF"}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
@@ -352,4 +463,11 @@ export default function AdminDebugPage() {
       </div>
     </Layout>
   );
+}
+
+interface OperationResult {
+  type: string;
+  label: string;
+  value: string;
+  unit?: string;
 }

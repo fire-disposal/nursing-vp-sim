@@ -114,6 +114,7 @@ export interface CaseManageItem {
   chief_complaint?: string
   time_limit?: number
   difficulty?: number
+  patient_personality?: string
   created_at: string
   training_count?: number
 }
@@ -138,6 +139,7 @@ export interface ChatMessageRequest {
 export interface ChatMessageResponse {
   role: string
   content: string
+  operation?: Record<string, unknown> | null
 }
 
 export interface ClassCreate {
@@ -357,6 +359,25 @@ export interface NoteItem {
   content: string
   created_at: string
   updated_at: string
+}
+
+export interface NursingRecordResponse {
+  id: number
+  record_id: number
+  subjective?: string | null
+  objective?: string | null
+  assessment?: string | null
+  plan?: string | null
+  status: string
+  updated_at: string
+}
+
+export interface NursingRecordSave {
+  subjective?: string | null
+  objective?: string | null
+  assessment?: string | null
+  plan?: string | null
+  status?: string
 }
 
 export interface OkResponse {
@@ -886,6 +907,7 @@ export interface TrainingRecordDetail {
 
 export interface TrainingStartRequest {
   case_id: number
+  config_id?: string | null
 }
 
 export interface TrainingStartResponse {

@@ -308,3 +308,39 @@ export const reloadPrompts = () => api.post<Schemas["OkResponse"]>("/admin/promp
 export const previewActivePrompt = (purpose: string) => api.get<Schemas["PromptPreviewResponse"]>("/admin/prompts/active/preview", { params: { purpose } });
 
 export const fetchSampleVars = (purpose: string) => api.get<Schemas["SampleVarsResponse"]>("/admin/prompts/sample-vars", { params: { purpose } });
+
+// Session Configs
+export const getSessionConfigs = () => api.get<Record<string, unknown>[]>("/training/configs");
+
+// Training State (debug)
+export const getTrainingState = (recordId: number) => api.get<Record<string, unknown>>(`/training/${recordId}/state`);
+
+// Nursing Records
+export const getNursingRecord = (recordId: number) => api.get<Record<string, unknown>>(`/nursing-records/${recordId}`);
+
+export const saveNursingRecord = (recordId: number, data: Record<string, unknown>) => api.post<Record<string, unknown>>(`/nursing-records/${recordId}`, data);
+
+// Questionnaires
+export const getQuestionnairesTemplates = (params?: Record<string, unknown>) =>
+  api.get<Schemas["PaginatedResponse_QuestionnaireTemplateResponse_"]>("/questionnaires/templates", { params });
+
+export const createQuestionnaireTemplate = (data: Record<string, unknown>) => api.post<Record<string, unknown>>("/questionnaires/templates", data);
+
+export const getQuestionnaireTemplate = (id: number) => api.get<Record<string, unknown>>(`/questionnaires/templates/${id}`);
+
+export const updateQuestionnaireTemplate = (id: number, data: Record<string, unknown>) =>
+  api.put<Record<string, unknown>>(`/questionnaires/templates/${id}`, data);
+
+export const deleteQuestionnaireTemplate = (id: number) => api.delete(`/questionnaires/templates/${id}`);
+
+export const checkQuestionnaire = (params: { case_id?: number; record_id?: number; trigger?: string }) =>
+  api.get<Record<string, unknown>>("/questionnaires/check", { params });
+
+export const submitQuestionnaire = (data: Record<string, unknown>) => api.post<Record<string, unknown>>("/questionnaires/responses", data);
+
+export const getQuestionnaireResponses = (templateId: number, params?: Record<string, unknown>) =>
+  api.get<Record<string, unknown>>(`/questionnaires/responses/${templateId}`, { params });
+
+export const getQuestionnaireStats = (templateId: number) => api.get<Record<string, unknown>>(`/questionnaires/responses/${templateId}/stats`);
+
+export const exportQuestionnaireCSV = (templateId: number) => api.get(`/questionnaires/responses/${templateId}/export`, { responseType: "blob" });

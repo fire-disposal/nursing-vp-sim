@@ -625,6 +625,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nursing-records/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Nursing Record
+         * @description 获取某次训练的护理记录
+         */
+        get: operations["get_nursing_record_api_nursing_records__record_id__get"];
+        put?: never;
+        /**
+         * Save Nursing Record
+         * @description 创建或更新某次训练的护理记录
+         */
+        post: operations["save_nursing_record_api_nursing_records__record_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/qa/sessions": {
         parameters: {
             query?: never;
@@ -1038,6 +1062,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Configs
+         * @description 返回可用的会话配置列表
+         */
+        get: operations["get_session_configs_api_training_configs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/training/{record_id}/end": {
         parameters: {
             query?: never;
@@ -1128,6 +1172,26 @@ export interface paths {
         put?: never;
         /** Submit Score Review */
         post: operations["submit_score_review_api_training_records__record_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Training State
+         * @description 调试端点：返回当前训练的患者内部状态（情绪/人格/配置/操作检测）
+         */
+        get: operations["get_training_state_api_training__record_id__state_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1921,6 +1985,11 @@ export interface components {
              */
             difficulty: number;
             /**
+             * Patient Personality
+             * @default
+             */
+            patient_personality: string;
+            /**
              * Created At
              * Format: date-time
              */
@@ -1964,6 +2033,10 @@ export interface components {
             role: string;
             /** Content */
             content: string;
+            /** Operation */
+            operation?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ClassCreate */
         ClassCreate: {
@@ -2488,6 +2561,44 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** NursingRecordResponse */
+        NursingRecordResponse: {
+            /** Id */
+            id: number;
+            /** Record Id */
+            record_id: number;
+            /** Subjective */
+            subjective?: string | null;
+            /** Objective */
+            objective?: string | null;
+            /** Assessment */
+            assessment?: string | null;
+            /** Plan */
+            plan?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** NursingRecordSave */
+        NursingRecordSave: {
+            /** Subjective */
+            subjective?: string | null;
+            /** Objective */
+            objective?: string | null;
+            /** Assessment */
+            assessment?: string | null;
+            /** Plan */
+            plan?: string | null;
+            /**
+             * Status
+             * @default draft
+             */
+            status: string;
         };
         /** OkResponse */
         OkResponse: {
@@ -3639,6 +3750,8 @@ export interface components {
         TrainingStartRequest: {
             /** Case Id */
             case_id: number;
+            /** Config Id */
+            config_id?: string | null;
         };
         /** TrainingStartResponse */
         TrainingStartResponse: {
@@ -5172,6 +5285,72 @@ export interface operations {
             };
         };
     };
+    get_nursing_record_api_nursing_records__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NursingRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_nursing_record_api_nursing_records__record_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NursingRecordSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NursingRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_sessions_api_qa_sessions_get: {
         parameters: {
             query?: never;
@@ -6120,6 +6299,26 @@ export interface operations {
             };
         };
     };
+    get_session_configs_api_training_configs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     end_training_api_training__record_id__end_post: {
         parameters: {
             query?: never;
@@ -6342,6 +6541,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScoreReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_training_state_api_training__record_id__state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
