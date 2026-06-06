@@ -242,6 +242,7 @@ async def send_message_stream(
                     yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
                 log.info("LLM 流式完成: record_id=%d chunks=%d reply_len=%d",
                          record_id, chunk_count, len(full_reply))
+                log.info("LLM 回复内容: %s", full_reply[:500])
 
                 if has_identity_leak(full_reply):
                     log.warning("stream 身份泄露: record_id=%d reply_len=%d 触发重试", record_id, len(full_reply))
