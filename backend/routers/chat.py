@@ -15,11 +15,17 @@ from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 from services.llm_service import call_llm, call_llm_stream
 from prompts.patient_chat import PATIENT_DYNAMIC
-from services.emotion_engine import classify_intent, cleanup_emotion, get_emotion
-from services.exam_handler import detect_operation, handle_operation
-from services.patient_guard import get_identity_correction_note, has_identity_leak
-from services.patient_initiative import cleanup_initiative, update_initiative_timer
-from services.virtual_patient_prompt import build_patient_chat_messages, build_patient_context_kwargs
+from services.patient_ai import (
+    build_patient_chat_messages,
+    build_patient_context_kwargs,
+    classify_intent,
+    detect_operation,
+    get_identity_correction_note,
+    get_emotion,
+    handle_operation,
+    has_identity_leak,
+    update_initiative_timer,
+)
 
 log = logging.getLogger(__name__)
 

@@ -313,7 +313,9 @@ export const fetchSampleVars = (purpose: string) => api.get<Schemas["SampleVarsR
 export const getSessionConfigs = () => api.get<Record<string, unknown>[]>("/training/configs");
 
 // Training State (debug)
-export const getTrainingState = (recordId: number) => api.get<Record<string, unknown>>(`/training/${recordId}/state`);
+export const getTrainingState = (recordId: number) => api.get<Schemas["TrainingStateResponse"]>(`/training/${recordId}/state`);
+
+export const triggerInitiative = (recordId: number) => api.post<Schemas["InitiativeTriggerResponse"]>(`/training/${recordId}/initiative/trigger`);
 
 // Nursing Records
 export const getNursingRecord = (recordId: number) => api.get<Record<string, unknown>>(`/nursing-records/${recordId}`);

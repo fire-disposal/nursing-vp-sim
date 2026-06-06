@@ -182,6 +182,12 @@ export interface DurationStats {
   total_sessions: number
 }
 
+export interface EmotionStateResponse {
+  score: number
+  state: string
+  note: string
+}
+
 export interface FeedbackDailyItem {
   date: string
   rating_1?: number
@@ -237,6 +243,18 @@ export interface HealthCheckItem {
   status: string
   latency_ms?: number | null
   error?: string | null
+}
+
+export interface InitiativeStateResponse {
+  elapsed_seconds: number
+  threshold_seconds: number
+  percent: number
+}
+
+export interface InitiativeTriggerResponse {
+  triggered: boolean
+  message?: string | null
+  id?: number | null
 }
 
 export interface LLMCallLogItem {
@@ -914,6 +932,17 @@ export interface TrainingStartResponse {
   record_id: number
   greeting: string
   case_name?: string
+}
+
+export interface TrainingStateResponse {
+  record_id: number
+  case_id: number
+  emotion: EmotionStateResponse
+  personality?: Record<string, unknown>
+  deep_background_keys?: string[]
+  exam_anchors?: Record<string, unknown>
+  config?: Record<string, unknown>
+  initiative: InitiativeStateResponse
 }
 
 export interface TrendStats {

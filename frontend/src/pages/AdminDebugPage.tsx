@@ -2,7 +2,7 @@ import { Activity, ArrowLeft, Brain, Bug, Heart, Info, MessageCircle, RefreshCw,
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { endTraining, getCases, getTrainingState } from "@/api/api-client";
+import { endTraining, getCases, getTrainingState, triggerInitiative } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
@@ -83,7 +83,9 @@ export default function AdminDebugPage() {
   const [opResults, setOpResults] = useState<OperationResult[]>([]);
   const [showDebug, setShowDebug] = useState(true);
   const [msgTimestamps, setMsgTimestamps] = useState<number[]>([]);
+  const [initiativeFired, setInitiativeFired] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -93,6 +95,31 @@ export default function AdminDebugPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!recordId || ending) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await getTrainingState(recordId);
+        const s = r.data;
+        setState(s as unknown as TrainingState);
+        if (s.initiative?.percent >= 100 && !initiativeFired) {
+          setInitiativeFired(true);
+          const trigger = await triggerInitiative(recordId);
+          if (trigger.data.triggered && trigger.data.message) {
+            setMessages((prev) => [...prev, { role: "patient", content: trigger.data.message as string }]);
+            setMsgTimestamps((prev) => [...prev, Date.now()]);
+          }
+          setTimeout(() => setInitiativeFired(false), 2000);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 2000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [recordId, ending, initiativeFired]);
 
   const refreshState = async () => {
     if (!recordId) return;

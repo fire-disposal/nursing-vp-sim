@@ -19,15 +19,23 @@ from schemas import (
     ScoreReviewRequest,
     ScoreReviewResponse,
     ScoringTriggerResponse,
+    InitiativeTriggerResponse,
     TrainingRecordBrief,
     TrainingRecordDetail,
     TrainingStartRequest,
     TrainingStartResponse,
+    TrainingStateResponse,
 )
-from services.emotion_engine import get_emotion
-from services.exam_handler import detect_operation, handle_operation
+from services.patient_ai import (
+    cleanup_emotion,
+    cleanup_initiative,
+    generate_initiative,
+    get_emotion,
+    get_initiative_seconds,
+    should_initiate,
+    update_initiative_timer,
+)
 from services.pagination import paginate
-from services.patient_initiative import get_initiative_seconds
 from services.session_config import get_config, list_configs
 
 log = logging.getLogger(__name__)
@@ -513,7 +521,7 @@ def submit_score_review(
     )
 
 
-@router.get("/{record_id}/state")
+@router.get("/{record_id}/state", response_model=TrainingStateResponse)
 def get_training_state(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -559,3 +567,46 @@ def get_training_state(
             "percent": round(min(100, elapsed / threshold * 100), 1),
         },
     }
+
+
+@router.post("/{record_id}/initiative/trigger", response_model=InitiativeTriggerResponse)
+def trigger_initiative(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """触发患者主动行为。返回自然语言消息或 None（时机未到）。"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
+
+    case_data = case.case_data or {}
+    personality = case_data.get("personality", {})
+    emotion = get_emotion(record_id)
+
+    if not should_initiate(record_id, personality, emotion.score):
+        return {"triggered": False, "message": None}
+
+    msg = generate_initiative(
+        personality,
+        emotion.score,
+        emotion.state,
+        wait_seconds=60,
+    )
+
+    if msg:
+        now = datetime.now(UTC)
+        patient_msg = Message(record_id=record_id, role="patient", content=msg, created_at=now)
+        db.add(patient_msg)
+        db.commit()
+        db.refresh(patient_msg)
+        update_initiative_timer(record_id, len(msg))
+        return {"triggered": True, "message": msg, "id": patient_msg.id}
+
+    return {"triggered": False, "message": None}

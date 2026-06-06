@@ -4807,7 +4807,57 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/initiative/trigger": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Trigger Initiative",
+        "description": "触发患者主动行为。返回自然语言消息或 None（时机未到）。",
+        "operationId": "trigger_initiative_api_training__record_id__initiative_trigger_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeTriggerResponse"
+                }
               }
             }
           },
@@ -7548,6 +7598,29 @@
         ],
         "title": "DurationStats"
       },
+      "EmotionStateResponse": {
+        "properties": {
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score",
+          "state",
+          "note"
+        ],
+        "title": "EmotionStateResponse"
+      },
       "FeedbackDailyItem": {
         "properties": {
           "date": {
@@ -7806,6 +7879,64 @@
           "status"
         ],
         "title": "HealthCheckItem"
+      },
+      "InitiativeStateResponse": {
+        "properties": {
+          "elapsed_seconds": {
+            "type": "number",
+            "title": "Elapsed Seconds"
+          },
+          "threshold_seconds": {
+            "type": "number",
+            "title": "Threshold Seconds"
+          },
+          "percent": {
+            "type": "number",
+            "title": "Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "elapsed_seconds",
+          "threshold_seconds",
+          "percent"
+        ],
+        "title": "InitiativeStateResponse"
+      },
+      "InitiativeTriggerResponse": {
+        "properties": {
+          "triggered": {
+            "type": "boolean",
+            "title": "Triggered"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "triggered"
+        ],
+        "title": "InitiativeTriggerResponse"
       },
       "LLMCallLogItem": {
         "properties": {
@@ -11763,6 +11894,56 @@
           "greeting"
         ],
         "title": "TrainingStartResponse"
+      },
+      "TrainingStateResponse": {
+        "properties": {
+          "record_id": {
+            "type": "integer",
+            "title": "Record Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "emotion": {
+            "$ref": "#/components/schemas/EmotionStateResponse"
+          },
+          "personality": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Personality"
+          },
+          "deep_background_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Deep Background Keys"
+          },
+          "exam_anchors": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Exam Anchors"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "initiative": {
+            "$ref": "#/components/schemas/InitiativeStateResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record_id",
+          "case_id",
+          "emotion",
+          "initiative"
+        ],
+        "title": "TrainingStateResponse"
       },
       "TrendStats": {
         "properties": {

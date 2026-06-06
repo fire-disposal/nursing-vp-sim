@@ -1002,3 +1002,34 @@ class QuestionStatsItem(BaseModel):
     avg_likert: float | None = None
     choice_distribution: dict[str, int] = Field(default_factory=dict)
     text_answers: list[str] = Field(default_factory=list)
+
+
+# ── Training State (debug) ──
+
+class EmotionStateResponse(BaseModel):
+    score: int
+    state: str
+    note: str
+
+
+class InitiativeStateResponse(BaseModel):
+    elapsed_seconds: float
+    threshold_seconds: float
+    percent: float
+
+
+class TrainingStateResponse(BaseModel):
+    record_id: int
+    case_id: int
+    emotion: EmotionStateResponse
+    personality: dict[str, str] = Field(default_factory=dict)
+    deep_background_keys: list[str] = Field(default_factory=list)
+    exam_anchors: dict = Field(default_factory=dict)
+    config: dict = Field(default_factory=dict)
+    initiative: InitiativeStateResponse
+
+
+class InitiativeTriggerResponse(BaseModel):
+    triggered: bool
+    message: str | None = None
+    id: int | None = None

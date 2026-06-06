@@ -1198,6 +1198,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/{record_id}/initiative/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Initiative
+         * @description 触发患者主动行为。返回自然语言消息或 None（时机未到）。
+         */
+        post: operations["trigger_initiative_api_training__record_id__initiative_trigger_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/api/secrets": {
         parameters: {
             query?: never;
@@ -2123,6 +2143,15 @@ export interface components {
             /** Total Sessions */
             total_sessions: number;
         };
+        /** EmotionStateResponse */
+        EmotionStateResponse: {
+            /** Score */
+            score: number;
+            /** State */
+            state: string;
+            /** Note */
+            note: string;
+        };
         /** FeedbackDailyItem */
         FeedbackDailyItem: {
             /** Date */
@@ -2242,6 +2271,24 @@ export interface components {
             latency_ms?: number | null;
             /** Error */
             error?: string | null;
+        };
+        /** InitiativeStateResponse */
+        InitiativeStateResponse: {
+            /** Elapsed Seconds */
+            elapsed_seconds: number;
+            /** Threshold Seconds */
+            threshold_seconds: number;
+            /** Percent */
+            percent: number;
+        };
+        /** InitiativeTriggerResponse */
+        InitiativeTriggerResponse: {
+            /** Triggered */
+            triggered: boolean;
+            /** Message */
+            message?: string | null;
+            /** Id */
+            id?: number | null;
         };
         /** LLMCallLogItem */
         LLMCallLogItem: {
@@ -3764,6 +3811,29 @@ export interface components {
              * @default
              */
             case_name: string;
+        };
+        /** TrainingStateResponse */
+        TrainingStateResponse: {
+            /** Record Id */
+            record_id: number;
+            /** Case Id */
+            case_id: number;
+            emotion: components["schemas"]["EmotionStateResponse"];
+            /** Personality */
+            personality?: {
+                [key: string]: string;
+            };
+            /** Deep Background Keys */
+            deep_background_keys?: string[];
+            /** Exam Anchors */
+            exam_anchors?: {
+                [key: string]: unknown;
+            };
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            initiative: components["schemas"]["InitiativeStateResponse"];
         };
         /** TrendStats */
         TrendStats: {
@@ -6571,7 +6641,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TrainingStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_initiative_api_training__record_id__initiative_trigger_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeTriggerResponse"];
                 };
             };
             /** @description Validation Error */
