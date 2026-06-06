@@ -98,12 +98,15 @@ async def _generate_patient_reply(
     return reply
 
 
-async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> tuple[list[dict], str]:
+async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, record_id: int, pm, operation_note: str = "") -> tuple[list[dict], str]:
     """构建 messages 数组。返回 (messages, author_note)。"""
     emotion = get_emotion(record_id)
     intent = classify_intent(student_content)
     emotion.update(intent)
     author_note = emotion.note
+
+    if operation_note:
+        author_note = author_note.rstrip("】") + " " + operation_note + "】"
 
     kwargs = build_patient_context_kwargs(case_data, author_note=author_note)
     tmpl = await pm.get("patient_chat")
@@ -151,13 +154,21 @@ async def send_message(
     # Detect and handle operations (/bp, /vitals, etc.)
     op_type = detect_operation(req.content)
     operation_result = None
+    operation_note = ""
+    student_content = req.content
     if op_type:
         operation_result = handle_operation(op_type, case_data)
         log.info("操作触发: record_id=%d op=%s", record_id, op_type)
+        if operation_result:
+            op_label = operation_result.get("label", "")
+            op_value = operation_result.get("value", "")
+            op_unit = operation_result.get("unit", "")
+            operation_note = f"护士刚给你做了{op_label}，结果是{op_value}{op_unit}。"
+            student_content = "（护士正在为你做检查，你看到了结果）"
 
     pm = request.app.state.prompt_manager
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages, _author_note = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
+    llm_messages, _author_note = await _build_llm_messages(case_data, messages, student_content, record_id, pm, operation_note)
 
     rid = getattr(request.state, "request_id", None)
     try:
@@ -214,14 +225,21 @@ async def send_message_stream(
 
         op_type = detect_operation(req.content)
         operation_result = None
+        operation_note = ""
+        student_content = req.content
         if op_type:
             operation_result = handle_operation(op_type, case_data)
             log.info("操作触发: record_id=%d op=%s result=%s", record_id, op_type,
                      operation_result.get("value", "")[:60] if operation_result else "N/A")
+            op_label = operation_result.get("label", "")
+            op_value = operation_result.get("value", "")
+            op_unit = operation_result.get("unit", "")
+            operation_note = f"护士刚给你做了{op_label}，结果是{op_value}{op_unit}。"
+            student_content = "（护士正在为你做检查，你看到了结果）"
 
         pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-        llm_messages, _author_note = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
+        llm_messages, _author_note = await _build_llm_messages(case_data, messages, student_content, record_id, pm, operation_note)
 
         rid = getattr(request.state, "request_id", None)
 
