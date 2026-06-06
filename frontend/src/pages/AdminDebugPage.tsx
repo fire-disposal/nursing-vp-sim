@@ -169,9 +169,11 @@ export default function AdminDebugPage() {
         (chunk: string) => {
           setMessages((prev) => {
             const next = [...prev];
-            const last = next[next.length - 1];
-            if (last?.streaming) {
-              next[next.length - 1] = { ...last, content: last.content + chunk };
+            for (let idx = next.length - 1; idx >= 0; idx--) {
+              if (next[idx]?.streaming) {
+                next[idx] = { ...next[idx], content: next[idx].content + chunk };
+                break;
+              }
             }
             return next;
           });
@@ -179,8 +181,12 @@ export default function AdminDebugPage() {
         () => {
           setMessages((prev) => {
             const next = [...prev];
-            const last = next[next.length - 1];
-            if (last?.streaming) next[next.length - 1] = { ...last, streaming: false };
+            for (let idx = next.length - 1; idx >= 0; idx--) {
+              if (next[idx]?.streaming) {
+                next[idx] = { ...next[idx], streaming: false };
+                break;
+              }
+            }
             return next;
           });
           setMsgTimestamps((prev) => [...prev, Date.now()]);
