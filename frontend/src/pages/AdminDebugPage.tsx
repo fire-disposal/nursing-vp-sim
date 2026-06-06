@@ -166,7 +166,7 @@ export default function AdminDebugPage() {
     abortRef.current = controller;
 
     try {
-      const token = localStorage.getItem("access_token") || "";
+      const token = localStorage.getItem("token") || "";
       const resp = await fetch(`/api/chat/${recordId}/message/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
