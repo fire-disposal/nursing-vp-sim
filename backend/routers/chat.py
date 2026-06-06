@@ -13,6 +13,7 @@ from core.security import get_current_user
 from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
+from services.feature_flags import is_enabled
 from services.llm_service import call_llm, call_llm_stream
 from prompts.patient_chat import PATIENT_DYNAMIC
 from prompts.patient_chat import PATIENT_DYNAMIC
@@ -151,20 +152,20 @@ async def send_message(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data or {}
 
-    # Detect and handle operations (/bp, /vitals, etc.)
-    op_type = detect_operation(req.content)
     operation_result = None
     operation_note = ""
     student_content = req.content
-    if op_type:
-        operation_result = handle_operation(op_type, case_data)
-        log.info("操作触发: record_id=%d op=%s", record_id, op_type)
-        if operation_result:
-            op_label = operation_result.get("label", "")
-            op_value = operation_result.get("value", "")
-            op_unit = operation_result.get("unit", "")
-            operation_note = f"护士刚给你做了{op_label}，结果是{op_value}{op_unit}。"
-            student_content = "（护士正在为你做检查，你看到了结果）"
+    if is_enabled(record, "physical_exam"):
+        op_type = detect_operation(req.content)
+        if op_type:
+            operation_result = handle_operation(op_type, case_data)
+            log.info("操作触发: record_id=%d op=%s", record_id, op_type)
+            if operation_result:
+                op_label = operation_result.get("label", "")
+                op_value = operation_result.get("value", "")
+                op_unit = operation_result.get("unit", "")
+                operation_note = f"护士刚给你做了{op_label}，结果是{op_value}{op_unit}。"
+                student_content = "（护士正在为你做检查，你看到了结果）"
 
     pm = request.app.state.prompt_manager
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
@@ -223,19 +224,20 @@ async def send_message_stream(
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = case.case_data or {}
 
-        op_type = detect_operation(req.content)
         operation_result = None
         operation_note = ""
         student_content = req.content
-        if op_type:
-            operation_result = handle_operation(op_type, case_data)
-            log.info("操作触发: record_id=%d op=%s result=%s", record_id, op_type,
-                     operation_result.get("value", "")[:60] if operation_result else "N/A")
-            op_label = operation_result.get("label", "")
-            op_value = operation_result.get("value", "")
-            op_unit = operation_result.get("unit", "")
-            operation_note = f"护士刚给你做了{op_label}，结果是{op_value}{op_unit}。"
-            student_content = "（护士正在为你做检查，你看到了结果）"
+        if is_enabled(record, "physical_exam"):
+            op_type = detect_operation(req.content)
+            if op_type:
+                operation_result = handle_operation(op_type, case_data)
+                log.info("操作触发: record_id=%d op=%s result=%s", record_id, op_type,
+                         operation_result.get("value", "")[:60] if operation_result else "N/A")
+                op_label = operation_result.get("label", "")
+                op_value = operation_result.get("value", "")
+                op_unit = operation_result.get("unit", "")
+                operation_note = f"护士刚给你做了{op_label}，结果是{op_value}{op_unit}。"
+                student_content = "（护士正在为你做检查，你看到了结果）"
 
         pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
