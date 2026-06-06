@@ -249,6 +249,8 @@ def create_case(
         cd["deep_background"] = {}
     if "exam_anchors" not in cd:
         cd["exam_anchors"] = {}
+    if "example_dialogues" not in cd:
+        cd["example_dialogues"] = []
     case = Case(
         name=cd["name"],
         description=cd.get("description", ""),

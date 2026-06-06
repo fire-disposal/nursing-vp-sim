@@ -7,7 +7,7 @@ class TestRegistryLookup:
     def test_patient_chat_has_eight_variables(self):
         r = get_registry()
         vars_ = r.get_variables("patient_chat")
-        assert len(vars_) == 8
+        assert len(vars_) == 10
 
     def test_qa_has_no_variables(self):
         r = get_registry()
@@ -21,8 +21,9 @@ class TestRegistryLookup:
         r = get_registry()
         names = r.get_variable_names("patient_chat")
         assert "patient_info" in names
-        assert "deep_background" in names
-        assert "author_note" in names
+        assert "patient_info" in names
+        assert "scenario" in names
+        assert "example_dialogues" in names
 
     def test_get_variable_map_patient_chat_has_content(self):
         r = get_registry()
@@ -127,7 +128,7 @@ class TestVariablesJsonb:
     def test_jsonb_has_required_fields(self):
         r = get_registry()
         data = r.get_variables_jsonb("patient_chat")
-        assert len(data) == 8
+        assert len(data) == 10
         for entry in data:
             assert "name" in entry
             assert "desc" in entry

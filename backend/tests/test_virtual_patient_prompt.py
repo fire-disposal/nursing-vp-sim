@@ -9,18 +9,13 @@ from services.virtual_patient_prompt import (
 
 
 class TestBuildPatientContextKwargs:
-    def test_returns_all_eight_keys(self):
+    def test_returns_all_ten_keys(self):
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
         kwargs = build_patient_context_kwargs(case)
         assert set(kwargs.keys()) == {
-            "communication_style",
-            "patient_info",
-            "chief_complaint",
-            "present_illness",
-            "allergy_history",
-            "personality",
-            "deep_background",
-            "author_note",
+            "communication_style", "patient_info", "chief_complaint",
+            "present_illness", "allergy_history", "personality",
+            "deep_background", "author_note", "scenario", "example_dialogues",
         }
 
     def test_patient_info_formatting(self):
@@ -79,12 +74,24 @@ class TestBuildPatientChatMessages:
 
     def test_system_prompt_is_first(self):
         history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
-        msgs = build_patient_chat_messages("system-abc", history, "test")
-        assert msgs[0] == {"role": "system", "content": "system-abc"}
+        msgs = build_patient_chat_messages("static", "dynamic", history, "test")
+        assert msgs[0] == {"role": "system", "content": "static"}
+        assert msgs[1] == {"role": "system", "content": "dynamic"}
+
+    def test_author_note_injected_before_input(self):
+        history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
+        msgs = build_patient_chat_messages("static", "dynamic", history, "test question", author_note="【当前: 患者焦虑】")
+        assert msgs[-2] == {"role": "system", "content": "【当前: 患者焦虑】"}
+        assert msgs[-1] == {"role": "user", "content": "test question"}
+
+    def test_no_author_note_when_empty(self):
+        history = []
+        msgs = build_patient_chat_messages("static", "dynamic", history, "test", author_note="")
+        assert msgs[-1] == {"role": "user", "content": "test"}
 
     def test_student_message_is_last(self):
         history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
-        msgs = build_patient_chat_messages("sys", history, "当前问题")
+        msgs = build_patient_chat_messages("sys", "dyn", history, "当前问题")
         assert msgs[-1] == {"role": "user", "content": "当前问题"}
 
     def test_role_mapping(self):
@@ -92,31 +99,17 @@ class TestBuildPatientChatMessages:
             self._make_msg("student", "问诊内容"),
             self._make_msg("patient", "患者回答"),
         ]
-        msgs = build_patient_chat_messages("sys", history, "追问")
-        assert msgs[1] == {"role": "user", "content": "问诊内容"}
-        assert msgs[2] == {"role": "assistant", "content": "患者回答"}
+        msgs = build_patient_chat_messages("sys", "dyn", history, "追问")
+        assert msgs[2] == {"role": "user", "content": "问诊内容"}
+        assert msgs[3] == {"role": "assistant", "content": "患者回答"}
 
     def test_history_truncation(self):
         history = [self._make_msg("student", f"q{i}") for i in range(20)]
-        msgs = build_patient_chat_messages("sys", history, "last", max_rounds=3)
+        msgs = build_patient_chat_messages("sys", "dyn", history, "last", max_rounds=3)
         assert len(msgs) == 8
 
     def test_empty_history(self):
-        msgs = build_patient_chat_messages("sys", [], "hello")
-        assert len(msgs) == 2
-        assert msgs[0]["role"] == "system"
-        assert msgs[1] == {"role": "user", "content": "hello"}
-
-    def test_cache_split_on_background_marker(self):
-        prompt = "静态规则内容\n\n## 你的背景\n张三，45岁，男\n主诉：咳嗽\n\n## 你的性格\n普通患者。"
-        msgs = build_patient_chat_messages(prompt, [], "你好")
+        msgs = build_patient_chat_messages("sys", "dyn", [], "hello")
         assert len(msgs) == 3
-        assert msgs[0] == {"role": "system", "content": "静态规则内容"}
-        assert msgs[1] == {"role": "system", "content": "## 你的背景\n张三，45岁，男\n主诉：咳嗽\n\n## 你的性格\n普通患者。"}
-        assert msgs[2] == {"role": "user", "content": "你好"}
-
-    def test_no_split_without_marker(self):
-        prompt = "一个普通的系统提示词，没有背景标记"
-        msgs = build_patient_chat_messages(prompt, [], "你好")
-        assert len(msgs) == 2
-        assert msgs[0] == {"role": "system", "content": prompt}
+        assert msgs[0]["role"] == "system"
+        assert msgs[2] == {"role": "user", "content": "hello"}

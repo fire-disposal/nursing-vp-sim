@@ -14,6 +14,7 @@ from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 from services.llm_service import call_llm, call_llm_stream
+from prompts.patient_chat import PATIENT_DYNAMIC
 from services.emotion_engine import classify_intent, get_emotion
 from services.exam_handler import detect_operation, handle_operation
 from services.patient_guard import get_identity_correction_note, has_identity_leak
@@ -89,16 +90,30 @@ async def _generate_patient_reply(
     return reply
 
 
-async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> list[dict]:
-    """构建 LLM messages 数组（集成情绪引擎 + Author's Note）。"""
+async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> tuple[list[dict], str]:
+    """构建 AI酒馆风格的 messages 数组。返回 (messages, author_note)。"""
     emotion = get_emotion(record_id)
     intent = classify_intent(student_content)
     emotion.update(intent)
     author_note = emotion.note
-    kwargs = build_patient_context_kwargs(case_data, author_note=author_note)
+
+    kwargs = build_patient_context_kwargs(case_data, author_note="")
+    kwargs["author_note"] = author_note  # Used by PATIENT_DYNAMIC if referenced
+
     tmpl = await pm.get("patient_chat")
-    system_prompt = tmpl.render(**kwargs)
-    return build_patient_chat_messages(system_prompt, history_messages, student_content)
+    system_prompt = tmpl.render(**{
+        k: v for k, v in kwargs.items()
+        if k in {"patient_info", "scenario", "personality", "communication_style"}
+    })
+
+    from services.prompt_manager import render_template
+    dynamic_prompt = render_template(PATIENT_DYNAMIC, **kwargs)
+
+    llm_messages = build_patient_chat_messages(
+        system_prompt, dynamic_prompt, history_messages, student_content,
+        author_note=author_note
+    )
+    return llm_messages, author_note
 
 
 @router.post("/{record_id}/message", response_model=ChatMessageResponse)
@@ -131,7 +146,7 @@ async def send_message(
 
     pm = request.app.state.prompt_manager
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
+    llm_messages, _author_note = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
 
     rid = getattr(request.state, "request_id", None)
     try:
@@ -187,7 +202,7 @@ async def send_message_stream(
 
         pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-        llm_messages = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
+        llm_messages, _author_note = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
 
         rid = getattr(request.state, "request_id", None)
 

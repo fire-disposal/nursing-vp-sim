@@ -1,23 +1,24 @@
-"""虚拟患者提示词构建服务 —— 从业务数据组装 LLM messages 数组
+"""虚拟患者提示词构建服务 — AI酒馆风格的消息组装
 
 职责：
-- build_patient_context_kwargs: 从 case_data 提取8个模板变量
-- build_patient_chat_messages: 组装 OpenAI-compatible messages 列表（含缓存分片）
-- format_case_for_prompt: 将病例 JSON 格式化为 LLM 可读的文本块
+- build_patient_context_kwargs: 从 case_data 提取10个模板变量
+- build_patient_chat_messages: 组装 messages 数组（含缓存分片 + Author's Note 注入）
+- format_case_for_prompt: 将病例 JSON 格式化为 LLM 可读文本
 """
 
 import logging
+from random import choice
 
 log = logging.getLogger(__name__)
 
-from prompts.patient_chat import PATIENT_CACHE_SPLIT_MARKER
+from prompts.patient_chat import AUTHOR_NOTE_TEMPLATE, PATIENT_CACHE_SPLIT_MARKER, PATIENT_DYNAMIC
 
 
 def build_patient_context_kwargs(
     case_data: dict,
     author_note: str = "",
 ) -> dict[str, str]:
-    """从 case_data 构建患者 prompt 的 8 个模板变量。"""
+    """从 case_data 构建 10 个模板变量。"""
 
     def _get(key: str, default: str = "无") -> str:
         return str(case_data.get(key, "")).strip() or default
@@ -26,74 +27,89 @@ def build_patient_context_kwargs(
         if not p:
             return "普通患者，正常配合。"
         parts = []
-        lit = {"low": "不太会描述病情", "normal": "能正常描述", "high": "能精准描述"}
-        verb = {"terse": "寡言少语，问一句答一句", "normal": "正常交流", "verbose": "话多，容易跑题"}
-        anx = {"calm": "心态平和", "normal": "适度担心", "anxious": "容易焦虑，常反问病情严重程度"}
-        pat = {"low": "耐心不足，容易急躁", "normal": "有耐心", "high": "非常耐心"}
-        if p.get("health_literacy"):
-            parts.append(lit.get(p["health_literacy"], ""))
-        if p.get("verbosity"):
-            parts.append(verb.get(p["verbosity"], ""))
-        if p.get("anxiety_trait"):
-            parts.append(anx.get(p["anxiety_trait"], ""))
-        if p.get("patience"):
-            parts.append(pat.get(p["patience"], ""))
+        lit = {"low": "不太会描述病情，用词简单模糊", "normal": "能正常描述症状", "high": "能精准描述病情感受"}
+        verb = {"terse": "寡言少语，问一句答一句，不主动多说", "normal": "正常交流", "verbose": "话多健谈，容易跑题"}
+        anx = {"calm": "心态平和，不太担心", "normal": "适度担心病情", "anxious": "容易焦虑，常反问'严不严重'"}
+        pat = {"low": "耐心不足，问多了容易急躁", "normal": "有耐心配合", "high": "非常耐心，愿意详细回答"}
+        for key, mapping in [("health_literacy", lit), ("verbosity", verb), ("anxiety_trait", anx), ("patience", pat)]:
+            if p.get(key):
+                parts.append(mapping.get(p[key], ""))
         return "，".join(filter(None, parts)) + "。"
 
     def _format_deep_background(db: dict) -> str:
         if not db:
-            return "（无额外背景）"
+            return "（无额外背景信息）"
         lines = []
         for key, value in db.items():
-            lines.append(f"- {key}: {value}")
+            lines.append(f"- {value}")
         return "\n".join(lines)
+
+    def _format_example_dialogues(examples: list) -> str:
+        if not examples:
+            return "（无示例对话，按性格自由发挥）"
+        lines = []
+        for ex in examples[:3]:
+            q = ex.get("question", "")
+            a = ex.get("answer", "")
+            if q and a:
+                lines.append(f"护士问：{q}")
+                lines.append(f"你回答：{a}\n")
+        return "\n".join(lines) if lines else "（按性格自由发挥）"
 
     personality = case_data.get("personality", {})
     deep_bg = case_data.get("deep_background", {})
+    examples = case_data.get("example_dialogues", [])
 
     pi = case_data.get("patient_info", {})
-    patient_info_str = f"{pi.get('name', '患者')}，{pi.get('age', '')}岁，{pi.get('gender', '')}"
+    patient_name = pi.get("name", "患者")
+    patient_age = pi.get("age", "")
+    patient_gender = pi.get("gender", "")
+    patient_info_str = f"{patient_name}，{patient_age}岁，{patient_gender}"
+    scenario = f"你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。{_get('opening_line', '你今天来医院是因为身体不舒服。')}"
 
     return {
         "patient_info": patient_info_str or "未知患者",
+        "scenario": scenario,
         "chief_complaint": _get("chief_complaint"),
         "present_illness": _get("present_illness"),
         "allergy_history": _get("allergy_history", "无已知过敏史"),
         "communication_style": _get("communication_style", "用口语化、真实患者的口吻交流。"),
         "personality": _format_personality(personality),
         "deep_background": _format_deep_background(deep_bg),
-        "author_note": author_note if author_note.strip() else "（常规状态，正常配合）",
+        "example_dialogues": _format_example_dialogues(examples),
+        "author_note": author_note if author_note.strip() else "",
     }
 
 
 def build_patient_chat_messages(
     system_prompt: str,
+    dynamic_prompt: str,
     history_messages: list,
     student_content: str,
+    author_note: str = "",
     max_rounds: int = 8,
 ) -> list[dict]:
-    """构建 OpenAI-compatible messages 数组。
+    """构建 AI酒馆风格的 messages 数组。
 
-    缓存分片策略：
-      messages[0] = 静态行为规则（PATIENT_CACHE_SPLIT_MARKER 之前的全部内容）
-        → DeepSeek prefix cache 全局复用
-      messages[1] = 背景/性格/当前状态（PATIENT_CACHE_SPLIT_MARKER 及之后）
-        → 按会话更新，~200 token
+    结构：
+      messages[0] = Character Card (静态, prefix cache)
+      messages[1] = 患者资料+背景+示例 (per-session)
+      messages[2..N] = 聊天历史
+      messages[-1前] = Author's Note (系统消息, 注入到用户输入之前)
+      messages[-1] = 用户输入
     """
-    idx = system_prompt.find(PATIENT_CACHE_SPLIT_MARKER)
-    if idx != -1:
-        static_prefix = system_prompt[:idx].rstrip()
-        dynamic_part = system_prompt[idx:].strip()
-        llm_messages = [
-            {"role": "system", "content": static_prefix},
-            {"role": "system", "content": dynamic_part},
-        ]
-    else:
-        llm_messages = [{"role": "system", "content": system_prompt}]
+    llm_messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": dynamic_prompt},
+    ]
 
     for msg in history_messages[-max_rounds * 2:]:
         role = "user" if msg.role == "student" else "assistant"
         llm_messages.append({"role": role, "content": msg.content})
+
+    if author_note.strip():
+        note_content = AUTHOR_NOTE_TEMPLATE.format(note=author_note)
+        llm_messages.append({"role": "system", "content": note_content})
 
     llm_messages.append({"role": "user", "content": student_content})
     return llm_messages
