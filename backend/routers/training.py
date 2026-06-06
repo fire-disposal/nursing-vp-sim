@@ -36,7 +36,7 @@ from services.patient_ai import (
     update_initiative_timer,
 )
 from services.pagination import paginate
-from services.feature_flags import is_enabled
+from services.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
 from services.session_config import get_config, list_configs
 
 log = logging.getLogger(__name__)
@@ -560,7 +560,7 @@ def get_training_state(
         "config": {
             "id": record.config_id,
             "mode": config.get("mode"),
-            "features": config.get("features", {}),
+            "features": resolve_features(record.config_snapshot),
         },
         "initiative": {
             "elapsed_seconds": round(elapsed, 1),
@@ -629,6 +629,11 @@ def update_training_features(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
+
+    valid_keys = set(FEATURE_FLAGS.keys())
+    for k in features:
+        if k not in valid_keys:
+            raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
 
     snapshot = dict(record.config_snapshot or {})
     snapshot["features"] = {**snapshot.get("features", {}), **features}

@@ -1012,6 +1012,12 @@ class EmotionStateResponse(BaseModel):
     note: str
 
 
+class FeatureConfigResponse(BaseModel):
+    id: str | None = None
+    mode: str | None = None
+    features: dict[str, bool] = Field(default_factory=dict)
+
+
 class InitiativeStateResponse(BaseModel):
     elapsed_seconds: float
     threshold_seconds: float
@@ -1025,7 +1031,7 @@ class TrainingStateResponse(BaseModel):
     personality: dict[str, str] = Field(default_factory=dict)
     deep_background_keys: list[str] = Field(default_factory=list)
     exam_anchors: dict = Field(default_factory=dict)
-    config: dict = Field(default_factory=dict)
+    config: FeatureConfigResponse
     initiative: InitiativeStateResponse
 
 
