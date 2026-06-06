@@ -27,6 +27,7 @@ from schemas import (
 from services.emotion_engine import get_emotion
 from services.exam_handler import detect_operation, handle_operation
 from services.pagination import paginate
+from services.patient_initiative import get_initiative_seconds
 from services.session_config import get_config, list_configs
 
 log = logging.getLogger(__name__)
@@ -211,8 +212,12 @@ def end_training(
     db.commit()
 
     from services.chat_session import cleanup_topics
+    from services.emotion_engine import cleanup_emotion
+    from services.patient_initiative import cleanup_initiative
 
     cleanup_topics(record_id)
+    cleanup_emotion(record_id)
+    cleanup_initiative(record_id)
 
     background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
 
@@ -527,6 +532,9 @@ def get_training_state(
     emotion = get_emotion(record_id)
     config = record.config_snapshot or {}
 
+    personality = case_data.get("personality", {})
+    elapsed, threshold = get_initiative_seconds(record_id, personality, emotion.score)
+
     return {
         "record_id": record_id,
         "case_id": record.case_id,
@@ -535,7 +543,7 @@ def get_training_state(
             "state": emotion.state,
             "note": emotion.note,
         },
-        "personality": case_data.get("personality", {}),
+        "personality": personality,
         "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
         "exam_anchors": {
             k: v for k, v in case_data.get("exam_anchors", {}).items()
@@ -544,5 +552,10 @@ def get_training_state(
             "id": record.config_id,
             "mode": config.get("mode"),
             "features": config.get("features", {}),
+        },
+        "initiative": {
+            "elapsed_seconds": round(elapsed, 1),
+            "threshold_seconds": round(threshold, 1),
+            "percent": round(min(100, elapsed / threshold * 100), 1),
         },
     }

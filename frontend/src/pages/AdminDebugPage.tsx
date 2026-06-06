@@ -33,6 +33,7 @@ interface TrainingState {
   deep_background_keys: string[];
   exam_anchors: Record<string, string | Record<string, string>>;
   config: { id: string; mode: string; features: Record<string, boolean> };
+  initiative: { elapsed_seconds: number; threshold_seconds: number; percent: number };
 }
 
 const PERSONALITY_LABELS: Record<string, Record<string, string>> = {
@@ -316,6 +317,46 @@ export default function AdminDebugPage() {
 
         {showDebug && recordId && (
           <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 180px)" }}>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Timer className="h-4 w-4 text-amber-500" />
+                患者主动追问
+              </h4>
+              {state?.initiative ? (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">静默计时</span>
+                    <span
+                      className={cn(
+                        "font-mono font-semibold",
+                        state.initiative.percent >= 80 ? "text-red-500" : state.initiative.percent >= 50 ? "text-amber-500" : "text-muted-foreground",
+                      )}
+                    >
+                      {state.initiative.elapsed_seconds}s / {state.initiative.threshold_seconds}s
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        state.initiative.percent >= 80 ? "bg-red-500" : state.initiative.percent >= 50 ? "bg-amber-400" : "bg-blue-400",
+                      )}
+                      style={{ width: `${state.initiative.percent}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    阈值受性格(耐心度/焦虑度)和当前情绪影响。
+                    <br />
+                    焦虑患者阈值更低，耐心患者阈值更高。
+                    <br />
+                    触发后可能: 催促/担忧/非语言线索/闲聊。
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">等待消息...</p>
+              )}
+            </div>
+
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
                 <Heart className="h-4 w-4 text-rose-500" />
