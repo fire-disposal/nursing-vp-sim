@@ -4,10 +4,10 @@ from services.variable_registry import VariableDef, get_registry
 
 
 class TestRegistryLookup:
-    def test_patient_chat_has_six_variables(self):
+    def test_patient_chat_has_eight_variables(self):
         r = get_registry()
         vars_ = r.get_variables("patient_chat")
-        assert len(vars_) == 6
+        assert len(vars_) == 8
 
     def test_qa_has_no_variables(self):
         r = get_registry()
@@ -21,7 +21,8 @@ class TestRegistryLookup:
         r = get_registry()
         names = r.get_variable_names("patient_chat")
         assert "patient_info" in names
-        assert "hidden_info_rules" in names
+        assert "deep_background" in names
+        assert "author_note" in names
 
     def test_get_variable_map_patient_chat_has_content(self):
         r = get_registry()
@@ -126,7 +127,7 @@ class TestVariablesJsonb:
     def test_jsonb_has_required_fields(self):
         r = get_registry()
         data = r.get_variables_jsonb("patient_chat")
-        assert len(data) == 6
+        assert len(data) == 8
         for entry in data:
             assert "name" in entry
             assert "desc" in entry

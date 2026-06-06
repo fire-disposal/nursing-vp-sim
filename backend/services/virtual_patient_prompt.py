@@ -1,44 +1,68 @@
 """虚拟患者提示词构建服务 —— 从业务数据组装 LLM messages 数组
 
 职责：
-- build_patient_context_kwargs: 从 case_data 提取模板渲染所需的 6 个变量值
+- build_patient_context_kwargs: 从 case_data 提取8个模板变量
 - build_patient_chat_messages: 组装 OpenAI-compatible messages 列表（含缓存分片）
 - format_case_for_prompt: 将病例 JSON 格式化为 LLM 可读的文本块
 """
 
-# 缓存分片标记：模板中患者资料区块的标题行，运行时以此为界拆分 messages
-_CACHE_SPLIT_MARKER = "## 患者资料"
+import logging
+
+log = logging.getLogger(__name__)
+
+from prompts.patient_chat import PATIENT_CACHE_SPLIT_MARKER
 
 
-def build_patient_context_kwargs(case_data: dict, allowed_hidden_info: list[dict] | None = None) -> dict:
-    """从病例数据构建患者对话模板的渲染变量。
+def build_patient_context_kwargs(
+    case_data: dict,
+    author_note: str = "",
+) -> dict[str, str]:
+    """从 case_data 构建患者 prompt 的 8 个模板变量。"""
 
-    返回 6 个键：communication_style, patient_info, chief_complaint,
-    present_illness, allergy_history, hidden_info_rules。
-    支持 VariableRegistry 默认值回退，确保模板变量始终有值。
-    """
-    from services.variable_registry import get_registry
+    def _get(key: str, default: str = "无") -> str:
+        return str(case_data.get(key, "")).strip() or default
 
-    defaults = get_registry().get_defaults("patient_chat")
+    def _format_personality(p: dict) -> str:
+        if not p:
+            return "普通患者，正常配合。"
+        parts = []
+        lit = {"low": "不太会描述病情", "normal": "能正常描述", "high": "能精准描述"}
+        verb = {"terse": "寡言少语，问一句答一句", "normal": "正常交流", "verbose": "话多，容易跑题"}
+        anx = {"calm": "心态平和", "normal": "适度担心", "anxious": "容易焦虑，常反问病情严重程度"}
+        pat = {"low": "耐心不足，容易急躁", "normal": "有耐心", "high": "非常耐心"}
+        if p.get("health_literacy"):
+            parts.append(lit.get(p["health_literacy"], ""))
+        if p.get("verbosity"):
+            parts.append(verb.get(p["verbosity"], ""))
+        if p.get("anxiety_trait"):
+            parts.append(anx.get(p["anxiety_trait"], ""))
+        if p.get("patience"):
+            parts.append(pat.get(p["patience"], ""))
+        return "，".join(filter(None, parts)) + "。"
+
+    def _format_deep_background(db: dict) -> str:
+        if not db:
+            return "（无额外背景）"
+        lines = []
+        for key, value in db.items():
+            lines.append(f"- {key}: {value}")
+        return "\n".join(lines)
+
+    personality = case_data.get("personality", {})
+    deep_bg = case_data.get("deep_background", {})
 
     pi = case_data.get("patient_info", {})
     patient_info_str = f"{pi.get('name', '患者')}，{pi.get('age', '')}岁，{pi.get('gender', '')}"
 
-    hidden_items = []
-    for detail in allowed_hidden_info or []:
-        if detail.get("triggered"):
-            hidden_items.append(f"- {detail.get('content', detail)}")
-    hidden_info_rules = "\n".join(hidden_items) if hidden_items else "暂无额外信息"
-
     return {
-        "communication_style": str(
-            case_data.get("communication_style") or defaults.get("communication_style", "友善自然")
-        ),
-        "patient_info": patient_info_str or defaults.get("patient_info", ""),
-        "chief_complaint": str(case_data.get("chief_complaint") or defaults.get("chief_complaint", "未知")),
-        "present_illness": str(case_data.get("present_illness") or defaults.get("present_illness", "未知")),
-        "allergy_history": str(case_data.get("allergy_history") or defaults.get("allergy_history", "无")),
-        "hidden_info_rules": hidden_info_rules or defaults.get("hidden_info_rules", ""),
+        "patient_info": patient_info_str or "未知患者",
+        "chief_complaint": _get("chief_complaint"),
+        "present_illness": _get("present_illness"),
+        "allergy_history": _get("allergy_history", "无已知过敏史"),
+        "communication_style": _get("communication_style", "用口语化、真实患者的口吻交流。"),
+        "personality": _format_personality(personality),
+        "deep_background": _format_deep_background(deep_bg),
+        "author_note": author_note if author_note.strip() else "（常规状态，正常配合）",
     }
 
 
@@ -51,27 +75,23 @@ def build_patient_chat_messages(
     """构建 OpenAI-compatible messages 数组。
 
     缓存分片策略：
-      messages[0] = 静态行为规则（`## 患者资料` 之前的全部内容）
-        → DeepSeek prefix cache 全局复用，跨所有会话、所有病例共享
-      messages[1] = 患者数据 + 隐藏信息（`## 患者资料` 及之后的内容）
-        → 按会话/每轮消息更新，仅 ~200 token
-
-    向后兼容：若模板不含 `## 患者资料` 标记，整个 prompt 放在 messages[0]。
-    messages[后续] = 最近 N 轮历史（student→user, patient→assistant）
-    messages[-1] = 学生当前输入
+      messages[0] = 静态行为规则（PATIENT_CACHE_SPLIT_MARKER 之前的全部内容）
+        → DeepSeek prefix cache 全局复用
+      messages[1] = 背景/性格/当前状态（PATIENT_CACHE_SPLIT_MARKER 及之后）
+        → 按会话更新，~200 token
     """
-    idx = system_prompt.find(_CACHE_SPLIT_MARKER)
+    idx = system_prompt.find(PATIENT_CACHE_SPLIT_MARKER)
     if idx != -1:
         static_prefix = system_prompt[:idx].rstrip()
-        patient_block = system_prompt[idx:].strip()
+        dynamic_part = system_prompt[idx:].strip()
         llm_messages = [
             {"role": "system", "content": static_prefix},
-            {"role": "system", "content": patient_block},
+            {"role": "system", "content": dynamic_part},
         ]
     else:
         llm_messages = [{"role": "system", "content": system_prompt}]
 
-    for msg in history_messages[-max_rounds * 2 :]:
+    for msg in history_messages[-max_rounds * 2:]:
         role = "user" if msg.role == "student" else "assistant"
         llm_messages.append({"role": role, "content": msg.content})
 

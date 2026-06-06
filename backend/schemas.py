@@ -130,6 +130,7 @@ class CaseManageItem(BaseModel):
     chief_complaint: str = ""
     time_limit: int = 20
     difficulty: int = 1
+    patient_personality: str = ""
     created_at: datetime
     training_count: int = 0
 

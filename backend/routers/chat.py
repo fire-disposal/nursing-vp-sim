@@ -13,32 +13,83 @@ from core.security import get_current_user
 from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
-from services.chat_session import add_topic, restore_topics
 from services.llm_service import call_llm, call_llm_stream
-from services.patient_guard import get_allowed_hidden_info, sanitize_patient_reply
+from services.patient_guard import get_identity_correction_note, has_identity_leak
 from services.virtual_patient_prompt import build_patient_chat_messages, build_patient_context_kwargs
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["对话"])
 
+FALLBACK_REPLIES = [
+    "嗯……这个我也不太清楚，平时没太注意。",
+    "你说这个我得想想……好像不是特别明显。",
+    "这个我说不太准，平时也没太留意。",
+    "哎呀，你突然这么问，我一下子想不起来了。",
+    "让我想想啊……嗯，好像没什么特别的。",
+    "这个医生倒是提过，但我没记住。",
+    "我平时不太在意这些，说不太上来。",
+]
 
-async def _build_llm_context(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> list:
-    history_text = " ".join(m.content for m in history_messages)
-    topics = restore_topics(record_id, history_text, case_data)
-    allowed = get_allowed_hidden_info(case_data, student_content, topics)
 
-    for h in allowed:
-        if h.get("triggered") and h.get("topic"):
-            add_topic(record_id, h["topic"])
+def _get_emotion_note(record, student_msg: str) -> str:
+    """Stub — 情绪状态机尚未实现，返回空字符串。"""
+    return ""
 
-    kwargs = build_patient_context_kwargs(case_data, allowed)
 
+async def _generate_patient_reply(
+    messages: list[dict],
+    user_id: int,
+    record_id: int,
+    case_id: int,
+    request: Request,
+    max_retries: int = 1,
+) -> str:
+    """调用 LLM 生成患者回复。身份泄露时追加 Author's Note 重试一次。"""
+    rid = getattr(request.state, "request_id", None)
+    reply = await call_llm(
+        messages,
+        purpose="patient_chat",
+        user_id=user_id,
+        record_id=record_id,
+        case_id=case_id,
+        log_meta={"request_id": rid} if rid else None,
+        client=request.app.state.httpx_client,
+        router=request.app.state.llm_router,
+        log_worker=request.app.state.log_worker,
+        **get_llm_config("patient_chat"),
+    )
+
+    for attempt in range(max_retries):
+        if not has_identity_leak(reply):
+            break
+        log.warning("身份泄露检测到，追加 Author's Note 重试 (attempt %d)", attempt + 1)
+        corrected_note = get_identity_correction_note()
+        messages_with_note = list(messages)
+        messages_with_note.insert(-1, {"role": "system", "content": corrected_note})
+        reply = await call_llm(
+            messages_with_note,
+            purpose="patient_chat",
+            user_id=user_id,
+            record_id=record_id,
+            case_id=case_id,
+            log_meta={"request_id": rid} if rid else None,
+            client=request.app.state.httpx_client,
+            router=request.app.state.llm_router,
+            log_worker=request.app.state.log_worker,
+            **get_llm_config("patient_chat"),
+        )
+
+    return reply
+
+
+async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, pm) -> list[dict]:
+    """构建 LLM messages 数组（简化版：无 hidden_info，用 author_note 替代）。"""
+    emotion_note = _get_emotion_note(None, student_content)
+    kwargs = build_patient_context_kwargs(case_data, author_note=emotion_note)
     tmpl = await pm.get("patient_chat")
     system_prompt = tmpl.render(**kwargs)
-
-    llm_messages = build_patient_chat_messages(system_prompt, history_messages, student_content)
-    return llm_messages, allowed
+    return build_patient_chat_messages(system_prompt, history_messages, student_content)
 
 
 @router.post("/{record_id}/message", response_model=ChatMessageResponse)
@@ -64,69 +115,34 @@ async def send_message(
 
     pm = request.app.state.prompt_manager
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id, pm)
+    llm_messages = await _build_llm_messages(case_data, messages, req.content, pm)
 
     rid = getattr(request.state, "request_id", None)
     try:
-        reply = await call_llm(
+        reply = await _generate_patient_reply(
             llm_messages,
-            purpose="patient_chat",
             user_id=current_user.id,
             record_id=record_id,
             case_id=record.case_id,
-            log_meta={"request_id": rid} if rid else None,
-            client=request.app.state.httpx_client,
-            router=request.app.state.llm_router,
-            log_worker=request.app.state.log_worker,
-            **get_llm_config("patient_chat"),
+            request=request,
         )
     except (httpx.HTTPError, OSError, RuntimeError, ValueError) as e:
         log.exception(
             "patient_chat LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "record_id": record_id}
         )
         import random
-        reply = random.choice([
-            "嗯……这个我也不太清楚，平时没太注意。",
-            "你说这个我得想想……好像不是特别明显。",
-            "这个我说不太准，平时也没太留意。",
-            "哎呀，你突然这么问，我一下子想不起来了。",
-            "这个……以前好像有过，但具体怎样我记不太清了。",
-            "让我想想啊……嗯，好像没什么特别的。",
-            "这个医生倒是提过，但我没记住。",
-            "我平时不太在意这些，说不太上来。",
-        ])
+        reply = random.choice(FALLBACK_REPLIES)
         log.info("LLM 失败兜底回复: record_id=%d", record_id)
-
-    from services.patient_guard import correct_via_llm
-
-    sanitized, violations, needs_correction = sanitize_patient_reply(reply, case_data)
-    if violations:
-        log.info("patient_guard violations", extra={"record_id": record_id, "violations": violations})
-
-    if needs_correction:
-        try:
-            sanitized = await correct_via_llm(
-                sanitized, violations,
-                client=request.app.state.httpx_client,
-                router=request.app.state.llm_router,
-                log_worker=request.app.state.log_worker,
-                user_id=current_user.id,
-                record_id=record_id,
-                case_id=record.case_id,
-            )
-        except Exception:
-            log.exception("guard 修正失败，使用原回复")
-            sanitized = reply
 
     student_msg = Message(record_id=record_id, role="student", content=req.content)
     db.add(student_msg)
-    patient_msg = Message(record_id=record_id, role="patient", content=sanitized)
+    patient_msg = Message(record_id=record_id, role="patient", content=reply)
     db.add(patient_msg)
     db.commit()
     db.refresh(patient_msg)
 
-    log.info(f"消息已记录: record_id={record_id}", extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""})
-    return ChatMessageResponse(role="patient", content=sanitized)
+    log.info("消息已记录: record_id=%d", extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""})
+    return ChatMessageResponse(role="patient", content=reply)
 
 
 @router.post("/{record_id}/message/stream")
@@ -155,7 +171,7 @@ async def send_message_stream(
 
         pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-        llm_messages, _allowed = await _build_llm_context(case_data, messages, req.content, record_id, pm)
+        llm_messages = await _build_llm_messages(case_data, messages, req.content, pm)
 
         rid = getattr(request.state, "request_id", None)
 
@@ -178,34 +194,37 @@ async def send_message_stream(
                     full_reply += chunk
                     yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-                from services.patient_guard import correct_via_llm, sanitize_patient_reply
-
-                sanitized, violations, needs_correction = sanitize_patient_reply(full_reply, case_data)
-                if violations:
-                    log.info("patient_guard violations", extra={"record_id": record_id, "violations": violations})
-
-                if needs_correction:
-                    corrected = await correct_via_llm(
-                        sanitized, violations,
-                        client=request.app.state.httpx_client,
-                        router=request.app.state.llm_router,
-                        log_worker=request.app.state.log_worker,
+                if has_identity_leak(full_reply):
+                    log.warning("stream 身份泄露检测到，追加 Author's Note 重试")
+                    corrected_note = get_identity_correction_note()
+                    messages_with_note = list(llm_messages)
+                    messages_with_note.insert(-1, {"role": "system", "content": corrected_note})
+                    full_retry = ""
+                    async for chunk in call_llm_stream(
+                        messages_with_note,
+                        purpose="patient_chat",
                         user_id=current_user.id,
                         record_id=record_id,
                         case_id=record.case_id,
-                    )
-                    yield f"data: {json.dumps({'sanitized': True, 'reply': corrected, 'violations': violations}, ensure_ascii=False)}\n\n"
-                    sanitized = corrected
+                        log_meta={"request_id": rid} if rid else None,
+                        client=request.app.state.httpx_client,
+                        router=request.app.state.llm_router,
+                        log_worker=request.app.state.log_worker,
+                        **get_llm_config("patient_chat"),
+                    ):
+                        full_retry += chunk
+                        yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                    full_reply = full_retry
 
                 student_msg = Message(record_id=record_id, role="student", content=req.content)
                 db.add(student_msg)
-                patient_msg = Message(record_id=record_id, role="patient", content=sanitized)
+                patient_msg = Message(record_id=record_id, role="patient", content=full_reply)
                 db.add(patient_msg)
                 db.commit()
                 db.refresh(patient_msg)
 
                 log.info(
-                    f"流式消息已记录: record_id={record_id}",
+                    "流式消息已记录: record_id=%d",
                     extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
                 )
                 yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
@@ -225,14 +244,7 @@ async def send_message_stream(
                     yield f"data: {json.dumps({'done': True, 'id': patient_msg.id}, ensure_ascii=False)}\n\n"
                 else:
                     import random
-                    fallback = random.choice([
-                        "嗯……这个我也不太清楚，以前没太注意。",
-                        "你说这个我得想想……好像不是特别明显。",
-                        "这个我说不太准，平时也没太留意。",
-                        "哎呀，你突然这么问，我一下子想不起来了。",
-                        "让我想想啊……嗯，好像没什么特别的。",
-                        "这个医生倒是提过，但我没记住。",
-                    ])
+                    fallback = random.choice(FALLBACK_REPLIES)
                     student_msg = Message(record_id=record_id, role="student", content=req.content)
                     db.add(student_msg)
                     patient_msg = Message(record_id=record_id, role="patient", content=fallback)
