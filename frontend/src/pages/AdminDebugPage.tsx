@@ -2,7 +2,7 @@ import { Activity, ArrowLeft, Brain, Bug, Heart, Info, MessageCircle, RefreshCw,
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { endTraining, getCases, getTrainingState, triggerInitiative } from "@/api/api-client";
+import { endTraining, getCases, getTrainingState, sendMessageStream, triggerInitiative } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
@@ -165,61 +165,46 @@ export default function AdminDebugPage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    let fullReply = "";
+    let bubbleAdded = false;
+
     try {
-      const token = localStorage.getItem("token") || "";
-      const resp = await fetch(`/api/chat/${recordId}/message/stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content }),
-        signal: controller.signal,
-      });
-
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error("No reader");
-
-      let fullReply = "";
-      let bubbleAdded = false;
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const text = decoder.decode(value, { stream: true });
-        for (const line of text.split("\n")) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.content) {
-                if (!bubbleAdded) {
-                  setMessages((prev) => [...prev, { role: "patient", content: data.content, streaming: true }]);
-                  bubbleAdded = true;
-                } else {
-                  fullReply += data.content;
-                  setMessages((prev) => {
-                    const next = [...prev];
-                    const last = next[next.length - 1];
-                    if (last?.streaming) next[next.length - 1] = { ...last, content: fullReply };
-                    return next;
-                  });
-                }
-                fullReply += data.content;
-              }
-              if (data.done) break;
-            } catch {
-              /* ignore */
+      await sendMessageStream(
+        recordId,
+        content,
+        (chunk: string) => {
+          fullReply += chunk;
+          setMessages((prev) => {
+            if (!bubbleAdded) {
+              bubbleAdded = true;
+              return [...prev, { role: "patient", content: chunk, streaming: true }];
             }
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.streaming) next[next.length - 1] = { ...last, content: fullReply };
+            return next;
+          });
+        },
+        () => {
+          setMessages((prev) => prev.map((m) => (m.streaming ? ({ ...m, content: fullReply, streaming: false } as ChatMessage) : m)));
+          setMsgTimestamps((prev) => [...prev, Date.now()]);
+          setLoading(false);
+          refreshState();
+        },
+        (errMsg: string) => {
+          setMessages((prev) => prev.filter((m) => !m.streaming));
+          setLoading(false);
+          if (errMsg !== "请求失败") {
+            setMessages((prev) => [...prev, { role: "system", content: errMsg }]);
           }
-        }
-      }
-
-      setMessages((prev) => prev.map((m) => (m.streaming ? ({ ...m, content: fullReply, streaming: false } as ChatMessage) : m)));
-      setMsgTimestamps((prev) => [...prev, Date.now()]);
-      await refreshState();
-    } catch (err: unknown) {
-      if ((err as Error).name !== "AbortError") {
-        setMessages((prev) => prev.filter((m) => !m.streaming && m.content !== content));
-      }
-    } finally {
+        },
+        undefined,
+        controller.signal,
+      );
+    } catch {
+      setMessages((prev) => prev.filter((m) => !m.streaming && m.content !== content));
       setLoading(false);
+    } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
   };
