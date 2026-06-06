@@ -159,42 +159,37 @@ export default function AdminDebugPage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    let fullReply = "";
-    let bubbleAdded = false;
+    const patientPlaceholder: ChatMessage = { role: "patient", content: "", streaming: true };
+    setMessages((prev) => [...prev, patientPlaceholder]);
 
     try {
       await sendMessageStream(
         recordId,
         content,
         (chunk: string) => {
-          console.log("[debug] onChunk:", chunk.length, "chars, fullReply:", fullReply.length);
-          fullReply += chunk;
           setMessages((prev) => {
-            if (!bubbleAdded) {
-              bubbleAdded = true;
-              console.log("[debug] bubble created with chunk:", chunk);
-              return [...prev, { role: "patient", content: chunk, streaming: true }];
-            }
             const next = [...prev];
             const last = next[next.length - 1];
-            if (last?.streaming) next[next.length - 1] = { ...last, content: fullReply };
+            if (last?.streaming) {
+              next[next.length - 1] = { ...last, content: last.content + chunk };
+            }
             return next;
           });
         },
         () => {
-          console.log("[debug] onDone, fullReply:", fullReply);
-          setMessages((prev) => prev.map((m) => (m.streaming ? ({ ...m, content: fullReply, streaming: false } as ChatMessage) : m)));
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.streaming) next[next.length - 1] = { ...last, streaming: false };
+            return next;
+          });
           setMsgTimestamps((prev) => [...prev, Date.now()]);
           setLoading(false);
           refreshState();
         },
         (errMsg: string) => {
-          console.error("[debug] onError:", errMsg);
           setMessages((prev) => prev.filter((m) => !m.streaming));
           setLoading(false);
-          if (errMsg !== "请求失败") {
-            setMessages((prev) => [...prev, { role: "system", content: errMsg }]);
-          }
         },
         undefined,
         controller.signal,
