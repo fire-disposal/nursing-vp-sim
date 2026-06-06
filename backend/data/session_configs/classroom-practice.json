@@ -1,23 +1,8 @@
 {
   "id": "classroom-practice",
-  "name": "课堂练习",
+  "name": "课堂练习（预留）",
   "mode": "training",
-  "features": {
-    "scoring": true,
-    "hints": true,
-    "patient_initiative": false,
-    "physical_exam": true,
-    "nursing_documentation": false,
-    "dynamic_events": false
-  },
-  "behavior": {
-    "emotion_model": true,
-    "time_limit_minutes": 30,
-    "max_rounds": 40
-  },
-  "assessment": {
-    "rubric_id": 1,
-    "auto_settlement": true,
-    "settlement_timeout_min": 30
-  }
+  "features": { "physical_exam": true },
+  "behavior": { "emotion_model": true, "time_limit_minutes": 30, "max_rounds": 40 },
+  "assessment": { "rubric_id": 1, "auto_settlement": true, "settlement_timeout_min": 30 }
 }
