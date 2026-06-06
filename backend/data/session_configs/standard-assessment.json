@@ -1,0 +1,23 @@
+{
+  "id": "standard-assessment",
+  "name": "标准化考核",
+  "mode": "assessment",
+  "features": {
+    "scoring": true,
+    "hints": false,
+    "patient_initiative": false,
+    "physical_exam": false,
+    "nursing_documentation": false,
+    "dynamic_events": false
+  },
+  "behavior": {
+    "emotion_model": true,
+    "time_limit_minutes": 20,
+    "max_rounds": 30
+  },
+  "assessment": {
+    "rubric_id": 1,
+    "auto_settlement": true,
+    "settlement_timeout_min": 30
+  }
+}

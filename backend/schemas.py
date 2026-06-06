@@ -157,6 +157,7 @@ class CaseGenerateResponse(BaseModel):
 class TrainingStartRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
+    config_id: str | None = None
 
 
 class TrainingStartResponse(BaseModel):

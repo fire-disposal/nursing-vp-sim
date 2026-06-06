@@ -25,6 +25,7 @@ from schemas import (
     TrainingStartResponse,
 )
 from services.pagination import paginate
+from services.session_config import get_config, list_configs
 
 log = logging.getLogger(__name__)
 
@@ -63,11 +64,19 @@ def start_training(
 
     case_data = case.case_data or {}
     time_limit = case_data.get("time_limit", 20)
+
+    config_id = req.config_id or "standard-assessment"
+    config = get_config(config_id)
+    if config:
+        time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit)
+
     record = TrainingRecord(
         user_id=current_user.id,
         case_id=case.id,
         status="in_progress",
         time_limit=time_limit,
+        config_id=config_id,
+        config_snapshot=config,
     )
     db.add(record)
     db.commit()
@@ -88,6 +97,12 @@ def start_training(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
+
+
+@router.get("/configs")
+def get_session_configs():
+    """返回可用的会话配置列表"""
+    return list_configs()
 
 
 def _run_scoring_background(record_id: int, case_data: dict):
