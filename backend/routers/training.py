@@ -591,6 +591,24 @@ def trigger_initiative(
     emotion = get_emotion(record_id)
 
     if not should_initiate(record_id, personality, emotion.score):
+        return {"triggered": False, "message": None}
+
+    msg = generate_initiative(
+        personality,
+        emotion.score,
+        emotion.state,
+        wait_seconds=60,
+    )
+
+    if msg:
+        now = datetime.now(UTC)
+        patient_msg = Message(record_id=record_id, role="patient", content=msg, created_at=now)
+        db.add(patient_msg)
+        db.commit()
+        db.refresh(patient_msg)
+        update_initiative_timer(record_id, len(msg))
+        return {"triggered": True, "message": msg, "id": patient_msg.id}
+
     return {"triggered": False, "message": None}
 
 
@@ -613,21 +631,3 @@ def update_training_features(
     record.config_snapshot = snapshot
     db.commit()
     return {"ok": True, "features": snapshot["features"]}
-
-    msg = generate_initiative(
-        personality,
-        emotion.score,
-        emotion.state,
-        wait_seconds=60,
-    )
-
-    if msg:
-        now = datetime.now(UTC)
-        patient_msg = Message(record_id=record_id, role="patient", content=msg, created_at=now)
-        db.add(patient_msg)
-        db.commit()
-        db.refresh(patient_msg)
-        update_initiative_timer(record_id, len(msg))
-        return {"triggered": True, "message": msg, "id": patient_msg.id}
-
-    return {"triggered": False, "message": None}
