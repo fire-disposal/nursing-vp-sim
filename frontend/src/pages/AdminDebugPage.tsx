@@ -192,6 +192,9 @@ export default function AdminDebugPage() {
           setLoading(false);
         },
         undefined,
+        (sysMsg: string) => {
+          setMessages((prev) => [...prev, { role: "system", content: sysMsg }]);
+        },
         controller.signal,
       );
     } catch {

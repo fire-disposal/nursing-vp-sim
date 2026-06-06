@@ -426,6 +426,7 @@ export default function ChatTraining() {
       (reply: string) => {
         setMessages((prev) => prev.map((msg) => (msg.id === patientMsgId ? { ...msg, content: reply } : msg)));
       },
+      undefined,
       controller.signal,
     );
   };

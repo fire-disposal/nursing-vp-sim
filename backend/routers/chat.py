@@ -212,6 +212,13 @@ async def send_message_stream(
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = case.case_data or {}
 
+        op_type = detect_operation(req.content)
+        operation_result = None
+        if op_type:
+            operation_result = handle_operation(op_type, case_data)
+            log.info("操作触发: record_id=%d op=%s result=%s", record_id, op_type,
+                     operation_result.get("value", "")[:60] if operation_result else "N/A")
+
         pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
         llm_messages, _author_note = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
@@ -220,6 +227,13 @@ async def send_message_stream(
 
         async def generate():
             full_reply = ""
+
+            if operation_result:
+                op_label = operation_result.get("label", "")
+                op_value = operation_result.get("value", "")
+                op_unit = operation_result.get("unit", "")
+                op_msg = f"{op_label}: {op_value}{op_unit}"
+                yield f"data: {json.dumps({'system': op_msg}, ensure_ascii=False)}\n\n"
             try:
                 log.info("开始 LLM 流式调用: record_id=%d messages=%d prompt_len=%d",
                          record_id, len(llm_messages),
