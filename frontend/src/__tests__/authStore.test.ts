@@ -50,7 +50,14 @@ describe("authStore", () => {
     const { default: useAuthStore } = await import("@/stores/authStore");
     const user = await useAuthStore.getState().login("user", "pass");
 
-    expect(user).toEqual({ user_id: 2, role: "student", display_name: "Student1" });
+    expect(user).toEqual({
+      user_id: 2,
+      role: "student",
+      display_name: "Student1",
+      role_display_name: "student",
+      school_id: undefined,
+      school_name: undefined,
+    });
     expect(localStorage.getItem("token")).toBe("new-token");
     const stored = JSON.parse(localStorage.getItem("user") || "{}");
     expect(stored.role).toBe("student");
