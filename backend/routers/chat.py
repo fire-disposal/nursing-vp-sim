@@ -65,7 +65,7 @@ async def _generate_patient_reply(
     for attempt in range(max_retries):
         if not has_identity_leak(reply):
             break
-        log.warning("身份泄露检测到，追加 Author's Note 重试 (attempt %d)", attempt + 1)
+        log.warning("身份泄露重试: record_id=%d attempt=%d/%d reply_len=%d", record_id, attempt + 1, max_retries, len(reply))
         corrected_note = get_identity_correction_note()
         messages_with_note = list(messages)
         messages_with_note.insert(-1, {"role": "system", "content": corrected_note})
@@ -81,6 +81,10 @@ async def _generate_patient_reply(
             log_worker=request.app.state.log_worker,
             **get_llm_config("patient_chat"),
         )
+
+    if not reply or not reply.strip():
+        log.warning("LLM 返回空回复: record_id=%d len=%d", record_id, len(reply) if reply else 0)
+        reply = "嗯……（患者似乎在犹豫）"
 
     return reply
 
@@ -207,7 +211,7 @@ async def send_message_stream(
                     yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
                 if has_identity_leak(full_reply):
-                    log.warning("stream 身份泄露检测到，追加 Author's Note 重试")
+                    log.warning("stream 身份泄露: record_id=%d reply_len=%d 触发重试", record_id, len(full_reply))
                     corrected_note = get_identity_correction_note()
                     messages_with_note = list(llm_messages)
                     messages_with_note.insert(-1, {"role": "system", "content": corrected_note})
@@ -227,6 +231,11 @@ async def send_message_stream(
                         full_retry += chunk
                         yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
                     full_reply = full_retry
+
+                if not full_reply.strip():
+                    log.warning("stream 空回复兜底: record_id=%d", record_id)
+                    full_reply = "嗯……（患者似乎在犹豫）"
+                    yield f"data: {json.dumps({'content': full_reply}, ensure_ascii=False)}\n\n"
 
                 student_msg = Message(record_id=record_id, role="student", content=req.content)
                 db.add(student_msg)

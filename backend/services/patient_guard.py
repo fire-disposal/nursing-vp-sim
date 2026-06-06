@@ -7,25 +7,26 @@ log = logging.getLogger(__name__)
 IDENTITY_LEAK_PATTERNS = [
     "我是AI",
     "我是人工智能",
+    "我是AI助手",
     "我是虚拟患者",
-    "我是模拟",
     "作为AI",
+    "作为人工智能",
     "评分标准",
     "教学反馈",
-    "该问的",
     "你应该继续问",
-    "你的表现",
-    "这套系统",
+    "你还需要问",
     "训练模式",
-    "病例",
 ]
 
 
 def has_identity_leak(reply: str) -> bool:
     """检测患者回复是否泄露了 AI/模拟身份。"""
+    if not reply or not reply.strip():
+        return False
     reply_lower = reply.lower()
     for pattern in IDENTITY_LEAK_PATTERNS:
         if pattern.lower() in reply_lower:
+            log.warning("身份泄露检测: pattern=%r triggered in reply[%d]", pattern, len(reply))
             return True
     return False
 
