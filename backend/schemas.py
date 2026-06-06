@@ -176,6 +176,7 @@ class ChatMessageResponse(BaseModel):
     model_config = _RESP_CFG
     role: str
     content: str
+    operation: dict | None = None
 
 
 class TrainingRecordBrief(BaseModel):

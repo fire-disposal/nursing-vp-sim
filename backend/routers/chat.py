@@ -14,6 +14,8 @@ from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 from services.llm_service import call_llm, call_llm_stream
+from services.emotion_engine import classify_intent, get_emotion
+from services.exam_handler import detect_operation, handle_operation
 from services.patient_guard import get_identity_correction_note, has_identity_leak
 from services.virtual_patient_prompt import build_patient_chat_messages, build_patient_context_kwargs
 
@@ -83,10 +85,13 @@ async def _generate_patient_reply(
     return reply
 
 
-async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, pm) -> list[dict]:
-    """构建 LLM messages 数组（简化版：无 hidden_info，用 author_note 替代）。"""
-    emotion_note = _get_emotion_note(None, student_content)
-    kwargs = build_patient_context_kwargs(case_data, author_note=emotion_note)
+async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> list[dict]:
+    """构建 LLM messages 数组（集成情绪引擎 + Author's Note）。"""
+    emotion = get_emotion(record_id)
+    intent = classify_intent(student_content)
+    emotion.update(intent)
+    author_note = emotion.note
+    kwargs = build_patient_context_kwargs(case_data, author_note=author_note)
     tmpl = await pm.get("patient_chat")
     system_prompt = tmpl.render(**kwargs)
     return build_patient_chat_messages(system_prompt, history_messages, student_content)
@@ -113,9 +118,16 @@ async def send_message(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data or {}
 
+    # Detect and handle operations (/bp, /vitals, etc.)
+    op_type = detect_operation(req.content)
+    operation_result = None
+    if op_type:
+        operation_result = handle_operation(op_type, case_data)
+        log.info("操作触发: record_id=%d op=%s", record_id, op_type)
+
     pm = request.app.state.prompt_manager
     messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-    llm_messages = await _build_llm_messages(case_data, messages, req.content, pm)
+    llm_messages = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
 
     rid = getattr(request.state, "request_id", None)
     try:
@@ -171,7 +183,7 @@ async def send_message_stream(
 
         pm = request.app.state.prompt_manager
         messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-        llm_messages = await _build_llm_messages(case_data, messages, req.content, pm)
+        llm_messages = await _build_llm_messages(case_data, messages, req.content, record_id, pm)
 
         rid = getattr(request.state, "request_id", None)
 

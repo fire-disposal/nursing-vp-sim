@@ -20,6 +20,7 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail, sendMessageStream } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import OperationPanel from "@/components/OperationPanel";
 import PatientPortrait from "@/components/PatientPortrait";
 import { type CheckResponse, QuestionnaireModal } from "@/components/QuestionnaireModal";
 import ScoreCard from "@/components/ScoreCard";
@@ -205,6 +206,7 @@ export default function ChatTraining() {
   const [caseId, setCaseId] = useState<number | null>(null);
   const [showPreQuestionnaire, setShowPreQuestionnaire] = useState(false);
   const [showPostQuestionnaire, setShowPostQuestionnaire] = useState(false);
+  const [operationResults, setOperationResults] = useState<{ type: string; label: string; value: string; unit?: string }[]>([]);
 
   const preTest = useQuestionnaire({
     caseId,
@@ -732,6 +734,17 @@ export default function ChatTraining() {
 
           <div ref={messagesEndRef} />
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 px-3 sm:px-6 py-1.5 bg-card border-t border-border shrink-0">
+        <OperationPanel
+          onOperation={(cmd) => {
+            setInput(cmd);
+            handleSend(cmd);
+          }}
+          results={operationResults}
+          disabled={loading || ending || remaining === 0 || !isOnline}
+        />
       </div>
 
       <div className="flex items-center gap-2 px-3 sm:px-6 py-3 bg-card border-t border-border shrink-0">
