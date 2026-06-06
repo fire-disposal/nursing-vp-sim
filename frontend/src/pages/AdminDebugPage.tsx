@@ -2,9 +2,8 @@ import { Activity, ArrowLeft, Brain, Bug, Heart, Info, MessageCircle, RefreshCw,
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { endTraining, getCases, getTrainingState, sendMessageStream, triggerInitiative } from "@/api/api-client";
+import { endTraining, getCases, getTrainingState, sendMessageStream, startTraining, triggerInitiative } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import { api } from "@/api/axios-instance";
 import Layout from "@/components/Layout";
 import OperationPanel from "@/components/OperationPanel";
 import Button from "@/components/ui/Button";
@@ -14,26 +13,21 @@ import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 
+// Use flexible runtime type for debug panel display
+interface TrainingState {
+  emotion: { score: number; state: string; note: string };
+  personality: Record<string, string>;
+  deep_background_keys: string[];
+  exam_anchors: Record<string, unknown>;
+  config: { id: string; mode: string; features: Record<string, boolean> };
+  initiative: { elapsed_seconds: number; threshold_seconds: number; percent: number };
+}
+
 interface ChatMessage {
   id?: number;
   role: string;
   content: string;
   streaming?: boolean;
-}
-
-interface EmotionState {
-  score: number;
-  state: string;
-  note: string;
-}
-
-interface TrainingState {
-  emotion: EmotionState;
-  personality: Record<string, string>;
-  deep_background_keys: string[];
-  exam_anchors: Record<string, string | Record<string, string>>;
-  config: { id: string; mode: string; features: Record<string, boolean> };
-  initiative: { elapsed_seconds: number; threshold_seconds: number; percent: number };
 }
 
 const PERSONALITY_LABELS: Record<string, Record<string, string>> = {
@@ -131,14 +125,11 @@ export default function AdminDebugPage() {
     }
   };
 
-  const startTraining = async () => {
+  const handleStart = async () => {
     if (!selectedCaseId) return;
     setLoading(true);
     try {
-      const r = await api.post<{ record_id: number; greeting: string }>("/training/start", {
-        case_id: selectedCaseId,
-        config_id: "free-exploration",
-      });
+      const r = await startTraining(selectedCaseId, "free-exploration");
       setRecordId(r.data.record_id);
       setMessages([{ role: "patient", content: r.data.greeting }]);
       setMsgTimestamps([Date.now()]);
@@ -247,7 +238,7 @@ export default function AdminDebugPage() {
                     </option>
                   ))}
                 </select>
-                <Button onClick={startTraining} disabled={!selectedCaseId || loading} className="w-full">
+                <Button onClick={handleStart} disabled={!selectedCaseId || loading} className="w-full">
                   {loading ? "启动中..." : "开始调试 (自由探索模式)"}
                 </Button>
               </div>
@@ -483,7 +474,7 @@ export default function AdminDebugPage() {
                         <span className="font-mono">{v}</span>
                       ) : (
                         <div className="space-y-0.5">
-                          {Object.entries(v).map(([sk, sv]) => (
+                          {Object.entries(v as Record<string, unknown>).map(([sk, sv]) => (
                             <div key={sk} className="flex justify-between">
                               <span className="text-muted-foreground">{sk}</span>
                               <span className="font-mono">{String(sv)}</span>

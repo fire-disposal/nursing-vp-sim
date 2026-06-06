@@ -20,7 +20,8 @@ export const getCases = (params: Record<string, unknown> = {}) => api.get<Schema
 
 export const getCaseDetail = (id: number | string) => api.get<Schemas["CaseDetail"]>(`/cases/${id}`);
 
-export const startTraining = (caseId: number | string) => api.post<Schemas["TrainingStartResponse"]>("/training/start", { case_id: caseId });
+export const startTraining = (caseId: number | string, configId?: string) =>
+  api.post<Schemas["TrainingStartResponse"]>("/training/start", { case_id: caseId, config_id: configId });
 
 // Chat
 export const sendMessage = (recordId: number | string, content: string, signal?: AbortSignal) =>
@@ -326,23 +327,25 @@ export const saveNursingRecord = (recordId: number, data: Record<string, unknown
 export const getQuestionnairesTemplates = (params?: Record<string, unknown>) =>
   api.get<Schemas["PaginatedResponse_QuestionnaireTemplateResponse_"]>("/questionnaires/templates", { params });
 
-export const createQuestionnaireTemplate = (data: Record<string, unknown>) => api.post<Record<string, unknown>>("/questionnaires/templates", data);
+export const createQuestionnaireTemplate = (data: Schemas["QuestionnaireTemplateCreate"]) =>
+  api.post<Schemas["QuestionnaireTemplateDetailResponse"]>("/questionnaires/templates", data);
 
-export const getQuestionnaireTemplate = (id: number) => api.get<Record<string, unknown>>(`/questionnaires/templates/${id}`);
+export const getQuestionnaireTemplate = (id: number) => api.get<Schemas["QuestionnaireTemplateDetailResponse"]>(`/questionnaires/templates/${id}`);
 
-export const updateQuestionnaireTemplate = (id: number, data: Record<string, unknown>) =>
-  api.put<Record<string, unknown>>(`/questionnaires/templates/${id}`, data);
+export const updateQuestionnaireTemplate = (id: number, data: Schemas["QuestionnaireTemplateUpdate"]) =>
+  api.put<Schemas["QuestionnaireTemplateDetailResponse"]>(`/questionnaires/templates/${id}`, data);
 
-export const deleteQuestionnaireTemplate = (id: number) => api.delete(`/questionnaires/templates/${id}`);
+export const deleteQuestionnaireTemplate = (id: number) => api.delete<Schemas["OkResponse"]>(`/questionnaires/templates/${id}`);
 
 export const checkQuestionnaire = (params: { case_id?: number; record_id?: number; trigger?: string }) =>
-  api.get<Record<string, unknown>>("/questionnaires/check", { params });
+  api.get<Schemas["QuestionnaireCheckResponse"]>("/questionnaires/check", { params });
 
-export const submitQuestionnaire = (data: Record<string, unknown>) => api.post<Record<string, unknown>>("/questionnaires/responses", data);
+export const submitQuestionnaire = (data: Schemas["QuestionnaireSubmitRequest"]) =>
+  api.post<Schemas["QuestionnaireResponseItem"]>("/questionnaires/responses", data);
 
 export const getQuestionnaireResponses = (templateId: number, params?: Record<string, unknown>) =>
-  api.get<Record<string, unknown>>(`/questionnaires/responses/${templateId}`, { params });
+  api.get<Schemas["PaginatedResponse_QuestionnaireResponseItem_"]>(`/questionnaires/responses/${templateId}`, { params });
 
-export const getQuestionnaireStats = (templateId: number) => api.get<Record<string, unknown>>(`/questionnaires/responses/${templateId}/stats`);
+export const getQuestionnaireStats = (templateId: number) => api.get<Schemas["QuestionnaireStatsResponse"]>(`/questionnaires/responses/${templateId}/stats`);
 
 export const exportQuestionnaireCSV = (templateId: number) => api.get(`/questionnaires/responses/${templateId}/export`, { responseType: "blob" });
