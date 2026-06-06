@@ -164,10 +164,12 @@ export default function AdminDebugPage() {
         recordId,
         content,
         (chunk: string) => {
+          console.log("[debug] onChunk:", chunk.length, "chars, fullReply:", fullReply.length);
           fullReply += chunk;
           setMessages((prev) => {
             if (!bubbleAdded) {
               bubbleAdded = true;
+              console.log("[debug] bubble created with chunk:", chunk);
               return [...prev, { role: "patient", content: chunk, streaming: true }];
             }
             const next = [...prev];
@@ -177,12 +179,14 @@ export default function AdminDebugPage() {
           });
         },
         () => {
+          console.log("[debug] onDone, fullReply:", fullReply);
           setMessages((prev) => prev.map((m) => (m.streaming ? ({ ...m, content: fullReply, streaming: false } as ChatMessage) : m)));
           setMsgTimestamps((prev) => [...prev, Date.now()]);
           setLoading(false);
           refreshState();
         },
         (errMsg: string) => {
+          console.error("[debug] onError:", errMsg);
           setMessages((prev) => prev.filter((m) => !m.streaming));
           setLoading(false);
           if (errMsg !== "请求失败") {
