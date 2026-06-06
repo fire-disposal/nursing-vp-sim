@@ -15,6 +15,7 @@ from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 from services.llm_service import call_llm, call_llm_stream
 from prompts.patient_chat import PATIENT_DYNAMIC
+from prompts.patient_chat import PATIENT_DYNAMIC
 from services.patient_ai import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
@@ -98,23 +99,26 @@ async def _generate_patient_reply(
 
 
 async def _build_llm_messages(case_data: dict, history_messages: list, student_content: str, record_id: int, pm) -> tuple[list[dict], str]:
-    """构建 AI酒馆风格的 messages 数组。返回 (messages, author_note)。"""
+    """构建 messages 数组。返回 (messages, author_note)。"""
     emotion = get_emotion(record_id)
     intent = classify_intent(student_content)
     emotion.update(intent)
     author_note = emotion.note
 
-    kwargs = build_patient_context_kwargs(case_data, author_note="")
-    kwargs["author_note"] = author_note  # Used by PATIENT_DYNAMIC if referenced
-
+    kwargs = build_patient_context_kwargs(case_data, author_note=author_note)
     tmpl = await pm.get("patient_chat")
-    system_prompt = tmpl.render(**{
-        k: v for k, v in kwargs.items()
-        if k in {"patient_info", "scenario", "personality", "communication_style"}
-    })
 
-    from services.prompt_manager import render_template
-    dynamic_prompt = render_template(PATIENT_DYNAMIC, **kwargs)
+    try:
+        system_prompt = tmpl.render(**{
+            k: v for k, v in kwargs.items()
+            if k in {"patient_info", "scenario", "personality", "communication_style"}
+        })
+        from services.prompt_manager import render_template
+        dynamic_prompt = render_template(PATIENT_DYNAMIC, **kwargs)
+    except Exception as e:
+        log.error("Prompt 渲染失败: %s", e)
+        system_prompt = str(kwargs.get("patient_info", "未知患者"))
+        dynamic_prompt = str(kwargs.get("chief_complaint", "无"))
 
     llm_messages = build_patient_chat_messages(
         system_prompt, dynamic_prompt, history_messages, student_content,
@@ -217,7 +221,10 @@ async def send_message_stream(
         async def generate():
             full_reply = ""
             try:
-                log.info("开始 LLM 流式调用: record_id=%d messages=%d", record_id, len(llm_messages))
+                log.info("开始 LLM 流式调用: record_id=%d messages=%d prompt_len=%d",
+                         record_id, len(llm_messages),
+                         sum(len(m.get("content", "")) for m in llm_messages))
+                chunk_count = 0
                 async for chunk in call_llm_stream(
                     llm_messages,
                     purpose="patient_chat",
@@ -231,7 +238,10 @@ async def send_message_stream(
                     **get_llm_config("patient_chat"),
                 ):
                     full_reply += chunk
+                    chunk_count += 1
                     yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                log.info("LLM 流式完成: record_id=%d chunks=%d reply_len=%d",
+                         record_id, chunk_count, len(full_reply))
 
                 if has_identity_leak(full_reply):
                     log.warning("stream 身份泄露: record_id=%d reply_len=%d 触发重试", record_id, len(full_reply))
