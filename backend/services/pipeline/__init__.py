@@ -9,12 +9,15 @@ from .phase import (
 )
 from .context import PipelineContext
 from .runner import PipelineMiddleware, run_pipeline, stream_pipeline
+from .registry import PIPELINE_REGISTRY, get_pipeline
 
 __all__ = [
     "Phase",
     "PipelineContext",
     "PipelineMiddleware",
+    "PIPELINE_REGISTRY",
     "get_phase_by_order",
+    "get_pipeline",
     "parse_phase",
     "parse_phases",
     "run_pipeline",
