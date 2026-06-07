@@ -15,8 +15,8 @@ export const queryKeys = {
   },
   training: {
     all: ["training"] as const,
-    records: (params: Record<string, unknown>) => ["records", params] as const,
-    recent: () => ["records", "recent"] as const,
+    records: (params: Record<string, unknown>) => [...queryKeys.training.all, "records", params] as const,
+    recent: () => [...queryKeys.training.all, "records", "recent"] as const,
     detail: (id: number | string) => ["record", id] as const,
     review: (id: number | string) => ["scoreReview", id] as const,
     state: (recordId: number) => ["trainingState", recordId] as const,
@@ -49,13 +49,14 @@ export const queryKeys = {
       stats: (params: Record<string, unknown>) => [...queryKeys.admin.feedback.all, "stats", params] as const,
     },
     llm: {
-      stats: ["admin", "llm", "stats"] as const,
-      logs: (params: Record<string, unknown>) => ["admin", "llm", "logs", params] as const,
+      all: ["admin", "llm"] as const,
+      stats: () => [...queryKeys.admin.llm.all, "stats"] as const,
+      logs: (params: Record<string, unknown>) => [...queryKeys.admin.llm.all, "logs", params] as const,
     },
   },
   grades: {
     all: ["grades"] as const,
-    classes: (gradeId?: number) => ["classes", gradeId] as const,
+    classes: (gradeId?: number) => [...queryKeys.grades.all, "classes", gradeId] as const,
   },
   rubric: {
     all: ["rubrics"] as const,
