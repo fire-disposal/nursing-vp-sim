@@ -4,8 +4,7 @@ import threading
 from datetime import UTC, datetime
 from typing import Annotated
 
-import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -119,85 +118,69 @@ def get_session_configs():
     return list_configs()
 
 
-def _run_scoring_background(record_id: int, case_data: dict):
-    """后台线程中执行评分。使用 asyncio.run() 新建事件循环。"""
+async def _run_scoring_background(record_id: int, case_data: dict):
+    from services.llm.infra import get_client, get_router, get_pm, get_log_worker
+
     SCORING_GLOBAL_TIMEOUT = 300
 
-    async def _do():
-        from services.llm import LogWorker
-        from services.llm import ProfileRouter
-        from services.prompt import PromptManager
+    client = get_client()
+    router = get_router()
+    pm = get_pm()
+    log_worker = get_log_worker()
 
-        db = SessionLocal()
-        local_client = httpx.AsyncClient(timeout=httpx.Timeout(180, connect=15.0))
-        local_pm = PromptManager()
-        await local_pm.load_from_db()
-        local_router = ProfileRouter()
-        await local_router.load_from_db()
-        log_worker = LogWorker()
-        await log_worker.start()
+    db = SessionLocal()
+    try:
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if not record:
+            return
+        record.scoring_status = "processing"
+        db.commit()
+
+        from services.scoring import evaluate_training
+
+        await asyncio.wait_for(
+            evaluate_training(
+                record_id, case_data, db,
+                pm=pm,
+                router=router,
+                log_worker=log_worker,
+                client=client,
+            ),
+            timeout=SCORING_GLOBAL_TIMEOUT,
+        )
+
+        record.scoring_status = "completed"
+        record.scoring_error = None
+        db.commit()
+        log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
+    except TimeoutError:
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if not record:
-                return
-            record.scoring_status = "processing"
-            db.commit()
-
-            from services.scoring import evaluate_training
-
-            await asyncio.wait_for(
-                evaluate_training(
-                    record_id, case_data, db,
-                    pm=local_pm,
-                    router=local_router,
-                    log_worker=log_worker,
-                    client=local_client,
-                ),
-                timeout=SCORING_GLOBAL_TIMEOUT,
-            )
-
-            record.scoring_status = "completed"
-            record.scoring_error = None
-            db.commit()
-            log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
-        except TimeoutError:
-            try:
-                record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-                if record:
-                    record.scoring_status = "failed"
-                    record.scoring_error = "评分超时（超过5分钟）"
-                    db.commit()
-            except Exception as e:
-                log.warning("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
-            log.exception("评分超时", extra={"record_id": record_id})
+            if record:
+                record.scoring_status = "failed"
+                record.scoring_error = "评分超时（超过5分钟）"
+                db.commit()
         except Exception as e:
-            try:
-                record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-                if record:
-                    record.scoring_status = "failed"
-                    record.scoring_error = str(e)[:2000]
-                    db.commit()
-            except Exception as inner:
-                log.warning("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
-            log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
-        finally:
-            db.close()
-            await local_client.aclose()
-            await log_worker.stop()
-
-    try:
+            log.warning("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
+        log.exception("评分超时", extra={"record_id": record_id})
+    except Exception as e:
         try:
-            asyncio.run(_do())
-        except Exception as e:
-            log.exception("后台评分线程异常 (record_id=%d): %s", record_id, e)
+            record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+            if record:
+                record.scoring_status = "failed"
+                record.scoring_error = str(e)[:2000]
+                db.commit()
+        except Exception as inner:
+            log.warning("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
+        log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
     finally:
+        db.close()
         _release_scoring(record_id)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
 def end_training(
     record_id: int,
-    background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -230,7 +213,7 @@ def end_training(
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
 
-    background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
+    asyncio.create_task(_run_scoring_background(record_id, case.case_data if case else {}))
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
@@ -247,7 +230,6 @@ def end_training(
 @router.post("/{record_id}/retry-scoring", response_model=ScoringTriggerResponse)
 def retry_scoring(
     record_id: int,
-    background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -277,7 +259,7 @@ def retry_scoring(
     record.scoring_error = None
     db.commit()
 
-    background_tasks.add_task(_run_scoring_background, record_id, case.case_data if case else {})
+    asyncio.create_task(_run_scoring_background(record_id, case.case_data if case else {}))
 
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 
