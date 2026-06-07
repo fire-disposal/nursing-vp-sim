@@ -332,6 +332,15 @@ async def lifespan(app: FastAPI):
     await app.state.log_worker.start()
     log.info("LLM 日志写入器就绪")
 
+    from services.llm.infra import set_infra
+    set_infra(
+        client=app.state.httpx_client,
+        router=app.state.llm_router,
+        pm=app.state.prompt_manager,
+        log_worker=app.state.log_worker,
+    )
+    log.info("LLM infra 模块引用就绪")
+
     cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
     app.state._cleanup_task = cleanup_task
 
