@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useScoreProgress(isActive: boolean) {
   const [progress, setProgress] = useState(0);
@@ -25,9 +25,9 @@ export function useScoreProgress(isActive: boolean) {
     };
   }, [isActive]);
 
-  const fastForward = () => {
+  const fastForward = useCallback(() => {
     speedRef.current = 8;
-  };
+  }, []);
 
   return { progress, fastForward };
 }

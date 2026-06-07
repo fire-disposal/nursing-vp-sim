@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRecordDetail } from "@/api/training";
 import { useToast } from "@/components/Toast";
@@ -22,6 +22,8 @@ interface UseRecordLoaderOptions {
 export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoaderOptions) {
   const navigate = useNavigate();
   const toast = useToast();
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
 
   useEffect(() => {
     let cancelled = false;
@@ -44,19 +46,20 @@ export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoa
           start_time?: string;
         };
 
-        opts.setMessages((detail.messages || []).map((m) => ({ ...m, streaming: false })));
-        if (detail.case_name) opts.setCaseTitle(detail.case_name);
-        if (detail.required_inquiries) opts.setRequiredInquiries(detail.required_inquiries as string[]);
-        if (detail.patient_info) opts.setPatientInfo(detail.patient_info);
-        if (detail.case_id) opts.setCaseId(detail.case_id);
-        if (detail.features) opts.setFeatures(detail.features);
-        opts.setRecordStatus(detail.status || null);
+        const o = optsRef.current;
+        o.setMessages((detail.messages || []).map((m) => ({ ...m, streaming: false })));
+        if (detail.case_name) o.setCaseTitle(detail.case_name);
+        if (detail.required_inquiries) o.setRequiredInquiries(detail.required_inquiries as string[]);
+        if (detail.patient_info) o.setPatientInfo(detail.patient_info);
+        if (detail.case_id) o.setCaseId(detail.case_id);
+        if (detail.features) o.setFeatures(detail.features);
+        o.setRecordStatus(detail.status || null);
 
         if (detail.status === "completed") {
-          opts.onTimerReady(null);
+          o.onTimerReady(null);
           if (detail.score) {
-            opts.setScore(detail.score);
-            opts.setShowScore(true);
+            o.setScore(detail.score);
+            o.setShowScore(true);
           }
           return;
         }
@@ -67,9 +70,9 @@ export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoa
             : detail.start_time
               ? Math.max(0, (detail.time_limit || 20) * 60 - Math.floor((Date.now() - new Date(detail.start_time).getTime()) / 1000))
               : Math.max(0, (detail.time_limit || 20) * 60);
-        opts.onTimerReady(r);
+        o.onTimerReady(r);
 
-        opts.onPreTestCheck();
+        o.onPreTestCheck();
       })
       .catch(() => {
         if (!cancelled) {
@@ -81,5 +84,5 @@ export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoa
     return () => {
       cancelled = true;
     };
-  }, [recordId]);
+  }, [recordId, navigate, toast.error]);
 }
