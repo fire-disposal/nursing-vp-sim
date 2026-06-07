@@ -10,6 +10,8 @@
 
 ## 快速开始
 
+> 零基础用户请先看 **[START-HERE.md](START-HERE.md)** — 从工具安装到第一次修改代码，全程手把手。
+
 ```bash
 # 首次安装
 npm install
@@ -50,19 +52,22 @@ npm run dev
 
 ## 文档导航
 
-- [完整文档中心](docs/README.md) — 架构、API、数据库、前端、运维等全部文档
-- [开发入门](docs/00-dev-onboarding.md) — 环境搭建、提交规范、OpenCode 使用
-- [系统架构](docs/01-architecture.md) — 技术栈与架构设计
-- [API 接口](docs/02-api-reference.md) — 完整 API 端点
-- [数据库设计](docs/03-database.md) — 表结构与关系映射
-- [前端设计](docs/04-frontend.md) — 组件、路由、布局系统
-- [开发日志](docs/06-dev-log.md) — 完整开发进度与历史
-- [交接记录](docs/07-polish-handoff.md) — 当前状态与待完善问题
-- [运维指南](docs/09-operations.md) — 部署、回滚、备份、应急预案
-- [Git/CI 指南](GIT-GUIDE.md) — 提交规范与 CI/CD 流程
-- [团队协作](CONTRIBUTING.md) — 分支模型、PR 规范、协作流程
-- [设计规格](docs/superpowers/specs/) — 各功能模块设计文档
-- [实施计划](docs/superpowers/plans/) — 各模块实施计划
+| 顺序 | 文档 | 说明 |
+|------|------|------|
+| **0** | **[START-HERE.md](START-HERE.md)** | 零基础入口：工具安装、Vibe Coding 概念、从下载到第一次改代码 |
+| **1** | **[GIT-GUIDE.md](GIT-GUIDE.md)** | 提交格式、版本号、CI/CD 部署流程 |
+| **2** | **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** | 环境详解、提交规范、OpenCode 用法、Actions 说明 |
+| | | |
+| | [docs/01-architecture.md](docs/01-architecture.md) | 系统架构与技术栈 |
+| | [docs/02-api-reference.md](docs/02-api-reference.md) | API 接口文档 |
+| | [docs/03-database.md](docs/03-database.md) | 数据库设计 |
+| | [docs/04-frontend.md](docs/04-frontend.md) | 前端组件与路由 |
+| | [docs/06-dev-log.md](docs/06-dev-log.md) | 开发进度与历史 |
+| | [docs/07-polish-handoff.md](docs/07-polish-handoff.md) | 当前状态与待完善问题 |
+| | [docs/09-operations.md](docs/09-operations.md) | 运维、回滚、备份、应急预案 |
+| | [CONTRIBUTING.md](CONTRIBUTING.md) | 分支模型、PR 规范 |
+| | [docs/superpowers/specs/](docs/superpowers/specs/) | 各功能设计文档 |
+| | [docs/superpowers/plans/](docs/superpowers/plans/) | 各功能实施计划 |
 
 ## 项目结构
 
@@ -86,25 +91,7 @@ npm run dev
 
 Husky + commitlint 强制校验格式：`<emoji> <type>: <描述>`
 
-| Emoji | Type     | 说明         |
-|-------|----------|-------------|
-| ✨     | feat     | 新功能        |
-| 🐛     | fix      | 修复 bug     |
-| 📝     | docs     | 文档         |
-| ♻️     | refactor | 重构         |
-| 🔧     | chore    | 杂项/配置     |
-| ✅     | test     | 测试         |
-| 🎨     | style    | UI/样式      |
-| 🚀     | ci       | 部署/CI      |
-| 📦     | build    | 构建         |
-| ⚡     | perf     | 性能优化      |
-| 🔀     | merge    | 分支合并      |
-| 🔒     | security | 安全加固      |
-| 🗃️     | db       | 数据库/迁移   |
-| ⏪     | revert   | 回退         |
-| 🔥     | remove   | 删除功能      |
-
-> 完整规范见 [Git/Husky/CI/CD 快速入门](GIT-GUIDE.md)
+> 完整格式表和使用说明见 **[GIT-GUIDE.md](GIT-GUIDE.md)**
 
 ## 许可
 

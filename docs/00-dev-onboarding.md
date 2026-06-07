@@ -10,12 +10,13 @@
 
 | 工具 | 版本要求 | 用途 | 安装方式 |
 |------|---------|------|----------|
-| Python | ≥ 3.13 | 后端 FastAPI | [python.org](https://www.python.org/downloads/) |
+| uv | 最新 | Python 运行环境 + 包管理（自动管理 Python 版本） | [Install uv](https://docs.astral.sh/uv/getting-started/installation/) |
 | Node.js | ≥ 18 LTS | 前端 + 根 npm scripts | [nodejs.org](https://nodejs.org/) |
 | PostgreSQL | 15 | 数据库 | [EDB Installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)（Windows） |
-| uv | 最新 | Python 包管理 | `pip install uv` |
 | Git | ≥ 2.40 | 版本控制 | [git-scm.com](https://git-scm.com/) |
 | DBeaver | 最新 | 数据库 GUI 管理（推荐） | [dbeaver.io](https://dbeaver.io/download/) |
+
+> **Python 不需要单独安装。** `uv sync` 会自动下载项目所需的 Python 3.13，保证团队版本一致。
 
 > **为什么不用 Docker？** Docker 在 Windows 上通过 WSL2/Hyper-V 运行，会额外占用 2-4 GB 内存和磁盘 I/O 开销，且文件系统跨层性能损耗明显。本地安装 PostgreSQL 更轻量、启动更快、调试更直接。Docker 保留给生产部署场景使用。
 
@@ -313,7 +314,7 @@ Start-Service postgresql-x64-15
 3. 确认密码正确：安装时设置的密码是否与 `.env` 中 `DATABASE_URL` 的密码一致
 
 **Q: `npm run dev:backend` 报 `uv` 未找到？**
-安装 uv：`pip install uv`，然后 `cd backend && uv sync`
+去 https://docs.astral.sh/uv/getting-started/installation/ 安装 uv（Windows 用 PowerShell 一键安装），安装后重启终端再试。
 
 **Q: 前端代理不通？**
 确保后端在 8000 端口运行。Vite 配置 `frontend/vite.config.ts` 中 `/api` 代理到 `http://127.0.0.1:8000`。
@@ -374,29 +375,9 @@ fix scoring bug            ← 缺少 emoji
 :feat: 添加功能            ← 缺少 emoji
 ```
 
-### 2.3 完整类型表
+> **完整 15 种类型表见 [GIT-GUIDE.md](../GIT-GUIDE.md)**。提交前自动运行 Biome 格式化前端代码，不用手动 format。提交后自动运行 commitlint 校验 type 枚举和格式，不匹配则拦截。
 
-| Emoji | Type | 何时使用 |
-|-------|------|----------|
-| ✨ | feat | 新功能 |
-| 🐛 | fix | 修 bug |
-| 📝 | docs | 改文档 |
-| ♻️ | refactor | 重构（功能不变） |
-| 🔧 | chore | 配置 / 依赖 / 杂项 |
-| ✅ | test | 加测试 |
-| 🎨 | style | UI / 样式 |
-| 🚀 | ci | 部署 / CI 流程 |
-| 📦 | build | 构建配置 |
-| ⚡ | perf | 性能优化 |
-| 🔀 | merge | 分支合并 |
-| 🔒 | security | 安全相关 |
-| 🗃️ | db | 数据库 / 迁移 |
-| ⏪ | revert | 回退变更 |
-| 🔥 | remove | 删除功能 / 代码 |
-
-> 提交前自动运行 Biome 格式化前端代码，不用手动 format。提交后自动运行 commitlint 校验 type 枚举和格式，不匹配则拦截。
-
-### 2.4 快速复制前缀
+### 2.3 快速复制前缀
 
 ```
 ✨ feat:       🐛 fix:        📝 docs:
