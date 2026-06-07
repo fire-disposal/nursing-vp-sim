@@ -1,0 +1,86 @@
+export const queryKeys = {
+  auth: {
+    me: ["auth", "me"] as const,
+  },
+  cases: {
+    all: ["cases"] as const,
+    lists: () => [...queryKeys.cases.all, "list"] as const,
+    list: (params: Record<string, unknown>) => [...queryKeys.cases.lists(), params] as const,
+    details: () => [...queryKeys.cases.all, "detail"] as const,
+    detail: (id: number | string) => [...queryKeys.cases.details(), id] as const,
+    managed: {
+      all: ["cases", "manage"] as const,
+      list: (params: Record<string, unknown>) => [...queryKeys.cases.managed.all, params] as const,
+    },
+  },
+  training: {
+    all: ["training"] as const,
+    records: (params: Record<string, unknown>) => ["records", params] as const,
+    recent: () => ["records", "recent"] as const,
+    detail: (id: number | string) => ["record", id] as const,
+    review: (id: number | string) => ["scoreReview", id] as const,
+    state: (recordId: number) => ["trainingState", recordId] as const,
+  },
+  qa: {
+    all: ["qa"] as const,
+    sessions: () => [...queryKeys.qa.all, "sessions"] as const,
+    history: (params: Record<string, unknown>) => [...queryKeys.qa.all, "history", params] as const,
+    messages: (sessionId: number | string) => [...queryKeys.qa.all, "messages", sessionId] as const,
+  },
+  stats: {
+    all: ["stats"] as const,
+    duration: (period: string) => [...queryKeys.stats.all, "duration", period] as const,
+    trends: (period: string) => [...queryKeys.stats.all, "trends", period] as const,
+    teacherSummary: (params: Record<string, unknown>) => [...queryKeys.stats.all, "teacherSummary", params] as const,
+    ranking: (params: Record<string, unknown>) => [...queryKeys.stats.all, "ranking", params] as const,
+    classSummary: (params: Record<string, unknown>) => [...queryKeys.stats.all, "classSummary", params] as const,
+    admin: () => [...queryKeys.stats.all, "admin"] as const,
+  },
+  admin: {
+    users: {
+      all: ["admin", "users"] as const,
+      list: (params: Record<string, unknown>) => [...queryKeys.admin.users.all, params] as const,
+      detail: (userId: number | string) => [...queryKeys.admin.users.all, "detail", userId] as const,
+    },
+    roles: ["admin", "roles"] as const,
+    feedback: {
+      all: ["admin", "feedback"] as const,
+      list: (params: Record<string, unknown>) => [...queryKeys.admin.feedback.all, params] as const,
+      stats: (params: Record<string, unknown>) => [...queryKeys.admin.feedback.all, "stats", params] as const,
+    },
+    llm: {
+      stats: ["admin", "llm", "stats"] as const,
+      logs: (params: Record<string, unknown>) => ["admin", "llm", "logs", params] as const,
+    },
+  },
+  grades: {
+    all: ["grades"] as const,
+    classes: (gradeId?: number) => ["classes", gradeId] as const,
+  },
+  rubric: {
+    all: ["rubrics"] as const,
+    active: () => [...queryKeys.rubric.all, "active"] as const,
+  },
+  apiManagement: {
+    secrets: ["admin", "api", "secrets"] as const,
+    configs: (purpose?: string) => ["admin", "api", "configs", purpose] as const,
+    modelPresets: ["admin", "api", "modelPresets"] as const,
+    health: ["admin", "api", "health"] as const,
+    fallback: ["admin", "api", "fallback"] as const,
+  },
+  prompts: {
+    all: (purpose?: string) => ["prompts", purpose] as const,
+    activePreview: (purpose: string) => ["prompts", "active", "preview", purpose] as const,
+    sampleVars: (purpose: string) => ["prompts", "sampleVars", purpose] as const,
+  },
+  questionnaires: {
+    all: ["questionnaires"] as const,
+    templates: (offset: number, typeFilter?: string) => ["questionnaireTemplates", offset, typeFilter] as const,
+    detail: (id: number | null) => ["questionnaireTemplateDetail", id] as const,
+    stats: (templateId: number | null) => ["questionnaireStats", templateId] as const,
+    responses: (templateId: number, params?: Record<string, unknown>) => ["questionnaireResponses", templateId, params] as const,
+    check: (params: { case_id?: number; record_id?: number; trigger?: string }) => ["questionnaireCheck", params] as const,
+  },
+  sessionConfigs: ["sessionConfigs"] as const,
+  nursingRecord: (recordId: number) => ["nursingRecord", recordId] as const,
+} as const;
