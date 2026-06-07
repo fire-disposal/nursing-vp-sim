@@ -348,22 +348,29 @@ def get_records(
 def get_record_detail(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
 ):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    record = (
+        db.query(TrainingRecord)
+        .options(
+            joinedload(TrainingRecord.case),
+            joinedload(TrainingRecord.user),
+            joinedload(TrainingRecord.score),
+        )
+        .filter(TrainingRecord.id == record_id)
+        .first()
+    )
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
 
-    # 权限检查：学生只能看自己的，教师看全部（但限定学校）
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看此记录")
 
-    record_user = db.query(User).filter(User.id == record.user_id).first()
     effective_school = resolve_school_filter(current_user)
-    if effective_school is not None and (not record_user or record_user.school_id != effective_school):
+    if effective_school is not None and (not record.user or record.user.school_id != effective_school):
         raise HTTPException(status_code=404, detail="记录不存在")
 
-    case = db.query(Case).filter(Case.id == record.case_id).first()
-    user = db.query(User).filter(User.id == record.user_id).first()
-    score = db.query(Score).filter(Score.record_id == record_id).first()
+    case = record.case
+    user = record.user
+    score = record.score
     note_records = db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
 
     case_data = case.case_data or {} if case else {}
