@@ -71,7 +71,8 @@ export const queryKeys = {
     fallback: ["admin", "api", "fallback"] as const,
   },
   prompts: {
-    all: (purpose?: string) => ["prompts", purpose] as const,
+    list: ["prompts"] as const,
+    byPurpose: (purpose?: string) => ["prompts", purpose] as const,
     activePreview: (purpose: string) => ["prompts", "active", "preview", purpose] as const,
     sampleVars: (purpose: string) => ["prompts", "sampleVars", purpose] as const,
   },
