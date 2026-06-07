@@ -21,7 +21,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useFeedback } from "@/components/FeedbackProvider";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import TrainingDurationChart from "@/components/TrainingDurationChart";
 import Badge from "@/components/ui/Badge";
@@ -34,6 +33,7 @@ import StatCard from "@/components/ui/StatCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
+import type { ScoreData } from "@/types/score";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type DurationStats = components["schemas"]["DurationStats"];
@@ -59,18 +59,6 @@ interface RecordExtended {
   scoring_status?: string | null;
   scoring_error?: string | null;
   score?: ScoreData | null;
-}
-
-interface ScoreData {
-  total_score?: number;
-  detail_scores?: Record<
-    string,
-    {
-      score?: number;
-      max?: number;
-    }
-  >;
-  strengths?: string[];
 }
 
 interface GradeInfo {

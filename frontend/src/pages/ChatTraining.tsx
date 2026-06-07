@@ -17,19 +17,10 @@ import { useTypingFreeze } from "@/hooks/useTypingFreeze";
 import useVoice from "@/hooks/useVoice";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/types/chat";
+import type { ScoreData } from "@/types/score";
 import { getNurseAvatar, getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 
 type TrainingRecordDetail = components["schemas"]["TrainingRecordDetail"];
-
-interface ScoreData {
-  total_score: number;
-  detail_scores?: Record<string, { score: number; max: number; items?: { id: number; name: string; score: number }[] }>;
-  strengths?: string[];
-  weaknesses?: string[];
-  missed_content?: string[];
-  suggestions?: string;
-  rubric_version?: string;
-}
 
 function extractKeywords(inquiry: string): string[] {
   const cleaned = inquiry.replace(/[（）()]/g, " ");

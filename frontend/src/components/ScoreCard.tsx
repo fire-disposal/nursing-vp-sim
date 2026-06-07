@@ -1,30 +1,7 @@
 ﻿import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lightbulb, MessageSquare, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-
-interface ScoreItemData {
-  id?: number;
-  name: string;
-  score: number;
-  evidence?: string;
-  reason?: string;
-}
-
-interface DetailScoreCategory {
-  score: number;
-  max: number;
-  items?: ScoreItemData[];
-}
-
-interface ScoreData {
-  total_score: number;
-  detail_scores?: Record<string, DetailScoreCategory>;
-  strengths?: string[];
-  weaknesses?: string[];
-  missed_content?: string[];
-  suggestions?: string;
-  rubric_version?: string;
-}
+import type { DetailScoreCategory, ScoreData, ScoreItemData } from "@/types/score";
 
 function ScoreBar({ label, score, max, variant }: { label: string; score: number; max: number; variant: "blue" | "teal" }) {
   const pct = Math.min((score / (max || 1)) * 100, 100);

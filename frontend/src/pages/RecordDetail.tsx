@@ -32,32 +32,9 @@ import Badge from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
+import type { DetailScoreCategory, ScoreData, ScoreItemData } from "@/types/score";
 
 type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];
-
-interface ScoreItemData {
-  id: number;
-  name: string;
-  score: number;
-  evidence?: string;
-  reason?: string;
-}
-
-interface DetailScoreCategory {
-  score: number;
-  max: number;
-  items?: ScoreItemData[];
-}
-
-interface ScoreData {
-  total_score: number;
-  detail_scores?: Record<string, DetailScoreCategory>;
-  strengths?: string[];
-  weaknesses?: string[];
-  missed_content?: string[];
-  suggestions?: string;
-  rubric_version?: string;
-}
 
 interface MessageData {
   id: number;
@@ -102,7 +79,7 @@ function ReviewItem({ item, editedScore, onChange }: ReviewItemProps) {
           {[1, 2, 3].map((s) => (
             <button
               key={s}
-              onClick={() => onChange(item.id, s)}
+              onClick={() => onChange(item.id!, s)}
               className={cn(
                 "w-8 h-8 rounded-lg text-sm font-medium transition-all",
                 currentScore === s
@@ -153,7 +130,7 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }: ReviewEd
     for (const [, catData] of Object.entries(detailScores)) {
       if (catData && typeof catData === "object" && "items" in catData) {
         for (const item of catData.items || []) {
-          initial[item.id] = item.score;
+          initial[item.id!] = item.score;
         }
       }
     }
@@ -173,8 +150,8 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }: ReviewEd
       if (catData && typeof catData === "object" && "items" in catData) {
         let catTotal = 0;
         for (const item of catData.items || []) {
-          if (editedScores[item.id] !== undefined) {
-            item.score = editedScores[item.id];
+          if (editedScores[item.id!] !== undefined) {
+            item.score = editedScores[item.id!];
           }
           catTotal += item.score;
         }
@@ -213,7 +190,7 @@ function ReviewEditor({ score, review, onSubmit, onClose, submitting }: ReviewEd
                 </Badge>
               </div>
               {(catData.items || []).map((item) => (
-                <ReviewItem key={item.id} item={item} editedScore={editedScores[item.id]} onChange={handleScoreChange} />
+                <ReviewItem key={item.id!} item={item} editedScore={editedScores[item.id!]} onChange={handleScoreChange} />
               ))}
             </div>
           ))
