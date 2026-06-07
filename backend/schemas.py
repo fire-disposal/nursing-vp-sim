@@ -169,7 +169,7 @@ class TrainingStartResponse(BaseModel):
 
 class ChatMessageRequest(BaseModel):
     model_config = _REQ_CFG
-    content: str = Field(min_length=1, max_length=4096)
+    content: str = Field(min_length=1, max_length=2000)
 
 
 class ChatMessageResponse(BaseModel):

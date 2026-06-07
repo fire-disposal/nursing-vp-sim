@@ -372,9 +372,12 @@ export default function ChatTraining() {
     }
   }, [messages, voice.autoPlay, voice.speakRaw]);
 
+  const MAX_INPUT_LENGTH = 2000;
+
   const handleSend = async (retryContent?: string) => {
     const content = retryContent || input.trim();
     if (!content || loading) return;
+    if (content.length > MAX_INPUT_LENGTH) return;
     if (retryContent) {
       failedMessageRef.current = null;
     } else {
@@ -725,18 +728,35 @@ export default function ChatTraining() {
           </button>
         ) : null}
 
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            markTyping();
-          }}
-          onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder={!isOnline ? "网络已断开" : remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
-          disabled={loading || ending || remaining === 0 || !isOnline}
-          className="flex-1 h-10 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-background transition-all disabled:opacity-50"
-        />
+        <div className="flex items-center gap-2 flex-1 relative">
+          <input
+            type="text"
+            value={input}
+            maxLength={MAX_INPUT_LENGTH}
+            onChange={(e) => {
+              setInput(e.target.value);
+              markTyping();
+            }}
+            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={!isOnline ? "网络已断开" : remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
+            disabled={loading || ending || remaining === 0 || !isOnline}
+            className="flex-1 h-10 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-background transition-all disabled:opacity-50"
+          />
+          {input.length > 0 && (
+            <span
+              className={cn(
+                "absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none",
+                input.length >= MAX_INPUT_LENGTH
+                  ? "text-destructive font-medium"
+                  : input.length >= MAX_INPUT_LENGTH * 0.85
+                    ? "text-amber-600"
+                    : "text-muted-foreground/60",
+              )}
+            >
+              {input.length}/{MAX_INPUT_LENGTH}
+            </span>
+          )}
+        </div>
 
         <button
           className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
