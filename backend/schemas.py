@@ -187,6 +187,7 @@ class TrainingRecordBrief(BaseModel):
     user_display_name: str
     user_student_id: str | None
     status: str
+    current_phase: str | None = None
     scoring_status: str | None = None
     scoring_error: str | None = None
     start_time: datetime
@@ -201,6 +202,7 @@ class TrainingRecordDetail(BaseModel):
     case_name: str
     user_display_name: str
     status: str
+    current_phase: str | None = None
     scoring_status: str | None = None
     scoring_error: str | None = None
     start_time: datetime
@@ -219,6 +221,13 @@ class ScoringTriggerResponse(BaseModel):
     message: str
     record_id: int
     scoring_status: str
+
+
+class PhaseAdvanceResponse(BaseModel):
+    model_config = _RESP_CFG
+    current_phase: str
+    name: str
+    order: int
 
 
 # ── Messages / Scores / Notes ──

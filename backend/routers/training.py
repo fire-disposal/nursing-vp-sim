@@ -16,6 +16,7 @@ from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User,
 from schemas import (
     MessageResponse,
     PaginatedResponse,
+    PhaseAdvanceResponse,
     ScoreReviewRequest,
     ScoreReviewResponse,
     ScoringTriggerResponse,
@@ -90,6 +91,7 @@ def start_training(
         config_id=config_id,
         config_snapshot=config,
     )
+    record.current_phase = "history_taking"
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -348,6 +350,7 @@ def get_records(
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
             status=r.status,
+            current_phase=r.current_phase,
             start_time=r.start_time,
             end_time=r.end_time,
             score_total=r.score.total_score if r.score else None,
@@ -395,6 +398,7 @@ def get_record_detail(
         case_name=case.name if case else "",
         user_display_name=user.display_name if user else "",
         status=record.status,
+        current_phase=record.current_phase,
         scoring_status=record.scoring_status,
         scoring_error=record.scoring_error,
         start_time=record.start_time,
@@ -521,6 +525,54 @@ def submit_score_review(
         review_detail_scores=score.review_detail_scores,
         review_comment=score.review_comment,
     )
+
+
+@router.post("/{record_id}/advance-phase", response_model=PhaseAdvanceResponse)
+def advance_phase(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Manual phase advancement."""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="只能操作自己的训练")
+    if record.status != "in_progress":
+        raise HTTPException(status_code=400, detail="训练已结束")
+
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    case_data = case.case_data or {} if case else {}
+
+    from services.pipeline.phase import parse_phases, try_advance_phase
+
+    phases = parse_phases(case_data)
+    current = None
+    for p in phases:
+        if p.id == (record.current_phase or "history_taking"):
+            current = p
+            break
+    if current is None:
+        current = phases[0] if phases else None
+
+    if current is None:
+        raise HTTPException(status_code=400, detail="当前无有效阶段")
+
+    msg_count = db.query(Message).filter(Message.record_id == record_id).count()
+    op_count = case_data.get("_phase_op_count", 0)
+
+    next_phase = try_advance_phase(current, phases, msg_count, op_count, manual_requested=True)
+    if next_phase is None:
+        raise HTTPException(status_code=400, detail="不满足推进条件或已是最后一个阶段")
+
+    record.current_phase = next_phase.id
+    case_data["_phase_op_count"] = 0
+    case.case_data = case_data
+    db.commit()
+
+    log.info("Phase advanced: record_id=%d %s -> %s", record_id, current.id, next_phase.id)
+    return {"current_phase": next_phase.id, "name": next_phase.name, "order": next_phase.order}
 
 
 @router.get("/{record_id}/state", response_model=TrainingStateResponse)
