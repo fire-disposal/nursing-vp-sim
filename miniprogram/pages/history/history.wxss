@@ -28,5 +28,11 @@
 .record-status { font-size: var(--font-xs); color: var(--color-text-secondary); }
 .record-del { font-size: 40rpx; color: #dc2626; padding: 0 8rpx; }
 
-.empty { text-align: center; padding: 120rpx 0; font-size: var(--font-sm); color: var(--color-text-secondary); }
-.empty text:first-child { font-size: 72rpx; display: block; margin-bottom: 16rpx; }
+.empty { text-align: center; padding: 120rpx 0; font-size: var(--font-sm); color: var(--color-text-secondary); display: flex; flex-direction: column; align-items: center; gap: 12rpx; }
+.empty text:first-child { font-size: 72rpx; display: block; margin-bottom: 4rpx; }
+
+.retry-btn {
+  display: inline-block; margin-top: 8rpx; padding: 12rpx 32rpx;
+  background: var(--color-primary); color: #fff; border-radius: 40rpx;
+  font-size: var(--font-sm);
+}

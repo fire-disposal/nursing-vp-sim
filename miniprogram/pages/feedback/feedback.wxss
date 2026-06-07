@@ -12,6 +12,11 @@
   margin-bottom: 32rpx;
 }
 
+.back-btn {
+  display: inline-block; font-size: var(--font-sm); color: var(--color-primary);
+  margin-bottom: 8rpx; padding: 4rpx 0;
+}
+
 .section {
   margin-bottom: 32rpx;
 }

@@ -24,7 +24,18 @@
     >★★★ 高级</view>
   </scroll-view>
 
-  <view class="case-list" wx:if="{{filteredCases.length > 0}}">
+  <view class="loading-state" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <text>加载中...</text>
+  </view>
+
+  <view class="error-state" wx:elif="{{cases.length === 0 && !loading}}">
+    <text class="error-icon">📋</text>
+    <text class="error-text">暂无可用病例</text>
+    <text class="error-desc">请联系教师添加训练病例</text>
+  </view>
+
+  <view class="case-list" wx:else>
     <view
       class="case-card"
       wx:for="{{filteredCases}}"
@@ -34,17 +45,15 @@
         {{item.difficulty === 1 ? '★☆☆ 初级' : item.difficulty === 2 ? '★★☆ 中级' : '★★★ 高级'}}
       </view>
       <text class="case-name">{{item.name}}</text>
+      <text class="case-patient" wx:if="{{item.patient_summary}}">{{getPatientLabel(item.patient_summary)}}</text>
       <text class="case-desc">{{item.description}}</text>
       <button
         class="case-btn"
         bindtap="startCase"
         data-id="{{item.id}}"
-        loading="{{starting}}"
-      >开始训练</button>
+        loading="{{startingId === item.id}}"
+        disabled="{{startingId !== 0 && startingId !== item.id}}"
+      >{{startingId === item.id ? '进入中...' : '开始训练'}}</button>
     </view>
-  </view>
-
-  <view class="empty" wx:elif="{{!loading}}">
-    <text>暂无病例</text>
   </view>
 </view>

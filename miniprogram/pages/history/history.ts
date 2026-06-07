@@ -6,14 +6,20 @@ Page({
     records: [] as (TrainingRecordBrief & { scoreLabel?: { label: string; color: string }; timeLabel?: string })[],
     statusFilter: "",
     loading: true,
+    error: "",
   },
 
   onShow() {
     this.loadRecords()
   },
 
+  async onPullDownRefresh() {
+    await this.loadRecords()
+    wx.stopPullDownRefresh()
+  },
+
   async loadRecords() {
-    this.setData({ loading: true })
+    this.setData({ loading: true, error: "" })
     try {
       const params: Record<string, string | number | undefined> = { limit: 50 }
       if (this.data.statusFilter) params.status = this.data.statusFilter
@@ -27,7 +33,7 @@ Page({
         loading: false,
       })
     } catch {
-      this.setData({ loading: false })
+      this.setData({ loading: false, error: "加载失败" })
     }
   },
 

@@ -25,17 +25,66 @@
     <view class="section-header">
       <text class="section-title">快速开始</text>
     </view>
-    <view class="action-card" bindtap="goToCases">
-      <view class="action-left">
-        <view class="action-icon-wrap">
-          <text class="action-icon">🩺</text>
+    <view class="action-row">
+      <view class="action-card" bindtap="goToCases">
+        <view class="action-left">
+          <view class="action-icon-wrap">
+            <text class="action-icon">🩺</text>
+          </view>
+          <view>
+            <text class="action-title">开始新训练</text>
+            <text class="action-desc">选择病例，与虚拟患者对话</text>
+          </view>
         </view>
-        <view>
-          <text class="action-title">开始新训练</text>
-          <text class="action-desc">选择病例，与虚拟患者对话</text>
-        </view>
+        <text class="action-arrow">›</text>
       </view>
-      <text class="action-arrow">›</text>
+      <view class="action-card" bindtap="goToQA">
+        <view class="action-left">
+          <view class="action-icon-wrap qa-icon-wrap">
+            <text class="action-icon">💬</text>
+          </view>
+          <view>
+            <text class="action-title">护理问答</text>
+            <text class="action-desc">护理知识AI智能解答</text>
+          </view>
+        </view>
+        <text class="action-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 本周训练趋势 -->
+  <view class="section" wx:if="{{weeklyTrend.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">本周训练</text>
+      <text class="section-subtitle">共 {{weeklyMax > 0 ? '★'.repeat(Math.min(weeklyMax, 3)) : ''}} 次活跃</text>
+    </view>
+    <view class="trend-chart">
+      <view class="trend-bar-group" wx:for="{{weeklyTrend}}" wx:key="label">
+        <text class="trend-value" wx:if="{{item.value > 0}}">{{item.value}}</text>
+        <view class="trend-bar {{item.value > 0 ? 'trend-bar-active' : ''}}" style="height: {{item.height}}px"></view>
+        <text class="trend-label">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最新得分 -->
+  <view class="section" wx:if="{{latestScore}}">
+    <view class="section-header">
+      <text class="section-title">最近得分</text>
+    </view>
+    <view class="score-card-widget">
+      <view class="score-circle">
+        <text class="score-number">{{latestScore.total}}</text>
+        <text class="score-unit">分</text>
+      </view>
+      <view class="score-info">
+        <text class="score-grade" wx:if="{{latestScore.total >= 90}}">优秀</text>
+        <text class="score-grade" wx:elif="{{latestScore.total >= 75}}">良好</text>
+        <text class="score-grade" wx:elif="{{latestScore.total >= 60}}">合格</text>
+        <text class="score-grade" wx:else>需加强</text>
+        <text class="score-hint">继续努力提升护理技能</text>
+      </view>
     </view>
   </view>
 
@@ -48,7 +97,8 @@
         class="case-row"
         wx:for="{{recommendedCases}}"
         wx:key="id"
-        bindtap="goToCases"
+        bindtap="startFromCase"
+        data-id="{{item.id}}"
       >
         <view class="case-badge case-badge-{{item.difficulty}}">
           {{item.difficulty === 1 ? '★☆☆' : item.difficulty === 2 ? '★★☆' : '★★★'}}

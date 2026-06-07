@@ -31,6 +31,12 @@
     </view>
   </view>
 
+  <view class="empty" wx:elif="{{error}}">
+    <text>⚠</text>
+    <text>{{error}}</text>
+    <view class="retry-btn" bindtap="loadRecords">重试</view>
+  </view>
+
   <view class="empty" wx:else>
     <text>📋</text>
     <text>暂无训练记录</text>
