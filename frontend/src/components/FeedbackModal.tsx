@@ -1,9 +1,9 @@
 import { Send } from "lucide-react";
 import { useState } from "react";
 import { submitFeedback } from "@/api/api-client";
+import { useToast } from "@/components/Toast";
+import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
-import { useToast } from "./Toast";
-import Modal from "./ui/Modal";
 
 interface Mood {
   value: number;

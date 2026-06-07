@@ -68,8 +68,3 @@ export interface GradesClassesState {
   updateClass: (id: number, body: Partial<ClassItem>) => Promise<ClassItem>;
   deleteClass: (id: number) => Promise<void>;
 }
-
-export interface LLMState {
-  tab: string;
-  setTab: (tab: string) => void;
-}

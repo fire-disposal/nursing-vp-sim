@@ -1,12 +1,12 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ChatBubble from "@/components/ChatBubble";
-import OperationPanel from "@/components/OperationPanel";
-import PatientPortrait from "@/components/PatientPortrait";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
-import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import ChatInput from "@/components/training/ChatInput";
+import OperationPanel from "@/components/training/OperationPanel";
+import PatientPortrait from "@/components/training/PatientPortrait";
+import ScoreCard from "@/components/training/ScoreCard";
 import ScoringOverlay from "@/components/training/ScoringOverlay";
 import TrainingHeader from "@/components/training/TrainingHeader";
 import { useConfirm } from "@/components/ui/ConfirmDialog";

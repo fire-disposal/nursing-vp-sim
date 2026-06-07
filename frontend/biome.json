@@ -28,9 +28,9 @@
         "noNonNullAssertion": "off"
       },
       "a11y": {
-        "useButtonType": "off",
+        "useButtonType": "warn",
         "useKeyWithClickEvents": "off",
-        "noStaticElementInteractions": "off",
+        "noStaticElementInteractions": "warn",
         "useValidAriaRole": "off",
         "noLabelWithoutControl": "off",
         "noAutofocus": "off"

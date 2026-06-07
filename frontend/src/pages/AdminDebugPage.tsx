@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { endTraining, getCases, getTrainingState, startTraining, triggerInitiative, updateTrainingFeatures } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import ChatBubble from "@/components/ChatBubble";
-import OperationPanel from "@/components/OperationPanel";
+import OperationPanel from "@/components/training/OperationPanel";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import { useChatStream } from "@/hooks/useChatStream";

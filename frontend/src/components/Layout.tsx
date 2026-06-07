@@ -27,15 +27,15 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { changePassword } from "@/api/api-client";
 import { api } from "@/api/axios-instance";
+import { useFeedback } from "@/components/FeedbackProvider";
 import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
+import Modal from "@/components/ui/Modal";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import useAuthStore from "../stores/authStore";
-import useSchoolStore from "../stores/schoolStore";
-import { APP_VERSION } from "../version";
-import { useFeedback } from "./FeedbackProvider";
-import Modal from "./ui/Modal";
+import useAuthStore from "@/stores/authStore";
+import useSchoolStore from "@/stores/schoolStore";
+import { APP_VERSION } from "@/version";
 
 interface NavLinkItem {
   to: string;
