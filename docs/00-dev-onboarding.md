@@ -412,10 +412,10 @@ fix scoring bug            ← 缺少 emoji
 
 ### 3.1 前置：安装 OpenCode
 
-OpenCode 是命令行 AI 编程助手，已集成本项目的 Skills 体系。
+OpenCode 是命令行 AI 编程助手，配合 Superpowers Skills 体系实现规范化的 AI 辅助开发。
 
 ```bash
-# 安装（全局）
+# 安装 OpenCode（全局）
 npm install -g @anthropic/opencode
 
 # 在项目目录启动
@@ -423,9 +423,21 @@ cd nursing-vp-sim
 opencode
 ```
 
-### 3.2 可用 Skills
+### 3.2 安装 Superpowers Skills
 
-本项目的 OpenCode 配置了以下 Superpowers Skills，无需额外配置即可使用：
+Superpowers Skills 不会随 OpenCode 自动附带，需要单独安装。即使你已在其他工具（如 Claude Code）中用过 Superpowers，也必须为 OpenCode 再装一次。
+
+**在 OpenCode 对话中输入以下指令：**
+
+> Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md
+
+OpenCode 会拉取安装指南并自动完成配置。安装完成后，OpenCode 即可使用全部 Superpowers Skills。
+
+> 详细文档见 [Superpowers 仓库](https://github.com/obra/superpowers) 的 `docs/README.opencode.md`。
+
+### 3.3 可用 Skills 速览
+
+安装完成后，OpenCode 可用的 Superpowers Skills：
 
 | Skill | 用途 | 何时使用 |
 |-------|------|----------|
@@ -442,7 +454,7 @@ opencode
 | **using-git-worktrees** | 隔离工作区 | 需要多个独立工作区时 |
 | **verification-before-completion** | 完成前验证 | 声称完成/修复/通过前 |
 
-### 3.3 典型开发场景
+### 3.4 典型开发场景
 
 **场景 A：实现一个新功能**
 
@@ -472,7 +484,7 @@ opencode
 3. 修复问题后再次验证
 ```
 
-### 3.4 与项目约定的协作
+### 3.5 与项目约定的协作
 
 OpenCode 在本项目中会自动遵循以下约定：
 
@@ -483,7 +495,7 @@ OpenCode 在本项目中会自动遵循以下约定：
 - **文档位置**：设计文档写入 `docs/superpowers/specs/`，实施计划写入 `docs/superpowers/plans/`
 - **测试要求**：修改代码前理解现有测试，新增功能需补测试
 
-### 3.5 快捷 NPM Scripts
+### 3.6 快捷 NPM Scripts
 
 除了 `npm run dev` 外，这些 scripts 也经常用到：
 
@@ -542,10 +554,10 @@ OpenCode 在本项目中会自动遵循以下约定：
       npm run tag → v2026.06.07-1
          │
          ▼
-      Staging 自动部署
+      Staging 自动部署（到测试服）
          │
          ▼
-      你验证通过 → 手动触发 Production 部署
+      你验证通过 → 手动触发 Production 部署（测试服到正式服）
 ```
 
 ### 4.3 版本号与 Tag
