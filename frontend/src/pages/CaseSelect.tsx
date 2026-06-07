@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, startTraining } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -57,7 +56,7 @@ export default function CaseSelect() {
   };
 
   return (
-    <Layout>
+    <>
       <PageHeader
         title="病例库"
         subtitle="选择一位虚拟患者开始病史采集训练。系统将模拟真实患者与你对话，训练结束后自动评分。"
@@ -158,6 +157,6 @@ export default function CaseSelect() {
           <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

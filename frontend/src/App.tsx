@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
+import Layout from "@/components/Layout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { Toaster } from "@/components/ui/sonner";
-import useAuthStore from "@/stores/authStore";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -41,18 +41,6 @@ function PageLoader() {
   );
 }
 
-function ProtectedRoute({ children, role, permission }: { children: ReactNode; role?: string; permission?: string }) {
-  const user = useAuthStore((s) => s.user);
-  const token = useAuthStore((s) => s.token);
-  const permissions = useAuthStore((s) => s.permissions);
-  if (!token || !user) return <Navigate to="/login" replace />;
-
-  if (permission && !permissions.includes(permission)) return <Navigate to="/login" replace />;
-
-  if (role && user.role !== role) return <Navigate to="/login" replace />;
-  return <>{children}</>;
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -64,150 +52,55 @@ export default function App() {
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/login" element={<Login />} />
-                  <Route
-                    path="/home"
-                    element={
-                      <ProtectedRoute>
-                        <DashboardHome />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/cases"
-                    element={
-                      <ProtectedRoute permission="training_access">
-                        <CaseSelect />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/training/:recordId"
-                    element={
-                      <ProtectedRoute permission="training_access">
-                        <ChatTraining />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/history"
-                    element={
-                      <ProtectedRoute>
-                        <History />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/record/:id"
-                    element={
-                      <ProtectedRoute>
-                        <RecordDetail />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/qa"
-                    element={
-                      <ProtectedRoute>
-                        <QA />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/stats"
-                    element={
-                      <ProtectedRoute>
-                        <StatsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute permission="score_review">
-                        <Admin />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/llm"
-                    element={
-                      <ProtectedRoute permission="llm_monitor">
-                        <AdminLLM />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/cases"
-                    element={
-                      <ProtectedRoute permission="case_manage">
-                        <AdminCases />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/users/:userId"
-                    element={
-                      <ProtectedRoute permission="user_manage">
-                        <AdminUserDetail />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/users"
-                    element={
-                      <ProtectedRoute permission="user_manage">
-                        <AdminUsers />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/grades-classes"
-                    element={
-                      <ProtectedRoute permission="grade_class_manage">
-                        <AdminGradesClasses />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/feedback"
-                    element={
-                      <ProtectedRoute permission="feedback_review">
-                        <AdminFeedback />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/schools"
-                    element={
-                      <ProtectedRoute permission="school_manage">
-                        <AdminSchools />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/roles"
-                    element={
-                      <ProtectedRoute permission="role_manage">
-                        <AdminRoles />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/questionnaires"
-                    element={
-                      <ProtectedRoute permission="questionnaire_manage">
-                        <AdminQuestionnaires />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/debug"
-                    element={
-                      <ProtectedRoute permission="score_review">
-                        <AdminDebug />
-                      </ProtectedRoute>
-                    }
-                  />
+                  <Route element={<ProtectedRoute />}>
+                    <Route
+                      element={
+                        <Layout>
+                          <Outlet />
+                        </Layout>
+                      }
+                    >
+                      <Route index element={<Navigate to="/home" replace />} />
+                      <Route path="/home" element={<DashboardHome />} />
+                      <Route element={<ProtectedRoute permission="training_access" />}>
+                        <Route path="/cases" element={<CaseSelect />} />
+                        <Route path="/training/:recordId" element={<ChatTraining />} />
+                      </Route>
+                      <Route path="/history" element={<History />} />
+                      <Route path="/record/:id" element={<RecordDetail />} />
+                      <Route path="/qa" element={<QA />} />
+                      <Route path="/stats" element={<StatsPage />} />
+                      <Route element={<ProtectedRoute permission="score_review" />}>
+                        <Route path="/admin" element={<Admin />} />
+                        <Route path="/admin/debug" element={<AdminDebug />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="llm_monitor" />}>
+                        <Route path="/admin/llm" element={<AdminLLM />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="case_manage" />}>
+                        <Route path="/admin/cases" element={<AdminCases />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="user_manage" />}>
+                        <Route path="/admin/users" element={<AdminUsers />} />
+                        <Route path="/admin/users/:userId" element={<AdminUserDetail />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="grade_class_manage" />}>
+                        <Route path="/admin/grades-classes" element={<AdminGradesClasses />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="feedback_review" />}>
+                        <Route path="/admin/feedback" element={<AdminFeedback />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="school_manage" />}>
+                        <Route path="/admin/schools" element={<AdminSchools />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="role_manage" />}>
+                        <Route path="/admin/roles" element={<AdminRoles />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="questionnaire_manage" />}>
+                        <Route path="/admin/questionnaires" element={<AdminQuestionnaires />} />
+                      </Route>
+                    </Route>
+                  </Route>
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
               </Suspense>

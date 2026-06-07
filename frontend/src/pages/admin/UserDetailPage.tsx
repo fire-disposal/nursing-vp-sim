@@ -4,7 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Layout from "@/components/Layout";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
@@ -67,9 +66,9 @@ export default function UserDetailPage() {
 
   if (isLoading || !student) {
     return (
-      <Layout>
+      <>
         <div className="text-center py-12 text-muted-foreground">加载中...</div>
-      </Layout>
+      </>
     );
   }
 
@@ -79,7 +78,7 @@ export default function UserDetailPage() {
   const recentRecords = (student.recent_records || []) as unknown as RecentRecord[];
 
   return (
-    <Layout>
+    <>
       <PageHeader
         title={student.display_name}
         subtitle={`学生详情 · 学号: ${student.student_id || "-"} · 注册: ${formatDate(student)}`}
@@ -210,6 +209,6 @@ export default function UserDetailPage() {
           </tbody>
         </table>
       </div>
-    </Layout>
+    </>
   );
 }

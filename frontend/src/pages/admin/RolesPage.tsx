@@ -1,7 +1,6 @@
 import { Loader2, Plus, Save, Search, Shield, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/axios-instance";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -129,7 +128,7 @@ export default function RolesPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1 max-w-xs">
@@ -236,6 +235,6 @@ export default function RolesPage() {
           </div>
         </Modal>
       </div>
-    </Layout>
+    </>
   );
 }

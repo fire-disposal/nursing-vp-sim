@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getStudentRanking, getTeacherSummary, getTrends } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -101,9 +100,9 @@ export default function Stats() {
 
 export function StatsPage() {
   return (
-    <Layout>
+    <>
       <Stats />
-    </Layout>
+    </>
   );
 }
 

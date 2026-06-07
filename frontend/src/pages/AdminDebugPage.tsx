@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { endTraining, getCases, getTrainingState, startTraining, triggerInitiative, updateTrainingFeatures } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import ChatBubble from "@/components/ChatBubble";
-import Layout from "@/components/Layout";
 import OperationPanel from "@/components/OperationPanel";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
@@ -168,7 +167,7 @@ export default function AdminDebugPage() {
   const lastResponseTime = patientMsgs.length >= 2 ? ((patientMsgs[patientMsgs.length - 1] - patientMsgs[patientMsgs.length - 2]) / 1000).toFixed(1) : null;
 
   return (
-    <Layout>
+    <>
       <PageHeader title="调试工坊" subtitle="试点新交互流程：情绪引擎 + 查体操作 + Character Card" icon={Bug} />
 
       <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -485,7 +484,7 @@ export default function AdminDebugPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 

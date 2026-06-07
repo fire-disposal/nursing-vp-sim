@@ -1,6 +1,5 @@
 import { GraduationCap, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -145,7 +144,7 @@ export default function GradesClassesPage() {
   const items = tab === "grades" ? filteredGrades : filteredClasses;
 
   return (
-    <Layout>
+    <>
       <div>
         <PageHeader
           title="班级管理"
@@ -310,6 +309,6 @@ export default function GradesClassesPage() {
           </FormField>
         </Modal>
       </div>
-    </Layout>
+    </>
   );
 }

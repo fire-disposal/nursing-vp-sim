@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteRecord, getRecords } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -82,7 +81,7 @@ export default function History() {
   };
 
   return (
-    <Layout>
+    <>
       <PageHeader title="训练记录" subtitle={user?.role === "teacher" ? "查看所有学生的训练记录" : "查看你的历史训练记录和评分结果"} icon={ClipboardList} />
 
       <div className="space-y-4">
@@ -222,6 +221,6 @@ export default function History() {
           <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

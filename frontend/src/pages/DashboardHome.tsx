@@ -123,13 +123,13 @@ export default function DashboardHome() {
 
   if (isLoading) {
     return (
-      <Layout>
+      <>
         <PageHeader title="加载中..." subtitle="正在获取最新数据" />
         <div className="space-y-6">
           <LoadingSkeleton variant="stats" />
           <LoadingSkeleton variant="card" />
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -189,7 +189,7 @@ function StudentDashboard({
   const scoreColor = scoreGrade?.color === "green" ? "green" : scoreGrade?.color === "red" ? "red" : scoreGrade?.color === "amber" ? "amber" : "blue";
 
   return (
-    <Layout>
+    <>
       <PageHeader
         title={`欢迎回来，${user?.display_name || "同学"}`}
         subtitle="选择病例，开始护理病史采集训练"
@@ -506,7 +506,7 @@ function StudentDashboard({
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -525,7 +525,7 @@ function TeacherDashboard({
   const _user = useAuthStore((s) => s.user);
 
   return (
-    <Layout>
+    <>
       <PageHeader
         title="教学仪表盘"
         subtitle="全局概览：学生训练情况、系统数据、快捷管理入口"
@@ -670,6 +670,6 @@ function TeacherDashboard({
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

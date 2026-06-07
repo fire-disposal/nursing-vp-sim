@@ -5,7 +5,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Layout from "@/components/Layout";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -178,7 +177,7 @@ export default function QA() {
   const nurseAvatar = getNurseAvatar();
 
   return (
-    <Layout>
+    <>
       <div className="flex h-[calc(100vh-64px)] overflow-hidden">
         {showSidebar && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setShowSidebar(false)} />}
 
@@ -316,6 +315,6 @@ export default function QA() {
           </div>
         </main>
       </div>
-    </Layout>
+    </>
   );
 }

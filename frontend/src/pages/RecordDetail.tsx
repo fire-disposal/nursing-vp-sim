@@ -25,7 +25,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Layout from "@/components/Layout";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
@@ -373,14 +372,14 @@ export default function RecordDetail() {
 
   if (!record) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center py-24 text-muted-foreground">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-muted border-t-primary rounded-full animate-spin" />
             <span className="text-sm">加载中...</span>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -400,7 +399,7 @@ export default function RecordDetail() {
   const hasDetailItems = categories.some(([, v]) => v && typeof v === "object" && Array.isArray(v.items) && v.items.length > 0);
 
   return (
-    <Layout>
+    <>
       <div className="max-w-4xl mx-auto space-y-6">
         <nav className="flex items-center gap-2 text-sm">
           <button
@@ -680,6 +679,6 @@ export default function RecordDetail() {
           submitting={submittingReview}
         />
       )}
-    </Layout>
+    </>
   );
 }

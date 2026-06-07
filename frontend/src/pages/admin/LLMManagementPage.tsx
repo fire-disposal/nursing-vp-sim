@@ -1,7 +1,6 @@
 ﻿import { Activity, Award, BarChart3, Cpu, Palette } from "lucide-react";
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import Layout from "@/components/Layout";
 import ApiManagementTab from "@/components/teacher/ApiManagementTab";
 import MonitorTab from "@/components/teacher/MonitorTab";
 import PromptManagementTab from "@/components/teacher/PromptManagementTab";
@@ -34,13 +33,13 @@ export default function LLMManagementPage() {
   };
 
   return (
-    <Layout>
+    <>
       <PageHeader title="LLM 管理" subtitle="调用监控 · API 密钥与用途配置 · Prompt 模板管理 · 评分标准管理" icon={Activity} />
       <Tabs tabs={TABS} activeTab={tab} onChange={handleTabChange} />
       {tab === "monitor" && <MonitorTab />}
       {tab === "api" && <ApiManagementTab />}
       {tab === "prompts" && <PromptManagementTab />}
       {tab === "rubrics" && <RubricTab />}
-    </Layout>
+    </>
   );
 }
