@@ -133,7 +133,7 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }: Pa
 
           <div className="flex-1 px-4 pb-4 space-y-2.5">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">护理记录</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">患者情况区</h3>
               <span className="text-[0.6rem] text-muted-foreground">
                 {filledCount}/{SECTIONS.length} 项
               </span>

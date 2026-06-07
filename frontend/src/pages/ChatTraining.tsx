@@ -4,9 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { endTraining, getRecordDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import ChatBubble from "@/components/ChatBubble";
+import NursingRecordPanel from "@/components/nursing-record/NursingRecordPanel";
 import OperationPanel from "@/components/OperationPanel";
 import PatientPortrait from "@/components/PatientPortrait";
-import { type CheckResponse, QuestionnaireModal } from "@/components/QuestionnaireModal";
+import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import ScoreCard from "@/components/ScoreCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -164,6 +165,7 @@ export default function ChatTraining() {
   const [showInquirySidebar, setShowInquirySidebar] = useState(false);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [showPortrait, setShowPortrait] = useState(true);
+  const [showNursingRecord, setShowNursingRecord] = useState(false);
   const [recordStatus, setRecordStatus] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -196,7 +198,7 @@ export default function ChatTraining() {
   const [caseId, setCaseId] = useState<number | null>(null);
   const [showPreQuestionnaire, setShowPreQuestionnaire] = useState(false);
   const [showPostQuestionnaire, setShowPostQuestionnaire] = useState(false);
-  const [operationResults, setOperationResults] = useState<{ type: string; label: string; value: string; unit?: string }[]>([]);
+  const [operationResults, _setOperationResults] = useState<{ type: string; label: string; value: string; unit?: string }[]>([]);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
 
   const preTest = useQuestionnaire({
@@ -257,7 +259,7 @@ export default function ChatTraining() {
         abortRef.current.abort();
       }
     };
-  }, []);
+  }, [abortRef.current]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -343,7 +345,7 @@ export default function ChatTraining() {
     return () => {
       cancelled = true;
     };
-  }, [recordId, toast.error, navigate]);
+  }, [recordId, toast.error, navigate, setMessages, preTest.check]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -572,6 +574,8 @@ export default function ChatTraining() {
                 onToggle={() => setShowInquirySidebar((v) => !v)}
               />
             )}
+
+            <NursingRecordPanel isOpen={showNursingRecord} onToggle={() => setShowNursingRecord((v) => !v)} recordId={recordId || "default"} />
 
             {voice.speechSupported.synthesis && (
               <button
