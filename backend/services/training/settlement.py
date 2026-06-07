@@ -78,6 +78,9 @@ def _cleanup_once():
 
         log.info("发现 %d 个超时会话，开始自动结算", len(timeout_records))
 
+        case_ids = list(set(r.case_id for r in timeout_records))
+        cases = {c.id: c for c in db.query(Case).filter(Case.id.in_(case_ids)).all()} if case_ids else {}
+
         for record in timeout_records:
             try:
                 messages = (
@@ -87,7 +90,7 @@ def _cleanup_once():
                     .all()
                 )
 
-                case = db.query(Case).filter(Case.id == record.case_id).first()
+                case = cases.get(record.case_id)
                 case_data = case.case_data if case and case.case_data else {}
 
                 record.status = "completed"
