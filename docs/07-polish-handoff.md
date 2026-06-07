@@ -1,6 +1,6 @@
-# 08 — 交接记录
+# 07 — 交接记录
 
-> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
+> 适用版本: v2026.06.04-5 | 最后更新: 2026-06-07
 
 本文档用于记录当前版本状态，作为下次继续开发时的快速上下文。
 
@@ -241,7 +241,7 @@
 
 **前端**: 14 UI 组件 + Pagination + PatientPortrait + SSE 流式对话 + Error Boundary + beforeunload + 采集进度 + ConfirmDialog + Toast + ScoreCard + ReviewEditor + API 管理面板(ApiManagementTab/KeyModal/ProviderModal) + Prompt 管理面板(PromptManagementTab) + 问答历史(QAHistory/QARecordsTab)。
 
-**关键文件**: 后端 `main.py` → `routers/`(11模块) → `services/`(llm_router/llm_service/scoring/prompt_manager/crypto_utils) → `rubrics/` → `migrations/`。前端 `ChatTraining.jsx` → `DashboardHome.jsx` → `Admin.jsx`(6Tab) → `RecordDetail.jsx` → `components/teacher/`(9个) → `ui/`(14个)。启动看 `07-startup-guide.md`。
+**关键文件**: 后端 `main.py` → `routers/`(11模块) → `services/`(llm_router/llm_service/scoring/prompt_manager/crypto_utils) → `rubrics/` → `migrations/`。前端 `ChatTraining.jsx` → `DashboardHome.jsx` → `Admin.jsx`(6Tab) → `RecordDetail.jsx` → `components/teacher/`(9个) → `ui/`(14个)。启动看 [00-参与开发快速指南](00-dev-onboarding.md)。
 
 ---
 

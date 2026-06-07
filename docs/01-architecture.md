@@ -1,6 +1,6 @@
 # 01 — 系统架构
 
-> 适用版本: v2026.05.31 | 最后更新: 2026-05-31
+> 适用版本: v2026.06.04-5 | 最后更新: 2026-06-07
 
 ## 技术栈
 
@@ -141,8 +141,8 @@ nursing-vp-sim/
 │   ├── 04-frontend.md
 │   ├── 05-llm-design.md
 │   ├── 06-dev-log.md
-│   ├── 07-startup-guide.md
-│   └── 08-polish-handoff.md
+│   ├── 06-dev-log.md
+│   └── 07-polish-handoff.md
 │
 ├── .github/workflows/                     # CI/CD
 │   ├── ci.yml                             # CI: pytest + vitest + Biome + build

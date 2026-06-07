@@ -6,21 +6,24 @@
 
 | 文档 | 说明 |
 |------|------|
+| [00-参与开发快速指南](00-dev-onboarding.md) | 环境搭建、提交规范、OpenCode使用、Git管理、Actions说明 |
 | [01-系统架构](01-architecture.md) | 技术栈、项目结构、架构设计 |
 | [02-API接口文档](02-api-reference.md) | 完整API端点、请求/响应格式 |
 | [03-数据库设计](03-database.md) | 表结构、字段说明、关系映射 |
 | [04-前端设计](04-frontend.md) | 页面组件、路由设计、两种布局系统 |
 | [05-LLM与评分设计](05-llm-design.md) | 虚拟患者Prompt、评分Prompt、病例结构 |
 | [06-开发日志](06-dev-log.md) | 开发进度、修改记录、当前状态 |
-| [07-启动指南](07-startup-guide.md) | 环境配置、启动步骤、账号信息 |
-| [08-商业化打磨交接记录](08-polish-handoff.md) | 本轮完善重点、剩余问题、下次继续开发摘要 |
-| [09-概念设计与创新方向](09-conceptual-design.md) | 系统未来演进方向的概念探索：生理模拟引擎、护理记录书写训练、情感模型等 |
-| [10-运维安全指南](10-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固 |
+| [07-交接记录](07-polish-handoff.md) | 当前版本状态、待完善问题、压缩上下文摘要 |
+| [08-概念设计与创新方向](08-conceptual-design.md) | 系统未来演进方向的概念探索：生理模拟引擎、护理记录书写训练、情感模型等 |
+| [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固、应急预案 |
+| [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) 两周变更记录 |
+| [Git/Husky/CI 指南](../GIT-GUIDE.md) | Git 工作流、提交规范、CI/CD 专题 |
+| [部署流水线详解](../.github/DEPLOYMENT.md) | GitHub Actions 部署流水线技术细节 |
 
 ## 当前版本
 
 - **版本**: v2026.06.04-5
-- **最后更新**: 2026-06-04
+- **最后更新**: 2026-06-07
 - **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
 - **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过，Husky 提交规范已启用。
 
@@ -29,7 +32,7 @@
 1. 先看 [06-开发日志](06-dev-log.md) 了解**当前进度**（含 v1.16 布局优化 + v1.15 百分制 + v1.14 评分升级）
 2. 再看 [01-系统架构](01-architecture.md) 了解整体设计
 3. 查看 [04-前端设计](04-frontend.md) 了解**前端组件、设计系统、布局**
-4. 查看 [07-启动指南](07-startup-guide.md) 了解如何运行
+4. 查看 [00-参与开发快速指南](00-dev-onboarding.md) 了解如何运行
 
 ## 核心功能
 

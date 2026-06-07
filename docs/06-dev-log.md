@@ -188,7 +188,7 @@
    - 修复 ESLint 报错，使前端 `npm run lint` 通过
 
 7. **新增交接文档**
-   - 新增 `docs/08-polish-handoff.md`
+   - 新增 `docs/07-polish-handoff.md`
    - 记录本轮改动、剩余问题、下一轮建议和压缩上下文摘要
 
 ---
@@ -918,7 +918,7 @@
 
 ## 当前项目状态
 
-- **版本**: v2026.05.31
+- **版本**: v2026.06.04-5
 - **数据库**: PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移
 - **安全**: 速率限制（4端点）+ 密码强度统一（min_length=6）+ .env 保护 + 审计日志 + API Key 加密存储（Fernet）
 - **评分体系**: 19项条目 2类(沟通14项 + 病史5项) + **100分制显示**(57分制打分×100/57换算) + 证据化(evidence+reason) + 版本化(rubric JSON) + 教师复核(review_status/detail_scores/comment) + 可选字段容错 + 跳过评分按钮

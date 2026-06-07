@@ -1,8 +1,8 @@
-# 10 — 运维安全指南
+# 09 — 运维安全指南
 
-> 适用版本: v2026.05.31 | 最后更新: 2026-06-02
+> 适用版本: v2026.06.04-5 | 最后更新: 2026-06-07
 
-面向生产环境运维人员的操作手册，涵盖部署流程、回滚、备份、安全加固要点。
+面对生产环境运维人员的操作手册，涵盖部署流程、回滚、备份、安全加固要点、应急预案。
 
 ---
 
@@ -321,6 +321,165 @@ docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1
 | `SSH_USER` | SSH 用户名 | — |
 | `SSH_PRIVATE_KEY` | SSH 私钥 | — |
 | `DEEPSEEK_API_KEY` | LLM API Key | 是（写入 `.env`） |
+
+---
+
+## P0 应急预案
+
+### 系统完全不可访问 (HTTP 5xx / 连接超时)
+
+**可能原因**: Docker 容器崩溃 / 宿主机资源耗尽 / Nginx 异常 / 磁盘满
+
+**诊断步骤**:
+```bash
+ssh user@<server_ip>
+docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+free -h && df -h && docker stats --no-stream
+docker logs nursing-vp-sim-backend-1 --tail 50
+docker logs nursing-vp-sim-frontend-1 --tail 50
+docker logs nursing-db --tail 50
+```
+
+**应急措施**:
+```bash
+# 方案 A: 重启所有服务
+cd /opt/nursing-vp-sim
+docker compose -f docker-compose.yml up -d --force-recreate
+
+# 方案 B: 仅重启后端
+docker restart nursing-vp-sim-backend-1
+
+# 方案 C: 回滚到最近的稳定版本
+cat .version-history
+bash rollback.sh --yes <上一个版本号>
+```
+
+**恢复验证**: `curl -f http://localhost:9001/api/health`
+
+---
+
+### LLM API 不可用 (DeepSeek 服务中断 / Key 失效 / 余额耗尽)
+
+**症状**: 聊天返回兜底回复、评分任务全部失败、`/api/health` 返回 `llm: "unavailable"`
+
+**诊断步骤**:
+```bash
+curl -I https://api.deepseek.com/v1/models
+docker logs nursing-vp-sim-backend-1 2>&1 | grep -i "deepseek\|llm\|401\|429\|403"
+```
+
+**应急措施**:
+1. 确认 `DEEPSEEK_API_KEY` 未过期且有余额
+2. 登录管理面板 → API 管理 → 检查密钥状态 (是否 degraded)
+3. 管理面板中将被熔断标记的密钥恢复为 active
+4. 备用方案：在管理面板添加新 API Key 并激活
+5. 如果完全不可恢复，系统自动使用环境变量兜底
+
+**影响范围**: 学生训练对话返回兜底回复、自动评分全部失败需手动评分、问答模块返回兜底回复
+
+---
+
+### 数据库宕机 / 连接拒绝
+
+**症状**: 所有 API 返回 500、容器日志大量 `sqlalchemy.exc.OperationalError`
+
+**应急措施**:
+```bash
+docker restart nursing-db
+sleep 10 && docker restart nursing-vp-sim-backend-1
+```
+
+**数据恢复** (如重启无效):
+```bash
+ls -la /tmp/nursing_db_backup_*.sql.gz
+gunzip -c /tmp/nursing_db_backup_<date>.sql.gz | \
+  docker exec -i nursing-db psql -U nursing -d nursing_vp
+```
+
+---
+
+### 磁盘空间耗尽
+
+**影响**: 数据库无法写入 → 系统不可用; Docker 日志爆炸
+
+**诊断**:
+```bash
+df -h
+du -sh /var/lib/docker/containers/*/
+```
+
+**应急措施**:
+```bash
+docker system prune -af --filter "until=48h"
+# 清理旧日志 (保留3天)
+truncate -s 0 $(docker inspect --format='{{.LogPath}}' nursing-vp-sim-backend-1)
+# 考虑清理 llm_call_logs 历史数据 (>30天)
+docker exec nursing-db psql -U nursing -d nursing_vp -c \
+  "DELETE FROM llm_call_logs WHERE created_at < NOW() - INTERVAL '30 days';"
+```
+
+---
+
+### HTTPS 证书过期
+
+**诊断**:
+```bash
+echo | openssl s_client -servername iomt.205716.xyz -connect iomt.205716.xyz:443 2>/dev/null | \
+  openssl x509 -noout -dates
+```
+
+**应急措施**:
+```bash
+sudo certbot renew --force-renewal
+sudo nginx -s reload
+```
+
+---
+
+### 需要紧急维护通知
+
+**开启维护模式** (通过 GitHub Actions):
+Actions → "Maintenance Mode Toggle" → 选择环境 + enable → Run workflow
+
+**手动开启** (如果 Action 不可用):
+```bash
+ssh user@<server_ip>
+# 开启生产维护
+sudo touch /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s reload
+# 开启预发布维护
+sudo touch /opt/nursing-vp-sim/maintenance.staging.on && sudo nginx -t && sudo nginx -s reload
+# 关闭维护
+sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s reload
+```
+
+**维护页面**: `/opt/nursing-vp-sim/maintenance.html`（自包含 HTML，无外部依赖）
+
+---
+
+### 内存逐渐耗尽 (Rate Limiter 泄漏)
+
+**症状**: 服务器内存持续增长, OOM Killer 杀掉容器
+
+**注意**: `cleanup()` 方法已在 `_rate_limiter_cleanup` 任务中每 600 秒调用
+
+**监控**: `docker stats --no-stream nursing-vp-sim-backend-1`（如果后端内存超过 500MB 持续增长则重启）
+
+---
+
+## 已知薄弱点
+
+以下模块存在已知不完善或功能缺失，值班期间重点关注。
+
+| # | 薄弱点 | 风险 | 应对 |
+|---|--------|------|------|
+| 1 | **患者角色守卫直通模式** (`backend/services/patient_guard.py`): 整个守卫系统硬编码直通 | 虚拟患者可能泄露是 AI、直接给出诊断 | 抽查对话记录，关注敏感词 |
+| 2 | **Docker 容器无资源限制**: 任一容器可耗尽宿主机资源 | 拖垮整个系统 | 建议添加 `deploy.resources.limits`；监控 `docker stats` |
+| 3 | **无 Nginx 级速率限制**: 仅 Python 层 rate limit（内存型） | 大流量攻击仍能消耗 FastAPI 资源 | 在 nginx snippets 中添加 rate limit |
+| 4 | **JWT Token 无主动撤销机制** (`backend/core/security.py`): 角色变更后旧 token 仍有效（最长 8h） | 权限变更不立即生效 | 紧急情况改 `SECRET_KEY` 使所有 token 失效 |
+| 5 | **Token 存储在 localStorage** (`frontend/src/api/axios-instance.ts`): XSS 可窃取 | 身份凭证泄露 | 依赖 React XSS 防护 + CSP；长期方案迁移 HttpOnly Cookie |
+| 6 | **DB 备份失败静默忽略** (`.github/workflows/cd.yml`): 部署前备份使用 `|| echo " (skip)"` | 备份失败不会被感知 | 部署前手动确认备份有效 |
+| 7 | **LLM 环境变量兜底无限额** (`backend/services/llm_router.py`): 所有 DB 密钥失效后回退 `.env` key，无费用上限 | 可能产生高额费用 | 在 DeepSeek 控制台设置硬限额 |
+| 8 | **自动结算线程生命周期不可控** (`backend/services/auto_settlement.py`): daemon 线程进程终止时被强制 kill | 评分半途而废，DB 事务悬空 | 重启前确保无活跃评分 |
 
 ---
 
