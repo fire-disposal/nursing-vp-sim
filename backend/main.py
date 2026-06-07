@@ -428,6 +428,7 @@ app.include_router(admin_roles_router)
 @app.get("/api/health")
 async def health(request: Request):
     health_info = {"status": "ok", "version": APP_VERSION}
+
     try:
         db = next(get_db())
         try:
@@ -438,12 +439,30 @@ async def health(request: Request):
     except Exception:
         health_info["db"] = "error"
         health_info["status"] = "degraded"
+
     try:
         from services.llm import get_env_fallback_state
         fb = await get_env_fallback_state()
-        health_info["llm"] = "ok" if fb.get("available") else "unavailable"
-        if not fb.get("available"):
+
+        router = request.app.state.llm_router
+        profiles = getattr(router, "_profiles", {})
+
+        total = len(profiles)
+        active_count = sum(1 for p in profiles.values() if p.status == "active")
+        cost_exceeded = sum(1 for p in profiles.values() if getattr(p, "degraded_reason", None) == "cost_exceeded")
+
+        if not fb.get("available") and active_count == 0:
+            health_info["llm"] = "unavailable"
             health_info["status"] = "degraded"
+        elif cost_exceeded > 0:
+            health_info["llm"] = "low"
+            health_info["status"] = "degraded"
+        elif total > 0:
+            health_info["llm"] = "ok"
+        else:
+            health_info["llm"] = "unknown"
     except Exception:
-        health_info["llm"] = "unknown"
+        if "llm" not in health_info:
+            health_info["llm"] = "unknown"
+
     return health_info

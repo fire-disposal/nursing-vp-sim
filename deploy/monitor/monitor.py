@@ -227,11 +227,11 @@ def check_health_endpoints():
         name = ep.get("name", url)
         rc, out = run(f"curl -sS -m 10 -w '\\n%{{http_code}}' {url}")
         if rc != 0:
-            failures.append({"type": "health", "name": name, "detail": f"curl failed: {out[:200]}"})
+            failures.append({"type": "health", "name": name, "detail": f"不可达: {out[:200]}"})
             continue
         lines = out.splitlines()
         if len(lines) < 2:
-            failures.append({"type": "health", "name": name, "detail": f"unexpected response: {out[:200]}"})
+            failures.append({"type": "health", "name": name, "detail": f"异常响应: {out[:200]}"})
             continue
         http_code = lines[-1]
         body = "\n".join(lines[:-1])
@@ -240,11 +240,20 @@ def check_health_endpoints():
             continue
         try:
             data = json.loads(body)
-            status = data.get("status", "")
-            if status in ("degraded", "error"):
-                failures.append({"type": "health", "name": name, "detail": f"status={status}, body={body}"})
         except json.JSONDecodeError:
-            pass
+            continue
+
+        status = data.get("status", "")
+        if status not in ("ok", "healthy"):
+            failures.append({"type": "health", "name": name, "detail": f"状态异常: status={status}"})
+
+        if data.get("db") == "error" or data.get("database") == "error":
+            failures.append({"type": "health", "name": name, "detail": "数据库连接失败"})
+
+        if data.get("llm") in ("unavailable", "low"):
+            label = "LLM 额度不足" if data["llm"] == "low" else "LLM 不可用"
+            failures.append({"type": "health", "name": name, "detail": label})
+
     return failures
 
 
