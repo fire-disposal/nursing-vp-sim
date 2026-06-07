@@ -6,7 +6,7 @@ import type { ScoreData } from "@/types/score";
 interface UseScorePollingOptions {
   recordId: number | null;
   onScoreReady: (score: ScoreData) => void;
-  onPostTestCheck: () => Promise<{ has_pending?: boolean } | undefined>;
+  onPostTestCheck: () => Promise<{ has_pending?: boolean } | null | undefined>;
 }
 
 export function useScorePolling({ recordId, onScoreReady, onPostTestCheck }: UseScorePollingOptions) {

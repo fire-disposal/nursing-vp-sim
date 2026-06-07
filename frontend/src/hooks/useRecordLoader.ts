@@ -5,10 +5,10 @@ import { useToast } from "@/components/Toast";
 import type { ScoreData } from "@/types/score";
 
 interface UseRecordLoaderOptions {
-  recordId: string | undefined;
   setMessages: (msgs: unknown[]) => void;
   setCaseTitle: (t: string) => void;
   setRequiredInquiries: (inquiries: string[]) => void;
+  setPatientName: (name: string) => void;
   setPatientInfo: (info: unknown) => void;
   setCaseId: (id: number) => void;
   setFeatures: (features: Record<string, boolean>) => void;
@@ -16,7 +16,7 @@ interface UseRecordLoaderOptions {
   setScore: (score: ScoreData | null) => void;
   setShowScore: (show: boolean) => void;
   onTimerReady: (remaining: number | null) => void;
-  onPreTestCheck: () => Promise<{ has_pending?: boolean } | undefined>;
+  onPreTestCheck: () => Promise<{ has_pending?: boolean } | null | undefined>;
 }
 
 export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoaderOptions) {
@@ -33,7 +33,7 @@ export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoa
       .then(({ data }) => {
         if (cancelled) return;
         const detail = data as Record<string, unknown> & {
-          messages?: Array<{ streaming?: boolean }>;
+          messages?: Array<{ streaming?: boolean; content?: string }>;
           case_name?: string;
           required_inquiries?: string[];
           patient_info?: unknown;
@@ -54,6 +54,14 @@ export function useRecordLoader(recordId: string | undefined, opts: UseRecordLoa
         if (detail.case_id) o.setCaseId(detail.case_id);
         if (detail.features) o.setFeatures(detail.features);
         o.setRecordStatus(detail.status || null);
+
+        if (detail.messages && detail.messages.length > 0) {
+          const content = detail.messages[0]?.content;
+          if (content) {
+            const m = content.match(/我是(.+?)[。，]/);
+            if (m) o.setPatientName(m[1]);
+          }
+        }
 
         if (detail.status === "completed") {
           o.onTimerReady(null);
