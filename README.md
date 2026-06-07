@@ -60,6 +60,7 @@ npm run dev
 - [交接记录](docs/07-polish-handoff.md) — 当前状态与待完善问题
 - [运维指南](docs/09-operations.md) — 部署、回滚、备份、应急预案
 - [Git/CI 指南](GIT-GUIDE.md) — 提交规范与 CI/CD 流程
+- [团队协作](CONTRIBUTING.md) — 分支模型、PR 规范、协作流程
 - [设计规格](docs/superpowers/specs/) — 各功能模块设计文档
 - [实施计划](docs/superpowers/plans/) — 各模块实施计划
 

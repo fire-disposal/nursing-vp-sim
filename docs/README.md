@@ -18,6 +18,7 @@
 | [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固、应急预案 |
 | [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) 两周变更记录 |
 | [Git/Husky/CI 指南](../GIT-GUIDE.md) | Git 工作流、提交规范、CI/CD 专题 |
+| [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理、协作流程 |
 | [部署流水线详解](../.github/DEPLOYMENT.md) | GitHub Actions 部署流水线技术细节 |
 
 ## 当前版本

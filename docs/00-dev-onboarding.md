@@ -12,10 +12,12 @@
 |------|---------|------|----------|
 | Python | ≥ 3.13 | 后端 FastAPI | [python.org](https://www.python.org/downloads/) |
 | Node.js | ≥ 18 LTS | 前端 + 根 npm scripts | [nodejs.org](https://nodejs.org/) |
-| PostgreSQL | 15 | 数据库 | Docker 或本地安装 |
+| PostgreSQL | 15 | 数据库 | [EDB Installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)（Windows） |
 | uv | 最新 | Python 包管理 | `pip install uv` |
 | Git | ≥ 2.40 | 版本控制 | [git-scm.com](https://git-scm.com/) |
-| Docker | ≥ 24 | 运行 PostgreSQL | [docker.com](https://www.docker.com/) |
+| DBeaver | 最新 | 数据库 GUI 管理（推荐） | [dbeaver.io](https://dbeaver.io/download/) |
+
+> **为什么不用 Docker？** Docker 在 Windows 上通过 WSL2/Hyper-V 运行，会额外占用 2-4 GB 内存和磁盘 I/O 开销，且文件系统跨层性能损耗明显。本地安装 PostgreSQL 更轻量、启动更快、调试更直接。Docker 保留给生产部署场景使用。
 
 > **Windows 用户注意**：确保 Git Bash 可用（安装 Git 时勾选 "Git Bash Here"），npm scripts 中部分 shell 脚本依赖它。
 
@@ -36,7 +38,173 @@ cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 ```
 
-### 1.3 环境变量配置
+### 1.3 终端配置（推荐）
+
+#### 为什么要折腾终端？
+
+终端是你和项目打交道的主战场——启动服务、运行测试、执行 git 命令、与 AI 编程助手对话，全都发生在终端里。Windows 自带的 PowerShell 或 cmd 功能简陋（单色文字、无 Tab、字体粗糙），一套好的终端配置能显著提升开发效率和心情：
+
+- **看得快**：Git 分支、文件状态、命令耗时一行就看清
+- **敲得少**：自动补全、命令历史搜索、多 Tab 切换
+- **不费眼**：等宽字体 + 清晰的图标 + 舒适的配色
+
+以下是推荐的"入门三件套"，安装总耗时约 5 分钟。
+
+#### 1. Windows Terminal
+
+Windows Terminal 是微软官方的现代终端模拟器，免费、开源，在 Microsoft Store 可直接安装。
+
+**安装**：打开 Microsoft Store，搜索 "Windows Terminal"，点击安装。
+
+**为什么比自带终端好？**
+- **多标签页**：Ctrl+Shift+T 新标签，Ctrl+Tab 切换，再也不用开一堆窗口
+- **GPU 加速渲染**：文字渲染平滑流畅，拖动窗口无撕裂感
+- **多 Profile 支持**：同一个窗口里可以同时开 PowerShell、Git Bash、cmd、WSL
+- **Ctrl+Shift+P 命令面板**：类似 VS Code，搜索即可执行操作
+
+**配置建议**：安装后打开设置（Ctrl+,），在"外观"中将默认配色方案改为 **One Half Dark**（经典护眼方案）。
+
+#### 2. Starship —— 让提示符说话
+
+Starship 是一个跨 Shell 的提示符美化工具。安装后，你的终端提示符会从这样：
+
+```
+PS C:\Users\用户名\nursing-vp-sim>
+```
+
+变成这样：
+
+```
+nursing-vp-sim on  master [!] is 📦 v0.1.0 via 🐍 v3.13.5 took 2s
+```
+
+一行即看清：当前目录、Git 分支、是否有未提交改动、Node 版本、Python 版本、上条命令耗时——所有这些信息在你按下 Enter 的瞬间自动更新。
+
+**安装**（PowerShell 管理员模式）：
+
+```powershell
+# 方式一：winget（Windows 11 自带）
+winget install Starship.Starship
+
+# 方式二：scoop（推荐包管理器，需先装 scoop.sh）
+scoop install starship
+
+# 方式三：直接下载
+# 从 https://starship.rs 下载 exe，放到 PATH 目录下
+```
+
+**启用**（在 PowerShell 中执行）：
+
+```powershell
+# 编辑 PowerShell 配置文件
+notepad $PROFILE
+```
+
+在打开的（或新建的）文件中添加一行：
+
+```powershell
+Invoke-Expression (&starship init powershell)
+```
+
+保存后重新打开终端即可看到效果。
+
+> **Starship 极简配置**：Starship 开箱即用，无需配置文件。如果你对默认样式不满意，创建 `~/.config/starship.toml` 即可自定义。初学者建议先不改配置，用一周再根据自己的偏好微调。
+
+#### 3. JetBrains Mono Nerd Font —— 图标不会"口"
+
+当你安装 Starship 后，可能会发现提示符中有一些方框乱码 `□`——比如 Git 分支图标、Python 图标显示不出来。这是因为默认字体不包含编程图标。
+
+**Nerd Font** 是一类打过"图标补丁"的等宽字体，在程序员常用字体（如 Fira Code、JetBrains Mono、Cascadia Code）的基础上内嵌了数千个开发用图标（Git、Docker、语言 Logo、电源符号等），让终端能正确显示这些特殊字符。
+
+推荐 **JetBrainsMono Nerd Font**——JetBrains Mono 是 IntelliJ 团队设计的编程字体，字距清晰、l/I/1 高度可辨，搭配 Nerd Font 图标补丁后是终端配置的黄金选择。
+
+**安装步骤**：
+
+1. 前往 [nerdfonts.com](https://www.nerdfonts.com/font-downloads) 或 [GitHub Releases](https://github.com/ryanoasis/nerd-fonts/releases/latest)
+2. 搜索 "JetBrainsMono"，下载 **JetBrainsMono.zip**
+3. 解压，全选所有 `.ttf` 文件 → 右键 → **"为所有用户安装"**
+4. 打开 **Windows Terminal** → 设置（Ctrl+,）→ 左侧选择你的默认 Profile（如 PowerShell）
+5. 外观 → 字体 → 选择 **"JetBrainsMono Nerd Font"** → 保存
+
+安装后重新打开终端，Starship 的图标应该全部正常显示了。
+
+> **备选字体**：如果你更喜欢微软风格，**CaskaydiaCove Nerd Font**（基于 Cascadia Code）也是很好的选择，网感类似但风格稍有不同。
+
+### 1.4 PostgreSQL 安装与初始化（Windows）
+
+#### 什么是 PostgreSQL？
+
+PostgreSQL（简称 PG）是一个开源的关系型数据库。本项目用它来存储用户、病例、训练记录、评分结果等所有业务数据。后端通过 SQLAlchemy（Python 的 ORM 框架）与它交互——你不需要写 SQL，但理解数据库的基本概念有助于调试。
+
+#### 安装步骤
+
+1. 前往 [EDB PostgreSQL 下载页](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)，选择 **Windows x86-64**，下载 **PostgreSQL 15.x** 安装包
+
+2. 运行安装程序，一路 Next，注意以下关键步骤：
+   - **安装目录**：保持默认 `C:\Program Files\PostgreSQL\15`
+   - **组件选择**：必须勾选 **PostgreSQL Server** 和 **Command Line Tools**（pgAdmin 4 可选，不推荐——后续用 DBeaver 更好）
+   - **数据目录**：保持默认 `C:\Program Files\PostgreSQL\15\data`
+   - **密码**：设置 `postgres` 超级用户的密码。**建议用 `postgres`**（和项目默认配置一致，省去修改环境变量的麻烦）
+   - **端口**：保持默认 `5432`
+   - **区域设置**：保持默认 `Default locale`
+
+3. 安装完成后，**PostgreSQL 会作为 Windows 服务自动启动**（服务名：`postgresql-x64-15`）。每次开机自动运行，无需手动启动。
+
+#### 创建项目数据库
+
+安装完成后需要创建本项目使用的数据库 `vptest`：
+
+**方式一：使用命令行（最简）**
+
+```powershell
+# 打开 PowerShell 或 cmd，执行：
+& "C:\Program Files\PostgreSQL\15\bin\createdb.exe" -U postgres vptest
+# 输入密码后即可创建
+```
+
+**方式二：使用 DBeaver（图形界面）**
+
+先按下一节 [1.5 DBeaver 连接配置](#15-dbeaver-连接配置) 完成安装和连接，然后在左侧导航栏中：
+1. 右键数据库连接 → Create → Database
+2. Database name 填 `vptest` → OK
+
+> **数据库 vs 表的概念**：`vptest` 是一个**数据库**（Database），相当于一个独立的"仓库"。仓库里面有多个**表**（Table），比如 `users`（用户表）、`training_records`（训练记录表）等。表由后端启动时通过 Alembic 自动创建，你不需要手动建表。
+
+### 1.5 DBeaver 连接配置
+
+#### 什么是 DBeaver？
+
+DBeaver 是一个免费的通用数据库管理工具（GUI）。它让你可以像使用 Excel 一样浏览数据库——查看表结构、浏览数据、执行查询、导入导出，全都有图形界面。开发过程中你经常需要：确认数据是否正确写入、手动修改测试数据、排查数据层面的 bug——这些用 DBeaver 比写 SQL 命令行要直观得多。
+
+#### 安装与连接
+
+1. 前往 [dbeaver.io](https://dbeaver.io/download/)，下载 **Windows 安装版**并安装（一路 Next 即可）
+
+2. 首次打开后，创建数据库连接：
+   - 点击工具栏的 **"新数据库连接"** 图标（蓝色插头+加号）
+   - 选择 **PostgreSQL** → 下一步
+
+3. 填写连接信息：
+
+   | 字段 | 值 | 说明 |
+   |------|-----|------|
+   | Host | `localhost` | 数据库在你本机，所以填 localhost |
+   | Port | `5432` | PostgreSQL 的默认端口 |
+   | Database | `vptest` | 刚才创建的项目数据库 |
+   | 用户名 | `postgres` | PostgreSQL 安装时创建的超级用户 |
+   | 密码 | 你安装时设的密码 | PostgreSQL 安装时设置的密码 |
+
+4. 点击 **"Test Connection"** 测试连接。首次会提示下载 PostgreSQL 驱动，点 Download 即可。
+
+5. 测试成功后点击 **Finish**。左侧导航栏会出现数据库连接，展开可以看到 `vptest` → Schemas → public → Tables（初始为空，等后端第一次启动后会自动建表）。
+
+> **为什么连接参数要这样填？** 这五个参数组合起来就构成了环境变量中的 `DATABASE_URL`：
+> ```
+> postgresql://postgres:密码@localhost:5432/vptest
+>              └─用户─┘ └密码┘ └主机─┘ └端口┘ └数据库┘
+> ```
+
+### 1.6 环境变量配置
 
 ```bash
 # 复制模板
@@ -51,6 +219,8 @@ DEEPSEEK_API_KEY=sk-your-deepseek-key
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 ```
 
+> `DATABASE_URL` 各字段与 DBeaver 连接参数一一对应。如果你安装 PostgreSQL 时密码不是 `postgres`，记得修改 URL 中的密码部分。
+
 > **完整变量清单**:
 > 
 > | 变量 | 默认值 | 说明 |
@@ -58,7 +228,6 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 > | `SECRET_KEY` | (必填) | JWT签名密钥 + API Key 加密派生 |
 > | `DEEPSEEK_API_KEY` | (必填) | 首次启动自动 seed 为默认 Provider |
 > | `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/vptest` | 数据库连接 |
-> | `POSTGRES_PASSWORD` | (Docker 必填) | Docker PostgreSQL 密码 |
 > | `LLM_CHAT_TIMEOUT` | 30 | 聊天请求超时(秒) |
 > | `LLM_CHAT_MAX_TOKENS` | 512 | 聊天最大输出token |
 > | `LLM_SCORING_TIMEOUT` | 120 | 评分请求超时(秒) |
@@ -71,11 +240,11 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 > 
 > Provider、模型、定价等 LLM 参数均在教师管理面板「API 管理」中配置，无需环境变量。
 
-### 1.4 启动开发
+### 1.7 启动开发
 
 ```
 ┌─────────────────────────┐
-│ 1. 启动 PostgreSQL       │  ← docker compose up -d db
+│ 1. 确保 PostgreSQL 运行  │  ← 开机自启的 Windows 服务，通常已在运行
 ├─────────────────────────┤
 │ 2. 启动后端 :8000        │  ← 首次自动 Alembic 迁移 + seed 数据
 ├─────────────────────────┤
@@ -85,7 +254,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 └─────────────────────────┘
 ```
 
-**方式一：一键启动（推荐）**
+**一键启动（推荐）**
 
 ```bash
 npm run dev
@@ -93,29 +262,28 @@ npm run dev
 
 自动并行启动前后端（蓝色=后端，绿色=前端），Ctrl+C 同时停止。
 
-**方式二：分步启动**
+**分步启动**
 
 ```bash
-# 1. 启动数据库（停掉后端/前端容器，只留 db）
-docker compose up -d db
-
-# 2. 启动后端
+# 1. 启动后端
 npm run dev:backend
 # → 输出: Uvicorn running on http://0.0.0.0:8000
 
-# 3. 新开终端，启动前端
+# 2. 新开终端，启动前端
 npm run dev:frontend
 # → 输出: Local: http://localhost:3000/
 ```
 
-### 1.5 默认账号
+> 不需要手动启动 PostgreSQL——安装时已注册为 Windows 服务，开机自动运行。可通过任务管理器 → 服务 → `postgresql-x64-15` 查看状态。
+
+### 1.8 默认账号
 
 | 角色 | 用户名 | 密码 | 说明 |
 |------|--------|------|------|
 | 教师 | admin | admin123 | 管理后台、评分复核 |
 | 学生 | student1 ~ student5 | 123456 | 训练、查看成绩 |
 
-### 1.6 环境验证
+### 1.9 环境验证
 
 ```bash
 # 后端健康检查
@@ -128,22 +296,35 @@ start http://localhost:8000/docs             # FastAPI 自动生成的 Swagger
 start http://localhost:3000                  # 看到登录页面即可
 ```
 
-### 1.7 常见坑
+### 1.10 常见坑
+
+**Q: PostgreSQL 服务没在运行？**
+```powershell
+# 检查服务状态
+Get-Service postgresql-x64-15
+
+# 如果已停止，启动它
+Start-Service postgresql-x64-15
+```
+
+**Q: 数据库连接失败（`DATABASE_URL` 相关错误）？**
+1. 确认 PostgreSQL 正在运行：任务管理器 → 服务 → `postgresql-x64-15` → 状态应为"正在运行"
+2. 确认数据库 `vptest` 已创建：用 DBeaver 连接，看左侧导航栏是否有该数据库
+3. 确认密码正确：安装时设置的密码是否与 `.env` 中 `DATABASE_URL` 的密码一致
 
 **Q: `npm run dev:backend` 报 `uv` 未找到？**
 安装 uv：`pip install uv`，然后 `cd backend && uv sync`
-
-**Q: 数据库连接失败？**
-确认 PostgreSQL 正在运行：`docker compose up -d db`，检查 `docker compose ps` 中 `nursing-db` 状态。
 
 **Q: 前端代理不通？**
 确保后端在 8000 端口运行。Vite 配置 `frontend/vite.config.ts` 中 `/api` 代理到 `http://127.0.0.1:8000`。
 
 **Q: 数据库想清空重来？**
-```bash
-docker compose down -v   # 删除数据卷
-docker compose up -d     # 重建 → 自动 seed 默认数据
+用 DBeaver 连接后，右键 `vptest` 数据库 → 工具 → 执行脚本，运行：
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
 ```
+然后重启后端，Alembic 会重新建表并 seed 默认数据。
 
 ---
 
@@ -546,7 +727,6 @@ npx vitest run
 │  npm install && cd backend && uv sync && cd .. &&        │
 │  cd frontend && npm install && cd ..                     │
 │  cp .env.example .env     # 填写 SECRET_KEY + API_KEY   │
-│  docker compose up -d db                                 │
 │  npm run dev              # 一键启动                      │
 ├─────────────────────────────────────────────────────────┤
 │  提交规范                                                │
