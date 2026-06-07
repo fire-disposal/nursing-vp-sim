@@ -213,7 +213,8 @@ def end_training(
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
 
-    asyncio.create_task(_run_scoring_background(record_id, case.case_data if case else {}))
+    from services.llm.infra import schedule_background
+    schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
@@ -259,7 +260,8 @@ def retry_scoring(
     record.scoring_error = None
     db.commit()
 
-    asyncio.create_task(_run_scoring_background(record_id, case.case_data if case else {}))
+    from services.llm.infra import schedule_background
+    schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
 
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 
