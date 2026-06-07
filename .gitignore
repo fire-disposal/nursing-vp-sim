@@ -45,3 +45,6 @@ desktop.ini
 
 # 生成文件
 openapi.json
+
+# 临时文件
+tmp_*
