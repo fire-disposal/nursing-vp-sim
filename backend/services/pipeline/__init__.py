@@ -8,12 +8,16 @@ from .phase import (
     try_advance_phase,
 )
 from .context import PipelineContext
+from .runner import PipelineMiddleware, run_pipeline, stream_pipeline
 
 __all__ = [
     "Phase",
     "PipelineContext",
+    "PipelineMiddleware",
     "get_phase_by_order",
     "parse_phase",
     "parse_phases",
+    "run_pipeline",
+    "stream_pipeline",
     "try_advance_phase",
 ]
