@@ -32,15 +32,27 @@ def list_roles(
         query = query.filter(Role.display_name.ilike(f"%{search}%"))
     roles = query.order_by(Role.id).all()
 
+    role_ids = [r.id for r in roles]
+
+    all_perms = db.query(RolePermission).filter(RolePermission.role_id.in_(role_ids)).all()
+    perms_map = {}
+    for p in all_perms:
+        perms_map.setdefault(p.role_id, []).append(p.permission)
+
+    counts = dict(
+        db.query(User.role_id, func.count(User.id))
+        .filter(User.role_id.in_(role_ids))
+        .group_by(User.role_id)
+        .all()
+    ) if role_ids else {}
+
     result = []
     for r in roles:
-        perms = db.query(RolePermission.permission).filter(RolePermission.role_id == r.id).all()
-        user_count = db.query(func.count(User.id)).filter(User.role_id == r.id).scalar() or 0
         result.append(RoleResponse(
             id=r.id, name=r.name, display_name=r.display_name,
             is_system=r.is_system, school_id=r.school_id,
-            permissions=[p.permission for p in perms],
-            user_count=user_count,
+            permissions=perms_map.get(r.id, []),
+            user_count=counts.get(r.id, 0),
         ))
     return result
 
