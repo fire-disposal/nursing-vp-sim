@@ -106,6 +106,8 @@ async def send_message_stream(
     except HTTPException:
         db.close()
         raise
-    except Exception:
+    except BaseException:
         db.close()
         raise
+    finally:
+        db.close()
