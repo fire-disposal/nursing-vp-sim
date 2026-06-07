@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import re
-import threading
 from datetime import UTC, datetime
 
 from core.config import (
@@ -103,12 +102,7 @@ def _cleanup_once():
                         record.scoring_status = "pending"
                         db.commit()
 
-                        t = threading.Thread(
-                            target=_run_scoring_background,
-                            args=(record.id, case_data),
-                            daemon=True,
-                        )
-                        t.start()
+                        asyncio.create_task(_run_scoring_background(record.id, case_data))
                         log.info(
                             "自动结算+评分: record_id=%d covered=%d students=%d ai=%d",
                             record.id,
