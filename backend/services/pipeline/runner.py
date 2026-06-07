@@ -63,7 +63,8 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
         yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     if ctx.llm_reply:
-        yield from _emit_chunks(ctx)
+        async for chunk in _emit_chunks(ctx):
+            yield chunk
 
     done_id: int | None = None
     for msg in ctx.state.get("_saved_messages", []):
