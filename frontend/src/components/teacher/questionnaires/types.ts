@@ -55,8 +55,10 @@ export interface AssignForm {
 }
 
 export interface ResponseStats {
+  template_id: number;
+  template_title: string;
   total_assigned: number;
-  completed_count: number;
+  total_completed: number;
   completion_rate: number;
   questions: QuestionStats[];
 }
@@ -65,11 +67,10 @@ export interface QuestionStats {
   question_id: number;
   content: string;
   question_type: string;
-  stats: {
-    average?: number;
-    distribution?: Record<string, number>;
-    responses?: string[];
-  };
+  response_count: number;
+  avg_likert?: number | null;
+  choice_distribution?: Record<string, number>;
+  text_answers?: string[];
 }
 
 export type ViewMode = "list" | "stats";

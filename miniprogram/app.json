@@ -8,7 +8,8 @@
     "pages/record-detail/record-detail",
     "pages/profile/profile",
     "pages/feedback/feedback",
-    "pages/questionnaire/questionnaire"
+    "pages/questionnaire/questionnaire",
+    "pages/my-responses/my-responses"
   ],
   "window": {
     "navigationStyle": "custom",

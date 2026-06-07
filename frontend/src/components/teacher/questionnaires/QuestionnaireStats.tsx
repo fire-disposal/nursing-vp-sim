@@ -1,6 +1,6 @@
 import { ArrowLeft, BarChart3, Download } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/api/axios-instance";
+import { exportQuestionnaireCSV } from "@/api/questionnaires";
 import type { ResponseStats, TemplateListItem } from "@/components/teacher/questionnaires/types";
 import { QUESTION_TYPE_LABELS } from "@/components/teacher/questionnaires/types";
 import Badge from "@/components/ui/Badge";
@@ -18,9 +18,7 @@ interface QuestionnaireStatsProps {
 export default function QuestionnaireStats({ template, stats, isLoading, onBack }: QuestionnaireStatsProps) {
   const exportCSV = async () => {
     try {
-      const response = await api.get(`/questionnaires/responses/${template.id}/export`, {
-        responseType: "blob",
-      });
+      const response = await exportQuestionnaireCSV(template.id);
       const url = URL.createObjectURL(response.data);
       const a = document.createElement("a");
       a.href = url;
@@ -63,7 +61,7 @@ export default function QuestionnaireStats({ template, stats, isLoading, onBack 
               <div className="text-xs text-muted-foreground mt-1">总分配数</div>
             </div>
             <div className="rounded-xl border border-border bg-muted p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.completed_count}</div>
+              <div className="text-2xl font-bold text-green-600">{stats.total_completed}</div>
               <div className="text-xs text-muted-foreground mt-1">已完成</div>
             </div>
             <div className="rounded-xl border border-border bg-muted p-4 text-center">
@@ -87,14 +85,14 @@ export default function QuestionnaireStats({ template, stats, isLoading, onBack 
                       <Badge variant="info">{QUESTION_TYPE_LABELS[q.question_type] || q.question_type}</Badge>
                       <span className="text-sm font-medium">{q.content}</span>
                     </div>
-                    {q.question_type === "likert_5" && q.stats.average != null && (
+                    {q.question_type === "likert_5" && q.avg_likert != null && (
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs text-muted-foreground">平均分:</span>
-                          <span className="text-sm font-semibold">{q.stats.average.toFixed(2)}</span>
+                          <span className="text-sm font-semibold">{q.avg_likert.toFixed(2)}</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                          <div className="bg-primary h-3 rounded-full transition-all" style={{ width: `${(q.stats.average / 5) * 100}%` }} />
+                          <div className="bg-primary h-3 rounded-full transition-all" style={{ width: `${(q.avg_likert / 5) * 100}%` }} />
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
                           <span>1</span>
@@ -105,16 +103,16 @@ export default function QuestionnaireStats({ template, stats, isLoading, onBack 
                         </div>
                       </div>
                     )}
-                    {q.question_type === "multiple_choice" && q.stats.distribution && (
+                    {q.question_type === "multiple_choice" && q.choice_distribution && (
                       <div className="space-y-1.5">
-                        {Object.entries(q.stats.distribution).map(([option, count]) => (
+                        {Object.entries(q.choice_distribution).map(([option, count]) => (
                           <div key={option} className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground w-24 truncate">{option}</span>
                             <div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
                               <div
                                 className="bg-blue-500 h-2.5 rounded-full transition-all"
                                 style={{
-                                  width: `${stats.completed_count > 0 ? (count / stats.completed_count) * 100 : 0}%`,
+                                  width: `${stats.total_completed > 0 ? (count / stats.total_completed) * 100 : 0}%`,
                                 }}
                               />
                             </div>
@@ -123,12 +121,12 @@ export default function QuestionnaireStats({ template, stats, isLoading, onBack 
                         ))}
                       </div>
                     )}
-                    {q.question_type === "short_text" && q.stats.responses && (
+                    {q.question_type === "short_text" && q.text_answers && (
                       <div className="max-h-40 overflow-y-auto space-y-1">
-                        {q.stats.responses.length === 0 ? (
+                        {q.text_answers.length === 0 ? (
                           <span className="text-xs text-muted-foreground">暂无回复</span>
                         ) : (
-                          q.stats.responses.map((r, i) => (
+                          q.text_answers.map((r, i) => (
                             <div key={i} className="text-sm bg-muted rounded px-2.5 py-1 text-muted-foreground">
                               {r}
                             </div>

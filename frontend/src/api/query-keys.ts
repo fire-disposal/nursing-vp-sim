@@ -83,6 +83,7 @@ export const queryKeys = {
     stats: (templateId: number | null) => [...queryKeys.questionnaires.all, "stats", templateId] as const,
     responses: (templateId: number, params?: Record<string, unknown>) => [...queryKeys.questionnaires.all, "responses", templateId, params] as const,
     check: (params: { case_id?: number; record_id?: number; trigger?: string }) => [...queryKeys.questionnaires.all, "check", params] as const,
+    myResponses: (params?: Record<string, unknown>) => [...queryKeys.questionnaires.all, "myResponses", params] as const,
   },
   sessionConfigs: ["sessionConfigs"] as const,
   nursingRecord: (recordId: number) => ["nursingRecord", recordId] as const,

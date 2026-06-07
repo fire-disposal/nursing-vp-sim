@@ -1,0 +1,136 @@
+import { useQuery } from "@tanstack/react-query";
+import { ClipboardCheck, Eye, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { getMyResponses } from "@/api/api-client";
+import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
+import Modal from "@/components/ui/Modal";
+import PageHeader from "@/components/ui/PageHeader";
+import Pagination from "@/components/ui/Pagination";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+type ResponseItem = components["schemas"]["QuestionnaireResponseItem"];
+type AnswerItem = components["schemas"]["QuestionnaireAnswerItem"];
+
+const LIKERT_LABELS = ["非常不同意", "不同意", "一般", "同意", "非常同意"];
+const LIMIT = 20;
+
+function ResponseDetailModal({ response: r, open, onClose }: { response: ResponseItem | null; open: boolean; onClose: () => void }) {
+  if (!r) return null;
+  return (
+    <Modal open={open} onClose={onClose} title={r.template_title} maxWidth={700}>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <span>提交时间: {new Date(r.created_at).toLocaleString("zh-CN")}</span>
+          <Badge variant={r.status === "completed" ? "success" : "info"}>{r.status === "completed" ? "已完成" : r.status}</Badge>
+        </div>
+        <div className="space-y-4">
+          {r.answers.map((a, idx) => (
+            <div key={a.question_id} className="rounded-lg border border-border p-4">
+              <p className="text-sm font-medium mb-2">
+                {idx + 1}. {a.question_content}
+              </p>
+              <div className="text-sm">
+                {a.question_type === "likert_5" && a.answer_value && (
+                  <span className="text-primary font-semibold">
+                    {a.answer_value} - {LIKERT_LABELS[parseInt(a.answer_value, 10) - 1] || a.answer_value}
+                  </span>
+                )}
+                {a.question_type === "multiple_choice" && (
+                  <span className="text-primary font-semibold">{a.answer_value || <span className="text-muted-foreground italic">未作答</span>}</span>
+                )}
+                {a.question_type === "short_text" && (
+                  <span className="text-primary">{a.answer_value || <span className="text-muted-foreground italic">未作答</span>}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        {r.answers.length === 0 && <EmptyState title="暂无回答记录" />}
+      </div>
+    </Modal>
+  );
+}
+
+export default function MyResponses() {
+  const [offset, setOffset] = useState(0);
+  const [detailResponse, setDetailResponse] = useState<ResponseItem | null>(null);
+
+  const params: Record<string, unknown> = { offset, limit: LIMIT };
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: queryKeys.questionnaires.myResponses(params),
+    queryFn: () => getMyResponses(params).then((r) => r.data),
+  });
+
+  const responses = data?.items ?? [];
+  const total = data?.total ?? 0;
+
+  return (
+    <>
+      <PageHeader title="我的问卷回答" subtitle="查看你提交过的前后测问卷回答记录" icon={ClipboardCheck} />
+
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 size={36} className="animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">加载中...</span>
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border bg-card">
+            <ClipboardCheck size={40} className="text-muted-foreground/40" />
+            <p className="text-sm text-destructive">{(error as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "加载失败"}</p>
+          </div>
+        ) : responses.length === 0 ? (
+          <div className="rounded-xl border bg-card">
+            <EmptyState icon={ClipboardCheck} title="暂无问卷回答记录" description="完成训练的前后测问卷后，回答记录会显示在这里" />
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold text-xs uppercase tracking-wider">问卷标题</TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wider">提交时间</TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wider">状态</TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wider">题数</TableHead>
+                    <TableHead className="font-semibold text-xs uppercase tracking-wider">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {responses.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.template_title}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(r.completed_at || r.created_at).toLocaleString("zh-CN")}</TableCell>
+                      <TableCell>
+                        <Badge variant={r.status === "completed" ? "success" : "info"}>{r.status === "completed" ? "已完成" : "进行中"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{r.answers.length} 题</TableCell>
+                      <TableCell>
+                        <Button variant="link" size="xs" onClick={() => setDetailResponse(r)}>
+                          <Eye size={14} className="mr-1" />
+                          查看回答
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+        {total > LIMIT && (
+          <div className="rounded-xl border bg-card px-4 py-3">
+            <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
+          </div>
+        )}
+      </div>
+
+      <ResponseDetailModal response={detailResponse} open={detailResponse !== null} onClose={() => setDetailResponse(null)} />
+    </>
+  );
+}

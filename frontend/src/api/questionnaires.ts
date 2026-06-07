@@ -27,4 +27,7 @@ export const getQuestionnaireResponses = (templateId: number, params?: Record<st
 
 export const getQuestionnaireStats = (templateId: number) => api.get<Schemas["QuestionnaireStatsResponse"]>(`/questionnaires/responses/${templateId}/stats`);
 
+export const getMyResponses = (params?: Record<string, unknown>) =>
+  api.get<Schemas["PaginatedResponse_QuestionnaireResponseItem_"]>("/questionnaires/my-responses", { params });
+
 export const exportQuestionnaireCSV = (templateId: number) => api.get(`/questionnaires/responses/${templateId}/export`, { responseType: "blob" });

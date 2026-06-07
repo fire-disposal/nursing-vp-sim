@@ -23,6 +23,11 @@
       </text>
       <text class="menu-arrow" wx:if="{{!wechatBound}}">›</text>
     </view>
+    <view class="menu-item" bindtap="goToMyResponses">
+      <text class="menu-icon">📋</text>
+      <text class="menu-label">我的问卷回答</text>
+      <text class="menu-arrow">›</text>
+    </view>
     <view class="menu-item" bindtap="goToFeedback">
       <text class="menu-icon">💬</text>
       <text class="menu-label">意见反馈</text>

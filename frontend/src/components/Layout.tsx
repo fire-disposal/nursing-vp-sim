@@ -50,6 +50,7 @@ const allLinks: NavLinkItem[] = [
   { to: "/history", icon: ClipboardList, label: "训练记录" },
   { to: "/qa", icon: HelpCircle, label: "护理问答" },
   { to: "/stats", icon: BarChart3, label: "训练统计" },
+  { to: "/my-responses", icon: ClipboardCheck, label: "我的问卷" },
   { to: "/admin/users", icon: Users, label: "用户管理", permission: "user_manage" },
   { to: "/admin/roles", icon: Shield, label: "角色管理", permission: "role_manage" },
   { to: "/admin/schools", icon: Building2, label: "学校管理", permission: "school_manage" },
