@@ -137,6 +137,7 @@ class TrainingRecord(Base):
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
     config_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
     config_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
     start_time: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     end_time: Mapped[datetime | None] = mapped_column(nullable=True)
 
