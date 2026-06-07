@@ -2,13 +2,16 @@
 
 import json
 
-from services.rubric_service import load_rubric
+
+def _get_default_rubric() -> dict:
+    from services.scoring.rubric import load_rubric
+    return load_rubric("nursing_history_v1")
 
 
 def build_scoring_criteria(rubric: dict | None = None) -> str:
     """构建评分标准文本（维度、条目、锚点），不含必须采集清单和 JSON 模板"""
     if rubric is None:
-        rubric = load_rubric("nursing_history_v1")
+        rubric = _get_default_rubric()
 
     dimensions = rubric.get("dimensions", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
@@ -47,7 +50,7 @@ def build_scoring_criteria(rubric: dict | None = None) -> str:
 def build_scoring_json_schema(rubric: dict | None = None) -> str:
     """构建 LLM 评分输出的 JSON 格式模板"""
     if rubric is None:
-        rubric = load_rubric("nursing_history_v1")
+        rubric = _get_default_rubric()
 
     dimensions = rubric.get("dimensions", [])
     raw_max = rubric.get("raw_max", rubric.get("total_max", 57))
@@ -107,7 +110,7 @@ def build_scoring_rubric(rubric: dict | None = None, required_inquiries: list | 
     """[兼容] 构建完整评分 rubric（评分标准 + 必须采集清单 + JSON 模板）。
     新代码请使用 build_scoring_criteria() + build_scoring_json_schema() + required_inquiries 分拆方案。"""
     if rubric is None:
-        rubric = load_rubric("nursing_history_v1")
+        rubric = _get_default_rubric()
     if required_inquiries is None:
         required_inquiries = []
 

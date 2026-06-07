@@ -1,0 +1,119 @@
+"""评分校验工具 —— 类型转换 + 字段验证 + 百分制换算"""
+
+import logging
+from contextlib import suppress
+
+log = logging.getLogger(__name__)
+
+
+def _check_feedback_empty(result: dict) -> list[str]:
+    missing = []
+    for field in ("strengths", "weaknesses", "missed_content"):
+        if not isinstance(result.get(field), list) or len(result.get(field, [])) == 0:
+            missing.append(field)
+    if not isinstance(result.get("suggestions"), str) or not result.get("suggestions", "").strip():
+        missing.append("suggestions")
+    return missing
+
+
+def _merge_feedback(first: dict, second: dict, missing: list[str]) -> dict:
+    merged = dict(first)
+    for field in missing:
+        val = second.get(field)
+        if field in ("strengths", "weaknesses", "missed_content"):
+            if isinstance(val, list) and len(val) > 0:
+                merged[field] = val
+        elif field == "suggestions" and isinstance(val, str) and val.strip():
+            merged[field] = val
+    return merged
+
+
+def _coerce_numeric_fields(obj: dict):
+    for key in ("total_score", "score", "max"):
+        if key in obj and isinstance(obj[key], str):
+            with suppress(ValueError):
+                obj[key] = float(obj[key]) if "." in obj[key] else int(obj[key])
+    for value in obj.values():
+        if isinstance(value, dict):
+            _coerce_numeric_fields(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _coerce_numeric_fields(item)
+
+
+def _validate_scoring_essentials(result: dict):
+    """第一阶段校验：仅检查 total_score 和 detail_scores 核心字段。"""
+    if "total_score" not in result:
+        raise ValueError("缺失字段: total_score")
+    if not isinstance(result["total_score"], (int, float)):
+        raise TypeError(f"total_score 类型错误: {type(result['total_score']).__name__}")
+    if "detail_scores" not in result:
+        raise ValueError("缺失字段: detail_scores")
+    if not isinstance(result["detail_scores"], dict):
+        raise TypeError(f"detail_scores 类型错误: {type(result['detail_scores']).__name__}")
+
+
+def _validate_feedback_fields(result: dict):
+    """第二阶段校验：仅检查四个反馈字段。"""
+    empty = _check_feedback_empty(result)
+    if empty:
+        raise ValueError(
+            f"反馈字段不完整: {', '.join([f'{f}(为空)' for f in empty])}"
+        )
+
+
+def _validate_scoring_result(result: dict, rubric: dict | None = None):
+    """最终校验：全字段完整性检查。"""
+    type_defaults = {
+        "strengths": [],
+        "weaknesses": [],
+        "missed_content": [],
+        "suggestions": "",
+    }
+    for field, default in type_defaults.items():
+        if field in result and not isinstance(result[field], type(default)):
+            result[field] = default
+
+    _validate_scoring_essentials(result)
+
+    empty_feedback = []
+    for field, expected_type in [("strengths", list), ("weaknesses", list), ("missed_content", list), ("suggestions", str)]:
+        value = result.get(field)
+        if value is None:
+            empty_feedback.append(f"{field}(缺失)")
+        elif not isinstance(value, expected_type):
+            empty_feedback.append(f"{field}(类型错误)")
+        elif (expected_type is list and len(value) == 0) or (expected_type is str and not value.strip()):
+            empty_feedback.append(f"{field}(为空)")
+    if empty_feedback:
+        raise ValueError(f"LLM评分反馈字段不完整: {', '.join(empty_feedback)}")
+
+    if rubric:
+        total_items = 0
+        items_with_evidence = 0
+        detail_scores = result.get("detail_scores", {})
+        for dim in rubric.get("dimensions", []):
+            dim_data = detail_scores.get(dim["name"], {})
+            for item in dim_data.get("items", []):
+                total_items += 1
+                if item.get("evidence"):
+                    items_with_evidence += 1
+        if total_items > 0 and items_with_evidence / total_items < 0.5:
+            log.info(
+                "scoring_evidence_warning",
+                extra={"items_with_evidence": items_with_evidence, "total_items": total_items},
+            )
+
+
+def _convert_to_100_scale(result: dict, raw_max: int):
+    if raw_max == 100 or raw_max <= 0:
+        return
+    factor = 100.0 / raw_max
+    result["total_score"] = round(result["total_score"] * factor)
+
+    detail_scores = result.get("detail_scores", {})
+    for dim_data in detail_scores.values():
+        if isinstance(dim_data, dict):
+            dim_data["score"] = round(dim_data.get("score", 0) * factor)
+            dim_data["max"] = round(dim_data.get("max", 0) * factor)

@@ -37,7 +37,7 @@ from services.patient_ai import (
 )
 from services.pagination import paginate
 from services.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
-from services.session_config import get_config, list_configs
+from services.training import get_config, list_configs
 
 log = logging.getLogger(__name__)
 
@@ -122,9 +122,9 @@ def _run_scoring_background(record_id: int, case_data: dict):
     SCORING_GLOBAL_TIMEOUT = 300
 
     async def _do():
-        from services.llm_logging import LogWorker
-        from services.llm_router import ProfileRouter
-        from services.prompt_manager import PromptManager
+        from services.llm import LogWorker
+        from services.llm import ProfileRouter
+        from services.prompt import PromptManager
 
         db = SessionLocal()
         local_client = httpx.AsyncClient(timeout=httpx.Timeout(180, connect=15.0))
@@ -220,9 +220,9 @@ def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    from services.chat_session import cleanup_topics
-    from services.emotion_engine import cleanup_emotion
-    from services.patient_initiative import cleanup_initiative
+    from services.patient_ai.chat_session import cleanup_topics
+    from services.patient_ai import cleanup_emotion
+    from services.patient_ai import cleanup_initiative
 
     cleanup_topics(record_id)
     cleanup_emotion(record_id)

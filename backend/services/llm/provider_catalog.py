@@ -10,7 +10,7 @@ _catalog: dict | None = None
 def _load() -> dict:
     global _catalog
     if _catalog is None:
-        path = Path(__file__).parent.parent / "providers.json"
+        path = Path(__file__).resolve().parent.parent.parent / "providers.json"
         _catalog = json.loads(path.read_text(encoding="utf-8"))
     return _catalog
 

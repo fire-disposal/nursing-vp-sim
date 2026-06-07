@@ -1,12 +1,15 @@
-"""QA 问答响应缓存 —— 同问题避免重复 LLM 调用
+"""QA 问答系统 —— 缓存 + 历史构建
 
-仅对 create_session（新会话首问）生效，ask_in_session（多轮追问）因有对话上下文不适用。
+QACache: 同问题避免重复 LLM 调用（仅对新会话首问生效）
+build_qa_history: 从 DB 构建对话历史 messages
 """
 
 import asyncio
 import hashlib
 import logging
 import time
+
+from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
 
@@ -53,3 +56,18 @@ _cache = QACache()
 
 def get_qa_cache() -> QACache:
     return _cache
+
+
+def build_qa_history(session_id: int, db: Session) -> list[dict]:
+    """从 DB 查询 QA 会话历史，构建 role-mapped messages 列表（最多 8 轮）"""
+    from models import QARecord
+
+    history = (
+        db.query(QARecord)
+        .filter(QARecord.session_id == session_id)
+        .order_by(QARecord.created_at.desc())
+        .limit(16)
+        .all()
+    )
+    history.reverse()
+    return [{"role": "user" if r.role == "user" else "assistant", "content": r.content} for r in history]

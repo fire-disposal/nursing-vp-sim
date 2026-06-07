@@ -28,7 +28,7 @@ class TestLLMConfigCRUD:
     @pytest.fixture
     def secret_id(self, client, teacher, db_session):
         from models import ApiSecret
-        from services.crypto_utils import encrypt_api_key
+        from services.llm import encrypt_api_key
 
         _, _token = teacher
 
@@ -88,7 +88,7 @@ class TestLLMConfigCRUD:
 
     def test_can_delete_secret_without_configs(self, client, teacher, db_session):
         from models import ApiSecret
-        from services.crypto_utils import encrypt_api_key
+        from services.llm import encrypt_api_key
 
         _, token = teacher
 

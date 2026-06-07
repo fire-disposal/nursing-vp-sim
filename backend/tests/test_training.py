@@ -290,7 +290,7 @@ class TestScoringIsolation:
 
         import httpx
 
-        from services.llm_service import call_llm_json
+        from services.llm import call_llm_json
 
         local_client = httpx.AsyncClient()
         mock_router = MagicMock()
@@ -298,7 +298,7 @@ class TestScoringIsolation:
         messages = [{"role": "user", "content": "test"}]
 
         async def _do():
-            with patch("services.llm_service.call_llm", new_callable=AsyncMock) as mock_llm:
+            with patch("services.llm.service.call_llm", new_callable=AsyncMock) as mock_llm:
                 mock_llm.return_value = '{"result": "ok"}'
                 await call_llm_json(
                     messages,

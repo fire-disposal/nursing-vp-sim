@@ -19,10 +19,9 @@ from schemas import (
     QASessionCreate,
     QASessionItem,
 )
-from services.llm_service import call_llm
+from services.llm import call_llm
 from services.pagination import paginate
-from services.qa_cache import get_qa_cache
-from services.qa_service import build_qa_history
+from services.qa import get_qa_cache, build_qa_history
 
 log = logging.getLogger(__name__)
 

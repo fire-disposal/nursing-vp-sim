@@ -21,8 +21,7 @@ from schemas import (
     PromptValidateResponse,
     SampleVarsResponse,
 )
-from services.prompt_manager import render_template
-from services.variable_registry import get_registry
+from services.prompt import render_template, get_registry
 
 log = logging.getLogger(__name__)
 

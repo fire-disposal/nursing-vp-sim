@@ -28,7 +28,7 @@ _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 
 async def _verify_llm() -> bool:
     from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-    from services.llm_router import set_env_fallback_state
+    from services.llm import set_env_fallback_state
 
     if not DEEPSEEK_API_KEY or len(DEEPSEEK_API_KEY) < 20 or not DEEPSEEK_API_KEY.startswith("sk-"):
         log.warning("DEEPSEEK_API_KEY 未设置或格式无效")
@@ -197,7 +197,7 @@ def _seed_llm():
     from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
     from core.database import SessionLocal
     from models import ApiSecret, LLMConfig
-    from services.crypto_utils import encrypt_api_key
+    from services.llm import encrypt_api_key
 
     db = SessionLocal()
     try:
@@ -300,8 +300,8 @@ async def lifespan(app: FastAPI):
         import httpx
 
         from core.config import LLM_CONNECTION_KEEPALIVE, LLM_CONNECTION_POOL_SIZE
-        from services.llm_router import ProfileRouter
-        from services.prompt_manager import PromptManager
+        from services.llm import ProfileRouter
+        from services.prompt import PromptManager
 
         app.state.rate_limiter = RateLimiter()
 
@@ -327,7 +327,7 @@ async def lifespan(app: FastAPI):
 
     # 5. 后台服务
     log.info("── 5/5 后台服务 ──")
-    from services.llm_logging import LogWorker
+    from services.llm import LogWorker
     app.state.log_worker = LogWorker()
     await app.state.log_worker.start()
     log.info("LLM 日志写入器就绪")
@@ -335,7 +335,7 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
     app.state._cleanup_task = cleanup_task
 
-    from services.auto_settlement import run_cleanup_loop
+    from services.training import run_cleanup_loop
     settlement_task = asyncio.create_task(run_cleanup_loop())
     app.state._settlement_task = settlement_task
     log.info("自动结算就绪 (间隔=%ds)", CLEANUP_INTERVAL_SECONDS)
@@ -439,7 +439,7 @@ async def health(request: Request):
         health_info["db"] = "error"
         health_info["status"] = "degraded"
     try:
-        from services.llm_router import get_env_fallback_state
+        from services.llm import get_env_fallback_state
         fb = await get_env_fallback_state()
         health_info["llm"] = "ok" if fb.get("available") else "unavailable"
         if not fb.get("available"):

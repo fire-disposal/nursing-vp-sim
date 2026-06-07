@@ -14,7 +14,7 @@ from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 from services.feature_flags import is_enabled
-from services.llm_service import call_llm, call_llm_stream
+from services.llm import call_llm, call_llm_stream
 from prompts.patient_chat import PATIENT_DYNAMIC
 from services.patient_ai import (
     build_patient_chat_messages,
@@ -116,7 +116,7 @@ async def _build_llm_messages(case_data: dict, history_messages: list, student_c
             k: v for k, v in kwargs.items()
             if k in {"patient_info", "scenario", "personality", "communication_style"}
         })
-        from services.prompt_manager import render_template
+        from services.prompt import render_template
         dynamic_prompt = render_template(PATIENT_DYNAMIC, **kwargs)
     except Exception as e:
         log.error("Prompt 渲染失败: %s", e)

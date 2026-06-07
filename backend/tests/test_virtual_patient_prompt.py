@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from services.virtual_patient_prompt import (
+from services.patient_ai import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
 )
