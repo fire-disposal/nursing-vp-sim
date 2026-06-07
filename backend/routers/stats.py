@@ -221,35 +221,46 @@ def class_summary(
         q = q.filter(Grade.school_id == effective_school)
     if grade_id is not None:
         q = q.filter(Class.grade_id == grade_id)
-    rows = q.order_by(Grade.name, Class.name).all()
+    classes = q.order_by(Grade.name, Class.name).all()
+
+    class_ids = [c.id for c, _ in classes]
+
+    if not class_ids:
+        return []
+
+    stats_rows = (
+        db.query(
+            Class.id,
+            func.count(func.distinct(UserClass.user_id)).label("student_count"),
+            func.count(TrainingRecord.id).label("total_sessions"),
+            func.coalesce(
+                func.sum(
+                    func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60
+                ), 0
+            ).label("total_minutes"),
+            func.avg(Score.total_score).label("avg_score"),
+        )
+        .outerjoin(UserClass, UserClass.class_id == Class.id)
+        .outerjoin(
+            TrainingRecord,
+            (TrainingRecord.user_id == UserClass.user_id)
+            & (TrainingRecord.status == "completed"),
+        )
+        .outerjoin(Score, Score.record_id == TrainingRecord.id)
+        .filter(Class.id.in_(class_ids))
+        .group_by(Class.id)
+        .all()
+    )
+
+    stats_map = {row.id: row for row in stats_rows}
 
     result = []
-    for cls, grade_name in rows:
-        student_count = db.query(func.count(UserClass.user_id)).filter(UserClass.class_id == cls.id).scalar() or 0
-
-        sub = (
-            db.query(TrainingRecord)
-            .join(UserClass, UserClass.user_id == TrainingRecord.user_id)
-            .filter(
-                UserClass.class_id == cls.id,
-                TrainingRecord.status == "completed",
-            )
-        )
-        total_sessions = sub.count()
-        total_minutes = (
-            sub.filter(
-                TrainingRecord.end_time.isnot(None),
-                TrainingRecord.start_time.isnot(None),
-            )
-            .with_entities(func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60))
-            .scalar()
-            or 0
-        )
-
-        avg_score = (
-            sub.join(Score, Score.record_id == TrainingRecord.id).with_entities(func.avg(Score.total_score)).scalar()
-        )
-
+    for cls, grade_name in classes:
+        s = stats_map.get(cls.id)
+        student_count = int(s.student_count) if s else 0
+        total_sessions = int(s.total_sessions) if s else 0
+        total_minutes = round(float(s.total_minutes)) if s else 0
+        avg_score = round(float(s.avg_score), 1) if s and s.avg_score is not None else None
         completion_rate = total_sessions / student_count if student_count > 0 else 0
 
         result.append(
@@ -258,10 +269,10 @@ def class_summary(
                 "class_name": cls.name,
                 "grade_name": grade_name,
                 "student_count": student_count,
-                "avg_score": round(float(avg_score), 1) if avg_score else None,
+                "avg_score": avg_score,
                 "completion_rate": round(float(completion_rate), 1),
                 "total_sessions": total_sessions,
-                "total_minutes": round(float(total_minutes)),
+                "total_minutes": total_minutes,
             }
         )
     return result
