@@ -429,14 +429,21 @@ def submit_questionnaire(
     return _build_response_item(response, db)
 
 
-def _build_response_item(response: QuestionnaireResponse, db: Session) -> QuestionnaireResponseItem:
-    answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response.id).all()
-    q_map = {
-        q.id: q
-        for q in db.query(QuestionnaireQuestion)
-        .filter(QuestionnaireQuestion.template_id == response.template_id)
-        .all()
-    }
+def _build_response_item(response: QuestionnaireResponse, db: Session, answers_map=None, questions_map=None) -> QuestionnaireResponseItem:
+    if answers_map is not None:
+        answers = answers_map.get(response.id, [])
+    else:
+        answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response.id).all()
+
+    if questions_map is not None:
+        q_map = questions_map.get(response.template_id, {})
+    else:
+        q_map = {
+            q.id: q
+            for q in db.query(QuestionnaireQuestion)
+            .filter(QuestionnaireQuestion.template_id == response.template_id)
+            .all()
+        }
     return QuestionnaireResponseItem(
         id=response.id,
         template_id=response.template_id,
@@ -476,7 +483,25 @@ def my_responses(
         .order_by(QuestionnaireResponse.created_at.desc())
     )
     rows, total = paginate(query, offset, limit)
-    items = [_build_response_item(r, db) for r in rows]
+
+    response_ids = [r.id for r in rows]
+    template_ids = list(set(r.template_id for r in rows))
+
+    all_answers = db.query(QuestionnaireAnswer).filter(
+        QuestionnaireAnswer.response_id.in_(response_ids)
+    ).all()
+    answers_map = {}
+    for a in all_answers:
+        answers_map.setdefault(a.response_id, []).append(a)
+
+    all_questions = db.query(QuestionnaireQuestion).filter(
+        QuestionnaireQuestion.template_id.in_(template_ids)
+    ).all()
+    questions_map = {}
+    for q in all_questions:
+        questions_map.setdefault(q.template_id, {})[q.id] = q
+
+    items = [_build_response_item(r, db, answers_map, questions_map) for r in rows]
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
@@ -502,7 +527,25 @@ def list_responses(
     query = query.order_by(QuestionnaireResponse.created_at.desc())
 
     rows, total = paginate(query, offset, limit)
-    items = [_build_response_item(r, db) for r in rows]
+
+    response_ids = [r.id for r in rows]
+    template_ids = list(set(r.template_id for r in rows))
+
+    all_answers = db.query(QuestionnaireAnswer).filter(
+        QuestionnaireAnswer.response_id.in_(response_ids)
+    ).all()
+    answers_map = {}
+    for a in all_answers:
+        answers_map.setdefault(a.response_id, []).append(a)
+
+    all_questions = db.query(QuestionnaireQuestion).filter(
+        QuestionnaireQuestion.template_id.in_(template_ids)
+    ).all()
+    questions_map = {}
+    for q in all_questions:
+        questions_map.setdefault(q.template_id, {})[q.id] = q
+
+    items = [_build_response_item(r, db, answers_map, questions_map) for r in rows]
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
@@ -536,17 +579,26 @@ def response_stats(
         QuestionnaireQuestion.template_id == template_id,
     ).order_by(QuestionnaireQuestion.sort_order).all()
 
+    question_ids = [qa.id for qa in questions]
+    response_ids = [r.id for r in completed_responses]
+
+    all_answers = (
+        db.query(QuestionnaireAnswer.question_id, QuestionnaireAnswer.answer_value)
+        .filter(
+            QuestionnaireAnswer.question_id.in_(question_ids),
+            QuestionnaireAnswer.response_id.in_(response_ids),
+        )
+        .all()
+    )
+
+    answers_by_question = {}
+    for qid, val in all_answers:
+        answers_by_question.setdefault(qid, []).append(val)
+
     q_stats = []
     for qa in questions:
-        ans_values = (
-            db.query(QuestionnaireAnswer.answer_value)
-            .filter(
-                QuestionnaireAnswer.question_id == qa.id,
-                QuestionnaireAnswer.response_id.in_([r.id for r in completed_responses]),
-            )
-            .all()
-        )
-        vals = [a.answer_value for a in ans_values if a.answer_value is not None]
+        ans_values = answers_by_question.get(qa.id, [])
+        vals = [v for v in ans_values if v is not None]
         item = QuestionStatsItem(
             question_id=qa.id,
             content=qa.content,
@@ -596,7 +648,11 @@ def export_responses(
     effective_school = resolve_school_filter(current_user, school_id)
     resp_query = (
         db.query(QuestionnaireResponse)
-        .options(joinedload(QuestionnaireResponse.user))
+        .options(
+            joinedload(QuestionnaireResponse.user),
+            joinedload(QuestionnaireResponse.answers)
+                .joinedload(QuestionnaireAnswer.question),
+        )
         .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
     )
     if effective_school is not None:
