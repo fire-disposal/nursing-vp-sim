@@ -42,4 +42,8 @@ Page({
       this.setData({ submitting: false })
     }
   },
+
+  goBack() {
+    wx.navigateBack()
+  },
 })

@@ -4,6 +4,9 @@
   padding: 0;
 }
 
+.back-bar { padding: 16rpx 36rpx 0; padding-top: max(env(safe-area-inset-top), 16rpx); }
+.back-btn { font-size: 26rpx; color: #2563eb; display: inline-block; padding: 4rpx 0; }
+
 .header {
   background: #fff;
   padding: 32rpx 36rpx;

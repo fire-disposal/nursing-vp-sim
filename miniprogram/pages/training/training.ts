@@ -1,4 +1,4 @@
-import { sendMessage } from "../../api/chat"
+import { sendMessage, streamMessage } from "../../api/chat"
 import { endTraining, getRecordDetail, type MessageItem } from "../../api/training"
 import { formatTime } from "../../utils/format"
 
@@ -9,6 +9,14 @@ interface ChatMessage {
 }
 
 let _msgIdCounter = 0
+
+const OPERATIONS = [
+  { key: "vitals", label: "测体征", icon: "🩺" },
+  { key: "bp", label: "测血压", icon: "💓" },
+  { key: "temp", label: "测体温", icon: "🌡" },
+  { key: "spo2", label: "血氧", icon: "🫁" },
+  { key: "hr", label: "心率", icon: "❤️" },
+]
 
 Page({
   data: {
@@ -24,11 +32,15 @@ Page({
     showScore: false,
     score: null as Record<string, unknown> | null,
     scoringStatus: "",
+    opPanelOpen: false,
+    streamingMsgId: 0,
+    systemMsg: "",
   },
 
   timerInterval: 0 as unknown as ReturnType<typeof setInterval>,
   syncInterval: 0 as unknown as ReturnType<typeof setInterval>,
   sessionActive: false,
+  streamControl: null as { abort: () => void } | null,
 
   onLoad(options: Record<string, string>) {
     const recordId = Number(options.recordId)
@@ -48,6 +60,7 @@ Page({
 
   onUnload() {
     this.clearTimers()
+    this.streamControl?.abort()
   },
 
   onHide() {
@@ -134,6 +147,24 @@ Page({
     this.setData({ input: e.detail.value })
   },
 
+  toggleOpPanel() {
+    this.setData({ opPanelOpen: !this.data.opPanelOpen })
+  },
+
+  onOpSelect(e: WechatMiniprogram.BaseEvent) {
+    const key = e.currentTarget.dataset.key as string
+    const op = OPERATIONS.find((o) => o.key === key)
+    if (!op) return
+    const questions: Record<string, string> = {
+      vitals: "请帮我测量生命体征",
+      bp: "请帮我测量血压",
+      temp: "请帮我测量体温",
+      spo2: "请帮我测量血氧饱和度",
+      hr: "请帮我测量心率",
+    }
+    this.setData({ input: questions[key] || "", opPanelOpen: false })
+  },
+
   async handleSend() {
     const content = this.data.input.trim()
     if (!content || this.data.sending || this.data.ending) return
@@ -147,24 +178,39 @@ Page({
       messages: [
         ...this.data.messages,
         { id: studentId, role: "student", content },
-        { id: patientId, role: "patient", content: "..." },
+        { id: patientId, role: "patient", content: "" },
       ],
+      streamingMsgId: patientId,
+      systemMsg: "",
     })
 
-    try {
-      const res = await sendMessage(this.data.recordId, { content })
-      this.setData({
-        messages: this.data.messages.map((m) =>
-          m.id === patientId ? { ...m, content: res.content } : m,
-        ),
-      })
-    } catch {
-      this.setData({
-        messages: this.data.messages.filter((m) => m.id !== patientId),
-      })
-    } finally {
-      this.setData({ sending: false })
-    }
+    const messages = this.data.messages
+    this.streamControl = streamMessage(
+      this.data.recordId,
+      { content },
+      (event) => {
+        if (event.type === "content") {
+          const idx = messages.findIndex((m) => m.id === patientId)
+          if (idx >= 0) {
+            messages[idx] = { ...messages[idx], content: messages[idx].content + (event.text || "") }
+            this.setData({ messages: [...messages] })
+          }
+        } else if (event.type === "system") {
+          this.setData({ systemMsg: event.text || "" })
+        } else if (event.type === "error") {
+          this.setData({
+            messages: this.data.messages.filter((m) => m.id !== patientId),
+            sending: false,
+            streamingMsgId: 0,
+          })
+          wx.showToast({ title: event.error || "发送失败", icon: "none" })
+        }
+      },
+      () => {
+        this.setData({ sending: false, streamingMsgId: 0 })
+        this.streamControl = null
+      },
+    )
   },
 
   async handleEnd() {

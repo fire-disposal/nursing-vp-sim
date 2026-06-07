@@ -1,4 +1,7 @@
 <view class="page">
+  <view class="back-bar">
+    <view class="back-btn" bindtap="goBack">← 返回</view>
+  </view>
   <view class="header">
     <view class="header-title">{{checkResponse.template.title || '问卷'}}</view>
     <view class="header-desc" wx:if="{{checkResponse.template.description}}">{{checkResponse.template.description}}</view>

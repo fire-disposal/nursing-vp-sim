@@ -1,4 +1,4 @@
-import { getRecordDetail, type TrainingRecordDetail, type ScoreData } from "../../api/training"
+import { getRecordDetail, type TrainingRecordDetail } from "../../api/training"
 import { formatDate, getScoreGrade } from "../../utils/format"
 
 Page({
@@ -6,6 +6,7 @@ Page({
     record: null as TrainingRecordDetail | null,
     scoreGrade: null as { label: string; color: string } | null,
     loading: true,
+    error: "",
   },
 
   onLoad(options: Record<string, string>) {
@@ -14,16 +15,19 @@ Page({
   },
 
   async loadDetail(id: number) {
-    this.setData({ loading: true })
+    this.setData({ loading: true, error: "" })
     try {
       const detail = await getRecordDetail(id)
       this.setData({
-        record: detail,
+        record: {
+          ...detail,
+          start_time: detail.start_time ? formatDate(detail.start_time) : "",
+        } as TrainingRecordDetail,
         scoreGrade: detail.score ? getScoreGrade(detail.score.total_score) : null,
         loading: false,
       })
     } catch {
-      this.setData({ loading: false })
+      this.setData({ loading: false, error: "加载失败" })
     }
   },
 
@@ -51,5 +55,9 @@ Page({
 
   get suggestions(): string {
     return this.data.record?.score?.suggestions || ""
+  },
+
+  goBack() {
+    wx.navigateBack()
   },
 })

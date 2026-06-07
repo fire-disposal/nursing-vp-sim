@@ -119,4 +119,8 @@ Page<PageData>({
   onSkip() {
     wx.navigateBack({ fail: () => wx.switchTab({ url: "/pages/home/home" }) })
   },
+
+  goBack() {
+    wx.navigateBack({ fail: () => wx.switchTab({ url: "/pages/home/home" }) })
+  },
 })

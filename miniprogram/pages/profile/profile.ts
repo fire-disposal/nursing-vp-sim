@@ -69,6 +69,10 @@ Page({
     wx.navigateTo({ url: "/pages/my-responses/my-responses" })
   },
 
+  goToQA() {
+    wx.navigateTo({ url: "/pages/qa/qa" })
+  },
+
   goToAbout() {
     wx.showModal({
       title: "关于我们",

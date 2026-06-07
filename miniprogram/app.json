@@ -9,7 +9,8 @@
     "pages/profile/profile",
     "pages/feedback/feedback",
     "pages/questionnaire/questionnaire",
-    "pages/my-responses/my-responses"
+    "pages/my-responses/my-responses",
+    "pages/qa/qa"
   ],
   "window": {
     "navigationStyle": "custom",

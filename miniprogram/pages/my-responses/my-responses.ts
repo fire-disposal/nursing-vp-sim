@@ -26,6 +26,7 @@ interface ResponsesPage {
 Page({
   data: {
     loading: true,
+    error: "",
     responses: [] as ResponseItem[],
     total: 0,
     detailResponse: null as ResponseItem | null,
@@ -38,8 +39,14 @@ Page({
     this.loadResponses()
   },
 
+  async onPullDownRefresh() {
+    this.setData({ offset: 0 })
+    await this.loadResponses()
+    wx.stopPullDownRefresh()
+  },
+
   async loadResponses() {
-    this.setData({ loading: true })
+    this.setData({ loading: true, error: "" })
     try {
       const resp = await request<ResponsesPage>("GET", "/api/questionnaires/my-responses", undefined, {
         offset: this.data.offset,
@@ -47,8 +54,7 @@ Page({
       })
       this.setData({ responses: resp.items || [], total: resp.total || 0, loading: false })
     } catch {
-      this.setData({ loading: false })
-      wx.showToast({ title: "加载失败", icon: "none" })
+      this.setData({ loading: false, error: "加载失败" })
     }
   },
 
@@ -65,5 +71,9 @@ Page({
 
   onCloseDetail() {
     this.setData({ detailResponse: null })
+  },
+
+  goBack() {
+    wx.navigateBack()
   },
 })
