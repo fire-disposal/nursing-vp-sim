@@ -7,7 +7,7 @@ tasks import these instead of creating duplicate infrastructure instances.
 
 import httpx
 
-from services.llm.log_worker import LogWorker
+from services.llm.logging import LogWorker
 from services.llm.router import ProfileRouter
 from services.prompt.manager import PromptManager
 
