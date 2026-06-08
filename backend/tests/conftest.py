@@ -183,6 +183,7 @@ def test_case(db_session):
     case = Case(
         name="测试病例-高血压",
         description="高血压病史采集练习",
+        school_id=1,
         case_data={
             "name": "测试病例-高血压",
             "time_limit": 20,

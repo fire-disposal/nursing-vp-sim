@@ -224,8 +224,17 @@ async def generate_case(
 
 
 @router.get("/{case_id}", response_model=CaseDetail)
-def get_case(case_id: int, db: Annotated[Session, Depends(get_db)], _=Depends(get_current_user)):
-    case = db.query(Case).filter(Case.id == case_id).first()
+def get_case(
+    case_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    from middleware.dependencies import resolve_school_filter
+    effective_school = resolve_school_filter(current_user)
+    query = db.query(Case).filter(Case.id == case_id)
+    if effective_school is not None:
+        query = query.filter(Case.school_id == effective_school)
+    case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
     return case

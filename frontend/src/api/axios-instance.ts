@@ -1,6 +1,5 @@
 import axios from "axios";
 import useAuthStore from "@/stores/authStore";
-import useSchoolStore from "@/stores/schoolStore";
 
 export const api = axios.create({
   baseURL: "/api",
@@ -25,10 +24,6 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-  }
-  const schoolId = useSchoolStore.getState().selectedSchoolId;
-  if (schoolId != null) {
-    config.params = { ...config.params, school_id: schoolId };
   }
   return config;
 });

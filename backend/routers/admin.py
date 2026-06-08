@@ -106,6 +106,8 @@ def update_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
+    if current_user.school_id is not None and user.school_id != current_user.school_id:
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     if req.display_name is not None:
         user.display_name = req.display_name
@@ -286,6 +288,8 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
+    if current_user.school_id is not None and user.school_id != current_user.school_id:
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     record_count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.user_id == user_id).scalar() or 0
     if record_count > 0:
@@ -367,8 +371,8 @@ def get_stats(current_user: Annotated[User, Depends(require_permission("stats_vi
     if student_role:
         student_role_id = student_role.id
     total_students = db.query(User).filter(User.role_id == student_role_id, User.school_id == current_user.school_id).count() if student_role_id else 0
-    total_records = db.query(TrainingRecord).count()
-    completed_records = db.query(TrainingRecord).filter(TrainingRecord.status == "completed").count()
+    total_records = db.query(TrainingRecord).join(User).filter(User.school_id == current_user.school_id).count()
+    completed_records = db.query(TrainingRecord).join(User).filter(User.school_id == current_user.school_id, TrainingRecord.status == "completed").count()
     avg_score = db.query(func.avg(Score.total_score)).scalar()
 
     avg_duration = (
