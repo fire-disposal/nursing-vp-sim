@@ -238,7 +238,7 @@ async def _run_scoring_background(record_id: int, case_data: dict):
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
-def end_training(
+async def end_training(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -282,7 +282,7 @@ def end_training(
 
 
 @router.post("/{record_id}/retry-scoring", response_model=ScoringTriggerResponse)
-def retry_scoring(
+async def retry_scoring(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
