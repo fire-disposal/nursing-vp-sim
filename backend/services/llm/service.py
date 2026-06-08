@@ -163,7 +163,7 @@ async def call_llm(
     latency_ms = 0
     t0 = time.perf_counter()
 
-    for attempt in range(max_retries + 2):
+    for attempt in range(max_retries + 1):
         try:
             config = router.select(purpose)
             api_key = router.get_decrypted_key(config)
@@ -226,8 +226,7 @@ async def call_llm(
 
         except _RETRYABLE_EXCEPTIONS as e:
             error_str = f"{type(e).__name__}: {str(e)[:200]}"
-            if ctx.config_id:
-                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
+            await router.report_result(config, success=False, tokens=0, latency_ms=0, error=error_str)
             last_error = error_str
             if attempt < max_retries + 1:
                 await asyncio.sleep(_backoff(attempt))
@@ -235,8 +234,7 @@ async def call_llm(
             if "可用" in str(e):
                 raise
             last_error = str(e)[:200]
-            if ctx.config_id:
-                await router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
+            await router.report_result(config, success=False, tokens=0, latency_ms=0, error=last_error)
             if attempt < max_retries:
                 await asyncio.sleep(1)
             continue
@@ -277,7 +275,7 @@ async def call_llm_stream(
     t0 = time.perf_counter()
     full_reply = ""
 
-    for attempt in range(max_retries + 2):
+    for attempt in range(max_retries + 1):
         try:
             config = router.select(purpose)
             api_key = router.get_decrypted_key(config)
@@ -373,7 +371,7 @@ async def call_llm_stream(
             temperature=temperature,
             max_tokens=max_tokens,
             timeout=timeout,
-            max_retries=1,
+            max_retries=0,
             purpose=purpose,
             user_id=user_id,
             record_id=record_id,
