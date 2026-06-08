@@ -1,0 +1,73 @@
+"""TrainingRecord repository."""
+
+from datetime import UTC, datetime
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session, joinedload
+
+from models import Message, TrainingRecord
+from repositories.base import SyncRepository
+
+
+class TrainingRepository(SyncRepository):
+    """Data access for TrainingRecord and related entities."""
+
+    async def find_by_id(self, record_id: int) -> TrainingRecord | None:
+        def _do(session: Session) -> TrainingRecord | None:
+            return (
+                session.query(TrainingRecord)
+                .options(
+                    joinedload(TrainingRecord.case),
+                    joinedload(TrainingRecord.user),
+                    joinedload(TrainingRecord.score),
+                    joinedload(TrainingRecord.messages),
+                )
+                .filter(TrainingRecord.id == record_id)
+                .first()
+            )
+        return await self._run_in_session(_do)
+
+    async def find_messages(self, record_id: int) -> list[Message]:
+        def _do(session: Session) -> list[Message]:
+            return (
+                session.query(Message)
+                .filter(Message.record_id == record_id)
+                .order_by(Message.created_at)
+                .all()
+            )
+        return await self._run_in_session(_do)
+
+    async def find_timeout_records(self) -> list[TrainingRecord]:
+        def _do(session: Session) -> list[TrainingRecord]:
+            now = datetime.now(UTC)
+            return (
+                session.query(TrainingRecord)
+                .filter(TrainingRecord.status == "in_progress")
+                .filter(
+                    text(
+                        "training_records.start_time + "
+                        "(training_records.time_limit * interval '1 minute') < :now"
+                    ).bindparams(now=now)
+                )
+                .all()
+            )
+        return await self._run_in_session(_do)
+
+    async def mark_completed(self, record_id: int) -> None:
+        def _do(session: Session) -> None:
+            record = session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+            if record:
+                record.status = "completed"
+                record.end_time = datetime.now(UTC)
+                session.commit()
+        await self._run_in_session(_do)
+
+    async def update_scoring_status(self, record_id: int, status: str, error: str | None = None) -> None:
+        def _do(session: Session) -> None:
+            record = session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+            if record:
+                record.scoring_status = status
+                if error is not None:
+                    record.scoring_error = error
+                session.commit()
+        await self._run_in_session(_do)
