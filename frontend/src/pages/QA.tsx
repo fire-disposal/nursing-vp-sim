@@ -200,9 +200,9 @@ export default function QA() {
 
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-card transition-transform duration-300",
-            "md:static md:translate-x-0",
-            showSidebar ? "translate-x-0" : "-translate-x-full",
+            "fixed inset-y-0 right-0 z-50 flex w-72 flex-col border-l bg-card transition-transform duration-300",
+            "md:static md:translate-x-0 md:order-last",
+            showSidebar ? "translate-x-0" : "translate-x-full",
           )}
         >
           <div className="flex items-center justify-between p-4 border-b">
@@ -249,7 +249,7 @@ export default function QA() {
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 bg-background">
-          <Button variant="outline" size="icon-sm" className="absolute top-2 left-12 z-30 md:hidden" onClick={() => setShowSidebar(true)}>
+          <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-30 md:hidden" onClick={() => setShowSidebar(true)}>
             <Menu size={16} />
           </Button>
 
