@@ -29,7 +29,7 @@ export default function ChatBubble({ message, patientAvatar, nurseAvatar, showSp
         <img className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted" src={patientAvatar} alt="患者" />
         <div
           className={cn(
-            "max-w-[80%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl text-sm leading-relaxed break-words",
+            "max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl text-sm leading-relaxed break-words",
             "bg-card text-foreground border border-border rounded-bl-md",
             message.streaming && "after:content-['▎'] after:animate-pulse after:text-primary after:font-bold",
           )}
@@ -53,7 +53,7 @@ export default function ChatBubble({ message, patientAvatar, nurseAvatar, showSp
     <div className="flex items-end gap-2 justify-end">
       <div
         className={cn(
-          "max-w-[80%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed break-words",
+          "max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed break-words",
           "bg-primary text-primary-foreground",
           message.streaming && "after:content-['|'] after:animate-pulse",
         )}

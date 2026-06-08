@@ -78,7 +78,7 @@ export default function OperationPanel({ onOperation, results, disabled }: Opera
 
       {expanded && (
         <div className="border-t border-border px-3 py-2 space-y-1.5">
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
             {OPERATIONS.map((op) => (
               <button
                 key={op.id}
@@ -87,7 +87,7 @@ export default function OperationPanel({ onOperation, results, disabled }: Opera
                 className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium border border-border hover:bg-muted transition-colors disabled:opacity-50"
               >
                 <op.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{op.label}</span>
+                <span className="truncate text-xs sm:text-sm">{op.label}</span>
               </button>
             ))}
           </div>

@@ -49,7 +49,7 @@ export default function TrainingHeader({
     <header className="shrink-0 border-b border-border bg-card px-4 pb-3 sm:px-4 sm:py-0 sm:h-14" style={{ paddingTop: "max(env(safe-area-inset-top), 16px)" }}>
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
         <button
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
+          className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
           onClick={onBack}
           title="返回首页"
           aria-label="返回首页"
@@ -89,7 +89,7 @@ export default function TrainingHeader({
           {voiceSpeechSupported && (
             <button
               className={cn(
-                "w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
+                "w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
                 voiceAutoPlay && "border-primary bg-primary/10 text-primary hover:bg-primary/20",
               )}
               onClick={onToggleAutoPlay}
@@ -101,7 +101,7 @@ export default function TrainingHeader({
           )}
 
           <button
-            className="flex items-center gap-1 px-2.5 h-8 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-2.5 h-10 sm:h-9 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={onEnd}
             disabled={ending || messagesLength <= 1}
             aria-label="结束训练"
