@@ -1,0 +1,171 @@
+import csv
+import io
+from collections import Counter
+from typing import Annotated
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session, joinedload
+
+from core.database import get_db
+from core.security import require_permission
+from middleware.dependencies import resolve_school_filter
+from models import (
+    CaseQuestionnaire,
+    QuestionnaireAnswer,
+    QuestionnaireQuestion,
+    QuestionnaireResponse,
+    QuestionnaireTemplate,
+    User,
+)
+from schemas import (
+    QuestionnaireStatsResponse,
+    QuestionStatsItem,
+)
+
+router = APIRouter()
+
+
+@router.get("/questionnaires/responses/{template_id}/stats", response_model=QuestionnaireStatsResponse)
+def response_stats(
+    template_id: int,
+    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
+    db: Annotated[Session, Depends(get_db)],
+    school_id: Annotated[int | None, Query()] = None,
+):
+    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="问卷模板不存在")
+
+    effective_school = resolve_school_filter(current_user, school_id)
+    resp_query = db.query(QuestionnaireResponse).filter(
+        QuestionnaireResponse.template_id == template_id,
+        QuestionnaireResponse.status == "completed",
+    )
+    if effective_school is not None:
+        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(User.school_id == effective_school)
+
+    completed_responses = resp_query.all()
+    total_completed = len(completed_responses)
+
+    cq_count = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).count()
+
+    questions = db.query(QuestionnaireQuestion).filter(
+        QuestionnaireQuestion.template_id == template_id,
+    ).order_by(QuestionnaireQuestion.sort_order).all()
+
+    question_ids = [qa.id for qa in questions]
+    response_ids = [r.id for r in completed_responses]
+
+    all_answers = (
+        db.query(QuestionnaireAnswer.question_id, QuestionnaireAnswer.answer_value)
+        .filter(
+            QuestionnaireAnswer.question_id.in_(question_ids),
+            QuestionnaireAnswer.response_id.in_(response_ids),
+        )
+        .all()
+    )
+
+    answers_by_question = {}
+    for qid, val in all_answers:
+        answers_by_question.setdefault(qid, []).append(val)
+
+    q_stats = []
+    for qa in questions:
+        ans_values = answers_by_question.get(qa.id, [])
+        vals = [v for v in ans_values if v is not None]
+        item = QuestionStatsItem(
+            question_id=qa.id,
+            content=qa.content,
+            question_type=qa.question_type,
+            response_count=len(vals),
+        )
+
+        if qa.question_type == "likert_5" and vals:
+            numeric = []
+            for v in vals:
+                try:
+                    numeric.append(float(v))
+                except (ValueError, TypeError):
+                    pass
+            if numeric:
+                item.avg_likert = sum(numeric) / len(numeric)
+        elif qa.question_type == "multiple_choice":
+            item.choice_distribution = dict(Counter(vals))
+        elif qa.question_type == "short_text":
+            item.text_answers = vals
+
+        q_stats.append(item)
+
+    return QuestionnaireStatsResponse(
+        template_id=template_id,
+        template_title=t.title,
+        total_assigned=cq_count,
+        total_completed=total_completed,
+        completion_rate=(total_completed / cq_count * 100) if cq_count > 0 else 0.0,
+        questions=q_stats,
+    )
+
+
+@router.get("/questionnaires/responses/{template_id}/export")
+def export_responses(
+    template_id: int,
+    current_user: Annotated[User, Depends(require_permission("export_data"))],
+    db: Annotated[Session, Depends(get_db)],
+    school_id: Annotated[int | None, Query()] = None,
+):
+    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="问卷模板不存在")
+
+    effective_school = resolve_school_filter(current_user, school_id)
+    resp_query = (
+        db.query(QuestionnaireResponse)
+        .options(
+            joinedload(QuestionnaireResponse.user),
+            joinedload(QuestionnaireResponse.answers)
+                .joinedload(QuestionnaireAnswer.question),
+        )
+        .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
+    )
+    if effective_school is not None:
+        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(User.school_id == effective_school)
+    resp_query = resp_query.order_by(QuestionnaireResponse.created_at)
+
+    responses = resp_query.all()
+    questions = (
+        db.query(QuestionnaireQuestion)
+        .filter(QuestionnaireQuestion.template_id == template_id)
+        .order_by(QuestionnaireQuestion.sort_order)
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    header = ["学生姓名", "学号", "提交时间"]
+    for q in questions:
+        header.append(q.content)
+    writer.writerow(header)
+
+    for r in responses:
+        ans_map = {}
+        for ans in r.answers:
+            ans_map[ans.question_id] = ans.answer_value or ""
+        row = [
+            r.user.display_name if r.user else "",
+            r.user.student_id if r.user and r.user.student_id else "",
+            r.completed_at.isoformat() if r.completed_at else "",
+        ]
+        for q in questions:
+            row.append(ans_map.get(q.id, ""))
+        writer.writerow(row)
+
+    output.seek(0)
+    filename = f"questionnaire_{template_id}_{t.title}.csv"
+    encoded_filename = quote(filename.encode("utf-8"))
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8-sig",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"},
+    )

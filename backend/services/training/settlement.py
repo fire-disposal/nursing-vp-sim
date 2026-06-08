@@ -132,7 +132,8 @@ def _cleanup_once():
                 cleanup_initiative(record.id)
 
                 if should_auto_score(messages, case_data):
-                    from routers.training import _run_scoring_background, _try_acquire_scoring
+                    from routers.training.base import _try_acquire_scoring
+                    from routers.training.scoring import _run_scoring_background
 
                     if not _try_acquire_scoring(record.id):
                         log.warning("自动结算: record_id=%d 评分锁已被占用，跳过评分", record.id)
