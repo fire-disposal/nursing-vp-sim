@@ -178,8 +178,6 @@ async def evaluate_training(
     scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
 
-    scoring_model_name = llm_client._router.select("scoring").model or "unknown"
-
     user_id = record.user_id
     case_id = record.case_id
     log_meta = {"message_count": len(messages)}
@@ -246,7 +244,6 @@ async def evaluate_training(
         missed_content=result["missed_content"],
         suggestions=result["suggestions"],
         rubric_version=get_rubric_version_id(rubric),
-        model_name=scoring_model_name,
         prompt_version=tmpl_score.version,
         score_scale=100,
     )

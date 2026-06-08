@@ -3,7 +3,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -13,13 +13,10 @@ from infrastructure.llm.client import LLMClient
 from models import Case, Message, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 from services.patient_ai import cleanup_emotion, cleanup_initiative
+from services.prompt.manager import PromptManager
 from services.scoring import evaluate_training
 
 from .base import (
-    _get_client,
-    _get_log_worker,
-    _get_pm,
-    _get_router,
     _release_scoring,
     _schedule_background,
     _try_acquire_scoring,
@@ -30,13 +27,14 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _run_scoring_background(record_id: int, case_data: dict):
+async def _run_scoring_background(
+    record_id: int,
+    case_data: dict,
+    *,
+    llm_client: LLMClient,
+    pm: PromptManager,
+) -> None:
     SCORING_GLOBAL_TIMEOUT = 300
-
-    client = _get_client()
-    router_obj = _get_router()
-    pm = _get_pm()
-    log_worker = _get_log_worker()
 
     db = SessionLocal()
     try:
@@ -50,7 +48,7 @@ async def _run_scoring_background(record_id: int, case_data: dict):
             evaluate_training(
                 record_id, case_data, db,
                 pm=pm,
-                llm_client=LLMClient(client=client, router=router_obj, log_worker=log_worker),
+                llm_client=llm_client,
             ),
             timeout=SCORING_GLOBAL_TIMEOUT,
         )
@@ -87,6 +85,7 @@ async def _run_scoring_background(record_id: int, case_data: dict):
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
 async def end_training(
     record_id: int,
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -113,7 +112,12 @@ async def end_training(
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
 
-    _schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
+    _schedule_background(_run_scoring_background(
+        record_id,
+        case.case_data if case else {},
+        llm_client=request.app.state.llm_client,
+        pm=request.app.state.prompt_manager,
+    ))
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
@@ -130,6 +134,7 @@ async def end_training(
 @router.post("/{record_id}/retry-scoring", response_model=ScoringTriggerResponse)
 async def retry_scoring(
     record_id: int,
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -157,6 +162,11 @@ async def retry_scoring(
     record.scoring_error = None
     db.commit()
 
-    _schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
+    _schedule_background(_run_scoring_background(
+        record_id,
+        case.case_data if case else {},
+        llm_client=request.app.state.llm_client,
+        pm=request.app.state.prompt_manager,
+    ))
 
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}

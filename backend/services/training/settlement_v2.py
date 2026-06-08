@@ -3,17 +3,16 @@
 import asyncio
 import logging
 import re
-from datetime import UTC, datetime
 
 from infrastructure.cache import EmotionCache, InitiativeCache
+from infrastructure.llm.client import LLMClient
 from infrastructure.queue import TaskQueue
-from models import Case, Message
+from models import Case
 
 log = logging.getLogger(__name__)
 
 
 def _count_covered_inquiries(inquiries: list[str], student_text: str) -> int:
-    """Count how many required inquiries are covered by student messages."""
     if not inquiries:
         return 0
     covered = 0
@@ -29,8 +28,7 @@ def _count_covered_inquiries(inquiries: list[str], student_text: str) -> int:
     return covered
 
 
-def _should_auto_score(messages: list, case_data: dict, auto_score_config: dict | None = None) -> bool:
-    """Check if a session has enough content for auto-scoring."""
+def _should_auto_score(messages: list, case_data: dict) -> bool:
     from core.config import AUTO_SCORE_AI_CHARS_MIN, AUTO_SCORE_COVERED_INQUIRIES_MIN, AUTO_SCORE_STUDENT_CHARS_MIN
 
     inquiries = case_data.get("required_inquiries", [])
@@ -47,15 +45,17 @@ def _should_auto_score(messages: list, case_data: dict, auto_score_config: dict 
 async def settlement_loop(
     repo,
     task_queue: TaskQueue,
+    *,
+    llm_client: LLMClient,
+    pm,
     interval: int = 30,
     emotion_cache: EmotionCache | None = None,
     initiative_cache: InitiativeCache | None = None,
 ) -> None:
-    """Periodic loop: find timed-out sessions, mark completed, optionally trigger scoring."""
     while True:
         await asyncio.sleep(interval)
         try:
-            await _settle_once(repo, task_queue, emotion_cache, initiative_cache)
+            await _settle_once(repo, task_queue, llm_client, pm, emotion_cache, initiative_cache)
         except Exception:
             log.exception("自动结算循环异常")
 
@@ -63,6 +63,8 @@ async def settlement_loop(
 async def _settle_once(
     repo,
     task_queue: TaskQueue,
+    llm_client: LLMClient,
+    pm,
     emotion_cache: EmotionCache | None,
     initiative_cache: InitiativeCache | None,
 ) -> None:
@@ -99,7 +101,7 @@ async def _settle_once(
             if _should_auto_score(messages, case_data):
                 await repo.update_scoring_status(record.id, "pending")
                 await task_queue.enqueue(
-                    lambda rid=record.id, cd=case_data: _run_scoring_job(rid, cd, repo),
+                    lambda rid=record.id, cd=case_data: _run_scoring_job(rid, cd, repo, llm_client, pm),
                     priority=5,
                 )
                 log.info("自动结算+评分: record_id=%d", record.id)
@@ -109,22 +111,19 @@ async def _settle_once(
             log.exception("自动结算 record_id=%d 失败", record.id)
 
 
-async def _run_scoring_job(record_id: int, case_data: dict, repo) -> None:
-    """Run scoring as a background task with status tracking."""
+async def _run_scoring_job(
+    record_id: int,
+    case_data: dict,
+    repo,
+    llm_client: LLMClient,
+    pm,
+) -> None:
     from core.database import SessionLocal
     from services.scoring.engine import evaluate_training
-    from infrastructure.llm.client import LLMClient
 
     db = SessionLocal()
     try:
         await repo.update_scoring_status(record_id, "processing")
-
-        client = get_client()
-        router = get_router()
-        pm = get_pm()
-        log_worker = get_log_worker()
-
-        llm_client = LLMClient(http=client, router=router, log_worker=log_worker)
 
         await asyncio.wait_for(
             evaluate_training(
@@ -148,7 +147,6 @@ async def _run_scoring_job(record_id: int, case_data: dict, repo) -> None:
 async def _cleanup_orphaned_cache(
     repo, emotion_cache: EmotionCache, initiative_cache: InitiativeCache
 ) -> None:
-    """Remove cache entries for already-completed records."""
     record_ids: set[int] = set()
     record_ids.update(emotion_cache._store.keys())
     record_ids.update(initiative_cache._timers.keys())

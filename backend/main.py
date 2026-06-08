@@ -101,6 +101,8 @@ async def lifespan(app: FastAPI):
         settlement_loop(
             repo=TrainingRepository(),
             task_queue=app.state.task_queue,
+            llm_client=app.state.llm_client,
+            pm=app.state.prompt_manager,
             interval=CLEANUP_INTERVAL_SECONDS,
             emotion_cache=app.state.emotion_cache,
             initiative_cache=app.state.initiative_cache,
