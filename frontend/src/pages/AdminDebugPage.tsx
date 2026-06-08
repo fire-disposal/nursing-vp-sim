@@ -1,5 +1,5 @@
 import { Activity, ArrowLeft, Brain, Bug, ClipboardList, Heart, MessageCircle, RefreshCw, Send, Stethoscope, Timer } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { endTraining, getCases, getTrainingState, startTraining, triggerInitiative, updateTrainingFeatures } from "@/api/api-client";
@@ -15,7 +15,6 @@ import { getNurseAvatar, getPatientAvatar } from "@/utils/avatar";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 
-// Use flexible runtime type for debug panel display
 interface TrainingState {
   emotion: { score: number; state: string; note: string };
   personality: Record<string, string>;
@@ -26,7 +25,7 @@ interface TrainingState {
 }
 
 const PERSONALITY_LABELS: Record<string, Record<string, string>> = {
-  health_literacy: { low: "低素养", normal: "中等", high: "高素养" },
+  health_literacy: { low: "低", normal: "中等", high: "高" },
   verbosity: { terse: "寡言", normal: "正常", verbose: "絮叨" },
   anxiety_trait: { calm: "安宁", normal: "平常", anxious: "焦虑" },
   patience: { low: "急躁", normal: "正常", high: "耐心" },
@@ -46,17 +45,73 @@ const PERSONALITY_ICONS: Record<string, typeof Brain> = {
   patience: Timer,
 };
 
+const DIM_LABEL: Record<string, string> = {
+  health_literacy: "健康素养",
+  verbosity: "健谈度",
+  anxiety_trait: "焦虑倾向",
+  patience: "耐心度",
+};
+
+const ANCHOR_LABEL: Record<string, string> = {
+  vital_signs: "生命体征",
+  auscultation: "听诊",
+  skin: "皮肤",
+  pain_score: "疼痛评分",
+};
+
 function personalityBarValue(val: string): number {
-  const scale: Record<string, number> = {
-    low: 1,
-    terse: 1,
-    calm: 1,
-    normal: 3,
-    high: 5,
-    verbose: 5,
-    anxious: 5,
-  };
+  const scale: Record<string, number> = { low: 1, terse: 1, calm: 1, normal: 3, high: 5, verbose: 5, anxious: 5 };
   return scale[val] ?? 3;
+}
+
+function statusColor(score: number) {
+  if (score >= 1) return "bg-green-100 text-green-700";
+  if (score <= -1) return "bg-red-100 text-red-700";
+  return "bg-muted text-muted-foreground";
+}
+
+interface SectionProps {
+  icon: typeof Bug;
+  iconColor: string;
+  title: string;
+  action?: { label: string; onClick: () => void };
+  loading?: boolean;
+  children: React.ReactNode;
+}
+
+function Section({ icon: Icon, iconColor, title, action, loading, children }: SectionProps) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+          <Icon className={cn("h-3.5 w-3.5", iconColor)} />
+          {title}
+        </h4>
+        {action && (
+          <button onClick={action.onClick} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-0.5">
+            <RefreshCw className="h-3 w-3" />
+            {action.label}
+          </button>
+        )}
+      </div>
+      {loading ? <div className="h-12 rounded bg-muted animate-pulse" /> : children}
+    </div>
+  );
+}
+
+interface BarProps {
+  value: number;
+  max?: number;
+  color?: string;
+}
+
+function Bar({ value, max = 100, color }: BarProps) {
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  return (
+    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+      <div className={cn("h-full rounded-full transition-all duration-500", color || "bg-primary")} style={{ width: `${pct}%` }} />
+    </div>
+  );
 }
 
 export default function AdminDebugPage() {
@@ -70,7 +125,6 @@ export default function AdminDebugPage() {
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [state, setState] = useState<TrainingState | null>(null);
-  const [opResults, _setOpResults] = useState<OperationResult[]>([]);
   const [showDebug, setShowDebug] = useState(true);
   const [msgTimestamps, setMsgTimestamps] = useState<number[]>([]);
   const initiativeFiredRef = useRef(false);
@@ -86,14 +140,13 @@ export default function AdminDebugPage() {
   });
 
   useEffect(() => {
-    if (!recordId || ending) return;
+    if (!recordId) return;
     pollRef.current = setInterval(async () => {
       if (typingFrozen || loading) return;
       try {
         const r = await getTrainingState(recordId);
-        const s = r.data;
-        setState(s as unknown as TrainingState);
-        if (s.initiative?.percent >= 100 && !initiativeFiredRef.current) {
+        setState(r.data as unknown as TrainingState);
+        if (r.data.initiative?.percent >= 100 && !initiativeFiredRef.current) {
           initiativeFiredRef.current = true;
           const trigger = await triggerInitiative(recordId);
           if (trigger.data.triggered && trigger.data.message) {
@@ -105,15 +158,15 @@ export default function AdminDebugPage() {
           }, 3000);
         }
       } catch {
-        /* ignore */
+        /* poll ignore */
       }
     }, 5000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [recordId, ending, loading, typingFrozen, setMessages]);
+  }, [recordId, loading, typingFrozen, setMessages]);
 
-  const refreshState = async () => {
+  const refreshState = useCallback(async () => {
     if (!recordId) return;
     try {
       const r = await getTrainingState(recordId);
@@ -121,7 +174,7 @@ export default function AdminDebugPage() {
     } catch {
       /* ignore */
     }
-  };
+  }, [recordId]);
 
   const handleStart = async () => {
     if (!selectedCaseId) return;
@@ -143,8 +196,7 @@ export default function AdminDebugPage() {
     setInput("");
     setMsgTimestamps((prev) => [...prev, Date.now()]);
     if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+    abortRef.current = new AbortController();
     await send(content);
   };
 
@@ -162,13 +214,23 @@ export default function AdminDebugPage() {
     }
   };
 
-  const _caseData = cases.find((c) => c.id === selectedCaseId);
   const patientMsgs = msgTimestamps.filter((_, i) => i % 2 === 1);
   const lastResponseTime = patientMsgs.length >= 2 ? ((patientMsgs[patientMsgs.length - 1] - patientMsgs[patientMsgs.length - 2]) / 1000).toFixed(1) : null;
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInputFocus = useCallback(() => {
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
+  }, []);
+
   return (
     <>
-      <PageHeader title="调试工坊" subtitle="试点新交互流程：情绪引擎 + 查体操作 + Character Card" icon={Bug} />
+      <PageHeader title="调试工坊" subtitle="情绪引擎 · 查体操作 · Character Card" icon={Bug} />
 
       <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 flex flex-col rounded-xl border border-border bg-card" style={{ height: "calc(100vh - 180px)" }}>
@@ -180,31 +242,31 @@ export default function AdminDebugPage() {
                 <select
                   value={selectedCaseId ?? ""}
                   onChange={(e) => setSelectedCaseId(Number(e.target.value) || null)}
-                  className="w-full h-10 rounded-lg border border-border bg-muted px-3 text-sm"
+                  className="w-full h-11 rounded-lg border border-border bg-muted px-3 text-sm"
                 >
                   <option value="">选择病例...</option>
                   {cases.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} (★{c.difficulty}) {c.patient_summary ? `— ${((c.patient_summary as Record<string, unknown>).name as string) || ""}` : ""}
+                      {c.name} {c.patient_summary ? `· ${((c.patient_summary as Record<string, unknown>).name as string) || ""}` : `(★${c.difficulty})`}
                     </option>
                   ))}
                 </select>
                 <Button onClick={handleStart} disabled={!selectedCaseId || starting || loading} className="w-full">
-                  {starting ? "启动中..." : "开始调试 (自由探索模式)"}
+                  {starting ? "启动中..." : "开始调试"}
                 </Button>
               </div>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
                       handleEnd();
                       navigate("/cases");
                     }}
-                    className="p-1.5 rounded-md hover:bg-muted"
-                    title="返回病例选择"
+                    className="size-10 flex items-center justify-center rounded-md hover:bg-muted"
+                    title="返回"
                   >
                     <ArrowLeft size={16} />
                   </button>
@@ -225,13 +287,12 @@ export default function AdminDebugPage() {
                       </option>
                     ))}
                   </select>
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">DEBUG</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">DEBUG</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => navigate("/history")}
                     className="text-xs px-2 py-1 rounded border border-border hover:bg-muted flex items-center gap-1"
-                    title="历史记录"
                   >
                     <ClipboardList size={12} />
                     历史
@@ -240,7 +301,7 @@ export default function AdminDebugPage() {
                     onClick={() => setShowDebug(!showDebug)}
                     className={cn("text-xs px-2 py-1 rounded border", showDebug ? "border-primary bg-primary/10 text-primary" : "border-border")}
                   >
-                    {showDebug ? "隐藏调试" : "显示调试"}
+                    {showDebug ? "面板" : "面板"}
                   </button>
                   <button onClick={() => handleEnd()} disabled={ending} className="text-xs px-2 py-1 rounded border border-destructive/50 text-destructive">
                     {ending ? "结束中..." : "结束"}
@@ -255,9 +316,9 @@ export default function AdminDebugPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <OperationPanel onOperation={(cmd) => handleSend(cmd)} results={opResults} disabled={loading || ending} />
+              <OperationPanel onOperation={(cmd) => handleSend(cmd)} results={[]} disabled={loading || ending} />
 
-              <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
+              <div className="flex items-center gap-2 px-4 py-2 border-t border-border shrink-0">
                 <input
                   type="text"
                   value={input}
@@ -265,15 +326,20 @@ export default function AdminDebugPage() {
                     setInput(e.target.value);
                     markTyping();
                   }}
-                  onKeyDown={(e: KeyboardEvent) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  placeholder="输入消息测试新交互流程..."
+                  onKeyDown={handleKeyDown}
+                  onFocus={handleInputFocus}
+                  placeholder="输入消息..."
                   disabled={loading || ending}
-                  className="flex-1 h-10 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
+                  enterKeyHint="send"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  inputMode="text"
+                  className="flex-1 h-11 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
                 />
                 <button
                   onClick={() => handleSend()}
                   disabled={loading || ending || !input.trim()}
-                  className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-50"
+                  className="size-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-50 active:scale-95 transition-transform"
                 >
                   <Send size={17} />
                 </button>
@@ -284,156 +350,93 @@ export default function AdminDebugPage() {
 
         {showDebug && recordId && (
           <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 180px)" }}>
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Timer className="h-4 w-4 text-amber-500" />
-                患者主动追问
-              </h4>
-              {state?.initiative ? (
+            <Section icon={Timer} iconColor="text-amber-500" title="患者主动追问" action={{ label: "刷新", onClick: refreshState }} loading={!state}>
+              {state?.initiative && (
                 <>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">静默计时</span>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-muted-foreground">静默</span>
                     <span
                       className={cn(
-                        "font-mono font-semibold",
+                        "font-mono",
                         state.initiative.percent >= 80 ? "text-red-500" : state.initiative.percent >= 50 ? "text-amber-500" : "text-muted-foreground",
                       )}
                     >
                       {state.initiative.elapsed_seconds}s / {state.initiative.threshold_seconds}s
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-300",
-                        state.initiative.percent >= 80 ? "bg-red-500" : state.initiative.percent >= 50 ? "bg-amber-400" : "bg-blue-400",
-                      )}
-                      style={{ width: `${state.initiative.percent}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    阈值受性格(耐心度/焦虑度)和当前情绪影响。
-                    <br />
-                    焦虑患者阈值更低，耐心患者阈值更高。
-                    <br />
-                    触发后可能: 催促/担忧/非语言线索/闲聊。
-                  </p>
+                  <Bar
+                    value={state.initiative.percent}
+                    color={state.initiative.percent >= 80 ? "bg-red-500" : state.initiative.percent >= 50 ? "bg-amber-400" : "bg-blue-400"}
+                  />
                 </>
-              ) : (
-                <p className="text-xs text-muted-foreground">等待消息...</p>
               )}
-            </div>
+              {state && !state.initiative && <p className="text-[11px] text-muted-foreground">等待消息...</p>}
+            </Section>
 
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Heart className="h-4 w-4 text-rose-500" />
-                情绪引擎
-              </h4>
-              {state ? (
+            <Section icon={Heart} iconColor="text-rose-500" title="情绪状态" action={{ label: "刷新", onClick: refreshState }} loading={!state}>
+              {state && (
                 <>
                   <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "text-xs font-medium px-1.5 py-0.5 rounded",
-                        state.emotion.score >= 1
-                          ? "bg-green-100 text-green-700"
-                          : state.emotion.score <= -1
-                            ? "bg-red-100 text-red-700"
-                            : "bg-muted text-muted-foreground",
-                      )}
-                    >
+                    <span className={cn("text-[11px] font-medium px-1.5 py-0.5 rounded", statusColor(state.emotion.score))}>
                       {state.emotion.state} ({state.emotion.score > 0 ? `+${state.emotion.score}` : state.emotion.score})
                     </span>
                   </div>
-                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-300",
-                        state.emotion.score >= 1 ? "bg-green-500" : state.emotion.score <= -1 ? "bg-red-500" : "bg-amber-400",
-                      )}
-                      style={{ width: `${((state.emotion.score + 2) / 4) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{state.emotion.note}</p>
+                  <Bar
+                    value={((state.emotion.score + 2) / 4) * 100}
+                    color={state.emotion.score >= 1 ? "bg-green-500" : state.emotion.score <= -1 ? "bg-red-500" : "bg-amber-400"}
+                  />
+                  <p className="text-[11px] text-muted-foreground">{state.emotion.note}</p>
                 </>
-              ) : (
-                <p className="text-xs text-muted-foreground">加载中...</p>
               )}
-              <button onClick={refreshState} className="text-xs text-primary hover:underline flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" />
-                刷新
-              </button>
-            </div>
+            </Section>
 
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Brain className="h-4 w-4 text-purple-500" />
-                患者人格
-              </h4>
+            <Section icon={Brain} iconColor="text-purple-500" title="患者人格" loading={false}>
               {state?.personality && Object.keys(state.personality).length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {Object.entries(state.personality).map(([dim, val]) => {
                     const Icon = PERSONALITY_ICONS[dim] || Brain;
-                    const barW = (personalityBarValue(val as string) / 5) * 100;
-                    const label = PERSONALITY_LABELS[dim]?.[val as string] ?? val;
+                    const label = PERSONALITY_LABELS[dim]?.[val as string] ?? String(val);
                     return (
-                      <div key={dim} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
+                      <div key={dim} className="space-y-0.5">
+                        <div className="flex items-center justify-between text-[11px]">
                           <span className="flex items-center gap-1">
                             <Icon className="h-3 w-3 text-muted-foreground" />
-                            {dim === "health_literacy" ? "健康素养" : dim === "verbosity" ? "健谈度" : dim === "anxiety_trait" ? "焦虑倾向" : "耐心度"}
+                            {DIM_LABEL[dim] || dim}
                           </span>
                           <span className="text-muted-foreground">{label}</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={cn("h-full rounded-full", PERSONALITY_BAR_COLORS[dim] || "bg-primary")} style={{ width: `${barW}%` }} />
-                        </div>
+                        <Bar value={(personalityBarValue(val as string) / 5) * 100} color={PERSONALITY_BAR_COLORS[dim]} />
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">(未配置人格)</p>
+                <p className="text-[11px] text-muted-foreground">未配置</p>
               )}
-            </div>
+            </Section>
 
-            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Activity className="h-4 w-4 text-blue-500" />
-                对话统计
-              </h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-muted/50 rounded p-2">
-                  <span className="text-muted-foreground">总消息</span>
-                  <div className="text-lg font-semibold">{messages.length}</div>
-                </div>
-                <div className="bg-muted/50 rounded p-2">
-                  <span className="text-muted-foreground">患者回复</span>
-                  <div className="text-lg font-semibold">{patientMsgs.length}</div>
-                </div>
-                <div className="bg-muted/50 rounded p-2">
-                  <span className="text-muted-foreground">间隔</span>
-                  <div className="text-lg font-semibold">{lastResponseTime ? `${lastResponseTime}s` : "—"}</div>
-                </div>
-                <div className="bg-muted/50 rounded p-2">
-                  <span className="text-muted-foreground">配置</span>
-                  <div className="text-sm font-semibold">{state?.config.mode || "—"}</div>
-                </div>
+            <Section icon={Activity} iconColor="text-blue-500" title="对话统计" loading={false}>
+              <div className="grid grid-cols-4 gap-1.5 text-center text-[11px]">
+                {[
+                  { l: "总消息", v: messages.length },
+                  { l: "回复", v: patientMsgs.length },
+                  { l: "间隔", v: lastResponseTime ? `${lastResponseTime}s` : "—" },
+                  { l: "模式", v: state?.config.mode || "—" },
+                ].map(({ l, v }) => (
+                  <div key={l} className="bg-muted/50 rounded p-1.5">
+                    <div className="text-muted-foreground">{l}</div>
+                    <div className="font-semibold">{v}</div>
+                  </div>
+                ))}
               </div>
-            </div>
+            </Section>
 
-            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-              <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <Stethoscope className="h-4 w-4 text-emerald-500" />
-                体征锚点
-              </h4>
+            <Section icon={Stethoscope} iconColor="text-emerald-500" title="体征锚点" loading={false}>
               {state?.exam_anchors && Object.keys(state.exam_anchors).length > 0 ? (
-                <div className="space-y-2 text-xs">
+                <div className="space-y-1 text-[11px]">
                   {Object.entries(state.exam_anchors).map(([k, v]) => (
                     <div key={k} className="bg-muted/50 rounded p-2">
-                      <div className="font-medium text-muted-foreground mb-0.5">
-                        {k === "vital_signs" ? "生命体征" : k === "auscultation" ? "听诊" : k === "skin" ? "皮肤" : k === "pain_score" ? "疼痛评分" : k}
-                      </div>
+                      <div className="font-medium text-muted-foreground mb-0.5">{ANCHOR_LABEL[k] || k}</div>
                       {typeof v === "string" ? (
                         <span className="font-mono">{v}</span>
                       ) : (
@@ -450,12 +453,11 @@ export default function AdminDebugPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">(无查体锚点)</p>
+                <p className="text-[11px] text-muted-foreground">无锚点</p>
               )}
-            </div>
+            </Section>
 
-            <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-              <h4 className="text-sm font-semibold">功能开关</h4>
+            <Section icon={Bug} iconColor="text-muted-foreground" title="功能开关" loading={false}>
               {state?.config?.features && (
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(state.config.features).map(([k, v]) => (
@@ -471,7 +473,7 @@ export default function AdminDebugPage() {
                         }
                       }}
                       className={cn(
-                        "px-1.5 py-0.5 rounded text-[10px] cursor-pointer border transition-colors hover:opacity-80",
+                        "px-1.5 py-0.5 rounded text-[10px] border transition-colors hover:opacity-80",
                         v ? "bg-green-100 text-green-700 border-green-300" : "bg-muted text-muted-foreground border-border",
                       )}
                     >
@@ -480,17 +482,10 @@ export default function AdminDebugPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Section>
           </div>
         )}
       </div>
     </>
   );
-}
-
-interface OperationResult {
-  type: string;
-  label: string;
-  value: string;
-  unit?: string;
 }
