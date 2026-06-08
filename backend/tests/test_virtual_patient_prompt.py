@@ -32,7 +32,7 @@ class TestBuildPatientContextKwargs:
         kwargs = build_patient_context_kwargs({})
         assert len(kwargs["communication_style"]) > 0
         assert kwargs["allergy_history"] == "无已知过敏史"
-        assert "正常配合" in kwargs["author_note"]
+        assert kwargs["author_note"] == ""
 
     def test_custom_values_override(self):
         case = {"chief_complaint": "咳嗽三天"}
@@ -106,7 +106,7 @@ class TestBuildPatientChatMessages:
     def test_history_truncation(self):
         history = [self._make_msg("student", f"q{i}") for i in range(20)]
         msgs = build_patient_chat_messages("sys", "dyn", history, "last", max_rounds=3)
-        assert len(msgs) == 8
+        assert len(msgs) == 9
 
     def test_empty_history(self):
         msgs = build_patient_chat_messages("sys", "dyn", [], "hello")

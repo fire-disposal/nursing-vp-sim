@@ -3,6 +3,7 @@
 import logging
 import random
 
+from services.llm import call_llm, call_llm_stream
 from services.pipeline.context import PipelineContext
 
 log = logging.getLogger(__name__)

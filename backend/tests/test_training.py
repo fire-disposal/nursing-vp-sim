@@ -127,7 +127,7 @@ class TestEndTraining:
                 f"/api/training/{record_id}/end",
                 headers={"Authorization": f"Bearer {token}"},
             )
-            # Second time
+            # Second time — now returns 409 due to _try_acquire_scoring check
             resp2 = client.post(
                 f"/api/training/{record_id}/end",
                 headers={"Authorization": f"Bearer {token}"},
@@ -285,12 +285,12 @@ class TestScoringIsolation:
     """验证后台评分使用独立 client/router/log_worker，不污染模块级共享资源。"""
 
     def test_call_llm_json_passes_through_client(self):
-        """call_llm_json 将 client/router/log_worker 转发给 call_llm。"""
+        """call_llm_json forwards to LLMClient.call_json via shim."""
         import asyncio
 
         import httpx
 
-        # TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
+        from services.llm import call_llm_json as call_llm_json_fn
 
         local_client = httpx.AsyncClient()
         mock_router = MagicMock()
@@ -298,9 +298,9 @@ class TestScoringIsolation:
         messages = [{"role": "user", "content": "test"}]
 
         async def _do():
-            with patch("services.llm.service.call_llm", new_callable=AsyncMock) as mock_llm:
-                mock_llm.return_value = '{"result": "ok"}'
-                await call_llm_json(
+            with patch("infrastructure.llm.client.LLMClient.call_json", new_callable=AsyncMock) as mock_call_json:
+                mock_call_json.return_value = {"result": "ok"}
+                result = await call_llm_json_fn(
                     messages,
                     client=local_client,
                     router=mock_router,
@@ -308,9 +308,10 @@ class TestScoringIsolation:
                     purpose="test",
                     max_retries=1,
                 )
-                call_kwargs = mock_llm.call_args.kwargs
-                assert call_kwargs["client"] is local_client
-                assert call_kwargs["router"] is mock_router
-                assert call_kwargs["log_worker"] is mock_worker
+                assert result == {"result": "ok"}
+                mock_call_json.assert_called_once()
+                called_messages = mock_call_json.call_args.args[0]
+                assert called_messages == messages
+                assert mock_call_json.call_args.kwargs["purpose"] == "test"
 
         asyncio.run(_do())

@@ -118,15 +118,77 @@ def get_session_configs():
     return list_configs()
 
 
-async def _run_scoring_background(record_id: int, case_data: dict):
-    # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
+import httpx
 
+from services.llm.logging import LogWorker
+from services.llm.router import ProfileRouter
+from services.prompt.manager import PromptManager
+
+_infra_client: httpx.AsyncClient | None = None
+_infra_router: ProfileRouter | None = None
+_infra_pm: PromptManager | None = None
+_infra_log_worker: LogWorker | None = None
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _ensure_loop():
+    global _main_loop
+    if _main_loop is None or _main_loop.is_closed():
+        _main_loop = asyncio.new_event_loop()
+        import threading
+        t = threading.Thread(target=_main_loop.run_forever, daemon=True)
+        t.start()
+    return _main_loop
+
+
+def set_training_infra(client, router, pm, log_worker):
+    global _infra_client, _infra_router, _infra_pm, _infra_log_worker
+    _infra_client = client
+    _infra_router = router
+    _infra_pm = pm
+    _infra_log_worker = log_worker
+
+
+def _get_client():
+    if _infra_client is None:
+        raise RuntimeError("Training infra not initialized")
+    return _infra_client
+
+
+def _get_router():
+    if _infra_router is None:
+        raise RuntimeError("Training infra not initialized")
+    return _infra_router
+
+
+def _get_pm():
+    if _infra_pm is None:
+        raise RuntimeError("Training infra not initialized")
+    return _infra_pm
+
+
+def _get_log_worker():
+    if _infra_log_worker is None:
+        raise RuntimeError("Training infra not initialized")
+    return _infra_log_worker
+
+
+def _schedule_background(coro):
+    try:
+        loop = asyncio.get_running_loop()
+        return loop.create_task(coro)
+    except RuntimeError:
+        loop = _ensure_loop()
+        return asyncio.run_coroutine_threadsafe(coro, loop)
+
+
+async def _run_scoring_background(record_id: int, case_data: dict):
     SCORING_GLOBAL_TIMEOUT = 300
 
-    client = get_client()
-    router = get_router()
-    pm = get_pm()
-    log_worker = get_log_worker()
+    client = _get_client()
+    router = _get_router()
+    pm = _get_pm()
+    log_worker = _get_log_worker()
 
     db = SessionLocal()
     try:
@@ -211,8 +273,7 @@ def end_training(
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
 
-    # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
-    schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
+    _schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
@@ -258,8 +319,7 @@ def retry_scoring(
     record.scoring_error = None
     db.commit()
 
-    # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
-    schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
+    _schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
 
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 

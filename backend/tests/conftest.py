@@ -128,6 +128,24 @@ def client(engine, db_session):
     app.state.httpx_client = MagicMock()
     app.state.log_worker = MagicMock()
 
+    # v2: mock new infrastructure
+    mock_llm_client = MagicMock()
+    mock_llm_client.call = AsyncMock(return_value="mock response")
+    mock_llm_client.call_json = AsyncMock(return_value={"score": 85})
+    mock_llm_client.stream = MagicMock()
+    app.state.llm_client = mock_llm_client
+
+    mock_tq = MagicMock()
+    mock_tq.enqueue = AsyncMock()
+    app.state.task_queue = mock_tq
+
+    from infrastructure.cache import EmotionCache, InitiativeCache
+    app.state.emotion_cache = EmotionCache()
+    app.state.initiative_cache = InitiativeCache()
+
+    from routers.training import set_training_infra
+    set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker)
+
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

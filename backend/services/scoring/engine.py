@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from core.config import get_llm_config
 from models import Message, Score, TrainingRecord
-# TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
+from services.llm import call_llm_json
 from services.prompt import build_scoring_criteria, build_scoring_json_schema
 from services.scoring.rubric import get_rubric_version_id, load_rubric_dict
 from .validation import (

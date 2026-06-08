@@ -24,7 +24,7 @@ from schemas import (
 log = logging.getLogger(__name__)
 
 from core.config import get_llm_config
-# TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
+from services.llm import call_llm_json
 from services.pagination import paginate
 from services.prompt import get_registry
 from services.patient_ai import format_case_for_prompt
