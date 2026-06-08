@@ -3,7 +3,7 @@
 import logging
 import random
 
-from services.llm import call_llm, call_llm_stream
+from infrastructure.llm.client import CallContext
 from services.pipeline.context import PipelineContext
 
 log = logging.getLogger(__name__)
@@ -36,22 +36,22 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 
 async def _call_batch(ctx: PipelineContext) -> None:
     from core.config import get_llm_config
-    # TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
     from services.patient_ai import has_identity_leak, get_identity_correction_note
 
     import httpx
 
     app = ctx.app_state
+    llm_client = app.llm_client
     try:
-        reply = await call_llm(
+        reply = await llm_client.call(
             ctx.llm_messages,
             purpose="patient_chat",
-            user_id=ctx.current_user.id,
-            record_id=ctx.record.id,
-            case_id=ctx.record.case_id,
-            client=app.httpx_client,
-            router=app.llm_router,
-            log_worker=app.log_worker,
+            ctx=CallContext(
+                purpose="patient_chat",
+                user_id=ctx.current_user.id,
+                record_id=ctx.record.id,
+                case_id=ctx.record.case_id,
+            ),
             **get_llm_config("patient_chat"),
         )
     except (httpx.HTTPError, OSError, RuntimeError, ValueError) as e:
@@ -66,15 +66,15 @@ async def _call_batch(ctx: PipelineContext) -> None:
         msgs = list(ctx.llm_messages)
         msgs.insert(-1, {"role": "system", "content": corrected})
         try:
-            retry = await call_llm(
+            retry = await llm_client.call(
                 msgs,
                 purpose="patient_chat",
-                user_id=ctx.current_user.id,
-                record_id=ctx.record.id,
-                case_id=ctx.record.case_id,
-                client=app.httpx_client,
-                router=app.llm_router,
-                log_worker=app.log_worker,
+                ctx=CallContext(
+                    purpose="patient_chat",
+                    user_id=ctx.current_user.id,
+                    record_id=ctx.record.id,
+                    case_id=ctx.record.case_id,
+                ),
                 **get_llm_config("patient_chat"),
             )
             if retry.strip():
@@ -88,23 +88,23 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 async def _call_stream(ctx: PipelineContext) -> None:
     from core.config import get_llm_config
-    # TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
     from services.patient_ai import has_identity_leak, get_identity_correction_note
 
     app = ctx.app_state
+    llm_client = app.llm_client
     full_reply = ""
     chunks = []
 
     try:
-        async for chunk in call_llm_stream(
+        async for chunk in llm_client.stream(
             ctx.llm_messages,
             purpose="patient_chat",
-            user_id=ctx.current_user.id,
-            record_id=ctx.record.id,
-            case_id=ctx.record.case_id,
-            client=app.httpx_client,
-            router=app.llm_router,
-            log_worker=app.log_worker,
+            ctx=CallContext(
+                purpose="patient_chat",
+                user_id=ctx.current_user.id,
+                record_id=ctx.record.id,
+                case_id=ctx.record.case_id,
+            ),
             **get_llm_config("patient_chat"),
         ):
             full_reply += chunk
@@ -122,15 +122,15 @@ async def _call_stream(ctx: PipelineContext) -> None:
         full_retry = ""
         retry_chunks = []
         try:
-            async for chunk in call_llm_stream(
+            async for chunk in llm_client.stream(
                 msgs,
                 purpose="patient_chat",
-                user_id=ctx.current_user.id,
-                record_id=ctx.record.id,
-                case_id=ctx.record.case_id,
-                client=app.httpx_client,
-                router=app.llm_router,
-                log_worker=app.log_worker,
+                ctx=CallContext(
+                    purpose="patient_chat",
+                    user_id=ctx.current_user.id,
+                    record_id=ctx.record.id,
+                    case_id=ctx.record.case_id,
+                ),
                 **get_llm_config("patient_chat"),
             ):
                 full_retry += chunk

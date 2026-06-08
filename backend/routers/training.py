@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import SessionLocal, get_db
 from core.security import get_current_user, require_permission
+from infrastructure.llm.client import LLMClient
 from middleware.dependencies import resolve_school_filter
 from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
 from schemas import (
@@ -204,9 +205,7 @@ async def _run_scoring_background(record_id: int, case_data: dict):
             evaluate_training(
                 record_id, case_data, db,
                 pm=pm,
-                router=router,
-                log_worker=log_worker,
-                client=client,
+                llm_client=LLMClient(client=client, router=router, log_worker=log_worker),
             ),
             timeout=SCORING_GLOBAL_TIMEOUT,
         )

@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
 from sqlalchemy import create_engine, text
@@ -36,6 +38,15 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@asynccontextmanager
+async def db_session():
+    session = await asyncio.to_thread(SessionLocal)
+    try:
+        yield session
+    finally:
+        await asyncio.to_thread(session.close)
 
 
 def init_db() -> None:

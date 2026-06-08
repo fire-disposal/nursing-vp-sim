@@ -4,8 +4,8 @@ import logging
 from sqlalchemy.orm import Session
 
 from core.config import get_llm_config
+from infrastructure.llm.client import LLMClient, CallContext
 from models import Message, Score, TrainingRecord
-from services.llm import call_llm_json
 from services.prompt import build_scoring_criteria, build_scoring_json_schema
 from services.scoring.rubric import get_rubric_version_id, load_rubric_dict
 from .validation import (
@@ -18,8 +18,6 @@ from .validation import (
     _validate_scoring_result,
 )
 
-import httpx
-
 log = logging.getLogger(__name__)
 
 
@@ -31,23 +29,21 @@ async def _score_stage(
     user_id: int,
     case_id: int,
     log_meta: dict | None,
-    client: httpx.AsyncClient | None,
-    router,
-    log_worker,
+    llm_client: LLMClient,
 ) -> dict:
     """第一阶段：逐项评分（total_score + detail_scores + evidence/reason）。"""
     cfg = get_llm_config("scoring")
 
-    result = await call_llm_json(
+    result = await llm_client.call_json(
         messages,
         purpose="scoring",
-        user_id=user_id,
-        record_id=record_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        client=client,
-        router=router,
-        log_worker=log_worker,
+        ctx=CallContext(
+            purpose="scoring",
+            user_id=user_id,
+            record_id=record_id,
+            case_id=case_id,
+            log_meta=log_meta,
+        ),
         **cfg,
     )
     _coerce_numeric_fields(result)
@@ -65,16 +61,16 @@ async def _score_stage(
         "请重新输出完整的 JSON，确保所有条目完备。"
     )
     retry_messages = [*messages, {"role": "assistant", "content": partial_json}, {"role": "user", "content": retry_user}]
-    result2 = await call_llm_json(
+    result2 = await llm_client.call_json(
         retry_messages,
         purpose="scoring",
-        user_id=user_id,
-        record_id=record_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        client=client,
-        router=router,
-        log_worker=log_worker,
+        ctx=CallContext(
+            purpose="scoring",
+            user_id=user_id,
+            record_id=record_id,
+            case_id=case_id,
+            log_meta=log_meta,
+        ),
         **cfg,
     )
     _coerce_numeric_fields(result2)
@@ -90,23 +86,21 @@ async def _feedback_stage(
     user_id: int,
     case_id: int,
     log_meta: dict | None,
-    client: httpx.AsyncClient | None,
-    router,
-    log_worker,
+    llm_client: LLMClient,
 ) -> dict:
     """第二阶段：生成反馈（strengths/weaknesses/missed_content/suggestions）。"""
     cfg = get_llm_config("scoring_feedback")
 
-    result = await call_llm_json(
+    result = await llm_client.call_json(
         messages,
         purpose="scoring_feedback",
-        user_id=user_id,
-        record_id=record_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        client=client,
-        router=router,
-        log_worker=log_worker,
+        ctx=CallContext(
+            purpose="scoring_feedback",
+            user_id=user_id,
+            record_id=record_id,
+            case_id=case_id,
+            log_meta=log_meta,
+        ),
         **cfg,
     )
 
@@ -128,16 +122,16 @@ async def _feedback_stage(
         "请输出 strengths、weaknesses、missed_content、suggestions 四个字段的完整 JSON。"
     )
     retry_messages = [*messages, {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)}, {"role": "user", "content": retry_user}]
-    result2 = await call_llm_json(
+    result2 = await llm_client.call_json(
         retry_messages,
         purpose="scoring_feedback",
-        user_id=user_id,
-        record_id=record_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        client=client,
-        router=router,
-        log_worker=log_worker,
+        ctx=CallContext(
+            purpose="scoring_feedback",
+            user_id=user_id,
+            record_id=record_id,
+            case_id=case_id,
+            log_meta=log_meta,
+        ),
         **cfg,
     )
 
@@ -156,9 +150,7 @@ async def evaluate_training(
     db: Session,
     *,
     pm,
-    router,
-    log_worker,
-    client: httpx.AsyncClient | None = None,
+    llm_client: LLMClient,
 ) -> Score:
     """对训练对话进行评分并保存结果。
 
@@ -186,8 +178,7 @@ async def evaluate_training(
     scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
 
-    scoring_config = router.select("scoring")
-    scoring_model_name = getattr(scoring_config, 'model', None) or 'unknown'
+    scoring_model_name = llm_client._router.select("scoring").model or "unknown"
 
     user_id = record.user_id
     case_id = record.case_id
@@ -210,9 +201,7 @@ async def evaluate_training(
         user_id=user_id,
         case_id=case_id,
         log_meta=log_meta,
-        client=client,
-        router=router,
-        log_worker=log_worker,
+        llm_client=llm_client,
     )
 
     # ── 第二阶段：反馈 ──
@@ -233,9 +222,7 @@ async def evaluate_training(
         user_id=user_id,
         case_id=case_id,
         log_meta=log_meta,
-        client=client,
-        router=router,
-        log_worker=log_worker,
+        llm_client=llm_client,
     )
 
     # ── 合并最终结果 ──

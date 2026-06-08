@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from core.database import get_db
+from core.database import db_session, get_db
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from middleware.rate_limits import check_qa_limit
@@ -21,9 +21,9 @@ from schemas import (
     QASessionCreate,
     QASessionItem,
 )
-from services.llm import call_llm, call_llm_stream
 from services.pagination import paginate
 from services.qa import get_qa_cache, build_qa_history
+from infrastructure.llm.client import CallContext
 
 log = logging.getLogger(__name__)
 
@@ -91,15 +91,16 @@ async def create_session(
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
 
     rid = getattr(request.state, "request_id", None)
+    llm_client = request.app.state.llm_client
     try:
-        answer = await call_llm(
+        answer = await llm_client.call(
             llm_messages,
             purpose="qa",
-            user_id=current_user.id,
-            log_meta={"request_id": rid} if rid else None,
-            client=request.app.state.httpx_client,
-            router=request.app.state.llm_router,
-            log_worker=request.app.state.log_worker,
+            ctx=CallContext(
+                purpose="qa",
+                user_id=current_user.id,
+                log_meta={"request_id": rid} if rid else None,
+            ),
             **get_llm_config("qa"),
         )
     except Exception as e:
@@ -165,15 +166,16 @@ async def ask_in_session(
     llm_messages.insert(0, {"role": "system", "content": tmpl.render()})
 
     rid = getattr(request.state, "request_id", None)
+    llm_client = request.app.state.llm_client
     try:
-        answer = await call_llm(
+        answer = await llm_client.call(
             llm_messages,
             purpose="qa",
-            user_id=current_user.id,
-            log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
-            client=request.app.state.httpx_client,
-            router=request.app.state.llm_router,
-            log_worker=request.app.state.log_worker,
+            ctx=CallContext(
+                purpose="qa",
+                user_id=current_user.id,
+                log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+            ),
             **get_llm_config("qa"),
         )
     except Exception as e:
@@ -206,10 +208,7 @@ async def ask_stream(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    from core.database import SessionLocal
-
-    db = SessionLocal()
-    try:
+    async with db_session() as db:
         session = db.query(QASession).filter(QASession.id == session_id).first()
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
@@ -230,14 +229,15 @@ async def ask_stream(
         async def generate():
             import json as _json
             full_reply = ""
+            llm_client = request.app.state.llm_client
             try:
-                async for chunk in call_llm_stream(
+                async for chunk in llm_client.stream(
                     llm_messages,
                     purpose="qa",
-                    user_id=current_user.id,
-                    client=request.app.state.httpx_client,
-                    router=request.app.state.llm_router,
-                    log_worker=request.app.state.log_worker,
+                    ctx=CallContext(
+                        purpose="qa",
+                        user_id=current_user.id,
+                    ),
                     **get_llm_config("qa"),
                 ):
                     full_reply += chunk
@@ -252,16 +252,8 @@ async def ask_stream(
             except Exception as e:
                 log.exception("QA stream error: session_id=%d", session_id)
                 yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
-            finally:
-                db.close()
 
         return StreamingResponse(generate(), media_type="text/event-stream")
-    except HTTPException:
-        db.close()
-        raise
-    except BaseException:
-        db.close()
-        raise
 
 
 @router.get("/sessions", response_model=list[QASessionItem])

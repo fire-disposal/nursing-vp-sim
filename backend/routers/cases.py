@@ -24,7 +24,7 @@ from schemas import (
 log = logging.getLogger(__name__)
 
 from core.config import get_llm_config
-from services.llm import call_llm_json
+from infrastructure.llm.client import CallContext
 from services.pagination import paginate
 from services.prompt import get_registry
 from services.patient_ai import format_case_for_prompt
@@ -205,14 +205,14 @@ async def generate_case(
     messages = [{"role": "system", "content": system_content}]
 
     try:
-        result = await call_llm_json(
+        result = await request.app.state.llm_client.call_json(
             messages,
             purpose="case_generation",
-            user_id=current_user.id,
-            log_meta={"description": data.description[:200] if data.description else None},
-            client=request.app.state.httpx_client,
-            router=request.app.state.llm_router,
-            log_worker=request.app.state.log_worker,
+            ctx=CallContext(
+                purpose="case_generation",
+                user_id=current_user.id,
+                log_meta={"description": data.description[:200] if data.description else None},
+            ),
             **get_llm_config("case_generation"),
         )
     except Exception as e:

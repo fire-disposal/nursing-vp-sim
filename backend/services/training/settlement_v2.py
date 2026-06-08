@@ -113,21 +113,23 @@ async def _run_scoring_job(record_id: int, case_data: dict, repo) -> None:
     """Run scoring as a background task with status tracking."""
     from core.database import SessionLocal
     from services.scoring.engine import evaluate_training
+    from infrastructure.llm.client import LLMClient
 
     db = SessionLocal()
     try:
         await repo.update_scoring_status(record_id, "processing")
 
-        # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
         client = get_client()
         router = get_router()
         pm = get_pm()
         log_worker = get_log_worker()
 
+        llm_client = LLMClient(http=client, router=router, log_worker=log_worker)
+
         await asyncio.wait_for(
             evaluate_training(
                 record_id, case_data, db,
-                pm=pm, router=router, log_worker=log_worker, client=client,
+                pm=pm, llm_client=llm_client,
             ),
             timeout=300,
         )
