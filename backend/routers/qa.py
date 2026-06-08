@@ -21,7 +21,7 @@ from schemas import (
     QASessionCreate,
     QASessionItem,
 )
-from services.llm import call_llm, call_llm_stream
+# TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
 from services.pagination import paginate
 from services.qa import get_qa_cache, build_qa_history
 

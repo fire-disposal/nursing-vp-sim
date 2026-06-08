@@ -106,3 +106,13 @@ def get_emotion(record_id: int) -> EmotionState:
 
 def cleanup_emotion(record_id: int):
     _emotion_cache.pop(record_id, None)
+
+
+def get_emotion_v2(record_id: int, cache: "EmotionCache") -> "EmotionState":
+    """Get or create emotion state using a cache instance."""
+    return cache.get(record_id)
+
+
+def cleanup_emotion_v2(record_id: int, cache: "EmotionCache") -> None:
+    """Clean up emotion state using a cache instance."""
+    cache.cleanup(record_id)

@@ -177,3 +177,59 @@ def should_initiate(record_id: int, personality: dict, emotion_score: int) -> bo
 def cleanup_initiative(record_id: int):
     _initiative_timers.pop(record_id, None)
     _last_trigger_time.pop(record_id, None)
+
+
+def update_initiative_timer_v2(
+    record_id: int,
+    cache: "InitiativeCache",
+    last_reply_length: int = 0,
+) -> None:
+    """Reset the initiative timer using a cache instance."""
+    from datetime import UTC, datetime
+    now = datetime.now(UTC).timestamp()
+    cache.update_timer(record_id, now)
+
+
+def get_initiative_seconds_v2(
+    record_id: int,
+    cache: "InitiativeCache",
+    personality: dict,
+    emotion_score: int,
+) -> tuple[float, float]:
+    """Return (elapsed, threshold) using a cache instance."""
+    from datetime import UTC, datetime
+    now = datetime.now(UTC).timestamp()
+    last_reply = cache.get_timer(record_id, now)
+    elapsed = now - last_reply
+
+    patience = personality.get("patience", "normal")
+    anxiety_trait = personality.get("anxiety_trait", "normal")
+    patience_bias = {"low": -8, "normal": 0, "high": +10}
+    anxiety_bias = {"anxious": -5, "normal": 0, "calm": +5}
+    emotion_bias = emotion_score * -3
+    threshold = 30.0 + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + emotion_bias
+    threshold = max(15, min(90, threshold))
+    return elapsed, threshold
+
+
+def should_initiate_v2(
+    record_id: int,
+    cache: "InitiativeCache",
+    personality: dict,
+    emotion_score: int,
+) -> bool:
+    """Check using a cache instance."""
+    from datetime import UTC, datetime
+    elapsed, threshold = get_initiative_seconds_v2(record_id, cache, personality, emotion_score)
+    if elapsed < threshold:
+        return False
+    now = datetime.now(UTC).timestamp()
+    last_trigger = cache.get_last_trigger(record_id)
+    if now - last_trigger < 8:
+        return False
+    cache.set_last_trigger(record_id, now)
+    return True
+
+
+def cleanup_initiative_v2(record_id: int, cache: "InitiativeCache") -> None:
+    cache.cleanup(record_id)

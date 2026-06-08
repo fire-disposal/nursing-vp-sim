@@ -118,7 +118,7 @@ async def _run_scoring_job(record_id: int, case_data: dict, repo) -> None:
     try:
         await repo.update_scoring_status(record_id, "processing")
 
-        from services.llm.infra import get_client, get_router, get_pm, get_log_worker
+        # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
         client = get_client()
         router = get_router()
         pm = get_pm()

@@ -290,7 +290,7 @@ class TestScoringIsolation:
 
         import httpx
 
-        from services.llm import call_llm_json
+        # TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
 
         local_client = httpx.AsyncClient()
         mock_router = MagicMock()

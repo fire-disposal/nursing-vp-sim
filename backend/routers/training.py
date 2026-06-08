@@ -119,7 +119,7 @@ def get_session_configs():
 
 
 async def _run_scoring_background(record_id: int, case_data: dict):
-    from services.llm.infra import get_client, get_router, get_pm, get_log_worker
+    # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
 
     SCORING_GLOBAL_TIMEOUT = 300
 
@@ -211,7 +211,7 @@ def end_training(
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
 
-    from services.llm.infra import schedule_background
+    # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
     schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
@@ -258,7 +258,7 @@ def retry_scoring(
     record.scoring_error = None
     db.commit()
 
-    from services.llm.infra import schedule_background
+    # TODO(v2): infra.py deleted — use Depends injection or TaskQueue
     schedule_background(_run_scoring_background(record_id, case.case_data if case else {}))
 
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}

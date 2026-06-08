@@ -35,7 +35,7 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 
 async def _call_batch(ctx: PipelineContext) -> None:
     from core.config import get_llm_config
-    from services.llm import call_llm
+    # TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
     from services.patient_ai import has_identity_leak, get_identity_correction_note
 
     import httpx
@@ -87,7 +87,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 async def _call_stream(ctx: PipelineContext) -> None:
     from core.config import get_llm_config
-    from services.llm import call_llm_stream
+    # TODO(v2): use Depends(get_llm_client) — see core/dependencies.py
     from services.patient_ai import has_identity_leak, get_identity_correction_note
 
     app = ctx.app_state
