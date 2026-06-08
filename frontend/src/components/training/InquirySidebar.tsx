@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, ListChecks, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import Sheet from "@/components/ui/Sheet";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/types/chat";
 
@@ -60,12 +61,7 @@ export default function InquirySidebar({ inquiries, studentMessages }: InquirySi
         {pct < 100 && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
       </button>
 
-      <div
-        className={cn(
-          "fixed top-0 right-0 bottom-0 w-[320px] max-w-[85vw] bg-background z-[1000] flex flex-col transition-transform duration-300 ease-out border-l border-border",
-          isOpen ? "translate-x-0 shadow-[-8px_0_30px_rgba(0,0,0,0.08)]" : "translate-x-full",
-        )}
-      >
+      <Sheet open={isOpen} onClose={() => setIsOpen(false)} side="right" size="md">
         <div className="flex justify-between items-center px-5 py-4 border-b border-border">
           <h3 className="text-base font-semibold flex items-center gap-2">
             <ListChecks size={18} /> 采集进度
@@ -116,9 +112,7 @@ export default function InquirySidebar({ inquiries, studentMessages }: InquirySi
         <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground leading-relaxed">
           提示：系统根据对话关键词自动匹配，仅供参考。建议按护理评估框架全面采集病史。
         </div>
-      </div>
-
-      {isOpen && <div onClick={onToggle} className="fixed inset-0 bg-black/30 z-[999]" role="presentation" />}
+      </Sheet>
     </>
   );
 }

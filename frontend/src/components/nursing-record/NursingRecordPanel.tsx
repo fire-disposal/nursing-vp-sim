@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, ClipboardList, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import Sheet from "@/components/ui/Sheet";
 import { cn } from "@/lib/utils";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
 import { ITEM_COMPONENTS } from "./index";
@@ -122,12 +123,7 @@ export default function NursingRecordPanel({ isOpen, onToggle, recordId }: Nursi
         )}
       </button>
 
-      <div
-        className={cn(
-          "fixed top-0 right-0 bottom-0 w-[380px] max-w-[90vw] bg-background z-[1000] flex flex-col transition-transform duration-300 ease-out border-l border-border",
-          isOpen ? "translate-x-0 shadow-[-8px_0_30px_rgba(0,0,0,0.08)]" : "translate-x-full",
-        )}
-      >
+      <Sheet open={isOpen} onClose={onToggle} side="right" size="md">
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-border shrink-0">
           <div>
             <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -147,7 +143,7 @@ export default function NursingRecordPanel({ isOpen, onToggle, recordId }: Nursi
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+        <div className="px-4 py-3 space-y-1">
           {NURSING_RECORD_SHEET_CONFIG.sections.map((section) => {
             const isCollapsed = collapsedSections.has(section.key);
             return (
@@ -185,9 +181,7 @@ export default function NursingRecordPanel({ isOpen, onToggle, recordId }: Nursi
         <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground leading-relaxed shrink-0 text-center">
           提示：本记录单为模拟HIS系统填写，数据仅保存在本地浏览器
         </div>
-      </div>
-
-      {isOpen && <div onClick={onToggle} className="fixed inset-0 bg-black/30 z-[999]" role="presentation" />}
+      </Sheet>
     </>
   );
 }

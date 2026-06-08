@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import Sheet from "@/components/ui/Sheet";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar, type PatientInfo } from "@/utils/avatar";
 
@@ -91,7 +92,7 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }: Pa
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 800);
+    const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -111,50 +112,54 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }: Pa
 
   const filledCount = Object.values(record).filter((v) => v.trim().length > 0).length;
 
-  return (
+  const portraitContent = (
     <>
-      <div
-        className={cn(
-          "w-[300px] shrink-0 bg-card border-r border-border flex flex-row transition-[width] duration-300 overflow-hidden relative",
-          "max-[800px]:fixed max-[800px]:top-14 max-[800px]:left-0 max-[800px]:bottom-0 max-[800px]:z-[500] max-[800px]:shadow-[2px_0_20px_rgba(0,0,0,0.15)]",
-          collapsed && "w-0 border-r-0 max-[800px]:!-left-[300px] max-[800px]:!w-[300px]",
+      <div className="flex flex-col items-center gap-2 px-5 pt-6 pb-3">
+        <img src={avatarSrc} alt={name} className="w-28 h-28 rounded-full object-cover bg-muted ring-2 ring-border" />
+        <div className="text-sm font-bold text-foreground">{name}</div>
+        {patientInfo && (
+          <div className="text-xs text-muted-foreground -mt-1">
+            {[patientInfo.gender, patientInfo.age != null ? `${patientInfo.age}岁` : ""].filter(Boolean).join(" · ")}
+          </div>
         )}
-      >
-        <div className="flex-1 flex flex-col overflow-y-auto min-w-[300px]">
-          <div className="flex flex-col items-center gap-2 px-5 pt-6 pb-3">
-            <img src={avatarSrc} alt={name} className="w-28 h-28 rounded-full object-cover bg-muted ring-2 ring-border" />
-            <div className="text-sm font-bold text-foreground">{name}</div>
-            {patientInfo && (
-              <div className="text-xs text-muted-foreground -mt-1">
-                {[patientInfo.gender, patientInfo.age != null ? `${patientInfo.age}岁` : ""].filter(Boolean).join(" · ")}
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 px-4 pb-4 space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">患者情况区</h3>
-              <span className="text-[0.6rem] text-muted-foreground">
-                {filledCount}/{SECTIONS.length} 项
-              </span>
-            </div>
-
-            {SECTIONS.map((s) => (
-              <MedicalSection key={s.key} label={s.label} value={record[s.key]} onChange={(v) => updateField(s.key, v)} placeholder={s.placeholder} />
-            ))}
-          </div>
-        </div>
-
-        <button
-          className="absolute top-3 -right-[34px] w-[30px] h-[30px] border border-l-0 border-border rounded-r-md bg-card cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground z-10 transition-[right,color] duration-300"
-          onClick={onToggle}
-          title={collapsed ? "展开患者信息" : "收起患者信息"}
-        >
-          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </button>
       </div>
 
-      {collapsed && (
+      <div className="flex-1 px-4 pb-4 space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">患者情况区</h3>
+          <span className="text-[0.6rem] text-muted-foreground">
+            {filledCount}/{SECTIONS.length} 项
+          </span>
+        </div>
+
+        {SECTIONS.map((s) => (
+          <MedicalSection key={s.key} label={s.label} value={record[s.key]} onChange={(v) => updateField(s.key, v)} placeholder={s.placeholder} />
+        ))}
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {isMobile ? (
+        <Sheet open={!collapsed} onClose={onToggle} side="left" size="sm">
+          {portraitContent}
+        </Sheet>
+      ) : (
+        <div className={cn("h-full border-r bg-card transition-all overflow-hidden relative", !collapsed ? "w-72" : "w-0")}>
+          <div className="flex-1 flex flex-col overflow-y-auto min-w-72">{portraitContent}</div>
+
+          <button
+            className="absolute top-3 -right-[34px] w-[30px] h-[30px] border border-l-0 border-border rounded-r-md bg-card cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground z-10 transition-[right,color] duration-300"
+            onClick={onToggle}
+            title={collapsed ? "展开患者信息" : "收起患者信息"}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </div>
+      )}
+
+      {!isMobile && collapsed && (
         <button
           className="fixed left-0 top-1/2 z-[498] w-7 h-14 border border-l-0 border-border rounded-r-lg bg-card cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground shadow-[2px_0_8px_rgba(0,0,0,0.08)]"
           onClick={onToggle}
@@ -163,8 +168,6 @@ export default function PatientPortrait({ patientInfo, collapsed, onToggle }: Pa
           <PanelLeftOpen size={16} />
         </button>
       )}
-
-      {isMobile && !collapsed && <div className="fixed inset-0 bg-black/30 z-[499]" onClick={onToggle} />}
     </>
   );
 }
