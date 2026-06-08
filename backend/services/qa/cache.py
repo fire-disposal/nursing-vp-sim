@@ -58,16 +58,30 @@ def get_qa_cache() -> QACache:
     return _cache
 
 
+MAX_HISTORY_TOKENS = 2000
+
+
+def _estimate_tokens(text: str) -> int:
+    return len(text)
+
+
 def build_qa_history(session_id: int, db: Session) -> list[dict]:
-    """从 DB 查询 QA 会话历史，构建 role-mapped messages 列表（最多 8 轮）"""
+    """从 DB 查询 QA 会话历史，构建 role-mapped messages 列表（token 感知截断，最多 2000 tokens）"""
     from models import QARecord
 
-    history = (
+    records = (
         db.query(QARecord)
         .filter(QARecord.session_id == session_id)
         .order_by(QARecord.created_at.desc())
-        .limit(16)
         .all()
     )
-    history.reverse()
-    return [{"role": "user" if r.role == "user" else "assistant", "content": r.content} for r in history]
+    total_tokens = 0
+    kept = []
+    for r in records:
+        tokens = _estimate_tokens(r.content)
+        if total_tokens + tokens > MAX_HISTORY_TOKENS:
+            break
+        total_tokens += tokens
+        kept.append(r)
+    kept.reverse()
+    return [{"role": "user" if r.role == "user" else "assistant", "content": r.content} for r in kept]

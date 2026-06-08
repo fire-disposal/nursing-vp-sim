@@ -402,6 +402,7 @@ async def call_llm_json(
     client: httpx.AsyncClient,
     router,
     log_worker,
+    response_format: dict | None = None,
 ) -> dict:
     response_text = await call_llm(
         messages,
@@ -417,5 +418,6 @@ async def call_llm_json(
         client=client,
         router=router,
         log_worker=log_worker,
+        response_format=response_format,
     )
     return _safe_parse_json(response_text)

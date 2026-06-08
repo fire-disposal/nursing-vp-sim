@@ -64,4 +64,6 @@ CASE_GENERATION_SYSTEM = """你是一名资深的护理学教育专家和临床�
 4. **语言口语化**：opening_line 和 communication_style 要有真实患者的口吻
 5. **患者信息多样化**：姓名随机生成，年龄与疾病特征匹配
 
+{#field_instruction#}
+
 直接输出 JSON，不要任何解释、前言或后记。"""

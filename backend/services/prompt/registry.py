@@ -220,6 +220,14 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             source="教师选择的参考病例 + 补充文本",
             default_example="参考病例：患者因高血压入院...",
         ),
+        VariableDef(
+            name="field_instruction",
+            type="text",
+            description="字段级别生成指令（仅 field mode 下非空）",
+            source="运行时由 field 模式自动构建",
+            required=False,
+            default_example="",
+        ),
     ],
     "qa": [],
 }

@@ -189,15 +189,18 @@ async def generate_case(
     pm = request.app.state.prompt_manager
     tmpl = await pm.get("case_generation")
     defaults = get_registry().get_defaults("case_generation")
+
+    field_instruction = ""
+    if data.field:
+        field_instruction = f"\n\n当前任务：只生成字段「{data.field}」。"
+        if data.current_case_data:
+            field_instruction += f"\n\n当前病例上下文：\n{format_case_for_prompt(data.current_case_data)}"
+
     system_content = tmpl.render(
         description=data.description or defaults.get("description", ""),
         reference_material=reference_material or defaults.get("reference_material", "无"),
+        field_instruction=field_instruction or defaults.get("field_instruction", ""),
     )
-
-    if data.field:
-        system_content += f"\n\n当前任务：只生成字段「{data.field}」。"
-        if data.current_case_data:
-            system_content += f"\n\n当前病例上下文：\n{format_case_for_prompt(data.current_case_data)}"
 
     messages = [{"role": "system", "content": system_content}]
 
