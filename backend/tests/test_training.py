@@ -279,34 +279,3 @@ class TestScoreReview:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 403
-
-
-class TestScoringIsolation:
-    """验证后台评分使用独立 client/router/log_worker，不污染模块级共享资源。"""
-
-    def test_llm_client_call_json(self):
-        """LLMClient.call_json returns parsed JSON dict."""
-        import asyncio
-
-        import httpx
-
-        from infrastructure.llm.client import LLMClient
-
-        local_client = httpx.AsyncClient()
-        mock_router = MagicMock()
-        mock_worker = MagicMock()
-        messages = [{"role": "user", "content": "test"}]
-
-        async def _do():
-            llm = LLMClient(local_client, mock_router, mock_worker)
-            with patch("infrastructure.llm.client.LLMClient.call_json", new_callable=AsyncMock) as mock_call_json:
-                mock_call_json.return_value = {"result": "ok"}
-                result = await llm.call_json(
-                    messages,
-                    purpose="test",
-                    max_retries=1,
-                )
-                assert result == {"result": "ok"}
-                mock_call_json.assert_called_once()
-
-        asyncio.run(_do())

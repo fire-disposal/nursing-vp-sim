@@ -18,7 +18,7 @@ class TestTaskQueue:
     @pytest.mark.asyncio
     async def test_enqueue_and_await_result(self, queue):
         async def work():
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0)
             return 42
 
         future = await queue.enqueue(lambda: work(), priority=0)
@@ -33,13 +33,13 @@ class TestTaskQueue:
             results.append(1)
 
         await queue.enqueue(lambda: work())
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0)
         assert results == [1]
 
     @pytest.mark.asyncio
     async def test_multiple_tasks(self, queue):
         async def work(n):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0)
             return n * 2
 
         futures = []
@@ -60,7 +60,7 @@ class TestTaskQueue:
 
         await queue.enqueue(lambda: low(), priority=10)
         await queue.enqueue(lambda: high(), priority=0)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
         assert order[0] == "high"
 
     @pytest.mark.asyncio
@@ -75,10 +75,10 @@ class TestTaskQueue:
     @pytest.mark.asyncio
     async def test_pending_count(self, queue):
         async def slow():
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0)
 
         assert queue.pending == 0
         await queue.enqueue(lambda: slow(), priority=0)
         await queue.enqueue(lambda: slow(), priority=0)
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
         assert queue.pending <= 0
