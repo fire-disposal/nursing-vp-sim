@@ -249,7 +249,7 @@ export default function QA() {
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 bg-background">
-          <Button variant="outline" size="icon-sm" className="absolute top-2 left-2 z-30 md:hidden" onClick={() => setShowSidebar(true)}>
+          <Button variant="outline" size="icon-sm" className="absolute top-2 left-12 z-30 md:hidden" onClick={() => setShowSidebar(true)}>
             <Menu size={16} />
           </Button>
 
