@@ -25,11 +25,6 @@ def seed_all() -> None:
 
 
 def _seed_data() -> None:
-    from core.database import SessionLocal
-    from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
-    from core.security import hash_password
-    from models import Case, Role, RolePermission, Rubric, School, User
-
     db = SessionLocal()
     try:
         # 1. 确保默认学校存在
@@ -89,7 +84,7 @@ def _seed_data() -> None:
 
         # 4. 评分标准
         if db.query(Rubric).count() == 0:
-            rubric_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "rubrics", "nursing_history_v1.json")
+            rubric_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "rubrics", "nursing_history_v1.json")
             if os.path.isfile(rubric_path):
                 import json as _json
                 with open(rubric_path, encoding="utf-8") as f:
@@ -145,7 +140,7 @@ def _seed_data() -> None:
                 ))
             log.info("测试学生已创建 (student1-5 / 123456)")
 
-            cases_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cases")
+            cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cases")
             case_count = 0
             for fname in sorted(os.listdir(cases_dir)):
                 if fname.endswith(".json"):
@@ -161,11 +156,6 @@ def _seed_data() -> None:
 
 
 def _seed_llm() -> None:
-    from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
-    from core.database import SessionLocal
-    from models import ApiSecret, LLMConfig
-    from services.llm import encrypt_api_key
-
     db = SessionLocal()
     try:
         env_encrypted = encrypt_api_key(DEEPSEEK_API_KEY)
