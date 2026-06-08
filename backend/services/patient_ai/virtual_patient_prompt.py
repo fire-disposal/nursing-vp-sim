@@ -11,7 +11,7 @@ from random import choice
 
 log = logging.getLogger(__name__)
 
-from prompts.patient_chat import AUTHOR_NOTE_TEMPLATE, PATIENT_CACHE_SPLIT_MARKER, PATIENT_DYNAMIC
+from prompts.patient_chat import AUTHOR_NOTE_TEMPLATE, PATIENT_DYNAMIC
 
 
 def build_patient_context_kwargs(

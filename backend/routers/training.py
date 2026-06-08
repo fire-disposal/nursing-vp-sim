@@ -205,11 +205,9 @@ def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    from services.patient_ai.chat_session import cleanup_topics
     from services.patient_ai import cleanup_emotion
     from services.patient_ai import cleanup_initiative
 
-    cleanup_topics(record_id)
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
 

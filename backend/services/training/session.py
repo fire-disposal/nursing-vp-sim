@@ -28,4 +28,10 @@ def list_configs() -> list[dict]:
 
 
 def get_default_config() -> dict:
-    return get_config("standard-assessment") or list_configs()[0]
+    config = get_config("standard-assessment")
+    if config:
+        return config
+    configs = list_configs()
+    if configs:
+        return configs[0]
+    return {}

@@ -82,7 +82,7 @@ class PromptTemplateObj:
 
     def render_pair(self, **kwargs) -> tuple[str, str]:
         merged = {**self._var_defaults, **kwargs}
-        system = self.render(**kwargs)
+        system = self.render(**merged)
         user = ""
         if self.user_prompt:
             try:

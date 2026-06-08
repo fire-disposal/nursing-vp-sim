@@ -1,7 +1,6 @@
 """Pipeline registry — maps phase IDs to middleware chains."""
 
 from .middleware import (
-    identity_guard,
     operation_detector,
     operation_executor,
     persister,
@@ -18,32 +17,23 @@ async def _llm_caller(ctx, next_mw):
     await _lc(ctx, next_mw)
 
 
+_DEFAULT_CHAIN: list[PipelineMiddleware] = [
+    phase_guard,
+    operation_detector,
+    operation_executor,
+    phase_transition,
+    prompt_builder,
+    _llm_caller,
+    persister,
+    side_effects,
+]
+
 PIPELINE_REGISTRY: dict[str, list[PipelineMiddleware]] = {
-    "history_taking": [
-        phase_guard,
-        operation_detector,
-        operation_executor,
-        phase_transition,
-        prompt_builder,
-        _llm_caller,
-        identity_guard,
-        persister,
-        side_effects,
-    ],
-    "physical_exam": [
-        phase_guard,
-        operation_detector,
-        operation_executor,
-        phase_transition,
-        prompt_builder,
-        _llm_caller,
-        identity_guard,
-        persister,
-        side_effects,
-    ],
+    "history_taking": _DEFAULT_CHAIN,
+    "physical_exam": _DEFAULT_CHAIN,
 }
 
 
 def get_pipeline(phase_id: str) -> list[PipelineMiddleware]:
     """Return the middleware chain for a given phase, or the default chain."""
-    return PIPELINE_REGISTRY.get(phase_id, PIPELINE_REGISTRY["history_taking"])
+    return PIPELINE_REGISTRY.get(phase_id, _DEFAULT_CHAIN)

@@ -35,13 +35,7 @@ def _safe_parse_json(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    result = {
-        "strengths": [],
-        "weaknesses": [],
-        "missed_content": [],
-        "suggestions": "",
-        "detail_scores": {},
-    }
+    result = {}
     for field in ["total_score", "strengths", "weaknesses", "missed_content", "suggestions", "detail_scores"]:
         if field == "total_score":
             m = re.search(r'"total_score"\s*:\s*(-?\d+(?:\.\d+)?)', text)
