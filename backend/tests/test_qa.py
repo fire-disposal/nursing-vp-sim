@@ -5,8 +5,8 @@ from fastapi import status
 
 class TestQAMultiTurn:
     def test_create_session_and_ask(self, client, student, db_session):
-        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm, patch("routers.qa.check_qa_limit"):
-            mock_llm.return_value = "护理评估应包括生命体征测量。"
+        client.app.state.llm_client.call.return_value = "护理评估应包括生命体征测量。"
+        with patch("routers.qa.messages.check_qa_limit"):
             resp = client.post(
                 "/api/qa/sessions",
                 json={"question": "如何进行护理评估？"},
@@ -18,14 +18,14 @@ class TestQAMultiTurn:
             assert data["session_id"] > 0
 
     def test_list_sessions(self, client, student, db_session):
-        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm, patch("routers.qa.check_qa_limit"):
-            mock_llm.return_value = "回答A。"
+        client.app.state.llm_client.call.return_value = "回答A。"
+        with patch("routers.qa.messages.check_qa_limit"):
             client.post(
                 "/api/qa/sessions",
                 json={"question": "问题1"},
                 headers={"Authorization": f"Bearer {student[1]}"},
             )
-            mock_llm.return_value = "回答B。"
+            client.app.state.llm_client.call.return_value = "回答B。"
             client.post(
                 "/api/qa/sessions",
                 json={"question": "问题2"},
@@ -40,8 +40,8 @@ class TestQAMultiTurn:
         assert len(data) == 2
 
     def test_get_session_messages(self, client, student, db_session):
-        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm, patch("routers.qa.check_qa_limit"):
-            mock_llm.return_value = "回答。"
+        client.app.state.llm_client.call.return_value = "回答。"
+        with patch("routers.qa.messages.check_qa_limit"):
             create_resp = client.post(
                 "/api/qa/sessions",
                 json={"question": "测试问题"},
@@ -62,8 +62,8 @@ class TestQAMultiTurn:
     def test_delete_session(self, client, student, db_session):
         from models import QARecord, QASession
 
-        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm, patch("routers.qa.check_qa_limit"):
-            mock_llm.return_value = "回答。"
+        client.app.state.llm_client.call.return_value = "回答。"
+        with patch("routers.qa.messages.check_qa_limit"):
             create_resp = client.post(
                 "/api/qa/sessions",
                 json={"question": "待删除"},
@@ -120,36 +120,35 @@ class TestQAMultiTurn:
         assert data["total"] >= 1
 
     def test_multi_turn_context(self, client, student, db_session):
-        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm, patch("routers.qa.check_qa_limit"):
-            mock_llm.return_value = "回答1。"
+        client.app.state.llm_client.call.return_value = "回答1。"
+        with patch("routers.qa.messages.check_qa_limit"):
             create_resp = client.post(
                 "/api/qa/sessions",
                 json={"question": "怎么测血压？"},
                 headers={"Authorization": f"Bearer {student[1]}"},
             )
             sid = create_resp.json()["session_id"]
-            mock_llm.return_value = "回答2。"
+            client.app.state.llm_client.call.return_value = "回答2。"
             ask_resp = client.post(
                 f"/api/qa/sessions/{sid}/ask",
                 json={"question": "有哪些注意事项？"},
                 headers={"Authorization": f"Bearer {student[1]}"},
             )
             assert ask_resp.status_code == 200
-            call_args = mock_llm.call_args_list[-1]
+            call_args = client.app.state.llm_client.call.call_args_list[-1]
             messages = call_args[0][0]
             user_contents = [m["content"] for m in messages if m["role"] == "user"]
             assert "怎么测血压？" in user_contents
             assert "有哪些注意事项？" in user_contents
 
     def test_llm_failure_returns_500(self, client, student):
-        with patch("routers.qa.call_llm", new_callable=AsyncMock) as mock_llm:
-            mock_llm.side_effect = RuntimeError("模拟LLM故障")
-            resp = client.post(
-                "/api/qa/sessions",
-                json={"question": "缓存隔离测试专用问题-unique-500"},
-                headers={"Authorization": f"Bearer {student[1]}"},
-            )
-            assert resp.status_code == 502
+        client.app.state.llm_client.call.side_effect = RuntimeError("模拟LLM故障")
+        resp = client.post(
+            "/api/qa/sessions",
+            json={"question": "缓存隔离测试专用问题-unique-500"},
+            headers={"Authorization": f"Bearer {student[1]}"},
+        )
+        assert resp.status_code == 502
 
     def test_empty_question_rejected(self, client, student):
         resp = client.post(

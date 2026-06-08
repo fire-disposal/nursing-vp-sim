@@ -126,27 +126,34 @@ def client(engine, db_session):
     app.state.llm_router = mock_router
 
     app.state.httpx_client = MagicMock()
-    app.state.log_worker = MagicMock()
 
-    # v2: mock new infrastructure
-    mock_llm_client = MagicMock()
-    mock_llm_client.call = AsyncMock(return_value="mock response")
-    mock_llm_client.call_json = AsyncMock(return_value={"score": 85})
-    mock_llm_client.stream = MagicMock()
-    app.state.llm_client = mock_llm_client
-
-    mock_tq = MagicMock()
-    mock_tq.enqueue = AsyncMock()
-    app.state.task_queue = mock_tq
-
-    from infrastructure.cache import EmotionCache, InitiativeCache
-    app.state.emotion_cache = EmotionCache()
-    app.state.initiative_cache = InitiativeCache()
+    mock_log_worker = MagicMock()
+    mock_log_worker.enqueue = MagicMock()
+    mock_log_worker.start = AsyncMock()
+    mock_log_worker.stop = AsyncMock()
+    app.state.log_worker = mock_log_worker
 
     from routers.training.base import set_training_infra
     set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker)
 
     with TestClient(app) as c:
+        # v2: mock new infrastructure AFTER lifespan (lifespan overwrites app.state)
+        mock_llm_client = MagicMock()
+        mock_llm_client.call = AsyncMock(return_value="mock response")
+        mock_llm_client.call_json = AsyncMock(return_value={"score": 85})
+        mock_llm_client.stream = MagicMock()
+        c.app.state.llm_client = mock_llm_client
+
+        mock_tq = MagicMock()
+        mock_tq.enqueue = AsyncMock()
+        mock_tq.start = AsyncMock()
+        mock_tq.stop = AsyncMock()
+        c.app.state.task_queue = mock_tq
+
+        from infrastructure.cache import EmotionCache, InitiativeCache
+        c.app.state.emotion_cache = EmotionCache()
+        c.app.state.initiative_cache = InitiativeCache()
+
         yield c
     app.dependency_overrides.clear()
 

@@ -1,6 +1,6 @@
 """Case management tests: CRUD operations."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 
 class TestStudentCases:
@@ -82,15 +82,14 @@ class TestGenerateCase:
         )
         assert resp.status_code == 404
 
-    @patch("routers.cases.call_llm_json", new_callable=AsyncMock)
-    def test_generate_quick_mode_success(self, mock_call_llm, client, teacher):
+    def test_generate_quick_mode_success(self, client, teacher):
         mock_tmpl = MagicMock()
         mock_tmpl.render.return_value = "system prompt content"
         mock_pm = MagicMock()
         mock_pm.get = AsyncMock(return_value=mock_tmpl)
         client.app.state.prompt_manager = mock_pm
 
-        mock_call_llm.return_value = {
+        client.app.state.llm_client.call_json.return_value = {
             "name": "测试生成病例",
             "difficulty": 1,
             "time_limit": 20,
@@ -122,15 +121,14 @@ class TestGenerateCase:
         assert data["case_data"]["patient_info"]["name"] == "张先生"
         assert data["field"] is None
 
-    @patch("routers.cases.call_llm_json", new_callable=AsyncMock)
-    def test_generate_field_mode(self, mock_call_llm, client, teacher):
+    def test_generate_field_mode(self, client, teacher):
         mock_tmpl = MagicMock()
         mock_tmpl.render.return_value = "system prompt content"
         mock_pm = MagicMock()
         mock_pm.get = AsyncMock(return_value=mock_tmpl)
         client.app.state.prompt_manager = mock_pm
 
-        mock_call_llm.return_value = {
+        client.app.state.llm_client.call_json.return_value = {
             "field_value": ["吸烟史", "饮酒史", "运动习惯"],
         }
 

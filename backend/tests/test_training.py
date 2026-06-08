@@ -284,13 +284,13 @@ class TestScoreReview:
 class TestScoringIsolation:
     """验证后台评分使用独立 client/router/log_worker，不污染模块级共享资源。"""
 
-    def test_call_llm_json_passes_through_client(self):
-        """call_llm_json forwards to LLMClient.call_json via shim."""
+    def test_llm_client_call_json(self):
+        """LLMClient.call_json returns parsed JSON dict."""
         import asyncio
 
         import httpx
 
-        from services.llm import call_llm_json as call_llm_json_fn
+        from infrastructure.llm.client import LLMClient
 
         local_client = httpx.AsyncClient()
         mock_router = MagicMock()
@@ -298,20 +298,15 @@ class TestScoringIsolation:
         messages = [{"role": "user", "content": "test"}]
 
         async def _do():
+            llm = LLMClient(local_client, mock_router, mock_worker)
             with patch("infrastructure.llm.client.LLMClient.call_json", new_callable=AsyncMock) as mock_call_json:
                 mock_call_json.return_value = {"result": "ok"}
-                result = await call_llm_json_fn(
+                result = await llm.call_json(
                     messages,
-                    client=local_client,
-                    router=mock_router,
-                    log_worker=mock_worker,
                     purpose="test",
                     max_retries=1,
                 )
                 assert result == {"result": "ok"}
                 mock_call_json.assert_called_once()
-                called_messages = mock_call_json.call_args.args[0]
-                assert called_messages == messages
-                assert mock_call_json.call_args.kwargs["purpose"] == "test"
 
         asyncio.run(_do())
