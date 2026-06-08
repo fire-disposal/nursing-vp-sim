@@ -17,7 +17,7 @@ type QAMessageItem = components["schemas"]["QAMessageItem"];
 const SUGGESTIONS = ["病史采集技巧", "护理评估方法", "护理诊断与医疗诊断区别", "无菌技术要点", "生命体征测量规范"];
 
 const BUBBLE_CONTENT_CLASSES = [
-  "whitespace-pre-wrap break-words",
+  "break-words",
   "[&_p]:mb-0.5 [&_p:last-child]:mb-0",
   "[&_code]:bg-black/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono",
   "[&_pre]:bg-black/[0.06] [&_pre]:p-2.5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:my-2",
