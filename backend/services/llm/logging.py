@@ -11,6 +11,7 @@ from core.config import (
     LLM_PRICE_OUTPUT_PER_1M,
 )
 from core.database import SessionLocal
+from models import LLMCallLog
 
 log = logging.getLogger(__name__)
 
@@ -147,8 +148,6 @@ class LogWorker:
 
     @staticmethod
     def _flush(items: list[dict]):
-        from models import LLMCallLog
-
         db = SessionLocal()
         try:
             failed = 0

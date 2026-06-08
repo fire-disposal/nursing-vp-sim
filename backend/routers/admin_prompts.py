@@ -2,6 +2,7 @@
 
 import logging
 import re
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,6 +12,16 @@ from core.database import get_db
 from core.security import require_permission
 from models import PromptTemplate as PT
 from models import User
+from prompts import (
+    CASE_GENERATION_SYSTEM,
+    PATIENT_CHAT_SYSTEM,
+    PATIENT_DYNAMIC_TEMPLATE,
+    QA_SYSTEM,
+    SCORING_FEEDBACK_SYSTEM,
+    SCORING_FEEDBACK_USER,
+    SCORING_SYSTEM,
+    SCORING_USER,
+)
 from schemas import (
     OkResponse,
     PromptPreviewResponse,
@@ -63,19 +74,6 @@ def list_prompts(
 
 def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[PT]) -> list[PromptTemplateResponse]:
     """为每个 purpose 生成内置提示词条目（锁定，不可编辑/删除）"""
-    from datetime import UTC, datetime
-
-    from prompts import (
-        CASE_GENERATION_SYSTEM,
-        PATIENT_CHAT_SYSTEM,
-        PATIENT_DYNAMIC_TEMPLATE,
-        QA_SYSTEM,
-        SCORING_FEEDBACK_SYSTEM,
-        SCORING_FEEDBACK_USER,
-        SCORING_SYSTEM,
-        SCORING_USER,
-    )
-
     BUILTIN_MAP: dict[str, tuple[str, str | None, str]] = {
         "patient_chat": (PATIENT_CHAT_SYSTEM, None, "虚拟患者对话 — 内置兜底"),
         "patient_dynamic": (PATIENT_DYNAMIC_TEMPLATE, None, "病情动态数据块 — 内置兜底"),

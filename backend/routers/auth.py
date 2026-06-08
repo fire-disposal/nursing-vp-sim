@@ -12,6 +12,7 @@ from core.login_strategies import LoginStrategy, get_strategy_registry
 from core.security import create_access_token, get_current_user, hash_password, require_permission, verify_password
 from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
 from models import Class, Role, RolePermission, School, User, UserClass
+from services.wechat import code2session
 from schemas import (
     ChangePasswordRequest,
     LoginRequest,
@@ -128,8 +129,6 @@ async def wechat_login(
     db: Annotated[Session, Depends(get_db)],
 ):
     """微信小程序 code 登录。code → openid → 策略匹配 → JWT"""
-    from services.wechat import code2session
-
     try:
         session = await code2session(req.code)
     except RuntimeError as e:
@@ -165,8 +164,6 @@ async def wechat_bind(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    from services.wechat import code2session
-
     if current_user.wechat_openid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="已绑定微信，不可重复绑定")
 
@@ -195,8 +192,6 @@ async def wechat_register(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[None, Depends(register_rate_limit)],
 ):
-    from services.wechat import code2session
-
     try:
         session = await code2session(req.code)
     except RuntimeError as e:

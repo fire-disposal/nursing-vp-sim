@@ -4,6 +4,8 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+
 log = logging.getLogger(__name__)
 
 CIRCUIT_BREAKER_THRESHOLD = 5
@@ -35,8 +37,6 @@ async def _update_synthetic_stats(success: bool, tokens: int):
 
 
 async def get_env_fallback_state() -> dict:
-    from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
-
     return {
         "available": _env_fallback_available,
         "label": "环境变量兜底",

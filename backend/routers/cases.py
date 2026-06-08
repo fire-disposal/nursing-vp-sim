@@ -232,7 +232,6 @@ def get_case(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    from middleware.dependencies import resolve_school_filter
     effective_school = resolve_school_filter(current_user)
     query = db.query(Case).filter(Case.id == case_id)
     if effective_school is not None:

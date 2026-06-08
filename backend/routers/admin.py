@@ -1,3 +1,5 @@
+import csv
+import io
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -678,8 +680,6 @@ def export_llm_logs_csv(
     db: Session = Depends(get_db),
 ):
     """导出 LLM 调用日志为 CSV 文件"""
-    import csv
-    import io
 
     q = db.query(LLMCallLog)
     if date_from:

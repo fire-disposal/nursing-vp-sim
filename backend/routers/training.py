@@ -4,6 +4,7 @@ import threading
 from datetime import UTC, datetime
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -27,6 +28,8 @@ from schemas import (
     TrainingStartResponse,
     TrainingStateResponse,
 )
+from services.llm.logging import LogWorker
+from services.llm.router import ProfileRouter
 from services.patient_ai import (
     cleanup_emotion,
     cleanup_initiative,
@@ -37,6 +40,9 @@ from services.patient_ai import (
     update_initiative_timer,
 )
 from services.pagination import paginate
+from services.pipeline.phase import parse_phases, try_advance_phase
+from services.prompt.manager import PromptManager
+from services.scoring import evaluate_training
 from services.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
 from services.training import get_config, list_configs
 
@@ -119,12 +125,6 @@ def get_session_configs():
     return list_configs()
 
 
-import httpx
-
-from services.llm.logging import LogWorker
-from services.llm.router import ProfileRouter
-from services.prompt.manager import PromptManager
-
 _infra_client: httpx.AsyncClient | None = None
 _infra_router: ProfileRouter | None = None
 _infra_pm: PromptManager | None = None
@@ -199,8 +199,6 @@ async def _run_scoring_background(record_id: int, case_data: dict):
         record.scoring_status = "processing"
         db.commit()
 
-        from services.scoring import evaluate_training
-
         await asyncio.wait_for(
             evaluate_training(
                 record_id, case_data, db,
@@ -265,9 +263,6 @@ def end_training(
     record.end_time = datetime.now(UTC)
     record.scoring_status = "pending"
     db.commit()
-
-    from services.patient_ai import cleanup_emotion
-    from services.patient_ai import cleanup_initiative
 
     cleanup_emotion(record_id)
     cleanup_initiative(record_id)
@@ -592,8 +587,6 @@ def advance_phase(
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data or {} if case else {}
-
-    from services.pipeline.phase import parse_phases, try_advance_phase
 
     phases = parse_phases(case_data)
     current = None

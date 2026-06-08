@@ -11,6 +11,8 @@ import time
 
 from sqlalchemy.orm import Session
 
+from models import QARecord
+
 log = logging.getLogger(__name__)
 
 _MAX_ENTRIES = 200
@@ -67,8 +69,6 @@ def _estimate_tokens(text: str) -> int:
 
 def build_qa_history(session_id: int, db: Session) -> list[dict]:
     """从 DB 查询 QA 会话历史，构建 role-mapped messages 列表（token 感知截断，最多 2000 tokens）"""
-    from models import QARecord
-
     records = (
         db.query(QARecord)
         .filter(QARecord.session_id == session_id)

@@ -1,6 +1,8 @@
+import json as _json
 import logging
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
@@ -79,10 +81,7 @@ _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
 
 
 def get_llm_config(purpose: str) -> dict:
-    import json as _json
-    import os as _os
-
-    override = _os.getenv("LLM_CONFIG_JSON")
+    override = os.getenv("LLM_CONFIG_JSON")
     if override:
         try:
             overrides = _json.loads(override)
