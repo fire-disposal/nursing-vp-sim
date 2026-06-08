@@ -55,10 +55,6 @@ async def async_retry(
                 all_429 = False
             if status not in _RETRYABLE_STATUSES:
                 raise  # non-retryable (400, 401, 403, 404, etc.)
-        except Exception as e:
-            last_error = f"{type(e).__name__}: {e!s}"[:200]
-            all_429 = False
-
         if attempt < max_retries:
             delay = backoff_delay(attempt)
             log.debug("LLM retry attempt=%d/%d delay=%.1fs purpose=%s error=%s",
