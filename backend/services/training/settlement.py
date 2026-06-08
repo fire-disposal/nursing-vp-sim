@@ -52,8 +52,39 @@ async def run_cleanup_loop():
         await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
         try:
             _cleanup_once()
+            _cleanup_orphaned_cache()
         except Exception:
             log.exception("自动结算循环异常")
+
+
+def _cleanup_orphaned_cache():
+    """清理已完成记录的残余缓存（情绪、计时器），防止 settlement 遗漏时泄漏。"""
+    from services.patient_ai.emotion_engine import _emotion_cache
+    from services.patient_ai.patient_initiative import _initiative_timers
+
+    record_ids = set(_emotion_cache.keys()) | set(_initiative_timers.keys())
+    if not record_ids:
+        return
+
+    db = SessionLocal()
+    try:
+        completed_ids = set(
+            row[0] for row in db.query(TrainingRecord.id).filter(
+                TrainingRecord.id.in_(list(record_ids)),
+                TrainingRecord.status == "completed",
+            ).all()
+        )
+
+        cleared = 0
+        for rid in completed_ids:
+            from services.patient_ai import cleanup_emotion, cleanup_initiative
+            cleanup_emotion(rid)
+            cleanup_initiative(rid)
+            cleared += 1
+        if cleared:
+            log.info("清理了 %d 个已完成记录的残余缓存", cleared)
+    finally:
+        db.close()
 
 
 def _cleanup_once():
@@ -95,6 +126,10 @@ def _cleanup_once():
 
                 record.status = "completed"
                 record.end_time = now
+
+                from services.patient_ai import cleanup_emotion, cleanup_initiative
+                cleanup_emotion(record.id)
+                cleanup_initiative(record.id)
 
                 if should_auto_score(messages, case_data):
                     from routers.training import _run_scoring_background, _try_acquire_scoring
