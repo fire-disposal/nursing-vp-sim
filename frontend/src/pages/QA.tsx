@@ -312,7 +312,7 @@ export default function QA() {
                   <button
                     key={s}
                     type="button"
-                    className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer"
+                    className="inline-flex items-center rounded-full border border-border bg-card px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5 cursor-pointer"
                     onClick={() => sendMessage(s)}
                   >
                     {s}
@@ -325,12 +325,15 @@ export default function QA() {
           <div className="flex gap-2 items-center border-t p-4">
             <input
               ref={inputRef}
-              className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
+              className="flex-1 rounded-lg border border-input bg-background px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入您的问题..."
               disabled={loading}
+              enterKeyHint="send"
+              autoCapitalize="off"
+              autoCorrect="off"
             />
             <Button size="icon" onClick={() => sendMessage()} disabled={loading || !input.trim()}>
               <Send size={16} />

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ChatBubble from "@/components/ChatBubble";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
@@ -189,6 +189,12 @@ export default function ChatTraining() {
     );
   };
 
+  const handleInputFocus = useCallback(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 300);
+  }, []);
+
   const handleSpeakToggle = (text: string) => {
     if (voice.isSpeaking) {
       voice.stopSpeak();
@@ -326,6 +332,7 @@ export default function ChatTraining() {
         }}
         onSend={handleSend}
         onVoiceInput={toggleVoice}
+        onFocus={handleInputFocus}
         loading={loading}
         ending={ending}
         remaining={remaining}

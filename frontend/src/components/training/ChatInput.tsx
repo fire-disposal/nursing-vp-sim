@@ -7,6 +7,7 @@ interface ChatInputProps {
   onInputChange: (value: string) => void;
   onSend: (retryContent?: string) => void;
   onVoiceInput: () => void;
+  onFocus?: () => void;
   loading: boolean;
   ending: boolean;
   remaining: number | null;
@@ -22,6 +23,7 @@ export default function ChatInput({
   onInputChange,
   onSend,
   onVoiceInput,
+  onFocus,
   loading,
   ending,
   remaining,
@@ -38,7 +40,7 @@ export default function ChatInput({
       {voiceSupported && (
         <button
           className={cn(
-            "w-10 h-10 rounded-full border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+            "size-11 rounded-full border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted active:scale-95 transition-transform transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
             isListening && "border-destructive bg-destructive/10 text-destructive",
           )}
           onClick={onVoiceInput}
@@ -74,9 +76,14 @@ export default function ChatInput({
           maxLength={maxLength}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && onSend()}
+          onFocus={onFocus}
           placeholder={!isOnline ? "网络已断开" : remaining === 0 ? "训练时间已结束" : "输入你的问题，按 Enter 发送..."}
           disabled={isDisabled}
-          className="flex-1 h-10 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-background transition-all disabled:opacity-50"
+          enterKeyHint="send"
+          autoCapitalize="off"
+          autoCorrect="off"
+          inputMode="text"
+          className="flex-1 h-11 px-4 rounded-full border border-border bg-muted text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-background transition-all disabled:opacity-50"
         />
         {input.length > 0 && (
           <span
@@ -91,7 +98,7 @@ export default function ChatInput({
       </div>
 
       <button
-        className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+        className="size-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
         onClick={() => onSend()}
         disabled={!input.trim() || isDisabled}
         aria-label="发送消息"
