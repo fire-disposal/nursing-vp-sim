@@ -68,6 +68,7 @@ def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[P
     from prompts import (
         CASE_GENERATION_SYSTEM,
         PATIENT_CHAT_SYSTEM,
+        PATIENT_DYNAMIC_TEMPLATE,
         QA_SYSTEM,
         SCORING_FEEDBACK_SYSTEM,
         SCORING_FEEDBACK_USER,
@@ -77,6 +78,7 @@ def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[P
 
     BUILTIN_MAP: dict[str, tuple[str, str | None, str]] = {
         "patient_chat": (PATIENT_CHAT_SYSTEM, None, "虚拟患者对话 — 内置兜底"),
+        "patient_dynamic": (PATIENT_DYNAMIC_TEMPLATE, None, "病情动态数据块 — 内置兜底"),
         "scoring": (SCORING_SYSTEM, SCORING_USER, "训练评分 — 内置兜底"),
         "scoring_feedback": (SCORING_FEEDBACK_SYSTEM, SCORING_FEEDBACK_USER, "评分反馈生成 — 内置兜底"),
         "qa": (QA_SYSTEM, None, "护理学问答 — 内置兜底"),

@@ -3,7 +3,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from core.config import DEEPSEEK_MODEL, get_llm_config
+from core.config import get_llm_config
 from models import Message, Score, TrainingRecord
 from services.llm import call_llm_json
 from services.prompt import build_scoring_criteria, build_scoring_json_schema
@@ -183,8 +183,11 @@ async def evaluate_training(
     raw_max = rubric.get("raw_max", 57)
 
     scoring_criteria_text = build_scoring_criteria(rubric)
-    scoring_json_schema_text = build_scoring_json_schema(rubric)
+    scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
+
+    scoring_config = router.select("scoring")
+    scoring_model_name = getattr(scoring_config, 'model', None) or 'unknown'
 
     user_id = record.user_id
     case_id = record.case_id
@@ -256,7 +259,7 @@ async def evaluate_training(
         missed_content=result["missed_content"],
         suggestions=result["suggestions"],
         rubric_version=get_rubric_version_id(rubric),
-        model_name=DEEPSEEK_MODEL,
+        model_name=scoring_model_name,
         prompt_version=tmpl_score.version,
         score_scale=100,
     )

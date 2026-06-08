@@ -7,6 +7,7 @@ import re
 from prompts import (
     CASE_GENERATION_SYSTEM,
     PATIENT_CHAT_SYSTEM,
+    PATIENT_DYNAMIC_TEMPLATE,
     QA_SYSTEM,
     SCORING_FEEDBACK_SYSTEM,
     SCORING_FEEDBACK_USER,
@@ -105,6 +106,7 @@ class PromptManager:
         db = SessionLocal()
         try:
             self._sync_builtin_patient_chat(db)
+            self._sync_builtin_patient_dynamic(db)
             rows = db.query(PT).filter(PT.is_active).all()
 
             new_cache = {}
@@ -167,6 +169,26 @@ class PromptManager:
             db.commit()
             log.info("patient_chat 模板已同步到 Character Card 格式 (v%d→v%d)", existing[0].version, existing[0].version + 1)
 
+    @staticmethod
+    def _sync_builtin_patient_dynamic(db):
+        """确保 patient_dynamic 模板存在于 DB 中。"""
+        from models import PromptTemplate as PT
+
+        existing = db.query(PT).filter(PT.purpose == "patient_dynamic", PT.is_active).first()
+        if existing:
+            return
+        db.add(PT(
+            purpose="patient_dynamic",
+            version=1,
+            system_prompt=PATIENT_DYNAMIC_TEMPLATE,
+            template_engine="format",
+            is_active=True,
+            created_by="system",
+            remark="病情动态数据块 — 内置模板",
+        ))
+        db.commit()
+        log.info("patient_dynamic 内置模板已创建")
+
 
 def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
     if purpose == "qa":
@@ -175,6 +197,8 @@ def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
         return PromptTemplateObj(0, "patient_chat", 0, PATIENT_CHAT_SYSTEM, None)
     if purpose == "scoring":
         return PromptTemplateObj(0, "scoring", 0, SCORING_SYSTEM, SCORING_USER)
+    if purpose == "patient_dynamic":
+        return PromptTemplateObj(0, "patient_dynamic", 0, PATIENT_DYNAMIC_TEMPLATE, None)
     if purpose == "scoring_feedback":
         return PromptTemplateObj(0, "scoring_feedback", 0, SCORING_FEEDBACK_SYSTEM, SCORING_FEEDBACK_USER)
     if purpose == "case_generation":

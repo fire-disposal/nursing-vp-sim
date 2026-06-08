@@ -8,7 +8,7 @@ from services.patient_ai import (
     classify_intent,
     get_emotion,
 )
-from prompts.patient_chat import PATIENT_DYNAMIC
+from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 from services.prompt import render_template
 from services.pipeline.context import PipelineContext
 
@@ -36,7 +36,12 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     profile_keys = {"patient_info", "scenario", "personality", "communication_style"}
     try:
         system_prompt = tmpl.render(**{k: v for k, v in kwargs.items() if k in profile_keys})
-        dynamic_prompt = render_template(PATIENT_DYNAMIC, **kwargs)
+        dynamic_keys = {"chief_complaint", "present_illness", "allergy_history", "deep_background", "example_dialogues"}
+        try:
+            dynamic_tmpl = await pm.get("patient_dynamic")
+            dynamic_prompt = dynamic_tmpl.render(**{k: v for k, v in kwargs.items() if k in dynamic_keys})
+        except Exception:
+            dynamic_prompt = render_template(PATIENT_DYNAMIC_TEMPLATE, **kwargs)
     except Exception as e:
         log.error("Prompt render failed: %s", e)
         system_prompt = str(kwargs.get("patient_info", "未知患者"))

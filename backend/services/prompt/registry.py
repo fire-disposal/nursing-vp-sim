@@ -14,6 +14,43 @@ class VariableDef:
 
 
 _REGISTRY: dict[str, list[VariableDef]] = {
+    "patient_dynamic": [
+        VariableDef(
+            name="chief_complaint",
+            type="string",
+            description="主诉",
+            source="病例数据 > chief_complaint",
+            default_example="咳嗽咳痰3天",
+        ),
+        VariableDef(
+            name="present_illness",
+            type="string",
+            description="现病史",
+            source="病例数据 > present_illness",
+            default_example="患者3天前受凉后出现咳嗽",
+        ),
+        VariableDef(
+            name="allergy_history",
+            type="string",
+            description="过敏史",
+            source="病例数据 > allergy_history",
+            default_example="无",
+        ),
+        VariableDef(
+            name="deep_background",
+            type="text",
+            description="患者深度背景（吸烟史、职业暴露等），始终可用",
+            source="病例数据 > deep_background",
+            default_example="- 30年吸烟史\n- 建筑工人",
+        ),
+        VariableDef(
+            name="example_dialogues",
+            type="text",
+            description="参考对话示例（护士问→患者答），LLM 模仿此风格",
+            source="病例数据 > example_dialogues 格式化",
+            default_example="护士问：您哪里不舒服？\n你回答：咳得厉害...",
+        ),
+    ],
     "patient_chat": [
         VariableDef(
             name="patient_info",
