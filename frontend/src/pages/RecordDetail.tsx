@@ -281,6 +281,15 @@ export default function RecordDetail() {
   const [retrying, setRetrying] = useState(false);
   const [showReviewEditor, setShowReviewEditor] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
+    return {
+      strengths: isDesktop,
+      weaknesses: isDesktop,
+      missed_content: isDesktop,
+      suggestions: isDesktop,
+    };
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -574,79 +583,113 @@ export default function RecordDetail() {
             )}
 
             <div className="pt-2 border-t border-border">
-              <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
-                <ThumbsUp size={16} className="text-green-500" />
-                表现较好
-              </h4>
-              {recordScore.strengths && recordScore.strengths.length > 0 ? (
-                <ul className="space-y-1.5">
-                  {recordScore.strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <CheckCircle size={14} className="text-green-500 shrink-0 mt-0.5" />
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+              <button
+                onClick={() => setExpanded((prev) => ({ ...prev, strengths: !prev.strengths }))}
+                className="flex items-center justify-between w-full py-2"
+              >
+                <h4 className="flex items-center gap-2 text-sm font-semibold">
+                  <ThumbsUp size={16} className="text-green-500" />
+                  表现较好
+                </h4>
+                <ChevronDown size={16} className={cn("transition-transform", expanded.strengths && "rotate-180")} />
+              </button>
+              {expanded.strengths && (
+                <>
+                  {recordScore.strengths && recordScore.strengths.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {recordScore.strengths.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <CheckCircle size={14} className="text-green-500 shrink-0 mt-0.5" />
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+                  )}
+                </>
               )}
             </div>
 
             <div className="pt-2 border-t border-border">
-              <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
-                <ThumbsDown size={16} className="text-amber-500" />
-                需要改善
-              </h4>
-              {recordScore.weaknesses && recordScore.weaknesses.length > 0 ? (
-                <ul className="space-y-1.5">
-                  {recordScore.weaknesses.map((w, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <span className="size-3.5 rounded-full border-2 border-amber-400 shrink-0 mt-0.5" />
-                      <span>{w}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+              <button
+                onClick={() => setExpanded((prev) => ({ ...prev, weaknesses: !prev.weaknesses }))}
+                className="flex items-center justify-between w-full py-2"
+              >
+                <h4 className="flex items-center gap-2 text-sm font-semibold">
+                  <ThumbsDown size={16} className="text-amber-500" />
+                  需要改善
+                </h4>
+                <ChevronDown size={16} className={cn("transition-transform", expanded.weaknesses && "rotate-180")} />
+              </button>
+              {expanded.weaknesses && (
+                <>
+                  {recordScore.weaknesses && recordScore.weaknesses.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {recordScore.weaknesses.map((w, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="size-3.5 rounded-full border-2 border-amber-400 shrink-0 mt-0.5" />
+                          <span>{w}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+                  )}
+                </>
               )}
             </div>
 
             <div className="pt-2 border-t border-border">
-              <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
-                <AlertTriangle size={16} className="text-red-500" />
-                漏问内容
-              </h4>
-              {recordScore.missed_content && recordScore.missed_content.length > 0 ? (
-                <ul className="space-y-1.5">
-                  {recordScore.missed_content.map((m, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <X size={14} className="text-red-400 shrink-0 mt-0.5" />
-                      <span>{m}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+              <button
+                onClick={() => setExpanded((prev) => ({ ...prev, missed_content: !prev.missed_content }))}
+                className="flex items-center justify-between w-full py-2"
+              >
+                <h4 className="flex items-center gap-2 text-sm font-semibold">
+                  <AlertTriangle size={16} className="text-red-500" />
+                  漏问内容
+                </h4>
+                <ChevronDown size={16} className={cn("transition-transform", expanded.missed_content && "rotate-180")} />
+              </button>
+              {expanded.missed_content && (
+                <>
+                  {recordScore.missed_content && recordScore.missed_content.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {recordScore.missed_content.map((m, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <X size={14} className="text-red-400 shrink-0 mt-0.5" />
+                          <span>{m}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/50 italic">AI 未生成此部分内容，可重新评分获取完整报告</p>
+                  )}
+                </>
               )}
             </div>
 
-            {recordScore.suggestions ? (
-              <div className="pt-2 border-t border-border">
-                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
+            <div className="pt-2 border-t border-border">
+              <button
+                onClick={() => setExpanded((prev) => ({ ...prev, suggestions: !prev.suggestions }))}
+                className="flex items-center justify-between w-full py-2"
+              >
+                <h4 className="flex items-center gap-2 text-sm font-semibold">
                   <Lightbulb size={16} className="text-blue-500" />
                   改进建议
                 </h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">{recordScore.suggestions}</p>
-              </div>
-            ) : (
-              <div className="pt-2 border-t border-border">
-                <h4 className="flex items-center gap-2 text-sm font-semibold mb-3">
-                  <Lightbulb size={16} className="text-blue-500" />
-                  改进建议
-                </h4>
-                <p className="text-sm text-muted-foreground/50 italic">AI 未生成改进建议，可重新评分获取完整报告</p>
-              </div>
-            )}
+                <ChevronDown size={16} className={cn("transition-transform", expanded.suggestions && "rotate-180")} />
+              </button>
+              {expanded.suggestions && (
+                <>
+                  {recordScore.suggestions ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed">{recordScore.suggestions}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/50 italic">AI 未生成改进建议，可重新评分获取完整报告</p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 

@@ -1,5 +1,5 @@
 ﻿import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ClipboardList, Lightbulb, Star, User } from "lucide-react";
+import { AlertTriangle, ClipboardList, Lightbulb, Star, User, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, startTraining } from "@/api/api-client";
@@ -32,6 +32,7 @@ function getPatientSummary(ps: CaseBrief["patient_summary"]): PatientSummary {
 export default function CaseSelect() {
   const [difficultyFilter, setDifficultyFilter] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [hintDismissed, setHintDismissed] = useState(() => localStorage.getItem("case_hint_dismissed") === "1");
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -65,14 +66,25 @@ export default function CaseSelect() {
       />
 
       <div className="space-y-6">
-        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 sm:p-5">
-          <div className="flex gap-3 items-start">
-            <Lightbulb size={20} className="text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">提示：</span>每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
-            </p>
+        {!hintDismissed && (
+          <div className="relative rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 sm:p-5">
+            <div className="flex gap-3 items-start">
+              <Lightbulb size={20} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                <span className="font-semibold">提示：</span>每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem("case_hint_dismissed", "1");
+                setHintDismissed(true);
+              }}
+              className="absolute top-2 right-2 size-8 flex items-center justify-center rounded-lg hover:bg-amber-200/50"
+            >
+              <X size={14} />
+            </button>
           </div>
-        </div>
+        )}
 
         <div className="flex gap-2 flex-wrap">
           <button

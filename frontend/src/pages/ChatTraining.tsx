@@ -247,7 +247,7 @@ export default function ChatTraining() {
           <div className="flex-1" />
 
           {messages.length <= 1 && (
-            <div className="text-center py-12 sm:py-16 text-muted-foreground">
+            <div className="text-center py-6 sm:py-12 lg:py-16 text-muted-foreground">
               <div className="flex items-center justify-center mb-4">
                 <img className="w-12 h-12 rounded-full object-cover bg-muted ring-2 ring-border" src={getPatientAvatar(patientInfo)} alt="患者" />
               </div>

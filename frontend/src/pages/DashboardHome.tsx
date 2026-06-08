@@ -238,14 +238,14 @@ function StudentDashboard({
         <div className="flex flex-col gap-6 min-w-0">
           <Card size="sm">
             <CardContent className="flex flex-col items-center p-8 sm:p-12">
-              <div className="flex size-[88px] items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-6">
+              <div className="flex size-[56px] sm:size-[88px] items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-3 sm:mb-6">
                 <Stethoscope size={40} />
               </div>
               <div className="text-xl font-bold text-foreground mb-1.5">{inProgressRecord ? "继续进行中的训练" : "开始新的病史采集训练"}</div>
-              <div className="text-sm text-muted-foreground max-w-[360px] text-center mb-4">
+              <div className="text-sm text-muted-foreground max-w-[360px] text-center mb-4 hidden sm:block">
                 {inProgressRecord ? "你有一个进行中的训练，点击下方按钮继续。" : "选择虚拟患者，系统模拟真实护理问诊场景，训练结束后自动评分并提供反馈。"}
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-medium mb-6">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-medium mb-3 sm:mb-6">
                 <BookOpen size={14} /> 病例库：{cases.length} 例可用
               </div>
               <Button size="lg" className="px-[52px]" onClick={() => (inProgressRecord ? navigate(`/training/${inProgressRecord.id}`) : navigate("/cases"))}>

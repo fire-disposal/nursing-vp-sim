@@ -46,7 +46,10 @@ export default function TrainingHeader({
   onEnd,
 }: TrainingHeaderProps) {
   return (
-    <header className="shrink-0 border-b border-border bg-card px-4 pb-3 sm:px-4 sm:py-0 sm:h-14" style={{ paddingTop: "max(env(safe-area-inset-top), 16px)" }}>
+    <header
+      className="shrink-0 border-b border-border bg-card px-2 pb-0 sm:px-4 sm:pb-3 sm:py-0 sm:h-14"
+      style={{ paddingTop: "max(env(safe-area-inset-top), 16px)" }}
+    >
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
         <button
           className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"

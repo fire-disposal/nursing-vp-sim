@@ -16,7 +16,7 @@ export default function PageHeader({ title, subtitle, icon: Icon, actions, backT
   const navigate = useNavigate();
 
   return (
-    <div className={cn("mb-6", className)}>
+    <div className={cn("mb-3 sm:mb-6", className)}>
       {backTo && (
         <div className="mb-2">
           <button
@@ -31,11 +31,11 @@ export default function PageHeader({ title, subtitle, icon: Icon, actions, backT
       )}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-bold text-foreground">
+          <h1 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
             {Icon && <Icon size={22} />}
             {title}
           </h1>
-          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+          {subtitle && <p className="hidden sm:block mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
