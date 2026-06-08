@@ -634,6 +634,9 @@ class QASessionCreate(BaseModel):
     question: str = Field(min_length=1, max_length=4096)
 
 
+QAAskRequest = QASessionCreate
+
+
 class QASessionItem(BaseModel):
     model_config = _RESP_CFG
     id: int

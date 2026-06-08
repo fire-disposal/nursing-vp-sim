@@ -3,7 +3,7 @@ import { Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { askInQASession, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
+import { askInQASession, askInQASessionStream, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
@@ -44,7 +44,9 @@ export default function QA() {
   const [messages, setMessages] = useState<QAMessageItem[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingAnswer, setStreamingAnswer] = useState("");
   const [showSidebar, setShowSidebar] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { confirm } = useConfirm();
@@ -115,28 +117,43 @@ export default function QA() {
 
       setMessages((prev) => [...prev, { id: optimisticId, role: "user", content: q } as QAMessageItem]);
       setLoading(true);
-      try {
-        const res = await askInQASession(activeSessionId, q);
-        setMessages((prev) => [
-          ...prev.filter((m) => m.id !== optimisticId),
-          { id: optimisticId, role: "user", content: q } as QAMessageItem,
-          { id: optimisticId + 1, role: "assistant", content: res.data.answer } as QAMessageItem,
-        ]);
-        await loadSessions();
-      } catch (err: unknown) {
-        const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
-        setMessages((prev) => [
-          ...prev.filter((m) => m.id !== optimisticId),
-          { id: optimisticId, role: "user", content: q } as QAMessageItem,
-          {
-            id: -1,
-            role: "assistant",
-            content: `抱歉，AI导师暂时无法回复：${axiosErr.response?.data?.detail || axiosErr.message || "未知错误"}`,
-          } as QAMessageItem,
-        ]);
-      } finally {
-        setLoading(false);
-      }
+      setStreamingAnswer("");
+
+      const abort = new AbortController();
+      abortRef.current = abort;
+
+      askInQASessionStream(
+        activeSessionId,
+        q,
+        (chunk) => {
+          setStreamingAnswer((prev) => prev + chunk);
+        },
+        (id) => {
+          setStreamingAnswer((finalAnswer) => {
+            setMessages((prev) => [
+              ...prev.filter((m) => m.id !== optimisticId),
+              { id: optimisticId, role: "user", content: q } as QAMessageItem,
+              { id: id || optimisticId + 1, role: "assistant", content: finalAnswer } as QAMessageItem,
+            ]);
+            return "";
+          });
+          setLoading(false);
+          loadSessions();
+        },
+        (msg) => {
+          setMessages((prev) => [
+            ...prev.filter((m) => m.id !== optimisticId),
+            { id: optimisticId, role: "user", content: q } as QAMessageItem,
+            {
+              id: -1,
+              role: "assistant",
+              content: `抱歉，AI导师暂时无法回复：${msg}`,
+            } as QAMessageItem,
+          ]);
+          setLoading(false);
+        },
+        abort.signal,
+      );
     },
     [input, loading, activeSessionId, loadSessions],
   );
@@ -267,11 +284,17 @@ export default function QA() {
                     <Bot size={18} />
                   </div>
                   <div className="max-w-[80%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted">
-                    <div className="flex gap-1 py-1">
-                      <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
-                      <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
-                      <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce" />
-                    </div>
+                    {streamingAnswer ? (
+                      <div className={BUBBLE_CONTENT_CLASSES}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingAnswer}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1 py-1">
+                        <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
+                        <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
+                        <span className="size-2 rounded-full bg-muted-foreground/30 animate-bounce" />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

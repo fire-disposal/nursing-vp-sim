@@ -2,6 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -13,13 +14,14 @@ from models import QARecord, QASession, User
 from schemas import (
     MessageResponse,
     PaginatedResponse,
+    QAAskRequest,
     QAAskResponse,
     QAMessageItem,
     QASessionAdminItem,
     QASessionCreate,
     QASessionItem,
 )
-from services.llm import call_llm
+from services.llm import call_llm, call_llm_stream
 from services.pagination import paginate
 from services.qa import get_qa_cache, build_qa_history
 
@@ -195,6 +197,71 @@ async def ask_in_session(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return QAAskResponse(session_id=session.id, answer=answer)
+
+
+@router.post("/sessions/{session_id}/ask/stream")
+async def ask_stream(
+    session_id: int,
+    req: QAAskRequest,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    from core.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        session = db.query(QASession).filter(QASession.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        if session.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="只能操作自己的对话")
+
+        user_record = QARecord(session_id=session_id, role="user", content=req.question)
+        db.add(user_record)
+        db.commit()
+        db.refresh(user_record)
+
+        pm = request.app.state.prompt_manager
+        tmpl = await pm.get("qa")
+        llm_messages = build_qa_history(session_id, db)
+        llm_messages.insert(0, {"role": "system", "content": tmpl.render()})
+        llm_messages.append({"role": "user", "content": req.question})
+
+        async def generate():
+            import json as _json
+            full_reply = ""
+            try:
+                async for chunk in call_llm_stream(
+                    llm_messages,
+                    purpose="qa",
+                    user_id=current_user.id,
+                    client=request.app.state.httpx_client,
+                    router=request.app.state.llm_router,
+                    log_worker=request.app.state.log_worker,
+                    **get_llm_config("qa"),
+                ):
+                    full_reply += chunk
+                    yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+
+                assistant_record = QARecord(session_id=session_id, role="assistant", content=full_reply)
+                db.add(assistant_record)
+                db.commit()
+                db.refresh(assistant_record)
+
+                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id}, ensure_ascii=False)}\n\n"
+            except Exception as e:
+                log.exception("QA stream error: session_id=%d", session_id)
+                yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+            finally:
+                db.close()
+
+        return StreamingResponse(generate(), media_type="text/event-stream")
+    except HTTPException:
+        db.close()
+        raise
+    except BaseException:
+        db.close()
+        raise
 
 
 @router.get("/sessions", response_model=list[QASessionItem])
