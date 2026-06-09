@@ -190,15 +190,16 @@ app.add_middleware(
 # Route registration
 from routers import (
     admin, admin_classes, admin_grades, auth, cases,
-    export, feedback, notes, qa, questionnaires, stats,
+    export, feedback, notes, questionnaires, stats,
 )
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
 from routers.admin_schools import router as admin_schools_router
 from contexts.training import chat_router, nursing_router, training_router
+from contexts.qa import router as qa_router
 
-for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, qa, questionnaires, stats]:
+for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, questionnaires, stats]:
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)
@@ -207,6 +208,7 @@ app.include_router(admin_roles_router)
 app.include_router(training_router)
 app.include_router(chat_router)
 app.include_router(nursing_router)
+app.include_router(qa_router)
 
 
 @app.get("/api/health")
