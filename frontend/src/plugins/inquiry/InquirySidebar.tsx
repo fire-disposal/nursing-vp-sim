@@ -1,24 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SlotProps } from "@/engine/types";
 
 export function InquirySidebar({ ctx }: SlotProps) {
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const inquiries = ctx.patient.requiredInquiries ?? [];
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
 
   useEffect(() => {
     const unsub = ctx.bus.on("stream:done", () => {
-      const msgs = document.querySelectorAll("[data-role='patient']");
-      msgs.forEach((el) => {
-        const text = (el.textContent ?? "").toLowerCase();
-        for (const q of inquiries) {
+      const patientMsgs = ctxRef.current.messages.filter((m) => m.role === "patient" && !m.streaming);
+      for (const msg of patientMsgs) {
+        const text = msg.content.toLowerCase();
+        for (const q of ctxRef.current.patient.requiredInquiries ?? []) {
           if (text.includes(q.toLowerCase())) {
             setCompleted((prev) => new Set([...prev, q]));
           }
         }
-      });
+      }
     });
     return unsub;
-  }, [inquiries, ctx.bus]);
+  }, [ctx.bus]);
 
   if (inquiries.length === 0) return null;
 
