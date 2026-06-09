@@ -55,7 +55,7 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
 
   const busRef = useRef(createMessageBus());
   const streamRef = useRef(new StreamManager(recordNum));
-  const scoreRef = useRef(new ScoreManager(recordNum));
+  const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
   const ttsRef = useRef(new TTSManager({ autoPlay: true }));
 
   useEffect(() => {
@@ -89,12 +89,22 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
     return unsub;
   }, [recordNum]);
 
+  const [registryVersion, setRegistryVersion] = useState(0);
+
   useEffect(() => {
     pluginRegistry.setFeatureFlags(scenarioConfig?.features ?? {});
     for (const p of plugins) pluginRegistry.register(p);
-  }, [plugins, scenarioConfig?.features]);
+    setRegistryVersion(pluginRegistry.version);
+  }, []);
 
-  const activePlugins = useMemo(() => pluginRegistry.getActive(scenarioConfig?.features), [scenarioConfig?.features]);
+  useEffect(() => {
+    const unsub = busRef.current.on("plugins:updated", () => {
+      setRegistryVersion(pluginRegistry.version);
+    });
+    return unsub;
+  }, []);
+
+  const activePlugins = useMemo(() => pluginRegistry.getActive(), [registryVersion]);
 
   const layout = scenarioConfig?.layout ?? DEFAULT_LAYOUT;
   const grid = useResponsiveLayout(layout);

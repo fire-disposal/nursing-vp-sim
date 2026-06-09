@@ -1,4 +1,5 @@
-﻿import { useParams } from "react-router-dom";
+﻿import { useMemo } from "react";
+import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
 import { chatDisplayPlugin } from "@/plugins/chat-display";
 import { chatInputPlugin } from "@/plugins/chat-input";
@@ -13,6 +14,21 @@ import { timerPlugin } from "@/plugins/timer";
 export default function ChatTraining() {
   const { recordId } = useParams<{ recordId: string }>();
 
+  const plugins = useMemo(
+    () => [
+      chatDisplayPlugin,
+      chatInputPlugin,
+      timerPlugin,
+      inquiryPlugin,
+      physicalExamPlugin,
+      nursingRecordPlugin,
+      questionnairePlugin,
+      patientInitiativePlugin,
+      scoringDisplayPlugin,
+    ],
+    [],
+  );
+
   if (!recordId) return <div className="flex h-screen items-center justify-center">缺少训练记录 ID</div>;
 
   return (
@@ -25,17 +41,7 @@ export default function ChatTraining() {
           emotion: true,
         },
       }}
-      plugins={[
-        chatDisplayPlugin,
-        chatInputPlugin,
-        timerPlugin,
-        inquiryPlugin,
-        physicalExamPlugin,
-        nursingRecordPlugin,
-        questionnairePlugin,
-        patientInitiativePlugin,
-        scoringDisplayPlugin,
-      ]}
+      plugins={plugins}
     />
   );
 }

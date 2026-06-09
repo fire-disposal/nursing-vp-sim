@@ -3,6 +3,11 @@ import type { PluginRuntime, PluginStatus, SlotName, TrainingPlugin } from "./ty
 export class PluginRegistry {
   private plugins = new Map<string, TrainingPlugin>();
   private featureFlags: Record<string, boolean> = {};
+  private _version = 0;
+
+  get version(): number {
+    return this._version;
+  }
 
   register(plugin: TrainingPlugin): void {
     if (this.plugins.has(plugin.id)) {
@@ -40,6 +45,7 @@ export class PluginRegistry {
 
   setFeatureFlags(flags: Record<string, boolean>): void {
     this.featureFlags = { ...flags };
+    this._version++;
   }
 
   updateRuntime(pluginId: string, update: Partial<PluginRuntime>): void {
