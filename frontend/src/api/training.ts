@@ -10,7 +10,7 @@ export const retryScoring = (recordId: number | string) => api.post<Schemas["Sco
 
 export const getRecords = (params: Record<string, unknown> = {}) => api.get<Schemas["PaginatedResponse_TrainingRecordBrief_"]>("/training/records", { params });
 
-export const deleteRecord = (id: number | string) => api.delete<Schemas["MessageResponse"]>(`/training/records/${id}`);
+export const deleteRecord = (id: number | string) => api.delete<Schemas["DeleteResponse"]>(`/training/records/${id}`);
 
 export const getRecordDetail = (id: number | string) => api.get<Schemas["TrainingRecordDetail"]>(`/training/records/${id}`);
 

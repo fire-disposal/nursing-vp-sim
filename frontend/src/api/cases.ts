@@ -16,6 +16,6 @@ export const createCase = (data: Schemas["CaseCreateRequest"]) => api.post<Schem
 
 export const updateCase = (id: number | string, data: Schemas["CaseUpdateRequest"]) => api.put<Schemas["CaseManageItem"]>(`/cases/${id}`, data);
 
-export const deleteCase = (id: number | string) => api.delete<Schemas["MessageResponse"]>(`/cases/${id}`);
+export const deleteCase = (id: number | string) => api.delete<Schemas["DeleteResponse"]>(`/cases/${id}`);
 
 export const generateCase = (data: Schemas["CaseGenerateRequest"]) => api.post<Schemas["CaseGenerateResponse"]>("/cases/generate", data);

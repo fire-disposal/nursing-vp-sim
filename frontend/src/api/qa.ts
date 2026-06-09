@@ -7,7 +7,7 @@ export const createQASession = (question: string) => api.post<Schemas["QAAskResp
 
 export const getQASessions = () => api.get<Schemas["QASessionItem"][]>("/qa/sessions");
 
-export const deleteQASession = (id: number | string) => api.delete<Schemas["MessageResponse"]>(`/qa/sessions/${id}`);
+export const deleteQASession = (id: number | string) => api.delete<Schemas["DeleteResponse"]>(`/qa/sessions/${id}`);
 
 export const getQASessionMessages = (sessionId: number | string) => api.get<Schemas["QAMessageItem"][]>(`/qa/sessions/${sessionId}/messages`);
 

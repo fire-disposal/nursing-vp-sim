@@ -11,6 +11,6 @@ export const updateUser = (id: number | string, data: Schemas["UserUpdateRequest
 
 export const batchCreateUsers = (users: Schemas["BatchUserItem"][]) => api.post<Schemas["BatchCreateResult"]>("/admin/users/batch", users);
 
-export const deleteUser = (id: number | string) => api.delete<Schemas["MessageResponse"]>(`/admin/users/${id}`);
+export const deleteUser = (id: number | string) => api.delete<Schemas["DeleteResponse"]>(`/admin/users/${id}`);
 
 export const getStudentDetail = (userId: number | string) => api.get<Schemas["StudentDetail"]>(`/admin/users/${userId}`);
