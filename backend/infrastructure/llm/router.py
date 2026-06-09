@@ -4,6 +4,8 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+from backend.core.datetime_utils import ensure_utc
+
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
 
 log = logging.getLogger(__name__)
@@ -100,7 +102,7 @@ class ProfileRouter:
             recovered = 0
             for p in profiles:
                 if p.status == "degraded" and p.degraded_until:
-                    dt = p.degraded_until.replace(tzinfo=UTC) if p.degraded_until.tzinfo is None else p.degraded_until
+                    dt = ensure_utc(p.degraded_until)
                     if dt <= now:
                         p.status = "active"
                         p.degraded_reason = None

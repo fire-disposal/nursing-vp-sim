@@ -2,6 +2,8 @@ import asyncio
 import logging
 import threading
 from datetime import UTC, datetime
+
+from backend.core.datetime_utils import ensure_utc, parse_iso_datetime
 from typing import Annotated
 
 import httpx
@@ -196,17 +198,13 @@ def get_records(
         base = base.filter(TrainingRecord.status == status)
     if date_from:
         try:
-            df = datetime.fromisoformat(date_from)
-            if df.tzinfo is None:
-                df = df.replace(tzinfo=UTC)
+            df = parse_iso_datetime(date_from)
             base = base.filter(TrainingRecord.start_time >= df)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
     if date_to:
         try:
-            dt = datetime.fromisoformat(date_to)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=UTC)
+            dt = parse_iso_datetime(date_to)
             base = base.filter(TrainingRecord.start_time <= dt)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
@@ -272,7 +270,7 @@ def get_record_detail(
     time_limit = record.time_limit or 20
     remaining_seconds = None
     if record.status == "in_progress" and record.start_time:
-        elapsed = (datetime.now(UTC) - record.start_time.replace(tzinfo=UTC)).total_seconds()
+        elapsed = (datetime.now(UTC) - ensure_utc(record.start_time)).total_seconds()
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
     patient_info = case_data.get("patient_info", {})
 

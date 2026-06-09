@@ -1,5 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
+
+from backend.core.datetime_utils import parse_iso_datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -72,13 +74,13 @@ def admin_list_feedback(
 
     if date_from:
         try:
-            df = datetime.fromisoformat(date_from)
+            df = parse_iso_datetime(date_from)
             query = query.filter(Feedback.created_at >= df)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
     if date_to:
         try:
-            dt = datetime.fromisoformat(date_to)
+            dt = parse_iso_datetime(date_to)
             query = query.filter(Feedback.created_at < dt)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
@@ -114,13 +116,13 @@ def feedback_stats(
         base = base.join(User, Feedback.user_id == User.id).filter(User.school_id == effective_school)
     if date_from:
         try:
-            df = datetime.fromisoformat(date_from)
+            df = parse_iso_datetime(date_from)
             base = base.filter(Feedback.created_at >= df)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}")
     if date_to:
         try:
-            dt = datetime.fromisoformat(date_to)
+            dt = parse_iso_datetime(date_to)
             base = base.filter(Feedback.created_at < dt)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")

@@ -2,6 +2,8 @@ import csv
 import io
 import logging
 from datetime import UTC, datetime, timedelta
+
+from backend.core.datetime_utils import parse_iso_datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -179,9 +181,9 @@ def get_llm_logs(
         )
 
         if date_from:
-            agg_q = agg_q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
+            agg_q = agg_q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
         if date_to:
-            agg_q = agg_q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
+            agg_q = agg_q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
 
         agg_q = agg_q.group_by(LLMCallLog.record_id, User.display_name, CaseModel.name, ApiProvider.display_name)
 
@@ -202,9 +204,9 @@ def get_llm_logs(
         if status:
             q = q.filter(LLMCallLog.status == status)
         if date_from:
-            q = q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
+            q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
         if date_to:
-            q = q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
+            q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
 
         raw_count = q.order_by(None).count()
 
@@ -294,9 +296,9 @@ def export_llm_logs_csv(
 ):
     q = db.query(LLMCallLog)
     if date_from:
-        q = q.filter(LLMCallLog.created_at >= datetime.fromisoformat(date_from))
+        q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
     if date_to:
-        q = q.filter(LLMCallLog.created_at < datetime.fromisoformat(date_to))
+        q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
     logs = q.order_by(LLMCallLog.created_at.desc()).all()
 
     output = io.StringIO()
