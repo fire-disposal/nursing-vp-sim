@@ -1,5 +1,5 @@
 import type { MessageBus } from "../types";
-import { createTTSProvider } from "./index";
+import { createBrowserTTS } from "./browser-tts";
 import type { TTSProvider } from "./types";
 
 export class TTSManager {
@@ -8,11 +8,8 @@ export class TTSManager {
   private autoPlay: boolean;
   private unsubs: Array<() => void> = [];
 
-  constructor(config?: {
-    provider?: "browser" | "volcengine" | TTSProvider;
-    autoPlay?: boolean;
-  }) {
-    this.provider = createTTSProvider(config?.provider ?? "browser");
+  constructor(config?: { autoPlay?: boolean }) {
+    this.provider = createBrowserTTS();
     this.autoPlay = config?.autoPlay ?? true;
   }
 
