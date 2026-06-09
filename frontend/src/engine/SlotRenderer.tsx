@@ -29,7 +29,7 @@ export function SlotRenderer({ name, plugins, definition, slotProps }: SlotRende
   if (candidates.length === 0) return null;
 
   return (
-    <div className="slot-container" data-slot={name} data-render={definition.render}>
+    <div className="slot-container" data-slot={name} data-render={definition.render} style={{ gridArea: name }}>
       {candidates.map((plugin) => {
         const Component = plugin.slots![name] as ComponentType<SlotProps>;
         return (
