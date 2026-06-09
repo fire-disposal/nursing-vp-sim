@@ -1,5 +1,14 @@
 import type { ComponentType } from "react";
 
+// ── TTS 服务接口（由 engine/tts/TTSManager 实现）──
+export interface TTSService {
+  readonly speaking: boolean;
+  readonly isAutoPlay: boolean;
+  setAutoPlay(on: boolean): void;
+  speak(text: string): Promise<void>;
+  stop(): void;
+}
+
 // ── 消息 / 患者 / 评分（复用现有类型） ──
 export interface ChatMessage {
   id?: number;
@@ -82,6 +91,9 @@ export interface PluginContext {
   recordId: string;
   bus: MessageBus;
   patient: PatientData;
+  messages: ChatMessage[];
+  sending: boolean;
+  tts: TTSService;
   sendMessage: (text: string) => void;
   endTraining: () => Promise<void>;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;

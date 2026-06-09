@@ -1,12 +1,12 @@
 // frontend/src/engine/TrainingEngine.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { createMessageBus } from "./MessageBus";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { SlotRenderer } from "./SlotRenderer";
 import { StreamManager } from "./StreamManager";
+import { TTSManager } from "./tts/TTSManager";
 import type { ChatMessage, LayoutDef, SlotName, SlotProps, TrainingPlugin } from "./types";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
@@ -50,13 +50,18 @@ interface TrainingEngineProps {
 }
 
 function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngineProps) {
-  const navigate = useNavigate();
   const { patient, loading } = usePatient();
   const recordNum = Number(recordId);
 
   const busRef = useRef(createMessageBus());
   const streamRef = useRef(new StreamManager(recordNum));
   const scoreRef = useRef(new ScoreManager(recordNum));
+  const ttsRef = useRef(new TTSManager({ autoPlay: true }));
+
+  useEffect(() => {
+    ttsRef.current.attach(busRef.current);
+    return () => ttsRef.current.detach();
+  }, []);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
@@ -71,8 +76,8 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
     };
   }, [recordNum]);
 
-  const [score, setScore] = useState(scoreRef.current.score);
-  const [progress, setProgress] = useState(scoreRef.current.progress);
+  const [_score, setScore] = useState(scoreRef.current.score);
+  const [_progress, setProgress] = useState(scoreRef.current.progress);
 
   useEffect(() => {
     scoreRef.current.setRecordId(recordNum);
@@ -88,7 +93,7 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
     for (const p of plugins) pluginRegistry.register(p);
   }, [plugins, scenarioConfig?.features]);
 
-  const activePlugins = useMemo(() => pluginRegistry.getActive(scenarioConfig?.features), [plugins, scenarioConfig?.features]);
+  const activePlugins = useMemo(() => pluginRegistry.getActive(scenarioConfig?.features), [scenarioConfig?.features]);
 
   const layout = scenarioConfig?.layout ?? DEFAULT_LAYOUT;
   const grid = useResponsiveLayout(layout);
@@ -112,6 +117,9 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
         recordId,
         bus: busRef.current,
         patient: patient!,
+        messages,
+        sending,
+        tts: ttsRef.current,
         sendMessage,
         endTraining,
         setMessages: (action) => {
@@ -127,7 +135,7 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
       phaseCount: 1,
       advancePhase: () => {},
     }),
-    [recordId, patient, sendMessage, endTraining, scenarioConfig?.features],
+    [recordId, patient, messages, sending, sendMessage, endTraining, scenarioConfig?.features],
   );
 
   if (loading) {

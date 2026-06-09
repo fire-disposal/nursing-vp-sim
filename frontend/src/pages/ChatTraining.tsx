@@ -1,5 +1,6 @@
 ﻿import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
+import { chatDisplayPlugin } from "@/plugins/chat-display";
 import { inquiryPlugin } from "@/plugins/inquiry";
 import { nursingRecordPlugin } from "@/plugins/nursing-record";
 import { patientInitiativePlugin } from "@/plugins/patient-initiative";
@@ -7,7 +8,6 @@ import { physicalExamPlugin } from "@/plugins/physical-exam";
 import { questionnairePlugin } from "@/plugins/questionnaire";
 import { scoringDisplayPlugin } from "@/plugins/scoring-display";
 import { timerPlugin } from "@/plugins/timer";
-import { voicePlugin } from "@/plugins/voice";
 
 export default function ChatTraining() {
   const { recordId } = useParams<{ recordId: string }>();
@@ -25,8 +25,8 @@ export default function ChatTraining() {
         },
       }}
       plugins={[
+        chatDisplayPlugin,
         timerPlugin,
-        voicePlugin,
         inquiryPlugin,
         physicalExamPlugin,
         nursingRecordPlugin,

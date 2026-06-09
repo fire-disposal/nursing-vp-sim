@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
+import { chatDisplayPlugin } from "@/plugins/chat-display";
 import { devToolsPlugin } from "@/plugins/dev-tools";
 import { inquiryPlugin } from "@/plugins/inquiry";
 import { scoringDisplayPlugin } from "@/plugins/scoring-display";
@@ -20,7 +21,7 @@ export default function AdminDebugPage() {
           emotion: false,
         },
       }}
-      plugins={[timerPlugin, inquiryPlugin, scoringDisplayPlugin, devToolsPlugin]}
+      plugins={[chatDisplayPlugin, timerPlugin, inquiryPlugin, scoringDisplayPlugin, devToolsPlugin]}
     />
   );
 }
