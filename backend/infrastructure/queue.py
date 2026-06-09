@@ -35,7 +35,7 @@ class TaskQueue:
         for i in range(self._max_workers):
             task = asyncio.create_task(self._worker(i), name=f"bg-worker-{i}")
             self._workers.append(task)
-        log.info("TaskQueue started: workers=%d max_size=%d", self._max_workers, self._queue.maxsize)
+        log.debug("TaskQueue started: workers=%d max_size=%d", self._max_workers, self._queue.maxsize)
 
     async def stop(self) -> None:
         """Cancel all workers and drain remaining tasks."""

@@ -49,6 +49,7 @@ async def lifespan(app: FastAPI):
     log.info("Database: migrations complete")
 
     seed_all()
+    log.info("Seeds: complete")
 
     app.state.rate_limiter = RateLimiter()
 
@@ -63,9 +64,11 @@ async def lifespan(app: FastAPI):
 
     app.state.llm_router = ProfileRouter()
     await app.state.llm_router.load_from_db()
+    log.info("Profile router: ready")
 
     app.state.prompt_manager = PromptManager()
     await app.state.prompt_manager.load_from_db()
+    log.info("Prompt manager: ready")
 
     app.state.log_worker = LogWorker()
     await app.state.log_worker.start()
@@ -78,6 +81,7 @@ async def lifespan(app: FastAPI):
 
     app.state.task_queue = TaskQueue(max_workers=3)
     await app.state.task_queue.start()
+    log.info("Task queue: 3 workers")
 
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()

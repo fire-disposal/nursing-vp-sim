@@ -71,7 +71,7 @@ def init_db() -> None:
     alembic_cfg = Config(alembic_ini)
     try:
         command.upgrade(alembic_cfg, "head")
-        log.info("数据库迁移完成")
+        log.debug("数据库迁移完成")
     except Exception as e:
         log.warning("迁移失败: %s", e)
         from alembic.script import ScriptDirectory

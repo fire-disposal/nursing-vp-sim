@@ -123,7 +123,7 @@ class PromptManager:
             async with self._lock:
                 self._last_valid_cache = self._cache
                 self._cache = new_cache
-            log.info("PromptManager loaded: %d templates", len(new_cache))
+            log.debug("PromptManager loaded: %d templates", len(new_cache))
         except Exception:
             log.exception("PromptManager load failed")
             if self._last_valid_cache:

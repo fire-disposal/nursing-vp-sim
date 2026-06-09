@@ -33,7 +33,7 @@ def _seed_data() -> None:
             school = School(name="默认学校")
             db.add(school)
             db.flush()
-            log.info("默认学校已创建")
+            log.debug("默认学校已创建")
 
         # 2. 确保系统模板角色存在，并同步权限 (school_id=NULL)
         template_roles = {}
@@ -100,7 +100,7 @@ def _seed_data() -> None:
                     is_active=True,
                 ))
                 db.commit()
-                log.info("评分标准已导入")
+                log.debug("评分标准已导入")
 
         # 5. 超级管理员
         username = os.environ.get("SEED_ADMIN_USERNAME", "admin")
@@ -114,7 +114,7 @@ def _seed_data() -> None:
                 admin_user.role_id = sa_role_id
                 admin_user.school_id = school.id
                 db.commit()
-                log.info("超级管理员角色已修正 (%s → super_admin)", username)
+                log.debug("超级管理员角色已修正 (%s → super_admin)", username)
         else:
             db.add(User(
                 username=username,
@@ -124,7 +124,7 @@ def _seed_data() -> None:
                 display_name="超级管理员",
             ))
             db.commit()
-            log.info("超级管理员已创建 (%s)", username)
+            log.debug("超级管理员已创建 (%s)", username)
 
         # 6. 测试学生和病例 (仅首次初始化)
         if db.query(User).filter(User.username != username).count() == 0:
@@ -140,7 +140,7 @@ def _seed_data() -> None:
                     student_id=f"202400{i:02d}",
                     gender=test_genders[i - 1],
                 ))
-            log.info("测试学生已创建 (student1-5 / 123456)")
+            log.debug("测试学生已创建 (student1-5 / 123456)")
 
             cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cases")
             case_count = 0
@@ -152,7 +152,7 @@ def _seed_data() -> None:
                     db.add(Case(name=d.get("name", fname), description=d.get("description", ""), case_data=d, school_id=None))
                     case_count += 1
             db.commit()
-            log.info("内置病例已导入 (%d)", case_count)
+            log.debug("内置病例已导入 (%d)", case_count)
     finally:
         db.close()
 
@@ -173,7 +173,7 @@ def _seed_llm() -> None:
                 db.query(LLMConfig).filter(LLMConfig.secret_id == d.id).delete()
                 db.delete(d)
             db.commit()
-            log.info("清理重复密钥: %d → %d", len(dupes), 1)
+            log.debug("清理重复密钥: %d → %d", len(dupes), 1)
 
         matched = dupes[0] if dupes else None
         if matched:
@@ -190,13 +190,13 @@ def _seed_llm() -> None:
                 matched.price_output_per_1m = 2.0
             if changed:
                 db.commit()
-                log.info("种子密钥已同步 (ID=%d)", matched.id)
+                log.debug("种子密钥已同步 (ID=%d)", matched.id)
             secret = matched
         else:
             secret = ApiSecret(label="初始服务密钥", encrypted_key=env_encrypted, key_suffix=suffix, base_url=DEEPSEEK_BASE_URL, price_input_per_1m=1.0, price_output_per_1m=2.0)
             db.add(secret)
             db.flush()
-            log.info("种子密钥已创建")
+            log.debug("种子密钥已创建")
 
         purposes = [("scoring", DEEPSEEK_MODEL), ("patient_chat", DEEPSEEK_MODEL), ("qa", DEEPSEEK_MODEL), ("case_generation", DEEPSEEK_MODEL), ("*", DEEPSEEK_MODEL)]
         for purpose, model in purposes:
@@ -207,7 +207,7 @@ def _seed_llm() -> None:
             else:
                 db.add(LLMConfig(secret_id=secret.id, model=model, purpose=purpose))
         db.commit()
-        log.info("LLM 种子完成: secret#%d + %d 用途", secret.id, len(purposes))
+        log.debug("LLM 种子完成: secret#%d + %d 用途", secret.id, len(purposes))
     except Exception:
         log.exception("LLM 种子失败，使用环境变量兜底")
         db.rollback()

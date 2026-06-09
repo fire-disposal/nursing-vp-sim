@@ -119,7 +119,7 @@ class ProfileRouter:
                     self._bindings[b.purpose] = b
                 self._global_degraded_until = None
 
-            log.info("ProfileRouter loaded: %d profiles, %d bindings", len(profiles), len(bindings))
+            log.debug("ProfileRouter loaded: %d profiles, %d bindings", len(profiles), len(bindings))
         except Exception:
             log.exception("ProfileRouter load failed")
             raise
