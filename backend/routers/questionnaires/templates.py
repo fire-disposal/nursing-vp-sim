@@ -26,7 +26,7 @@ from schemas import (
     QuestionnaireTemplateResponse,
     QuestionnaireTemplateUpdate,
 )
-from services.pagination import paginate
+from core.pagination import paginate
 
 log = logging.getLogger(__name__)
 

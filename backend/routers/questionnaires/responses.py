@@ -24,7 +24,7 @@ from schemas import (
     QuestionnaireResponseItem,
     QuestionnaireSubmitRequest,
 )
-from services.pagination import paginate
+from core.pagination import paginate
 
 from .templates import _template_to_detail
 

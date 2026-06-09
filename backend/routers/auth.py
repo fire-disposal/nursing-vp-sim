@@ -12,7 +12,7 @@ from core.login_strategies import LoginStrategy, get_strategy_registry
 from core.security import create_access_token, get_current_user, hash_password, require_permission, verify_password
 from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
 from models import Class, Role, RolePermission, School, User, UserClass
-from services.wechat import code2session
+from infrastructure.wechat import code2session
 from schemas import (
     ChangePasswordRequest,
     LoginRequest,

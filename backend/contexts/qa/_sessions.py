@@ -17,7 +17,7 @@ from schemas import (
     QASessionAdminItem,
     QASessionItem,
 )
-from services.pagination import paginate
+from core.pagination import paginate
 
 log = logging.getLogger(__name__)
 

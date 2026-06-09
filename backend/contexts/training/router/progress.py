@@ -21,7 +21,7 @@ from contexts.patient import (
     update_initiative_timer,
 )
 from ..pipeline.phase import parse_phases, try_advance_phase
-from services.feature_flags import is_enabled, resolve_features
+from core.feature_flags import is_enabled, resolve_features
 
 log = logging.getLogger(__name__)
 

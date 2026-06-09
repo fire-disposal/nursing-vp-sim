@@ -16,7 +16,7 @@ from schemas import (
     FeedbackSubmitResponse,
     PaginatedResponse,
 )
-from services.pagination import paginate
+from core.pagination import paginate
 
 router = APIRouter(prefix="/api", tags=["反馈"])
 

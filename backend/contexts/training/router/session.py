@@ -25,9 +25,9 @@ from schemas import (
     TrainingStartResponse,
 )
 from infrastructure.llm import LogWorker, ProfileRouter
-from services.pagination import paginate
+from core.pagination import paginate
 from infrastructure.prompt import PromptManager
-from services.feature_flags import resolve_features
+from core.feature_flags import resolve_features
 from contexts.training.service import get_config, list_configs
 
 log = logging.getLogger(__name__)

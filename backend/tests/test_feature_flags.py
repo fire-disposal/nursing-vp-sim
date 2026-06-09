@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from services.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
+from core.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
 
 
 class TestResolveFeatures:

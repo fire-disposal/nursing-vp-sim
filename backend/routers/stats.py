@@ -17,7 +17,7 @@ from schemas import (
     TeacherSummaryItem,
     TrendStats,
 )
-from services.pagination import paginate
+from core.pagination import paginate
 
 router = APIRouter(prefix="/api/stats", tags=["统计"])
 

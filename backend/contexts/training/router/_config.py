@@ -7,7 +7,7 @@ from core.database import get_db
 from core.security import get_current_user
 from models import TrainingRecord, User
 from schemas import OkResponse
-from services.feature_flags import FEATURE_FLAGS, resolve_features
+from core.feature_flags import FEATURE_FLAGS, resolve_features
 
 router = APIRouter()
 

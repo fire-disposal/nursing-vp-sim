@@ -1,4 +1,4 @@
-"""Unit tests for pure functions in services.scoring."""
+"""Unit tests for pure functions in contexts.training.service."""
 
 import pytest
 

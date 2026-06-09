@@ -3,7 +3,7 @@
 import logging
 
 from contexts.patient import detect_operation
-from services.feature_flags import is_enabled
+from core.feature_flags import is_enabled
 from ..context import PipelineContext
 
 log = logging.getLogger(__name__)

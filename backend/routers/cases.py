@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 from core.config import get_llm_config
 from infrastructure.llm.client import CallContext
-from services.pagination import paginate
+from core.pagination import paginate
 from infrastructure.prompt import get_registry
 from contexts.patient import format_case_for_prompt
 
