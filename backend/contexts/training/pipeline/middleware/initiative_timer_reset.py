@@ -1,5 +1,5 @@
-# backend/contexts/training/pipeline/middleware/initiative_timer_reset.py
-from backend.contexts.patient.initiative import update_initiative_timer
+# contexts/training/pipeline/middleware/initiative_timer_reset.py
+from contexts.patient.initiative import update_initiative_timer
 
 
 async def initiative_timer_reset(ctx):

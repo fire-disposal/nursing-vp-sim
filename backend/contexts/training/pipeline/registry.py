@@ -42,12 +42,12 @@ def get_pipeline(phase_id: str, feature_flags: dict[str, bool] | None = None) ->
 
 def build_pipeline(feature_flags: dict[str, bool]) -> list:
     """根据 feature_flags 动态组装流水线中间件链"""
-    from backend.contexts.training.pipeline.middleware.phase_guard import phase_guard
-    from backend.contexts.training.pipeline.middleware.phase_transition import phase_transition
-    from backend.contexts.training.pipeline.middleware.prompt_builder import prompt_builder
-    from backend.contexts.training.pipeline.middleware.llm_caller import _llm_caller
-    from backend.contexts.training.pipeline.middleware.persister import persister
-    from backend.contexts.training.pipeline.plugin import get_active_plugins
+    from .middleware.phase_guard import phase_guard
+    from .middleware.phase_transition import phase_transition
+    from .middleware.prompt_builder import prompt_builder
+    from .middleware.llm_caller import _llm_caller
+    from .middleware.persister import persister
+    from .plugin import get_active_plugins
 
     core = [phase_guard, phase_transition, prompt_builder, _llm_caller, persister]
 

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from backend.core.datetime_utils import ensure_utc
+from core.datetime_utils import ensure_utc
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request

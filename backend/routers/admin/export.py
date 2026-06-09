@@ -3,7 +3,7 @@ import io
 import logging
 from datetime import UTC, datetime, timedelta
 
-from backend.core.datetime_utils import parse_iso_datetime
+from core.datetime_utils import parse_iso_datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query

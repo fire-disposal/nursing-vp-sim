@@ -1,11 +1,12 @@
-# backend/contexts/training/plugins.py
-from backend.contexts.training.pipeline.plugin import PipelinePlugin, PipelinePluginMeta, register_plugin
-from backend.contexts.training.pipeline.middleware.emotion_tracker import emotion_tracker
-from backend.contexts.training.pipeline.middleware.initiative_timer_reset import initiative_timer_reset
-from backend.contexts.training.pipeline.middleware.operation_detector import operation_detector
-from backend.contexts.training.pipeline.middleware.operation_executor import operation_executor
-from backend.contexts.patient.initiative import update_initiative_timer, cleanup_initiative
-from backend.contexts.patient.emotion import cleanup_emotion
+# contexts/training/plugins.py
+from contexts.patient.emotion import cleanup_emotion
+from contexts.patient.initiative import cleanup_initiative, update_initiative_timer
+
+from .pipeline.middleware.emotion_tracker import emotion_tracker
+from .pipeline.middleware.initiative_timer_reset import initiative_timer_reset
+from .pipeline.middleware.operation_detector import operation_detector
+from .pipeline.middleware.operation_executor import operation_executor
+from .pipeline.plugin import PipelinePlugin, PipelinePluginMeta, register_plugin
 
 
 emotion_plugin = PipelinePlugin(

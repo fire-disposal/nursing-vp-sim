@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
-from backend.core.datetime_utils import ensure_utc
+from core.datetime_utils import ensure_utc
 
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
 

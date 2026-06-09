@@ -1,5 +1,5 @@
-# backend/contexts/training/pipeline/middleware/emotion_tracker.py
-from backend.contexts.patient.emotion import get_emotion, classify_intent
+# contexts/training/pipeline/middleware/emotion_tracker.py
+from contexts.patient.emotion import classify_intent, get_emotion
 
 
 async def emotion_tracker(ctx):

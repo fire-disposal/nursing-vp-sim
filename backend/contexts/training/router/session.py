@@ -3,7 +3,7 @@ import logging
 import threading
 from datetime import UTC, datetime
 
-from backend.core.datetime_utils import ensure_utc, parse_iso_datetime
+from core.datetime_utils import ensure_utc, parse_iso_datetime
 from typing import Annotated
 
 import httpx
