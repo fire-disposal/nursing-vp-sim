@@ -1,5 +1,5 @@
-import type React from "react";
-import type { TrainingPlugin } from "@/engine/types";
+import React, { useState } from "react";
+import type { SlotProps, TrainingPlugin } from "@/engine/types";
 import CheckboxGroupItemField from "./items/CheckboxGroupItem";
 
 import InputItemField from "./items/InputItem";
@@ -26,6 +26,19 @@ export const ITEM_COMPONENTS: Record<
   vital_sign: VitalSignItemField as React.ComponentType<{ item: RecordSheetItem; value: unknown; onChange: (value: unknown) => void }>,
 };
 
+function NursingRecordSlotAdapter({ ctx }: SlotProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Workaround for biome unused variable warning — calling setIsOpen through onToggle
+  const handleToggle = () => setIsOpen(!isOpen);
+
+  return React.createElement(NursingRecordPanel, {
+    isOpen,
+    onToggle: handleToggle,
+    recordId: ctx.recordId,
+  });
+}
+
 export const nursingRecordPlugin: TrainingPlugin = {
   id: "nursing-record",
   name: "护理记录",
@@ -35,6 +48,6 @@ export const nursingRecordPlugin: TrainingPlugin = {
     tags: ["ui", "panel", "record"],
   },
   slots: {
-    panel: NursingRecordPanel,
+    panel: NursingRecordSlotAdapter,
   },
 };

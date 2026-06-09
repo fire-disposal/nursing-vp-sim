@@ -1,14 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SlotProps } from "@/engine/types";
 
-declare global {
-  interface Window {
-    SpeechSynthesisUtterance: typeof SpeechSynthesisUtterance;
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
-
 export function VoiceButton({ ctx }: SlotProps) {
   const [autoPlay, setAutoPlay] = useState(() => localStorage.getItem("voice_autoPlay") !== "false");
   const [listening, setListening] = useState(false);
@@ -35,7 +27,7 @@ export function VoiceButton({ ctx }: SlotProps) {
   }, [autoPlay, ctx.bus]);
 
   const toggleListen = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     if (listening) {
@@ -70,6 +62,7 @@ export function VoiceButton({ ctx }: SlotProps) {
   return (
     <div className="flex items-center gap-1">
       <button
+        type="button"
         onClick={() => setAutoPlay((v) => !v)}
         className={`text-xs px-1 rounded ${autoPlay ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}
         title={autoPlay ? "自动朗读开" : "自动朗读关"}
@@ -77,6 +70,7 @@ export function VoiceButton({ ctx }: SlotProps) {
         🔊
       </button>
       <button
+        type="button"
         onClick={toggleListen}
         className={`text-xs px-1 rounded ${listening ? "bg-red-500/20 text-red-500 animate-pulse" : "text-muted-foreground"}`}
         title="语音输入"

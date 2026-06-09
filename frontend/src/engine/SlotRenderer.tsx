@@ -9,7 +9,7 @@ interface SlotRendererProps {
 }
 
 export function SlotRenderer({ name, plugins, definition, slotProps }: SlotRendererProps) {
-  const candidates = plugins.filter((p) => p.slots?.[name]).sort((a, b) => (a.slots![name]?.priority ?? 99) - (b.slots![name]?.priority ?? 99));
+  const candidates = plugins.filter((p) => p.slots?.[name]);
 
   if (candidates.length === 0) return null;
 

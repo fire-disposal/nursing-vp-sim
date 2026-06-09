@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { ScoreData, SlotProps } from "@/engine/types";
 
-interface ScoreCardInnerProps extends SlotProps {
+interface ScoreCardInnerProps {
   score: ScoreData;
   onClose: () => void;
 }
@@ -86,5 +86,5 @@ export function ScoreCard({ ctx }: SlotProps) {
 
   if (!score) return null;
 
-  return <ScoreCardInner ctx={ctx} score={score} onClose={() => setScore(null)} />;
+  return <ScoreCardInner score={score} onClose={() => setScore(null)} />;
 }

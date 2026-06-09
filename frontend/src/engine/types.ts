@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
 
 // ── 消息 / 患者 / 评分（复用现有类型） ──
 export interface ChatMessage {
@@ -39,7 +39,7 @@ export interface SlotDefinition {
 // ── 布局定义 ──
 export interface SlotGrid {
   areas: string[][];
-  slots: Record<SlotName, SlotDefinition>;
+  slots: Partial<Record<SlotName, SlotDefinition>>;
 }
 
 export interface LayoutDef {
@@ -54,7 +54,7 @@ export interface LayoutDef {
 
 // ── 生命周期钩子 ──
 export interface LifecycleHooks {
-  onInit?: (ctx: PluginContext) => void | (() => void);
+  onInit?: (ctx: PluginContext) => undefined | (() => void);
   beforeSend?: (message: string) => string;
   afterReceive?: (message: ChatMessage) => void;
   onPhaseChange?: (from: string, to: string) => void;
