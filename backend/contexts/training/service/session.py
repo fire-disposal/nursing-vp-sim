@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-_CONFIG_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "session_configs"
+_CONFIG_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "session_configs"
 _cache: dict[str, dict] = {}
 
 
