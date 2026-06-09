@@ -2,9 +2,9 @@
 
 import logging
 
-from services.patient_ai.exam_handler import detect_operation
+from contexts.patient import detect_operation
 from services.feature_flags import is_enabled
-from services.pipeline.context import PipelineContext
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 

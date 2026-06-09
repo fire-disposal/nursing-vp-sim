@@ -4,7 +4,7 @@ import json
 
 
 def _get_default_rubric() -> dict:
-    from services.scoring.rubric import load_rubric
+    from contexts.training.service._scoring_rubric import load_rubric
     return load_rubric("nursing_history_v1")
 
 

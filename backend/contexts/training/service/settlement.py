@@ -12,7 +12,7 @@ from models import Case
 log = logging.getLogger(__name__)
 
 
-def _count_covered_inquiries(inquiries: list[str], student_text: str) -> int:
+def count_covered_inquiries(inquiries: list[str], student_text: str) -> int:
     if not inquiries:
         return 0
     covered = 0
@@ -28,13 +28,13 @@ def _count_covered_inquiries(inquiries: list[str], student_text: str) -> int:
     return covered
 
 
-def _should_auto_score(messages: list, case_data: dict) -> bool:
+def should_auto_score(messages: list, case_data: dict) -> bool:
     from core.config import AUTO_SCORE_AI_CHARS_MIN, AUTO_SCORE_COVERED_INQUIRIES_MIN, AUTO_SCORE_STUDENT_CHARS_MIN
 
     inquiries = case_data.get("required_inquiries", [])
     student_text = "".join(m.content for m in messages if getattr(m, "role", None) == "student")
     ai_text = "".join(m.content for m in messages if getattr(m, "role", None) == "patient")
-    covered = _count_covered_inquiries(inquiries, student_text)
+    covered = count_covered_inquiries(inquiries, student_text)
     return (
         covered >= AUTO_SCORE_COVERED_INQUIRIES_MIN
         and len(student_text) >= AUTO_SCORE_STUDENT_CHARS_MIN
@@ -98,7 +98,7 @@ async def _settle_once(
             if initiative_cache:
                 initiative_cache.cleanup(record.id)
 
-            if _should_auto_score(messages, case_data):
+            if should_auto_score(messages, case_data):
                 await repo.update_scoring_status(record.id, "pending")
                 await task_queue.enqueue(
                     lambda rid=record.id, cd=case_data: _run_scoring_job(rid, cd, repo, llm_client, pm),
@@ -119,7 +119,7 @@ async def _run_scoring_job(
     pm,
 ) -> None:
     from core.database import SessionLocal
-    from services.scoring.engine import evaluate_training
+    from ._scoring_engine import evaluate_training
 
     db = SessionLocal()
     try:

@@ -1,7 +1,7 @@
 """phase_guard — reject operations not allowed in current phase."""
 
 import logging
-from services.pipeline.context import PipelineContext
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 

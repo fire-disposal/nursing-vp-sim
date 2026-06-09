@@ -4,7 +4,7 @@ import logging
 import random
 
 from infrastructure.llm.client import CallContext
-from services.pipeline.context import PipelineContext
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 
 async def _call_batch(ctx: PipelineContext) -> None:
     from core.config import get_llm_config
-    from services.patient_ai import has_identity_leak, get_identity_correction_note
+    from contexts.patient import has_identity_leak, get_identity_correction_note
 
     import httpx
 
@@ -88,7 +88,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 async def _call_stream(ctx: PipelineContext) -> None:
     from core.config import get_llm_config
-    from services.patient_ai import has_identity_leak, get_identity_correction_note
+    from contexts.patient import has_identity_leak, get_identity_correction_note
 
     app = ctx.app_state
     llm_client = app.llm_client

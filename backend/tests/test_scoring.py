@@ -2,7 +2,7 @@
 
 import pytest
 
-from services.scoring.validation import (
+from contexts.training.service._scoring_validation import (
     _check_feedback_empty,
     _coerce_numeric_fields,
     _convert_to_100_scale,

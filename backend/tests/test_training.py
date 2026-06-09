@@ -51,7 +51,7 @@ class TestEndTraining:
         record_id = resp.json()["record_id"]
 
         # Mock the scoring service (imported inside function body)
-        with patch("services.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:
+        with patch("contexts.training.router.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:
             from models import Score
 
             mock_eval.return_value = Score(
@@ -116,7 +116,7 @@ class TestEndTraining:
         )
         record_id = resp.json()["record_id"]
 
-        with patch("services.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:
+        with patch("contexts.training.router.scoring.evaluate_training", new_callable=AsyncMock) as mock_eval:
             from models import Score
 
             mock_eval.return_value = Score(
@@ -149,7 +149,7 @@ class TestRecords:
         )
         record_id = resp.json()["record_id"]
 
-        with patch("services.scoring.evaluate_training", new_callable=AsyncMock) as m:
+        with patch("contexts.training.router.scoring.evaluate_training", new_callable=AsyncMock) as m:
             from models import Score
 
             m.return_value = Score(id=1, record_id=record_id, total_score=42.0)

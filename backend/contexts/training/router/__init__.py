@@ -2,12 +2,12 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/training", tags=["训练"])
 
-from .base import router as _base
+from .session import router as _session
 from .scoring import router as _scoring
-from .phases import router as _phases
-from .config import router as _config
+from .progress import router as _progress
+from ._config import router as _config
 
-router.include_router(_base)
+router.include_router(_session)
 router.include_router(_scoring)
-router.include_router(_phases)
+router.include_router(_progress)
 router.include_router(_config)

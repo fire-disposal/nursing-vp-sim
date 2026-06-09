@@ -438,7 +438,7 @@ def list_rubrics(current_user: Annotated[User, Depends(require_permission("api_m
 
 @router.get("/rubrics/active", response_model=RubricResponse)
 def get_active_rubric(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
-    from services.scoring import load_active_rubric
+    from contexts.training.service import load_active_rubric
 
     active = load_active_rubric()
     if not active:
@@ -450,7 +450,7 @@ def get_active_rubric(current_user: Annotated[User, Depends(require_permission("
 def create_rubric(
     data: dict, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
-    from services.scoring import validate_dimensions
+    from contexts.training.service import validate_dimensions
 
     dims = data.get("dimensions")
     if not dims:
@@ -480,7 +480,7 @@ def update_rubric(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    from services.scoring import validate_dimensions
+    from contexts.training.service import validate_dimensions
 
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:

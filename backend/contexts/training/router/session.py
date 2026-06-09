@@ -28,7 +28,7 @@ from services.llm.router import ProfileRouter
 from services.pagination import paginate
 from services.prompt.manager import PromptManager
 from services.feature_flags import resolve_features
-from services.training import get_config, list_configs
+from contexts.training.service import get_config, list_configs
 
 log = logging.getLogger(__name__)
 

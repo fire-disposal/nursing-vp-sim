@@ -3,7 +3,7 @@
 import logging
 
 from models import Message
-from services.pipeline.context import PipelineContext
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 

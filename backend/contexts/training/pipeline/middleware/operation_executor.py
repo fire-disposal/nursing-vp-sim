@@ -2,8 +2,8 @@
 
 import logging
 
-from services.patient_ai.exam_handler import handle_operation
-from services.pipeline.context import PipelineContext
+from contexts.patient import handle_operation
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 

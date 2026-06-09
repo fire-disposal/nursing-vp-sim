@@ -13,14 +13,14 @@ from schemas import (
     PhaseAdvanceResponse,
     TrainingStateResponse,
 )
-from services.patient_ai import (
+from contexts.patient import (
     generate_initiative,
     get_emotion,
     get_initiative_seconds,
     should_initiate,
     update_initiative_timer,
 )
-from services.pipeline.phase import parse_phases, try_advance_phase
+from ..pipeline.phase import parse_phases, try_advance_phase
 from services.feature_flags import is_enabled, resolve_features
 
 log = logging.getLogger(__name__)

@@ -2,7 +2,7 @@
 
 import logging
 
-from services.patient_ai import (
+from contexts.patient import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
     classify_intent,
@@ -10,7 +10,7 @@ from services.patient_ai import (
 )
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 from services.prompt import render_template
-from services.pipeline.context import PipelineContext
+from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 

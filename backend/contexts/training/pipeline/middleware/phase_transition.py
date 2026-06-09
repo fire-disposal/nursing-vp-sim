@@ -2,8 +2,8 @@
 
 import logging
 
-from services.pipeline.context import PipelineContext
-from services.pipeline.phase import try_advance_phase
+from ..context import PipelineContext
+from ..phase import try_advance_phase
 
 log = logging.getLogger(__name__)
 

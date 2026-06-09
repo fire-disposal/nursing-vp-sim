@@ -7,8 +7,8 @@ from core.config import get_llm_config
 from infrastructure.llm.client import LLMClient, CallContext
 from models import Message, Score, TrainingRecord
 from services.prompt import build_scoring_criteria, build_scoring_json_schema
-from services.scoring.rubric import get_rubric_version_id, load_rubric_dict
-from .validation import (
+from ._scoring_rubric import get_rubric_version_id, load_rubric_dict
+from ._scoring_validation import (
     _check_feedback_empty,
     _coerce_numeric_fields,
     _convert_to_100_scale,

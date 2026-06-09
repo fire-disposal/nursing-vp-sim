@@ -31,7 +31,7 @@ from repositories.training import TrainingRepository
 from services.llm.logging import LogWorker
 from services.llm.router import ProfileRouter
 from services.prompt.manager import PromptManager
-from services.training.settlement_v2 import settlement_loop
+from contexts.training.service import settlement_loop
 
 log = logging.getLogger(__name__)
 
@@ -187,22 +187,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Route registration (unchanged from old main.py)
+# Route registration
 from routers import (
-    admin, admin_classes, admin_grades, auth, cases, chat,
-    export, feedback, notes, nursing_records, qa, questionnaires, stats, training,
+    admin, admin_classes, admin_grades, auth, cases,
+    export, feedback, notes, qa, questionnaires, stats,
 )
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
 from routers.admin_schools import router as admin_schools_router
+from contexts.training import chat_router, nursing_router, training_router
 
-for mod in [auth, admin, admin_classes, admin_grades, cases, chat, export, feedback, notes, nursing_records, qa, questionnaires, stats, training]:
+for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, qa, questionnaires, stats]:
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)
 app.include_router(admin_schools_router)
 app.include_router(admin_roles_router)
+app.include_router(training_router)
+app.include_router(chat_router)
+app.include_router(nursing_router)
 
 
 @app.get("/api/health")

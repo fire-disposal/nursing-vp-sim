@@ -1,4 +1,4 @@
-from services.training import count_covered_inquiries, should_auto_score
+from contexts.training.service import count_covered_inquiries, should_auto_score
 
 
 def test_count_covered_inquiries_empty():

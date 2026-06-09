@@ -6,7 +6,7 @@ from pathlib import Path
 from core.database import SessionLocal
 from models import Rubric
 
-_RUBRIC_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "rubrics"
+_RUBRIC_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "rubrics"
 _CACHE: dict[str, dict] = {}
 
 

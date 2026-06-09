@@ -20,7 +20,7 @@
 """
 
 # ── 情绪引擎 ──
-from .emotion_engine import (
+from .emotion import (
     EmotionState,
     classify_intent,
     cleanup_emotion,
@@ -28,13 +28,13 @@ from .emotion_engine import (
 )
 
 # ── 患者守卫 ──
-from .patient_guard import (
+from .guard import (
     get_identity_correction_note,
     has_identity_leak,
 )
 
 # ── 主动行为引擎 ──
-from .patient_initiative import (
+from .initiative import (
     cleanup_initiative,
     generate_initiative,
     get_initiative_seconds,
@@ -43,13 +43,13 @@ from .patient_initiative import (
 )
 
 # ── 查体处理器 ──
-from .exam_handler import (
+from .exam import (
     detect_operation,
     handle_operation,
 )
 
 # ── 提示词构建 ──
-from .virtual_patient_prompt import (
+from .prompt import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
     format_case_for_prompt,

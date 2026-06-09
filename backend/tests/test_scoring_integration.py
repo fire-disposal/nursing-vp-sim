@@ -15,7 +15,7 @@ import pytest
 
 from services.prompt import render_template, build_scoring_criteria, build_scoring_json_schema
 from services.prompt import build_scoring_rubric, get_registry
-from services.scoring import load_rubric
+from contexts.training.service import load_rubric
 
 # ── 模拟场景数据 ──
 
@@ -226,7 +226,7 @@ class TestScoringPromptSanity:
 
     def test_coerce_string_numbers_to_int(self):
         """LLM 把数字写成字符串时自动转换为数字"""
-        from services.scoring import _coerce_numeric_fields
+        from contexts.training.service import _coerce_numeric_fields
 
         result = {
             "total_score": "24",
@@ -255,7 +255,7 @@ class TestScoringPromptSanity:
         assert isinstance(result["detail_scores"]["病史采集"]["max"], int)
 
     def test_coerce_float_score(self):
-        from services.scoring import _coerce_numeric_fields
+        from contexts.training.service import _coerce_numeric_fields
 
         result = {"total_score": "35.5"}
         _coerce_numeric_fields(result)
@@ -318,7 +318,7 @@ class TestScoringFlowEndToEnd:
 
     def test_validate_scoring_result_safety(self):
         """评分验证不应对正确结果误报"""
-        from services.scoring import _validate_scoring_result
+        from contexts.training.service import _validate_scoring_result
 
         result = {
             "total_score": 42,
@@ -358,7 +358,7 @@ class TestScoringFlowEndToEnd:
         _validate_scoring_result(result)  # 不应抛异常
 
     def test_validate_rejects_missing_total_score(self):
-        from services.scoring import _validate_scoring_result
+        from contexts.training.service import _validate_scoring_result
 
         with pytest.raises(ValueError, match="缺失字段"):
             _validate_scoring_result({})

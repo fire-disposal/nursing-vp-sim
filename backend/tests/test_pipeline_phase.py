@@ -1,6 +1,6 @@
 """Unit tests for Phase parsing and transition logic."""
 
-from services.pipeline.phase import (
+from contexts.training.pipeline.phase import (
     Phase,
     get_phase_by_order,
     parse_phase,

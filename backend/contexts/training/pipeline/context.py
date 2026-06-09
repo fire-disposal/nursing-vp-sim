@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from models import Message, TrainingRecord, User
-from services.pipeline.phase import Phase, parse_phases
+from .phase import Phase, parse_phases
 
 
 @dataclass

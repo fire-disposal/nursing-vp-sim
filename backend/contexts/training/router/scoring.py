@@ -12,11 +12,11 @@ from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from models import Case, Message, TrainingRecord, User
 from schemas import ScoringTriggerResponse
-from services.patient_ai import cleanup_emotion, cleanup_initiative
+from contexts.patient import cleanup_emotion, cleanup_initiative
 from services.prompt.manager import PromptManager
-from services.scoring import evaluate_training
+from contexts.training.service import evaluate_training
 
-from .base import (
+from .session import (
     _release_scoring,
     _schedule_background,
     _try_acquire_scoring,
