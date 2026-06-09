@@ -58,6 +58,10 @@ export default function NursingRecordPanel({ isOpen, onToggle, recordId }: Nursi
     setCollapsedSections(new Set());
   }, [recordId]);
 
+  useEffect(() => {
+    saveValues(recordId, values);
+  }, [values, recordId]);
+
   const updateValue = (sectionKey: string, itemKey: string, value: unknown) => {
     setValues((prev) => {
       const next = { ...prev };
@@ -65,7 +69,6 @@ export default function NursingRecordPanel({ isOpen, onToggle, recordId }: Nursi
         next[sectionKey] = {};
       }
       next[sectionKey] = { ...next[sectionKey], [itemKey]: value } as Record<string, unknown>;
-      saveValues(recordId, next);
       return next;
     });
   };
