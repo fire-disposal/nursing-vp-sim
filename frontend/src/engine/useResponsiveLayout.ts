@@ -14,9 +14,16 @@ export function useResponsiveLayout(layout: LayoutDef): SlotGrid {
   const [bp, setBp] = useState<Breakpoint>(getBreakpoint);
 
   useEffect(() => {
-    const handler = () => setBp(getBreakpoint());
+    let timer: ReturnType<typeof setTimeout>;
+    const handler = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setBp(getBreakpoint()), 150);
+    };
     window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("resize", handler);
+      clearTimeout(timer);
+    };
   }, []);
 
   if (bp === "desktop") return layout.breakpoints.desktop;

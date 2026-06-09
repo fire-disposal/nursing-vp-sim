@@ -1,5 +1,6 @@
 // frontend/src/plugins/questionnaire/QuestionnaireOverlay.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { api } from "@/api/axios-instance";
 import type { SlotProps } from "@/engine/types";
 
 interface Questionnaire {
@@ -12,6 +13,13 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
   const [phase, setPhase] = useState<"pre" | "post" | null>(null);
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const cancelled = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      cancelled.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubEnd = ctx.bus.on("training:ended", () => setPhase("post"));
@@ -21,8 +29,8 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
 
   async function checkPreQuestionnaire() {
     try {
-      const { api } = await import("@/api/axios-instance");
       const res = await api.get(`/questionnaires/training/${ctx.recordId}/pre`);
+      if (cancelled.current) return;
       if (res.data && (res.data as Questionnaire).questions?.length) {
         setQuestionnaire(res.data as Questionnaire);
         setPhase("pre");
@@ -36,8 +44,8 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
     if (phase === "post") {
       (async () => {
         try {
-          const { api } = await import("@/api/axios-instance");
           const res = await api.get(`/questionnaires/training/${ctx.recordId}/post`);
+          if (cancelled.current) return;
           if (res.data && (res.data as Questionnaire).questions?.length) {
             setQuestionnaire(res.data as Questionnaire);
             setAnswers({});
@@ -53,11 +61,11 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
 
   const submit = async () => {
     try {
-      const { api } = await import("@/api/axios-instance");
       await api.post(`/questionnaires/${questionnaire.id}/submit`, {
         record_id: Number(ctx.recordId),
         answers,
       });
+      if (cancelled.current) return;
       setPhase(null);
       setQuestionnaire(null);
     } catch (e: any) {

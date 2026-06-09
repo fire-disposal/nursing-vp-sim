@@ -16,8 +16,6 @@ const OPERATIONS = [
 export function ExamPanel({ ctx, features }: SlotProps) {
   const [expanded, setExpanded] = useState(false);
 
-  if (!features.physical_exam) return null;
-
   const execute = (cmd: string) => {
     ctx.sendMessage(cmd);
   };
