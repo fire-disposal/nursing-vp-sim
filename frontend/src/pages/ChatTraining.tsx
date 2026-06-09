@@ -1,6 +1,7 @@
 ﻿import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
 import { chatDisplayPlugin } from "@/plugins/chat-display";
+import { chatInputPlugin } from "@/plugins/chat-input";
 import { inquiryPlugin } from "@/plugins/inquiry";
 import { nursingRecordPlugin } from "@/plugins/nursing-record";
 import { patientInitiativePlugin } from "@/plugins/patient-initiative";
@@ -26,6 +27,7 @@ export default function ChatTraining() {
       }}
       plugins={[
         chatDisplayPlugin,
+        chatInputPlugin,
         timerPlugin,
         inquiryPlugin,
         physicalExamPlugin,
