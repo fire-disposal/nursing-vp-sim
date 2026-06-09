@@ -9,6 +9,7 @@ export * from "./prompts";
 export * from "./qa";
 export * from "./questionnaires";
 export * from "./rubric";
+export * from "./scenarios";
 export * from "./stats";
 export * from "./training";
 export * from "./training-state";
