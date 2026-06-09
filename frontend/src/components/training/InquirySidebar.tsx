@@ -1,8 +1,8 @@
 import { CheckCircle2, Circle, ListChecks, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import Sheet from "@/components/ui/Sheet";
+import type { ChatMessage } from "@/engine/types";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "@/types/chat";
 
 export function extractKeywords(inquiry: string): string[] {
   const cleaned = inquiry.replace(/[（）()]/g, " ");

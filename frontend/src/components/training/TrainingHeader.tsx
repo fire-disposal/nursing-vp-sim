@@ -1,8 +1,8 @@
 import { ArrowLeft, Clock, Ear, EarOff, Phone } from "lucide-react";
 import NursingRecordPanel from "@/components/nursing-record/NursingRecordPanel";
 import InquirySidebar from "@/components/training/InquirySidebar";
+import type { ChatMessage } from "@/engine/types";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "@/types/chat";
 import type { PatientInfo } from "@/utils/avatar";
 import { getPatientAvatar } from "@/utils/avatar";
 

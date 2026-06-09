@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { sendMessageStream } from "@/api/api-client";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage } from "@/engine/types";
 
 interface UseChatStreamOptions {
   onPatientChunk?: (chunk: string) => void;
