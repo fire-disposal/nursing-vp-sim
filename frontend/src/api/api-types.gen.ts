@@ -101,7 +101,8 @@ export interface paths {
         };
         /** Get Me */
         get: operations["get_me_api_auth_me_get"];
-        put?: never;
+        /** Update Me */
+        put: operations["update_me_api_auth_me_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -253,10 +254,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Llm Logs
-         * @description 返回 LLM 调用日志。aggregate_patient_chat=true 时将同一训练下的 patient_chat 聚合为一条训练级记录。
-         */
+        /** Get Llm Logs */
         get: operations["get_llm_logs_api_admin_llm_logs_get"];
         put?: never;
         post?: never;
@@ -273,10 +271,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Llm Log Detail
-         * @description 查看单条 LLM 调用日志详情（含请求/响应全文）
-         */
+        /** Get Llm Log Detail */
         get: operations["get_llm_log_detail_api_admin_llm_logs__log_id__get"];
         put?: never;
         post?: never;
@@ -293,10 +288,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Export Llm Logs Csv
-         * @description 导出 LLM 调用日志为 CSV 文件
-         */
+        /** Export Llm Logs Csv */
         get: operations["export_llm_logs_csv_api_admin_llm_logs_export_get"];
         put?: never;
         post?: never;
@@ -667,23 +659,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/qa/sessions/{session_id}/ask": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ask In Session */
-        post: operations["ask_in_session_api_qa_sessions__session_id__ask_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/qa/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -718,23 +693,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/qa/ask": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ask Question Legacy */
-        post: operations["ask_question_legacy_api_qa_ask_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/qa/history/all": {
         parameters: {
             query?: never;
@@ -763,6 +721,57 @@ export interface paths {
         get: operations["get_session_messages_admin_api_qa_history_all__session_id__messages_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/qa/sessions/{session_id}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask In Session */
+        post: operations["ask_in_session_api_qa_sessions__session_id__ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/qa/sessions/{session_id}/ask/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask Stream */
+        post: operations["ask_stream_api_qa_sessions__session_id__ask_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/qa/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask Question Legacy */
+        post: operations["ask_question_legacy_api_qa_ask_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -806,6 +815,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questionnaires/templates/{template_id}/case-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Assign Cases */
+        put: operations["assign_cases_api_questionnaires_templates__template_id__case_assignments_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/questionnaires/templates/{template_id}/questions": {
         parameters: {
             query?: never;
@@ -836,23 +862,6 @@ export interface paths {
         post?: never;
         /** Delete Question */
         delete: operations["delete_question_api_questionnaires_questions__question_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/questionnaires/templates/{template_id}/case-assignments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Assign Cases */
-        put: operations["assign_cases_api_questionnaires_templates__template_id__case_assignments_put"];
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1069,13 +1078,63 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Session Configs
-         * @description 返回可用的会话配置列表
-         */
+        /** Get Session Configs */
         get: operations["get_session_configs_api_training_configs_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Records */
+        get: operations["get_records_api_training_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/records/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Record Detail */
+        get: operations["get_record_detail_api_training_records__record_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Record */
+        delete: operations["delete_record_api_training_records__record_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/records/{record_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Score Review */
+        get: operations["get_score_review_api_training_records__record_id__review_get"];
+        put?: never;
+        /** Submit Score Review */
+        post: operations["submit_score_review_api_training_records__record_id__review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1108,10 +1167,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Retry Scoring
-         * @description 重新触发失败的评分（学生本人或教师可操作）
-         */
+        /** Retry Scoring */
         post: operations["retry_scoring_api_training__record_id__retry_scoring_post"];
         delete?: never;
         options?: never;
@@ -1119,59 +1175,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/records": {
+    "/api/training/{record_id}/advance-phase": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Records
-         * @description 获取训练记录列表。学生只看自己的，教师看全部并支持多维过滤。
-         */
-        get: operations["get_records_api_training_records_get"];
+        get?: never;
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/records/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Record Detail */
-        get: operations["get_record_detail_api_training_records__record_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Record
-         * @description 删除训练记录。教师可删全部，学生仅可删自己的。
-         */
-        delete: operations["delete_record_api_training_records__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/records/{record_id}/review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Score Review */
-        get: operations["get_score_review_api_training_records__record_id__review_get"];
-        put?: never;
-        /** Submit Score Review */
-        post: operations["submit_score_review_api_training_records__record_id__review_post"];
+        /** Advance Phase */
+        post: operations["advance_phase_api_training__record_id__advance_phase_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1185,10 +1199,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Training State
-         * @description 调试端点：返回当前训练的患者内部状态（情绪/人格/配置/操作检测）
-         */
+        /** Get Training State */
         get: operations["get_training_state_api_training__record_id__state_get"];
         put?: never;
         post?: never;
@@ -1207,11 +1218,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Trigger Initiative
-         * @description 触发患者主动行为。返回自然语言消息或 None（时机未到）。
-         */
+        /** Trigger Initiative */
         post: operations["trigger_initiative_api_training__record_id__initiative_trigger_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/config/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Training Features */
+        put: operations["update_training_features_api_training__record_id__config_features_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2152,6 +2177,17 @@ export interface components {
             /** Note */
             note: string;
         };
+        /** FeatureConfigResponse */
+        FeatureConfigResponse: {
+            /** Id */
+            id?: string | null;
+            /** Mode */
+            mode?: string | null;
+            /** Features */
+            features?: {
+                [key: string]: boolean;
+            };
+        };
         /** FeedbackDailyItem */
         FeedbackDailyItem: {
             /** Date */
@@ -2787,6 +2823,15 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PhaseAdvanceResponse */
+        PhaseAdvanceResponse: {
+            /** Current Phase */
+            current_phase: string;
+            /** Name */
+            name: string;
+            /** Order */
+            order: number;
+        };
         /** PromptPreviewResponse */
         PromptPreviewResponse: {
             /** Purpose */
@@ -3386,6 +3431,8 @@ export interface components {
             student_id?: string | null;
             /** Class Id */
             class_id?: number | null;
+            /** Gender */
+            gender?: string | null;
         };
         /** RoleCreateRequest */
         RoleCreateRequest: {
@@ -3734,6 +3781,8 @@ export interface components {
             user_student_id: string | null;
             /** Status */
             status: string;
+            /** Current Phase */
+            current_phase?: string | null;
             /** Scoring Status */
             scoring_status?: string | null;
             /** Scoring Error */
@@ -3760,6 +3809,8 @@ export interface components {
             user_display_name: string;
             /** Status */
             status: string;
+            /** Current Phase */
+            current_phase?: string | null;
             /** Scoring Status */
             scoring_status?: string | null;
             /** Scoring Error */
@@ -3792,6 +3843,10 @@ export interface components {
             patient_info?: {
                 [key: string]: unknown;
             } | null;
+            /** Features */
+            features?: {
+                [key: string]: boolean;
+            };
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -3829,10 +3884,7 @@ export interface components {
             exam_anchors?: {
                 [key: string]: unknown;
             };
-            /** Config */
-            config?: {
-                [key: string]: unknown;
-            };
+            config: components["schemas"]["FeatureConfigResponse"];
             initiative: components["schemas"]["InitiativeStateResponse"];
         };
         /** TrendStats */
@@ -3862,6 +3914,10 @@ export interface components {
             display_name: string;
             /** Student Id */
             student_id: string | null;
+            /** Gender */
+            gender?: string | null;
+            /** Avatar */
+            avatar?: string | null;
             /** Class Id */
             class_id?: number | null;
             /** Class Name */
@@ -3873,6 +3929,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** UserProfileUpdateRequest */
+        UserProfileUpdateRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Student Id */
+            student_id?: string | null;
+            /** Gender */
+            gender?: string | null;
+            /** Avatar */
+            avatar?: string | null;
         };
         /** UserUpdateRequest */
         UserUpdateRequest: {
@@ -3886,6 +3953,10 @@ export interface components {
             role?: string | null;
             /** Password */
             password?: string | null;
+            /** Gender */
+            gender?: string | null;
+            /** Avatar */
+            avatar?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -4137,6 +4208,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserBrief"];
+                };
+            };
+        };
+    };
+    update_me_api_auth_me_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserBrief"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5474,41 +5578,6 @@ export interface operations {
             };
         };
     };
-    ask_in_session_api_qa_sessions__session_id__ask_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QASessionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QAAskResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     delete_session_api_qa_sessions__session_id__delete: {
         parameters: {
             query?: never;
@@ -5558,39 +5627,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QAMessageItem"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ask_question_legacy_api_qa_ask_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QASessionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QAAskResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5656,6 +5692,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QAMessageItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_in_session_api_qa_sessions__session_id__ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QASessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QAAskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_stream_api_qa_sessions__session_id__ask_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QASessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_question_legacy_api_qa_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QASessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QAAskResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5833,6 +5972,41 @@ export interface operations {
             };
         };
     };
+    assign_cases_api_questionnaires_templates__template_id__case_assignments_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_question_api_questionnaires_templates__template_id__questions_post: {
         parameters: {
             query?: never;
@@ -5913,41 +6087,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    assign_cases_api_questionnaires_templates__template_id__case_assignments_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                template_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CaseAssignmentRequest"];
-            };
-        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6389,68 +6528,6 @@ export interface operations {
             };
         };
     };
-    end_training_api_training__record_id__end_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScoringTriggerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    retry_scoring_api_training__record_id__retry_scoring_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScoringTriggerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_records_api_training_records_get: {
         parameters: {
             query?: {
@@ -6624,6 +6701,99 @@ export interface operations {
             };
         };
     };
+    end_training_api_training__record_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringTriggerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_scoring_api_training__record_id__retry_scoring_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringTriggerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    advance_phase_api_training__record_id__advance_phase_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseAdvanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_training_state_api_training__record_id__state_get: {
         parameters: {
             query?: never;
@@ -6673,6 +6843,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InitiativeTriggerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_training_features_api_training__record_id__config_features_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

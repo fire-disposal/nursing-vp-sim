@@ -188,6 +188,12 @@ export interface EmotionStateResponse {
   note: string
 }
 
+export interface FeatureConfigResponse {
+  id?: string | null
+  mode?: string | null
+  features?: Record<string, unknown>
+}
+
 export interface FeedbackDailyItem {
   date: string
   rating_1?: number
@@ -486,6 +492,12 @@ export interface PaginatedResponse_UserBrief_ {
   limit: number
 }
 
+export interface PhaseAdvanceResponse {
+  current_phase: string
+  name: string
+  order: number
+}
+
 export interface PromptPreviewResponse {
   purpose: string
   version: number
@@ -738,6 +750,7 @@ export interface RegisterRequest {
   display_name: string
   student_id?: string | null
   class_id?: number | null
+  gender?: string | null
 }
 
 export interface RoleCreateRequest {
@@ -897,6 +910,7 @@ export interface TrainingRecordBrief {
   user_display_name: string
   user_student_id: string | null
   status: string
+  current_phase?: string | null
   scoring_status?: string | null
   scoring_error?: string | null
   start_time: string
@@ -910,6 +924,7 @@ export interface TrainingRecordDetail {
   case_name: string
   user_display_name: string
   status: string
+  current_phase?: string | null
   scoring_status?: string | null
   scoring_error?: string | null
   start_time: string
@@ -921,6 +936,7 @@ export interface TrainingRecordDetail {
   notes?: NoteItem[]
   required_inquiries?: unknown[] | null
   patient_info?: Record<string, unknown> | null
+  features?: Record<string, unknown>
 }
 
 export interface TrainingStartRequest {
@@ -941,7 +957,7 @@ export interface TrainingStateResponse {
   personality?: Record<string, unknown>
   deep_background_keys?: string[]
   exam_anchors?: Record<string, unknown>
-  config?: Record<string, unknown>
+  config: FeatureConfigResponse
   initiative: InitiativeStateResponse
 }
 
@@ -959,10 +975,19 @@ export interface UserBrief {
   role_display_name: string
   display_name: string
   student_id: string | null
+  gender?: string | null
+  avatar?: string | null
   class_id?: number | null
   class_name?: string | null
   grade_name?: string | null
   created_at: string
+}
+
+export interface UserProfileUpdateRequest {
+  display_name?: string | null
+  student_id?: string | null
+  gender?: string | null
+  avatar?: string | null
 }
 
 export interface UserUpdateRequest {
@@ -971,6 +996,8 @@ export interface UserUpdateRequest {
   class_id?: number | null
   role?: string | null
   password?: string | null
+  gender?: string | null
+  avatar?: string | null
 }
 
 export interface ValidationError {

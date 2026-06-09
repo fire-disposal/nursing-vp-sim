@@ -88,6 +88,8 @@ class User(Base):
     school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"))
     display_name: Mapped[str] = mapped_column(String(50))
     student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 

@@ -31,6 +31,7 @@ const AdminSchools = lazy(() => import("@/pages/admin/SchoolsPage"));
 const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
 const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
+const Profile = lazy(() => import("@/pages/Profile"));
 const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
 
 function PageLoader() {
@@ -72,6 +73,7 @@ export default function App() {
                       <Route path="/qa" element={<QA />} />
                       <Route path="/stats" element={<StatsPage />} />
                       <Route path="/my-responses" element={<MyResponses />} />
+                      <Route path="/profile" element={<Profile />} />
                       <Route element={<ProtectedRoute permission="score_review" />}>
                         <Route path="/admin" element={<Admin />} />
                         <Route path="/admin/debug" element={<AdminDebug />} />

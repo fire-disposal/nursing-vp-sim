@@ -129,6 +129,7 @@ def _seed_data() -> None:
         # 6. 测试学生和病例 (仅首次初始化)
         if db.query(User).filter(User.username != username).count() == 0:
             student_role_id = school_role_ids.get("student")
+            test_genders = ["男", "女", "男", "女", "男"]
             for i in range(1, 6):
                 db.add(User(
                     username=f"student{i}",
@@ -137,6 +138,7 @@ def _seed_data() -> None:
                     school_id=school.id,
                     display_name=f"学生{i}",
                     student_id=f"202400{i:02d}",
+                    gender=test_genders[i - 1],
                 ))
             log.info("测试学生已创建 (student1-5 / 123456)")
 

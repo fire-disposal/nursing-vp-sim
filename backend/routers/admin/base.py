@@ -81,6 +81,8 @@ def list_users(
                 role_display_name=u.role.display_name if u.role else "",
                 display_name=u.display_name,
                 student_id=u.student_id,
+                gender=u.gender,
+                avatar=u.avatar,
                 created_at=u.created_at,
                 class_id=cls.id if cls else None,
                 class_name=cls.name if cls else None,
@@ -116,6 +118,10 @@ def update_user(
         if len(req.password) < 6:
             raise HTTPException(status_code=400, detail="密码长度不能少于6位")
         user.password_hash = hash_password(req.password)
+    if req.gender is not None:
+        user.gender = req.gender or None
+    if req.avatar is not None:
+        user.avatar = req.avatar or None
 
     if req.class_id is not None:
         if req.class_id != 0:
@@ -156,6 +162,8 @@ def update_user(
         role_display_name=user.role.display_name if user.role else "",
         display_name=user.display_name,
         student_id=user.student_id,
+        gender=user.gender,
+        avatar=user.avatar,
         created_at=user.created_at,
         class_id=cls.id if cls else None,
         class_name=cls.name if cls else None,

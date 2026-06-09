@@ -51,6 +51,8 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
       role: data.role,
       role_display_name: (data as any).role_display_name || data.role,
       display_name: data.display_name,
+      gender: (data as any).gender ?? null,
+      avatar: (data as any).avatar ?? null,
       school_id: (data as any).school_id ?? undefined,
       school_name: (data as any).school_name ?? undefined,
     };
@@ -89,6 +91,8 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
         role: data.role,
         role_display_name: (data as any).role_display_name || data.role,
         display_name: data.display_name,
+        gender: (data as any).gender ?? null,
+        avatar: (data as any).avatar ?? null,
         school_id: current?.school_id ?? (data as any).school_id ?? undefined,
         school_name: current?.school_name ?? (data as any).school_name ?? undefined,
       };

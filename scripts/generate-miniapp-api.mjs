@@ -82,7 +82,7 @@ function collectTypes(schema) {
 // 收集学生端相关的 schema
 const studentEndpoints = [
   "LoginRequest", "TokenResponse", "WechatLoginRequest", "WechatLoginResponse", "WechatBindRequest",
-  "UserBrief",
+  "UserBrief", "UserProfileUpdateRequest", "ChangePasswordRequest",
   "CaseBrief", "PaginatedResponse_CaseBrief_",
   "TrainingStartRequest", "TrainingStartResponse",
   "TrainingRecordBrief", "PaginatedResponse_TrainingRecordBrief_",

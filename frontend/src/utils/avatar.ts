@@ -45,7 +45,11 @@ export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
   return avatars[key] || avatars.patient_youth_male;
 }
 
-export function getNurseAvatar(gender?: string): string {
+export function getNurseAvatar(gender?: string | null): string {
   const sex = gender === "男" ? "male" : "female";
   return avatars[`nurse_${sex}`] || avatars.nurse_female;
+}
+
+export function getUserAvatar(gender?: string | null): string {
+  return getNurseAvatar(gender);
 }

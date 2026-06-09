@@ -34,6 +34,7 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=50)
     student_id: str | None = None
     class_id: int | None = None
+    gender: str | None = Field(default=None, max_length=4)
 
 
 class TokenResponse(BaseModel):
@@ -46,6 +47,8 @@ class TokenResponse(BaseModel):
     school_id: int | None = None
     school_name: str | None = None
     permissions: list[str] = []
+    gender: str | None = None
+    avatar: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -302,10 +305,20 @@ class UserBrief(BaseModel):
     role_display_name: str
     display_name: str
     student_id: str | None
+    gender: str | None = None
+    avatar: str | None = None
     class_id: int | None = None
     class_name: str | None = None
     grade_name: str | None = None
     created_at: datetime
+
+
+class UserProfileUpdateRequest(BaseModel):
+    model_config = _REQ_CFG
+    display_name: str | None = Field(default=None, min_length=1, max_length=50)
+    student_id: str | None = None
+    gender: str | None = Field(default=None, max_length=4)
+    avatar: str | None = Field(default=None, max_length=255)
 
 
 class UserUpdateRequest(BaseModel):
@@ -315,6 +328,8 @@ class UserUpdateRequest(BaseModel):
     class_id: int | None = None
     role: str | None = None
     password: str | None = Field(default=None, min_length=6)
+    gender: str | None = Field(default=None, max_length=4)
+    avatar: str | None = Field(default=None, max_length=255)
 
 
 class StudentDetail(BaseModel):

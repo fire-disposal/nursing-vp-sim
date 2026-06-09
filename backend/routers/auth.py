@@ -20,6 +20,7 @@ from schemas import (
     RegisterRequest,
     TokenResponse,
     UserBrief,
+    UserProfileUpdateRequest,
     WechatBindRequest,
     WechatLoginRequest,
     WechatLoginResponse,
@@ -48,6 +49,8 @@ def _build_token_response(user: User, db: Session) -> TokenResponse:
         school_id=user.school_id,
         school_name=user.school.name if user.school else None,
         permissions=permissions,
+        gender=user.gender,
+        avatar=user.avatar,
     )
 
 
@@ -99,6 +102,7 @@ def register(
         school_id=current_user.school_id,
         display_name=req.display_name,
         student_id=req.student_id,
+        gender=req.gender,
     )
     db.add(user)
     db.flush()
@@ -244,14 +248,44 @@ async def wechat_register(
 
 @router.get("/me", response_model=UserBrief)
 def get_me(current_user: Annotated[User, Depends(get_current_user)]):
+    return _user_to_brief(current_user)
+
+
+@router.put("/me", response_model=UserBrief)
+def update_me(
+    req: UserProfileUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    if req.display_name is not None:
+        current_user.display_name = req.display_name
+    if req.student_id is not None:
+        current_user.student_id = req.student_id or None
+    if req.gender is not None:
+        current_user.gender = req.gender or None
+    if req.avatar is not None:
+        current_user.avatar = req.avatar or None
+    db.commit()
+    db.refresh(current_user)
+    log.info("个人信息更新: user_id=%d", current_user.id)
+    return _user_to_brief(current_user)
+
+
+def _user_to_brief(user: User) -> UserBrief:
+    cls = user.user_class.class_ if user.user_class else None
     return UserBrief(
-        id=current_user.id,
-        username=current_user.username,
-        role=current_user.role.name if current_user.role else "",
-        role_display_name=current_user.role.display_name if current_user.role else "",
-        display_name=current_user.display_name,
-        student_id=current_user.student_id,
-        created_at=current_user.created_at,
+        id=user.id,
+        username=user.username,
+        role=user.role.name if user.role else "",
+        role_display_name=user.role.display_name if user.role else "",
+        display_name=user.display_name,
+        student_id=user.student_id,
+        gender=user.gender,
+        avatar=user.avatar,
+        class_id=cls.id if cls else None,
+        class_name=cls.name if cls else None,
+        grade_name=cls.grade.name if (cls and cls.grade) else None,
+        created_at=user.created_at,
     )
 
 

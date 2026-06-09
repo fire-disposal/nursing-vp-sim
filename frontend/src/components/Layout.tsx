@@ -8,7 +8,6 @@
   HelpCircle,
   Home,
   Info,
-  Key,
   LogOut,
   Menu,
   MessageSquare,
@@ -16,20 +15,20 @@
   Settings,
   Shield,
   Stethoscope,
+  User,
   UserSearch,
   Users,
   X,
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { changePassword } from "@/api/api-client";
 import { useFeedback } from "@/components/FeedbackProvider";
 import Button from "@/components/ui/Button";
-import { Input } from "@/components/ui/input";
 import Modal from "@/components/ui/Modal";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
+import { getUserAvatar } from "@/utils/avatar";
 import { APP_VERSION } from "@/version";
 
 interface NavLinkItem {
@@ -70,14 +69,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const adminLinks = links.filter((l) => l.to.startsWith("/admin"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [passwordOpen, setPasswordOpen] = useState(false);
   const { openFeedback } = useFeedback();
 
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [pwdMsg, setPwdMsg] = useState("");
-  const [pwdLoading, setPwdLoading] = useState(false);
-
+  const userAvatar = getUserAvatar(user?.gender);
   const currentSchoolName = user?.school_name || "";
 
   const close = () => setMobileOpen(false);
@@ -85,34 +79,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const handleLogout = () => {
     logout();
     navigate("/login");
-  };
-
-  const handleChangePassword = async () => {
-    setPwdMsg("");
-    if (!oldPassword || !newPassword) {
-      setPwdMsg("请填写完整");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPwdMsg("新密码至少 6 个字符");
-      return;
-    }
-    setPwdLoading(true);
-    try {
-      await changePassword(oldPassword, newPassword);
-      setPwdMsg("密码修改成功");
-      setTimeout(() => {
-        setPasswordOpen(false);
-        setOldPassword("");
-        setNewPassword("");
-        setPwdMsg("");
-      }, 1000);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setPwdMsg(e.response?.data?.detail || "修改失败");
-    } finally {
-      setPwdLoading(false);
-    }
   };
 
   return (
@@ -190,20 +156,20 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Separator />
 
         <div className="p-3">
-          <div className="mb-3 flex items-center gap-2.5 rounded-lg bg-muted/50 px-3 py-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-              {(user?.display_name || "U")[0]}
-            </div>
-            <div className="min-w-0">
+          <NavLink
+            to="/profile"
+            onClick={close}
+            className={({ isActive }) =>
+              cn("mb-3 flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent", isActive ? "bg-primary/10" : "bg-muted/50")
+            }
+          >
+            <img src={userAvatar} alt="头像" className="size-8 shrink-0 rounded-full object-cover ring-1 ring-border bg-muted" />
+            <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{user?.display_name}</div>
               <div className="text-xs text-muted-foreground">{user?.role_display_name || user?.role || "用户"}</div>
             </div>
-          </div>
+          </NavLink>
           <div className="flex gap-1 flex-wrap">
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setPasswordOpen(true)}>
-              <Key size={13} />
-              密码
-            </Button>
             <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setAboutOpen(true)}>
               <Info size={13} />
               关于
@@ -214,29 +180,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </div>
-
-        <Modal open={passwordOpen} onClose={() => setPasswordOpen(false)} title="修改密码">
-          <div className="space-y-3 py-2">
-            {pwdMsg && (
-              <div
-                className={cn("px-3 py-2 rounded-lg text-sm", pwdMsg.includes("成功") ? "bg-green-50 text-green-600" : "bg-destructive/10 text-destructive")}
-              >
-                {pwdMsg}
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium mb-1">原密码</label>
-              <Input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="输入原密码" className="h-10" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">新密码</label>
-              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="至少 6 个字符" className="h-10" />
-            </div>
-            <Button className="w-full" onClick={handleChangePassword} disabled={pwdLoading}>
-              {pwdLoading ? "修改中..." : "确认修改"}
-            </Button>
-          </div>
-        </Modal>
 
         <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于系统">
           <div className="space-y-3 py-2 text-center">

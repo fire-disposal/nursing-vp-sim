@@ -4,7 +4,8 @@ export interface User {
   role: string;
   role_display_name: string;
   display_name: string;
-  avatar?: string;
+  gender?: string | null;
+  avatar?: string | null;
   grade?: string;
   className?: string;
   school_id?: number;

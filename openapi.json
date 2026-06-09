@@ -245,6 +245,50 @@
             "HTTPBearer": []
           }
         ]
+      },
+      "put": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "Update Me",
+        "operationId": "update_me_api_auth_me_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserBrief"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/auth/refresh": {
@@ -705,7 +749,6 @@
           "管理"
         ],
         "summary": "Get Llm Logs",
-        "description": "返回 LLM 调用日志。aggregate_patient_chat=true 时将同一训练下的 patient_chat 聚合为一条训练级记录。",
         "operationId": "get_llm_logs_api_admin_llm_logs_get",
         "security": [
           {
@@ -841,7 +884,6 @@
           "管理"
         ],
         "summary": "Get Llm Log Detail",
-        "description": "查看单条 LLM 调用日志详情（含请求/响应全文）",
         "operationId": "get_llm_log_detail_api_admin_llm_logs__log_id__get",
         "security": [
           {
@@ -889,7 +931,6 @@
           "管理"
         ],
         "summary": "Export Llm Logs Csv",
-        "description": "导出 LLM 调用日志为 CSV 文件",
         "operationId": "export_llm_logs_csv_api_admin_llm_logs_export_get",
         "security": [
           {
@@ -2634,63 +2675,6 @@
         ]
       }
     },
-    "/api/qa/sessions/{session_id}/ask": {
-      "post": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Ask In Session",
-        "operationId": "ask_in_session_api_qa_sessions__session_id__ask_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QASessionCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QAAskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/qa/sessions/{session_id}": {
       "delete": {
         "tags": [
@@ -2787,52 +2771,6 @@
             }
           }
         }
-      }
-    },
-    "/api/qa/ask": {
-      "post": {
-        "tags": [
-          "通用问答"
-        ],
-        "summary": "Ask Question Legacy",
-        "operationId": "ask_question_legacy_api_qa_ask_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QASessionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QAAskResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/qa/history/all": {
@@ -2963,6 +2901,164 @@
             }
           }
         }
+      }
+    },
+    "/api/qa/sessions/{session_id}/ask": {
+      "post": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Ask In Session",
+        "operationId": "ask_in_session_api_qa_sessions__session_id__ask_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QASessionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QAAskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/qa/sessions/{session_id}/ask/stream": {
+      "post": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Ask Stream",
+        "operationId": "ask_stream_api_qa_sessions__session_id__ask_stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QASessionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/qa/ask": {
+      "post": {
+        "tags": [
+          "通用问答"
+        ],
+        "summary": "Ask Question Legacy",
+        "operationId": "ask_question_legacy_api_qa_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QASessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QAAskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/questionnaires/templates": {
@@ -3249,6 +3345,63 @@
         }
       }
     },
+    "/api/questionnaires/templates/{template_id}/case-assignments": {
+      "put": {
+        "tags": [
+          "问卷"
+        ],
+        "summary": "Assign Cases",
+        "operationId": "assign_cases_api_questionnaires_templates__template_id__case_assignments_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseAssignmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/questionnaires/templates/{template_id}/questions": {
       "post": {
         "tags": [
@@ -3384,63 +3537,6 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/questionnaires/templates/{template_id}/case-assignments": {
-      "put": {
-        "tags": [
-          "问卷"
-        ],
-        "summary": "Assign Cases",
-        "operationId": "assign_cases_api_questionnaires_templates__template_id__case_assignments_put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "template_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Template Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CaseAssignmentRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4288,7 +4384,6 @@
           "训练"
         ],
         "summary": "Get Session Configs",
-        "description": "返回可用的会话配置列表",
         "operationId": "get_session_configs_api_training_configs_get",
         "responses": {
           "200": {
@@ -4302,108 +4397,12 @@
         }
       }
     },
-    "/api/training/{record_id}/end": {
-      "post": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "End Training",
-        "operationId": "end_training_api_training__record_id__end_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScoringTriggerResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/{record_id}/retry-scoring": {
-      "post": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Retry Scoring",
-        "description": "重新触发失败的评分（学生本人或教师可操作）",
-        "operationId": "retry_scoring_api_training__record_id__retry_scoring_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScoringTriggerResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/training/records": {
       "get": {
         "tags": [
           "训练"
         ],
         "summary": "Get Records",
-        "description": "获取训练记录列表。学生只看自己的，教师看全部并支持多维过滤。",
         "operationId": "get_records_api_training_records_get",
         "security": [
           {
@@ -4634,7 +4633,6 @@
           "训练"
         ],
         "summary": "Delete Record",
-        "description": "删除训练记录。教师可删全部，学生仅可删自己的。",
         "operationId": "delete_record_api_training_records__record_id__delete",
         "security": [
           {
@@ -4778,13 +4776,153 @@
         }
       }
     },
+    "/api/training/{record_id}/end": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "End Training",
+        "operationId": "end_training_api_training__record_id__end_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringTriggerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/retry-scoring": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Retry Scoring",
+        "operationId": "retry_scoring_api_training__record_id__retry_scoring_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringTriggerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/advance-phase": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Advance Phase",
+        "operationId": "advance_phase_api_training__record_id__advance_phase_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhaseAdvanceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/{record_id}/state": {
       "get": {
         "tags": [
           "训练"
         ],
         "summary": "Get Training State",
-        "description": "调试端点：返回当前训练的患者内部状态（情绪/人格/配置/操作检测）",
         "operationId": "get_training_state_api_training__record_id__state_get",
         "security": [
           {
@@ -4832,7 +4970,6 @@
           "训练"
         ],
         "summary": "Trigger Initiative",
-        "description": "触发患者主动行为。返回自然语言消息或 None（时机未到）。",
         "operationId": "trigger_initiative_api_training__record_id__initiative_trigger_post",
         "security": [
           {
@@ -4858,6 +4995,63 @@
                 "schema": {
                   "$ref": "#/components/schemas/InitiativeTriggerResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/config/features": {
+      "put": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Update Training Features",
+        "operationId": "update_training_features_api_training__record_id__config_features_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Features"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -7369,7 +7563,7 @@
         "properties": {
           "content": {
             "type": "string",
-            "maxLength": 4096,
+            "maxLength": 2000,
             "minLength": 1,
             "title": "Content"
           }
@@ -7620,6 +7814,41 @@
           "note"
         ],
         "title": "EmotionStateResponse"
+      },
+      "FeatureConfigResponse": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          }
+        },
+        "type": "object",
+        "title": "FeatureConfigResponse"
       },
       "FeedbackDailyItem": {
         "properties": {
@@ -9242,6 +9471,29 @@
         ],
         "title": "PaginatedResponse[UserBrief]"
       },
+      "PhaseAdvanceResponse": {
+        "properties": {
+          "current_phase": {
+            "type": "string",
+            "title": "Current Phase"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_phase",
+          "name",
+          "order"
+        ],
+        "title": "PhaseAdvanceResponse"
+      },
       "PromptPreviewResponse": {
         "properties": {
           "purpose": {
@@ -10729,6 +10981,18 @@
               }
             ],
             "title": "Class Id"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
           }
         },
         "additionalProperties": false,
@@ -11643,6 +11907,17 @@
             "type": "string",
             "title": "Status"
           },
+          "current_phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Phase"
+          },
           "scoring_status": {
             "anyOf": [
               {
@@ -11728,6 +12003,17 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "current_phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Phase"
           },
           "scoring_status": {
             "anyOf": [
@@ -11832,6 +12118,13 @@
               }
             ],
             "title": "Patient Info"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
           }
         },
         "type": "object",
@@ -11928,9 +12221,7 @@
             "title": "Exam Anchors"
           },
           "config": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config"
+            "$ref": "#/components/schemas/FeatureConfigResponse"
           },
           "initiative": {
             "$ref": "#/components/schemas/InitiativeStateResponse"
@@ -11941,6 +12232,7 @@
           "record_id",
           "case_id",
           "emotion",
+          "config",
           "initiative"
         ],
         "title": "TrainingStateResponse"
@@ -12016,6 +12308,28 @@
             ],
             "title": "Student Id"
           },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
           "class_id": {
             "anyOf": [
               {
@@ -12066,6 +12380,61 @@
           "created_at"
         ],
         "title": "UserBrief"
+      },
+      "UserProfileUpdateRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "UserProfileUpdateRequest"
       },
       "UserUpdateRequest": {
         "properties": {
@@ -12124,6 +12493,30 @@
               }
             ],
             "title": "Password"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
           }
         },
         "additionalProperties": false,

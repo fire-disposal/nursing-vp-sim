@@ -13,3 +13,5 @@ export const refreshToken = () => api.post<Schemas["TokenResponse"]>("/auth/refr
 
 export const changePassword = (oldPassword: string, newPassword: string) =>
   api.put<Schemas["OkResponse"]>("/auth/change-password", { old_password: oldPassword, new_password: newPassword });
+
+export const updateMyProfile = (data: Schemas["UserProfileUpdateRequest"]) => api.put<Schemas["UserBrief"]>("/auth/me", data);

@@ -11,14 +11,19 @@ export interface LoginResponse {
   role: string
   display_name: string
   user_id: number
+  gender?: string | null
+  avatar?: string | null
 }
 
 export interface UserProfile {
   id: number
   username: string
   role: string
+  role_display_name: string
   display_name: string
   student_id: string | null
+  gender?: string | null
+  avatar?: string | null
   class_id: number | null
   created_at: string
 }
@@ -63,4 +68,13 @@ export function refreshToken() {
 
 export function changePassword(oldPassword: string, newPassword: string) {
   return request<{ ok: boolean; message: string }>("PUT", "/api/auth/change-password", { old_password: oldPassword, new_password: newPassword } as unknown as Record<string, unknown>)
+}
+
+export function updateMyProfile(data: {
+  display_name?: string | null
+  student_id?: string | null
+  gender?: string | null
+  avatar?: string | null
+}) {
+  return request<UserProfile>("PUT", "/api/auth/me", data as unknown as Record<string, unknown>)
 }
