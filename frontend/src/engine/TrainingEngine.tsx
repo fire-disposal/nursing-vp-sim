@@ -65,6 +65,7 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
+  const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
 
   useEffect(() => {
     streamRef.current.setRecordId(recordNum);
@@ -118,17 +119,13 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
         bus: busRef.current,
         patient: patient!,
         messages,
-        sending,
-        tts: ttsRef.current,
+        loading: sending,
+        tts: {
+          isAutoPlay: ttsAutoPlay,
+          setAutoPlay: setTtsAutoPlay,
+        },
         sendMessage,
         endTraining,
-        setMessages: (action) => {
-          setMessages((prev) => {
-            const next = typeof action === "function" ? action(prev) : action;
-            streamRef.current.setMessages(next);
-            return next;
-          });
-        },
       },
       features: scenarioConfig?.features ?? {},
       currentPhase: "history_taking",

@@ -92,11 +92,13 @@ export interface PluginContext {
   bus: MessageBus;
   patient: PatientData;
   messages: ChatMessage[];
-  sending: boolean;
-  tts: TTSService;
+  loading: boolean;
+  tts: {
+    isAutoPlay: boolean;
+    setAutoPlay: (v: boolean) => void;
+  };
   sendMessage: (text: string) => void;
   endTraining: () => Promise<void>;
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 // ── 插件运行时状态 ──
