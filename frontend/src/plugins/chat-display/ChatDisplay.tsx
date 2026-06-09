@@ -7,6 +7,7 @@ export function ChatDisplay({ ctx }: SlotProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
+  const isNearBottomRef = useRef(true);
   const prevMessageCountRef = useRef(0);
 
   const nurseAvatar = getNurseAvatar();
@@ -18,17 +19,16 @@ export function ChatDisplay({ ctx }: SlotProps) {
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
   }, []);
 
-  const scrollToBottom = useCallback(
-    (force = false) => {
-      if (force || isNearBottom) {
-        bottomRef.current?.scrollIntoView({ behavior: force ? "auto" : "smooth" });
-      }
-    },
-    [isNearBottom],
-  );
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: force ? "auto" : "smooth" });
+    }
+  }, []);
 
   const handleScroll = useCallback(() => {
-    setIsNearBottom(checkNearBottom());
+    const nearBottom = checkNearBottom();
+    isNearBottomRef.current = nearBottom;
+    setIsNearBottom(nearBottom);
   }, [checkNearBottom]);
 
   // Auto-scroll when new messages arrive (streaming or new)
@@ -44,17 +44,17 @@ export function ChatDisplay({ ctx }: SlotProps) {
   // Listen for stream chunks to keep scroll pinned during streaming
   useEffect(() => {
     const unsub = ctx.bus.on("stream:chunk", () => {
-      if (isNearBottom) {
+      if (isNearBottomRef.current) {
         bottomRef.current?.scrollIntoView({ behavior: "auto" });
       }
     });
     return unsub;
-  }, [ctx.bus, isNearBottom]);
+  }, [ctx.bus]);
 
   // Scroll to bottom on mount
   useEffect(() => {
-    scrollToBottom(true);
-  }, [scrollToBottom]);
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
+  }, []);
 
   if (ctx.messages.length === 0) {
     return (
