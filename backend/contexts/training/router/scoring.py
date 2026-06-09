@@ -148,7 +148,7 @@ async def retry_scoring(
     if record.scoring_status == "pending":
         raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
     if record.scoring_status == "processing":
-        if record.end_time and (datetime.now(UTC) - record.end_time).total_seconds() > 300:
+        if record.end_time and (datetime.now(UTC) - record.end_time.replace(tzinfo=UTC)).total_seconds() > 300:
             record.scoring_status = "failed"
             db.commit()
         else:

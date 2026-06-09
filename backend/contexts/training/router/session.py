@@ -272,7 +272,7 @@ def get_record_detail(
     time_limit = record.time_limit or 20
     remaining_seconds = None
     if record.status == "in_progress" and record.start_time:
-        elapsed = (datetime.now(UTC) - record.start_time).total_seconds()
+        elapsed = (datetime.now(UTC) - record.start_time.replace(tzinfo=UTC)).total_seconds()
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
     patient_info = case_data.get("patient_info", {})
 

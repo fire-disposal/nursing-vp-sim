@@ -6,7 +6,7 @@ export class PluginRegistry {
 
   register(plugin: TrainingPlugin): void {
     if (this.plugins.has(plugin.id)) {
-      console.warn(`[PluginRegistry] plugin "${plugin.id}" already registered, overwriting.`);
+      return;
     }
     this.plugins.set(plugin.id, { ...plugin });
   }
