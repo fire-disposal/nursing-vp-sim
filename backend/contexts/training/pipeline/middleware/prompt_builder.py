@@ -15,19 +15,22 @@ from ..context import PipelineContext
 log = logging.getLogger(__name__)
 
 
+def _collect_author_note(ctx) -> str:
+    """收集所有已激活插件的动态提示，未激活的插件不贡献任何内容"""
+    notes = []
+    if ctx.state.get("emotion_note"):
+        notes.append(ctx.state["emotion_note"])
+    if ctx.state.get("operation_note"):
+        notes.append(ctx.state["operation_note"])
+    return "【" + " | ".join(notes) + "】" if notes else ""
+
+
 async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     if ctx.should_shortcut:
         await next_mw()
         return
 
-    emotion = get_emotion(ctx.record.id)
-    intent = classify_intent(ctx.student_display or ctx.student_input)
-    emotion.update(intent)
-    author_note = emotion.note
-
-    operation_note = ctx.state.get("_operation_note", "")
-    if operation_note:
-        author_note = author_note.rstrip("】") + " " + operation_note + "】"
+    author_note = _collect_author_note(ctx)
 
     kwargs = build_patient_context_kwargs(ctx.case_data, author_note=author_note)
     pm = ctx.app_state.prompt_manager

@@ -16,6 +16,12 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="允许学生触发护理操作（测血压/体温/听诊等），操作结果通过 Author's Note 注入 LLM",
     ),
+    "emotion": FeatureFlag(
+        key="emotion",
+        label="患者情绪状态机",
+        default=False,
+        description="5态情绪模型（withdrawn/defensive/neutral/relaxed/open），根据学生用语动态变化，注入 author_note 影响患者表现",
+    ),
     "patient_initiative": FeatureFlag(
         key="patient_initiative",
         label="患者主动追问",
