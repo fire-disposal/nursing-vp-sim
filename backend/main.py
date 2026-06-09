@@ -45,18 +45,11 @@ async def lifespan(app: FastAPI):
     log.info("虚拟患者训练系统 v%s", APP_VERSION)
     log_config(log)
 
-    # 1. DB init
-    log.info("── 1/3 数据库 ──")
     init_db()
-    log.info("数据库迁移完成")
+    log.info("Database: migrations complete")
 
-    # 2. Seed data
-    log.info("── 2/3 种子数据 ──")
     seed_all()
-    log.info("种子数据就绪")
 
-    # 3. Infrastructure
-    log.info("── 3/3 基础设施 ──")
     app.state.rate_limiter = RateLimiter()
 
     app.state.httpx_client = httpx.AsyncClient(
@@ -70,15 +63,12 @@ async def lifespan(app: FastAPI):
 
     app.state.llm_router = ProfileRouter()
     await app.state.llm_router.load_from_db()
-    log.info("密钥路由就绪")
 
     app.state.prompt_manager = PromptManager()
     await app.state.prompt_manager.load_from_db()
-    log.info("提示词管理器就绪")
 
     app.state.log_worker = LogWorker()
     await app.state.log_worker.start()
-    log.info("LLM 日志写入器就绪")
 
     app.state.llm_client = LLMClient(
         http=app.state.httpx_client,
@@ -88,12 +78,10 @@ async def lifespan(app: FastAPI):
 
     app.state.task_queue = TaskQueue(max_workers=3)
     await app.state.task_queue.start()
-    log.info("后台任务队列就绪")
 
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
 
-    # Background loops
     cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
     app.state._cleanup_task = cleanup_task
 
@@ -109,12 +97,12 @@ async def lifespan(app: FastAPI):
         )
     )
     app.state._settlement_task = settlement_task
-    log.info("自动结算就绪 (间隔=%ds)", CLEANUP_INTERVAL_SECONDS)
+    log.info("Settlement: started (interval=%ds)", CLEANUP_INTERVAL_SECONDS)
 
     _loop = asyncio.get_running_loop()
     _loop.set_exception_handler(_handle_task_exception)
 
-    log.info("── 启动完成 ──")
+    log.info("Ready")
     yield
 
     # Shutdown
