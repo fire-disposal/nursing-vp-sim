@@ -42,6 +42,11 @@ _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 async def lifespan(app: FastAPI):
     setup_logging()
     validate_config()
+    log.info("──────────────────────────────────────────────")
+    log.info("Animus Machinae excitus est.")
+    log.info("机魂已唤醒")
+    log.info("──────────────────────────────────────────────")
+    log.info("")
     log.info("虚拟患者训练系统 v%s", APP_VERSION)
     log_config(log)
 
@@ -107,8 +112,8 @@ async def lifespan(app: FastAPI):
     _loop.set_exception_handler(_handle_task_exception)
 
     log.info("──────────────────────────────────────────────")
-    log.info("Animus Machinae excitus est.")
-    log.info("机魂已唤醒")
+    log.info("Fiat Lux Machinae.")
+    log.info("让机械之光成就")
     log.info("──────────────────────────────────────────────")
     log.info("Ready")
     yield
