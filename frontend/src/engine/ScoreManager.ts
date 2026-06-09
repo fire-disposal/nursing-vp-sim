@@ -1,17 +1,19 @@
 // frontend/src/engine/ScoreManager.ts
 import { api } from "@/api/axios-instance";
-import type { ScoreData } from "./types";
+import type { MessageBus, ScoreData } from "./types";
 
 export class ScoreManager {
   private recordId: number | null;
+  private bus: MessageBus | null;
   private _score: ScoreData | null = null;
   private _progress = 0;
   private _polling = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: Array<() => void> = [];
 
-  constructor(recordId: number | null) {
+  constructor(recordId: number | null, bus?: MessageBus) {
     this.recordId = recordId;
+    this.bus = bus ?? null;
   }
 
   get score(): ScoreData | null {
@@ -33,6 +35,9 @@ export class ScoreManager {
 
   private notify(): void {
     for (const fn of this.listeners) fn();
+    if (this.bus && this._score) {
+      this.bus.emit("score:ready", this._score);
+    }
   }
 
   async end(): Promise<void> {
