@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
     _loop.set_exception_handler(_handle_task_exception)
 
     log.info("──────────────────────────────────────────────")
-    log.info("原动力流转，万机受膏")
+    log.info("Animus Machinae excitus est.")
     log.info("──────────────────────────────────────────────")
     log.info("Ready")
     yield
