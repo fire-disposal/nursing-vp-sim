@@ -9,7 +9,7 @@ from contexts.patient import (
     get_emotion,
 )
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
-from services.prompt import render_template
+from infrastructure.prompt import render_template
 from ..context import PipelineContext
 
 log = logging.getLogger(__name__)

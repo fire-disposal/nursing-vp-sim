@@ -13,7 +13,7 @@ from infrastructure.llm.client import LLMClient
 from models import Case, Message, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 from contexts.patient import cleanup_emotion, cleanup_initiative
-from services.prompt.manager import PromptManager
+from infrastructure.prompt import PromptManager
 from contexts.training.service import evaluate_training
 
 from .session import (

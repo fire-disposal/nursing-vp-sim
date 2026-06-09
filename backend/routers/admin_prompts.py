@@ -33,7 +33,7 @@ from schemas import (
     PromptValidateResponse,
     SampleVarsResponse,
 )
-from services.prompt import render_template, get_registry
+from infrastructure.prompt import render_template, get_registry
 
 log = logging.getLogger(__name__)
 

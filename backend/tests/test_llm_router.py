@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from models import ApiSecret, LLMConfig
-from services.llm import ProfileRouter, _SyntheticConfig
+from infrastructure.llm import ProfileRouter, _SyntheticConfig
 
 
 def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xxxx", status="active"):

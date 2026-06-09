@@ -29,9 +29,8 @@ from infrastructure.llm.client import LLMClient
 from infrastructure.queue import TaskQueue
 from middleware.rate_limits import RateLimiter
 from repositories.training import TrainingRepository
-from services.llm.logging import LogWorker
-from services.llm.router import ProfileRouter
-from services.prompt.manager import PromptManager
+from infrastructure.llm import LogWorker, ProfileRouter
+from infrastructure.prompt import PromptManager
 from contexts.training.service import settlement_loop
 
 log = logging.getLogger(__name__)

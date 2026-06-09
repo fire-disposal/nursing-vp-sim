@@ -33,8 +33,8 @@ from schemas import (
     TestResultItem,
     ToggleStatusResponse,
 )
-from services.llm import decrypt_api_key, encrypt_api_key, get_env_fallback_state
-from services.llm import get_catalog, infer_provider_name
+from infrastructure.llm import decrypt_api_key, encrypt_api_key, get_env_fallback_state
+from infrastructure.llm import get_catalog, infer_provider_name
 
 router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 

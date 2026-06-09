@@ -1,6 +1,6 @@
 """Tests for VariableRegistry"""
 
-from services.prompt import VariableDef, get_registry
+from infrastructure.prompt import VariableDef, get_registry
 
 
 class TestRegistryLookup:

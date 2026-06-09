@@ -13,7 +13,7 @@ from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from models import Case, Role, RolePermission, Rubric, School, User
 from models import ApiSecret, LLMConfig
-from services.llm.crypto_utils import encrypt_api_key
+from infrastructure.llm import encrypt_api_key
 
 log = logging.getLogger(__name__)
 

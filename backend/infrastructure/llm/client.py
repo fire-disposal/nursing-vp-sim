@@ -17,9 +17,9 @@ import httpx
 from core.config import LLM_CONCURRENT_LIMIT
 from core.exceptions import LLMParseError, NoProviderAvailable
 from infrastructure.llm.circuit import async_retry, backoff_delay
-from services.llm.logging import LogWorker
-from services.llm.parsing import _safe_parse_json
-from services.llm.router import ProfileRouter
+from .logging import LogWorker
+from .parsing import _safe_parse_json
+from .router import ProfileRouter
 
 log = logging.getLogger(__name__)
 

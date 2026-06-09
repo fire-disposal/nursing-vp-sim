@@ -277,15 +277,15 @@ class VariableRegistry:
         result: dict[str, str] = {}
         for v in self.get_variables(purpose):
             if v.name == "scoring_criteria":
-                from services.prompt.static import build_scoring_criteria
+                from .static import build_scoring_criteria
 
                 result[v.name] = build_scoring_criteria()
             elif v.name == "scoring_json_schema":
-                from services.prompt.static import build_scoring_json_schema
+                from .static import build_scoring_json_schema
 
                 result[v.name] = build_scoring_json_schema()
             elif v.name == "scoring_rubric":
-                from services.prompt.static import build_scoring_rubric
+                from .static import build_scoring_rubric
 
                 result[v.name] = build_scoring_rubric()
             else:

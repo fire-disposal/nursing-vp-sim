@@ -24,10 +24,9 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
-from services.llm.logging import LogWorker
-from services.llm.router import ProfileRouter
+from infrastructure.llm import LogWorker, ProfileRouter
 from services.pagination import paginate
-from services.prompt.manager import PromptManager
+from infrastructure.prompt import PromptManager
 from services.feature_flags import resolve_features
 from contexts.training.service import get_config, list_configs
 

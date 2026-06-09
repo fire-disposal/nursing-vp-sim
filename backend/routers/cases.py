@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 from core.config import get_llm_config
 from infrastructure.llm.client import CallContext
 from services.pagination import paginate
-from services.prompt import get_registry
+from infrastructure.prompt import get_registry
 from contexts.patient import format_case_for_prompt
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])

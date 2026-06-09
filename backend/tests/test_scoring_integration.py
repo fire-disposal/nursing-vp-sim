@@ -13,8 +13,8 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
-from services.prompt import render_template, build_scoring_criteria, build_scoring_json_schema
-from services.prompt import build_scoring_rubric, get_registry
+from infrastructure.prompt import render_template, build_scoring_criteria, build_scoring_json_schema
+from infrastructure.prompt import build_scoring_rubric, get_registry
 from contexts.training.service import load_rubric
 
 # ── 模拟场景数据 ──
@@ -178,7 +178,7 @@ class TestScoringPromptSanity:
 
     def test_safe_parse_json_with_valid_llm_response(self):
         """模拟 LLM 正确返回的 JSON 能否被解析"""
-        from services.llm import _safe_parse_json
+        from infrastructure.llm import _safe_parse_json
 
         response = {
             "rubric_version": "nursing_history_v1@1.0",
