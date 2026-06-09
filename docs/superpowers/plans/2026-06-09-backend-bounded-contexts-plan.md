@@ -161,6 +161,54 @@
 
 ---
 
+## Phase 5: API standardisation (transport envelope)
+
+### 5.1 Backend: Envelope middleware
+- [ ] Create `backend/core/envelope.py` — `EnvelopeMiddleware` class
+- [ ] Wraps JSON responses in `{code: 0, data: ..., message: "success"}`
+- [ ] Skips streaming responses (SSE, CSV) and non-JSON responses
+- [ ] Maps `HTTPException` / `AppError` to `{code: N, data: null, message: "..."}`
+
+### 5.2 Backend: Error codes
+- [ ] Create `backend/core/error_codes.py` — `ErrorCode(IntEnum)` with 5 code ranges
+- [ ] Update `AppError` in `core/exceptions.py` to carry `code: ErrorCode`
+- [ ] Replace `raise HTTPException(status_code=404, detail="...")` → `raise AppError(code=ErrorCode.xxx, detail="...")` in all routers
+
+### 5.3 Backend: URL standardisation
+- [ ] Rename `PUT /training/{id}/config/features` → `PUT /training/{id}/features`
+- [ ] Rename `GET /admin/users/{id}/detail` → `GET /admin/users/{id}`
+- [ ] Unify questionnaire questions: nested URLs only (`/templates/{tid}/questions/{qid}`)
+- [ ] Legacy aliases: mark deprecated with `@router.post("/ask", deprecated=True)`
+
+### 5.4 Backend: Delete response unification
+- [ ] Create `DeleteResponse` model in `schemas.py`
+- [ ] Replace `MessageResponse` / `OkResponse` on DELETE endpoints with `DeleteResponse`
+
+### 5.5 Backend: Fix raw dict returns + missing response_model
+- [ ] `training/config.py` PUT: add `response_model` + return Pydantic instance
+- [ ] `training/phases.py` 3 endpoints: return Pydantic instance, not raw dict
+- [ ] `training/scoring.py` 2 endpoints: return Pydantic instance, not raw dict
+
+### 5.6 Frontend: Axios envelope unwrapping
+- [ ] Add `ApiError` class in `frontend/src/api/api-client.ts`
+- [ ] Add response interceptor that unwraps `{code, data, message}` format
+- [ ] `code === 0` → `response.data = body.data`; else → `reject(new ApiError(code, message))`
+
+### 5.7 Miniprogram: wx.request wrapper unwrapping
+- [ ] Add envelope detection + unwrapping in `miniprogram/api/client.ts`
+- [ ] Same logic: strip envelope on success, reject on error code
+
+### 5.8 Regenerate OpenAPI and frontend types
+- [ ] Run `npm run api:update:all` to regenerate `openapi.json` + `api-types.gen.ts`
+- [ ] Verify generated types unchanged (envelope stripped by interceptor, not in schema)
+
+### 5.9 Test
+- [ ] Run full backend test suite
+- [ ] Verify frontend builds without type errors
+- [ ] Verify miniprogram compiles
+
+---
+
 ## Estimated Effort
 
 | Phase | Description | Risk | Effort |
@@ -170,7 +218,8 @@
 | 2 | Training context extraction | High | 2-3 days |
 | 3 | QA context extraction | Low | 0.5 day |
 | 4 | Wiring and cleanup | Medium | 1 day |
-| **Total** | | | **5-6 days** |
+| 5 | API standardisation | Medium | 1.5 days |
+| **Total** | | | **6.5-8 days** |
 
 ---
 

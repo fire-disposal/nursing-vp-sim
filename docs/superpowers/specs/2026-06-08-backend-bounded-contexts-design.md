@@ -287,7 +287,195 @@ External imports: 1 line (`prompts.patient_chat` → unchanged, shared module).
 
 ---
 
-## 5. Migration Phases
+## 5. API Standardisation
+
+### 5.1 Response Envelope (Transport Layer)
+
+All JSON responses are wrapped in a standard envelope by HTTP middleware:
+
+```json
+{
+  "code": 0,
+  "data": <original response>,
+  "message": "success"
+}
+```
+
+**Design principle: the envelope is a transport concern, not an API contract concern.**
+- `response_model` on each endpoint declares the **inner data type** (unchanged)
+- OpenAPI schema documents the inner type (unchanged)
+- Generated frontend types see the inner type (unchanged)
+- The envelope is injected by middleware and stripped by client interceptors
+
+**Backend: `core/envelope.py`**
+```python
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response, StreamingResponse
+import json
+
+
+class EnvelopeMiddleware(BaseHTTPMiddleware):
+    """Wraps all JSON responses in {code, data, message}.
+    Streaming responses and non-JSON responses pass through unchanged."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        content_type = response.headers.get("content-type", "")
+
+        if not content_type.startswith("application/json"):
+            return response
+
+        body = b""
+        async for chunk in response.body_iterator:
+            body += chunk
+
+        data = json.loads(body) if body else None
+
+        # FastAPI errors already have {detail: ...} shape
+        if isinstance(data, dict) and "detail" in data and response.status_code >= 400:
+            wrapped = {
+                "code": _status_to_code(response.status_code),
+                "data": None,
+                "message": data["detail"],
+            }
+        else:
+            wrapped = {"code": 0, "data": data, "message": "success"}
+
+        return Response(
+            content=json.dumps(wrapped, ensure_ascii=False),
+            status_code=response.status_code,
+            headers={k: v for k, v in response.headers.items() if k.lower() != "content-length"},
+            media_type="application/json",
+        )
+```
+
+**Frontend: axios interceptor unwrapping**
+```typescript
+// axios-instance.ts — response interceptor
+api.interceptors.response.use(
+  (response) => {
+    const body = response.data;
+    if (body && typeof body === "object" && "code" in body) {
+      if (body.code !== 0) {
+        return Promise.reject(new ApiError(body.code, body.message ?? "Unknown error"));
+      }
+      response.data = body.data; // strip envelope
+    }
+    return response;
+  },
+  // ... existing error handler
+);
+```
+
+**Miniprogram: `wx.request` wrapper unwrapping**
+```typescript
+// client.ts — in the success callback
+success: (res) => {
+  const body = res.data;
+  if (body && typeof body === "object" && "code" in body) {
+    if (body.code !== 0) {
+      wx.showToast({ title: body.message || "请求失败", icon: "none" });
+      reject(new Error(body.message));
+      return;
+    }
+    resolve(body.data as T);  // strip envelope
+    return;
+  }
+  resolve(res.data as T);
+}
+```
+
+### 5.2 Error Codes
+
+Replace `HTTPException(status_code=N, detail="...")` with typed error codes:
+
+```python
+# core/error_codes.py
+from enum import IntEnum
+
+
+class ErrorCode(IntEnum):
+    # Auth: 1xxx
+    INVALID_CREDENTIALS = 1001
+    TOKEN_EXPIRED = 1002
+    INSUFFICIENT_PERMISSIONS = 1003
+    USER_NOT_FOUND = 1004
+    USER_ALREADY_EXISTS = 1005
+
+    # Resource: 2xxx
+    CASE_NOT_FOUND = 2001
+    TRAINING_NOT_FOUND = 2002
+    QUESTIONNAIRE_NOT_FOUND = 2003
+
+    # Business: 3xxx
+    TRAINING_ALREADY_ENDED = 3001
+    SCORING_IN_PROGRESS = 3002
+    SCORING_CONFLICT = 3003
+    PHASE_ADVANCE_DENIED = 3004
+
+    # Rate limit: 4xxx
+    RATE_LIMITED = 4001
+
+    # Server: 5xxx
+    LLM_UNAVAILABLE = 5001
+    LLM_TIMEOUT = 5002
+    INTERNAL_ERROR = 5999
+```
+
+**Usage:**
+```python
+# Before
+raise HTTPException(status_code=404, detail="病例不存在")
+
+# After
+from core.error_codes import ErrorCode
+from core.exceptions import AppError  # extends HTTPException
+
+raise AppError(code=ErrorCode.CASE_NOT_FOUND, detail="病例不存在", status_code=404)
+```
+
+The envelope middleware maps `AppError.code` into the response body's `"code"` field.
+
+### 5.3 URL Pattern Standardisation
+
+| Pattern | Convention | Example |
+|---------|-----------|---------|
+| Resource CRUD | `{resource}` / `{resource}/{id}` | `GET /cases`, `POST /cases`, `GET /cases/{id}`, `PUT /cases/{id}`, `DELETE /cases/{id}` |
+| Nested resource | `{parent}/{parent_id}/{child}` | `GET /cases/{id}/required-inquiries` |
+| Action on resource | `POST {resource}/{id}/{action}` | `POST /training/{id}/end`, `POST /training/{id}/retry-scoring` |
+| Stream variant | `POST {resource}/{id}/{action}/stream` | `POST /chat/{id}/message/stream` |
+| Stateless action | `POST {namespace}/{action}` | `POST /auth/refresh`, `POST /cases/generate` |
+
+**Fixes needed:**
+- `PUT /training/{id}/config/features` → `PUT /training/{id}/features` (config is redundant; features is the resource)
+- `GET /admin/users/{id}/detail` → `GET /admin/users/{id}` (remove redundant /detail)
+- Questionnaire questions: unify on NESTED URLs (`/questionnaires/templates/{tid}/questions/{qid}`) instead of mixed nested/flat
+
+### 5.4 Delete Response Unification
+
+All `DELETE` endpoints use a single response model:
+
+```python
+class DeleteResponse(BaseModel):
+    ok: bool = True
+    message: str = "删除成功"
+```
+
+Replaces:
+- `MessageResponse` (used by training, cases, admin, qa, notes)
+- `OkResponse` (used by questionnaires)
+
+### 5.5 `response_model` on Every Endpoint
+
+Rule: every endpoint MUST declare `response_model=`. The one exception (`training/config.py` PUT) is fixed.
+
+### 5.6 Pydantic Model Instance Returns
+
+Rule: endpoints MUST return Pydantic model instances, not raw dicts. Fixes `phases.py` (3 endpoints) and `scoring.py` (2 endpoints).
+
+---
+
+## 6. Migration Phases
 
 ### Phase 0: Settlement V1 removal (prerequisite)
 - Delete `services/training/settlement.py` (V1, 171 lines of dead code)
