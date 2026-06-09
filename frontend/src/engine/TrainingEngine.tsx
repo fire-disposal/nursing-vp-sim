@@ -159,11 +159,11 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
 
   return (
     <div
-      className="training-grid h-screen gap-2 p-2"
+      className="h-screen gap-2 p-2"
       style={{
         display: "grid",
         gridTemplateAreas,
-        gridTemplateColumns: "1fr auto",
+        gridTemplateColumns: "1fr minmax(36px, 300px)",
         gridTemplateRows: "auto 1fr auto",
       }}
     >

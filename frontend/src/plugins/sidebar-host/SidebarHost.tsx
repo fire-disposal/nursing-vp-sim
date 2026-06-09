@@ -251,7 +251,7 @@ export function SidebarHost({ ctx, features }: SlotProps) {
       </div>
 
       {activeTab && (
-        <div className="w-72 border-l border-border bg-card overflow-y-auto p-3">
+        <div className="flex-1 border-l border-border bg-card overflow-y-auto p-3" style={{ minWidth: 200, maxWidth: 280 }}>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{TAB_DEFS.find((t) => t.id === activeTab)?.label}</h3>
           {renderTab(activeTab, ctx)}
         </div>
