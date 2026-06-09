@@ -4,8 +4,8 @@ from backend.contexts.training.pipeline.middleware.emotion_tracker import emotio
 from backend.contexts.training.pipeline.middleware.initiative_timer_reset import initiative_timer_reset
 from backend.contexts.training.pipeline.middleware.operation_detector import operation_detector
 from backend.contexts.training.pipeline.middleware.operation_executor import operation_executor
-from backend.contexts.patient.initiative import init_initiative_timer, clear_initiative_timer
-from backend.contexts.patient.emotion import purge_emotion_cache
+from backend.contexts.patient.initiative import update_initiative_timer, cleanup_initiative
+from backend.contexts.patient.emotion import cleanup_emotion
 
 
 emotion_plugin = PipelinePlugin(
@@ -18,7 +18,7 @@ emotion_plugin = PipelinePlugin(
         tags=["patient", "emotion"],
     ),
     middleware=[emotion_tracker],
-    on_end=lambda ctx: purge_emotion_cache(ctx.record.id),
+    on_end=lambda ctx: cleanup_emotion(ctx.record.id),
 )
 
 initiative_plugin = PipelinePlugin(
@@ -31,8 +31,8 @@ initiative_plugin = PipelinePlugin(
         tags=["patient", "initiative"],
     ),
     middleware=[initiative_timer_reset],
-    on_record_create=lambda ctx: init_initiative_timer(ctx.record.id),
-    on_end=lambda ctx: clear_initiative_timer(ctx.record.id),
+    on_record_create=lambda ctx: update_initiative_timer(ctx.record.id),
+    on_end=lambda ctx: cleanup_initiative(ctx.record.id),
 )
 
 physical_exam_plugin = PipelinePlugin(
