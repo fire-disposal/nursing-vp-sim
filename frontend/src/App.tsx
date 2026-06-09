@@ -33,6 +33,8 @@ const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
+const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
+const ScenarioComposer = lazy(() => import("@/pages/admin/ScenarioComposer"));
 
 function PageLoader() {
   return (
@@ -77,6 +79,8 @@ export default function App() {
                       <Route element={<ProtectedRoute permission="score_review" />}>
                         <Route path="/admin" element={<Admin />} />
                         <Route path="/admin/debug" element={<AdminDebug />} />
+                        <Route path="/admin/plugins" element={<PluginDashboard />} />
+                        <Route path="/admin/scenarios" element={<ScenarioComposer />} />
                       </Route>
                       <Route element={<ProtectedRoute permission="llm_monitor" />}>
                         <Route path="/admin/llm" element={<AdminLLM />} />
