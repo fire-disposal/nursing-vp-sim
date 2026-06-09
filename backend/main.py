@@ -113,7 +113,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    log.info("熄火之礼已成，机械长眠")
     cleanup_task.cancel()
     with suppress(asyncio.CancelledError):
         await cleanup_task
@@ -125,7 +124,6 @@ async def lifespan(app: FastAPI):
     if app.state.httpx_client:
         await app.state.httpx_client.aclose()
     await asyncio.to_thread(engine.dispose)
-    log.info("机魂安息，虽眠犹侍万机神")
 
 
 async def _rate_limiter_cleanup(rate_limiter: RateLimiter):
