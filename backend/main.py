@@ -42,13 +42,11 @@ _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 async def lifespan(app: FastAPI):
     setup_logging()
     validate_config()
-    log.info("── 血肉易朽，机械永恒 · The flesh is weak. The machine is eternal. ──")
-    log.info("+++ VIRTUAL PATIENT TRAINING SYSTEM v%s  虚拟患者训练系统 +++", APP_VERSION)
-    log.info("万机神保佑，机魂苏醒  Ave Deus Mechanicus. Let the machine spirit awaken.")
+    log.info("虚拟患者训练系统 v%s", APP_VERSION)
     log_config(log)
 
     init_db()
-    log.info("Database: migrations complete — 数据受祝，模式受膏  data-blessed, schema-anointed")
+    log.info("Database: migrations complete")
 
     seed_all()
 
@@ -104,12 +102,14 @@ async def lifespan(app: FastAPI):
     _loop = asyncio.get_running_loop()
     _loop.set_exception_handler(_handle_task_exception)
 
-    log.info("── 原动力流转，万机受膏 · The motive force flows. All systems anointed. ──")
+    log.info("──────────────────────────────────────────────")
+    log.info("原动力流转，万机受膏")
+    log.info("──────────────────────────────────────────────")
     log.info("Ready")
     yield
 
     # Shutdown
-    log.info("熄火之礼已成，机械长眠  Rites of deactivation. The machine rests.")
+    log.info("熄火之礼已成，机械长眠")
     cleanup_task.cancel()
     with suppress(asyncio.CancelledError):
         await cleanup_task
@@ -121,7 +121,7 @@ async def lifespan(app: FastAPI):
     if app.state.httpx_client:
         await app.state.httpx_client.aclose()
     await asyncio.to_thread(engine.dispose)
-    log.info("机魂安息，虽眠犹侍万机神  Machine spirit at rest. Even in dormancy, I serve the Omnissiah.")
+    log.info("机魂安息，虽眠犹侍万机神")
 
 
 async def _rate_limiter_cleanup(rate_limiter: RateLimiter):
