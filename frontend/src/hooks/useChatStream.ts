@@ -13,7 +13,7 @@ export function useChatStream(recordId: number | null, options?: UseChatStreamOp
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const addedIdsRef = useRef<Set<number>>(new Set());
+  const addedIdsRef = useRef<Set<string>>(new Set());
 
   const onPatientChunkRef = useRef(options?.onPatientChunk);
   onPatientChunkRef.current = options?.onPatientChunk;
@@ -35,17 +35,17 @@ export function useChatStream(recordId: number | null, options?: UseChatStreamOp
       const op = isOperation(content);
 
       if (!op) {
-        const studentId = Date.now();
+        const studentId = crypto.randomUUID();
         addedIdsRef.current.add(studentId);
         setMessages((prev) => [...prev, { id: studentId, role: "student", content }]);
       } else {
-        const sysId = Date.now();
+        const sysId = crypto.randomUUID();
         addedIdsRef.current.add(sysId);
         setMessages((prev) => [...prev, { id: sysId, role: "system", content: `正在${content}...` }]);
       }
 
       if (!op) {
-        const placeholderId = Date.now() + 1;
+        const placeholderId = crypto.randomUUID();
         addedIdsRef.current.add(placeholderId);
         setMessages((prev) => [...prev, { id: placeholderId, role: "patient", content: "", streaming: true }]);
       }
@@ -66,7 +66,7 @@ export function useChatStream(recordId: number | null, options?: UseChatStreamOp
                   return next;
                 }
               }
-              next.push({ id: Date.now(), role: "patient", content: chunk, streaming: true });
+              next.push({ id: crypto.randomUUID(), role: "patient", content: chunk, streaming: true });
               return next;
             });
             onPatientChunkRef.current?.(chunk);
@@ -87,7 +87,7 @@ export function useChatStream(recordId: number | null, options?: UseChatStreamOp
             if (abortRef.current === controller) abortRef.current = null;
           },
           (err: string) => {
-            setMessages((prev) => prev.filter((m) => !m.streaming && !addedIdsRef.current.has(m.id ?? 0)));
+            setMessages((prev) => prev.filter((m) => !m.streaming && !addedIdsRef.current.has(String(m.id ?? ""))));
             addedIdsRef.current.clear();
             setLoading(false);
             onErrorRef.current?.(err);
@@ -97,14 +97,15 @@ export function useChatStream(recordId: number | null, options?: UseChatStreamOp
             onSanitizedRef.current?.(reply);
           },
           (sysMsg: string) => {
-            setMessages((prev) => [...prev, { id: Date.now(), role: "system", content: sysMsg }]);
+            setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", content: sysMsg }]);
           },
           controller.signal,
         );
-      } catch {
-        setMessages((prev) => prev.filter((m) => !m.streaming && !addedIdsRef.current.has(m.id ?? 0)));
+      } catch (err: any) {
+        setMessages((prev) => prev.filter((m) => !m.streaming && !addedIdsRef.current.has(String(m.id ?? ""))));
         addedIdsRef.current.clear();
         setLoading(false);
+        onErrorRef.current?.(err?.message || "发送失败");
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
       }

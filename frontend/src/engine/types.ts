@@ -11,7 +11,7 @@ export interface TTSService {
 
 // ── 消息 / 患者 / 评分（复用现有类型） ──
 export interface ChatMessage {
-  id?: number;
+  id?: string | number;
   role: "student" | "patient" | "system";
   content: string;
   streaming?: boolean;

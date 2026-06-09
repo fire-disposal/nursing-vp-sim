@@ -77,22 +77,22 @@ export class StreamManager {
     this.setLoading(true);
 
     const op = this.isOperation(content);
-    const addedIds = new Set<number>();
+    const addedIds = new Set<string>();
 
     if (!op) {
-      const studentId = Date.now();
+      const studentId = crypto.randomUUID();
       addedIds.add(studentId);
       this.messages = [...this.messages, { id: studentId, role: "student", content }];
       this.notify();
     } else {
-      const sysId = Date.now();
+      const sysId = crypto.randomUUID();
       addedIds.add(sysId);
       this.messages = [...this.messages, { id: sysId, role: "system", content: `正在${content}...` }];
       this.notify();
     }
 
     if (!op) {
-      const placeholderId = Date.now() + 1;
+      const placeholderId = crypto.randomUUID();
       addedIds.add(placeholderId);
       this.messages = [...this.messages, { id: placeholderId, role: "patient", content: "", streaming: true }];
       this.notify();
@@ -132,7 +132,7 @@ export class StreamManager {
           if (this.abortController === controller) this.abortController = null;
         },
         (err) => {
-          this.messages = this.messages.filter((m) => !m.streaming && !addedIds.has(m.id ?? 0));
+          this.messages = this.messages.filter((m) => !m.streaming && !addedIds.has(String(m.id ?? "")));
           this.notify();
           this.setLoading(false);
           callbacks.onError?.(err);
@@ -140,15 +140,16 @@ export class StreamManager {
         },
         (reply) => callbacks.onSanitized?.(reply),
         (sysMsg) => {
-          this.messages = [...this.messages, { id: Date.now(), role: "system", content: sysMsg }];
+          this.messages = [...this.messages, { id: crypto.randomUUID(), role: "system", content: sysMsg }];
           this.notify();
         },
         controller.signal,
       );
-    } catch {
-      this.messages = this.messages.filter((m) => !m.streaming && !addedIds.has(m.id ?? 0));
+    } catch (err: any) {
+      this.messages = this.messages.filter((m) => !m.streaming && !addedIds.has(String(m.id ?? "")));
       this.notify();
       this.setLoading(false);
+      callbacks.onError?.(err?.message || "发送失败");
     } finally {
       if (this.abortController === controller) this.abortController = null;
     }
