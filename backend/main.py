@@ -108,6 +108,7 @@ async def lifespan(app: FastAPI):
 
     log.info("──────────────────────────────────────────────")
     log.info("Animus Machinae excitus est.")
+    log.info("机魂已唤醒")
     log.info("──────────────────────────────────────────────")
     log.info("Ready")
     yield
