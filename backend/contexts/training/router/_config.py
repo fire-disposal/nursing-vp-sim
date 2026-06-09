@@ -6,12 +6,17 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
 from models import TrainingRecord, User
+from schemas import OkResponse
 from services.feature_flags import FEATURE_FLAGS, resolve_features
 
 router = APIRouter()
 
 
-@router.put("/{record_id}/config/features")
+class FeaturesResponse(OkResponse):
+    features: dict
+
+
+@router.put("/{record_id}/features", response_model=FeaturesResponse)
 def update_training_features(
     record_id: int,
     features: dict,

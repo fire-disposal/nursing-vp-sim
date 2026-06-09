@@ -10,6 +10,7 @@ from core.database import get_db
 from core.security import require_permission
 from models import Role, RolePermission, User
 from schemas import (
+    DeleteResponse,
     MessageResponse,
     RoleCreateRequest,
     RoleResponse,
@@ -123,7 +124,7 @@ def update_role(
     )
 
 
-@router.delete("/{role_id}", response_model=MessageResponse)
+@router.delete("/{role_id}", response_model=DeleteResponse)
 def delete_role(
     role_id: int,
     current_user: User = Depends(require_permission("role_manage")),

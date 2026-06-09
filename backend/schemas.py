@@ -879,6 +879,11 @@ class RoleResponse(BaseModel):
 
 # ── Generic ──
 
+class DeleteResponse(BaseModel):
+    ok: bool = True
+    message: str = "删除成功"
+
+
 class MessageResponse(BaseModel):
     message: str
 

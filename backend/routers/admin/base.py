@@ -13,6 +13,7 @@ from schemas import (
     AdminStats,
     BatchCreateResult,
     BatchUserItem,
+    DeleteResponse,
     MessageResponse,
     PaginatedResponse,
     StudentDetail,
@@ -171,7 +172,7 @@ def update_user(
     )
 
 
-@router.get("/users/{user_id}/detail", response_model=StudentDetail)
+@router.get("/users/{user_id}", response_model=StudentDetail)
 def get_user_detail(
     user_id: int,
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
@@ -278,7 +279,7 @@ def get_user_detail(
     )
 
 
-@router.delete("/users/{user_id}", response_model=MessageResponse)
+@router.delete("/users/{user_id}", response_model=DeleteResponse)
 def delete_user(
     user_id: int,
     current_user: Annotated[User, Depends(require_permission("user_manage"))],

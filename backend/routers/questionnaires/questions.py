@@ -7,6 +7,7 @@ from core.database import get_db
 from core.security import require_permission
 from models import QuestionnaireQuestion, QuestionnaireTemplate, User
 from schemas import (
+    DeleteResponse,
     OkResponse,
     QuestionnaireQuestionCreate,
     QuestionnaireQuestionResponse,
@@ -48,8 +49,9 @@ def add_question(
     )
 
 
-@router.put("/questionnaires/questions/{question_id}", response_model=QuestionnaireQuestionResponse)
+@router.put("/questionnaires/templates/{template_id}/questions/{question_id}", response_model=QuestionnaireQuestionResponse)
 def update_question(
+    template_id: int,
     question_id: int,
     req: QuestionnaireQuestionUpdate,
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
@@ -81,8 +83,9 @@ def update_question(
     )
 
 
-@router.delete("/questionnaires/questions/{question_id}", response_model=OkResponse)
+@router.delete("/questionnaires/templates/{template_id}/questions/{question_id}", response_model=DeleteResponse)
 def delete_question(
+    template_id: int,
     question_id: int,
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],

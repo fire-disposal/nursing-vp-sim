@@ -195,7 +195,7 @@ class TestQuestionManagement:
         )
         qid = add_resp.json()["id"]
         resp = client.put(
-            f"/api/questionnaires/questions/{qid}",
+            f"{TEMPLATES_URL}/{tid}/questions/{qid}",
             json={"content": "新题内容", "required": False},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -212,7 +212,7 @@ class TestQuestionManagement:
         )
         qid = add_resp.json()["id"]
         resp = client.delete(
-            f"/api/questionnaires/questions/{qid}",
+            f"{TEMPLATES_URL}/{tid}/questions/{qid}",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200

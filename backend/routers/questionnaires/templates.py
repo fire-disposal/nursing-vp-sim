@@ -17,6 +17,7 @@ from models import (
 )
 from schemas import (
     CaseAssignmentRequest,
+    DeleteResponse,
     OkResponse,
     PaginatedResponse,
     QuestionnaireQuestionResponse,
@@ -169,7 +170,7 @@ def update_template(
     return _template_to_detail(t)
 
 
-@router.delete("/questionnaires/templates/{template_id}", response_model=OkResponse)
+@router.delete("/questionnaires/templates/{template_id}", response_model=DeleteResponse)
 def delete_template(
     template_id: int,
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],

@@ -17,6 +17,7 @@ from schemas import (
     CaseGenerateResponse,
     CaseManageItem,
     CaseUpdateRequest,
+    DeleteResponse,
     MessageResponse,
     PaginatedResponse,
 )
@@ -307,7 +308,7 @@ def update_case(
     return _to_manage_item(case, count)
 
 
-@router.delete("/{case_id}", response_model=MessageResponse)
+@router.delete("/{case_id}", response_model=DeleteResponse)
 def delete_case(
     case_id: int,
     db: Annotated[Session, Depends(get_db)],

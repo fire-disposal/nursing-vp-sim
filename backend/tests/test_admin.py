@@ -513,17 +513,17 @@ class TestUserManagement:
 class TestStudentDetail:
     def test_get_detail_not_found(self, client, teacher):
         _, token = teacher
-        resp = client.get("/api/admin/users/99999/detail", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get("/api/admin/users/99999", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 404
 
     def test_get_detail_teacher_not_student(self, client, teacher):
         user, token = teacher
-        resp = client.get(f"/api/admin/users/{user.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get(f"/api/admin/users/{user.id}", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 404
 
     def test_get_detail_forbidden_for_student(self, client, student):
         user, token = student
-        resp = client.get(f"/api/admin/users/{user.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get(f"/api/admin/users/{user.id}", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 403
 
     def test_get_detail_empty(self, client, teacher, db_session):
@@ -543,7 +543,7 @@ class TestStudentDetail:
         db_session.commit()
 
         _, token = teacher
-        resp = client.get(f"/api/admin/users/{s.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get(f"/api/admin/users/{s.id}", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["display_name"] == "空学生"
@@ -586,7 +586,7 @@ class TestStudentDetail:
         db_session.commit()
 
         _, token = teacher
-        resp = client.get(f"/api/admin/users/{s.id}/detail", headers={"Authorization": f"Bearer {token}"})
+        resp = client.get(f"/api/admin/users/{s.id}", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["display_name"] == "学霸"

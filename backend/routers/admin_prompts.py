@@ -23,6 +23,7 @@ from prompts import (
     SCORING_USER,
 )
 from schemas import (
+    DeleteResponse,
     OkResponse,
     PromptPreviewResponse,
     PromptTemplateCreate,
@@ -223,7 +224,7 @@ async def update_prompt(
     return pt
 
 
-@router.delete("/{prompt_id}", response_model=OkResponse)
+@router.delete("/{prompt_id}", response_model=DeleteResponse)
 async def delete_prompt(
     prompt_id: int,
     current_user: Annotated[User, Depends(require_permission("prompt_manage"))],

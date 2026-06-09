@@ -14,6 +14,7 @@ from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
 from schemas import (
+    DeleteResponse,
     MessageResponse,
     PaginatedResponse,
     ScoreReviewRequest,
@@ -298,7 +299,7 @@ def get_record_detail(
     )
 
 
-@router.delete("/records/{record_id}", response_model=MessageResponse)
+@router.delete("/records/{record_id}", response_model=DeleteResponse)
 def delete_record(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
 ):

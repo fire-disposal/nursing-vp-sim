@@ -10,6 +10,7 @@ from core.database import get_db
 from core.security import hash_password, require_permission
 from models import Role, RolePermission, School, User
 from schemas import (
+    DeleteResponse,
     MessageResponse,
     PaginatedResponse,
     SchoolCreate,
@@ -93,7 +94,7 @@ def create_school(
     )
 
 
-@router.delete("/{school_id}", response_model=MessageResponse)
+@router.delete("/{school_id}", response_model=DeleteResponse)
 def delete_school(
     school_id: int,
     current_user: User = Depends(require_permission("school_manage")),

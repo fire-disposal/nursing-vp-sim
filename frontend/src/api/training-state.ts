@@ -8,4 +8,4 @@ export const getTrainingState = (recordId: number) => api.get<Schemas["TrainingS
 export const triggerInitiative = (recordId: number) => api.post<Schemas["InitiativeTriggerResponse"]>(`/training/${recordId}/initiative/trigger`);
 
 export const updateTrainingFeatures = (recordId: number, features: Record<string, boolean>) =>
-  api.put<{ ok: boolean; features: Record<string, boolean> }>(`/training/${recordId}/config/features`, features);
+  api.put<{ ok: boolean; features: Record<string, boolean> }>(`/training/${recordId}/features`, features);

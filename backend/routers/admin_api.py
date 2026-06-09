@@ -24,6 +24,7 @@ from schemas import (
     LLMConfigResponse,
     LLMConfigUpdate,
     ModelPresetItem,
+    DeleteResponse,
     OkResponse,
     ProviderPresetResponse,
     RubricResponse,
@@ -120,7 +121,7 @@ def update_secret(
     return {"ok": True}
 
 
-@router.delete("/secrets/{secret_id}", response_model=OkResponse)
+@router.delete("/secrets/{secret_id}", response_model=DeleteResponse)
 async def delete_secret(
     secret_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
@@ -246,7 +247,7 @@ async def update_config(
     return {"ok": True}
 
 
-@router.delete("/configs/{config_id}", response_model=OkResponse)
+@router.delete("/configs/{config_id}", response_model=DeleteResponse)
 async def delete_config(
     config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
@@ -497,7 +498,7 @@ def update_rubric(
     return rubric
 
 
-@router.delete("/rubrics/{rubric_id}", response_model=OkResponse)
+@router.delete("/rubrics/{rubric_id}", response_model=DeleteResponse)
 def delete_rubric(
     rubric_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):

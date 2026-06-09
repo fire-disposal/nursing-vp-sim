@@ -13,4 +13,4 @@ export const batchCreateUsers = (users: Schemas["BatchUserItem"][]) => api.post<
 
 export const deleteUser = (id: number | string) => api.delete<Schemas["MessageResponse"]>(`/admin/users/${id}`);
 
-export const getStudentDetail = (userId: number | string) => api.get<Schemas["StudentDetail"]>(`/admin/users/${userId}/detail`);
+export const getStudentDetail = (userId: number | string) => api.get<Schemas["StudentDetail"]>(`/admin/users/${userId}`);

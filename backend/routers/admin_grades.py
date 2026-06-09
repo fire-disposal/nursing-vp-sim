@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import require_permission
 from models import Class, Grade, User, UserClass
-from schemas import GradeCreate, GradeResponse, GradeUpdate, MessageResponse
+from schemas import DeleteResponse, GradeCreate, GradeResponse, GradeUpdate, MessageResponse
 
 router = APIRouter(prefix="/api/admin/grades", tags=["年级管理"])
 
@@ -94,7 +94,7 @@ def update_grade(
     )
 
 
-@router.delete("/{grade_id}", response_model=MessageResponse)
+@router.delete("/{grade_id}", response_model=DeleteResponse)
 def delete_grade(
     grade_id: int,
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],

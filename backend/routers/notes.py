@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
 from models import Note, TrainingRecord, User
-from schemas import MessageResponse, NoteCreateRequest, NoteItem
+from schemas import DeleteResponse, MessageResponse, NoteCreateRequest, NoteItem
 
 router = APIRouter(prefix="/api/notes", tags=["笔记"])
 
@@ -71,7 +71,7 @@ def update_note(
     return note
 
 
-@router.delete("/{note_id}", response_model=MessageResponse)
+@router.delete("/{note_id}", response_model=DeleteResponse)
 def delete_note(
     note_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
 ):

@@ -10,6 +10,7 @@ from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from models import QARecord, QASession, User
 from schemas import (
+    DeleteResponse,
     MessageResponse,
     PaginatedResponse,
     QAMessageItem,
@@ -31,7 +32,7 @@ def list_sessions(
     return db.query(QASession).filter(QASession.user_id == current_user.id).order_by(QASession.updated_at.desc()).all()
 
 
-@router.delete("/sessions/{session_id}", response_model=MessageResponse)
+@router.delete("/sessions/{session_id}", response_model=DeleteResponse)
 def delete_session(
     session_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
