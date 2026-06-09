@@ -77,6 +77,17 @@ export function request<T>(
           reject(new Error("unauthorized"))
           return
         }
+        const body: any = res.data
+        if (body && typeof body === "object" && "code" in body) {
+          if (body.code !== 0) {
+            const msg = body.message || "请求失败"
+            wx.showToast({ title: msg, icon: "none", duration: 2500 })
+            reject(new Error(msg))
+            return
+          }
+          resolve(body.data as T)
+          return
+        }
         if (res.statusCode >= 400) {
           const detail = (res.data as { detail?: string })?.detail || "请求失败"
           wx.showToast({ title: detail, icon: "none", duration: 2500 })

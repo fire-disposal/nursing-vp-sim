@@ -23,6 +23,7 @@ from core.config import (
 from core.database import engine, get_db, init_db
 from core.logging_setup import setup_logging
 from core.seed import seed_all
+from core.envelope import EnvelopeMiddleware
 from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm.client import LLMClient
 from infrastructure.queue import TaskQueue
@@ -186,6 +187,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(EnvelopeMiddleware)
 
 # Route registration
 from routers import (

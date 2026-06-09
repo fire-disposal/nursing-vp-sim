@@ -29,7 +29,19 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const body = res.data;
+    if (body && typeof body === "object" && "code" in body) {
+      if (body.code !== 0) {
+        const message = body.message || "未知错误";
+        const error = new Error(message) as Error & { code: number };
+        error.code = body.code;
+        return Promise.reject(error);
+      }
+      res.data = body.data;
+    }
+    return res;
+  },
   async (err) => {
     const originalRequest = err.config;
 

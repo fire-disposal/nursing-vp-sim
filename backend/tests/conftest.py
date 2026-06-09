@@ -4,6 +4,7 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 os.environ["SKIP_SEED"] = "1"
 os.environ["SKIP_MIGRATION"] = "1"
+os.environ["TESTING"] = "1"
 
 TEST_DB_URL = os.environ.get(
     "TEST_DB_URL",
