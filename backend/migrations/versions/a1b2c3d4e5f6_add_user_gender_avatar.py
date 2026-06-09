@@ -1,7 +1,7 @@
 """add gender and avatar to users
 
-Revision ID: 0006
-Revises: fbcb649c96d7
+Revision ID: a1b2c3d4e5f6
+Revises: f1de9f508a20
 Create Date: 2026-06-09 10:00:00.000000
 """
 
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = '0006'
-down_revision: Union[str, Sequence[str], None] = 'fbcb649c96d7'
+revision: str = 'a1b2c3d4e5f6'
+down_revision: Union[str, Sequence[str], None] = 'f1de9f508a20'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -30,4 +30,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column("users", "avatar")
     op.drop_column("users", "gender")
-
