@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SlotProps } from "@/engine/types";
 
 interface TimerDisplayProps extends SlotProps {
@@ -8,17 +8,22 @@ interface TimerDisplayProps extends SlotProps {
 export function TimerDisplay({ ctx, duration = 30 }: TimerDisplayProps) {
   const [remaining, setRemaining] = useState(duration * 60);
   const [paused, setPaused] = useState(false);
+  const hasEndedRef = useRef(false);
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
 
   useEffect(() => {
     if (paused) return;
     if (remaining <= 0) {
-      ctx.bus.emit("timer:timeout");
-      ctx.endTraining();
+      if (hasEndedRef.current) return;
+      hasEndedRef.current = true;
+      ctxRef.current.bus.emit("timer:timeout");
+      ctxRef.current.endTraining();
       return;
     }
     const id = setInterval(() => setRemaining((r) => r - 1), 1000);
     return () => clearInterval(id);
-  }, [remaining, paused, ctx]);
+  }, [remaining, paused]);
 
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;

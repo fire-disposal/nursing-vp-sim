@@ -12,9 +12,4 @@ export const timerPlugin: TrainingPlugin = {
   slots: {
     header: TimerDisplay,
   },
-  hooks: {
-    onEnd(reason) {
-      // timer:timeout event emitted in TimerDisplay component
-    },
-  },
 };
