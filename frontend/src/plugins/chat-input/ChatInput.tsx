@@ -25,7 +25,7 @@ export function ChatInput({ ctx }: SlotProps) {
   );
 
   return (
-    <div className="flex items-end gap-2 px-3 py-2 border-t bg-background">
+    <div className="flex items-end gap-2 px-3 py-2 border-t bg-background flex-1">
       <div className="flex-1">
         <input
           ref={inputRef}

@@ -14,13 +14,12 @@ const DEFAULT_LAYOUT: LayoutDef = {
   breakpoints: {
     desktop: {
       areas: [
-        ["header", "header", "header"],
-        ["sidebar", "content", "panel"],
-        ["footer", "footer", "panel"],
+        ["header", "header"],
+        ["content", "panel"],
+        ["footer", "footer"],
       ],
       slots: {
         header: { render: "inline" },
-        sidebar: { render: "inline", priority: 1 },
         content: { render: "inline" },
         panel: { render: "inline", priority: 2 },
         footer: { render: "inline" },
@@ -33,13 +32,12 @@ const DEFAULT_LAYOUT: LayoutDef = {
         header: { render: "inline" },
         content: { render: "inline" },
         footer: { render: "inline" },
-        sidebar: { render: "sheet", priority: 1 },
-        panel: { render: "drawer", priority: 2 },
+        panel: { render: "modal" },
         overlay: { render: "modal" },
       },
     },
   },
-  sidebarBehavior: "fixed",
+  sidebarBehavior: "collapsible",
   panelBehavior: "inline",
 };
 
@@ -160,7 +158,15 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
   const gridTemplateAreas = grid.areas.map((row) => `"${row.join(" ")}"`).join(" ");
 
   return (
-    <div className="training-grid h-screen gap-2 p-2" style={{ display: "grid", gridTemplateAreas }}>
+    <div
+      className="training-grid h-screen gap-2 p-2"
+      style={{
+        display: "grid",
+        gridTemplateAreas,
+        gridTemplateColumns: "1fr auto",
+        gridTemplateRows: "auto 1fr auto",
+      }}
+    >
       {(["header", "sidebar", "content", "panel", "footer", "overlay", "input-toolbar", "sidebar-tray"] as SlotName[]).map((name) => {
         const def = grid.slots[name as SlotName];
         if (!def) return null;
