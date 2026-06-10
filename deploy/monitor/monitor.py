@@ -239,9 +239,11 @@ def check_health_endpoints():
             failures.append({"type": "health", "name": name, "detail": f"HTTP {http_code}"})
             continue
         try:
-            data = json.loads(body)
+            raw = json.loads(body)
         except json.JSONDecodeError:
             continue
+
+        data = raw.get("data", raw) if isinstance(raw, dict) else raw
 
         status = data.get("status", "")
         if status not in ("ok", "healthy"):
@@ -264,7 +266,12 @@ def fetch_metrics(endpoint_url: str) -> dict | None:
     if rc != 0:
         return None
     try:
-        return json.loads(out)
+        raw = json.loads(out)
+        if isinstance(raw, dict):
+            inner = raw.get("data")
+            if isinstance(inner, dict):
+                return inner
+        return raw
     except json.JSONDecodeError:
         return None
 
