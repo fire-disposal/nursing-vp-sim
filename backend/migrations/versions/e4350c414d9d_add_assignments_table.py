@@ -43,7 +43,7 @@ def upgrade() -> None:
     op.create_index('ix_assignments_class', 'assignments', ['class_id'], unique=False)
     op.create_index('ix_assignments_teacher', 'assignments', ['teacher_id'], unique=False)
     op.add_column('training_records', sa.Column('assignment_id', sa.String(length=36), nullable=True))
-    op.add_column('training_records', sa.Column('is_overdue', sa.Boolean(), nullable=False))
+    op.add_column('training_records', sa.Column('is_overdue', sa.Boolean(), nullable=False, server_default=sa.text('false')))
     op.create_foreign_key(None, 'training_records', 'assignments', ['assignment_id'], ['id'], ondelete='SET NULL')
     # ### end Alembic commands ###
 

@@ -1166,13 +1166,13 @@ class InitiativeTriggerResponse(BaseModel):
 
 
 class NursingRecordSave(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = _REQ_CFG
     sheet_data: dict = Field(default_factory=dict)
     status: str = "draft"
 
 
 class NursingRecordResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = _RESP_CFG
     id: int
     record_id: int
     sheet_data: dict

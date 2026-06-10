@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from uuid import uuid4
 
-from sqlalchemy import BigInteger, Float, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Float, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -129,7 +130,7 @@ class Assignment(Base):
         Index("ix_assignments_case", "case_id"),
     )
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(__import__("uuid").uuid4()))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id", ondelete="RESTRICT"))
     teacher_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="RESTRICT"))
@@ -168,7 +169,7 @@ class TrainingRecord(Base):
     config_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
     assignment_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True)
-    is_overdue: Mapped[bool] = mapped_column(default=False)
+    is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     start_time: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     end_time: Mapped[datetime | None] = mapped_column(nullable=True)
 
