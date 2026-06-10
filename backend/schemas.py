@@ -1144,7 +1144,6 @@ class InitiativeStateResponse(BaseModel):
     threshold_seconds: float
     percent: float
     should_trigger: bool = False
-    last_triggered_at: str | None = None
 
 
 class TrainingStateResponse(BaseModel):
