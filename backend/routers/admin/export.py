@@ -1,5 +1,3 @@
-import csv
-import io
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -7,13 +5,13 @@ from core.datetime_utils import parse_iso_datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
+from infrastructure.export import Column, buffered_response
 from models import ApiProvider, Case as CaseModel, LLMCallLog, TrainingRecord, User
 from schemas import (
     LLMCallLogItem,
@@ -268,23 +266,11 @@ def get_llm_logs(
     items = []
     for it in all_items:
         if isinstance(it, dict):
-            items.append(LLMCallLogItem(**it))
+            items.append(LLMCallLogItem.model_validate(it))
         else:
             items.append(LLMCallLogItem.model_validate(it))
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
-
-
-@router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
-def get_llm_log_detail(
-    log_id: int,
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    entry = db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
-    if not entry:
-        raise HTTPException(status_code=404, detail="日志不存在")
-    return entry
 
 
 @router.get("/llm-logs/export")
@@ -299,64 +285,40 @@ def export_llm_logs_csv(
         q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
     if date_to:
         q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
-    logs = q.order_by(LLMCallLog.created_at.desc()).all()
+    entries = q.order_by(LLMCallLog.created_at.desc()).limit(50000).all()
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(
-        [
-            "ID",
-            "时间",
-            "用户ID",
-            "训练记录ID",
-            "病例ID",
-            "用途",
-            "Provider",
-            "模型",
-            "状态",
-            "延迟(ms)",
-            "PromptTokens",
-            "CompletionTokens",
-            "TotalTokens",
-            "估算标记",
-            "预估费用",
-            "错误类型",
-            "错误信息",
-            "请求字符数",
-            "响应字符数",
-        ]
-    )
-    for entry in logs:
-        writer.writerow(
-            [
-                entry.id,
-                entry.created_at.isoformat() if entry.created_at else "",
-                entry.user_id or "",
-                entry.record_id or "",
-                entry.case_id or "",
-                entry.purpose,
-                getattr(entry, "provider_name", ""),
-                entry.model,
-                entry.status,
-                entry.latency_ms or "",
-                entry.prompt_tokens or "",
-                entry.completion_tokens or "",
-                entry.total_tokens or "",
-                entry.token_estimated,
-                entry.estimated_cost if entry.estimated_cost is not None else "",
-                entry.error_type or "",
-                (entry.error_message or "")[:200],
-                entry.request_chars or "",
-                entry.response_chars or "",
-            ]
-        )
+    columns = [
+        Column("ID", lambda e: str(e.id)),
+        Column("时间", lambda e: e.created_at.isoformat() if e.created_at else ""),
+        Column("用户ID", lambda e: str(e.user_id) if e.user_id else ""),
+        Column("训练记录ID", lambda e: str(e.record_id) if e.record_id else ""),
+        Column("病例ID", lambda e: str(e.case_id) if e.case_id else ""),
+        Column("用途", lambda e: e.purpose or ""),
+        Column("Provider", lambda e: getattr(e, "provider_name", "") or ""),
+        Column("模型", lambda e: e.model or ""),
+        Column("状态", lambda e: e.status or ""),
+        Column("延迟(ms)", lambda e: str(e.latency_ms) if e.latency_ms else ""),
+        Column("PromptTokens", lambda e: str(e.prompt_tokens) if e.prompt_tokens else ""),
+        Column("CompletionTokens", lambda e: str(e.completion_tokens) if e.completion_tokens else ""),
+        Column("TotalTokens", lambda e: str(e.total_tokens) if e.total_tokens else ""),
+        Column("估算标记", lambda e: "是" if e.token_estimated else "否"),
+        Column("预估费用", lambda e: str(e.estimated_cost) if e.estimated_cost else ""),
+        Column("错误类型", lambda e: e.error_type or ""),
+        Column("错误信息", lambda e: (e.error_message or "")[:200]),
+        Column("请求字符数", lambda e: str(e.request_chars) if e.request_chars else ""),
+        Column("响应字符数", lambda e: str(e.response_chars) if e.response_chars else ""),
+    ]
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    return buffered_response(entries, columns, f"llm_logs_{ts}.csv")
 
-    csv_content = output.getvalue()
-    output.close()
-    return Response(
-        content=csv_content.encode("utf-8-sig"),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=llm_logs_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
-        },
-    )
+
+@router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
+def get_llm_log_detail(
+    log_id: int,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    entry = db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="日志不存在")
+    return entry

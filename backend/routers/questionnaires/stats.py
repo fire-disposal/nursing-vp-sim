@@ -1,15 +1,13 @@
-import csv
-import io
 from collections import Counter
 from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.security import require_permission
+from infrastructure.export import Column, buffered_response
 from middleware.dependencies import resolve_school_filter
 from models import (
     CaseQuestionnaire,
@@ -131,7 +129,7 @@ def export_responses(
     )
     if effective_school is not None:
         resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(User.school_id == effective_school)
-    resp_query = resp_query.order_by(QuestionnaireResponse.created_at)
+    resp_query = resp_query.order_by(QuestionnaireResponse.completed_at.desc())
 
     responses = resp_query.all()
     questions = (
@@ -141,31 +139,22 @@ def export_responses(
         .all()
     )
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    header = ["学生姓名", "学号", "提交时间"]
-    for q in questions:
-        header.append(q.content)
-    writer.writerow(header)
-
+    ans_map_cache: dict[int, dict[int, str]] = {}
     for r in responses:
-        ans_map = {}
-        for ans in r.answers:
-            ans_map[ans.question_id] = ans.answer_value or ""
-        row = [
-            r.user.display_name if r.user else "",
-            r.user.student_id if r.user and r.user.student_id else "",
-            r.completed_at.isoformat() if r.completed_at else "",
-        ]
-        for q in questions:
-            row.append(ans_map.get(q.id, ""))
-        writer.writerow(row)
+        amap: dict[int, str] = {}
+        for a in r.answers:
+            amap[a.question_id] = a.answer_value or ""
+        ans_map_cache[r.id] = amap
 
-    output.seek(0)
-    filename = f"questionnaire_{template_id}_{t.title}.csv"
-    encoded_filename = quote(filename.encode("utf-8"))
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv; charset=utf-8-sig",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"},
-    )
+    columns = [
+        Column("学生姓名", lambda r: r.user.display_name if r.user else ""),
+        Column("学号", lambda r: r.user.student_id if r.user else ""),
+        Column("提交时间", lambda r: r.completed_at.isoformat() if r.completed_at else ""),
+    ]
+    for q in questions:
+        qid = q.id
+        qcontent = q.content or ""
+        columns.append(Column(qcontent, lambda r, qid=qid: ans_map_cache[r.id].get(qid, "")))
+
+    safe_title = quote(t.title or f"问卷{template_id}")
+    return buffered_response(responses, columns, f"questionnaire_{template_id}_{safe_title}.csv")

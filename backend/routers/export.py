@@ -1,5 +1,3 @@
-import csv
-import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
+from infrastructure.export import Column, stream_response
 from middleware.dependencies import resolve_school_filter
 from models import Case, Message, Score, TrainingRecord, User
 
@@ -23,72 +22,35 @@ def export_records(
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
     effective_school = resolve_school_filter(current_user, school_id)
 
-    def generate():
-        buf = io.StringIO()
-        writer = csv.writer(buf)
-        # BOM + 表头
-        buf.write("﻿")
-        writer.writerow(
-            [
-                "记录ID",
-                "学生姓名",
-                "学号",
-                "病例名称",
-                "状态",
-                "开始时间",
-                "结束时间",
-                "总分",
-                "优点",
-                "不足",
-                "漏问内容",
-                "改进建议",
-                "对话轮数",
-            ]
+    query = (
+        db.query(TrainingRecord)
+        .options(
+            selectinload(TrainingRecord.user),
+            selectinload(TrainingRecord.case),
+            selectinload(TrainingRecord.score),
+            selectinload(TrainingRecord.messages),
         )
-        yield buf.getvalue()
-        buf.truncate(0)
-        buf.seek(0)
-
-        query = (
-            db.query(TrainingRecord)
-            .options(
-                selectinload(TrainingRecord.user),
-                selectinload(TrainingRecord.case),
-                selectinload(TrainingRecord.score),
-                selectinload(TrainingRecord.messages),
-            )
-        )
-        if effective_school is not None:
-            query = query.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
-        records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100)
-
-        for r in records:
-            writer.writerow(
-                [
-                    r.id,
-                    r.user.display_name if r.user else "",
-                    r.user.student_id if r.user else "",
-                    r.case.name if r.case else "",
-                    r.status,
-                    r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else "",
-                    r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else "",
-                    r.score.total_score if r.score else "",
-                    "；".join(r.score.strengths) if r.score and r.score.strengths else "",
-                    "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else "",
-                    "；".join(r.score.missed_content) if r.score and r.score.missed_content else "",
-                    r.score.suggestions if r.score else "",
-                    len(r.messages) if r.messages else 0,
-                ]
-            )
-            yield buf.getvalue()
-            buf.truncate(0)
-            buf.seek(0)
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/csv; charset=utf-8-sig",
-        headers={"Content-Disposition": "attachment; filename=training_records.csv"},
     )
+    if effective_school is not None:
+        query = query.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
+    records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100)
+
+    columns = [
+        Column("记录ID", lambda r: str(r.id)),
+        Column("学生姓名", lambda r: r.user.display_name if r.user else ""),
+        Column("学号", lambda r: r.user.student_id if r.user else ""),
+        Column("病例名称", lambda r: r.case.name if r.case else ""),
+        Column("状态", lambda r: r.status),
+        Column("开始时间", lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
+        Column("结束时间", lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
+        Column("总分", lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""),
+        Column("优点", lambda r: "；".join(r.score.strengths) if r.score and r.score.strengths else ""),
+        Column("不足", lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
+        Column("漏问内容", lambda r: "；".join(r.score.missed_content) if r.score and r.score.missed_content else ""),
+        Column("改进建议", lambda r: r.score.suggestions if r.score else ""),
+        Column("对话轮数", lambda r: str(len(r.messages)) if r.messages else "0"),
+    ]
+    return stream_response(list(records), columns, "training_records.csv")
 
 
 @router.get("/record/{record_id}")
