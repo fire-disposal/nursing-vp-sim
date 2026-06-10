@@ -175,8 +175,8 @@ def _create_record(
     db.refresh(record)
 
     patient_info = case_data.get("patient_info", {})
-    patient_name = patient_info.get("name", "患�?)
-    opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看�?)
+    patient_name = patient_info.get("name", "患者")
+    opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
     greeting = f"你好，我是{patient_name}。{opening_line}"
 
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
@@ -202,7 +202,7 @@ def start_training(
 ):
     case = db.query(Case).filter(Case.id == req.case_id).first()
     if not case:
-        raise HTTPException(status_code=404, detail="病例不存�?)
+        raise HTTPException(status_code=404, detail="病例不存在")
 
     config_id = req.config_id or "standard-assessment"
     config = get_config(config_id) or {}
@@ -210,10 +210,10 @@ def start_training(
     record, greeting = _create_record(db, current_user.id, case, case.case_data or {}, config_id, config, app_state=request.app.state)
 
     log.info(
-        f"训练开�? record_id={record.id} case_id={case.id} case_name={case.name}",
+        f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
     )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
+    return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
 
 @router.post("/start-from-assignment", response_model=TrainingStartResponse)
@@ -230,7 +230,7 @@ def start_training_from_assignment(
         .first()
     )
     if not assignment:
-        raise HTTPException(status_code=404, detail="练习发布不存�?)
+        raise HTTPException(status_code=404, detail="练习发布不存在")
 
     user_class = db.query(UserClass).filter(
         UserClass.user_id == current_user.id,
@@ -246,13 +246,13 @@ def start_training_from_assignment(
     if existing:
         case_data = assignment.case.case_data if assignment.case else {}
         patient_info = case_data.get("patient_info", {})
-        patient_name = patient_info.get("name", "患�?)
-        greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '继续之前的练习�?)}"
-        return TrainingStartResponse(record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else "")
+        patient_name = patient_info.get("name", "患者")
+        greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '继续之前的练习。')}"
+        return TrainingStartResponse(record_id=existing.id, greeting=greeting)
 
     case = assignment.case
     if not case:
-        raise HTTPException(status_code=404, detail="病例不存�?)
+        raise HTTPException(status_code=404, detail="病例不存在")
 
     config_id = assignment.config_id or "standard-assessment"
     config = get_config(config_id) or {}
@@ -270,7 +270,7 @@ def start_training_from_assignment(
         f"Assignment training start: assignment_id={assignment.id} record_id={record.id}",
         extra={"user_id": current_user.id, "action": "assignment_start"},
     )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
+    return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
 
 @router.get("/configs")
@@ -284,13 +284,13 @@ def get_records(
     db: Annotated[Session, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    student_name: Annotated[str | None, Query(description="按学生姓名模糊搜�?)] = None,
-    case_id: Annotated[int | None, Query(description="按病例ID筛�?)] = None,
-    status: Annotated[str | None, Query(description="按状态筛�?in_progress/completed)")] = None,
-    date_from: Annotated[str | None, Query(description="开始日�?ISO 格式 (�?")] = None,
-    date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (�?")] = None,
+    student_name: Annotated[str | None, Query(description="按学生姓名模糊搜索")] = None,
+    case_id: Annotated[int | None, Query(description="按病例ID筛选")] = None,
+    status: Annotated[str | None, Query(description="按状态筛选(in_progress/completed)")] = None,
+    date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
+    date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛�?)] = None,
+    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     effective_school = resolve_school_filter(current_user, school_id)
     base = db.query(TrainingRecord)
@@ -368,14 +368,14 @@ def get_record_detail(
         .first()
     )
     if not record:
-        raise HTTPException(status_code=404, detail="记录不存�?)
+        raise HTTPException(status_code=404, detail="记录不存在")
 
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权查看此记�?)
+        raise HTTPException(status_code=403, detail="无权查看此记录")
 
     effective_school = resolve_school_filter(current_user)
     if effective_school is not None and (not record.user or record.user.school_id != effective_school):
-        raise HTTPException(status_code=404, detail="记录不存�?)
+        raise HTTPException(status_code=404, detail="记录不存在")
 
     case = record.case
     user = record.user
@@ -419,15 +419,15 @@ def delete_record(
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存�?)
+        raise HTTPException(status_code=404, detail="训练记录不存在")
 
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权删除此记�?)
+        raise HTTPException(status_code=403, detail="无权删除此记录")
 
     record_user = db.query(User).filter(User.id == record.user_id).first()
     effective_school = resolve_school_filter(current_user)
     if effective_school is not None and (not record_user or record_user.school_id != effective_school):
-        raise HTTPException(status_code=404, detail="训练记录不存�?)
+        raise HTTPException(status_code=404, detail="训练记录不存在")
 
     db.query(Message).filter(Message.record_id == record_id).delete()
     db.query(Score).filter(Score.record_id == record_id).delete()
@@ -440,7 +440,7 @@ def delete_record(
         f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return {"message": "训练记录已删�?}
+    return {"message": "训练记录已删除"}
 
 
 @router.get("/records/{record_id}/review", response_model=ScoreReviewResponse)
@@ -451,13 +451,13 @@ def get_score_review(
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存�?)
+        raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
-        raise HTTPException(status_code=403, detail="无权查看该评�?)
+        raise HTTPException(status_code=403, detail="无权查看该评分")
 
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
-        raise HTTPException(status_code=404, detail="该记录暂无评�?)
+        raise HTTPException(status_code=404, detail="该记录暂无评分")
 
     reviewer_name = None
     if score.reviewed_by:
@@ -484,7 +484,7 @@ def submit_score_review(
 ):
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
-        raise HTTPException(status_code=404, detail="该记录暂无评�?)
+        raise HTTPException(status_code=404, detail="该记录暂无评分")
 
     if req.detail_scores is not None:
         score.review_detail_scores = req.detail_scores
