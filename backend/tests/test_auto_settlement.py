@@ -40,8 +40,8 @@ class FakeMessage:
 def test_should_auto_score_passes():
     base = (
         "请问您叫什么名字？今年多大年龄了？"
-        + "您哪里不舒服？具体是发热还是咳嗽还是头痛恶心？"
-        + "喉咙痛不痛？有没有胸闷？"
+         "您哪里不舒服？具体是发热还是咳嗽还是头痛恶心？"
+         "喉咙痛不痛？有没有胸闷？"
     )
     long_student = base * 4
     patient_base = (

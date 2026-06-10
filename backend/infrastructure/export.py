@@ -2,8 +2,9 @@
 
 import csv
 import io
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Callable, Generator
+from typing import Any
 from urllib.parse import quote
 
 from fastapi.responses import Response, StreamingResponse
@@ -24,7 +25,7 @@ def _make_writer(buf: io.StringIO) -> csv.writer:
     return csv.writer(buf)
 
 
-def _build_rows(items: list[Any], columns: list[Column]) -> Generator[list[str], None, None]:
+def _build_rows(items: list[Any], columns: list[Column]) -> Generator[list[str]]:
     """Yield header row then data rows."""
     yield [col.header for col in columns]
     for item in items:
@@ -48,7 +49,7 @@ def stream_response(
     filename: str,
 ) -> StreamingResponse:
     """Stream CSV rows one at a time via generator (for large datasets)."""
-    def generate() -> Generator[str, None, None]:
+    def generate() -> Generator[str]:
         buf = io.StringIO()
         writer = _make_writer(buf)
         buf.write(_encode_bom())

@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from models import User
+
 from . import LoginStrategy
 
 log = logging.getLogger(__name__)
@@ -32,4 +33,4 @@ class OAuth2LoginStrategy(LoginStrategy):
         raise NotImplementedError("OAuth2 策略尚未对接具体学校，待 auth_providers 表就绪后实现。")
 
 
-# noqa: E501 — URL references above are intentionally long
+

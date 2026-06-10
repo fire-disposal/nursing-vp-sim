@@ -11,9 +11,8 @@ from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
-from models import Case, Role, RolePermission, Rubric, School, User
-from models import ApiSecret, LLMConfig
 from infrastructure.llm import encrypt_api_key
+from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, User
 
 log = logging.getLogger(__name__)
 

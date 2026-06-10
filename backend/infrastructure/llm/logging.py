@@ -269,7 +269,7 @@ class LogWorker:
         for fname in files:
             fpath = os.path.join(self._overflow_dir, fname)
             try:
-                with open(fpath, "r", encoding="utf-8") as f:
+                with open(fpath, encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if not line:

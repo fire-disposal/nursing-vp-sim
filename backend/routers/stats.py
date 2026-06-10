@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
@@ -17,7 +18,6 @@ from schemas import (
     TeacherSummaryItem,
     TrendStats,
 )
-from core.pagination import paginate
 
 router = APIRouter(prefix="/api/stats", tags=["统计"])
 

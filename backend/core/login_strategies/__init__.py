@@ -31,14 +31,13 @@ class LoginStrategy(ABC):
     @abstractmethod
     async def authenticate(self, credentials: dict[str, Any]) -> User | None:
         """返回匹配的 User，或 None 表示认证失败"""
-        pass
 
 
 def get_strategy_registry() -> dict[str, type["LoginStrategy"]]:
+    from core.login_strategies.cas import CASLoginStrategy
+    from core.login_strategies.oauth2 import OAuth2LoginStrategy
     from core.login_strategies.password import PasswordLoginStrategy
     from core.login_strategies.wechat import WeChatLoginStrategy
-    from core.login_strategies.oauth2 import OAuth2LoginStrategy
-    from core.login_strategies.cas import CASLoginStrategy
     return {
         "password": PasswordLoginStrategy,
         "wechat": WeChatLoginStrategy,

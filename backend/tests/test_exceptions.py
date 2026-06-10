@@ -3,7 +3,6 @@ import pytest
 from core.exceptions import (
     AppError,
     AuthError,
-    ConflictError,
     LLMConcurrencyExceeded,
     LLMError,
     LLMParseError,

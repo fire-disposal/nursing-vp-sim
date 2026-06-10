@@ -54,7 +54,7 @@ def test_model_definitions_match_database(alembic_runner):
     alembic_runner.migrate_up_to("head")
 
     from sqlalchemy import create_engine, text
-    from core.database import Base
+
     import models  # noqa: F401
 
     engine = create_engine(ALEMBIC_URL)

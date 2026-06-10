@@ -1,7 +1,8 @@
 """side_effects — update initiative timer and other post-reply effects."""
 
-from core.feature_flags import is_enabled
 from contexts.patient import update_initiative_timer
+from core.feature_flags import is_enabled
+
 from ..context import PipelineContext
 
 

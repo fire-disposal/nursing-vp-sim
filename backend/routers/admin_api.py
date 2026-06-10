@@ -12,6 +12,13 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
+from infrastructure.llm import (
+    decrypt_api_key,
+    encrypt_api_key,
+    get_catalog,
+    get_env_fallback_state,
+    infer_provider_name,
+)
 from models import ApiSecret, LLMConfig, Rubric, User
 from schemas import (
     ApiSecretCreate,
@@ -19,12 +26,12 @@ from schemas import (
     ApiSecretUpdate,
     CatalogResponse,
     ConfigCreateResponse,
+    DeleteResponse,
     HealthCheckItem,
     LLMConfigCreate,
     LLMConfigResponse,
     LLMConfigUpdate,
     ModelPresetItem,
-    DeleteResponse,
     OkResponse,
     ProviderPresetResponse,
     RubricResponse,
@@ -33,8 +40,6 @@ from schemas import (
     TestResultItem,
     ToggleStatusResponse,
 )
-from infrastructure.llm import decrypt_api_key, encrypt_api_key, get_env_fallback_state
-from infrastructure.llm import get_catalog, infer_provider_name
 
 router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 

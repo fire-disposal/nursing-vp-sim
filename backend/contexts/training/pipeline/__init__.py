@@ -1,5 +1,6 @@
 """Training Pipeline — composable middleware chain for message processing."""
 
+from .context import PipelineContext
 from .phase import (
     Phase,
     get_phase_by_order,
@@ -7,10 +8,9 @@ from .phase import (
     parse_phases,
     try_advance_phase,
 )
-from .context import PipelineContext
-from .runner import PipelineMiddleware, run_pipeline, stream_pipeline
-from .registry import get_pipeline
 from .plugin import run_plugin_hooks
+from .registry import get_pipeline
+from .runner import PipelineMiddleware, run_pipeline, stream_pipeline
 
 __all__ = [
     "Phase",
@@ -21,7 +21,7 @@ __all__ = [
     "parse_phase",
     "parse_phases",
     "run_pipeline",
+    "run_plugin_hooks",
     "stream_pipeline",
     "try_advance_phase",
-    "run_plugin_hooks",
 ]

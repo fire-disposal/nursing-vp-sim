@@ -2,19 +2,22 @@ import asyncio
 import logging
 import threading
 from datetime import UTC, datetime
-
-from core.datetime_utils import ensure_utc, parse_iso_datetime
 from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from contexts.training.service import get_config, list_configs
 from core.database import get_db
+from core.datetime_utils import ensure_utc, parse_iso_datetime
+from core.feature_flags import FEATURE_FLAGS, resolve_features
+from core.pagination import paginate
 from core.security import get_current_user, require_permission
+from infrastructure.llm import LogWorker, ProfileRouter
+from infrastructure.prompt import PromptManager
 from middleware.dependencies import resolve_school_filter
-from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass, Assignment
+from models import Assignment, Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
@@ -25,11 +28,6 @@ from schemas import (
     TrainingStartRequest,
     TrainingStartResponse,
 )
-from infrastructure.llm import LogWorker, ProfileRouter
-from core.pagination import paginate
-from infrastructure.prompt import PromptManager
-from core.feature_flags import FEATURE_FLAGS, resolve_features
-from contexts.training.service import get_config, list_configs
 
 log = logging.getLogger(__name__)
 
@@ -167,7 +165,7 @@ def _create_record(
         status="in_progress",
         time_limit=time_limit,
         config_id=config_id,
-        config_snapshot=config if config else None,
+        config_snapshot=config or None,
     )
     record.current_phase = "history_taking"
     db.add(record)
@@ -183,9 +181,9 @@ def _create_record(
     db.add(greeting_msg)
     db.commit()
 
-    from core.feature_flags import resolve_features
     from contexts.training.pipeline.plugin import run_plugin_hooks
     from contexts.training.plugins import _hook_ctx
+    from core.feature_flags import resolve_features
     features = resolve_features(record.config_snapshot)
     if app_state is not None:
         run_plugin_hooks("on_record_create", _hook_ctx(record, app_state), features)

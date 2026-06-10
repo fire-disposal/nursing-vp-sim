@@ -1,7 +1,5 @@
 import logging
 from datetime import UTC, datetime, timedelta
-
-from core.datetime_utils import parse_iso_datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,9 +8,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.datetime_utils import parse_iso_datetime
 from core.security import require_permission
 from infrastructure.export import Column, buffered_response
-from models import ApiProvider, Case as CaseModel, LLMCallLog, TrainingRecord, User
+from models import ApiProvider, LLMCallLog, TrainingRecord, User
+from models import Case as CaseModel
 from schemas import (
     LLMCallLogItem,
     LLMStatsResponse,

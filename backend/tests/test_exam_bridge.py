@@ -1,5 +1,4 @@
 """Unit tests for exam handler and exam-emotion bridge."""
-import pytest
 from contexts.patient.exam import detect_operation, handle_operation
 
 

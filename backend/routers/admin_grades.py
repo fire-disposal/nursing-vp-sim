@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import require_permission
 from models import Class, Grade, User, UserClass
-from schemas import DeleteResponse, GradeCreate, GradeResponse, GradeUpdate, MessageResponse
+from schemas import DeleteResponse, GradeCreate, GradeResponse, GradeUpdate
 
 router = APIRouter(prefix="/api/admin/grades", tags=["年级管理"])
 
@@ -104,7 +104,7 @@ def delete_grade(
     if not grade:
         raise HTTPException(status_code=404, detail="年级不存在")
     class_count = db.query(func.count(Class.id)).filter(Class.grade_id == grade_id).scalar() or 0
-    from sqlalchemy import delete as sa_delete, update as sa_update
+    from sqlalchemy import update as sa_update
     db.execute(
         sa_update(UserClass)
         .where(UserClass.class_id.in_(db.query(Class.id).filter(Class.grade_id == grade_id)))

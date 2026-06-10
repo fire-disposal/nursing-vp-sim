@@ -18,17 +18,16 @@ from schemas import (
     CaseManageItem,
     CaseUpdateRequest,
     DeleteResponse,
-    MessageResponse,
     PaginatedResponse,
 )
 
 log = logging.getLogger(__name__)
 
-from core.config import get_llm_config
-from infrastructure.llm.client import CallContext
-from core.pagination import paginate
-from infrastructure.prompt import get_registry
 from contexts.patient import format_case_for_prompt
+from core.config import get_llm_config
+from core.pagination import paginate
+from infrastructure.llm.client import CallContext
+from infrastructure.prompt import get_registry
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 

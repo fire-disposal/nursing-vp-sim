@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import require_permission
 from models import Class, Grade, User, UserClass
-from schemas import ClassCreate, ClassResponse, ClassUpdate, DeleteResponse, MessageResponse
+from schemas import ClassCreate, ClassResponse, ClassUpdate, DeleteResponse
 
 router = APIRouter(prefix="/api/admin/classes", tags=["班级管理"])
 

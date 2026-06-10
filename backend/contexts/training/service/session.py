@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from typing import Optional
 
 _CONFIG_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "session_configs"
 _cache: dict[str, dict] = {}
@@ -19,7 +18,7 @@ def _load_all() -> dict[str, dict]:
     return _cache
 
 
-def get_config(config_id: str) -> Optional[dict]:
+def get_config(config_id: str) -> dict | None:
     return _load_all().get(config_id)
 
 

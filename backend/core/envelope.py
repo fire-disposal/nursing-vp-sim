@@ -1,8 +1,9 @@
+import json
+import os
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-import json
-import os
 
 
 class EnvelopeMiddleware(BaseHTTPMiddleware):

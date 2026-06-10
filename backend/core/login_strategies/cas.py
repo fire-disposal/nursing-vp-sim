@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from models import User
+
 from . import LoginStrategy
 
 log = logging.getLogger(__name__)

@@ -3,9 +3,10 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.pagination import paginate
 from core.security import require_permission
 from middleware.dependencies import resolve_school_filter
 from models import (
@@ -26,7 +27,6 @@ from schemas import (
     QuestionnaireTemplateResponse,
     QuestionnaireTemplateUpdate,
 )
-from core.pagination import paginate
 
 log = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ def create_template(
     for i, q in enumerate(req.questions):
         db.add(QuestionnaireQuestion(
             template_id=t.id,
-            sort_order=q.sort_order if q.sort_order else i,
+            sort_order=q.sort_order or i,
             content=q.content,
             question_type=q.question_type,
             required=q.required,
@@ -140,7 +140,7 @@ def get_template(
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
-    setattr(t, "case_links", cq_rows)
+    t.case_links = cq_rows
     return _template_to_detail(t)
 
 
@@ -166,7 +166,7 @@ def update_template(
     db.commit()
     db.refresh(t)
     cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
-    setattr(t, "case_links", cq_rows)
+    t.case_links = cq_rows
     return _template_to_detail(t)
 
 

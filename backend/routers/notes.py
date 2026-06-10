@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
 from models import Note, TrainingRecord, User
-from schemas import DeleteResponse, MessageResponse, NoteCreateRequest, NoteItem
+from schemas import DeleteResponse, NoteCreateRequest, NoteItem
 
 router = APIRouter(prefix="/api/notes", tags=["笔记"])
 

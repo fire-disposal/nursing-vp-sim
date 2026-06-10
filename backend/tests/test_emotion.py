@@ -1,5 +1,4 @@
 """Unit tests for emotion engine (2D trust-comfort model)."""
-import pytest
 from contexts.patient.emotion import EmotionState, classify_intent
 
 

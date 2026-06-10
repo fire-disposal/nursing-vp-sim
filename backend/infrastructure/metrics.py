@@ -5,13 +5,12 @@ Exposes a snapshot dict consumed by /api/metrics and external monitoring.
 
 from __future__ import annotations
 
-import os
-import time
-import threading
-from collections import defaultdict
-from typing import Callable
-
 import logging
+import os
+import threading
+import time
+from collections import defaultdict
+from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 

@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from contexts.training.router.session import set_training_infra, stop_background_loop
+from contexts.training.service import settlement_loop
 from core.config import (
     APP_VERSION,
     CLEANUP_INTERVAL_SECONDS,
@@ -25,20 +27,18 @@ from core.config import (
     log_config,
     validate_config,
 )
-from core.database import engine, get_db, init_db
+from core.database import engine, init_db
+from core.envelope import EnvelopeMiddleware
 from core.logging_setup import setup_logging
 from core.seed import seed_all
-from core.envelope import EnvelopeMiddleware
 from infrastructure.cache import EmotionCache, InitiativeCache
+from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
+from infrastructure.metrics import MetricsSnapshot
+from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
 from middleware.rate_limits import RateLimiter
 from repositories.training import TrainingRepository
-from infrastructure.llm import LogWorker, ProfileRouter
-from infrastructure.prompt import PromptManager
-from infrastructure.metrics import MetricsSnapshot
-from contexts.training.service import settlement_loop
-from contexts.training.router.session import set_training_infra, stop_background_loop
 
 log = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ async def _request_timeout(request: Request, call_next):
 
     try:
         return await asyncio.wait_for(call_next(request), timeout=REQUEST_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         log.error("请求超时 %s %s (limit=%ds)", request.method, request.url.path, REQUEST_TIMEOUT_SECONDS)
         return JSONResponse(status_code=504, content={"detail": "请求处理超时"})
 
@@ -238,19 +238,28 @@ app.add_middleware(
 app.add_middleware(EnvelopeMiddleware)
 
 # Route registration
+from contexts.qa import router as qa_router
+from contexts.training import chat_router, nursing_router, training_router
 from routers import (
-    admin, admin_classes, admin_grades, auth, cases,
-    export, feedback, notes, questionnaires, stats,
+    admin,
+    admin_classes,
+    admin_grades,
+    auth,
+    cases,
+    export,
+    feedback,
+    notes,
+    questionnaires,
+    stats,
 )
-from routers.assignments import router as assignments_router, student_router as student_assignments_router
-from routers.admin.scenarios import router as admin_scenarios_router
 from routers.admin.plugins import router as admin_plugins_router
+from routers.admin.scenarios import router as admin_scenarios_router
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
 from routers.admin_schools import router as admin_schools_router
-from contexts.training import chat_router, nursing_router, training_router
-from contexts.qa import router as qa_router
+from routers.assignments import router as assignments_router
+from routers.assignments import student_router as student_assignments_router
 
 for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, questionnaires, stats]:
     app.include_router(mod.router)
@@ -270,8 +279,7 @@ app.include_router(student_assignments_router)
 
 @app.get("/api/health")
 async def health():
-    from core.database import SessionLocal, engine
-    from sqlalchemy import text
+    from core.database import engine
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

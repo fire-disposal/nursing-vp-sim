@@ -79,15 +79,18 @@ ignore = [
     "PLR0913",# too-many-arguments
     "PLR0912",# too-many-branches
     "PLR0915",# too-many-statements
+    "PLR0911",# too-many-return-statements
     "PLR2004",# magic-value-comparison
     "PLR6301",# no-self-use
     "PLW0603",# global statement (intentional singleton pattern)
     "PTH100", # os.path → pathlib (legacy, migrate later)
+    "PTH103", # os.makedirs → Path.mkdir (legacy) 
     "PTH112", # os.path.isdir → pathlib (legacy)
     "PTH113", # os.path.isfile → pathlib (legacy)
     "PTH118", # os.path.join → pathlib (legacy)
     "PTH120", # os.path.dirname → pathlib (legacy)
     "PTH123", # open() → Path.open() (legacy)
+    "PTH204", # os.path.getmtime → pathlib (legacy)
     "PTH208", # os.listdir → pathlib (legacy)
     "RUF001", # ambiguous unicode — fullwidth punctuation is intentional (Chinese)
     "RUF002", # ambiguous unicode in docstrings — same
@@ -99,11 +102,39 @@ ignore = [
     "S311",   # non-crypto random (backoff jitter, not crypto)
     "SLF001", # private-member-access
     "T201",   # print
+    "TC001",  # type-checking imports (project convention)
+    "TC003",  # same
+    "TID252", # relative imports (project convention)
     "TRY003", # raise-vanilla-args
     "TRY300", # move return to else (style)
     "TRY301", # abstract raise (style)
     "TRY401", # exception in logging.exception (style)
     "UP046",  # Generic subclass (style)
+    "UP047",  # generic function type params (style)
+    "W293",   # blank line whitespace (auto-format)
+    "ARG005", # unused lambda arg (intentional closures)
+    "B007",   # loop variable unused (style)
+    "C401",   # unnecessary generator (style)
+    "C408",   # unnecessary dict() call (style)
+    "C416",   # unnecessary dict comprehension (style)
+    "E712",   # equality to True (ORM pattern)
+    "F841",   # unused variable (sometimes intentional test setup)
+    "FURB171",# membership test style
+    "N818",   # exception naming (legacy)
+    "PERF102",# dict values() micro-opt
+    "PLW0108",# lambda may be unnecessary (style)
+    "PLW2901",# loop var overwrite (style)
+    "PT011",  # pytest.raises too broad (style)
+    "PTH104", # os.rename → Path (legacy)
+    "PTH107", # os.remove → Path (legacy)
+    "PTH202", # os.path.getsize → Path (legacy)
+    "RUF005", # iterable unpacking style
+    "RUF012", # mutable default attr (dataclass pattern)
+    "RUF059", # unpacked variable unused (style)
+    "SIM102", # simplify nested if (style)
+    "SIM103", # return negated (style)
+    "SIM105", # contextlib.suppress (style)
+    "TRY400", # logging.exception vs error (style)
 ]
 
 [tool.ruff.lint.flake8-unused-arguments]

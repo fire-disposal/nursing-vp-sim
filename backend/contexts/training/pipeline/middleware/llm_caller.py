@@ -4,6 +4,7 @@ import logging
 import random
 
 from infrastructure.llm.client import CallContext
+
 from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
@@ -35,10 +36,10 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 
 
 async def _call_batch(ctx: PipelineContext) -> None:
-    from core.config import get_llm_config
-    from contexts.patient import has_identity_leak, get_identity_correction_note
-
     import httpx
+
+    from contexts.patient import get_identity_correction_note, has_identity_leak
+    from core.config import get_llm_config
 
     app = ctx.app_state
     llm_client = app.llm_client
@@ -54,7 +55,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
             ),
             **get_llm_config("patient_chat"),
         )
-    except (httpx.HTTPError, OSError, RuntimeError, ValueError) as e:
+    except (httpx.HTTPError, OSError, RuntimeError, ValueError):
         log.exception("LLM batch call failed: record_id=%d", ctx.record.id)
         reply = random.choice(FALLBACK_REPLIES)
 
@@ -90,8 +91,8 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
+    from contexts.patient import get_identity_correction_note, has_identity_leak
     from core.config import get_llm_config
-    from contexts.patient import has_identity_leak, get_identity_correction_note
 
     app = ctx.app_state
     llm_client = app.llm_client
@@ -112,7 +113,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
         ):
             full_reply += chunk
             chunks.append(chunk)
-    except Exception as e:
+    except Exception:
         log.exception("LLM stream failed: record_id=%d", ctx.record.id)
         full_reply = random.choice(FALLBACK_REPLIES)
         chunks = [full_reply]

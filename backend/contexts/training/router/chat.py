@@ -13,6 +13,7 @@ from core.security import get_current_user
 from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
+
 from ..pipeline import (
     PipelineContext,
     get_pipeline,

@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
 import logging
-from typing import Callable, Awaitable, Any
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 PipelineMiddleware = Callable[..., Awaitable[Any]]
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
+from infrastructure.prompt import get_registry, render_template
 from models import PromptTemplate as PT
 from models import User
 from prompts import (
@@ -33,7 +34,6 @@ from schemas import (
     PromptValidateResponse,
     SampleVarsResponse,
 )
-from infrastructure.prompt import render_template, get_registry
 
 log = logging.getLogger(__name__)
 

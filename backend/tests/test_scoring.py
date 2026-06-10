@@ -12,7 +12,6 @@ from contexts.training.service._scoring_validation import (
     _validate_scoring_result,
 )
 
-
 # ──────────────────────────────────────────────
 # _coerce_numeric_fields
 # ──────────────────────────────────────────────

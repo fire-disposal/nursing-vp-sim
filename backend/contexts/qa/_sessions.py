@@ -1,23 +1,22 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from models import QARecord, QASession, User
 from schemas import (
     DeleteResponse,
-    MessageResponse,
     PaginatedResponse,
     QAMessageItem,
     QASessionAdminItem,
     QASessionItem,
 )
-from core.pagination import paginate
 
 log = logging.getLogger(__name__)
 

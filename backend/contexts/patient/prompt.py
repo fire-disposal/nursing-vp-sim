@@ -7,7 +7,6 @@
 """
 
 import logging
-from random import choice
 
 log = logging.getLogger(__name__)
 

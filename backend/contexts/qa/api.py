@@ -17,7 +17,8 @@ from schemas import (
     QAAskResponse,
     QASessionCreate,
 )
-from .logic import get_qa_cache, build_qa_history
+
+from .logic import build_qa_history, get_qa_cache
 
 log = logging.getLogger(__name__)
 

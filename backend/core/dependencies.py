@@ -10,12 +10,11 @@ import httpx
 from fastapi import Depends, Request
 
 from infrastructure.cache import EmotionCache, InitiativeCache
+from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
+from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
 from middleware.rate_limits import RateLimiter
-from infrastructure.llm import LogWorker, ProfileRouter
-from infrastructure.prompt import PromptManager
-
 
 # ── Infrastructure ──
 

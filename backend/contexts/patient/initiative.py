@@ -83,35 +83,31 @@ def generate_initiative(
     if comfort <= 30:
         if roll < 0.6:
             return random.choice(_NONVERBAL_CUES)
-        elif roll < 0.85:
+        if roll < 0.85:
             return random.choice(_ANXIOUS_PROMPTS)
-        else:
-            return random.choice(_IMPATIENT_PROMPTS)
+        return random.choice(_IMPATIENT_PROMPTS)
 
     if trust <= 40:
         if roll < 0.5:
             return random.choice(_IMPATIENT_PROMPTS)
-        elif roll < 0.75:
+        if roll < 0.75:
             return random.choice(_NONVERBAL_CUES)
-        else:
-            return random.choice(_NEUTRAL_PROMPTS)
+        return random.choice(_NEUTRAL_PROMPTS)
 
     if comfort >= 60:
         if roll < 0.3:
             return random.choice(_NONVERBAL_CUES)
-        elif verbosity == "verbose" and roll < 0.6:
+        if verbosity == "verbose" and roll < 0.6:
             return random.choice(_VERBOSE_EXTRAS)
-        elif patience == "high" and roll < 0.75:
+        if patience == "high" and roll < 0.75:
             return random.choice(_CALM_PROMPTS)
-        else:
-            return random.choice(_NEUTRAL_PROMPTS)
+        return random.choice(_NEUTRAL_PROMPTS)
 
     if roll < 0.3:
         return random.choice(_NONVERBAL_CUES)
-    elif verbosity == "verbose" and roll < 0.5:
+    if verbosity == "verbose" and roll < 0.5:
         return random.choice(_VERBOSE_EXTRAS)
-    else:
-        return random.choice(_NEUTRAL_PROMPTS)
+    return random.choice(_NEUTRAL_PROMPTS)
 
 
 # ── Cache-based API ──

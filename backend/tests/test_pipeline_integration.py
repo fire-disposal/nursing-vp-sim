@@ -1,11 +1,11 @@
 """Integration test: pipeline produces same result as existing flow."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from contexts.training.pipeline import PipelineContext, run_pipeline, get_pipeline
+import pytest
+
+from contexts.training.pipeline import PipelineContext, get_pipeline, run_pipeline
 from contexts.training.pipeline.phase import Phase
-from contexts.training import plugins  # ensure plugin registry is populated
 
 
 @pytest.mark.asyncio

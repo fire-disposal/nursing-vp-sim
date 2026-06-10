@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from contexts.training.pipeline.plugin import get_all_plugins
 
 router = APIRouter(prefix="/api/admin/plugins", tags=["admin-plugins"])

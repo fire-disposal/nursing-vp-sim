@@ -4,10 +4,11 @@ import logging
 from sqlalchemy.orm import Session
 
 from core.config import get_llm_config
-from infrastructure.llm.client import LLMClient, CallContext
-from models import Message, Score, TrainingRecord
+from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
-from prompts.scoring import SCORING_RETRY_USER, FEEDBACK_RETRY_USER
+from models import Message, Score, TrainingRecord
+from prompts.scoring import FEEDBACK_RETRY_USER, SCORING_RETRY_USER
+
 from ._scoring_rubric import get_rubric_version_id, load_rubric_dict
 from ._scoring_validation import (
     _check_feedback_empty,

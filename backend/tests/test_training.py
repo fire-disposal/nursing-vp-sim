@@ -1,6 +1,6 @@
 """Training flow tests: start, messages, end with scoring (mocked LLM)."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 
 class TestStartTraining:

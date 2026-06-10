@@ -1,9 +1,8 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from urllib.parse import urlparse
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import QueuePool
 

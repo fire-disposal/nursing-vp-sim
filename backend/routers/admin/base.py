@@ -14,7 +14,6 @@ from schemas import (
     BatchCreateResult,
     BatchUserItem,
     DeleteResponse,
-    MessageResponse,
     PaginatedResponse,
     StudentDetail,
     TrainingRecordBrief,

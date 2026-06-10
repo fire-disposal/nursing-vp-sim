@@ -11,7 +11,6 @@ from core.security import hash_password, require_permission
 from models import Role, RolePermission, School, User
 from schemas import (
     DeleteResponse,
-    MessageResponse,
     PaginatedResponse,
     SchoolCreate,
     SchoolResponse,

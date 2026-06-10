@@ -36,7 +36,7 @@ class TestQAMultiTurn:
         assert data[0]["role"] == "user"
 
     def test_delete_session(self, client, student, db_session):
-        from models import QARecord, QASession
+        from models import QASession
 
         create_resp = client.post(
             "/api/qa/sessions", json={"question": "待删除"},

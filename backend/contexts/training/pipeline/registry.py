@@ -8,7 +8,6 @@ from .middleware import (
     side_effects,
 )
 from .middleware.llm_caller import llm_caller
-from .runner import PipelineMiddleware
 
 
 def get_pipeline(phase_id: str, feature_flags: dict[str, bool] | None = None) -> list:

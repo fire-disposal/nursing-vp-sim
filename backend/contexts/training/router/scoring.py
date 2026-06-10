@@ -1,23 +1,21 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-
-from core.datetime_utils import ensure_utc
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from contexts.training.pipeline.plugin import run_plugin_hooks
+from contexts.training.service import evaluate_training
 from core.database import SessionLocal, get_db
+from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
+from infrastructure.prompt import PromptManager
 from models import Case, Message, TrainingRecord, User
 from schemas import ScoringTriggerResponse
-from contexts.patient import cleanup_emotion, cleanup_initiative
-from contexts.training.pipeline.plugin import run_plugin_hooks
-from infrastructure.prompt import PromptManager
-from contexts.training.service import evaluate_training
 
 from .session import (
     _release_scoring,
@@ -120,9 +118,8 @@ async def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    from core.feature_flags import resolve_features
-    from contexts.training.pipeline.plugin import run_plugin_hooks
     from contexts.training.plugins import _hook_ctx
+    from core.feature_flags import resolve_features
     features = resolve_features(record.config_snapshot)
     hook_ctx = _hook_ctx(record, request.app.state)
     run_plugin_hooks("on_end", hook_ctx, features)

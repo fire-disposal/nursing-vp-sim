@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
+from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from models import (
@@ -19,12 +20,10 @@ from models import (
 from schemas import (
     PaginatedResponse,
     QuestionnaireAnswerItem,
-    QuestionnaireAnswerSubmit,
     QuestionnaireCheckResponse,
     QuestionnaireResponseItem,
     QuestionnaireSubmitRequest,
 )
-from core.pagination import paginate
 
 from .templates import _template_to_detail
 

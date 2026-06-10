@@ -146,18 +146,17 @@ def _build_impact_note(op_type: str, impact: dict, dt: int, dc: int, exam_count:
             parts.append("护士没有解释为何要做全套检查，患者感到被当作'流程'对待")
         elif category == "moderate":
             parts.append("这项检查让患者感到尴尬和暴露，护士也没有事先说明必要性")
-    else:
-        if category == "routine":
-            parts.append("护士解释了原因，患者基本接受")
-        elif category == "bundle":
-            parts.append("护士解释了全套检查的必要性，患者勉强配合但感到紧张")
-        elif category == "moderate":
-            parts.append("虽然护士做了解释，患者仍然感到不适")
+    elif category == "routine":
+        parts.append("护士解释了原因，患者基本接受")
+    elif category == "bundle":
+        parts.append("护士解释了全套检查的必要性，患者勉强配合但感到紧张")
+    elif category == "moderate":
+        parts.append("虽然护士做了解释，患者仍然感到不适")
 
     if exam_count >= 7:
         parts.append(f"这已经是第{exam_count}次检查，患者开始怀疑是否必要")
     elif exam_count >= 4:
-        parts.append(f"频繁的检查让患者有些不耐烦")
+        parts.append("频繁的检查让患者有些不耐烦")
 
     if dt < 0 and dc < 0:
         parts.append(f"信任{dt:+d}，舒适{dc:+d}")

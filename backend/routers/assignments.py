@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.datetime_utils import ensure_utc
-from core.security import get_current_user, require_permission
 from core.pagination import paginate
+from core.security import get_current_user, require_permission
 from infrastructure.export import Column, buffered_response
-from models import Assignment, Case, Class, Grade, Score, TrainingRecord, User, UserClass
+from models import Assignment, Case, Class, TrainingRecord, User, UserClass
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,

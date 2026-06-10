@@ -11,7 +11,6 @@ from core.security import require_permission
 from models import Role, RolePermission, User
 from schemas import (
     DeleteResponse,
-    MessageResponse,
     RoleCreateRequest,
     RoleResponse,
     RoleUpdateRequest,

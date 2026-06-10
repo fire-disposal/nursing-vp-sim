@@ -9,7 +9,7 @@ from core.database import get_db
 from core.security import get_current_user, require_permission
 from infrastructure.export import Column, stream_response
 from middleware.dependencies import resolve_school_filter
-from models import Case, Message, Score, TrainingRecord, User
+from models import TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
 

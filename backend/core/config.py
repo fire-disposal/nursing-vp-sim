@@ -3,7 +3,6 @@ import logging
 import os
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 

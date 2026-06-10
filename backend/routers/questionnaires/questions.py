@@ -8,7 +8,6 @@ from core.security import require_permission
 from models import QuestionnaireQuestion, QuestionnaireTemplate, User
 from schemas import (
     DeleteResponse,
-    OkResponse,
     QuestionnaireQuestionCreate,
     QuestionnaireQuestionResponse,
     QuestionnaireQuestionUpdate,

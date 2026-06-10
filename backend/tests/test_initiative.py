@@ -1,12 +1,9 @@
 """Unit tests for initiative engine."""
-import time as _time
 from datetime import UTC, datetime
 
-import pytest
 from contexts.patient.initiative import (
     generate_initiative,
     should_initiate,
-    check_initiate_ready,
 )
 from infrastructure.cache import InitiativeCache
 
