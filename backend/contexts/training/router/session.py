@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
-from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
+from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass, Assignment
 from schemas import (
     DeleteResponse,
     MessageResponse,
@@ -29,7 +29,7 @@ from schemas import (
 from infrastructure.llm import LogWorker, ProfileRouter
 from core.pagination import paginate
 from infrastructure.prompt import PromptManager
-from core.feature_flags import resolve_features
+from core.feature_flags import FEATURE_FLAGS, resolve_features
 from contexts.training.service import get_config, list_configs
 
 log = logging.getLogger(__name__)
@@ -125,9 +125,17 @@ def start_training(
     time_limit = case_data.get("time_limit", 20)
 
     config_id = req.config_id or "standard-assessment"
-    config = get_config(config_id)
-    if config:
-        time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit)
+    config = get_config(config_id) or {}
+    time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
+
+    supported = case_data.get("supported_plugins", [])
+    if supported:
+        features = config.setdefault("features", {})
+        for pid in supported:
+            if pid in FEATURE_FLAGS:
+                features.setdefault(pid, True)
+        if "patient_initiative" in features and "emotion" not in features:
+            features.setdefault("emotion", True)
 
     record = TrainingRecord(
         user_id=current_user.id,
@@ -135,7 +143,7 @@ def start_training(
         status="in_progress",
         time_limit=time_limit,
         config_id=config_id,
-        config_snapshot=config,
+        config_snapshot=config if config else None,
     )
     record.current_phase = "history_taking"
     db.add(record)
@@ -153,6 +161,102 @@ def start_training(
     log.info(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
+    )
+    return TrainingStartResponse(record_id=record.id, greeting=greeting)
+
+
+def _merge_assignment_features(config: dict, assignment: Assignment) -> dict:
+    features = config.setdefault("features", {})
+    for key, value in assignment.feature_overrides.items():
+        if key in FEATURE_FLAGS:
+            features[key] = value
+    if "patient_initiative" in features and "emotion" not in features:
+        features.setdefault("emotion", True)
+    config["_from_assignment"] = True
+    return config
+
+
+@router.post("/start-from-assignment", response_model=TrainingStartResponse)
+def start_training_from_assignment(
+    current_user: Annotated[User, Depends(require_permission("training_access"))],
+    db: Annotated[Session, Depends(get_db)],
+    assignment_id: str = Query(...),
+):
+    assignment = (
+        db.query(Assignment)
+        .options(joinedload(Assignment.case))
+        .filter(Assignment.id == assignment_id)
+        .first()
+    )
+    if not assignment:
+        raise HTTPException(status_code=404, detail="练习发布不存在")
+
+    user_class = db.query(UserClass).filter(
+        UserClass.user_id == current_user.id,
+        UserClass.class_id == assignment.class_id,
+    ).first()
+    if not user_class:
+        raise HTTPException(status_code=403, detail="你不在该练习的目标班级中")
+
+    existing = db.query(TrainingRecord).filter(
+        TrainingRecord.user_id == current_user.id,
+        TrainingRecord.assignment_id == assignment.id,
+    ).first()
+    if existing:
+        case_data = assignment.case.case_data if assignment.case else {}
+        patient_info = case_data.get("patient_info", {})
+        patient_name = patient_info.get("name", "患者")
+        greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '继续之前的练习。')}"
+        return TrainingStartResponse(record_id=existing.id, greeting=greeting)
+
+    case = assignment.case
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
+
+    case_data = case.case_data or {}
+    time_limit = case_data.get("time_limit", 20)
+
+    config_id = assignment.config_id or "standard-assessment"
+    config = get_config(config_id) or {}
+    time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
+
+    supported = case_data.get("supported_plugins", [])
+    if supported:
+        features = config.setdefault("features", {})
+        for pid in supported:
+            if pid in FEATURE_FLAGS:
+                features.setdefault(pid, True)
+    config = _merge_assignment_features(config, assignment)
+
+    now = datetime.now(UTC)
+    is_overdue = now > assignment.end_time
+
+    record = TrainingRecord(
+        user_id=current_user.id,
+        case_id=case.id,
+        assignment_id=assignment.id,
+        is_overdue=is_overdue,
+        status="in_progress",
+        time_limit=time_limit,
+        config_id=config_id,
+        config_snapshot=config if config else None,
+    )
+    record.current_phase = "history_taking"
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    patient_info = case_data.get("patient_info", {})
+    patient_name = patient_info.get("name", "患者")
+    greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
+
+    greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
+    db.add(greeting_msg)
+    db.commit()
+
+    log.info(
+        f"Assignment training start: assignment_id={assignment.id} record_id={record.id}",
+        extra={"user_id": current_user.id, "action": "assignment_start"},
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
 
@@ -293,6 +397,7 @@ def get_record_detail(
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
         features=resolve_features(record.config_snapshot),
+        _from_assignment=record.config_snapshot.get("_from_assignment", False) if record.config_snapshot else False,
     )
 
 

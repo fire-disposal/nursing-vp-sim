@@ -192,6 +192,7 @@ from routers import (
     admin, admin_classes, admin_grades, auth, cases,
     export, feedback, notes, questionnaires, stats,
 )
+from routers.assignments import router as assignments_router, student_router as student_assignments_router
 from routers.admin.scenarios import router as admin_scenarios_router
 from routers.admin.plugins import router as admin_plugins_router
 from routers.admin_api import router as admin_api_router
@@ -213,6 +214,8 @@ app.include_router(training_router)
 app.include_router(chat_router)
 app.include_router(nursing_router)
 app.include_router(qa_router)
+app.include_router(assignments_router)
+app.include_router(student_assignments_router)
 
 
 @app.get("/api/health")
