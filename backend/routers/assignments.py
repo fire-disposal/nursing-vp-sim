@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
+from core.datetime_utils import ensure_utc
 from core.security import get_current_user, require_permission
 from core.pagination import paginate
 from infrastructure.export import Column, buffered_response
@@ -30,10 +31,15 @@ router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 
 
 def _check_teacher_school(db: Session, teacher: User, class_id: int):
-    cls = db.query(Class).join(Grade, Grade.id == Class.grade_id).filter(Class.id == class_id).first()
+    cls = (
+        db.query(Class)
+        .options(joinedload(Class.grade))
+        .filter(Class.id == class_id)
+        .first()
+    )
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
-    if cls.grade.school_id != teacher.school_id:
+    if not cls.grade or cls.grade.school_id != teacher.school_id:
         raise HTTPException(status_code=403, detail="无权操作该校班级")
     return cls
 
@@ -392,7 +398,7 @@ def list_student_assignments(
                 score_total=record.score.total_score if record.score else None,
             ))
         else:
-            status = "overdue" if now > a.end_time else "pending"
+            status = "overdue" if now > ensure_utc(a.end_time) else "pending"
             items.append(StudentAssignmentItem(
                 id=a.id,
                 title=a.title,

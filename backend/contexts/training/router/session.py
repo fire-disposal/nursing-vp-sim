@@ -238,7 +238,7 @@ def start_training_from_assignment(
     record, greeting = _create_record(
         db, current_user.id, case, case.case_data or {}, config_id, config,
         assignment_id=assignment.id,
-        is_overdue=now > assignment.end_time,
+        is_overdue=now > ensure_utc(assignment.end_time),
         feature_overrides=assignment.feature_overrides,
     )
 
@@ -385,7 +385,7 @@ def get_record_detail(
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
         features=resolve_features(record.config_snapshot),
-        _from_assignment=record.config_snapshot.get("_from_assignment", False) if record.config_snapshot else False,
+        from_assignment=record.config_snapshot.get("_from_assignment", False) if record.config_snapshot else False,
     )
 
 

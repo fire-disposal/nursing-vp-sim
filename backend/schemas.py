@@ -302,7 +302,7 @@ class TrainingRecordDetail(BaseModel):
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
     features: dict[str, bool] = Field(default_factory=dict)
-    _from_assignment: bool = False
+    from_assignment: bool = False
 
 
 class ScoringTriggerResponse(BaseModel):

@@ -44,7 +44,7 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
           requiredInquiries: d.required_inquiries ?? [],
         });
         setFeatures(d.features ?? {});
-        setFromAssignment(d._from_assignment ?? false);
+        setFromAssignment(d.from_assignment ?? false);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || "加载患者信息失败");

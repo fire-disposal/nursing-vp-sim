@@ -190,3 +190,32 @@ def test_case(db_session):
     db_session.commit()
     db_session.refresh(case)
     return case
+
+
+@pytest.fixture
+def test_grade(db_session):
+    from models import Grade
+    grade = Grade(name="2024级", school_id=1)
+    db_session.add(grade)
+    db_session.commit()
+    db_session.refresh(grade)
+    return grade
+
+
+@pytest.fixture
+def test_class(db_session, test_grade):
+    from models import Class
+    cls = Class(name="护理1班", grade_id=test_grade.id)
+    db_session.add(cls)
+    db_session.commit()
+    db_session.refresh(cls)
+    return cls
+
+
+@pytest.fixture
+def test_student_in_class(db_session, student, test_class):
+    from models import UserClass
+    user_class = UserClass(user_id=student[0].id, class_id=test_class.id)
+    db_session.add(user_class)
+    db_session.commit()
+    return student
