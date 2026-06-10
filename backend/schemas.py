@@ -1072,3 +1072,18 @@ class InitiativeTriggerResponse(BaseModel):
     triggered: bool
     message: str | None = None
     id: int | None = None
+
+
+class NursingRecordSave(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    sheet_data: dict = Field(default_factory=dict)
+    status: str = "draft"
+
+
+class NursingRecordResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    record_id: int
+    sheet_data: dict
+    status: str
+    updated_at: datetime
