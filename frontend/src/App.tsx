@@ -35,6 +35,8 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
 const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
 const ScenarioComposer = lazy(() => import("@/pages/admin/ScenarioComposer"));
+const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
+const AssignmentDetailPage = lazy(() => import("@/pages/admin/AssignmentDetailPage"));
 
 function PageLoader() {
   return (
@@ -106,6 +108,10 @@ export default function App() {
                       </Route>
                       <Route element={<ProtectedRoute permission="questionnaire_manage" />}>
                         <Route path="/admin/questionnaires" element={<AdminQuestionnaires />} />
+                      </Route>
+                      <Route element={<ProtectedRoute permission="score_review" />}>
+                        <Route path="/admin/assignments" element={<AssignmentsPage />} />
+                        <Route path="/admin/assignments/:id" element={<AssignmentDetailPage />} />
                       </Route>
                     </Route>
                   </Route>

@@ -17,12 +17,11 @@ import type { ChatMessage, PanelPlugin, PluginContext } from "./types";
 
 interface TrainingEngineProps {
   recordId: string;
-  features: Record<string, boolean>;
   panelPlugins: PanelPlugin[];
 }
 
-function TrainingEngineContent({ recordId, features, panelPlugins }: TrainingEngineProps) {
-  const { patient, loading } = usePatient();
+function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) {
+  const { patient, loading, features: initialFeatures, fromAssignment } = usePatient();
   const recordNum = Number(recordId);
 
   const busRef = useRef(createMessageBus());
@@ -42,6 +41,11 @@ function TrainingEngineContent({ recordId, features, panelPlugins }: TrainingEng
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
   const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
+  const [features, setFeatures] = useState<Record<string, boolean>>(initialFeatures);
+
+  useEffect(() => {
+    setFeatures(initialFeatures);
+  }, [initialFeatures]);
 
   useEffect(() => {
     streamRef.current.setRecordId(recordNum);
@@ -64,6 +68,10 @@ function TrainingEngineContent({ recordId, features, panelPlugins }: TrainingEng
     for (const p of panelPlugins) pluginRegistry.register(p);
     setRegistryVer(pluginRegistry.version);
   }, []);
+  useEffect(() => {
+    pluginRegistry.setFeatureFlags(features);
+    setRegistryVer(pluginRegistry.version);
+  }, [features]);
 
   useEffect(() => {
     const unsub = busRef.current.on("plugins:updated", () => setRegistryVer(pluginRegistry.version));
@@ -166,18 +174,30 @@ function TrainingEngineContent({ recordId, features, panelPlugins }: TrainingEng
       >
         <div style={{ gridArea: "header" }}>
           <TrainingHeader
+            recordId={recordId}
             patient={patient}
             messages={processedMessages}
+            features={features}
+            onToggleFeature={(key: string, enabled: boolean) => {
+              setFeatures((prev) => {
+                const next = { ...prev, [key]: enabled };
+                if (!enabled && key === "emotion") {
+                  next.patient_initiative = false;
+                }
+                return next;
+              });
+            }}
             ttsAutoPlay={ttsAutoPlay}
             onTtsToggle={() => setTtsAutoPlay((v) => !v)}
             onEnd={endTraining}
             sending={sending}
+            featuresLocked={fromAssignment}
           />
         </div>
         <div style={{ gridArea: "content", overflow: "hidden" }}>
           <ChatArea messages={processedMessages} patient={patient} sending={sending} onSend={sendMessage} bus={busRef.current} />
         </div>
-        <div style={{ gridArea: "panel" }}>
+        <div style={{ gridArea: "panel", overflow: "hidden" }}>
           <PanelHost ctx={ctx} features={features} plugins={activePlugins} />
         </div>
       </div>
