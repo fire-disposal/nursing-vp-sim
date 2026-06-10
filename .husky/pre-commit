@@ -12,10 +12,11 @@ npx lint-staged
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM -- "$ROOT/backend/*.py" 2>/dev/null || true)
 if [ -n "$STAGED_PY" ]; then
   echo ""
-  echo "  ruff format + check (backend)"
+  echo "  ruff format + check + ty (backend)"
   cd "$ROOT/backend" || exit 1
-  uv run ruff format --check "$STAGED_PY" 2>&1 | tail -3
-  uv run ruff check "$STAGED_PY" 2>&1 | tail -3
+  uv run ruff format --check $STAGED_PY 2>&1 | tail -3
+  uv run ruff check $STAGED_PY 2>&1 | tail -3
+  uv run ty $STAGED_PY 2>&1 | tail -3
 fi
 
 # Alembic heads check — if migration files are staged
