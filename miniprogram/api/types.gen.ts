@@ -49,6 +49,71 @@ export interface ApiSecretUpdate {
   monthly_cost_limit?: number | null
 }
 
+export interface AssignmentCreateRequest {
+  case_id: number
+  class_id: number
+  title: string
+  description?: string | null
+  config_id?: string
+  feature_overrides?: Record<string, unknown>
+  start_time: string
+  end_time: string
+}
+
+export interface AssignmentDetail {
+  id: string
+  title: string
+  description?: string | null
+  case_id: number
+  case_name?: string
+  class_id: number
+  class_name?: string
+  config_id: string
+  feature_overrides?: Record<string, unknown>
+  start_time: string
+  end_time: string
+  created_at: string
+  updated_at: string
+  student_count?: number
+  completed_count?: number
+  scored_count?: number
+  students?: AssignmentStudentItem[]
+}
+
+export interface AssignmentListItem {
+  id: string
+  title: string
+  case_name?: string
+  class_name?: string
+  start_time: string
+  end_time: string
+  student_count?: number
+  completed_count?: number
+  created_at: string
+}
+
+export interface AssignmentStudentItem {
+  user_id: number
+  display_name: string
+  student_id?: string | null
+  record_id?: number | null
+  status?: string
+  score_total?: number | null
+  scoring_status?: string | null
+  start_time?: string | null
+  end_time?: string | null
+  is_overdue?: boolean
+}
+
+export interface AssignmentUpdateRequest {
+  title?: string | null
+  description?: string | null
+  config_id?: string | null
+  feature_overrides?: Record<string, unknown> | null
+  start_time?: string | null
+  end_time?: string | null
+}
+
 export interface BatchCreateResult {
   created: number
   skipped: number
@@ -176,6 +241,11 @@ export interface ConfigCreateResponse {
   id: number
 }
 
+export interface DeleteResponse {
+  ok?: boolean
+  message?: string
+}
+
 export interface DurationStats {
   daily: Record<string, unknown>[]
   total_minutes: number
@@ -186,12 +256,19 @@ export interface EmotionStateResponse {
   score: number
   state: string
   note: string
+  history?: Record<string, unknown>[]
 }
 
 export interface FeatureConfigResponse {
   id?: string | null
   mode?: string | null
   features?: Record<string, unknown>
+}
+
+export interface FeaturesResponse {
+  ok?: boolean
+  message?: string | null
+  features: Record<string, unknown>
 }
 
 export interface FeedbackDailyItem {
@@ -255,6 +332,8 @@ export interface InitiativeStateResponse {
   elapsed_seconds: number
   threshold_seconds: number
   percent: number
+  should_trigger?: boolean
+  last_triggered_at?: string | null
 }
 
 export interface InitiativeTriggerResponse {
@@ -364,10 +443,6 @@ export interface MessageItem {
   created_at: string
 }
 
-export interface MessageResponse {
-  message: string
-}
-
 export interface ModelPresetItem {
   name: string
   price_input?: number
@@ -388,24 +463,26 @@ export interface NoteItem {
 export interface NursingRecordResponse {
   id: number
   record_id: number
-  subjective?: string | null
-  objective?: string | null
-  assessment?: string | null
-  plan?: string | null
+  sheet_data: Record<string, unknown>
   status: string
   updated_at: string
 }
 
 export interface NursingRecordSave {
-  subjective?: string | null
-  objective?: string | null
-  assessment?: string | null
-  plan?: string | null
+  sheet_data?: Record<string, unknown>
   status?: string
 }
 
 export interface OkResponse {
   ok?: boolean
+  message?: string | null
+}
+
+export interface PaginatedResponse_AssignmentListItem_ {
+  items: AssignmentListItem[]
+  total: number
+  offset: number
+  limit: number
 }
 
 export interface PaginatedResponse_CaseBrief_ {
@@ -853,6 +930,17 @@ export interface SecretCreateResponse {
   key_suffix: string
 }
 
+export interface StudentAssignmentItem {
+  id: string
+  title: string
+  case_name: string
+  start_time: string
+  end_time: string
+  status?: string
+  record_id?: number | null
+  score_total?: number | null
+}
+
 export interface StudentDetail {
   id: number
   username: string
@@ -901,6 +989,8 @@ export interface TokenResponse {
   school_id?: number | null
   school_name?: string | null
   permissions?: string[]
+  gender?: string | null
+  avatar?: string | null
 }
 
 export interface TrainingRecordBrief {
@@ -959,6 +1049,8 @@ export interface TrainingStateResponse {
   exam_anchors?: Record<string, unknown>
   config: FeatureConfigResponse
   initiative: InitiativeStateResponse
+  current_phase?: string
+  feature_flags?: Record<string, unknown>
 }
 
 export interface TrendStats {
