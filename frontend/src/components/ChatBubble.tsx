@@ -1,5 +1,5 @@
 import { Info } from "lucide-react";
-import { getEmotionBorder, useEmotion, usePortrait } from "@/engine/PluginContext";
+import { memo } from "react";
 import type { ChatMessage } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -7,11 +7,22 @@ interface ChatBubbleProps {
   message: ChatMessage;
   patientAvatar: string;
   nurseAvatar: string;
+  emotionBorder: string;
+  portraitUrl: string | null;
 }
 
-export function ChatBubble({ message, patientAvatar, nurseAvatar }: ChatBubbleProps) {
-  const { emotion } = useEmotion();
-  const { portraitUrl } = usePortrait();
+function areBubblePropsEqual(oldProps: ChatBubbleProps, newProps: ChatBubbleProps) {
+  return (
+    oldProps.message.id === newProps.message.id &&
+    oldProps.message.content === newProps.message.content &&
+    oldProps.message.streaming === newProps.message.streaming &&
+    oldProps.message.role === newProps.message.role &&
+    oldProps.emotionBorder === newProps.emotionBorder &&
+    oldProps.portraitUrl === newProps.portraitUrl
+  );
+}
+
+export const ChatBubble = memo(function ChatBubble({ message, patientAvatar, nurseAvatar, emotionBorder, portraitUrl }: ChatBubbleProps) {
   const displayAvatar = portraitUrl || patientAvatar;
 
   if (message.role === "system") {
@@ -33,7 +44,7 @@ export function ChatBubble({ message, patientAvatar, nurseAvatar }: ChatBubblePr
           className={cn(
             "max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed break-words",
             "bg-card text-foreground border-2 rounded-bl-md",
-            getEmotionBorder(emotion),
+            emotionBorder,
             message.streaming && "after:content-['▎'] after:animate-pulse after:text-primary after:font-bold",
           )}
         >
@@ -56,4 +67,4 @@ export function ChatBubble({ message, patientAvatar, nurseAvatar }: ChatBubblePr
       <img className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted" src={nurseAvatar} alt="护士" />
     </div>
   );
-}
+}, areBubblePropsEqual);

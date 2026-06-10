@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ChatBubble";
-import { usePortrait } from "@/engine/PluginContext";
+import { getEmotionBorder, useEmotion, usePortrait } from "@/engine/PluginContext";
 import type { ChatMessage, PatientData } from "@/engine/types";
 import { getPatientAvatar } from "@/utils/avatar";
 
@@ -17,6 +17,7 @@ export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
   const isNearBottomRef = useRef(true);
   const prevCountRef = useRef(0);
   const { portraitUrl } = usePortrait();
+  const { emotion } = useEmotion();
 
   const checkNearBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -30,7 +31,11 @@ export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
     }
   }, []);
 
+  const lastScrollSet = useRef(0);
   const handleScroll = useCallback(() => {
+    const now = Date.now();
+    if (now - lastScrollSet.current < 100) return;
+    lastScrollSet.current = now;
     const near = checkNearBottom();
     isNearBottomRef.current = near;
     setIsNearBottom(near);
@@ -51,11 +56,19 @@ export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
 
   const patientAvatar = portraitUrl || getPatientAvatar({ name: patient.name, gender: patient.gender });
   const nurseAvatar = getPatientAvatar({ name: "Nurse", gender: "female" });
+  const emotionBorder = getEmotionBorder(emotion);
 
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto scroll-smooth px-2 py-4 space-y-3" onScroll={handleScroll}>
       {messages.map((msg, i) => (
-        <ChatBubble key={msg.id ?? i} message={msg} patientAvatar={patientAvatar} nurseAvatar={nurseAvatar} />
+        <ChatBubble
+          key={msg.id ?? i}
+          message={msg}
+          patientAvatar={patientAvatar}
+          nurseAvatar={nurseAvatar}
+          emotionBorder={emotionBorder}
+          portraitUrl={portraitUrl}
+        />
       ))}
       <div ref={bottomRef} className="h-1" />
 
