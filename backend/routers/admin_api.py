@@ -300,6 +300,8 @@ async def test_config(
     if not cfg:
         raise HTTPException(status_code=404, detail="指派不存在")
     secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
+    if not secret:
+        raise HTTPException(status_code=404, detail="密钥不存在")
     api_key = decrypt_api_key(secret.encrypted_key)
     base_url = secret.base_url or ""
     try:

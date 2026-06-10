@@ -28,6 +28,18 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="患者根据性格/情绪/等待时长主动发言（催促、担忧、非语言线索等）",
     ),
+    "portrait": FeatureFlag(
+        key="portrait",
+        label="患者立绘",
+        default=False,
+        description="在训练界面显示患者人物立绘图片",
+    ),
+    "questionnaire": FeatureFlag(
+        key="questionnaire",
+        label="问卷评估",
+        default=False,
+        description="训练结束后弹出评估问卷供学生填写",
+    ),
 }
 
 

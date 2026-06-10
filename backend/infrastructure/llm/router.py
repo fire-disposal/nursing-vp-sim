@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from core.datetime_utils import ensure_utc
 
@@ -80,8 +81,8 @@ class _SyntheticConfig:
 
 class ProfileRouter:
     def __init__(self):
-        self._bindings: dict[str, object] = {}
-        self._profiles: dict[int, object] = {}
+        self._bindings: dict[str, Any] = {}
+        self._profiles: dict[int, Any] = {}
         self._global_degraded_until: datetime | None = None
         self._state_lock = asyncio.Lock()
         self._last_persist_ts: dict[int, float] = {}

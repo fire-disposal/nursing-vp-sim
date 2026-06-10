@@ -136,7 +136,7 @@ def list_cases_manage(
             .group_by(TrainingRecord.case_id)
             .all()
         )
-        training_counts = dict(rows)
+        training_counts = {cid: cnt for cid, cnt in rows}
 
     return PaginatedResponse(
         items=[

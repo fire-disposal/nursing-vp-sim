@@ -8,6 +8,8 @@ import logging
 import random
 from datetime import UTC, datetime
 
+from infrastructure.cache import InitiativeCache
+
 log = logging.getLogger(__name__)
 
 # 非语言线索（短小精悍，带方括号）
@@ -195,7 +197,7 @@ def cleanup_initiative(record_id: int):
 
 def update_initiative_timer_v2(
     record_id: int,
-    cache: "InitiativeCache",
+    cache: InitiativeCache,
     last_reply_length: int = 0,
 ) -> None:
     """Reset the initiative timer using a cache instance."""
@@ -206,7 +208,7 @@ def update_initiative_timer_v2(
 
 def get_initiative_seconds_v2(
     record_id: int,
-    cache: "InitiativeCache",
+    cache: InitiativeCache,
     personality: dict,
     emotion_score: int,
 ) -> tuple[float, float]:
@@ -228,7 +230,7 @@ def get_initiative_seconds_v2(
 
 def should_initiate_v2(
     record_id: int,
-    cache: "InitiativeCache",
+    cache: InitiativeCache,
     personality: dict,
     emotion_score: int,
 ) -> bool:

@@ -134,5 +134,11 @@
       "question": "您平时怎么处理的？",
       "answer": "贴膏药、热水袋敷，有时候吃止痛片。但是也不敢多吃，怕伤胃。我闺女说让我去理疗，一直也没去。"
     }
+  ],
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
   ]
 }

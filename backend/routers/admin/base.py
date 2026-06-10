@@ -152,6 +152,9 @@ def update_user(
     uc = user.user_class if user else None
     cls = uc.class_ if uc else None
 
+    if user is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
     log.info(
         f"用户更新: target_id={user_id} target_name={user.username}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -179,8 +182,10 @@ def get_user_detail(
     db: Annotated[Session, Depends(get_db)],
 ):
     student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
+    if not student_role:
+        raise HTTPException(status_code=404, detail="学生角色不存在")
     user = db.query(User).options(joinedload(User.role)).filter(
-        User.id == user_id, User.role_id == student_role.id if student_role else -1, User.school_id == current_user.school_id
+        User.id == user_id, User.role_id == student_role.id, User.school_id == current_user.school_id
     ).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在或不是学生")
@@ -204,6 +209,9 @@ def get_user_detail(
         )
         .first()
     )
+    total_sessions = int(stats.total_sessions or 0) if stats else 0
+    total_minutes = round(float(stats.total_minutes or 0)) if stats else 0
+    avg_score = round(float(stats.avg_score), 1) if stats and stats.avg_score else None
 
     daily_rows = (
         db.query(
@@ -271,9 +279,9 @@ def get_user_detail(
         display_name=user.display_name,
         student_id=user.student_id,
         created_at=user.created_at,
-        total_sessions=stats.total_sessions or 0,
-        total_minutes=round(float(stats.total_minutes or 0)),
-        avg_score=round(float(stats.avg_score), 1) if stats.avg_score else None,
+        total_sessions=total_sessions,
+        total_minutes=total_minutes,
+        avg_score=avg_score,
         recent_records=recent_records,
         daily=daily,
     )

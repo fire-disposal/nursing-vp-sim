@@ -56,5 +56,5 @@ def build_pipeline(feature_flags: dict[str, bool]) -> list:
     for plugin in plugins:
         plugin_middlewares.extend(plugin.middleware)
 
-    # guard → [plugin_middlewares] → transition → prompt_builder → llm → persister
-    return [phase_guard] + plugin_middlewares + [phase_transition, prompt_builder, _llm_caller, persister]
+    # guard → [plugin_middlewares] → transition → prompt_builder → llm → persister → side_effects
+    return [phase_guard] + plugin_middlewares + [phase_transition, prompt_builder, _llm_caller, persister, side_effects]

@@ -130,5 +130,31 @@
       "respiratory_rate": "18-22",
       "spo2": "96-99"
     }
-  }
+  },
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
+  ],
+  "personality": {
+    "health_literacy": "medium",
+    "verbosity": "verbose",
+    "anxiety_trait": "normal",
+    "patience": "patient"
+  },
+  "example_dialogues": [
+    {
+      "question": "您最近摔过几次了？怎么摔的？",
+      "answer": "哎呀小姑娘，这两个月摔了三四回了。上次在厕所滑倒了，半天爬不起来，还是老伴把我扶起来的。老了，不中用了啊...（叹气）"
+    },
+    {
+      "question": "您平时都吃什么药？",
+      "answer": "药不少哦，降压的、骨头的、还有钙片。医生开的我也记不清楚，都是老伴帮我分好了放在小药盒里。那个一周吃一次的药（阿仑膦酸钠）老是忘记，想起来就补一片。"
+    },
+    {
+      "question": "家里安全吗？有没有扶手什么的？",
+      "answer": "哪有什么扶手，住了20年的老房子了。厕所地上经常有水的，我眼神不好有时候看不清。没事，我小心点就行，别给你们添麻烦。"
+    }
+  ]
 }

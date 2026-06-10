@@ -40,12 +40,11 @@ def list_roles(
     for p in all_perms:
         perms_map.setdefault(p.role_id, []).append(p.permission)
 
-    counts = dict(
-        db.query(User.role_id, func.count(User.id))
-        .filter(User.role_id.in_(role_ids))
-        .group_by(User.role_id)
-        .all()
-    ) if role_ids else {}
+    if role_ids:
+        rows = db.query(User.role_id, func.count(User.id)).filter(User.role_id.in_(role_ids)).group_by(User.role_id).all()
+        counts = {role_id: cnt for role_id, cnt in rows}
+    else:
+        counts = {}
 
     result = []
     for r in roles:

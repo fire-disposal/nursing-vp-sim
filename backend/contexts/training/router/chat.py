@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.database import db_session, get_db
+from core.feature_flags import resolve_features
 from core.security import get_current_user
 from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
@@ -73,7 +74,8 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    pipe = get_pipeline(ctx.current_phase.id) if ctx.current_phase else get_pipeline("history_taking")
+    features = resolve_features(ctx.record.config_snapshot)
+    pipe = get_pipeline(ctx.current_phase.id, features) if ctx.current_phase else get_pipeline("history_taking", features)
     await run_pipeline(ctx, pipe)
 
     if ctx.error:
@@ -96,7 +98,8 @@ async def send_message_stream(
 ):
     async with db_session() as db:
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-        pipe = get_pipeline(ctx.current_phase.id) if ctx.current_phase else get_pipeline("history_taking")
+        features = resolve_features(ctx.record.config_snapshot)
+        pipe = get_pipeline(ctx.current_phase.id, features) if ctx.current_phase else get_pipeline("history_taking", features)
 
         return StreamingResponse(
             stream_pipeline(ctx, pipe),

@@ -135,5 +135,31 @@
       "spo2": "94-98"
     },
     "skin": "皮肤灼热，黏膜干燥"
-  }
+  },
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
+  ],
+  "personality": {
+    "health_literacy": "low",
+    "verbosity": "terse",
+    "anxiety_trait": "anxious",
+    "patience": "normal"
+  },
+  "example_dialogues": [
+    {
+      "question": "您平时喝酒吗？",
+      "answer": "喝得不多，就偶尔应酬喝一点...（低头，搓手）男人嘛做生意哪能不喝点酒，这有什么好问的。"
+    },
+    {
+      "question": "最近有没有吃什么药？",
+      "answer": "高血压的药天天吃。痛风犯了吃了几天止痛药，双氯芬酸。这药应该没事吧，药店都买得到的。"
+    },
+    {
+      "question": "最近心情和睡眠怎么样？",
+      "answer": "还行吧...（长叹一口气）店里事情多，跟老婆最近也老吵架。睡不太好，男人谁没点烦心事。我身体好得很，没大事。"
+    }
+  ]
 }

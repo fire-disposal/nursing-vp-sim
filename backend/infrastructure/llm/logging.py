@@ -118,6 +118,8 @@ class LogWorker:
         batch: list[dict] = []
         while True:
             try:
+                if self._queue is None:
+                    break
                 item = await asyncio.wait_for(self._queue.get(), timeout=2.0)
                 batch.append(item)
             except TimeoutError:
@@ -132,15 +134,18 @@ class LogWorker:
                 self._flush(batch)
                 batch.clear()
 
-        while not self._queue.empty():
-            try:
-                batch.append(self._queue.get_nowait())
-            except asyncio.QueueEmpty:
-                break
+        if self._queue is not None:
+            while not self._queue.empty():
+                try:
+                    batch.append(self._queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
         if batch:
             self._flush(batch)
 
     async def _drain_on_overflow(self, entry: dict):
+        if self._queue is None:
+            return
         try:
             await asyncio.wait_for(self._queue.put(entry), timeout=2.0)
         except (asyncio.TimeoutError, asyncio.QueueFull):

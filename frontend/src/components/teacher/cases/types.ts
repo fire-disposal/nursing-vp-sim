@@ -36,6 +36,7 @@ export interface CaseForm {
   hidden_info: string[];
   required_inquiries: string[];
   scoring_criteria: Record<string, ScoringDimension>;
+  supported_plugins: string[];
 }
 
 export interface CaseData {
@@ -57,6 +58,7 @@ export interface CaseData {
   hidden_info: string[];
   required_inquiries: string[];
   scoring_criteria: Record<string, ScoringDimension>;
+  supported_plugins: string[];
 }
 
 export interface CaseJsonData {
@@ -76,6 +78,7 @@ export interface CaseJsonData {
   hidden_info?: string[];
   required_inquiries?: string[];
   scoring_criteria?: Record<string, ScoringDimension>;
+  supported_plugins?: string[];
   patient_info?: {
     name?: string;
     age?: number;
@@ -104,6 +107,7 @@ export const NEW_CASE_TEMPLATE: CaseData = {
     沟通技能: { name: "沟通技能", max: 42, description: "", items: [] },
     病史采集: { name: "病史采集", max: 15, description: "", items: [] },
   },
+  supported_plugins: [],
 };
 
 export const inputClass =
@@ -131,6 +135,7 @@ export function buildCaseData(form: CaseForm): CaseData {
     hidden_info: form.hidden_info,
     required_inquiries: form.required_inquiries,
     scoring_criteria: form.scoring_criteria,
+    supported_plugins: form.supported_plugins,
   };
 }
 
@@ -157,6 +162,7 @@ export function parseCaseData(cd: unknown): CaseForm {
     hidden_info: rec?.hidden_info || [],
     required_inquiries: rec?.required_inquiries || [],
     scoring_criteria: rec?.scoring_criteria || {},
+    supported_plugins: rec?.supported_plugins || [],
   };
 }
 

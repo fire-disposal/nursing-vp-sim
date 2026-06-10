@@ -63,6 +63,9 @@ async def _call_batch(ctx: PipelineContext) -> None:
     if has_identity_leak(reply):
         log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
         corrected = get_identity_correction_note()
+        if ctx.llm_messages is None:
+            ctx.llm_reply = reply
+            return
         msgs = list(ctx.llm_messages)
         msgs.insert(-1, {"role": "system", "content": corrected})
         try:
@@ -117,6 +120,9 @@ async def _call_stream(ctx: PipelineContext) -> None:
     if has_identity_leak(full_reply):
         log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
         corrected = get_identity_correction_note()
+        if ctx.llm_messages is None:
+            ctx.llm_reply = full_reply
+            return
         msgs = list(ctx.llm_messages)
         msgs.insert(-1, {"role": "system", "content": corrected})
         full_retry = ""

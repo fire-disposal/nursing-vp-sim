@@ -117,5 +117,31 @@
       "spo2": "98-100"
     },
     "skin": "面色潮红"
-  }
+  },
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
+  ],
+  "personality": {
+    "health_literacy": "medium",
+    "verbosity": "verbose",
+    "anxiety_trait": "anxious",
+    "patience": "impatient"
+  },
+  "example_dialogues": [
+    {
+      "question": "孩子什么时候开始发烧的？",
+      "answer": "昨天下午就烧起来了，39度多！我给他吃了布洛芬，退了一点，但今天下午突然就抽了...（手发抖）护士，会不会抽坏脑子啊？"
+    },
+    {
+      "question": "家里其他人小时候有没有过抽搐？",
+      "answer": "没有啊...哦等等，他爸好像说小时候也发烧抽过一次，但这跟现在有关系吗？他爸现在完全正常啊！我一直以为这不是什么大事。"
+    },
+    {
+      "question": "孩子最近有没有感冒或者其他不舒服？",
+      "answer": "你这么一说...他前一周确实有点流鼻涕，偶尔咳两声，但我以为是换季没在意。这也跟抽筋有关系吗？"
+    }
+  ]
 }

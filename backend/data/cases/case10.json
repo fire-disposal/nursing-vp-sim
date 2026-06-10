@@ -132,5 +132,31 @@
       "spo2": "97-99"
     },
     "skin": "双下肢轻度凹陷性水肿"
-  }
+  },
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
+  ],
+  "personality": {
+    "health_literacy": "medium",
+    "verbosity": "normal",
+    "anxiety_trait": "anxious",
+    "patience": "normal"
+  },
+  "example_dialogues": [
+    {
+      "question": "您最近心情怎么样？",
+      "answer": "（低头，轻声）还好吧...就是觉得特别累，看到孩子哭我就想跟着哭。别人生完孩子都好好的，我是不是太脆弱了...我觉得自己不配当妈妈。"
+    },
+    {
+      "question": "睡眠情况怎么样？",
+      "answer": "睡不着，脑子里乱七八糟的，躺一两个小时才能睡着。凌晨三四点就醒了，再也睡不着...有时候想，一觉睡过去不醒就好了，什么都不用管了。"
+    },
+    {
+      "question": "家里有人能帮您吗？",
+      "answer": "婆婆帮着带孩子做饭，但她觉得我就是想太多...老公天天加班，回来孩子都睡了。我也不敢跟她们多说，怕被觉得矫情。"
+    }
+  ]
 }

@@ -20,8 +20,8 @@ def _collect_author_note(ctx) -> str:
     notes = []
     if ctx.state.get("emotion_note"):
         notes.append(ctx.state["emotion_note"])
-    if ctx.state.get("operation_note"):
-        notes.append(ctx.state["operation_note"])
+    if ctx.state.get("_operation_note"):
+        notes.append(ctx.state["_operation_note"])
     return "【" + " | ".join(notes) + "】" if notes else ""
 
 

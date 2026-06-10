@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Callable, Awaitable, Any
 
-# PipelineMiddleware = async callable(ctx: PipelineContext) -> PipelineContext
-PipelineMiddleware = Callable[[Any], Awaitable[Any]]
+# PipelineMiddleware = async callable(ctx: PipelineContext, next_mw) -> None
+PipelineMiddleware = Callable[..., Awaitable[Any]]
 
 
 @dataclass

@@ -16,12 +16,6 @@ export default function AdminDebugPage() {
   return (
     <TrainingEngine
       recordId={recordId}
-      features={{
-        physical_exam: true,
-        patient_initiative: true,
-        emotion: true,
-        portrait: true,
-      }}
       panelPlugins={[inquiryPlugin, patientInfoPlugin, physicalExamPlugin, nursingRecordPlugin, emotionPlugin, initiativePlugin, portraitPlugin]}
     />
   );

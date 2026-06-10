@@ -19,16 +19,5 @@ export default function ChatTraining() {
 
   if (!recordId) return <div className="flex h-screen items-center justify-center">缺少训练记录 ID</div>;
 
-  return (
-    <TrainingEngine
-      recordId={recordId}
-      features={{
-        physical_exam: true,
-        emotion: true,
-        patient_initiative: true,
-        portrait: true,
-      }}
-      panelPlugins={panelPlugins}
-    />
-  );
+  return <TrainingEngine recordId={recordId} panelPlugins={panelPlugins} />;
 }

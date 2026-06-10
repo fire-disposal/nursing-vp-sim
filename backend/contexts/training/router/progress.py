@@ -44,8 +44,9 @@ def advance_phase(
         raise HTTPException(status_code=400, detail="训练已结束")
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
-    case_data = case.case_data or {} if case else {}
-
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
+    case_data = case.case_data or {}
     phases = parse_phases(case_data)
     current = None
     for p in phases:
@@ -87,8 +88,9 @@ def get_training_state(
         raise HTTPException(status_code=403, detail="无权限")
 
     case = db.query(Case).filter(Case.id == record.case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
     case_data = case.case_data or {}
-
     emotion = get_emotion(record_id)
     config = record.config_snapshot or {}
     personality = case_data.get("personality", {})

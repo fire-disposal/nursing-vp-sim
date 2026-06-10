@@ -138,5 +138,11 @@
       "question": "伤口疼不疼？",
       "answer": "疼倒不是特别疼，就是走路的时候有点不舒服。家里人非让我来看看，说怕感染。"
     }
+  ],
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
   ]
 }

@@ -117,7 +117,8 @@ def delete_class(
     cls = db.query(Class).filter(Class.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
-    db.execute(UserClass.__table__.update().where(UserClass.class_id == class_id).values(class_id=None))
+    from sqlalchemy import update as sa_update
+    db.execute(sa_update(UserClass).where(UserClass.class_id == class_id).values(class_id=None))
     db.delete(cls)
     db.commit()
     return {"message": f"已删除班级 {cls.name}"}

@@ -7,6 +7,7 @@ accessed across modules via private variable imports.
 from __future__ import annotations
 
 import logging
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class EmotionCache:
     def cleanup(self, record_id: int) -> None:
         self._store.pop(record_id, None)
 
-    def cleanup_completed(self, completed_ids: set[int]) -> int:
+    def cleanup_completed(self, completed_ids: AbstractSet[int]) -> int:
         count = 0
         for rid in completed_ids:
             if rid in self._store:
@@ -75,7 +76,7 @@ class InitiativeCache:
         self._timers.pop(record_id, None)
         self._last_triggers.pop(record_id, None)
 
-    def cleanup_completed(self, completed_ids: set[int]) -> int:
+    def cleanup_completed(self, completed_ids: AbstractSet[int]) -> int:
         count = 0
         for rid in completed_ids:
             if rid in self._timers:

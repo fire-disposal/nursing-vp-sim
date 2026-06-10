@@ -81,6 +81,11 @@ def init_db() -> None:
         existing = insp.get_table_names()
         script = ScriptDirectory.from_config(alembic_cfg)
         head = script.get_current_head()
+        if head is None:
+            log.warning("No migration head found, skipping stamp")
+            if not existing:
+                Base.metadata.create_all(bind=engine)
+            return
 
         if existing:
             log.info("检测到现有表 (%d)，stamp head: %s", len(existing), head)

@@ -122,5 +122,11 @@
       "question": "您平时抽烟吗？",
       "answer": "嗯……抽了几十年了。其实最近咳得厉害，自己也减了，但戒不掉啊……"
     }
+  ],
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
   ]
 }

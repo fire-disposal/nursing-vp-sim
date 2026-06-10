@@ -130,5 +130,31 @@
       "respiratory_rate": "16-20",
       "spo2": "98-100"
     }
-  }
+  },
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
+  ],
+  "personality": {
+    "health_literacy": "medium",
+    "verbosity": "normal",
+    "anxiety_trait": "anxious",
+    "patience": "normal"
+  },
+  "example_dialogues": [
+    {
+      "question": "您最近有什么不舒服吗？",
+      "answer": "就是觉得口渴得厉害，每天喝好多水，一天跑十几趟厕所。护士，这个检查结果是不是说我糖尿病了？对宝宝会不会有影响啊？我真的很担心。"
+    },
+    {
+      "question": "您平时的饮食和体重怎么样？",
+      "answer": "我怀孕前不算胖的，但怀孕后婆婆说要多补，吃了好多。我还听说多吃水果对胎儿皮肤好，葡萄、哈密瓜每天吃很多...难道是吃出来的问题？"
+    },
+    {
+      "question": "以前有过血糖异常吗？",
+      "answer": "没有过，每次体检都正常。怀孕后做糖筛还没到时间呢，要不是这次不舒服来查，我都不知道血糖高了。"
+    }
+  ]
 }

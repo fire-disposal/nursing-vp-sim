@@ -159,5 +159,11 @@
       "question": "您以前有高血压吗？",
       "answer": "有，好几年了。平时吃药断断续续的，忙起来就忘了……是不是跟这个有关系？"
     }
+  ],
+  "supported_plugins": [
+    "emotion",
+    "physical_exam",
+    "patient_initiative",
+    "portrait"
   ]
 }

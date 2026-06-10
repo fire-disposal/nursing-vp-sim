@@ -23,6 +23,15 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
 
   const activePlugin = plugins.find((p) => p.id === activeTabId);
 
+  useEffect(() => {
+    if (isMobile && !isCollapsed) {
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+  }, [isMobile, isCollapsed]);
+
   const handleTabClick = (pluginId: string) => {
     if (isCollapsed) {
       setIsCollapsed(false);
@@ -66,7 +75,7 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
   if (plugins.length === 0) return null;
 
   return (
-    <div className={cn("flex h-full border-l border-border bg-card transition-all duration-200", isCollapsed ? "w-10" : "w-[280px]")}>
+    <div className={cn("flex h-full border-l border-border bg-card transition-all duration-200", isCollapsed ? "w-10" : "w-[420px]")}>
       <div className="flex flex-col gap-0.5 p-1 shrink-0">
         <button
           onClick={() => setIsCollapsed((v) => !v)}

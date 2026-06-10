@@ -9,6 +9,9 @@
 import logging
 from datetime import UTC, datetime
 
+from infrastructure.cache import EmotionCache
+from infrastructure.cache import EmotionState as CacheEmotionState
+
 log = logging.getLogger(__name__)
 
 EMOTION_LEVELS = {
@@ -116,11 +119,11 @@ def cleanup_emotion(record_id: int):
     _emotion_cache.pop(record_id, None)
 
 
-def get_emotion_v2(record_id: int, cache: "EmotionCache") -> "EmotionState":
+def get_emotion_v2(record_id: int, cache: EmotionCache) -> CacheEmotionState:
     """Get or create emotion state using a cache instance."""
     return cache.get(record_id)
 
 
-def cleanup_emotion_v2(record_id: int, cache: "EmotionCache") -> None:
+def cleanup_emotion_v2(record_id: int, cache: EmotionCache) -> None:
     """Clean up emotion state using a cache instance."""
     cache.cleanup(record_id)
