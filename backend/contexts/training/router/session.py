@@ -111,35 +111,46 @@ def _schedule_background(coro):
         return asyncio.run_coroutine_threadsafe(coro, loop)
 
 
-@router.post("/start", response_model=TrainingStartResponse)
-def start_training(
-    req: TrainingStartRequest,
-    current_user: Annotated[User, Depends(require_permission("training_access"))],
-    db: Annotated[Session, Depends(get_db)],
+def _resolve_features(case_data: dict, config: dict) -> dict:
+    supported = case_data.get("supported_plugins", [])
+    if not supported:
+        return config
+    features = config.setdefault("features", {})
+    for pid in supported:
+        if pid in FEATURE_FLAGS:
+            features.setdefault(pid, True)
+    if "patient_initiative" in features and "emotion" not in features:
+        features.setdefault("emotion", True)
+    return config
+
+
+def _create_record(
+    db: Session,
+    user_id: int,
+    case: Case,
+    case_data: dict,
+    config_id: str,
+    config: dict,
+    *,
+    assignment_id: str | None = None,
+    is_overdue: bool = False,
+    feature_overrides: dict | None = None,
 ):
-    case = db.query(Case).filter(Case.id == req.case_id).first()
-    if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
-
-    case_data = case.case_data or {}
     time_limit = case_data.get("time_limit", 20)
-
-    config_id = req.config_id or "standard-assessment"
-    config = get_config(config_id) or {}
     time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
 
-    supported = case_data.get("supported_plugins", [])
-    if supported:
-        features = config.setdefault("features", {})
-        for pid in supported:
-            if pid in FEATURE_FLAGS:
-                features.setdefault(pid, True)
-        if "patient_initiative" in features and "emotion" not in features:
-            features.setdefault("emotion", True)
+    config = _resolve_features(case_data, config)
+    if feature_overrides:
+        for key, value in feature_overrides.items():
+            if key in FEATURE_FLAGS:
+                config.setdefault("features", {})[key] = value
+        config["_from_assignment"] = True
 
     record = TrainingRecord(
-        user_id=current_user.id,
+        user_id=user_id,
         case_id=case.id,
+        assignment_id=assignment_id,
+        is_overdue=is_overdue,
         status="in_progress",
         time_limit=time_limit,
         config_id=config_id,
@@ -152,28 +163,35 @@ def start_training(
 
     patient_info = case_data.get("patient_info", {})
     patient_name = patient_info.get("name", "患者")
-    greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
+    opening_line = case_data.get("opening_line", "我今天感觉不太舒服，所以来看看。")
+    greeting = f"你好，我是{patient_name}。{opening_line}"
 
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
     db.add(greeting_msg)
     db.commit()
+    return record, greeting
+
+
+@router.post("/start", response_model=TrainingStartResponse)
+def start_training(
+    req: TrainingStartRequest,
+    current_user: Annotated[User, Depends(require_permission("training_access"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    case = db.query(Case).filter(Case.id == req.case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
+
+    config_id = req.config_id or "standard-assessment"
+    config = get_config(config_id) or {}
+
+    record, greeting = _create_record(db, current_user.id, case, case.case_data or {}, config_id, config)
 
     log.info(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting)
-
-
-def _merge_assignment_features(config: dict, assignment: Assignment) -> dict:
-    features = config.setdefault("features", {})
-    for key, value in assignment.feature_overrides.items():
-        if key in FEATURE_FLAGS:
-            features[key] = value
-    if "patient_initiative" in features and "emotion" not in features:
-        features.setdefault("emotion", True)
-    config["_from_assignment"] = True
-    return config
 
 
 @router.post("/start-from-assignment", response_model=TrainingStartResponse)
@@ -213,46 +231,16 @@ def start_training_from_assignment(
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
 
-    case_data = case.case_data or {}
-    time_limit = case_data.get("time_limit", 20)
-
     config_id = assignment.config_id or "standard-assessment"
     config = get_config(config_id) or {}
-    time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
-
-    supported = case_data.get("supported_plugins", [])
-    if supported:
-        features = config.setdefault("features", {})
-        for pid in supported:
-            if pid in FEATURE_FLAGS:
-                features.setdefault(pid, True)
-    config = _merge_assignment_features(config, assignment)
 
     now = datetime.now(UTC)
-    is_overdue = now > assignment.end_time
-
-    record = TrainingRecord(
-        user_id=current_user.id,
-        case_id=case.id,
+    record, greeting = _create_record(
+        db, current_user.id, case, case.case_data or {}, config_id, config,
         assignment_id=assignment.id,
-        is_overdue=is_overdue,
-        status="in_progress",
-        time_limit=time_limit,
-        config_id=config_id,
-        config_snapshot=config if config else None,
+        is_overdue=now > assignment.end_time,
+        feature_overrides=assignment.feature_overrides,
     )
-    record.current_phase = "history_taking"
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-
-    patient_info = case_data.get("patient_info", {})
-    patient_name = patient_info.get("name", "患者")
-    greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
-
-    greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
-    db.add(greeting_msg)
-    db.commit()
 
     log.info(
         f"Assignment training start: assignment_id={assignment.id} record_id={record.id}",

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
@@ -29,18 +30,15 @@ router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 
 
 def _check_teacher_school(db: Session, teacher: User, class_id: int):
-    cls = db.query(Class).filter(Class.id == class_id).first()
+    cls = db.query(Class).join(Grade, Grade.id == Class.grade_id).filter(Class.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
-    grade = db.query(Grade).filter(Grade.id == cls.grade_id).first()
-    if not grade or grade.school_id != teacher.school_id:
+    if cls.grade.school_id != teacher.school_id:
         raise HTTPException(status_code=403, detail="无权操作该校班级")
     return cls
 
 
-def _build_assignment_list_item(a: Assignment) -> AssignmentListItem:
-    student_count = len(a.training_records) if a.training_records else 0
-    completed_count = sum(1 for r in a.training_records if r.status == "completed") if a.training_records else 0
+def _build_assignment_list_item(a: Assignment, student_count: int = 0, completed_count: int = 0) -> AssignmentListItem:
     return AssignmentListItem(
         id=a.id,
         title=a.title,
@@ -75,21 +73,17 @@ def _build_detail(db: Session, assignment: Assignment) -> AssignmentDetail:
     for student in students_in_class:
         record = record_by_user.get(student.id)
         if record:
-            item_status = record.status
-            is_overdue = record.is_overdue
-            if record.status == "completed" and record.end_time and record.end_time > assignment.end_time:
-                is_overdue = True
             student_items.append(AssignmentStudentItem(
                 user_id=student.id,
                 display_name=student.display_name,
                 student_id=student.student_id,
                 record_id=record.id,
-                status=item_status,
+                status=record.status,
                 score_total=record.score.total_score if record.score else None,
                 scoring_status=record.scoring_status,
                 start_time=record.start_time,
                 end_time=record.end_time,
-                is_overdue=is_overdue,
+                is_overdue=record.is_overdue,
             ))
         else:
             student_items.append(AssignmentStudentItem(
@@ -168,10 +162,26 @@ def list_assignments(
     class_id: Annotated[int | None, Query()] = None,
     status: Annotated[str | None, Query(description="active|ended")] = None,
 ):
-    q = db.query(Assignment).options(
+    student_sub = (
+        db.query(func.count(TrainingRecord.id))
+        .filter(TrainingRecord.assignment_id == Assignment.id)
+        .correlate(Assignment)
+        .scalar_subquery()
+    )
+    completed_sub = (
+        db.query(func.count(TrainingRecord.id))
+        .filter(TrainingRecord.assignment_id == Assignment.id, TrainingRecord.status == "completed")
+        .correlate(Assignment)
+        .scalar_subquery()
+    )
+
+    q = db.query(
+        Assignment,
+        student_sub.label("student_count"),
+        completed_sub.label("completed_count"),
+    ).options(
         joinedload(Assignment.case),
         joinedload(Assignment.class_),
-        joinedload(Assignment.training_records),
     ).filter(Assignment.teacher_id == current_user.id)
 
     if class_id is not None:
@@ -184,8 +194,8 @@ def list_assignments(
         q = q.filter(Assignment.end_time < now)
 
     q = q.order_by(Assignment.created_at.desc())
-    assignments, total = paginate(q, offset, limit)
-    items = [_build_assignment_list_item(a) for a in assignments]
+    rows, total = paginate(q, offset, limit)
+    items = [_build_assignment_list_item(r[0], student_count=r[1], completed_count=r[2]) for r in rows]
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 

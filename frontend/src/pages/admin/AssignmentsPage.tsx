@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Eye, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createAssignment, deleteAssignment, getAssignment as fetchAssignment, getAssignments, updateAssignment } from "@/api/assignments";
 import { getCases } from "@/api/cases";
@@ -57,14 +57,22 @@ export default function AssignmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [caseId, setCaseId] = useState<number>(0);
-  const [classId, setClassId] = useState<number>(0);
-  const [configId, setConfigId] = useState("standard-assessment");
-  const [features, setFeatures] = useState<Record<string, boolean>>({});
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const emptyForm = useMemo(
+    () => ({
+      title: "",
+      desc: "",
+      caseId: 0,
+      classId: 0,
+      configId: "standard-assessment",
+      features: {} as Record<string, boolean>,
+      startTime: "",
+      endTime: "",
+    }),
+    [],
+  );
+  const [form, setForm] = useState(emptyForm);
+  const resetForm = () => setForm(emptyForm);
+  const updateForm = (patch: Partial<typeof emptyForm>) => setForm((f) => ({ ...f, ...patch }));
 
   const { data: listData, isLoading } = useQuery({
     queryKey: ["assignments"],
@@ -85,14 +93,7 @@ export default function AssignmentsPage() {
 
   const openCreate = () => {
     setEditingId(null);
-    setTitle("");
-    setDesc("");
-    setCaseId(0);
-    setClassId(0);
-    setConfigId("standard-assessment");
-    setFeatures({});
-    setStartTime("");
-    setEndTime("");
+    resetForm();
     setModalOpen(true);
   };
 
@@ -101,14 +102,16 @@ export default function AssignmentsPage() {
       const res = await fetchAssignment(id);
       const d = res.data as any;
       setEditingId(id);
-      setTitle(d.title);
-      setDesc(d.description || "");
-      setCaseId(d.case_id);
-      setClassId(d.class_id);
-      setConfigId(d.config_id);
-      setFeatures(d.feature_overrides || {});
-      setStartTime(new Date(d.start_time).toISOString().slice(0, 16));
-      setEndTime(new Date(d.end_time).toISOString().slice(0, 16));
+      setForm({
+        title: d.title,
+        desc: d.description || "",
+        caseId: d.case_id,
+        classId: d.class_id,
+        configId: d.config_id,
+        features: d.feature_overrides || {},
+        startTime: new Date(d.start_time).toISOString().slice(0, 16),
+        endTime: new Date(d.end_time).toISOString().slice(0, 16),
+      });
       setModalOpen(true);
     } catch (e: any) {
       toast.error(e.message || "加载失败");
@@ -116,6 +119,7 @@ export default function AssignmentsPage() {
   };
 
   const handleSave = async () => {
+    const { title, desc, caseId, classId, configId, features, startTime, endTime } = form;
     if (!title.trim() || !caseId || !classId || !startTime || !endTime) {
       toast.warning("请填写完整信息");
       return;
@@ -227,18 +231,18 @@ export default function AssignmentsPage() {
         <div className="flex flex-col gap-4">
           <div>
             <label className="text-sm font-medium">标题</label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="练习标题" />
+            <Input value={form.title} onChange={(e) => updateForm({ title: e.target.value })} placeholder="练习标题" />
           </div>
           <div>
             <label className="text-sm font-medium">说明（可选）</label>
-            <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="补充说明" />
+            <Input value={form.desc} onChange={(e) => updateForm({ desc: e.target.value })} placeholder="补充说明" />
           </div>
           <div>
             <label className="text-sm font-medium">病例</label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={caseId || ""}
-              onChange={(e) => setCaseId(Number(e.target.value))}
+              value={form.caseId || ""}
+              onChange={(e) => updateForm({ caseId: Number(e.target.value) })}
             >
               <option value="">选择病例...</option>
               {cases.map((c: any) => (
@@ -252,8 +256,8 @@ export default function AssignmentsPage() {
             <label className="text-sm font-medium">班级</label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={classId || ""}
-              onChange={(e) => setClassId(Number(e.target.value))}
+              value={form.classId || ""}
+              onChange={(e) => updateForm({ classId: Number(e.target.value) })}
             >
               <option value="">选择班级...</option>
               {classes.map((c: any) => (
@@ -267,8 +271,8 @@ export default function AssignmentsPage() {
             <label className="text-sm font-medium">训练模式</label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={configId}
-              onChange={(e) => setConfigId(e.target.value)}
+              value={form.configId}
+              onChange={(e) => updateForm({ configId: e.target.value })}
             >
               {CONFIG_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -284,8 +288,8 @@ export default function AssignmentsPage() {
                 <label key={f.key} className="flex items-center gap-1.5 text-sm py-0.5">
                   <input
                     type="checkbox"
-                    checked={features[f.key] ?? false}
-                    onChange={(e) => setFeatures({ ...features, [f.key]: e.target.checked })}
+                    checked={form.features[f.key] ?? false}
+                    onChange={(e) => updateForm({ features: { ...form.features, [f.key]: e.target.checked } })}
                     className="size-4"
                   />
                   {f.label}
@@ -296,11 +300,11 @@ export default function AssignmentsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium">开始时间</label>
-              <Input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              <Input type="datetime-local" value={form.startTime} onChange={(e) => updateForm({ startTime: e.target.value })} />
             </div>
             <div>
               <label className="text-sm font-medium">截止时间</label>
-              <Input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              <Input type="datetime-local" value={form.endTime} onChange={(e) => updateForm({ endTime: e.target.value })} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
