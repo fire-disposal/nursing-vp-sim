@@ -21,7 +21,7 @@ interface TrainingEngineProps {
   panelPlugins: PanelPlugin[];
 }
 
-function TrainingEngineInner({ recordId, features, panelPlugins }: TrainingEngineProps) {
+function TrainingEngineContent({ recordId, features, panelPlugins }: TrainingEngineProps) {
   const { patient, loading } = usePatient();
   const recordNum = Number(recordId);
 
@@ -118,7 +118,6 @@ function TrainingEngineInner({ recordId, features, panelPlugins }: TrainingEngin
         for (const msg of msgs) {
           const result = plugin.hooks.afterReceive(msg, ctx);
           if (result instanceof Promise) {
-            // Async hooks handled via side effects (bus events)
             next.push(msg);
           } else if (result !== null) {
             next.push(result);
@@ -155,46 +154,48 @@ function TrainingEngineInner({ recordId, features, panelPlugins }: TrainingEngin
   }
 
   return (
-    <EmotionProvider>
-      <PortraitProvider>
-        <div
-          className="h-screen"
-          style={{
-            display: "grid",
-            gridTemplateAreas: '"header header" "content panel"',
-            gridTemplateColumns: "1fr auto",
-            gridTemplateRows: "auto 1fr",
-          }}
-        >
-          <div style={{ gridArea: "header" }}>
-            <TrainingHeader
-              patient={patient}
-              messages={processedMessages}
-              ttsAutoPlay={ttsAutoPlay}
-              onTtsToggle={() => setTtsAutoPlay((v) => !v)}
-              onEnd={endTraining}
-              sending={sending}
-            />
-          </div>
-          <div style={{ gridArea: "content", overflow: "hidden" }}>
-            <ChatArea messages={processedMessages} patient={patient} sending={sending} onSend={sendMessage} bus={busRef.current} />
-          </div>
-          <div style={{ gridArea: "panel" }}>
-            <PanelHost ctx={ctx} features={features} plugins={activePlugins} />
-          </div>
+    <>
+      <div
+        className="h-screen"
+        style={{
+          display: "grid",
+          gridTemplateAreas: '"header header" "content panel"',
+          gridTemplateColumns: "1fr auto",
+          gridTemplateRows: "auto 1fr",
+        }}
+      >
+        <div style={{ gridArea: "header" }}>
+          <TrainingHeader
+            patient={patient}
+            messages={processedMessages}
+            ttsAutoPlay={ttsAutoPlay}
+            onTtsToggle={() => setTtsAutoPlay((v) => !v)}
+            onEnd={endTraining}
+            sending={sending}
+          />
         </div>
-        <QuestionnaireOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
-        <ScoringOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
-        <ScoreCard ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
-      </PortraitProvider>
-    </EmotionProvider>
+        <div style={{ gridArea: "content", overflow: "hidden" }}>
+          <ChatArea messages={processedMessages} patient={patient} sending={sending} onSend={sendMessage} bus={busRef.current} />
+        </div>
+        <div style={{ gridArea: "panel" }}>
+          <PanelHost ctx={ctx} features={features} plugins={activePlugins} />
+        </div>
+      </div>
+      <QuestionnaireOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+      <ScoringOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+      <ScoreCard ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+    </>
   );
 }
 
 export function TrainingEngine(props: TrainingEngineProps) {
   return (
     <PatientProvider recordId={props.recordId}>
-      <TrainingEngineInner {...props} />
+      <EmotionProvider>
+        <PortraitProvider>
+          <TrainingEngineContent {...props} />
+        </PortraitProvider>
+      </EmotionProvider>
     </PatientProvider>
   );
 }
