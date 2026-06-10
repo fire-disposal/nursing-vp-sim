@@ -64,7 +64,7 @@ export default function QA() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  });
+  }, [messages, streamingAnswer]);
 
   const switchSession = useCallback(
     async (sessionId: number) => {

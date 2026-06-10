@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createConfig, fetchSecrets, updateConfig } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
@@ -53,48 +53,61 @@ export default function ConfigModal({ open, configData, prefilled, onClose, onSa
   const [monthlyLimit, setMonthlyLimit] = useState("");
 
   const selectedSecret = secrets.find((s) => String(s.id) === secretId);
+  const initializedRef = useRef(false);
+
   const autoKey = secrets.length === 1 ? String(secrets[0].id) : "";
 
   useEffect(() => {
     if (open) {
+      const doInit = (secretsList: typeof secrets) => {
+        const ak = secretsList.length === 1 ? String(secretsList[0].id) : "";
+        if (configData) {
+          setSecretId(String(configData.secret_id || ""));
+          setLabel(configData.label || "");
+          setModel(configData.model || "");
+          setPurpose(configData.purpose || "qa");
+          setPriority(configData.priority || 10);
+          setWeight(configData.weight || 10);
+          setPriceIn(configData.price_input_per_1m ?? 1);
+          setPriceOut(configData.price_output_per_1m ?? 2);
+          setMonthlyLimit(configData.monthly_cost_limit != null ? String(configData.monthly_cost_limit) : "");
+          setShowAdvanced(true);
+        } else if (prefilled) {
+          setSecretId(String(prefilled.secret_id || ak || ""));
+          setModel(prefilled.model || "");
+          setPurpose(prefilled.purpose || "qa");
+          setPriority(10);
+          setWeight(10);
+          setPriceIn(1);
+          setPriceOut(2);
+          setMonthlyLimit("");
+          setShowAdvanced(false);
+        } else {
+          setSecretId(ak);
+          setLabel("");
+          setModel("");
+          setPurpose("qa");
+          setPriority(10);
+          setWeight(10);
+          setPriceIn(1);
+          setPriceOut(2);
+          setMonthlyLimit("");
+          setShowAdvanced(false);
+        }
+      };
       fetchSecrets()
-        .then(({ data }) => setSecrets(data))
+        .then(({ data }) => {
+          setSecrets(data);
+          if (!initializedRef.current) {
+            doInit(data);
+            initializedRef.current = true;
+          }
+        })
         .catch(() => {});
-      if (configData) {
-        setSecretId(String(configData.secret_id || ""));
-        setLabel(configData.label || "");
-        setModel(configData.model || "");
-        setPurpose(configData.purpose || "qa");
-        setPriority(configData.priority || 10);
-        setWeight(configData.weight || 10);
-        setPriceIn(configData.price_input_per_1m ?? 1);
-        setPriceOut(configData.price_output_per_1m ?? 2);
-        setMonthlyLimit(configData.monthly_cost_limit != null ? String(configData.monthly_cost_limit) : "");
-        setShowAdvanced(true);
-      } else if (prefilled) {
-        setSecretId(String(prefilled.secret_id || autoKey || ""));
-        setModel(prefilled.model || "");
-        setPurpose(prefilled.purpose || "qa");
-        setPriority(10);
-        setWeight(10);
-        setPriceIn(1);
-        setPriceOut(2);
-        setMonthlyLimit("");
-        setShowAdvanced(false);
-      } else {
-        setSecretId(autoKey);
-        setLabel("");
-        setModel("");
-        setPurpose("qa");
-        setPriority(10);
-        setWeight(10);
-        setPriceIn(1);
-        setPriceOut(2);
-        setMonthlyLimit("");
-        setShowAdvanced(false);
-      }
+    } else {
+      initializedRef.current = false;
     }
-  }, [open, configData, prefilled, autoKey]);
+  }, [open, configData, prefilled]);
 
   const handleQuickCreate = async (purposeVal: string, modelVal: string) => {
     const sid = secretId || autoKey;

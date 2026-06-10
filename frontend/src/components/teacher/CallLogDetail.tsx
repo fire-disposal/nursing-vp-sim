@@ -41,7 +41,11 @@ function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
-  const { data: log, isLoading } = useQuery({
+  const {
+    data: log,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["logDetail", logId],
     queryFn: () => getLogDetail(logId!).then((r) => r.data),
     enabled: logId !== null,
@@ -51,6 +55,8 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
     <Sheet open={logId !== null} onClose={onClose} side="right" size="lg">
       <div className="p-5 pt-14">
         {isLoading && <div className="text-center py-10 text-muted-foreground">加载中...</div>}
+        {isError && <div className="text-center py-10 text-red-500">加载失败</div>}
+        {!isLoading && !isError && !log && <div className="text-center py-10 text-muted-foreground">暂无数据</div>}
         {log && (
           <>
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">

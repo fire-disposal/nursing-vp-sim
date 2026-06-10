@@ -27,7 +27,6 @@ import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, subm
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { ScoreCardInner } from "@/plugins/scoring-display/ScoreCard";
 import useAuthStore from "@/stores/authStore";
@@ -294,7 +293,6 @@ export default function RecordDetail() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
-  const _confirm = useConfirm();
 
   const { data: record, isError: recordError } = useQuery({
     queryKey: ["recordDetail", id],

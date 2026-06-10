@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { getManageCases } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
@@ -11,6 +11,7 @@ const LIMIT = 50;
 
 export default function CasesTab() {
   const [showEditor, setShowEditor] = useState(false);
+  const queryClient = useQueryClient();
   const [editingCase, setEditingCase] = useState<CaseManageItem | null>(null);
   const [startWithAiPanel, setStartWithAiPanel] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -85,7 +86,7 @@ export default function CasesTab() {
         startWithAiPanel={startWithAiPanel}
         availableCases={cases}
         onClose={() => setShowEditor(false)}
-        onSaved={() => {}}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: queryKeys.cases.managed.list({}) })}
       />
     </>
   );
