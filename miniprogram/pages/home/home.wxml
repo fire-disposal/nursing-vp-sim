@@ -21,7 +21,36 @@
     </view>
   </view>
 
-  <view class="section">
+  <!-- 作业任务 -->
+  <view class="section" wx:if="{{assignments.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">待完成作业</text>
+      <text class="section-subtitle">{{assignments.length}} 项</text>
+    </view>
+    <view
+      class="assignment-card"
+      wx:for="{{assignments}}"
+      wx:key="id"
+      bindtap="startFromAssignment"
+      data-id="{{item.id}}"
+    >
+      <view class="assign-left">
+        <text class="assign-name">{{item.case_name}}</text>
+        <text class="assign-class">{{item.class_name || item.teacher_name || '教师发布'}}</text>
+        <text class="assign-deadline">
+          截止 {{item.end_time}}
+        </text>
+      </view>
+      <view class="assign-right">
+        <text class="assign-status assign-{{item.status}}">
+          {{item.status === 'completed' ? '已完成' : item.status === 'overdue' ? '已逾期' : '待开始'}}
+        </text>
+        <text class="assign-arrow" wx:if="{{item.status !== 'completed'}}">›</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">"
     <view class="section-header">
       <text class="section-title">快速开始</text>
     </view>

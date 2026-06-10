@@ -3,6 +3,7 @@ import { getMe } from "../../api/auth"
 import { getRecords, startTraining } from "../../api/training"
 import type { CaseBrief } from "../../api/cases"
 import { getCases } from "../../api/cases"
+import { getStudentAssignments, startFromAssignment, type StudentAssignmentItem } from "../../api/assignments"
 import { formatDate, getScoreGrade } from "../../utils/format"
 
 Page({
@@ -13,10 +14,12 @@ Page({
     avgScore: 0,
     recentRecords: [] as Record<string, unknown>[],
     recommendedCases: [] as CaseBrief[],
+    assignments: [] as StudentAssignmentItem[],
     loading: true,
     latestScore: null as { total: number; details: Record<string, { score: number; max: number }> } | null,
     weeklyTrend: [] as { label: string; value: number; height: number }[],
     weeklyMax: 0,
+    assignmentLoading: false,
   },
 
   onShow() {
@@ -26,12 +29,13 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
-      const [duration, trends, cases, records, me] = await Promise.all([
+      const [duration, trends, cases, records, me, assignments] = await Promise.all([
         getDurationStats("month").catch(() => null),
         getTrends("week").catch(() => null),
         getCases({ limit: 5 }).catch(() => null),
         getRecords({ limit: 1, status: "completed" }).catch(() => null),
         getMe().catch(() => null),
+        getStudentAssignments().catch(() => null),
       ])
 
       let latestScore = null
@@ -58,6 +62,7 @@ Page({
         totalMinutes: duration?.total_minutes ?? 0,
         avgScore: trends?.avg_score ?? 0,
         recommendedCases: cases?.items?.slice(0, 3) ?? [],
+        assignments: assignments?.items ?? [],
         recentRecords: (records?.items ?? []).slice(0, 5).map((r: Record<string, unknown>) => ({
           ...r,
           scoreLabel: r.score_total != null ? getScoreGrade(r.score_total as number) : null,
@@ -89,6 +94,22 @@ Page({
   continueRecord(e: WechatMiniprogram.TouchEvent) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/training/training?recordId=${id}` })
+  },
+
+  async startFromAssignment(e: WechatMiniprogram.TouchEvent) {
+    const id = e.currentTarget.dataset.id as string
+    if (!id) return
+    this.setData({ assignmentLoading: true })
+    try {
+      const res = await startFromAssignment(id)
+      wx.navigateTo({
+        url: `/pages/training/training?recordId=${res.record_id}&caseName=${encodeURIComponent(res.case_name)}&greeting=${encodeURIComponent(res.greeting)}`,
+      })
+    } catch {
+      wx.showToast({ title: "启动练习失败", icon: "none" })
+    } finally {
+      this.setData({ assignmentLoading: false })
+    }
   },
 
   async startFromCase(e: WechatMiniprogram.TouchEvent) {
