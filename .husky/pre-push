@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-push: migration conflict detection + tag format & counter validation
+# Pre-push: type check + migration conflict detection + tag validation
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,6 +12,17 @@ NC='\033[0m'
 say()  { echo "${CYAN}$1${NC}"; }
 ok()   { echo "  ${GREEN}ok${NC}  $1"; }
 fail() { echo "  ${RED}FAIL${NC} $1"; PASS=1; }
+
+# ═══ Frontend type check ═══
+if [ -f "$ROOT/frontend/tsconfig.json" ]; then
+  cd "$ROOT/frontend"
+  if npx tsc --noEmit 2>&1; then
+    ok "tsc --noEmit"
+  else
+    fail "tsc --noEmit has errors"
+  fi
+  cd "$ROOT"
+fi
 
 # ═══ Migration conflict detection ═══
 if git diff --cached --name-only -- backend/migrations/versions/ 2>/dev/null | grep -q '.'; then
