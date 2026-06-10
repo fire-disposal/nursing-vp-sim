@@ -9,7 +9,7 @@ import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { Toaster } from "@/components/ui/sonner";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: { queries: { retry: 1, staleTime: 30_000, gcTime: 10 * 60_000 } },
 });
 
 const Login = lazy(() => import("@/pages/Login"));

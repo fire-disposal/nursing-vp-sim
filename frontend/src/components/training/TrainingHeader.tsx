@@ -5,7 +5,7 @@ import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { EMOTION_LABELS, getEmotionColor, useEmotion, usePortrait } from "@/engine/PluginContext";
-import type { ChatMessage, PatientData } from "@/engine/types";
+import type { PatientData } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
 
@@ -28,7 +28,6 @@ const FEATURE_META: Record<string, { label: string; desc: string }> = {
 interface TrainingHeaderProps {
   recordId: string;
   patient: PatientData;
-  messages: ChatMessage[];
   features: Record<string, boolean>;
   onToggleFeature: (key: string, enabled: boolean) => void;
   ttsAutoPlay: boolean;
@@ -36,12 +35,12 @@ interface TrainingHeaderProps {
   onEnd: () => Promise<void>;
   sending: boolean;
   featuresLocked?: boolean;
+  messageCount?: number;
 }
 
 export function TrainingHeader({
   recordId,
   patient,
-  messages,
   features,
   onToggleFeature,
   ttsAutoPlay,
@@ -49,6 +48,7 @@ export function TrainingHeader({
   onEnd,
   sending,
   featuresLocked = false,
+  messageCount = 0,
 }: TrainingHeaderProps) {
   const navigate = useNavigate();
   const { emotion } = useEmotion();
@@ -170,7 +170,7 @@ export function TrainingHeader({
 
           <button
             onClick={handleEnd}
-            disabled={ending || messages.length <= 1}
+            disabled={ending || messageCount <= 1}
             className="flex items-center gap-1 px-2.5 h-10 sm:h-9 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Phone size={13} className="sm:size-[15px]" />

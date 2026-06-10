@@ -15,7 +15,7 @@ export async function sendMessageStream(
   onSystem?: (text: string) => void,
   signal?: AbortSignal,
   onExamResult?: (result: { type: string; data: Record<string, unknown> }) => void,
-  onEmotionChange?: (change: { from: string; to: string; trigger: string }) => void,
+  onEmotionChange?: (change: { state: string; trust: number; comfort: number }) => void,
   onInitiative?: (data: { content: string }) => void,
 ) {
   const token = localStorage.getItem("token");

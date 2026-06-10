@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { EmotionState } from "@/engine/PluginContext";
 import { EMOTION_LABELS, getEmotionColor, useEmotion } from "@/engine/PluginContext";
 import type { PanelTabProps } from "@/engine/types";
 import { cn } from "@/lib/utils";
@@ -17,9 +18,11 @@ export function EmotionTab({ ctx }: PanelTabProps) {
   const [history, setHistory] = useState<EmotionState2D["history"]>([]);
   const [data, setData] = useState<EmotionState2D | null>(null);
 
+  const currentState: EmotionState = (data?.state as EmotionState) || "neutral";
+
   useEffect(() => {
     const unsub = ctx.bus.on("emotion:changed", (d: { state: string; trust: number; comfort: number }) => {
-      setEmotion(d.state as any);
+      setEmotion(d.state as EmotionState);
       setData((prev) => ({ ...prev, trust: d.trust, comfort: d.comfort, state: d.state, note: "" }));
     });
 
@@ -46,10 +49,10 @@ export function EmotionTab({ ctx }: PanelTabProps) {
     <div className="space-y-4">
       <EmotionTrajectory history={history as any} current={{ trust, comfort }} />
 
-      <div className={cn("text-center p-3 rounded-lg border", getEmotionBg(data?.state || "neutral"))}>
-        <div className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold", getEmotionColor(data?.state || "neutral"))}>
-          <span className={cn("size-2.5 rounded-full", EMOTION_DOT[data?.state || "neutral"])} />
-          {EMOTION_LABELS[data?.state || "neutral"]}
+      <div className={cn("text-center p-3 rounded-lg border", getEmotionBg(currentState))}>
+        <div className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold", getEmotionColor(currentState))}>
+          <span className={cn("size-2.5 rounded-full", EMOTION_DOT[currentState])} />
+          {EMOTION_LABELS[currentState]}
         </div>
       </div>
 
@@ -62,13 +65,16 @@ export function EmotionTab({ ctx }: PanelTabProps) {
             {history
               .slice(-10)
               .reverse()
-              .map((h, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs py-1">
-                  <span className={cn("size-2 rounded-full shrink-0", EMOTION_DOT[h.state] || "bg-muted")} />
-                  <span className="text-muted-foreground">{EMOTION_LABELS[h.state] || h.state}</span>
-                  <span className="text-muted-foreground/50 ml-auto">{h.intent}</span>
-                </div>
-              ))}
+              .map((h, i) => {
+                const histState: EmotionState = (h.state as EmotionState) || "neutral";
+                return (
+                  <div key={i} className="flex items-center gap-2 text-xs py-1">
+                    <span className={cn("size-2 rounded-full shrink-0", EMOTION_DOT[histState])} />
+                    <span className="text-muted-foreground">{EMOTION_LABELS[histState]}</span>
+                    <span className="text-muted-foreground/50 ml-auto">{h.intent}</span>
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>
@@ -76,7 +82,7 @@ export function EmotionTab({ ctx }: PanelTabProps) {
   );
 }
 
-const EMOTION_BG: Record<string, string> = {
+const EMOTION_BG: Record<EmotionState, string> = {
   withdrawn: "border-red-400 bg-red-50",
   defensive: "border-orange-400 bg-orange-50",
   neutral: "border-border bg-muted/30",
@@ -84,7 +90,7 @@ const EMOTION_BG: Record<string, string> = {
   open: "border-green-400 bg-green-50",
 };
 
-const EMOTION_DOT: Record<string, string> = {
+const EMOTION_DOT: Record<EmotionState, string> = {
   withdrawn: "bg-red-400",
   defensive: "bg-orange-400",
   neutral: "bg-muted",
@@ -92,6 +98,6 @@ const EMOTION_DOT: Record<string, string> = {
   open: "bg-green-400",
 };
 
-function getEmotionBg(state: string): string {
-  return EMOTION_BG[state] || EMOTION_BG.neutral;
+function getEmotionBg(state: EmotionState): string {
+  return EMOTION_BG[state];
 }

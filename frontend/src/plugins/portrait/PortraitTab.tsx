@@ -29,6 +29,7 @@ export function PortraitTab({ ctx }: PanelTabProps) {
         <img
           src={portraitUrl}
           alt="患者立绘"
+          loading="lazy"
           className="w-full max-w-[200px] mx-auto rounded-lg border bg-muted"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = "none";

@@ -80,7 +80,7 @@ export default function AssignmentsPage() {
     queryFn: () => getAssignments({ limit: 100 }),
   });
   const { data: casesData } = useQuery({
-    queryKey: ["cases"],
+    queryKey: ["cases", "admin"],
     queryFn: () => getCases(),
   });
   const { data: classesData } = useQuery({

@@ -62,20 +62,12 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
     return () => scoreRef.current.dispose();
   }, [recordNum]);
 
-  const [_registryVer, setRegistryVer] = useState(0);
-
   useEffect(() => {
     pluginRegistry.setFeatureFlags(features);
     for (const p of panelPlugins) pluginRegistry.register(p);
-    setRegistryVer(pluginRegistry.version);
   }, [features, panelPlugins]);
 
-  useEffect(() => {
-    const unsub = busRef.current.on("plugins:updated", () => setRegistryVer(pluginRegistry.version));
-    return unsub;
-  }, []);
-
-  const activePlugins = useMemo(() => pluginRegistry.getActive(features), [features, _registryVer]);
+  const activePlugins = useMemo(() => pluginRegistry.getActive(features), [features]);
 
   const sendMessage = useCallback((text: string) => {
     const bus = busRef.current;
@@ -200,7 +192,7 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
           <TrainingHeader
             recordId={recordId}
             patient={patient}
-            messages={processedMessages}
+            messageCount={processedMessages.length}
             features={features}
             onToggleFeature={(key: string, enabled: boolean) => {
               setFeatures((prev) => {

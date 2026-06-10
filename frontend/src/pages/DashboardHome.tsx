@@ -81,7 +81,7 @@ export default function DashboardHome() {
   const isAdmin = perms.includes("score_review") || perms.includes("user_manage");
 
   const { data: casesData } = useQuery({
-    queryKey: ["cases"],
+    queryKey: ["cases", "student"],
     queryFn: () => getCases().then((r) => r.data),
     enabled: !isAdmin,
   });
