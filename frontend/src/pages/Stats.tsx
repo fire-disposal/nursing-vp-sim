@@ -61,18 +61,21 @@ export default function Stats() {
   const { data: trends } = useQuery({
     queryKey: ["trends", period],
     queryFn: () => getTrends(period).then((r) => r.data),
+    staleTime: 2 * 60_000,
   });
 
   const { data: summaryData } = useQuery({
     queryKey: ["teacherSummary", summaryOffset],
     queryFn: () => getTeacherSummary({ offset: summaryOffset, limit: LIMIT }).then((r) => r.data),
     enabled: user?.role === "teacher",
+    staleTime: 2 * 60_000,
   });
 
   const { data: rankingData } = useQuery({
     queryKey: ["studentRanking", rankingOffset],
     queryFn: () => getStudentRanking({ offset: rankingOffset, limit: LIMIT }).then((r) => r.data),
     enabled: user?.role === "teacher",
+    staleTime: 2 * 60_000,
   });
 
   const summary = summaryData?.items ?? null;

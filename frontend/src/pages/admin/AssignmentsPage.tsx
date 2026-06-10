@@ -78,14 +78,17 @@ export default function AssignmentsPage() {
   const { data: listData, isLoading } = useQuery({
     queryKey: ["assignments"],
     queryFn: () => getAssignments({ limit: 100 }),
+    staleTime: 2 * 60_000,
   });
   const { data: casesData } = useQuery({
     queryKey: ["cases", "admin"],
     queryFn: () => getCases(),
+    staleTime: 5 * 60_000,
   });
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
     queryFn: () => getClasses({}),
+    staleTime: 5 * 60_000,
   });
 
   const assignments = (listData?.data as any)?.items ?? [];

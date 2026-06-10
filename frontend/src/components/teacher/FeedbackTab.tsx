@@ -98,6 +98,7 @@ function FeedbackChart() {
         });
       }),
     initialData: [],
+    staleTime: 2 * 60_000,
   });
 
   if (isLoading) return <div className="h-[200px] flex items-center justify-center text-muted-foreground/70">加载图表...</div>;
@@ -189,6 +190,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
         ].filter((d) => d.value > 0);
       }),
     initialData: [],
+    staleTime: 2 * 60_000,
   });
 
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -248,6 +250,7 @@ export default function FeedbackTab() {
     queryKey: ["feedbacks", tag, dateFrom, dateTo, offset],
     queryFn: () => getFeedbacks(params).then((r) => r.data),
     placeholderData: (prev) => prev,
+    staleTime: 2 * 60_000,
   });
 
   const feedbacks = feedbacksData?.items ?? [];

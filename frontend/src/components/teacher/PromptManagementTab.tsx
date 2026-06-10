@@ -22,6 +22,7 @@ export default function PromptManagementTab() {
   const { data: prompts = [] } = useQuery({
     queryKey: queryKeys.prompts.list,
     queryFn: () => fetchPrompts(undefined).then((r) => r.data),
+    staleTime: 5 * 60_000,
   });
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});

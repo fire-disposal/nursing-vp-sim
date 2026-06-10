@@ -41,6 +41,7 @@ export default function QuestionnairesTab() {
     queryKey: ["questionnaireTemplates", offset, typeFilter],
     queryFn: () => api.get("/questionnaires/templates", { params }).then((r) => r.data),
     placeholderData: (prev) => prev,
+    staleTime: 5 * 60_000,
   });
 
   const templates: TemplateListItem[] = templatesData?.items ?? [];
@@ -50,6 +51,7 @@ export default function QuestionnairesTab() {
     queryKey: ["cases", "all"],
     queryFn: () => api.get("/cases", { params: { limit: 1000 } }).then((r) => r.data),
     enabled: showAssign,
+    staleTime: 5 * 60_000,
   });
 
   const allCases: CaseBrief[] = casesData?.items ?? [];
@@ -58,12 +60,14 @@ export default function QuestionnairesTab() {
     queryKey: ["questionnaireTemplateDetail", editingId],
     queryFn: () => api.get(`/questionnaires/templates/${editingId}`).then((r) => r.data as TemplateDetail),
     enabled: editingId !== null && showEditor,
+    staleTime: 5 * 60_000,
   });
 
   const { data: statsData, isLoading: isLoadingStats } = useQuery({
     queryKey: ["questionnaireStats", statsTemplate?.id],
     queryFn: () => api.get(`/questionnaires/responses/${statsTemplate?.id}/stats`).then((r) => r.data),
     enabled: view === "stats" && statsTemplate !== null,
+    staleTime: 2 * 60_000,
   });
 
   const stats: ResponseStats | null = statsData ?? null;

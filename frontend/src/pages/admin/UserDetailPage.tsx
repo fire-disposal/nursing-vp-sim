@@ -62,6 +62,7 @@ export default function UserDetailPage() {
     queryKey: ["studentDetail", userId],
     queryFn: () => getStudentDetail(Number(userId)).then((r) => r.data),
     enabled: !!userId,
+    staleTime: 2 * 60_000,
   });
 
   if (isLoading || !student) {

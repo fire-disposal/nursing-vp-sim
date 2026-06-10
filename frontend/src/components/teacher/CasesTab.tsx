@@ -26,6 +26,7 @@ export default function CasesTab() {
     queryKey: queryKeys.cases.managed.list(params),
     queryFn: () => getManageCases(params).then((r) => r.data),
     placeholderData: (prev) => prev,
+    staleTime: 5 * 60_000,
   });
 
   const cases = caseData?.items ?? [];

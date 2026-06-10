@@ -39,6 +39,7 @@ export default function CaseSelect() {
   const { data: casesData, isLoading } = useQuery({
     queryKey: ["cases", offset],
     queryFn: () => getCases({ offset, limit: LIMIT }).then((r) => r.data),
+    staleTime: 5 * 60_000,
   });
 
   const startMutation = useMutation({

@@ -34,6 +34,7 @@ export default function AssignmentDetailPage() {
     queryKey: ["assignment", id],
     queryFn: () => getAssignment(id!),
     enabled: !!id,
+    staleTime: 2 * 60_000,
   });
 
   const handleExport = async () => {

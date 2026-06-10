@@ -50,10 +50,10 @@ export default function ApiManagementTab() {
   const [showSecretModal, setShowSecretModal] = useState(false);
   const [editingSecret, setEditingSecret] = useState<ApiSecretResponse | null>(null);
 
-  const { data: secrets = [] } = useQuery({ queryKey: ["apiSecrets"], queryFn: () => fetchSecrets().then((r) => r.data) });
-  const { data: configs = [] } = useQuery({ queryKey: ["apiConfigs"], queryFn: () => fetchConfigs(undefined).then((r) => r.data) });
-  const { data: presets } = useQuery({ queryKey: ["modelPresets"], queryFn: () => fetchModelPresets().then((r) => r.data) });
-  const { data: envFallback } = useQuery({ queryKey: ["apiFallback"], queryFn: () => fetchEnvFallback().then((r) => r.data) });
+  const { data: secrets = [] } = useQuery({ queryKey: ["apiSecrets"], queryFn: () => fetchSecrets().then((r) => r.data), staleTime: 5 * 60_000 });
+  const { data: configs = [] } = useQuery({ queryKey: ["apiConfigs"], queryFn: () => fetchConfigs(undefined).then((r) => r.data), staleTime: 5 * 60_000 });
+  const { data: presets } = useQuery({ queryKey: ["modelPresets"], queryFn: () => fetchModelPresets().then((r) => r.data), staleTime: 5 * 60_000 });
+  const { data: envFallback } = useQuery({ queryKey: ["apiFallback"], queryFn: () => fetchEnvFallback().then((r) => r.data), staleTime: 5 * 60_000 });
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["apiSecrets"] });

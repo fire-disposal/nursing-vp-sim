@@ -78,20 +78,24 @@ export default function DashboardHome() {
     queryKey: ["cases", "student"],
     queryFn: () => getCases().then((r) => r.data),
     enabled: !isAdmin,
+    staleTime: 5 * 60_000,
   });
   const { data: durationData, isLoading: durationLoading } = useQuery({
     queryKey: ["durationStats"],
     queryFn: () => getDurationStats().then((r) => r.data),
     enabled: !isAdmin,
+    staleTime: 2 * 60_000,
   });
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ["adminStats"],
     queryFn: () => getStats().then((r) => r.data),
     enabled: isAdmin,
+    staleTime: 2 * 60_000,
   });
   const { data: recordsData, isLoading: recordsLoading } = useQuery({
     queryKey: ["records", "recent"],
     queryFn: () => getRecords({ limit: 5, offset: 0 }).then((r) => r.data),
+    staleTime: 2 * 60_000,
   });
 
   const cases = casesData?.items ?? [];
@@ -167,6 +171,7 @@ function StudentDashboard({
   const { data: studentAssignmentsData } = useQuery({
     queryKey: ["student-assignments"],
     queryFn: () => getStudentAssignments().then((r) => r.data),
+    staleTime: 2 * 60_000,
   });
   const studentAssignments = (studentAssignmentsData ?? []) as any[];
 

@@ -41,6 +41,7 @@ export default function RubricTab() {
   const { data: rubrics = [] } = useQuery({
     queryKey: ["rubrics"],
     queryFn: () => fetchRubrics().then((r) => r.data),
+    staleTime: 5 * 60_000,
   });
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);

@@ -64,6 +64,7 @@ export default function MyResponses() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: queryKeys.questionnaires.myResponses(params),
     queryFn: () => getMyResponses(params).then((r) => r.data),
+    staleTime: 5 * 60_000,
   });
 
   const responses = data?.items ?? [];

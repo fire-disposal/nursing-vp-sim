@@ -42,12 +42,14 @@ export default function QARecordsTab() {
     queryKey: ["qaHistory", offset, search],
     queryFn: () => getQAHistoryAll({ offset, limit: LIMIT, search: search || undefined }).then((r) => r.data),
     placeholderData: (prev) => prev,
+    staleTime: 2 * 60_000,
   });
 
   const { data: previewMessages, isLoading: loadingPreview } = useQuery({
     queryKey: ["qaSessionMessages", previewSessionId],
     queryFn: () => getQASessionMessagesAdmin(previewSessionId!).then((r) => r.data ?? []),
     enabled: previewSessionId !== null,
+    staleTime: 2 * 60_000,
   });
 
   const messages = previewMessages ?? [];

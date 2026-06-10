@@ -20,19 +20,20 @@ log = logging.getLogger(__name__)
 # ── 显示标签映射（向后兼容） ──
 # (信赖, 舒适) → 标签
 STATE_LABELS: list[tuple[tuple[int, int], str, str]] = [
-    ((30, 30), "withdrawn", "沉默敷衍，回答极其简短"),
-    ((30, 0),  "defensive", "防御抵触，需要安抚"),
-    ((30, 60), "neutral",   "正常配合，有所保留"),
-    ((0,  60), "relaxed",   "放松配合，语气友好"),
     ((70, 70), "open",      "开放信任，愿意详述"),
+    ((30, 60), "relaxed",   "放松配合，语气友好"),
+    ((30, 30), "neutral",   "正常配合，有所保留"),
+    ((30, 0),  "defensive", "防御抵触，需要安抚"),
+    ((0,  0),  "withdrawn", "沉默敷衍，回答极其简短"),
 ]
 
 
 def _lookup_state(trust: int, comfort: int) -> tuple[str, str]:
+    best = ("neutral", "正常配合")
     for (t_min, c_min), label, desc in STATE_LABELS:
         if trust >= t_min and comfort >= c_min:
-            return label, desc
-    return "neutral", "正常配合"
+            return label, desc  # first match with highest priority
+    return best
 
 
 # ── 意图 → (trust_delta, comfort_delta) ──

@@ -42,6 +42,7 @@ export default function History() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["records", offset, filters],
     queryFn: () => getRecords(params).then((r) => r.data),
+    staleTime: 2 * 60_000,
   });
 
   const records = data?.items ?? [];

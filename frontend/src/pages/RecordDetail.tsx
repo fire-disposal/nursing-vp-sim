@@ -305,6 +305,7 @@ export default function RecordDetail() {
     queryFn: () => getScoreReview(id!).then((r) => r.data),
     enabled: !!id && !!record?.score,
     placeholderData: (prev) => prev,
+    staleTime: 2 * 60_000,
   });
 
   useEffect(() => {
