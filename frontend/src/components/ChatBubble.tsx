@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import { getEmotionBorder, useEmotion, usePortrait } from "@/engine/PluginContext";
 import type { ChatMessage } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -8,7 +9,11 @@ interface ChatBubbleProps {
   nurseAvatar: string;
 }
 
-export default function ChatBubble({ message, patientAvatar, nurseAvatar }: ChatBubbleProps) {
+export function ChatBubble({ message, patientAvatar, nurseAvatar }: ChatBubbleProps) {
+  const { emotion } = useEmotion();
+  const { portraitUrl } = usePortrait();
+  const displayAvatar = portraitUrl || patientAvatar;
+
   if (message.role === "system") {
     return (
       <div className="flex justify-center" data-role="system">
@@ -23,11 +28,12 @@ export default function ChatBubble({ message, patientAvatar, nurseAvatar }: Chat
   if (message.role === "patient") {
     return (
       <div className="flex items-end gap-2 justify-start" data-role="patient">
-        <img className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted" src={patientAvatar} alt="患者" />
+        <img className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted" src={displayAvatar} alt="患者" />
         <div
           className={cn(
-            "max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl text-sm leading-relaxed break-words",
-            "bg-card text-foreground border border-border rounded-bl-md",
+            "max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed break-words",
+            "bg-card text-foreground border-2 rounded-bl-md",
+            getEmotionBorder(emotion),
             message.streaming && "after:content-['▎'] after:animate-pulse after:text-primary after:font-bold",
           )}
         >
@@ -43,7 +49,6 @@ export default function ChatBubble({ message, patientAvatar, nurseAvatar }: Chat
         className={cn(
           "max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed break-words",
           "bg-primary text-primary-foreground",
-          message.streaming && "after:content-['|'] after:animate-pulse",
         )}
       >
         {message.content}

@@ -1,53 +1,27 @@
-// frontend/src/engine/TrainingEngine.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChatArea } from "@/components/training/ChatArea";
+import { PanelHost } from "@/components/training/PanelHost";
+import { TrainingHeader } from "@/components/training/TrainingHeader";
+import { QuestionnaireOverlay } from "@/plugins/questionnaire/QuestionnaireOverlay";
+import { ScoreCard } from "@/plugins/scoring-display/ScoreCard";
+import { ScoringOverlay } from "@/plugins/scoring-display/ScoringOverlay";
 import { createMessageBus } from "./MessageBus";
 import { PatientProvider, usePatient } from "./PatientProvider";
+import type { EmotionState } from "./PluginContext";
+import { EmotionProvider, PortraitProvider, useEmotion, usePortrait } from "./PluginContext";
 import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
-import { SlotRenderer } from "./SlotRenderer";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
-import type { ChatMessage, LayoutDef, SlotName, SlotProps, TrainingPlugin } from "./types";
-import { useResponsiveLayout } from "./useResponsiveLayout";
-
-const DEFAULT_LAYOUT: LayoutDef = {
-  breakpoints: {
-    desktop: {
-      areas: [
-        ["header", "header"],
-        ["content", "panel"],
-        ["footer", "footer"],
-      ],
-      slots: {
-        header: { render: "inline" },
-        content: { render: "inline" },
-        panel: { render: "inline", priority: 2 },
-        footer: { render: "inline" },
-        overlay: { render: "modal" },
-      },
-    },
-    mobile: {
-      areas: [["header"], ["content"], ["footer"]],
-      slots: {
-        header: { render: "inline" },
-        content: { render: "inline" },
-        footer: { render: "inline" },
-        panel: { render: "modal" },
-        overlay: { render: "modal" },
-      },
-    },
-  },
-  sidebarBehavior: "collapsible",
-  panelBehavior: "inline",
-};
+import type { ChatMessage, PanelPlugin, PluginContext } from "./types";
 
 interface TrainingEngineProps {
   recordId: string;
-  scenarioConfig?: { features?: Record<string, boolean>; layout?: LayoutDef; plugins?: string[] };
-  plugins: TrainingPlugin[];
+  features: Record<string, boolean>;
+  panelPlugins: PanelPlugin[];
 }
 
-function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngineProps) {
+function TrainingEngineInner({ recordId, features, panelPlugins }: TrainingEngineProps) {
   const { patient, loading } = usePatient();
   const recordNum = Number(recordId);
 
@@ -55,6 +29,10 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
   const streamRef = useRef(new StreamManager(recordNum));
   const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
   const ttsRef = useRef(new TTSManager({ autoPlay: true }));
+  const cleanupRefs = useRef(new Map<string, (() => void) | void>());
+
+  const { setEmotion } = useEmotion();
+  const { setPortraitUrl } = usePortrait();
 
   useEffect(() => {
     ttsRef.current.attach(busRef.current);
@@ -75,37 +53,24 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
     };
   }, [recordNum]);
 
-  const [_score, setScore] = useState(scoreRef.current.score);
-  const [_progress, setProgress] = useState(scoreRef.current.progress);
-
   useEffect(() => {
     scoreRef.current.setRecordId(recordNum);
-    const unsub = scoreRef.current.subscribe(() => {
-      setScore(scoreRef.current.score);
-      setProgress(scoreRef.current.progress);
-    });
-    return unsub;
   }, [recordNum]);
 
-  const [registryVersion, setRegistryVersion] = useState(0);
+  const [_registryVer, setRegistryVer] = useState(0);
 
   useEffect(() => {
-    pluginRegistry.setFeatureFlags(scenarioConfig?.features ?? {});
-    for (const p of plugins) pluginRegistry.register(p);
-    setRegistryVersion(pluginRegistry.version);
+    pluginRegistry.setFeatureFlags(features);
+    for (const p of panelPlugins) pluginRegistry.register(p);
+    setRegistryVer(pluginRegistry.version);
   }, []);
 
   useEffect(() => {
-    const unsub = busRef.current.on("plugins:updated", () => {
-      setRegistryVersion(pluginRegistry.version);
-    });
+    const unsub = busRef.current.on("plugins:updated", () => setRegistryVer(pluginRegistry.version));
     return unsub;
   }, []);
 
-  const activePlugins = useMemo(() => pluginRegistry.getActive(), [registryVersion]);
-
-  const layout = scenarioConfig?.layout ?? DEFAULT_LAYOUT;
-  const grid = useResponsiveLayout(layout);
+  const activePlugins = useMemo(() => pluginRegistry.getActive(features), [features, _registryVer]);
 
   const sendMessage = useCallback((text: string) => {
     streamRef.current.send(text, {
@@ -120,28 +85,57 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
     busRef.current.emit("training:ended");
   }, []);
 
-  const slotProps: SlotProps = useMemo(
+  const ctx: PluginContext = useMemo(
     () => ({
-      ctx: {
-        recordId,
-        bus: busRef.current,
-        patient: patient!,
-        messages,
-        loading: sending,
-        tts: {
-          isAutoPlay: ttsAutoPlay,
-          setAutoPlay: setTtsAutoPlay,
-        },
-        sendMessage,
-        endTraining,
-      },
-      features: scenarioConfig?.features ?? {},
-      currentPhase: "history_taking",
-      phaseCount: 1,
-      advancePhase: () => {},
+      recordId,
+      bus: busRef.current,
+      patient: patient!,
+      messages,
+      loading: sending,
+      tts: { isAutoPlay: ttsAutoPlay, setAutoPlay: setTtsAutoPlay },
+      sendMessage,
+      endTraining,
     }),
-    [recordId, patient, messages, sending, sendMessage, endTraining, scenarioConfig?.features],
+    [recordId, patient, messages, sending, ttsAutoPlay, sendMessage, endTraining],
   );
+
+  useEffect(() => {
+    const cleanups = cleanupRefs.current;
+    for (const plugin of activePlugins) {
+      if (cleanups.has(plugin.id)) continue;
+      if (plugin.hooks?.onInit) {
+        const cleanup = plugin.hooks.onInit(ctx);
+        cleanups.set(plugin.id, cleanup);
+      }
+    }
+  }, [activePlugins, ctx]);
+
+  const processedMessages = useMemo(() => {
+    let msgs = [...messages];
+    for (const plugin of activePlugins) {
+      if (plugin.hooks?.afterReceive) {
+        const next: ChatMessage[] = [];
+        for (const msg of msgs) {
+          const result = plugin.hooks.afterReceive(msg, ctx);
+          if (result !== null) next.push(result);
+        }
+        msgs = next;
+      }
+    }
+    return msgs;
+  }, [messages, activePlugins, ctx]);
+
+  useEffect(() => {
+    return busRef.current.on("emotion:changed", (data: { emotion: EmotionState }) => {
+      setEmotion(data.emotion);
+    });
+  }, [setEmotion]);
+
+  useEffect(() => {
+    return busRef.current.on("portrait:changed", (data: { url: string }) => {
+      setPortraitUrl(data.url);
+    });
+  }, [setPortraitUrl]);
 
   if (loading) {
     return (
@@ -155,24 +149,40 @@ function TrainingEngineInner({ recordId, scenarioConfig, plugins }: TrainingEngi
     return <div className="flex h-screen items-center justify-center text-muted-foreground">患者信息加载失败</div>;
   }
 
-  const gridTemplateAreas = grid.areas.map((row) => `"${row.join(" ")}"`).join(" ");
-
   return (
-    <div
-      className="h-screen gap-2 p-2"
-      style={{
-        display: "grid",
-        gridTemplateAreas,
-        gridTemplateColumns: "1fr minmax(36px, 300px)",
-        gridTemplateRows: "auto 1fr auto",
-      }}
-    >
-      {(["header", "sidebar", "content", "panel", "footer", "overlay", "input-toolbar", "sidebar-tray"] as SlotName[]).map((name) => {
-        const def = grid.slots[name as SlotName];
-        if (!def) return null;
-        return <SlotRenderer key={name} name={name} plugins={activePlugins} definition={def} slotProps={slotProps} />;
-      })}
-    </div>
+    <EmotionProvider>
+      <PortraitProvider>
+        <div
+          className="h-screen"
+          style={{
+            display: "grid",
+            gridTemplateAreas: '"header header" "content panel"',
+            gridTemplateColumns: "1fr auto",
+            gridTemplateRows: "auto 1fr",
+          }}
+        >
+          <div style={{ gridArea: "header" }}>
+            <TrainingHeader
+              patient={patient}
+              messages={processedMessages}
+              ttsAutoPlay={ttsAutoPlay}
+              onTtsToggle={() => setTtsAutoPlay((v) => !v)}
+              onEnd={endTraining}
+              sending={sending}
+            />
+          </div>
+          <div style={{ gridArea: "content", overflow: "hidden" }}>
+            <ChatArea messages={processedMessages} patient={patient} sending={sending} onSend={sendMessage} bus={busRef.current} />
+          </div>
+          <div style={{ gridArea: "panel" }}>
+            <PanelHost ctx={ctx} features={features} plugins={activePlugins} />
+          </div>
+        </div>
+        <QuestionnaireOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+        <ScoringOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+        <ScoreCard ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+      </PortraitProvider>
+    </EmotionProvider>
   );
 }
 
