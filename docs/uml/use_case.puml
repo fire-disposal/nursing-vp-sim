@@ -1,0 +1,122 @@
+@startuml 虚拟患者训练系统-用例图
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam packageFontSize 13
+
+left to right direction
+
+' ============================================================
+' 角色
+' ============================================================
+actor "学生" as Student <<主要使用者>>
+actor "教师" as Teacher <<主要使用者>>
+actor "管理员" as Admin <<系统管理员>>
+actor "LLM 引擎" as LLM <<外部系统>>
+actor "微信小程序" as WeChat <<外部渠道>>
+actor "OpenAI兼容API" as API <<外部服务>>
+
+' ============================================================
+' 学生用例
+' ============================================================
+package "学生功能" #E8F5E9 {
+  usecase (登录/注册) as UC_Login
+  usecase (微信登录绑定) as UC_Wechat
+  usecase (选择病例开始训练) as UC_Start
+  usecase (与虚拟患者对话\nSSE 流式响应) as UC_Chat
+  usecase (查看训练记录) as UC_History
+  usecase (查看AI评分详情) as UC_Score
+  usecase (填写评估问卷) as UC_Survey
+  usecase (护理知识问答) as UC_QA
+  usecase (管理个人信息) as UC_Profile
+  usecase (查看训练统计) as UC_Stats
+}
+
+Student --> UC_Login
+Student --> UC_Wechat
+Student --> UC_Start
+Student --> UC_Chat
+Student --> UC_History
+Student --> UC_Score
+Student --> UC_Survey
+Student --> UC_QA
+Student --> UC_Profile
+Student --> UC_Stats
+
+UC_Wechat ..> WeChat : 微信OAuth
+UC_Start ..> UC_Login : <<include>>
+UC_Chat ..> UC_Start : <<include>>
+UC_Score ..> UC_History : <<extend>>
+
+' ============================================================
+' 教师用例
+' ============================================================
+package "教师功能" #F3E5F5 {
+  usecase (管理病例\n含AI辅助生成) as UC_Case
+  usecase (创建/管理作业) as UC_Assignment
+  usecase (审阅AI评分) as UC_Review
+  usecase (查看班级/学生统计) as UC_TeacherStats
+  usecase (管理班级与年级) as UC_ClassMgmt
+  usecase (管理学生账号) as UC_UserMgmt
+  usecase (导出训练报表) as UC_Export
+}
+
+Teacher --> UC_Case
+Teacher --> UC_Assignment
+Teacher --> UC_Review
+Teacher --> UC_TeacherStats
+Teacher --> UC_ClassMgmt
+Teacher --> UC_UserMgmt
+Teacher --> UC_Export
+
+UC_Review ..> UC_Score : <<extend>>
+
+' ============================================================
+' 管理员用例
+' ============================================================
+package "管理员功能" #E3F2FD {
+  usecase (管理学校/多租户) as UC_School
+  usecase (角色与权限配置) as UC_RBAC
+  usecase (LLM API密钥管理) as UC_ApiKey
+  usecase (LLM配置策略\n多模型路由/权重/熔断) as UC_LLMConfig
+  usecase (Prompt模板管理\n版本化/激活/预览) as UC_Prompt
+  usecase (评分量表管理) as UC_Rubric
+  usecase (LLM调用日志审计) as UC_Audit
+  usecase (用户反馈管理) as UC_Feedback
+  usecase (插件功能开关) as UC_FeatureFlags
+  usecase (系统健康检查) as UC_Health
+}
+
+Admin --> UC_School
+Admin --> UC_RBAC
+Admin --> UC_ApiKey
+Admin --> UC_LLMConfig
+Admin --> UC_Prompt
+Admin --> UC_Rubric
+Admin --> UC_Audit
+Admin --> UC_Feedback
+Admin --> UC_FeatureFlags
+Admin --> UC_Health
+
+' ============================================================
+' 跨角色关系
+' ============================================================
+Admin --|> Teacher : 管理员包含教师权限
+Teacher --|> Student : 教师可模拟学生视角
+
+' 学生开始训练依赖病例数据
+UC_Start ..> UC_Case : <<uses>>
+
+' LLM 依赖
+UC_Chat ..> LLM : 患者角色扮演
+UC_Case ..> LLM : AI病例生成
+UC_Review ..> LLM : AI自动评分
+
+LLM ..> API : 调用
+
+' 管理员密钥配置驱动LLM
+UC_ApiKey ..> UC_Chat : <<使用>>
+
+' 管理员Prompt模板驱动患者行为
+UC_Prompt ..> UC_Chat : <<使用>>
+
+@enduml

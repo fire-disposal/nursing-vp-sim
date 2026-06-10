@@ -99,6 +99,7 @@ def client(engine, db_session):
     app.state.prompt_manager = mock_pm
 
     mock_router = MagicMock()
+    mock_router.load_from_db = AsyncMock()
     mock_router.select = MagicMock(return_value=MagicMock(model="test-model"))
     mock_router.get_decrypted_key = MagicMock(return_value="sk-test")
     mock_router.report_result = AsyncMock()

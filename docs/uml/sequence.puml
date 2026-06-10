@@ -1,0 +1,117 @@
+@startuml 虚拟患者训练系统-训练会话时序图
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam ParticipantFontSize 13
+skinparam NoteFontSize 11
+
+title 完整训练会话流程 (含SSE流式对话与自动评分)
+
+actor "学生" as Student
+participant "前端\nReact SPA" as Frontend
+participant "FastAPI\n后端路由" as Router
+participant "Pipeline\n中间件管线" as Pipeline
+participant "LLMClient\n多模型路由" as LLMClient
+participant "数据库\nPostgreSQL" as DB
+participant "Settlement\n结算服务" as Settlement
+
+' ============================================================
+' 阶段1: 开始训练
+' ============================================================
+group 阶段1: 开始训练
+
+  Student -> Frontend: 选择病例, 点击"开始训练"
+  Frontend -> Router: POST /training/start\n{case_id, config_id?}
+  Router -> DB: 查询 Case + 验证权限
+  DB --> Router: Case 数据
+  Router -> DB: INSERT TrainingRecord\n(status=in_progress, start_time=now)
+  DB --> Router: record_id
+  Router -> Pipeline: 构建初始 prompt (患者问候语)
+  Pipeline -> LLMClient: 调用患者模型生成 greeting
+  LLMClient --> Pipeline: greeting 消息
+  Pipeline -> DB: INSERT Message (role=assistant, greeting)
+  Router --> Frontend: {record_id, greeting, case_name}
+  Frontend -> Frontend: 渲染聊天界面, 显示问候语
+end
+
+' ============================================================
+' 阶段2: 对话循环 (SSE 流式)
+' ============================================================
+group 阶段2: SSE 流式对话
+
+  Student -> Frontend: 输入病史采集问题
+  Frontend -> Router: POST /training/{id}/chat\n(SSE 流式)\n{content: "您哪里不舒服?"}
+
+  note over Router: rate_limit 检查
+
+  Router -> DB: INSERT Message (role=user)
+  Router -> Pipeline: 构建 PipelineContext\n(stream_mode=True)
+
+  ' -- 管线执行 --
+  Router -> Pipeline: run_pipeline(ctx, pipe)
+
+  activate Pipeline
+
+  Pipeline -> Pipeline: [1] phase_guard\n检查阶段锁定
+
+  Pipeline -> Pipeline: [2] operation_detector\n识别操作命令 (/bp, /temp...)
+
+  Pipeline -> Pipeline: [3] operation_executor\n执行查体等操作
+
+  Pipeline -> Pipeline: [4] emotion_tracker\n情绪状态机更新
+
+  Pipeline -> Pipeline: [5] initiative_timer_reset\n重置患者主动追问计时器
+
+  Pipeline -> Pipeline: [6] phase_transition\n判断是否进入下一阶段
+
+  Pipeline -> Pipeline: [7] prompt_builder\n组装 system_prompt + messages + 情绪/操作注记
+
+  Pipeline -> LLMClient: [8] llm_caller\n调用 LLM (stream=True)
+
+  activate LLMClient
+  LLMClient -> LLMClient: ProfileRouter 路由选 Key\n(健康检查 → 多 key 加权 → 熔断)
+
+  note over LLMClient: 构造请求:\nprovider=deepseek\nmodel=deepseek-chat\ntemperature=1.0
+
+  LLMClient -> LLMClient: POST /v1/chat/completions
+
+  loop SSE chunk
+    LLMClient --> Pipeline: data: {"choices":[{"delta":{"content":"..."}}]}
+    Pipeline -> Pipeline: [9] identity_leak_check\n角色泄露检测
+    Pipeline --> Frontend: SSE: {"role":"assistant","content":"..."}
+    Frontend -> Frontend: 逐字渲染患者回复
+  end
+
+  deactivate LLMClient
+
+  Pipeline -> DB: [10] persister\nINSERT Message (role=assistant)\n+ INSERT LLMCallLog
+
+  Pipeline -> Pipeline: [11] side_effects\n更新情绪/initiative 缓存
+
+  deactivate Pipeline
+end
+
+' ============================================================
+' 阶段3: 结束训练
+' ============================================================
+group 阶段3: 结束训练
+
+  Student -> Frontend: 点击"结束训练" 或 超时自动结束
+  Frontend -> Router: POST /training/{id}/end
+  Router -> DB: UPDATE TrainingRecord\n(status=completed, end_time=now)
+  DB --> Router: OK
+
+  Router -> Settlement: 触发结算队列\nenqueue(record_id)
+
+  note over Settlement: 异步结算流程
+  Settlement -> DB: 查询 messages + rubric
+  Settlement -> Pipeline: 构建评分 prompt
+  Pipeline -> LLMClient: 调用评分模型\n(scoring_prompt)
+  LLMClient --> Pipeline: 评分结果 (19个维度)
+  Pipeline -> DB: INSERT Score\n(total_score, detail_scores,\n strengths, weaknesses, suggestions)
+  Pipeline -> DB: UPDATE TrainingRecord\n(scoring_status=completed)
+
+  Router --> Frontend: {message: "训练已结束"}
+  Frontend -> Frontend: 轮询 /training/{id}/score, 展示评分
+end
+
+@enduml

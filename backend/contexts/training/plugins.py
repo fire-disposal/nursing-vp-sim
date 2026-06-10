@@ -52,3 +52,6 @@ physical_exam_plugin = PipelinePlugin(
 def register_all_plugins():
     for p in [emotion_plugin, initiative_plugin, physical_exam_plugin]:
         register_plugin(p)
+
+
+register_all_plugins()

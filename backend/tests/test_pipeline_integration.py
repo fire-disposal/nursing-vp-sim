@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from contexts.training.pipeline import PipelineContext, run_pipeline, get_pipeline
 from contexts.training.pipeline.phase import Phase
+from contexts.training import plugins  # ensure plugin registry is populated
 
 
 @pytest.mark.asyncio
@@ -32,6 +33,11 @@ async def test_pipeline_shortcuts_on_operation():
     app_state.httpx_client = MagicMock()
     app_state.llm_router = MagicMock()
     app_state.log_worker = MagicMock()
+    mock_llm_client = MagicMock()
+    mock_llm_client.call = AsyncMock(return_value="mock reply")
+    mock_llm_client.call_json = AsyncMock(return_value={})
+    mock_llm_client.stream = AsyncMock()
+    app_state.llm_client = mock_llm_client
 
     case_data = {
         "exam_anchors": {
@@ -57,7 +63,7 @@ async def test_pipeline_shortcuts_on_operation():
     ctx.setup_phases()
     ctx.current_phase = Phase(id="history_taking", operations=["chat", "vitals", "bp", "temp", "spo2", "hr", "rr"])
 
-    pipe = get_pipeline("history_taking")
+    pipe = get_pipeline("history_taking", {"physical_exam": True})
     await run_pipeline(ctx, pipe)
 
     assert ctx.should_shortcut is True
@@ -91,6 +97,11 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     app_state.httpx_client = MagicMock()
     app_state.llm_router = MagicMock()
     app_state.log_worker = MagicMock()
+    mock_llm_client2 = MagicMock()
+    mock_llm_client2.call = AsyncMock(return_value="mock reply")
+    mock_llm_client2.call_json = AsyncMock(return_value={})
+    mock_llm_client2.stream = AsyncMock()
+    app_state.llm_client = mock_llm_client2
 
     case_data = {
         "patient_info": {"name": "test", "age": 30, "gender": "男"},

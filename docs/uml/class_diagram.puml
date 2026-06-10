@@ -1,0 +1,388 @@
+@startuml 虚拟患者训练系统-核心类图
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam packageBorderColor #334455
+skinparam packageFontSize 13
+
+' ============================================================
+' 访问控制与组织 (Access Control & Organization)
+' ============================================================
+package "访问控制" #E8F5E9 {
+  class School {
+    + id: int (PK)
+    + name: str
+    + created_at: datetime
+  }
+
+  class Role {
+    + id: int (PK)
+    + name: str
+    + display_name: str
+    + school_id: int (FK)
+    + is_system: bool
+  }
+
+  class RolePermission {
+    + id: int (PK)
+    + role_id: int (FK)
+    + permission: str
+  }
+
+  class User {
+    + id: int (PK)
+    + username: str (UNIQUE)
+    + password_hash: str
+    + role_id: int (FK)
+    + school_id: int (FK)
+    + display_name: str
+    + student_id: str?
+    + gender: str?
+    + avatar: str?
+    + wechat_openid: str? (UNIQUE)
+    + created_at: datetime
+    --
+    + has_permission(permission)
+    + set_permissions_cache(permissions)
+  }
+}
+
+package "组织架构" #F3E5F5 {
+  class Grade {
+    + id: int (PK)
+    + name: str
+    + school_id: int (FK)
+    + created_at: datetime
+  }
+
+  class Class {
+    + id: int (PK)
+    + name: str
+    + grade_id: int (FK)
+    + created_at: datetime
+  }
+
+  class UserClass {
+    + user_id: int (PK, FK)
+    + class_id: int (PK, FK)
+    + joined_at: datetime
+  }
+}
+
+' ============================================================
+' 核心训练域 (Core Training Domain)
+' ============================================================
+package "病例与训练" #E3F2FD {
+  class Case <<JSONB聚合根>> {
+    + id: int (PK)
+    + name: str
+    + description: str?
+    + case_data: JSONB
+    + school_id: int? (FK)
+    + created_at: datetime
+  }
+
+  class Assignment {
+    + id: str (PK, UUID)
+    + case_id: int (FK)
+    + class_id: int (FK)
+    + teacher_id: int (FK)
+    + title: str
+    + description: str?
+    + config_id: str
+    + feature_overrides: JSONB
+    + start_time: datetime
+    + end_time: datetime
+    + created_at: datetime
+    + updated_at: datetime
+  }
+
+  class TrainingRecord <<会话聚合根>> {
+    + id: int (PK)
+    + user_id: int (FK)
+    + case_id: int (FK)
+    + assignment_id: str? (FK)
+    + status: str
+    + scoring_status: str?
+    + scoring_error: str?
+    + time_limit: int
+    + config_id: str?
+    + config_snapshot: JSONB?
+    + current_phase: str?
+    + is_overdue: bool
+    + start_time: datetime
+    + end_time: datetime?
+  }
+
+  class Message {
+    + id: int (PK)
+    + record_id: int (FK)
+    + role: str
+    + content: Text
+    + created_at: datetime
+  }
+
+  class Score {
+    + id: int (PK)
+    + record_id: int (FK, UNIQUE)
+    + total_score: float
+    + detail_scores: JSONB?
+    + strengths: JSONB?
+    + weaknesses: JSONB?
+    + missed_content: JSONB?
+    + suggestions: Text?
+    + rubric_version: str?
+    + model_name: str?
+    + review_status: str?
+    + reviewed_by: int?
+    + reviewed_at: datetime?
+    + review_detail_scores: JSONB?
+    + review_comment: Text?
+  }
+
+  class Note {
+    + id: int (PK)
+    + record_id: int (FK)
+    + user_id: int (FK)
+    + content: Text
+    + created_at: datetime
+    + updated_at: datetime
+  }
+}
+
+' ============================================================
+' 插件域 (Plugin Domain)
+' ============================================================
+package "护理插件" #FFF3E0 {
+  class NursingRecord {
+    + id: int (PK)
+    + record_id: int (FK, UNIQUE)
+    + user_id: int (FK)
+    + sheet_data: JSONB
+    + status: str
+    + created_at: datetime
+    + updated_at: datetime
+  }
+}
+
+' ============================================================
+' 问卷域 (Questionnaire Domain)
+' ============================================================
+package "问卷评估" #E8EAF6 {
+  class QuestionnaireTemplate <<聚合根>> {
+    + id: int (PK)
+    + school_id: int? (FK)
+    + title: str
+    + type: str
+    + description: str?
+    + is_active: bool
+    + created_at: datetime
+  }
+
+  class QuestionnaireQuestion {
+    + id: int (PK)
+    + template_id: int (FK)
+    + sort_order: int
+    + content: Text
+    + question_type: str
+    + required: bool
+    + options: JSONB?
+  }
+
+  class QuestionnaireResponse <<聚合根>> {
+    + id: int (PK)
+    + template_id: int (FK)
+    + user_id: int (FK)
+    + case_id: int? (FK)
+    + record_id: int? (FK)
+    + status: str
+    + completed_at: datetime?
+    + created_at: datetime
+  }
+
+  class QuestionnaireAnswer {
+    + id: int (PK)
+    + response_id: int (FK)
+    + question_id: int (FK)
+    + answer_value: str?
+  }
+
+  class CaseQuestionnaire {
+    + id: int (PK)
+    + case_id: int (FK)
+    + template_id: int (FK)
+    + is_required: bool
+    + trigger_event: str
+  }
+}
+
+' ============================================================
+' LLM 基础设施 (AI Infrastructure)
+' ============================================================
+package "LLM 基础设施" #FCE4EC {
+  class ApiSecret <<密钥>> {
+    + id: int (PK)
+    + label: str
+    + encrypted_key: Text
+    + key_suffix: str
+    + base_url: str
+    + status: str
+    + degraded_reason: str?
+    + degraded_until: datetime?
+    + price_input_per_1m: Numeric
+    + price_output_per_1m: Numeric
+    + monthly_cost_limit: Numeric?
+    + call_count_today: int
+    + total_tokens_today: BigInteger
+    + total_cost_today: Numeric
+    + monthly_cost_used: Numeric
+    + consecutive_failures: int
+    + last_used_at: datetime?
+  }
+
+  class LLMConfig {
+    + id: int (PK)
+    + secret_id: int (FK)
+    + label: str
+    + model: str
+    + purpose: str
+    + priority: int
+    + weight: int
+    + status: str
+    + price_input_per_1m: Numeric
+    + price_output_per_1m: Numeric
+    + monthly_cost_limit: Numeric?
+  }
+
+  class LLMCallLog <<审计日志>> {
+    + id: int (PK)
+    + user_id: int? (FK)
+    + record_id: int? (FK)
+    + case_id: int? (FK)
+    + purpose: str
+    + model: str
+    + prompt_tokens: int?
+    + completion_tokens: int?
+    + total_tokens: int?
+    + estimated_cost: float?
+    + latency_ms: int?
+    + status: str
+    + error_type: str?
+    + error_message: Text?
+    + request_text: Text?
+    + response_text: Text?
+    + created_at: datetime
+  }
+}
+
+' ============================================================
+' Prompt & Rubric (评估体系)
+' ============================================================
+package "评估体系" #F1F8E9 {
+  class PromptTemplate {
+    + id: int (PK)
+    + purpose: str
+    + version: int
+    + name: str?
+    + system_prompt: Text
+    + user_prompt: Text?
+    + template_engine: str
+    + variables: JSONB?
+    + is_active: bool
+    + created_by: str?
+    + remark: str?
+  }
+
+  class Rubric {
+    + id: int (PK)
+    + name: str
+    + version: str
+    + description: str?
+    + total_max: int
+    + raw_max: int
+    + raw_scale: int
+    + dimensions: JSONB
+    + is_active: bool
+  }
+}
+
+' ============================================================
+' QA & Feedback (辅助功能)
+' ============================================================
+package "问答与反馈" #ECEFF1 {
+  class QASession {
+    + id: int (PK)
+    + user_id: int (FK)
+    + title: str
+    + created_at: datetime
+    + updated_at: datetime
+  }
+
+  class QARecord {
+    + id: int (PK)
+    + session_id: int (FK)
+    + user_id: int (FK)
+    + role: str
+    + content: Text
+    + created_at: datetime
+  }
+
+  class Feedback {
+    + id: int (PK)
+    + user_id: int (FK)
+    + rating: int
+    + tag: str
+    + content: str?
+    + created_at: datetime
+  }
+}
+
+' ============================================================
+' 关系定义
+' ============================================================
+
+' -- 访问控制 --
+School  "1" -- "*" Role : roles
+School  "1" -- "*" User : users
+School  "1" -- "*" Grade : grades
+Role    "1" -- "*" RolePermission : permissions
+Role    "1" -- "*" User : users
+
+' -- 组织架构 --
+Grade  "1" -- "*" Class : classes
+Class  "1" -- "*" UserClass : enrollments
+User   "1" -- "0..1" UserClass : enrolled
+
+' -- 病例与训练 --
+User    "1" -- "*" TrainingRecord : sessions
+User    "1" -- "*" Note : notes
+Case    "1" -- "*" Assignment : assignments
+Case    "1" -- "*" TrainingRecord : training_sessions
+Class   "1" -- "*" Assignment : assignments
+User    "1" -- "*" Assignment : (teacher)
+Assignment "1" -- "*" TrainingRecord : records
+TrainingRecord "1" -- "*" Message : messages
+TrainingRecord "1" -- "0..1" Score : score
+TrainingRecord "1" -- "0..1" NursingRecord : nursing
+
+' -- 问卷 --
+QuestionnaireTemplate "1" -- "*" QuestionnaireQuestion : questions
+QuestionnaireTemplate "1" -- "*" QuestionnaireResponse : responses
+QuestionnaireTemplate "1" -- "*" CaseQuestionnaire : case_links
+QuestionnaireQuestion  "1" -- "*" QuestionnaireAnswer : answers
+QuestionnaireResponse  "1" -- "*" QuestionnaireAnswer : answers
+Case     "1" -- "*" CaseQuestionnaire : questionnaires
+Case     "1" -- "*" QuestionnaireResponse : questionnaire_responses
+User     "1" -- "*" QuestionnaireResponse : responses
+
+' -- LLM --
+ApiSecret "1" -- "*" LLMConfig : configs
+LLMConfig "1" -- "*" LLMCallLog : call_logs
+User      "1" -- "*" LLMCallLog : (optional, nullable)
+TrainingRecord "1" -- "*" LLMCallLog : (optional, nullable)
+
+' -- QA/反馈 --
+User      "1" -- "*" QASession : qa_sessions
+QASession "1" -- "*" QARecord : qa_records
+User      "1" -- "*" Feedback : feedbacks
+
+@enduml
