@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
@@ -295,7 +296,7 @@ export default function RecordDetail() {
   const user = useAuthStore((s) => s.user);
 
   const { data: record, isError: recordError } = useQuery({
-    queryKey: ["recordDetail", id],
+    queryKey: queryKeys.training.detail(id!),
     queryFn: () => getRecordDetail(id!).then((r) => r.data),
     enabled: !!id,
   });
@@ -378,7 +379,7 @@ export default function RecordDetail() {
       });
       toast.success("复核已提交");
       setShowReviewEditor(false);
-      queryClient.invalidateQueries({ queryKey: ["recordDetail", id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.training.detail(id!) });
       queryClient.invalidateQueries({ queryKey: ["scoreReview", id] });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } };

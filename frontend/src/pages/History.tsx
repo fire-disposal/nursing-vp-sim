@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteRecord, getRecords } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -40,7 +41,7 @@ export default function History() {
   if (filters.date_to) params.date_to = filters.date_to;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["records", offset, filters],
+    queryKey: queryKeys.training.records({ offset, ...filters }),
     queryFn: () => getRecords(params).then((r) => r.data),
     staleTime: 2 * 60_000,
   });

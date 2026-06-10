@@ -87,4 +87,14 @@ export const queryKeys = {
   },
   sessionConfigs: ["sessionConfigs"] as const,
   nursingRecord: (recordId: number) => ["nursingRecord", recordId] as const,
+  assignments: {
+    all: ["assignments"] as const,
+    list: (params?: Record<string, unknown>) => [...queryKeys.assignments.all, params] as const,
+    detail: (id: string) => ["assignments", "detail", id] as const,
+    student: ["student-assignments"] as const,
+  },
+  llmCallLogs: {
+    timeline: (recordId: number) => ["recordLogs", recordId] as const,
+    detail: (logId: number | null) => ["logDetail", logId] as const,
+  },
 } as const;

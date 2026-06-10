@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { askInQASession, askInQASessionStream, createQASession, deleteQASession, getQASessionMessages, getQASessions } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -53,7 +54,7 @@ export default function QA() {
   const toast = useToast();
 
   const { data: sessions = [] } = useQuery({
-    queryKey: ["qaSessions"],
+    queryKey: queryKeys.qa.sessions(),
     queryFn: () => getQASessions().then((r) => r.data || []),
     staleTime: 30_000,
   });
