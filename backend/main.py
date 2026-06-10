@@ -89,13 +89,6 @@ async def lifespan(app: FastAPI):
     )
     await app.state.log_worker.start()
 
-    app.state.llm_client = LLMClient(
-        http=app.state.httpx_client,
-        router=app.state.llm_router,
-        log_worker=app.state.log_worker,
-        metrics=metrics,
-    )
-
     app.state.task_queue = TaskQueue(max_workers=3)
     await app.state.task_queue.start()
     log.info("Task queue: 3 workers")
@@ -116,6 +109,13 @@ async def lifespan(app: FastAPI):
     )
     metrics.global_degraded_supplier = lambda: (
         app.state.llm_router.global_degraded if app.state.llm_router else False
+    )
+
+    app.state.llm_client = LLMClient(
+        http=app.state.httpx_client,
+        router=app.state.llm_router,
+        log_worker=app.state.log_worker,
+        metrics=metrics,
     )
 
     background_loop = asyncio.new_event_loop()

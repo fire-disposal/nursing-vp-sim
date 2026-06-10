@@ -17,7 +17,6 @@ log = logging.getLogger(__name__)
 
 
 class MetricsSnapshot:
-    __slots__ = ("started_at",)
 
     def __init__(self) -> None:
         self.started_at = time.time()
@@ -62,15 +61,15 @@ class MetricsSnapshot:
                 self._llm_latencies = self._llm_latencies[-self._LATENCY_BUFFER:]
 
     # ── active training sessions (set externally from app.state) ───────────
-    active_sessions_supplier: Callable[[], int] = lambda: 0
+    active_sessions_supplier: Callable[..., int] = lambda _self: 0
 
     # ── queue sizes (set externally) ───────────────────────────────────────
-    task_queue_size_supplier: Callable[[], int] = lambda: 0
-    log_queue_size_supplier: Callable[[], int] = lambda: 0
+    task_queue_size_supplier: Callable[..., int] = lambda _self: 0
+    log_queue_size_supplier: Callable[..., int] = lambda _self: 0
 
     # ── circuit breaker / LLM router status ────────────────────────────────
-    degraded_providers_supplier: Callable[[], int] = lambda: 0
-    global_degraded_supplier: Callable[[], bool] = lambda: False
+    degraded_providers_supplier: Callable[..., int] = lambda _self: 0
+    global_degraded_supplier: Callable[..., bool] = lambda _self: False
 
     # ── helpers ────────────────────────────────────────────────────────────
     @staticmethod
