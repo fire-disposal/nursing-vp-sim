@@ -73,6 +73,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const { openFeedback } = useFeedback();
   const isTrainingPage = location.pathname.startsWith("/training/");
+  const isQAPage = location.pathname.startsWith("/qa");
+  const isFullPage = isTrainingPage || isQAPage;
 
   const userAvatar = getUserAvatar(user?.gender);
   const currentSchoolName = user?.school_name || "";
@@ -227,7 +229,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <span className="text-sm font-semibold">虚拟患者系统</span>
           </div>
         </div>
-        {isTrainingPage ? children : <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>}
+        {isFullPage ? children : <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>}
       </div>
     </div>
   );
