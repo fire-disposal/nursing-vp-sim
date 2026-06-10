@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-push: tag format & counter validation
+# Pre-push: migration conflict detection + tag format & counter validation
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,6 +12,15 @@ NC='\033[0m'
 say()  { echo "${CYAN}$1${NC}"; }
 ok()   { echo "  ${GREEN}ok${NC}  $1"; }
 fail() { echo "  ${RED}FAIL${NC} $1"; PASS=1; }
+
+# ═══ Migration conflict detection ═══
+if git diff --cached --name-only -- backend/migrations/versions/ 2>/dev/null | grep -q '.'; then
+  if git diff --cached -- backend/migrations/versions/ | grep -qE '^\+<<<<<<<|^\+=======|^\+>>>>>>>'; then
+    fail "merge conflict markers in migration files — resolve before pushing"
+  else
+    ok "no merge conflicts in migrations"
+  fi
+fi
 
 pattern='^v([0-9]{4})\.([0-9]{2})\.([0-9]{2})-([1-9][0-9]*)$'
 today=$(date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d 2>/dev/null || echo "")
