@@ -20,6 +20,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { exportRecords, getCases, getDurationStats, getRecords, getStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import TrainingDurationChart from "@/components/dashboard/TrainingDurationChart";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { useToast } from "@/components/Toast";
@@ -153,6 +154,7 @@ function StudentDashboard({
 }) {
   const location = useLocation();
   const { openFeedback, showPrompt } = useFeedback();
+  const toast = useToast();
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
@@ -167,6 +169,21 @@ function StudentDashboard({
   const latestCompleted = records.find((r) => r.status === "completed" && r.score_total != null);
   const completedCount = records.filter((r) => r.status === "completed").length;
   const latestScore = latestCompleted?.score_total;
+
+  const { data: studentAssignmentsData } = useQuery({
+    queryKey: ["student-assignments"],
+    queryFn: () => getStudentAssignments().then((r) => r.data),
+  });
+  const studentAssignments = (studentAssignmentsData ?? []) as any[];
+
+  const handleStartAssignment = async (assignmentId: string) => {
+    try {
+      const res = await startAssignment(assignmentId);
+      navigate(`/training/${res.data.record_id}`);
+    } catch (e: any) {
+      toast.error(e.message || "开始练习失败");
+    }
+  };
 
   const scoreGrade: GradeInfo | null =
     latestScore != null
@@ -233,6 +250,54 @@ function StudentDashboard({
           color={scoreColor}
         />
       </div>
+
+      {studentAssignments.length > 0 && (
+        <div className="mb-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={18} className="text-primary" />
+            <h2 className="text-lg font-semibold">待完成练习</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {studentAssignments.map((a: any) => {
+              const isOverdue = a.status === "overdue";
+              const isCompleted = a.status === "completed";
+              const hoursLeft = Math.max(0, Math.ceil((new Date(a.end_time).getTime() - Date.now()) / (1000 * 60 * 60)));
+              return (
+                <Card key={a.id} size="sm" className={cn(isOverdue && "border-destructive/30 bg-destructive/5")}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{a.title}</div>
+                        <div className="text-xs text-muted-foreground">{a.case_name}</div>
+                      </div>
+                      {isCompleted ? (
+                        <Badge variant="outline" className="shrink-0 ml-2">
+                          已完成
+                        </Badge>
+                      ) : isOverdue ? (
+                        <Badge variant="destructive" className="shrink-0 ml-2">
+                          已逾期
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="shrink-0 ml-2">
+                          {hoursLeft > 24 ? `${Math.ceil(hoursLeft / 24)}天` : `${hoursLeft}小时`}
+                        </Badge>
+                      )}
+                    </div>
+                    {a.score_total != null && <div className="text-lg font-bold text-primary mb-2">{a.score_total} 分</div>}
+                    {!isCompleted && (
+                      <Button size="sm" className="w-full" onClick={() => handleStartAssignment(a.id)}>
+                        <Play size={14} className="mr-1" />
+                        开始练习
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] items-start">
         <div className="flex flex-col gap-6 min-w-0">

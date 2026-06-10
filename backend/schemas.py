@@ -155,6 +155,90 @@ class CaseGenerateResponse(BaseModel):
     field: str | None = None
 
 
+# ── Assignment ──
+
+class AssignmentCreateRequest(BaseModel):
+    model_config = _REQ_CFG
+    case_id: int
+    class_id: int
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    config_id: str = Field(default="standard-assessment", max_length=50)
+    feature_overrides: dict[str, bool] = Field(default_factory=dict)
+    start_time: datetime
+    end_time: datetime
+
+
+class AssignmentUpdateRequest(BaseModel):
+    model_config = _REQ_CFG
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    config_id: str | None = Field(default=None, max_length=50)
+    feature_overrides: dict[str, bool] | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+
+
+class AssignmentListItem(BaseModel):
+    model_config = _RESP_CFG
+    id: str
+    title: str
+    case_name: str = ""
+    class_name: str = ""
+    start_time: datetime
+    end_time: datetime
+    student_count: int = 0
+    completed_count: int = 0
+    created_at: datetime
+
+
+class AssignmentStudentItem(BaseModel):
+    model_config = _RESP_CFG
+    user_id: int
+    display_name: str
+    student_id: str | None = None
+    record_id: int | None = None
+    status: str = "not_started"
+    score_total: float | None = None
+    scoring_status: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    is_overdue: bool = False
+
+
+class AssignmentDetail(BaseModel):
+    model_config = _RESP_CFG
+    id: str
+    title: str
+    description: str | None = None
+    case_id: int
+    case_name: str = ""
+    class_id: int
+    class_name: str = ""
+    config_id: str
+    feature_overrides: dict[str, bool] = Field(default_factory=dict)
+    start_time: datetime
+    end_time: datetime
+    created_at: datetime
+    updated_at: datetime
+    student_count: int = 0
+    completed_count: int = 0
+    scored_count: int = 0
+    students: list["AssignmentStudentItem"] = Field(default_factory=list)
+
+
+class StudentAssignmentItem(BaseModel):
+    model_config = _RESP_CFG
+    id: str
+    title: str
+    case_name: str
+    start_time: datetime
+    end_time: datetime
+    status: str = "pending"
+    record_id: int | None = None
+    score_total: float | None = None
+
+
 # ── Training ──
 
 class TrainingStartRequest(BaseModel):
@@ -218,6 +302,7 @@ class TrainingRecordDetail(BaseModel):
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
     features: dict[str, bool] = Field(default_factory=dict)
+    _from_assignment: bool = False
 
 
 class ScoringTriggerResponse(BaseModel):
@@ -890,6 +975,7 @@ class MessageResponse(BaseModel):
 
 class OkResponse(BaseModel):
     ok: bool = True
+    message: str | None = None
 
 
 class ToggleStatusResponse(BaseModel):
@@ -1080,13 +1166,13 @@ class InitiativeTriggerResponse(BaseModel):
 
 
 class NursingRecordSave(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = _REQ_CFG
     sheet_data: dict = Field(default_factory=dict)
     status: str = "draft"
 
 
 class NursingRecordResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = _RESP_CFG
     id: int
     record_id: int
     sheet_data: dict

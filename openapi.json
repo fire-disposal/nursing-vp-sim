@@ -876,53 +876,6 @@
         }
       }
     },
-    "/api/admin/llm-logs/{log_id}": {
-      "get": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Get Llm Log Detail",
-        "operationId": "get_llm_log_detail_api_admin_llm_logs__log_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "log_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Log Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LLMCallLogItem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/llm-logs/export": {
       "get": {
         "tags": [
@@ -975,6 +928,53 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/llm-logs/{log_id}": {
+      "get": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Get Llm Log Detail",
+        "operationId": "get_llm_log_detail_api_admin_llm_logs__log_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "log_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Log Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMCallLogItem"
+                }
               }
             }
           },
@@ -5036,6 +5036,211 @@
         }
       }
     },
+    "/api/admin/scenarios": {
+      "get": {
+        "tags": [
+          "admin-scenarios"
+        ],
+        "summary": "List Scenarios",
+        "operationId": "list_scenarios_api_admin_scenarios_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin-scenarios"
+        ],
+        "summary": "Create Scenario",
+        "operationId": "create_scenario_api_admin_scenarios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/scenarios/{scenario_id}": {
+      "get": {
+        "tags": [
+          "admin-scenarios"
+        ],
+        "summary": "Get Scenario",
+        "operationId": "get_scenario_api_admin_scenarios__scenario_id__get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-scenarios"
+        ],
+        "summary": "Update Scenario",
+        "operationId": "update_scenario_api_admin_scenarios__scenario_id__put",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin-scenarios"
+        ],
+        "summary": "Delete Scenario",
+        "operationId": "delete_scenario_api_admin_scenarios__scenario_id__delete",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scenario Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/plugins": {
+      "get": {
+        "tags": [
+          "admin-plugins"
+        ],
+        "summary": "List Plugins",
+        "operationId": "list_plugins_api_admin_plugins_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/schools": {
       "get": {
         "tags": [
@@ -5430,6 +5635,53 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/training/start-from-assignment": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Start Training From Assignment",
+        "operationId": "start_training_from_assignment_api_training_start_from_assignment_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/training/configs": {
@@ -6065,6 +6317,96 @@
         }
       }
     },
+    "/api/training/{record_id}/emotion/history": {
+      "get": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Get Emotion History",
+        "operationId": "get_emotion_history_api_training__record_id__emotion_history_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/initiative/history": {
+      "get": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Get Initiative History",
+        "operationId": "get_initiative_history_api_training__record_id__initiative_history_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/{record_id}/features": {
       "put": {
         "tags": [
@@ -6242,7 +6584,6 @@
           "护理记录"
         ],
         "summary": "Get Nursing Record",
-        "description": "获取某次训练的护理记录",
         "operationId": "get_nursing_record_api_nursing_records__record_id__get",
         "security": [
           {
@@ -6288,7 +6629,6 @@
           "护理记录"
         ],
         "summary": "Save Nursing Record",
-        "description": "创建或更新某次训练的护理记录",
         "operationId": "save_nursing_record_api_nursing_records__record_id__post",
         "security": [
           {
@@ -6800,6 +7140,367 @@
         ]
       }
     },
+    "/api/assignments": {
+      "post": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "Create Assignment",
+        "operationId": "create_assignment_api_assignments_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "List Assignments",
+        "operationId": "list_assignments_api_assignments_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "active|ended",
+              "title": "Status"
+            },
+            "description": "active|ended"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_AssignmentListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assignments/{assignment_id}": {
+      "get": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "Get Assignment",
+        "operationId": "get_assignment_api_assignments__assignment_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "Update Assignment",
+        "operationId": "update_assignment_api_assignments__assignment_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "Delete Assignment",
+        "operationId": "delete_assignment_api_assignments__assignment_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assignments/{assignment_id}/export": {
+      "get": {
+        "tags": [
+          "练习发布"
+        ],
+        "summary": "Export Assignment",
+        "operationId": "export_assignment_api_assignments__assignment_id__export_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/students/assignments": {
+      "get": {
+        "tags": [
+          "学生练习"
+        ],
+        "summary": "List Student Assignments",
+        "operationId": "list_student_assignments_api_students_assignments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentAssignmentItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Student Assignments Api Students Assignments Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -7126,6 +7827,410 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ApiSecretUpdate"
+      },
+      "AssignmentCreateRequest": {
+        "properties": {
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "class_id": {
+            "type": "integer",
+            "title": "Class Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "config_id": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Config Id",
+            "default": "standard-assessment"
+          },
+          "feature_overrides": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Feature Overrides"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "case_id",
+          "class_id",
+          "title",
+          "start_time",
+          "end_time"
+        ],
+        "title": "AssignmentCreateRequest"
+      },
+      "AssignmentDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "class_id": {
+            "type": "integer",
+            "title": "Class Id"
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name",
+            "default": ""
+          },
+          "config_id": {
+            "type": "string",
+            "title": "Config Id"
+          },
+          "feature_overrides": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Feature Overrides"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "student_count": {
+            "type": "integer",
+            "title": "Student Count",
+            "default": 0
+          },
+          "completed_count": {
+            "type": "integer",
+            "title": "Completed Count",
+            "default": 0
+          },
+          "scored_count": {
+            "type": "integer",
+            "title": "Scored Count",
+            "default": 0
+          },
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentStudentItem"
+            },
+            "type": "array",
+            "title": "Students"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "case_id",
+          "class_id",
+          "config_id",
+          "start_time",
+          "end_time",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AssignmentDetail"
+      },
+      "AssignmentListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name",
+            "default": ""
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "student_count": {
+            "type": "integer",
+            "title": "Student Count",
+            "default": 0
+          },
+          "completed_count": {
+            "type": "integer",
+            "title": "Completed Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "start_time",
+          "end_time",
+          "created_at"
+        ],
+        "title": "AssignmentListItem"
+      },
+      "AssignmentStudentItem": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "not_started"
+          },
+          "score_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Total"
+          },
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name"
+        ],
+        "title": "AssignmentStudentItem"
+      },
+      "AssignmentUpdateRequest": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "config_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Id"
+          },
+          "feature_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature Overrides"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AssignmentUpdateRequest"
       },
       "BatchCreateResult": {
         "properties": {
@@ -7839,6 +8944,14 @@
           "note": {
             "type": "string",
             "title": "Note"
+          },
+          "history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "History"
           }
         },
         "type": "object",
@@ -7890,6 +9003,17 @@
             "type": "boolean",
             "title": "Ok",
             "default": true
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
           },
           "features": {
             "additionalProperties": true,
@@ -8175,6 +9299,22 @@
           "percent": {
             "type": "number",
             "title": "Percent"
+          },
+          "should_trigger": {
+            "type": "boolean",
+            "title": "Should Trigger",
+            "default": false
+          },
+          "last_triggered_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Triggered At"
           }
         },
         "type": "object",
@@ -9005,49 +10145,10 @@
             "type": "integer",
             "title": "Record Id"
           },
-          "subjective": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subjective"
-          },
-          "objective": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objective"
-          },
-          "assessment": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assessment"
-          },
-          "plan": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plan"
+          "sheet_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sheet Data"
           },
           "status": {
             "type": "string",
@@ -9063,6 +10164,7 @@
         "required": [
           "id",
           "record_id",
+          "sheet_data",
           "status",
           "updated_at"
         ],
@@ -9070,53 +10172,10 @@
       },
       "NursingRecordSave": {
         "properties": {
-          "subjective": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 4096
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subjective"
-          },
-          "objective": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 4096
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Objective"
-          },
-          "assessment": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 4096
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assessment"
-          },
-          "plan": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 4096
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plan"
+          "sheet_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Sheet Data"
           },
           "status": {
             "type": "string",
@@ -9134,10 +10193,52 @@
             "type": "boolean",
             "title": "Ok",
             "default": true
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
           }
         },
         "type": "object",
         "title": "OkResponse"
+      },
+      "PaginatedResponse_AssignmentListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[AssignmentListItem]"
       },
       "PaginatedResponse_CaseBrief_": {
         "properties": {
@@ -11648,6 +12749,68 @@
         ],
         "title": "SecretCreateResponse"
       },
+      "StudentAssignmentItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "pending"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "score_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "case_name",
+          "start_time",
+          "end_time"
+        ],
+        "title": "StudentAssignmentItem"
+      },
       "StudentDetail": {
         "properties": {
           "id": {
@@ -12287,6 +13450,18 @@
           },
           "initiative": {
             "$ref": "#/components/schemas/InitiativeStateResponse"
+          },
+          "current_phase": {
+            "type": "string",
+            "title": "Current Phase",
+            "default": "history_taking"
+          },
+          "feature_flags": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Feature Flags"
           }
         },
         "type": "object",

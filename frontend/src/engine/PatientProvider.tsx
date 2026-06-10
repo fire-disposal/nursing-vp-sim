@@ -7,18 +7,24 @@ interface PatientContextValue {
   patient: PatientData | null;
   loading: boolean;
   error: string | null;
+  features: Record<string, boolean>;
+  fromAssignment: boolean;
 }
 
 const PatientContext = createContext<PatientContextValue>({
   patient: null,
   loading: true,
   error: null,
+  features: {},
+  fromAssignment: false,
 });
 
 export function PatientProvider({ recordId, children }: { recordId: string; children: ReactNode }) {
   const [patient, setPatient] = useState<PatientData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
+  const [fromAssignment, setFromAssignment] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +43,8 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
           personality: d.personality ?? d.case?.personality ?? "",
           requiredInquiries: d.required_inquiries ?? [],
         });
+        setFeatures(d.features ?? {});
+        setFromAssignment(d._from_assignment ?? false);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || "加载患者信息失败");
@@ -49,7 +57,7 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
     };
   }, [recordId]);
 
-  return <PatientContext.Provider value={{ patient, loading, error }}>{children}</PatientContext.Provider>;
+  return <PatientContext.Provider value={{ patient, loading, error, features, fromAssignment }}>{children}</PatientContext.Provider>;
 }
 
 export function usePatient() {

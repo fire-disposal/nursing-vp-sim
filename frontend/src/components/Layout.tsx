@@ -21,7 +21,7 @@
   X,
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -50,6 +50,7 @@ const allLinks: NavLinkItem[] = [
   { to: "/admin/schools", icon: Building2, label: "学校管理", permission: "school_manage" },
   { to: "/admin/grades-classes", icon: GraduationCap, label: "班级管理", permission: "grade_class_manage" },
   { to: "/admin/cases", icon: UserSearch, label: "病例管理", permission: "case_manage" },
+  { to: "/admin/assignments", icon: ClipboardCheck, label: "练习发布", permission: "score_review" },
   { to: "/admin", icon: Settings, label: "训练管理", permission: "score_review" },
   { to: "/admin/llm", icon: Server, label: "LLM 管理", permission: "llm_monitor" },
   { to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
@@ -59,6 +60,7 @@ const allLinks: NavLinkItem[] = [
 
 export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const permissions = useAuthStore((s) => s.permissions);
   const logout = useAuthStore((s) => s.logout);
@@ -70,6 +72,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const { openFeedback } = useFeedback();
+  const isTrainingPage = location.pathname.startsWith("/training/");
 
   const userAvatar = getUserAvatar(user?.gender);
   const currentSchoolName = user?.school_name || "";
@@ -82,7 +85,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {mobileOpen && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={close} role="presentation" />}
 
       <aside
@@ -209,8 +212,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         </Modal>
       </aside>
 
-      <main className="flex-1 md:ml-60" style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}>
-        <div className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden">
+      <div className="flex flex-1 flex-col md:ml-60 overflow-hidden" style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}>
+        <div className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden shrink-0">
           <button
             type="button"
             className="flex size-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
@@ -224,8 +227,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             <span className="text-sm font-semibold">虚拟患者系统</span>
           </div>
         </div>
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
-      </main>
+        {isTrainingPage ? children : <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>}
+      </div>
     </div>
   );
 }

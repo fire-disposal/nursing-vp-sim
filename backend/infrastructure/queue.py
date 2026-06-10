@@ -2,9 +2,10 @@
 
 import asyncio
 import logging
+import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 log = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ T = TypeVar("T")
 
 
 @dataclass(order=True)
-class _Task:
+class _Task(Generic[T]):
     priority: int
     coro_factory: Callable[[], Awaitable[T]] = field(compare=False)
     future: asyncio.Future[T] = field(compare=False)
@@ -21,7 +22,9 @@ class _Task:
 class TaskQueue:
     """Bounded priority task queue with configurable worker count."""
 
-    def __init__(self, max_workers: int = 3, max_size: int = 100):
+    def __init__(self, max_workers: int | None = None, max_size: int = 100):
+        if max_workers is None:
+            max_workers = int(os.getenv("SCORING_WORKERS", "3"))
         if max_workers < 1:
             raise ValueError("max_workers must be >= 1")
         if max_size < 1:
