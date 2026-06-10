@@ -14,6 +14,7 @@ from schemas import (
     TrainingStateResponse,
 )
 from contexts.patient import (
+    check_initiate_ready,
     generate_initiative,
     get_emotion,
     get_initiative_seconds,
@@ -116,7 +117,7 @@ def get_training_state(
             "elapsed_seconds": round(elapsed, 1),
             "threshold_seconds": round(threshold, 1),
             "percent": round(min(100, elapsed / max(threshold, 0.1) * 100), 1),
-            "should_trigger": should_initiate(record_id, personality, emotion.score),
+            "should_trigger": check_initiate_ready(record_id, personality, emotion.score),
         },
         "current_phase": record.current_phase or "history_taking",
         "feature_flags": resolve_features(record.config_snapshot),
@@ -177,6 +178,8 @@ def get_emotion_history(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
     emotion = get_emotion(record_id)
     return {"history": getattr(emotion, "history", [])}
 
@@ -190,6 +193,8 @@ def get_initiative_history(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
     msgs = db.query(Message).filter(
         Message.record_id == record_id,
         Message.role == "patient",

@@ -160,18 +160,32 @@ def get_initiative_seconds(record_id: int, personality: dict, emotion_score: int
 
 
 def should_initiate(record_id: int, personality: dict, emotion_score: int) -> bool:
-    """检查是否应该触发一次主动行为。"""
-    elapsed, threshold = get_initiative_seconds(record_id, personality, emotion_score)
-    if elapsed < threshold:
+    """检查是否应该触发一次主动行为。包含8秒冷却，仅用于 trigger 端点。"""
+    if not _check_time_reached(record_id, personality, emotion_score):
         return False
 
     now = datetime.now(UTC).timestamp()
     last_trigger = _last_trigger_time.get(record_id, 0)
-    if now - last_trigger < 8:  # 两次触发至少间隔 8 秒
+    if now - last_trigger < 8:
         return False
 
     _last_trigger_time[record_id] = now
     return True
+
+
+def _check_time_reached(record_id: int, personality: dict, emotion_score: int) -> bool:
+    """Read-only check: has enough time elapsed to trigger? No side effects."""
+    elapsed, threshold = get_initiative_seconds(record_id, personality, emotion_score)
+    return elapsed >= threshold
+
+
+def check_initiate_ready(record_id: int, personality: dict, emotion_score: int) -> bool:
+    """Read-only predicate for state polling. Does NOT advance cooldown timer."""
+    if not _check_time_reached(record_id, personality, emotion_score):
+        return False
+    now = datetime.now(UTC).timestamp()
+    last_trigger = _last_trigger_time.get(record_id, 0)
+    return now - last_trigger >= 8
 
 
 def cleanup_initiative(record_id: int):

@@ -2,6 +2,8 @@ import { MessageCircle } from "lucide-react";
 import type { PanelPlugin } from "@/engine/types";
 import { InitiativeTab } from "./InitiativeTab";
 
+let lastEmotion: string | null = null;
+
 export const initiativePlugin: PanelPlugin = {
   id: "initiative",
   featureFlag: "patient_initiative",
@@ -16,12 +18,20 @@ export const initiativePlugin: PanelPlugin = {
     onInit: (ctx) => {
       const interval = setInterval(async () => {
         try {
-          const { getTrainingState, triggerInitiative } = await import("@/api/training-state");
+          const { getTrainingState } = await import("@/api/training-state");
           const state = await getTrainingState(Number(ctx.recordId));
           const initiative = state.data.initiative;
+          const emotion = state.data.emotion;
+
           ctx.bus.emit("initiative:state", initiative);
 
+          if (emotion?.state && emotion.state !== lastEmotion) {
+            lastEmotion = emotion.state;
+            ctx.bus.emit("emotion:changed", { emotion: emotion.state });
+          }
+
           if ((initiative as any)?.should_trigger) {
+            const { triggerInitiative } = await import("@/api/training-state");
             const res = await triggerInitiative(Number(ctx.recordId));
             if (res.data.triggered && res.data.message) {
               ctx.bus.emit("initiative:triggered", { content: res.data.message });

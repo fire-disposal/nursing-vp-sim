@@ -35,6 +35,7 @@ from .guard import (
 
 # ── 主动行为引擎 ──
 from .initiative import (
+    check_initiate_ready,
     cleanup_initiative,
     generate_initiative,
     get_initiative_seconds,
@@ -61,7 +62,7 @@ __all__ = [
     # guard
     "get_identity_correction_note", "has_identity_leak",
     # initiative
-    "cleanup_initiative", "generate_initiative", "get_initiative_seconds",
+    "check_initiate_ready", "cleanup_initiative", "generate_initiative", "get_initiative_seconds",
     "should_initiate", "update_initiative_timer",
     # exam
     "detect_operation", "handle_operation",
