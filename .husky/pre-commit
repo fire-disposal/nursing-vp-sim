@@ -1,8 +1,34 @@
 #!/bin/sh
-# Pre-commit: format + lint staged files only (fast)
+# Pre-commit: format + lint + migration sanity
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Frontend checks
 cd "$ROOT/frontend" || exit 1
 npx lint-staged
+
+# Backend checks — only if Python files are staged
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM -- "$ROOT/backend/*.py" 2>/dev/null || true)
+if [ -n "$STAGED_PY" ]; then
+  echo ""
+  echo "  ruff format + check (backend)"
+  cd "$ROOT/backend" || exit 1
+  uv run ruff format --check "$STAGED_PY" 2>&1 | tail -3
+  uv run ruff check "$STAGED_PY" 2>&1 | tail -3
+fi
+
+# Alembic heads check — if migration files are staged
+STAGED_MIG=$(git diff --cached --name-only -- "$ROOT/backend/migrations/versions/*.py" 2>/dev/null || true)
+if [ -n "$STAGED_MIG" ]; then
+  cd "$ROOT/backend" || exit 1
+  HEADS=$(uv run alembic heads 2>&1)
+  HEAD_COUNT=$(echo "$HEADS" | wc -l)
+  if [ "$HEAD_COUNT" -gt 1 ]; then
+    echo ""
+    echo "  FAIL: alembic has $HEAD_COUNT heads (must be 1)"
+    echo "$HEADS"
+    exit 1
+  fi
+  echo "  ok  alembic head: $(echo "$HEADS" | head -1)"
+fi

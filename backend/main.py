@@ -270,6 +270,16 @@ app.include_router(student_assignments_router)
 
 @app.get("/api/health")
 async def health():
+    from core.database import SessionLocal, engine
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"code": 503, "data": {"status": "db_error"}, "message": "database unreachable"},
+        )
     return {"status": "ok", "version": APP_VERSION}
 
 
