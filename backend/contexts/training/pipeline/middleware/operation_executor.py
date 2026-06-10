@@ -31,6 +31,11 @@ async def operation_executor(ctx: PipelineContext, next_mw) -> None:
         "system": f"{op_label}: {op_value}{op_unit}"
     })
 
+    ctx.exam_result = {
+        "type": op_type,
+        "data": result,
+    }
+
     ctx.should_shortcut = True
     ctx.llm_reply = None
 
