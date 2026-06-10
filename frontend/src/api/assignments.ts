@@ -1,17 +1,22 @@
+import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
 
-export const createAssignment = (data: any) => api.post<any>("/assignments", data);
+type Schemas = components["schemas"];
 
-export const getAssignments = (params?: Record<string, unknown>) => api.get<any>("/assignments", { params });
+export const createAssignment = (data: Schemas["AssignmentCreateRequest"]) => api.post<Schemas["AssignmentDetail"]>("/assignments", data);
 
-export const getAssignment = (id: string) => api.get<any>(`/assignments/${id}`);
+export const getAssignments = (params?: Record<string, unknown>) =>
+  api.get<{ items: Schemas["AssignmentListItem"][]; total: number; offset: number; limit: number }>("/assignments", { params });
 
-export const updateAssignment = (id: string, data: any) => api.put<any>(`/assignments/${id}`, data);
+export const getAssignment = (id: string) => api.get<Schemas["AssignmentDetail"]>(`/assignments/${id}`);
+
+export const updateAssignment = (id: string, data: Schemas["AssignmentUpdateRequest"]) => api.put<Schemas["AssignmentDetail"]>(`/assignments/${id}`, data);
 
 export const deleteAssignment = (id: string) => api.delete(`/assignments/${id}`);
 
 export const exportAssignment = (id: string) => api.get(`/assignments/${id}/export`, { responseType: "blob" });
 
-export const getStudentAssignments = () => api.get<any[]>("/students/assignments");
+export const getStudentAssignments = () => api.get<Schemas["StudentAssignmentItem"][]>("/students/assignments");
 
-export const startAssignment = (assignmentId: string) => api.post<any>(`/training/start-from-assignment?assignment_id=${assignmentId}`);
+export const startAssignment = (assignmentId: string) =>
+  api.post<{ record_id: number; greeting: string; case_name: string }>(`/training/start-from-assignment?assignment_id=${assignmentId}`);
