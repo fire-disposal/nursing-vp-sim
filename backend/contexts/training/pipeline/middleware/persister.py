@@ -22,6 +22,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
             ctx.db.add(sys_msg)
             ctx.state["_saved_messages"] = [sys_msg]
 
+        _persist_phase_op_count(ctx)
         ctx.db.commit()
         await next_mw()
         return
@@ -32,6 +33,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
     if ctx.llm_reply:
         patient_msg = Message(record_id=ctx.record.id, role="patient", content=ctx.llm_reply)
         ctx.db.add(patient_msg)
+        _persist_phase_op_count(ctx)
         ctx.db.commit()
         ctx.db.refresh(patient_msg)
         ctx.state["_saved_messages"] = [patient_msg]
@@ -39,3 +41,11 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
                  ctx.record.id, len(ctx.student_input), len(ctx.llm_reply))
 
     await next_mw()
+
+
+def _persist_phase_op_count(ctx: PipelineContext) -> None:
+    count = ctx.state.get("_phase_op_count")
+    if count is not None:
+        snapshot = ctx.record.config_snapshot or {}
+        snapshot["_phase_op_count"] = count
+        ctx.record.config_snapshot = snapshot

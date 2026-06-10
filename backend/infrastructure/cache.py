@@ -1,38 +1,22 @@
 """In-memory caches — EmotionCache, InitiativeCache.
 
-Replaces module-level dicts in services/patient_ai/ that were
-accessed across modules via private variable imports.
+Replaces module-level dicts that were accessed across modules.
+Stores rich state objects from emotion.py and initiative.py.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Set as AbstractSet
-from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class EmotionState:
-    score: int
-    state: str
-    note: str
 
 
 class EmotionCache:
     """Per-record emotion state cache. Lives in app.state."""
 
     def __init__(self) -> None:
-        self._store: dict[int, EmotionState] = {}
-
-    def get(self, record_id: int) -> EmotionState:
-        if record_id not in self._store:
-            self._store[record_id] = EmotionState(score=0, state="neutral", note="初始状态")
-        return self._store[record_id]
-
-    def set(self, record_id: int, score: int, state: str, note: str) -> None:
-        self._store[record_id] = EmotionState(score=score, state=state, note=note)
+        self._store: dict[int, object] = {}
 
     def cleanup(self, record_id: int) -> None:
         self._store.pop(record_id, None)
@@ -48,8 +32,8 @@ class EmotionCache:
         return count
 
     @property
-    def size(self) -> int:
-        return len(self._store)
+    def all_ids(self) -> AbstractSet[int]:
+        return self._store.keys()
 
 
 class InitiativeCache:
@@ -88,7 +72,3 @@ class InitiativeCache:
         if count:
             log.info("Cleaned %d completed initiative cache entries", count)
         return count
-
-    @property
-    def size(self) -> int:
-        return len(self._timers)

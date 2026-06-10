@@ -160,14 +160,6 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             ),
         ),
         VariableDef(
-            name="scoring_rubric",
-            type="text",
-            description="[已废弃] 完整评分标准文本（含标准+清单+输出格式）。请改用 scoring_criteria / required_inquiries / scoring_json_schema 三个独立变量",
-            source="[已废弃] prompt_static.build_scoring_rubric()",
-            required=False,
-            default_example="(已废弃，请使用分拆后的三个独立变量)",
-        ),
-        VariableDef(
             name="conversation_text",
             type="text",
             description="学生与虚拟患者的完整对话记录",
@@ -229,7 +221,22 @@ _REGISTRY: dict[str, list[VariableDef]] = {
             default_example="",
         ),
     ],
-    "qa": [],
+    "qa": [
+        VariableDef(
+            name="user_name",
+            type="string",
+            description="当前提问学生的姓名",
+            source="current_user.display_name",
+            default_example="张三",
+        ),
+        VariableDef(
+            name="user_role",
+            type="string",
+            description="当前提问学生的角色",
+            source="current_user.role.name",
+            default_example="学生",
+        ),
+    ],
 }
 
 
@@ -278,16 +285,10 @@ class VariableRegistry:
         for v in self.get_variables(purpose):
             if v.name == "scoring_criteria":
                 from .static import build_scoring_criteria
-
                 result[v.name] = build_scoring_criteria()
             elif v.name == "scoring_json_schema":
                 from .static import build_scoring_json_schema
-
                 result[v.name] = build_scoring_json_schema()
-            elif v.name == "scoring_rubric":
-                from .static import build_scoring_rubric
-
-                result[v.name] = build_scoring_rubric()
             else:
                 result[v.name] = v.default_example
         return result

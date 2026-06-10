@@ -1,8 +1,9 @@
+import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
@@ -58,17 +59,27 @@ def export_record_detail(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
 ):
     """导出单条训练记录详情（含完整对话）为文本"""
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    record = (
+        db.query(TrainingRecord)
+        .options(
+            joinedload(TrainingRecord.user),
+            joinedload(TrainingRecord.case),
+            joinedload(TrainingRecord.score),
+            joinedload(TrainingRecord.messages),
+        )
+        .filter(TrainingRecord.id == record_id)
+        .first()
+    )
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     if not current_user.has_permission("export_data") and record.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权导出此记录")
 
     lines = []
-    user = db.query(User).filter(User.id == record.user_id).first()
-    case = db.query(Case).filter(Case.id == record.case_id).first()
-    score = db.query(Score).filter(Score.record_id == record_id).first()
-    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+    user = record.user
+    case = record.case
+    score = record.score
+    messages = record.messages
 
     lines.append("=" * 60)
     lines.append(f"训练记录 #{record.id}")

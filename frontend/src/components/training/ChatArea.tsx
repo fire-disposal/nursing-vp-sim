@@ -19,7 +19,7 @@ export function ChatArea({ messages, patient, sending, onSend, bus }: ChatAreaPr
       <div className="flex-1 overflow-hidden">
         {hasMessages ? <ChatDisplay messages={messages} patient={patient} bus={bus} /> : <WelcomeScreen patient={patient} onQuickPrompt={onSend} />}
       </div>
-      <ChatInput onSend={onSend} disabled={false} loading={sending} />
+      <ChatInput onSend={onSend} disabled={sending} loading={sending} />
     </div>
   );
 }

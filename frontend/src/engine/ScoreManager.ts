@@ -62,10 +62,10 @@ export class ScoreManager {
         return;
       }
       try {
-        const res = await api.get(`/training/records/${this.recordId}/review`);
-        const data = res.data as ScoreData;
-        if (data && (data.total_score !== undefined || data.detail_scores)) {
-          this._score = data;
+        const res = await api.get(`/training/records/${this.recordId}`);
+        const score = res.data?.score;
+        if (score && (score.total_score !== undefined || score.detail_scores)) {
+          this._score = score as ScoreData;
           this._progress = 100;
           this.stopPolling();
           this.notify();
@@ -88,6 +88,14 @@ export class ScoreManager {
       this.pollTimer = null;
     }
     this.notify();
+  }
+
+  dispose(): void {
+    this.stopPolling();
+    this.bus = null;
+    this.listeners = [];
+    this._score = null;
+    this._progress = 0;
   }
 
   reset(): void {

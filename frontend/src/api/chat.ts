@@ -12,7 +12,6 @@ export async function sendMessageStream(
   onChunk: (text: string) => void,
   onDone: (id?: number) => void,
   onError: (msg: string) => void,
-  onSanitized?: (reply: string) => void,
   onSystem?: (text: string) => void,
   signal?: AbortSignal,
   onExamResult?: (result: { type: string; data: Record<string, unknown> }) => void,
@@ -45,52 +44,66 @@ export async function sendMessageStream(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      try {
-        const data = JSON.parse(line.slice(6));
-        if (data.error) {
-          onError(data.error);
-          return;
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.error) {
+            onError(data.error);
+            try {
+              reader.cancel();
+            } catch {
+              /* ignore */
+            }
+            return;
+          }
+          if (data.system) {
+            onSystem?.(data.system);
+            continue;
+          }
+          if (data.exam_result) {
+            onExamResult?.(data.exam_result);
+            continue;
+          }
+          if (data.emotion_change) {
+            onEmotionChange?.(data.emotion_change);
+            continue;
+          }
+          if (data.initiative) {
+            onInitiative?.(data.initiative);
+            continue;
+          }
+          if (data.done) {
+            onDone(data.id);
+            try {
+              reader.cancel();
+            } catch {
+              /* ignore */
+            }
+            return;
+          }
+          if (data.content) {
+            onChunk(data.content);
+          }
+        } catch {
+          /* ignore malformed SSE chunks */
         }
-        if (data.sanitized) {
-          onSanitized?.(data.reply);
-          continue;
-        }
-        if (data.system) {
-          onSystem?.(data.system);
-          continue;
-        }
-        if (data.exam_result) {
-          onExamResult?.(data.exam_result);
-          continue;
-        }
-        if (data.emotion_change) {
-          onEmotionChange?.(data.emotion_change);
-          continue;
-        }
-        if (data.initiative) {
-          onInitiative?.(data.initiative);
-          continue;
-        }
-        if (data.done) {
-          onDone(data.id);
-          return;
-        }
-        if (data.content) {
-          onChunk(data.content);
-        }
-      } catch {
-        /* ignore malformed SSE chunks */
       }
+    }
+  } finally {
+    try {
+      reader.cancel();
+    } catch {
+      /* ignore */
     }
   }
 }

@@ -276,10 +276,10 @@ def _delta(prev: dict, key: str) -> int:
     return max(0, cur - old)
 
 
-def check_metrics_anomalies():
-    """Fetch metrics from each endpoint and detect anomalies via delta comparison."""
+def check_metrics_anomalies(state: dict):
+    """Fetch metrics from each endpoint and detect anomalies via delta comparison.
+    Receives state dict from caller to avoid overwrite race with main()."""
     endpoints = getattr(sys.modules.get("config", None), "ENDPOINTS", [])
-    state = load_state()
     anomalies = []
 
     for ep in endpoints:
@@ -346,7 +346,6 @@ def check_metrics_anomalies():
             },
         }
 
-    save_state(state)
     return anomalies
 
 
@@ -497,8 +496,9 @@ def main():
 
     # Run all checks
     all_failures = []
-    for check_fn in [check_containers, check_disk, check_cpu, check_memory, check_health_endpoints, check_metrics_anomalies]:
+    for check_fn in [check_containers, check_disk, check_cpu, check_memory, check_health_endpoints]:
         all_failures.extend(check_fn())
+    all_failures.extend(check_metrics_anomalies(state))
 
     # Determine current failing keys
     active_keys = set(alert_key(f) for f in all_failures)

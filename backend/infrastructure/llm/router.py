@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -40,19 +41,20 @@ async def _update_synthetic_stats(success: bool, tokens: int):
 
 
 async def get_env_fallback_state() -> dict:
-    return {
-        "available": _env_fallback_available,
-        "label": "环境变量兜底",
-        "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
-        "base_url": DEEPSEEK_BASE_URL,
-        "model_flash": DEEPSEEK_MODEL,
-        "model_pro": DEEPSEEK_MODEL_PRO,
-        "latency_ms": _env_fallback_latency_ms,
-        "error": _env_fallback_error,
-        "call_count": _env_fallback_stats["call_count"],
-        "total_tokens": _env_fallback_stats["total_tokens"],
-        "total_cost": round(_env_fallback_stats["total_cost"], 4),
-    }
+    async with _env_fallback_lock:
+        return {
+            "available": _env_fallback_available,
+            "label": "环境变量兜底",
+            "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
+            "base_url": DEEPSEEK_BASE_URL,
+            "model_flash": DEEPSEEK_MODEL,
+            "model_pro": DEEPSEEK_MODEL_PRO,
+            "latency_ms": _env_fallback_latency_ms,
+            "error": _env_fallback_error,
+            "call_count": _env_fallback_stats["call_count"],
+            "total_tokens": _env_fallback_stats["total_tokens"],
+            "total_cost": round(_env_fallback_stats["total_cost"], 4),
+        }
 
 
 class _SyntheticConfig:
@@ -84,7 +86,7 @@ class ProfileRouter:
         self._bindings: dict[str, Any] = {}
         self._profiles: dict[int, Any] = {}
         self._global_degraded_until: datetime | None = None
-        self._state_lock = asyncio.Lock()
+        self._state_lock = threading.Lock()
         self._last_persist_ts: dict[int, float] = {}
 
     async def load_from_db(self):
@@ -113,7 +115,7 @@ class ProfileRouter:
             if recovered:
                 db.commit()
 
-            async with self._state_lock:
+            with self._state_lock:
                 self._profiles = {p.id: p for p in profiles}
                 self._bindings = {}
                 for b in bindings:
@@ -130,26 +132,27 @@ class ProfileRouter:
     def select(self, purpose: str):
         now = datetime.now(UTC)
 
-        if self._global_degraded_until and now < self._global_degraded_until:
-            raise RuntimeError("所有档案不可用，全局降级中")
+        with self._state_lock:
+            if self._global_degraded_until and now < self._global_degraded_until:
+                raise RuntimeError("所有档案不可用，全局降级中")
 
-        binding = self._bindings.get(purpose)
-        if not binding and purpose != "*":
-            binding = self._bindings.get("*")
+            binding = self._bindings.get(purpose)
+            if not binding and purpose != "*":
+                binding = self._bindings.get("*")
 
-        if binding and binding.status == "active":
-            profile = self._profiles.get(binding.secret_id)
-            if profile and profile.status == "active":
-                return binding
-            if profile and profile.status == "degraded":
-                if profile.degraded_until and now < profile.degraded_until:
-                    pass
-                else:
-                    profile.status = "active"
-                    profile.degraded_reason = None
-                    profile.degraded_until = None
-                    profile.consecutive_failures = 0
+            if binding and binding.status == "active":
+                profile = self._profiles.get(binding.secret_id)
+                if profile and profile.status == "active":
                     return binding
+                if profile and profile.status == "degraded":
+                    if profile.degraded_until and now < profile.degraded_until:
+                        pass
+                    else:
+                        profile.status = "active"
+                        profile.degraded_reason = None
+                        profile.degraded_until = None
+                        profile.consecutive_failures = 0
+                        return binding
 
         from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 
@@ -162,7 +165,8 @@ class ProfileRouter:
                 raw_key=DEEPSEEK_API_KEY,
             )
 
-        self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+        with self._state_lock:
+            self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
         raise RuntimeError(f"purpose={purpose} 无可用档案")
 
     def get_decrypted_key(self, config) -> str:
@@ -180,7 +184,7 @@ class ProfileRouter:
             await _update_synthetic_stats(success, tokens)
             return
 
-        async with self._state_lock:
+        with self._state_lock:
             profile = self._profiles.get(config.secret_id)
             if not profile:
                 return
@@ -279,11 +283,13 @@ class ProfileRouter:
             db.close()
 
     def degraded_count(self) -> int:
-        return sum(1 for p in self._profiles.values() if getattr(p, "status", "active") == "degraded")
+        with self._state_lock:
+            return sum(1 for p in self._profiles.values() if getattr(p, "status", "active") == "degraded")
 
     @property
     def global_degraded(self) -> bool:
-        if not self._global_degraded_until:
-            return False
-        return datetime.now(UTC) < self._global_degraded_until
+        with self._state_lock:
+            if not self._global_degraded_until:
+                return False
+            return datetime.now(UTC) < self._global_degraded_until
 

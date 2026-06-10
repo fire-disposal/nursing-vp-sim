@@ -23,7 +23,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ghcr.io/fire-disposal/nursing-vp-sim-backend:${IMAGE_VERSION}
+    image: ghcr.io/fire-disposal/nursing-vp-sim-backend:${IMAGE_VERSION:-latest}
     container_name: nursing-backend-staging
     restart: unless-stopped
     ports:
@@ -46,7 +46,7 @@ services:
       start_period: 10s
 
   frontend:
-    image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:${IMAGE_VERSION}
+    image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:${IMAGE_VERSION:-latest}
     container_name: nursing-frontend-staging
     restart: unless-stopped
     ports:
@@ -54,6 +54,12 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 volumes:
   nursing_staging_pg_data:

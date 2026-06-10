@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -18,6 +18,7 @@ from contexts.patient import (
     generate_initiative,
     get_emotion,
     get_initiative_seconds,
+    handle_operation,
     should_initiate,
     update_initiative_timer,
 )
@@ -60,15 +61,16 @@ def advance_phase(
         raise HTTPException(status_code=400, detail="当前无有效阶段")
 
     msg_count = db.query(Message).filter(Message.record_id == record_id).count()
-    op_count = case_data.get("_phase_op_count", 0)
+    op_count = (record.config_snapshot or {}).get("_phase_op_count", 0)
 
     next_phase = try_advance_phase(current, phases, msg_count, op_count, manual_requested=True)
     if next_phase is None:
         raise HTTPException(status_code=400, detail="不满足推进条件或已是最后一个阶段")
 
     record.current_phase = next_phase.id
-    case_data["_phase_op_count"] = 0
-    case.case_data = case_data
+    snapshot = record.config_snapshot or {}
+    snapshot["_phase_op_count"] = 0
+    record.config_snapshot = snapshot
     db.commit()
 
     log.info("Phase advanced: record_id=%d %s -> %s", record_id, current.id, next_phase.id)
@@ -80,6 +82,7 @@ def get_training_state(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    request: Request,
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -91,10 +94,11 @@ def get_training_state(
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
     case_data = case.case_data or {}
-    emotion = get_emotion(record_id)
+    app_state = request.app.state
+    emotion = get_emotion(record_id, app_state.emotion_cache)
     config = record.config_snapshot or {}
     personality = case_data.get("personality", {})
-    elapsed, threshold = get_initiative_seconds(record_id, personality, emotion.score)
+    elapsed, threshold = get_initiative_seconds(record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort)
 
     emotion_history = getattr(emotion, "history", [])
 
@@ -102,7 +106,8 @@ def get_training_state(
         "record_id": record_id,
         "case_id": record.case_id,
         "emotion": {
-            "score": emotion.score,
+            "trust": emotion.trust,
+            "comfort": emotion.comfort,
             "state": emotion.state,
             "note": emotion.note,
             "history": emotion_history[-20:],
@@ -119,7 +124,7 @@ def get_training_state(
             "elapsed_seconds": round(elapsed, 1),
             "threshold_seconds": round(threshold, 1),
             "percent": round(min(100, elapsed / max(threshold, 0.1) * 100), 1),
-            "should_trigger": check_initiate_ready(record_id, personality, emotion.score),
+            "should_trigger": check_initiate_ready(record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort),
         },
         "current_phase": record.current_phase or "history_taking",
         "feature_flags": resolve_features(record.config_snapshot),
@@ -147,17 +152,13 @@ def trigger_initiative(
 
     case_data = case.case_data or {}
     personality = case_data.get("personality", {})
-    emotion = get_emotion(record_id)
+    app_state = request.app.state
+    emotion = get_emotion(record_id, app_state.emotion_cache)
 
-    if not should_initiate(record_id, personality, emotion.score):
+    if not should_initiate(record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort):
         return {"triggered": False, "message": None}
 
-    msg = generate_initiative(
-        personality,
-        emotion.score,
-        emotion.state,
-        wait_seconds=60,
-    )
+    msg = generate_initiative(personality, emotion.trust, emotion.comfort, wait_seconds=60)
 
     if msg:
         now = datetime.now(UTC)
@@ -176,13 +177,14 @@ def get_emotion_history(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    request: Request,
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
-    emotion = get_emotion(record_id)
+    emotion = get_emotion(record_id, request.app.state.emotion_cache)
     return {"history": getattr(emotion, "history", [])}
 
 
@@ -202,3 +204,63 @@ def get_initiative_history(
         Message.role == "patient",
     ).order_by(Message.created_at.desc()).limit(20).all()
     return {"history": [{"id": m.id, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs]}
+
+
+@router.post("/{record_id}/exam/{op_type}")
+def perform_exam(
+    record_id: int,
+    op_type: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    request: Request,
+):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="只能操作自己的训练")
+    if record.status != "in_progress":
+        raise HTTPException(status_code=400, detail="训练已结束")
+
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="病例不存在")
+
+    result = handle_operation(op_type, case.case_data or {})
+
+    snapshot = record.config_snapshot or {}
+    exam_results = snapshot.get("_exam_results", [])
+    if not isinstance(exam_results, list):
+        exam_results = []
+    exam_results.append({"type": op_type, "label": result.get("label", ""), "value": str(result.get("value", "")), "unit": result.get("unit", "")})
+    snapshot["_exam_results"] = exam_results
+    record.config_snapshot = snapshot
+
+    msg = Message(record_id=record_id, role="system", content=f"{result.get('label', '')}: {result.get('value', '')}{result.get('unit', '')}")
+    db.add(msg)
+
+    features = resolve_features(record.config_snapshot)
+    if features.get("exam_emotion_bridge") and features.get("emotion"):
+        from contexts.training.pipeline.plugin import run_plugin_hooks
+        last_student_msg = db.query(Message).filter(
+            Message.record_id == record_id, Message.role == "student"
+        ).order_by(Message.created_at.desc()).first()
+        explained = bool(last_student_msg and _has_explanation(last_student_msg.content))
+        exam_count = len(exam_results)
+        hook_ctx = {
+            "record": record,
+            "emotion_cache": request.app.state.emotion_cache,
+            "initiative_cache": request.app.state.initiative_cache,
+            "op_type": op_type,
+            "explanation_given": explained,
+            "exam_count": exam_count,
+        }
+        run_plugin_hooks("on_exam", hook_ctx, features)
+
+    db.commit()
+    return {"type": op_type, "data": result, "all_results": exam_results}
+
+
+def _has_explanation(text: str) -> bool:
+    keywords = ["因为", "所以", "给你", "检查一下", "评估", "需要了解", "测量一下", "看一下", "查一下"]
+    return any(kw in text for kw in keywords)

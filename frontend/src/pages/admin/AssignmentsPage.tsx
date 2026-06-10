@@ -22,6 +22,7 @@ const FEATURE_FLAGS = [
   { key: "patient_initiative", label: "患者追问" },
   { key: "portrait", label: "患者立绘" },
   { key: "questionnaire", label: "问卷评估" },
+  { key: "exam_emotion_bridge", label: "查体-情绪联动" },
 ];
 
 const CONFIG_OPTIONS = [

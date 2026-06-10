@@ -13,6 +13,13 @@ interface CallLogDetailProps {
   onClose: () => void;
 }
 
+function safeDate(iso: string | null | undefined): string {
+  if (!iso) return "\u2014";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("zh-CN");
+}
+
 function Block({ label, content, maxH = "max-h-96" }: { label: string; content: string | null | undefined; maxH?: string }) {
   if (!content) return null;
   return (
@@ -51,7 +58,7 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
             </h2>
 
             <div className="rounded-xl border border-border bg-card p-4 mb-4">
-              <MetaRow icon={Clock} label="时间" value={new Date(log.created_at).toLocaleString("zh-CN")} />
+              <MetaRow icon={Clock} label="时间" value={safeDate(log.created_at)} />
               <MetaRow icon={Hash} label="用途" value={log.purpose} />
               <MetaRow icon={Cpu} label="模型" value={`${log.provider_name || "\u2014"} / ${log.model || "\u2014"}`} />
               <MetaRow icon={Zap} label="延迟" value={log.latency_ms != null ? `${log.latency_ms}ms` : "\u2014"} />

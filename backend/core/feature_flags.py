@@ -40,6 +40,12 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="训练结束后弹出评估问卷供学生填写",
     ),
+    "exam_emotion_bridge": FeatureFlag(
+        key="exam_emotion_bridge",
+        label="查体-情绪联动",
+        default=False,
+        description="查体操作影响患者心态：缺乏解释或不相关检查会降低信任/舒适度",
+    ),
 }
 
 

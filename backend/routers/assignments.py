@@ -253,6 +253,9 @@ def update_assignment(
     if req.end_time is not None:
         assignment.end_time = req.end_time
 
+    if assignment.end_time <= assignment.start_time:
+        raise HTTPException(status_code=400, detail="截止时间必须晚于开始时间")
+
     assignment.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(assignment)
@@ -265,7 +268,7 @@ def delete_assignment(
     current_user: Annotated[User, Depends(require_permission("score_review"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
+    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).with_for_update().first()
     if not assignment:
         raise HTTPException(status_code=404, detail="练习发布不存在")
     if assignment.teacher_id != current_user.id:
@@ -385,7 +388,7 @@ def list_student_assignments(
         record = record_by_assignment.get(a.id)
         if record:
             status = record.status
-            if record.is_overdue:
+            if status != "completed" and record.is_overdue:
                 status = "overdue"
             items.append(StudentAssignmentItem(
                 id=a.id,

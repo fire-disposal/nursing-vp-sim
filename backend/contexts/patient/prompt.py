@@ -11,6 +11,7 @@ from random import choice
 
 log = logging.getLogger(__name__)
 
+from infrastructure.prompt import render_template
 from prompts.patient_chat import AUTHOR_NOTE_TEMPLATE
 
 
@@ -108,7 +109,7 @@ def build_patient_chat_messages(
         llm_messages.append({"role": role, "content": msg.content})
 
     if author_note.strip():
-        note_content = AUTHOR_NOTE_TEMPLATE.format(note=author_note)
+        note_content = render_template(AUTHOR_NOTE_TEMPLATE, author_note=author_note)
         llm_messages.append({"role": "system", "content": note_content})
 
     llm_messages.append({"role": "user", "content": student_content})

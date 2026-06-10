@@ -21,7 +21,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -319,14 +319,24 @@ export default function RecordDetail() {
   const isReviewed = review?.review_status === "reviewed";
   const isTeacher = user?.role === "teacher";
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const handleRetryScoring = async () => {
     setRetrying(true);
     try {
       await retryScoring(id!);
       toast.info("评分已重新触发，请稍后刷新查看结果");
       for (let i = 0; i < 30; i++) {
+        if (!mountedRef.current) break;
         await new Promise<void>((r) => setTimeout(r, 3000));
+        if (!mountedRef.current) break;
         const { data } = await getRecordDetail(id!);
+        if (!mountedRef.current) break;
         if (data.scoring_status === "completed" && data.score) {
           queryClient.setQueryData(["recordDetail", id], data);
           toast.success("评分已完成");

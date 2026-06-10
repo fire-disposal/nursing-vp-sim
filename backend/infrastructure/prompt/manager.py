@@ -105,8 +105,7 @@ class PromptManager:
 
         db = SessionLocal()
         try:
-            self._sync_builtin_patient_chat(db)
-            self._sync_builtin_patient_dynamic(db)
+            self._seed_all_builtin(db)
             rows = db.query(PT).filter(PT.is_active).all()
 
             new_cache = {}
@@ -151,6 +150,36 @@ class PromptManager:
 
     async def reload(self):
         await self.load_from_db()
+
+    @staticmethod
+    def _seed_all_builtin(db):
+        """Ensure all built-in templates exist in DB (idempotent)."""
+        from models import PromptTemplate as PT
+
+        seeds = [
+            ("patient_chat", PATIENT_CHAT_SYSTEM, None, "患者角色扮演 Character Card — 内置模板"),
+            ("patient_dynamic", PATIENT_DYNAMIC_TEMPLATE, None, "病情动态数据块 — 内置模板"),
+            ("qa", QA_SYSTEM, None, "通用护理问答 — 内置模板"),
+            ("case_generation", CASE_GENERATION_SYSTEM, None, "病例生成 — 内置模板"),
+        ]
+        user_seeds = [
+            ("scoring", SCORING_SYSTEM, SCORING_USER, "评分模板 — 内置模板"),
+            ("scoring_feedback", SCORING_FEEDBACK_SYSTEM, SCORING_FEEDBACK_USER, "评分反馈 — 内置模板"),
+        ]
+
+        for purpose, sys_prompt, user_prompt, remark in seeds:
+            existing = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()
+            if not existing:
+                db.add(PT(purpose=purpose, version=1, system_prompt=sys_prompt,
+                          template_engine="variable", is_active=True, created_by="system", remark=remark))
+
+        for purpose, sys_prompt, user_prompt, remark in user_seeds:
+            existing = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()
+            if not existing:
+                db.add(PT(purpose=purpose, version=1, system_prompt=sys_prompt, user_prompt=user_prompt,
+                          template_engine="variable", is_active=True, created_by="system", remark=remark))
+
+        db.commit()
 
     @staticmethod
     def _sync_builtin_patient_chat(db):

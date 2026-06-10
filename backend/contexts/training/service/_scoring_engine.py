@@ -7,6 +7,7 @@ from core.config import get_llm_config
 from infrastructure.llm.client import LLMClient, CallContext
 from models import Message, Score, TrainingRecord
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
+from prompts.scoring import SCORING_RETRY_USER, FEEDBACK_RETRY_USER
 from ._scoring_rubric import get_rubric_version_id, load_rubric_dict
 from ._scoring_validation import (
     _check_feedback_empty,
@@ -55,11 +56,7 @@ async def _score_stage(
         log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
 
     partial_json = json.dumps(result, ensure_ascii=False, indent=2)
-    retry_user = (
-        "你上一次的输出格式不完整。请检查每一条目是否都包含 id、name、score、evidence、reason。\n\n"
-        f"你上一次的输出：\n```json\n{partial_json}\n```\n\n"
-        "请重新输出完整的 JSON，确保所有条目完备。"
-    )
+    retry_user = SCORING_RETRY_USER.format(partial_json=partial_json)
     retry_messages = [*messages, {"role": "assistant", "content": partial_json}, {"role": "user", "content": retry_user}]
     result2 = await llm_client.call_json(
         retry_messages,
@@ -115,12 +112,7 @@ async def _feedback_stage(
 
     missing = _check_feedback_empty(result)
     partial_json = json.dumps(scoring_result, ensure_ascii=False, indent=2)[:2000]
-    retry_user = (
-        f"你上一次的输出中，以下反馈字段为空：{', '.join(missing)}。\n\n"
-        "请勿重新评分，只补全以上缺失字段。补充时必须引用对话中的具体行为。\n\n"
-        f"评分结果（保持不变）：\n```json\n{partial_json}\n```\n\n"
-        "请输出 strengths、weaknesses、missed_content、suggestions 四个字段的完整 JSON。"
-    )
+    retry_user = FEEDBACK_RETRY_USER.format(missing=", ".join(missing), partial_json=partial_json)
     retry_messages = [*messages, {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)}, {"role": "user", "content": retry_user}]
     result2 = await llm_client.call_json(
         retry_messages,

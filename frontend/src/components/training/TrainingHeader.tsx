@@ -1,5 +1,5 @@
 import { ArrowLeft, Clock, Ear, EarOff, MonitorCog, Phone } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/Button";
@@ -17,11 +17,12 @@ function formatTime(sec: number): string {
 }
 
 const FEATURE_META: Record<string, { label: string; desc: string }> = {
-  emotion: { label: "患者情绪状态机", desc: "5态情绪模型，根据学生用语动态变化患者情绪反应" },
-  physical_exam: { label: "护理查体", desc: "支持 /bp /temp /hr /rr /spo2 /auscultation /skin 等查体命令" },
+  emotion: { label: "患者情绪状态机", desc: "2D 信赖-舒适模型，根据学生用语动态变化患者情绪反应" },
+  physical_exam: { label: "护理查体", desc: "通过专属面板执行生命体征、循环氧合、体格检查等操作" },
   patient_initiative: { label: "患者主动追问", desc: "患者根据性格/情绪/等待时长主动发言（依赖情绪状态机）" },
   portrait: { label: "患者立绘", desc: "在训练界面显示患者人物立绘图片" },
   questionnaire: { label: "问卷评估", desc: "训练结束后弹出评估问卷供学生填写" },
+  exam_emotion_bridge: { label: "查体-情绪联动", desc: "查体操作影响患者心态，缺乏解释或不相关检查会降低信任/舒适度" },
 };
 
 interface TrainingHeaderProps {
@@ -56,12 +57,32 @@ export function TrainingHeader({
   const [paused, setPaused] = useState(false);
   const [ending, setEnding] = useState(false);
   const [featuresOpen, setFeaturesOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (paused || remaining <= 0) return;
-    const id = setInterval(() => setRemaining((r) => r - 1), 1000);
-    return () => clearInterval(id);
-  }, [remaining, paused]);
+    if (paused || remaining <= 0) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+    if (!timerRef.current) {
+      timerRef.current = setInterval(() => setRemaining((r) => r - 1), 1000);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [paused]);
+
+  useEffect(() => {
+    if (remaining <= 0 && !ending) {
+      handleEnd();
+    }
+  }, [remaining]);
 
   const handleEnd = useCallback(async () => {
     if (ending) return;
@@ -77,16 +98,12 @@ export function TrainingHeader({
     async (key: string, enabled: boolean) => {
       onToggleFeature(key, enabled);
       try {
-        const nextFeatures = { ...features, [key]: enabled };
-        if (!enabled && key === "emotion") {
-          nextFeatures.patient_initiative = false;
-        }
-        await updateTrainingFeatures(Number(recordId), nextFeatures);
+        await updateTrainingFeatures(Number(recordId), { [key]: enabled });
       } catch {
         // 静默失败，本地状态已更新
       }
     },
-    [features, onToggleFeature, recordId],
+    [onToggleFeature, recordId],
   );
 
   const avatarSrc = portraitUrl || getPatientAvatar({ name: patient.name, gender: patient.gender });

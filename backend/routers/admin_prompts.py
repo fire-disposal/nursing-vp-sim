@@ -312,7 +312,7 @@ async def reload_prompts_endpoint(request: Request, current_user: Annotated[User
 
 @router.get("/sample-vars", response_model=SampleVarsResponse)
 def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
-    known = {"patient_chat", "scoring", "qa", "case_generation"}
+    known = {"patient_chat", "patient_dynamic", "scoring", "scoring_feedback", "qa", "case_generation"}
     if purpose not in known:
         raise HTTPException(status_code=404, detail=f"未知 purpose: {purpose}")
     return {"purpose": purpose, "vars": get_registry().get_sample_kwargs(purpose)}

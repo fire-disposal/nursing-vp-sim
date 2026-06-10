@@ -33,6 +33,13 @@ export class PluginRegistry {
     if (plugin.featureFlag !== undefined) {
       if (!flags[plugin.featureFlag]) return false;
     }
+    if (plugin.requires) {
+      for (const depId of plugin.requires) {
+        const dep = this.plugins.get(depId);
+        if (!dep) return false;
+        if (dep.featureFlag !== undefined && !flags[dep.featureFlag]) return false;
+      }
+    }
     return true;
   }
 

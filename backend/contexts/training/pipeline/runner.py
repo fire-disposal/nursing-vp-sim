@@ -48,37 +48,34 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
             await mw(ctx, next_mw)
 
     try:
-        try:
-            await next_mw()
-        except Exception as e:
-            log.exception("Stream pipeline error: record_id=%d", ctx.record.id)
-            ctx.error = str(e)
-            yield f"data: {json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
-            return
+        await next_mw()
+    except Exception as e:
+        log.exception("Stream pipeline error: record_id=%d", ctx.record.id)
+        ctx.error = str(e)
+        yield f"data: {json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+        return
 
-        if ctx.error:
-            yield f"data: {json.dumps({'error': ctx.error}, ensure_ascii=False)}\n\n"
-            return
+    if ctx.error:
+        yield f"data: {json.dumps({'error': ctx.error}, ensure_ascii=False)}\n\n"
+        return
 
-        for event in ctx.system_events:
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    for event in ctx.system_events:
+        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
-        if ctx.exam_result:
-            yield f"data: {json.dumps({'exam_result': ctx.exam_result}, ensure_ascii=False)}\n\n"
+    if ctx.exam_result:
+        yield f"data: {json.dumps({'exam_result': ctx.exam_result}, ensure_ascii=False)}\n\n"
 
-        if ctx.llm_reply:
-            async for chunk in _emit_chunks(ctx):
-                yield chunk
+    if ctx.llm_reply:
+        async for chunk in _emit_chunks(ctx):
+            yield chunk
 
-        done_id: int | None = None
-        for msg in ctx.state.get("_saved_messages", []):
-            if msg.role == "patient":
-                done_id = msg.id
-                break
+    done_id: int | None = None
+    for msg in ctx.state.get("_saved_messages", []):
+        if msg.role == "patient":
+            done_id = msg.id
+            break
 
-        yield f"data: {json.dumps({'done': True, 'id': done_id}, ensure_ascii=False)}\n\n"
-    finally:
-        ctx.db.close()
+    yield f"data: {json.dumps({'done': True, 'id': done_id}, ensure_ascii=False)}\n\n"
 
 
 async def _emit_chunks(ctx: PipelineContext):

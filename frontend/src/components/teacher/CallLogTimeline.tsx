@@ -16,6 +16,13 @@ interface CallLogTimelineProps {
   onBack: () => void;
 }
 
+function safeTime(iso: string | null | undefined): string {
+  if (!iso) return "\u2014";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 function statusColor(status: string): string {
   if (status === "success") return "bg-green-500";
   if (status === "timeout") return "bg-yellow-500";
@@ -73,9 +80,7 @@ export default function CallLogTimeline({ recordId, onBack }: CallLogTimelinePro
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {new Date(log.created_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                    </span>
+                    <span className="text-xs text-muted-foreground font-mono">{safeTime(log.created_at)}</span>
                     <Badge variant="info" className="text-[0.65rem]">
                       {log.purpose}
                     </Badge>

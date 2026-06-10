@@ -41,7 +41,7 @@ export const nursingRecordPlugin: PanelPlugin = {
     priority: 4,
     badge: (ctx) => {
       try {
-        const raw = localStorage.getItem(`nursing_record_${ctx.recordId}`);
+        const raw = localStorage.getItem(`nursing_record_sheet_${ctx.recordId}`);
         const data = raw ? JSON.parse(raw) : {};
         const filled = countFilled(data);
         return { text: `${filled}/${TOTAL_ITEMS}`, variant: "default" };

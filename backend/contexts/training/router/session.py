@@ -7,7 +7,7 @@ from core.datetime_utils import ensure_utc, parse_iso_datetime
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -17,7 +17,6 @@ from middleware.dependencies import resolve_school_filter
 from models import Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass, Assignment
 from schemas import (
     DeleteResponse,
-    MessageResponse,
     PaginatedResponse,
     ScoreReviewRequest,
     ScoreReviewResponse,
@@ -148,6 +147,7 @@ def _create_record(
     assignment_id: str | None = None,
     is_overdue: bool = False,
     feature_overrides: dict | None = None,
+    app_state=None,
 ):
     time_limit = case_data.get("time_limit", 20)
     time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
@@ -182,6 +182,14 @@ def _create_record(
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
     db.add(greeting_msg)
     db.commit()
+
+    from core.feature_flags import resolve_features
+    from contexts.training.pipeline.plugin import run_plugin_hooks
+    from contexts.training.plugins import _hook_ctx
+    features = resolve_features(record.config_snapshot)
+    if app_state is not None:
+        run_plugin_hooks("on_record_create", _hook_ctx(record, app_state), features)
+
     return record, greeting
 
 
@@ -190,6 +198,7 @@ def start_training(
     req: TrainingStartRequest,
     current_user: Annotated[User, Depends(require_permission("training_access"))],
     db: Annotated[Session, Depends(get_db)],
+    request: Request,
 ):
     case = db.query(Case).filter(Case.id == req.case_id).first()
     if not case:
@@ -198,7 +207,7 @@ def start_training(
     config_id = req.config_id or "standard-assessment"
     config = get_config(config_id) or {}
 
-    record, greeting = _create_record(db, current_user.id, case, case.case_data or {}, config_id, config)
+    record, greeting = _create_record(db, current_user.id, case, case.case_data or {}, config_id, config, app_state=request.app.state)
 
     log.info(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
@@ -211,6 +220,7 @@ def start_training(
 def start_training_from_assignment(
     current_user: Annotated[User, Depends(require_permission("training_access"))],
     db: Annotated[Session, Depends(get_db)],
+    request: Request,
     assignment_id: str = Query(...),
 ):
     assignment = (
@@ -253,6 +263,7 @@ def start_training_from_assignment(
         assignment_id=assignment.id,
         is_overdue=now > ensure_utc(assignment.end_time),
         feature_overrides=assignment.feature_overrides,
+        app_state=request.app.state,
     )
 
     log.info(
@@ -435,9 +446,15 @@ def delete_record(
 @router.get("/records/{record_id}/review", response_model=ScoreReviewResponse)
 def get_score_review(
     record_id: int,
-    current_user: Annotated[User, Depends(require_permission("score_review"))],
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权查看该评分")
+
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
         raise HTTPException(status_code=404, detail="该记录暂无评分")

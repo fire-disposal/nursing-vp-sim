@@ -22,6 +22,13 @@ const PURPOSE_LABELS: Record<string, string> = {
   "*": "通配",
 };
 
+function safeDate(iso: string | null | undefined): string {
+  if (!iso) return "\u2014";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString("zh-CN");
+}
+
 function purposeLabel(item: LLMCallLogItem): string {
   if (item.is_aggregated && item.purpose === "patient_chat") {
     return `训练对话（${item.call_count}轮）`;
@@ -71,7 +78,7 @@ export default function MonitorTab() {
       a.href = url;
       a.download = "llm_logs_export.csv";
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     },
   });
 
@@ -309,9 +316,7 @@ export default function MonitorTab() {
                           if (item.record_id != null) setSelectedRecordId(item.record_id);
                         }}
                       >
-                        <td className="px-4 py-3 border-b border-border text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(item.created_at).toLocaleString("zh-CN")}
-                        </td>
+                        <td className="px-4 py-3 border-b border-border text-xs text-muted-foreground whitespace-nowrap">{safeDate(item.created_at)}</td>
                         <td className="px-4 py-3 border-b border-border text-xs">
                           {item.record_id != null ? (
                             <span className="text-primary hover:underline font-mono">#{item.record_id}</span>

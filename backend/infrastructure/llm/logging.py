@@ -164,11 +164,11 @@ class LogWorker:
             failed = 0
             for item in items:
                 try:
-                    db.add(LLMCallLog(**item))
+                    with db.begin_nested():
+                        db.add(LLMCallLog(**item))
                     db.flush()
                 except Exception:
                     failed += 1
-                    db.rollback()
                     log.warning(
                         "flush single llm log entry failed: %s",
                         _json.dumps(item, ensure_ascii=False, default=str)[:500],
@@ -286,7 +286,8 @@ class LogWorker:
                 os.remove(fpath)
                 log.info("drained overflow file: %s", fname)
             except OSError:
-                break
+                log.warning("failed to drain overflow file: %s", fname)
+                continue
 
         self._rotate_overflow_files()
 

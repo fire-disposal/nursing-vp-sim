@@ -1,40 +1,33 @@
-// frontend/src/plugins/scoring-display/ScoringOverlay.tsx
 import { useEffect, useState } from "react";
-import type { SlotProps } from "@/engine/types";
+import type { MessageBus } from "@/engine/types";
 
-export function ScoringOverlay({ ctx }: SlotProps) {
+export function ScoringOverlay({ bus }: { bus: MessageBus }) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const unsub = ctx.bus.on("training:ended", () => {
+    const unsub = bus.on("training:ended", () => {
       setVisible(true);
       setProgress(10);
     });
     return unsub;
-  }, [ctx.bus]);
+  }, [bus]);
 
   useEffect(() => {
     if (!visible) return;
     const id = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 95) {
-          clearInterval(id);
-          return 95;
-        }
-        return p + 1;
-      });
+      setProgress((p) => (p >= 95 ? 95 : p + 1));
     }, 200);
     return () => clearInterval(id);
   }, [visible]);
 
   useEffect(() => {
-    const unsub = ctx.bus.on("score:ready", () => {
+    const unsub = bus.on("score:ready", () => {
       setProgress(100);
       setTimeout(() => setVisible(false), 500);
     });
     return unsub;
-  }, [ctx.bus]);
+  }, [bus]);
 
   if (!visible) return null;
 

@@ -1,5 +1,6 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Loader2, Send } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getNursingRecord, saveNursingRecord } from "@/api/nursing-records";
 import type { PanelTabProps } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
@@ -42,10 +43,24 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
   const recordId = ctx.recordId;
   const [values, setValues] = useState<Record<string, Record<string, unknown>>>(() => loadValues(recordId));
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [submitStatus, setSubmitStatus] = useState<"draft" | "submitted" | "saving">("draft");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     setValues(loadValues(recordId));
     setCollapsedSections(new Set());
+    setSubmitStatus("draft");
+    setSubmitError(null);
+    getNursingRecord(Number(recordId))
+      .then((r) => {
+        const remote = r.data as Record<string, unknown>;
+        if (remote?.sheet_data) {
+          setValues(remote.sheet_data as Record<string, Record<string, unknown>>);
+          saveValues(recordId, remote.sheet_data as Record<string, Record<string, unknown>>);
+        }
+        if (remote?.status === "submitted") setSubmitStatus("submitted");
+      })
+      .catch(() => {});
   }, [recordId]);
 
   useEffect(() => {
@@ -87,6 +102,19 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 
   const totalItems = useMemo(() => NURSING_RECORD_SHEET_CONFIG.sections.reduce((sum, s) => sum + s.items.length, 0), []);
 
+  const handleSubmit = useCallback(async () => {
+    setSubmitStatus("saving");
+    setSubmitError(null);
+    try {
+      await saveNursingRecord(Number(recordId), { sheet_data: values, status: "submitted" });
+      setSubmitStatus("submitted");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      setSubmitError(e?.response?.data?.detail || "提交失败");
+      setSubmitStatus("draft");
+    }
+  }, [recordId, values]);
+
   return (
     <div className="space-y-2">
       <p className="text-[0.65rem] text-muted-foreground">
@@ -122,7 +150,23 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
           );
         })}
       </div>
-      <p className="text-[0.6rem] text-muted-foreground text-center pt-2">数据保存在本地浏览器</p>
+      <div className="flex items-center justify-between pt-2 gap-2">
+        <p className="text-[0.6rem] text-muted-foreground">
+          {submitStatus === "submitted" ? "\u5df2\u63d0\u4ea4" : submitStatus === "saving" ? "\u63d0\u4ea4\u4e2d..." : "\u8349\u7a3f"}
+        </p>
+        {submitStatus !== "submitted" && (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitStatus === "saving" || ctx.loading}
+            className="inline-flex items-center gap-1 rounded bg-primary px-2.5 py-1 text-[0.65rem] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {submitStatus === "saving" ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+            \u63d0\u4ea4\u62a4\u7406\u8bb0\u5f55
+          </button>
+        )}
+        {submitError && <p className="text-[0.6rem] text-red-500 ml-auto">{submitError}</p>}
+      </div>
     </div>
   );
 }

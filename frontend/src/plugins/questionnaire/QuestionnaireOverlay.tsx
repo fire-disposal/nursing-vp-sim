@@ -1,7 +1,12 @@
-// frontend/src/plugins/questionnaire/QuestionnaireOverlay.tsx
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/axios-instance";
-import type { SlotProps } from "@/engine/types";
+import type { MessageBus } from "@/engine/types";
+
+interface QuestionnaireOverlayProps {
+  recordId: string;
+  bus: MessageBus;
+  features: Record<string, boolean>;
+}
 
 interface Questionnaire {
   id: number;
@@ -9,7 +14,12 @@ interface Questionnaire {
   questions: Array<{ id: number; text: string; type: string; options?: string[] }>;
 }
 
-export function QuestionnaireOverlay({ ctx }: SlotProps) {
+export function QuestionnaireOverlay({ recordId, bus, features }: QuestionnaireOverlayProps) {
+  if (!features.questionnaire) return null;
+  return <QuestionnaireOverlayInner recordId={recordId} bus={bus} />;
+}
+
+function QuestionnaireOverlayInner({ recordId, bus }: { recordId: string; bus: MessageBus }) {
   const [phase, setPhase] = useState<"pre" | "post" | null>(null);
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -22,21 +32,21 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
   }, []);
 
   useEffect(() => {
-    const unsubEnd = ctx.bus.on("training:ended", () => setPhase("post"));
+    const unsubEnd = bus.on("training:ended", () => setPhase("post"));
     checkPreQuestionnaire();
     return unsubEnd;
   }, []);
 
   async function checkPreQuestionnaire() {
     try {
-      const res = await api.get(`/questionnaires/training/${ctx.recordId}/pre`);
+      const res = await api.get(`/questionnaires/training/${recordId}/pre`);
       if (cancelled.current) return;
       if (res.data && (res.data as Questionnaire).questions?.length) {
         setQuestionnaire(res.data as Questionnaire);
         setPhase("pre");
       }
     } catch {
-      /* 无前问卷 */
+      /* no pre-questionnaire */
     }
   }
 
@@ -44,14 +54,14 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
     if (phase === "post") {
       (async () => {
         try {
-          const res = await api.get(`/questionnaires/training/${ctx.recordId}/post`);
+          const res = await api.get(`/questionnaires/training/${recordId}/post`);
           if (cancelled.current) return;
           if (res.data && (res.data as Questionnaire).questions?.length) {
             setQuestionnaire(res.data as Questionnaire);
             setAnswers({});
           }
         } catch {
-          /* 无后问卷 */
+          /* no post-questionnaire */
         }
       })();
     }
@@ -62,13 +72,13 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
   const submit = async () => {
     try {
       await api.post(`/questionnaires/${questionnaire.id}/submit`, {
-        record_id: Number(ctx.recordId),
+        record_id: Number(recordId),
         answers,
       });
       if (cancelled.current) return;
       setPhase(null);
       setQuestionnaire(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("问卷提交失败", e);
     }
   };
@@ -106,11 +116,11 @@ export function QuestionnaireOverlay({ ctx }: SlotProps) {
         </div>
         <div className="mt-4 flex justify-end gap-2">
           {phase === "pre" && (
-            <button onClick={() => setPhase(null)} className="rounded px-3 py-1 text-sm text-muted-foreground">
+            <button type="button" onClick={() => setPhase(null)} className="rounded px-3 py-1 text-sm text-muted-foreground">
               跳过
             </button>
           )}
-          <button onClick={submit} className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground">
+          <button type="button" onClick={submit} className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground">
             提交
           </button>
         </div>

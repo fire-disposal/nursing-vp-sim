@@ -120,7 +120,7 @@ export default function DashboardHome() {
     }
   };
 
-  const isLoading = recordsData === undefined && casesData === undefined;
+  const isLoading = recordsData === undefined || casesData === undefined;
 
   if (isLoading) {
     return (

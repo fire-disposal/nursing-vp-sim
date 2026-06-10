@@ -98,15 +98,12 @@ async def _settle_once(
             if initiative_cache:
                 initiative_cache.cleanup(record.id)
 
-            if should_auto_score(messages, case_data):
-                await repo.update_scoring_status(record.id, "pending")
-                await task_queue.enqueue(
-                    lambda rid=record.id, cd=case_data: _run_scoring_job(rid, cd, repo, llm_client, pm),
-                    priority=5,
-                )
-                log.info("自动结算+评分: record_id=%d", record.id)
-            else:
-                log.info("自动结算(跳过评分): record_id=%d", record.id)
+            await repo.update_scoring_status(record.id, "pending")
+            await task_queue.enqueue(
+                lambda rid=record.id, cd=case_data: _run_scoring_job(rid, cd, repo, llm_client, pm),
+                priority=5,
+            )
+            log.info("自动结算+评分: record_id=%d", record.id)
         except Exception:
             log.exception("自动结算 record_id=%d 失败", record.id)
 
@@ -148,7 +145,7 @@ async def _cleanup_orphaned_cache(
     repo, emotion_cache: EmotionCache, initiative_cache: InitiativeCache
 ) -> None:
     record_ids: set[int] = set()
-    record_ids.update(emotion_cache._store.keys())
+    record_ids.update(emotion_cache.all_ids)
     record_ids.update(initiative_cache._timers.keys())
     record_ids.update(initiative_cache._last_triggers.keys())
 

@@ -233,8 +233,8 @@ def build_report() -> str:
     dbp, dbs = pm.get("db", {}), sm.get("db", {})
 
     # Calc DB pool usage %
-    db_pct_p = dbp["checked_out"] / dbp["pool_size"] * 100 if dbp and dbp.get("pool_size") else 0
-    db_pct_s = dbs["checked_out"] / dbs["pool_size"] * 100 if dbs and dbs.get("pool_size") else 0
+    db_pct_p = dbp.get("checked_out", 0) / dbp["pool_size"] * 100 if dbp and dbp.get("pool_size") else 0
+    db_pct_s = dbs.get("checked_out", 0) / dbs["pool_size"] * 100 if dbs and dbs.get("pool_size") else 0
 
     res = f"""
     <div class="card">

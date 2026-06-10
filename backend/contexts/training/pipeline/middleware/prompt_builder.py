@@ -5,8 +5,6 @@ import logging
 from contexts.patient import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
-    classify_intent,
-    get_emotion,
 )
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 from infrastructure.prompt import render_template
@@ -16,12 +14,25 @@ log = logging.getLogger(__name__)
 
 
 def _collect_author_note(ctx) -> str:
-    """收集所有已激活插件的动态提示，未激活的插件不贡献任何内容"""
     notes = []
     if ctx.state.get("emotion_note"):
         notes.append(ctx.state["emotion_note"])
-    if ctx.state.get("_operation_note"):
-        notes.append(ctx.state["_operation_note"])
+
+    snapshot = ctx.record.config_snapshot or {}
+    exam_results = snapshot.get("_exam_results", [])
+    if isinstance(exam_results, list) and exam_results:
+        lines = []
+        for r in exam_results[-5:]:
+            label = r.get("label", "")
+            value = r.get("value", "")
+            unit = r.get("unit", "")
+            lines.append(f"{label}: {value}{unit}")
+        notes.append("已查体征: " + " | ".join(lines))
+
+    impact_note = snapshot.get("_exam_impact_note")
+    if impact_note and isinstance(impact_note, str) and impact_note.strip():
+        notes.append(impact_note)
+
     return "【" + " | ".join(notes) + "】" if notes else ""
 
 

@@ -59,6 +59,7 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
 
   useEffect(() => {
     scoreRef.current.setRecordId(recordNum);
+    return () => scoreRef.current.dispose();
   }, [recordNum]);
 
   const [_registryVer, setRegistryVer] = useState(0);
@@ -67,11 +68,7 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
     pluginRegistry.setFeatureFlags(features);
     for (const p of panelPlugins) pluginRegistry.register(p);
     setRegistryVer(pluginRegistry.version);
-  }, []);
-  useEffect(() => {
-    pluginRegistry.setFeatureFlags(features);
-    setRegistryVer(pluginRegistry.version);
-  }, [features]);
+  }, [features, panelPlugins]);
 
   useEffect(() => {
     const unsub = busRef.current.on("plugins:updated", () => setRegistryVer(pluginRegistry.version));
@@ -81,10 +78,14 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
   const activePlugins = useMemo(() => pluginRegistry.getActive(features), [features, _registryVer]);
 
   const sendMessage = useCallback((text: string) => {
+    const bus = busRef.current;
     streamRef.current.send(text, {
-      onPatientChunk: () => busRef.current.emit("stream:chunk"),
-      onPatientDone: () => busRef.current.emit("stream:done"),
-      onError: (err) => busRef.current.emit("stream:error", err),
+      onPatientChunk: () => bus.emit("stream:chunk"),
+      onPatientDone: () => bus.emit("stream:done"),
+      onError: (err) => bus.emit("stream:error", err),
+      onExamResult: (examResult) => bus.emit("exam:result", examResult),
+      onEmotionChange: (change) => bus.emit("emotion:changed", change),
+      onInitiative: (initiative) => bus.emit("initiative:triggered", { content: initiative }),
     });
   }, []);
 
@@ -109,6 +110,15 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
 
   useEffect(() => {
     const cleanups = cleanupRefs.current;
+    const activeIds = new Set(activePlugins.map((p) => p.id));
+
+    for (const [id, cleanup] of cleanups) {
+      if (!activeIds.has(id)) {
+        if (typeof cleanup === "function") cleanup();
+        cleanups.delete(id);
+      }
+    }
+
     for (const plugin of activePlugins) {
       if (cleanups.has(plugin.id)) continue;
       if (plugin.hooks?.onInit) {
@@ -118,28 +128,42 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
     }
   }, [activePlugins, ctx]);
 
-  const processedMessages = useMemo(() => {
-    let msgs = [...messages];
-    for (const plugin of activePlugins) {
-      if (plugin.hooks?.afterReceive) {
-        const next: ChatMessage[] = [];
-        for (const msg of msgs) {
-          const result = plugin.hooks.afterReceive(msg, ctx);
-          if (result instanceof Promise) {
-            next.push(msg);
-          } else if (result !== null) {
-            next.push(result);
+  const [processedMessages, setProcessedMessages] = useState<ChatMessage[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let msgs = [...messages];
+      for (const plugin of activePlugins) {
+        if (plugin.hooks?.afterReceive) {
+          const next: ChatMessage[] = [];
+          for (const msg of msgs) {
+            const result = plugin.hooks.afterReceive(msg, ctx);
+            if (result instanceof Promise) {
+              try {
+                const resolved = await result;
+                if (cancelled) return;
+                if (resolved !== null) next.push(resolved);
+              } catch {
+                next.push(msg);
+              }
+            } else if (result !== null) {
+              next.push(result);
+            }
           }
+          msgs = next;
         }
-        msgs = next;
       }
-    }
-    return msgs;
+      if (!cancelled) setProcessedMessages(msgs);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [messages, activePlugins, ctx]);
 
   useEffect(() => {
-    return busRef.current.on("emotion:changed", (data: { emotion: EmotionState }) => {
-      setEmotion(data.emotion);
+    return busRef.current.on("emotion:changed", (data: { state: string }) => {
+      setEmotion(data.state as EmotionState);
     });
   }, [setEmotion]);
 
@@ -201,9 +225,9 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
           <PanelHost ctx={ctx} features={features} plugins={activePlugins} />
         </div>
       </div>
-      <QuestionnaireOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
-      <ScoringOverlay ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
-      <ScoreCard ctx={ctx} features={features} currentPhase="history_taking" phaseCount={1} advancePhase={() => {}} />
+      <QuestionnaireOverlay recordId={recordId} bus={busRef.current} features={features} />
+      <ScoringOverlay bus={busRef.current} />
+      <ScoreCard bus={busRef.current} recordId={recordId} />
     </>
   );
 }

@@ -15,6 +15,7 @@ from infrastructure.llm.client import LLMClient
 from models import Case, Message, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 from contexts.patient import cleanup_emotion, cleanup_initiative
+from contexts.training.pipeline.plugin import run_plugin_hooks
 from infrastructure.prompt import PromptManager
 from contexts.training.service import evaluate_training
 
@@ -111,8 +112,12 @@ async def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    cleanup_emotion(record_id)
-    cleanup_initiative(record_id)
+    from core.feature_flags import resolve_features
+    from contexts.training.pipeline.plugin import run_plugin_hooks
+    from contexts.training.plugins import _hook_ctx
+    features = resolve_features(record.config_snapshot)
+    hook_ctx = _hook_ctx(record, request.app.state)
+    run_plugin_hooks("on_end", hook_ctx, features)
 
     _schedule_background(_run_scoring_background(
         record_id,

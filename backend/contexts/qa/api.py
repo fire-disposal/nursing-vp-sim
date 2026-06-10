@@ -24,6 +24,13 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _qa_user_context(user: User) -> dict[str, str]:
+    return {
+        "user_name": user.display_name or "学生",
+        "user_role": user.role.name if user.role else "学生",
+    }
+
+
 @router.post("/sessions", response_model=QAAskResponse)
 async def create_session(
     req: QASessionCreate,
@@ -75,7 +82,7 @@ async def create_session(
         pm = request.app.state.prompt_manager
         tmpl = await pm.get("qa")
         llm_messages = [
-            {"role": "system", "content": tmpl.render()},
+            {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
     except Exception as e:

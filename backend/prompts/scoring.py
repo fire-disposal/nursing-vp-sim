@@ -131,3 +131,19 @@ SCORING_FEEDBACK_USER = """请根据以下评分结果和对话内容，生成 s
 {#conversation_text#}
 
 仔细分析评分结果：哪些条目得分高（strengths），哪些得分低（weaknesses），对照必须采集清单找出遗漏（missed_content），最后给出个性化建议（suggestions）。只输出 JSON。"""
+
+
+# ── 重试提示（内联模板，使用 Python .format() 注入上轮结果）──
+
+SCORING_RETRY_USER = (
+    "你上一次的输出格式不完整。请检查每一条目是否都包含 id、name、score、evidence、reason。\n\n"
+    "你上一次的输出：\n```json\n{partial_json}\n```\n\n"
+    "请重新输出完整的 JSON，确保所有条目完备。"
+)
+
+FEEDBACK_RETRY_USER = (
+    "你上一次的输出中，以下反馈字段为空：{missing}。\n\n"
+    "请勿重新评分，只补全以上缺失字段。补充时必须引用对话中的具体行为。\n\n"
+    "评分结果（保持不变）：\n```json\n{partial_json}\n```\n\n"
+    "请输出 strengths、weaknesses、missed_content、suggestions 四个字段的完整 JSON。"
+)

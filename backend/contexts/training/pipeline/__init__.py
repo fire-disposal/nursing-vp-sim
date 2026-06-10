@@ -9,13 +9,13 @@ from .phase import (
 )
 from .context import PipelineContext
 from .runner import PipelineMiddleware, run_pipeline, stream_pipeline
-from .registry import PIPELINE_REGISTRY, get_pipeline
+from .registry import get_pipeline
+from .plugin import run_plugin_hooks
 
 __all__ = [
     "Phase",
     "PipelineContext",
     "PipelineMiddleware",
-    "PIPELINE_REGISTRY",
     "get_phase_by_order",
     "get_pipeline",
     "parse_phase",
@@ -23,4 +23,5 @@ __all__ = [
     "run_pipeline",
     "stream_pipeline",
     "try_advance_phase",
+    "run_plugin_hooks",
 ]

@@ -19,11 +19,26 @@ export interface PatientData {
   requiredInquiries?: string[];
 }
 
+export interface ScoreDimension {
+  score: number;
+  max: number;
+  items?: ScoreDimensionItem[];
+}
+export interface ScoreDimensionItem {
+  name: string;
+  score: number;
+  max: number;
+  evidence?: string;
+  reason?: string;
+}
+
 export interface ScoreData {
   total_score?: number;
-  detail_scores?: Record<string, number>;
+  detail_scores?: Record<string, ScoreDimension>;
   strengths?: string[];
   weaknesses?: string[];
+  missed_content?: string[];
+  suggestions?: string;
   summary?: string;
 }
 
@@ -62,7 +77,7 @@ export interface BadgeInfo {
 }
 
 export interface PluginHooks {
-  onInit?: (ctx: PluginContext) => void | (() => void);
+  onInit?: (ctx: PluginContext) => undefined | (() => void);
   onDestroy?: () => void;
   beforeSend?: (text: string, ctx: PluginContext) => string | Promise<string>;
   afterReceive?: (msg: ChatMessage, ctx: PluginContext) => ChatMessage | null | Promise<ChatMessage | null>;
@@ -79,6 +94,7 @@ export interface PanelTabProps {
 export interface PanelPlugin {
   id: string;
   featureFlag?: string;
+  requires?: string[];
   meta: { name: string; description?: string };
   tab: {
     icon: ComponentType<{ size?: number }>;
