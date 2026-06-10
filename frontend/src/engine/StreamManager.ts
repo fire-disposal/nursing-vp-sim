@@ -8,6 +8,9 @@ export interface StreamCallbacks {
   onError?: (err: string) => void;
   onSanitized?: (reply: string) => void;
   onSystem?: (text: string) => void;
+  onExamResult?: (result: { type: string; data: Record<string, unknown> }) => void;
+  onEmotionChange?: (change: { from: string; to: string; trigger: string }) => void;
+  onInitiative?: (data: { content: string }) => void;
 }
 
 export class StreamManager {
@@ -144,6 +147,19 @@ export class StreamManager {
           this.notify();
         },
         controller.signal,
+        (examResult) => {
+          callbacks.onExamResult?.(examResult);
+          const msgs = [...this.messages];
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i]?.streaming) {
+              msgs[i] = { ...msgs[i], examResult };
+              this.messages = msgs;
+              break;
+            }
+          }
+        },
+        (emotionChange) => callbacks.onEmotionChange?.(emotionChange),
+        (initiative) => callbacks.onInitiative?.(initiative),
       );
     } catch (err: any) {
       this.messages = this.messages.filter((m) => !m.streaming && !addedIds.has(String(m.id ?? "")));

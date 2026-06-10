@@ -15,6 +15,9 @@ export async function sendMessageStream(
   onSanitized?: (reply: string) => void,
   onSystem?: (text: string) => void,
   signal?: AbortSignal,
+  onExamResult?: (result: { type: string; data: Record<string, unknown> }) => void,
+  onEmotionChange?: (change: { from: string; to: string; trigger: string }) => void,
+  onInitiative?: (data: { content: string }) => void,
 ) {
   const token = localStorage.getItem("token");
   const resp = await fetch(`/api/chat/${recordId}/message/stream`, {
@@ -64,6 +67,18 @@ export async function sendMessageStream(
         }
         if (data.system) {
           onSystem?.(data.system);
+          continue;
+        }
+        if (data.exam_result) {
+          onExamResult?.(data.exam_result);
+          continue;
+        }
+        if (data.emotion_change) {
+          onEmotionChange?.(data.emotion_change);
+          continue;
+        }
+        if (data.initiative) {
+          onInitiative?.(data.initiative);
           continue;
         }
         if (data.done) {
