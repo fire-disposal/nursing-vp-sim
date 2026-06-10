@@ -211,7 +211,7 @@ def start_training(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
     )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting)
+    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
 
 
 @router.post("/start-from-assignment", response_model=TrainingStartResponse)
@@ -246,7 +246,7 @@ def start_training_from_assignment(
         patient_info = case_data.get("patient_info", {})
         patient_name = patient_info.get("name", "患者")
         greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '继续之前的练习。')}"
-        return TrainingStartResponse(record_id=existing.id, greeting=greeting)
+        return TrainingStartResponse(record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else "")
 
     case = assignment.case
     if not case:
@@ -268,7 +268,7 @@ def start_training_from_assignment(
         f"Assignment training start: assignment_id={assignment.id} record_id={record.id}",
         extra={"user_id": current_user.id, "action": "assignment_start"},
     )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting)
+    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
 
 
 @router.get("/configs")

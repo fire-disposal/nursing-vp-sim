@@ -285,4 +285,136 @@
 
 ---
 
-*本记录由 git log 自动提取生成，覆盖 2026-05-29 至 2026-06-05（共 8 天，330+ commits）。*
+*本记录由 git log 自动提取生成，覆盖 2026-05-29 至 2026-06-11（共 14 天，500+ commits）。*
+
+---
+
+## 2026-06-06（周五）— 训练管道重构 & 特性开关体系
+
+### 训练管道中间件体系
+- 新增 Pipeline 插件注册系统：`PipelinePlugin` + `PipelinePluginMeta` + `register_plugin()`
+- 7 个中间件：phase_guard → phase_transition → prompt_builder → llm_caller → persister → side_effects
+- 插件中间件链动态组装（`build_pipeline(feature_flags)`）
+- `run_plugin_hooks()` 统一生命周期调度（on_record_create / on_end / on_exam）
+
+### 特性开关统一
+- 6 个 FeatureFlag 定义（physical_exam / emotion / initiative / portrait / questionnaire）
+- `resolve_features(config_snapshot)` 从 DB 配置解析运行时开关
+- `is_enabled(record, key)` 便捷查询
+- 前后端统一开关列表
+
+### 前端训练引擎重建
+- TrainingEngine + PluginRegistry + PanelHost 全新架构
+- 7 个面板插件：inquiry / patient-info / physical-exam / nursing-record / emotion / initiative / portrait
+- PluginRegistry：`requires` 依赖链检查（emotion→portrait→initiative）
+- 滑块式侧边栏标签页
+
+### 身份泄露检测修复
+- Identity leak 重试静默吞错修复
+- Fallback 兜底回复（7 条）
+
+---
+
+## 2026-06-07（周六）— 对话 UI 重设计 & 小程序
+
+### 会话页面完全重写
+- 三层布局：Header（病例信息+计时+特性切换）→ Content（对话流+欢迎屏）→ Panel（侧边面板宿主）
+- ChatBubble 双角色设计（患者左/护士右）+ 流式光标动画
+- ChatInput：自适应 textarea + 发送按钮 + 操作快捷面板
+- PanelHost：特性级别自动显示/隐藏 + 自适应宽度（36px→300px）
+- ScoreManager + StreamManager + TTSManager 引擎分离
+
+### LLM 调用链排查
+- CallLogDetail：全量请求/响应查看
+- CallLogTimeline：训练记录内按时间线展示调用链
+- MonitorTab：record drill-down 过滤器
+- 实时监控 /admin/llm-stats
+
+### 小程序核心页面
+- 登录 / 首页 / 病例 / 训练 / 记录 / 详情 / QA / 问卷
+- 流式 SSE 训练对话
+- 问卷反馈流程
+
+---
+
+## 2026-06-08（周日）— 作业系统 & 后端边界化 & 滚动发布
+
+### 作业管理系统
+- Assignment 模型 + router：教师发布、过期检测、特性覆盖
+- 学生端：Dashboard 作业卡片 + `start-from-assignment`
+- 教师端：AssignmentsPage（批量发布+详情+学生进度）+ AssignmentDetailPage（导出+评分）
+- 前端表单：病例/班级选择器 + 特性开关 + 截止时间
+- 集成测试（test_assignment_flow.py）
+
+### 后端上下文边界化
+- contexts/patient: emotion / initiative / guard / exam / prompt → 独立上下文
+- contexts/training: pipeline / plugins / router → 独立上下文
+- 消除跨模块直接引用，接口清晰
+
+### 基础设施加固
+- LLM 连接池 / 超时 / JWT 失效处理
+- Metrics 端点 + 系统监控
+- 每日/每周报告自动化
+
+---
+
+## 2026-06-10（周二）— 2D 情绪模型 & 提示词工程优化 & 部署
+
+### 2D 信赖-舒适情绪模型
+- score[-2,2] → trust/comfort[0,100] 双维度
+- 7 种意图分类 → (trust_delta, comfort_delta) 映射
+- Author's Note：`【信赖:25|舒适:18|状态描述|交互建议】`
+- Canvas 2D 轨迹可视化（EmotionTrajectory 组件）
+- v1→v2 缓存迁移：模块级 dict → app.state（EmotionCache/InitiativeCache）
+
+### 查体-情绪联动插件
+- `exam_emotion_bridge`：EXAM_EMOTION_IMPACT 映射表（3 级分类 × 有/无解释 × 累计阈值）
+- 体检专属 API（斜杠指令机制移除）
+- Author's Note 注入 `_exam_impact_note`
+
+### 提示词工程优化
+- 全部 6 个 purpose 启动播种
+- Author's Note 统一 `{#author_note#}` 语法
+- patient_chat：7→5 规则精简（-30% tokens）
+- QA_SYSTEM：user_name/user_role 变量
+- 评分 retry 消息模板化
+
+### 生产部署现代化
+- 测试/正式双环境全量重建（DB volume → PostgreSQL 15 + 新 schema）
+- 历史数据迁移（users/cases/records/messages/scores）
+- Docker Compose 规范对齐
+
+### 稳定性修复
+- 数据库迁移多头问题修复（merge migration + CI heads check）
+- 学生评分展示权限（score_review → 所有权检查）
+- TrainingHeader 计时器 ref 优化（每秒重建→单实例）
+- ChatBubble React.memo + 100ms scroll 节流
+- TOCTOU/LLM 线程安全/N+1 查询修复
+- SSE reader finally cancel + emotion schema 对齐
+- 前端 envelope 错误处理 + 「加载中」永久转圈修复
+
+---
+
+## 2026-06-11（周三）— 质量保证 & 工具体系
+
+### 全面缺陷修复（16 项）
+- P0：initiative trigger 缺少 cache 参数导致崩溃
+- P1：auth refresh 拒绝过期 token / 评分轮询超时不匹配 / envelope 错误键 / 评分锁永不解
+- P2：classes/grades/cases 5 端点缺学校权限校验 / case 全局可见详情 404 / LLM 删 key 后 router 未重载
+- P3：authStore username/grade/className 填充 / StreamManager abort 清理 / Login 死代码移除 / feature_overrides 并发
+
+### 开发工具体系
+- `npm run check` 一键检查：biome+tsc(前端) + ruff+ty(后端)
+- pre-push 新增 tsc --noEmit
+- pre-commit 新增 alembic heads + ty 类型检查
+- ruff 规则豁免清理（57→0 errors）
+- biome CRLF 全量修复（58 文件）
+- pytest-alembic 迁移测试（2 pass, 1 xfail）
+
+### 小程序优化
+- API 类型重新生成
+- 学生作业功能适配
+- 小程序类型同步
+
+### 文档
+- AGENTS.md 项目约定（--autogenerate 迁移规则 + 测试 + 提交格式）
