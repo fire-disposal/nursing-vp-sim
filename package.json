@@ -6,14 +6,14 @@
   "scripts": {
     "prepare": "husky",
     "dev": "concurrently -n BE,FE -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && set PYTHONIOENCODING=utf-8 && set FORCE_COLOR=1 && .venv\\Scripts\\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
-    "dev:frontend": "cd frontend && set FORCE_COLOR=1 && npm run dev",
-    "db:migrate": "cd backend && .venv\\Scripts\\python -m alembic upgrade head",
-    "db:migration": "cd backend && .venv\\Scripts\\python -m alembic revision --autogenerate -m",
-    "db:downgrade": "cd backend && .venv\\Scripts\\python -m alembic downgrade -1",
+    "dev:backend": "cd backend && PYTHONIOENCODING=utf-8 FORCE_COLOR=1 uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
+    "dev:frontend": "cd frontend && FORCE_COLOR=1 npm run dev",
+    "db:migrate": "cd backend && uv run python -m alembic upgrade head",
+    "db:migration": "cd backend && uv run python -m alembic revision --autogenerate -m",
+    "db:downgrade": "cd backend && uv run python -m alembic downgrade -1",
     "tag": "node .husky/_/auto-tag.mjs --push",
     "tag:local": "node .husky/_/auto-tag.mjs",
-    "api:spec": "cd backend && .venv\\Scripts\\python -c \"from main import app; import json; json.dump(app.openapi(), open('../openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2); print('spec written')\"",
+    "api:spec": "cd backend && uv run python -c \"from main import app; import json; json.dump(app.openapi(), open('../openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2); print('spec written')\"",
     "api:generate": "cd frontend && npx openapi-typescript ../openapi.json -o src/api/api-types.gen.ts",
     "api:generate:miniapp": "node scripts/generate-miniapp-api.mjs",
     "api:update": "npm run api:spec && npm run api:generate",
@@ -22,8 +22,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19",
     "@commitlint/config-conventional": "^19",
-    "concurrently": "^9",
+    "concurrently": "^10.0.3",
     "husky": "^9"
-  },
-  "dependencies": {}
+  }
 }

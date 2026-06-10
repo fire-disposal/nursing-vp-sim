@@ -6,23 +6,23 @@ from core.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
 class TestResolveFeatures:
     def test_defaults_when_no_snapshot(self):
         result = resolve_features(None)
-        assert result == {"physical_exam": False, "patient_initiative": False}
+        assert result == {"physical_exam": False, "patient_initiative": False, "emotion": False}
 
     def test_defaults_when_empty_snapshot(self):
         result = resolve_features({})
-        assert result == {"physical_exam": False, "patient_initiative": False}
+        assert result == {"physical_exam": False, "patient_initiative": False, "emotion": False}
 
     def test_override_single_flag(self):
         result = resolve_features({"features": {"physical_exam": True}})
-        assert result == {"physical_exam": True, "patient_initiative": False}
+        assert result == {"physical_exam": True, "patient_initiative": False, "emotion": False}
 
     def test_override_all_flags(self):
         result = resolve_features({"features": {"physical_exam": True, "patient_initiative": True}})
-        assert result == {"physical_exam": True, "patient_initiative": True}
+        assert result == {"physical_exam": True, "patient_initiative": True, "emotion": False}
 
     def test_unknown_key_ignored(self):
         result = resolve_features({"features": {"unknown_flag": True}})
-        assert result == {"physical_exam": False, "patient_initiative": False}
+        assert result == {"physical_exam": False, "patient_initiative": False, "emotion": False}
 
 
 class TestIsEnabled:
