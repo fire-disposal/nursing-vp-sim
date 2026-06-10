@@ -109,6 +109,14 @@ async def end_training(
 
     record.status = "completed"
     record.end_time = datetime.now(UTC)
+
+    _schedule_background(_run_scoring_background(
+        record_id,
+        case.case_data if case else {},
+        llm_client=request.app.state.llm_client,
+        pm=request.app.state.prompt_manager,
+    ))
+
     record.scoring_status = "pending"
     db.commit()
 
@@ -118,13 +126,6 @@ async def end_training(
     features = resolve_features(record.config_snapshot)
     hook_ctx = _hook_ctx(record, request.app.state)
     run_plugin_hooks("on_end", hook_ctx, features)
-
-    _schedule_background(_run_scoring_background(
-        record_id,
-        case.case_data if case else {},
-        llm_client=request.app.state.llm_client,
-        pm=request.app.state.prompt_manager,
-    ))
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(

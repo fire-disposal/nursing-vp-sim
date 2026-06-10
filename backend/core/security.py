@@ -60,6 +60,38 @@ def get_current_user(
     return user
 
 
+def _decode_token_allow_expired(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(
+            token, SECRET_KEY, algorithms=[ALGORITHM],
+            options={"verify_exp": False},
+        )
+        user_id = payload.get("user_id")
+        if not isinstance(user_id, int):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的凭证")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的凭证")
+
+    user = (
+        db.query(User)
+        .options(joinedload(User.role), joinedload(User.school))
+        .filter(User.id == user_id)
+        .first()
+    )
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+
+    token_tv = payload.get("tv", 0)
+    if token_tv != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="凭证已失效，请重新登录")
+
+    return user
+
+
 def require_permission(permission: str):
     def checker(current_user: User = Depends(get_current_user)) -> User:
         if not current_user.has_permission(permission):

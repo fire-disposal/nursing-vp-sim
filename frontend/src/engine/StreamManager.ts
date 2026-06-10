@@ -67,6 +67,7 @@ export class StreamManager {
   abort(): void {
     this.abortController?.abort();
     this.abortController = null;
+    this.messages = this.messages.filter((m) => !m.streaming);
     this.setLoading(false);
   }
 

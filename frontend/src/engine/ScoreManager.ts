@@ -54,7 +54,7 @@ export class ScoreManager {
     if (this._polling || !this.recordId) return;
     this._polling = true;
     let retries = 0;
-    const maxRetries = 40;
+    const maxRetries = 100;
 
     this.pollTimer = setInterval(async () => {
       if (retries >= maxRetries) {

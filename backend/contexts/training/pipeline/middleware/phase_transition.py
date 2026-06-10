@@ -16,7 +16,7 @@ async def phase_transition(ctx: PipelineContext, next_mw) -> None:
     next_phase = try_advance_phase(
         ctx.current_phase,
         ctx.phases,
-        ctx.message_count,
+        ctx.message_count + 1,
         ctx.phase_operation_count,
         manual_requested=ctx.manual_advance_requested,
     )

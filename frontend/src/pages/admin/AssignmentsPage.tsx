@@ -134,7 +134,9 @@ export default function AssignmentsPage() {
       case_id: caseId,
       class_id: classId,
       config_id: configId,
-      feature_overrides: features,
+      feature_overrides: Object.entries(features || {})
+        .filter(([, v]) => v === true)
+        .reduce((acc, [k]) => ({ ...acc, [k]: true }), {}),
       start_time: new Date(startTime).toISOString(),
       end_time: new Date(endTime).toISOString(),
     };

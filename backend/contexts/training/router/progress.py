@@ -134,6 +134,7 @@ def get_training_state(
 @router.post("/{record_id}/initiative/trigger", response_model=InitiativeTriggerResponse)
 def trigger_initiative(
     record_id: int,
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -166,7 +167,7 @@ def trigger_initiative(
         db.add(patient_msg)
         db.commit()
         db.refresh(patient_msg)
-        update_initiative_timer(record_id, len(msg))
+        update_initiative_timer(record_id, request.app.state.initiative_cache, len(msg))
         return {"triggered": True, "message": msg, "id": patient_msg.id}
 
     return {"triggered": False, "message": None}

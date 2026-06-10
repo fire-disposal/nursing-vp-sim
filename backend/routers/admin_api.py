@@ -123,7 +123,7 @@ def update_secret(
 
 @router.delete("/secrets/{secret_id}", response_model=DeleteResponse)
 async def delete_secret(
-    secret_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    secret_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
@@ -133,6 +133,7 @@ async def delete_secret(
         raise HTTPException(status_code=400, detail=f"该档案有 {count} 个用途绑定，先解除")
     db.delete(s)
     db.commit()
+    await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 

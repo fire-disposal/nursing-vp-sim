@@ -68,7 +68,7 @@ def update_grade(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    grade = db.query(Grade).filter(Grade.id == grade_id).first()
+    grade = db.query(Grade).filter(Grade.id == grade_id, Grade.school_id == current_user.school_id).first()
     if not grade:
         raise HTTPException(status_code=404, detail="年级不存在")
     if body.name != grade.name:
@@ -100,7 +100,7 @@ def delete_grade(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    grade = db.query(Grade).filter(Grade.id == grade_id).first()
+    grade = db.query(Grade).filter(Grade.id == grade_id, Grade.school_id == current_user.school_id).first()
     if not grade:
         raise HTTPException(status_code=404, detail="年级不存在")
     class_count = db.query(func.count(Class.id)).filter(Class.grade_id == grade_id).scalar() or 0

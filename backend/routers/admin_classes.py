@@ -20,6 +20,7 @@ def list_classes(
 ):
     q = db.query(Class, Grade.name.label("grade_name"))
     q = q.join(Grade, Grade.id == Class.grade_id)
+    q = q.filter(Grade.school_id == current_user.school_id)
     if grade_id is not None:
         q = q.filter(Class.grade_id == grade_id)
     rows = q.order_by(Grade.name, Class.name).all()
@@ -77,7 +78,7 @@ def update_class(
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
     if body.grade_id is not None:
-        grade = db.query(Grade).filter(Grade.id == body.grade_id).first()
+        grade = db.query(Grade).filter(Grade.id == body.grade_id, Grade.school_id == current_user.school_id).first()
         if not grade:
             raise HTTPException(status_code=404, detail="年级不存在")
         cls.grade_id = body.grade_id
@@ -114,7 +115,7 @@ def delete_class(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    cls = db.query(Class).filter(Class.id == class_id).first()
+    cls = db.query(Class).join(Grade).filter(Class.id == class_id, Grade.school_id == current_user.school_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
     from sqlalchemy import update as sa_update

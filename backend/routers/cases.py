@@ -236,7 +236,9 @@ def get_case(
     effective_school = resolve_school_filter(current_user)
     query = db.query(Case).filter(Case.id == case_id)
     if effective_school is not None:
-        query = query.filter(Case.school_id == effective_school)
+        query = query.filter(
+            (Case.school_id == effective_school) | (Case.school_id.is_(None))
+        )
     case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
@@ -287,7 +289,13 @@ def update_case(
     current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """编辑病例"""
-    case = db.query(Case).filter(Case.id == case_id).first()
+    effective_school = resolve_school_filter(current_user)
+    query = db.query(Case).filter(Case.id == case_id)
+    if effective_school is not None:
+        query = query.filter(
+            (Case.school_id == effective_school) | (Case.school_id.is_(None))
+        )
+    case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
     cd = req.case_data
@@ -315,7 +323,13 @@ def delete_case(
     current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """删除病例（仅当无训练记录时允许）"""
-    case = db.query(Case).filter(Case.id == case_id).first()
+    effective_school = resolve_school_filter(current_user)
+    query = db.query(Case).filter(Case.id == case_id)
+    if effective_school is not None:
+        query = query.filter(
+            (Case.school_id == effective_school) | (Case.school_id.is_(None))
+        )
+    case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
     count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar() or 0

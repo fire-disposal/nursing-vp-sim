@@ -13,7 +13,6 @@ import useAuthStore from "@/stores/authStore";
 export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [remember, setRemember] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
 
@@ -30,8 +29,8 @@ export default function Login() {
       navigate("/home");
     } catch (err: unknown) {
       console.error("[Login] failed:", err);
-      const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
-      setError(axiosErr.response?.data?.detail || axiosErr.message || "登录失败");
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(axiosErr.response?.data?.message || axiosErr.message || "登录失败");
     } finally {
       setLoading(false);
     }
@@ -97,18 +96,6 @@ export default function Login() {
                     </FormItem>
                   )}
                 />
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="remember"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="size-4 rounded border-border"
-                  />
-                  <label htmlFor="remember" className="text-xs text-muted-foreground cursor-pointer">
-                    记住我
-                  </label>
-                </div>
                 <Button type="submit" disabled={loading} className="h-11 w-full">
                   {loading ? "登录中..." : "登 录"}
                 </Button>

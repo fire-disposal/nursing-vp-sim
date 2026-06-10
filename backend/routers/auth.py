@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.login_strategies import LoginStrategy, get_strategy_registry
-from core.security import create_access_token, get_current_user, hash_password, require_permission, verify_password
+from core.security import _decode_token_allow_expired, create_access_token, get_current_user, hash_password, require_permission, verify_password
 from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
 from models import Class, Role, RolePermission, School, User, UserClass
 from infrastructure.wechat import code2session
@@ -291,7 +291,7 @@ def _user_to_brief(user: User) -> UserBrief:
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh_token(current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
+def refresh_token(current_user: Annotated[User, Depends(_decode_token_allow_expired)], db: Annotated[Session, Depends(get_db)]):
     token = create_access_token({"user_id": current_user.id, "role_id": current_user.role_id, "school_id": current_user.school_id, "role": current_user.role.name if current_user.role else "", "tv": current_user.token_version})
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == current_user.role_id).all()
     permissions = [r.permission for r in rows]

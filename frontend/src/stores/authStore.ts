@@ -4,7 +4,6 @@ import type { AuthState, User } from "../types/store";
 
 interface ExtendedAuthState extends AuthState {
   permissions: string[];
-  isRefreshing: boolean;
   refreshAuth: () => Promise<boolean>;
 }
 
@@ -41,13 +40,13 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
     return localStorage.getItem("token") || null;
   })(),
   permissions: loadPermissions(),
-  isRefreshing: false,
 
   login: async (username: string, password: string): Promise<User> => {
     const { data } = await apiLogin(username, password);
     localStorage.setItem("token", data.access_token);
     const user: User = {
       user_id: data.user_id,
+      username: (data as any).username || username,
       role: data.role,
       role_display_name: (data as any).role_display_name || data.role,
       display_name: data.display_name,
@@ -88,11 +87,14 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
       const current = get().user;
       const user: User = {
         user_id: data.id,
+        username: (data as any).username || current?.username || "",
         role: data.role,
         role_display_name: (data as any).role_display_name || data.role,
         display_name: data.display_name,
         gender: (data as any).gender ?? null,
         avatar: (data as any).avatar ?? null,
+        grade: (data as any).grade_name ?? current?.grade ?? "",
+        className: (data as any).class_name ?? current?.className ?? "",
         school_id: current?.school_id ?? (data as any).school_id ?? undefined,
         school_name: current?.school_name ?? (data as any).school_name ?? undefined,
       };

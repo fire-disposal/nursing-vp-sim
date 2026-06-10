@@ -274,7 +274,9 @@ def delete_assignment(
     if assignment.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权删除")
 
-    started = db.query(TrainingRecord).filter(TrainingRecord.assignment_id == assignment_id).first()
+    started = db.query(TrainingRecord).filter(
+        TrainingRecord.assignment_id == assignment_id
+    ).with_for_update().first()
     if started:
         raise HTTPException(status_code=400, detail="已有学生开始练习，无法删除")
 
