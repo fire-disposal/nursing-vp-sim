@@ -1,19 +1,19 @@
 ﻿import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
-import { chatDisplayPlugin } from "@/plugins/chat-display";
-import { chatInputPlugin } from "@/plugins/chat-input";
-import { patientInitiativePlugin } from "@/plugins/patient-initiative";
-import { questionnairePlugin } from "@/plugins/questionnaire";
-import { scoringDisplayPlugin } from "@/plugins/scoring-display";
-import { sidebarHostPlugin } from "@/plugins/sidebar-host";
-import { trainingHeaderPlugin } from "@/plugins/training-header";
+import { emotionPlugin } from "@/plugins/emotion";
+import { initiativePlugin } from "@/plugins/initiative";
+import { inquiryPlugin } from "@/plugins/inquiry";
+import { nursingRecordPlugin } from "@/plugins/nursing-record";
+import { patientInfoPlugin } from "@/plugins/patient-info";
+import { physicalExamPlugin } from "@/plugins/physical-exam";
+import { portraitPlugin } from "@/plugins/portrait";
 
 export default function ChatTraining() {
   const { recordId } = useParams<{ recordId: string }>();
 
-  const plugins = useMemo(
-    () => [trainingHeaderPlugin, chatDisplayPlugin, sidebarHostPlugin, chatInputPlugin, questionnairePlugin, patientInitiativePlugin, scoringDisplayPlugin],
+  const panelPlugins = useMemo(
+    () => [inquiryPlugin, patientInfoPlugin, physicalExamPlugin, nursingRecordPlugin, emotionPlugin, initiativePlugin, portraitPlugin],
     [],
   );
 
@@ -22,14 +22,13 @@ export default function ChatTraining() {
   return (
     <TrainingEngine
       recordId={recordId}
-      scenarioConfig={{
-        features: {
-          physical_exam: true,
-          patient_initiative: true,
-          emotion: true,
-        },
+      features={{
+        physical_exam: true,
+        emotion: true,
+        patient_initiative: true,
+        portrait: true,
       }}
-      plugins={plugins}
+      panelPlugins={panelPlugins}
     />
   );
 }

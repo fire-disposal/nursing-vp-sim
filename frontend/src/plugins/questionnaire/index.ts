@@ -1,16 +1,13 @@
-// frontend/src/plugins/questionnaire/index.ts
-import type { TrainingPlugin } from "@/engine/types";
+import { FileText } from "lucide-react";
+import type { PanelPlugin } from "@/engine/types";
 import { QuestionnaireOverlay } from "./QuestionnaireOverlay";
 
-export const questionnairePlugin: TrainingPlugin = {
+export const questionnairePlugin: PanelPlugin = {
   id: "questionnaire",
-  name: "训练问卷",
-  meta: {
-    description: "训练前/后问卷调查",
-    icon: "clipboard-check",
-    tags: ["ui", "overlay", "assessment"],
-  },
-  slots: {
-    overlay: QuestionnaireOverlay,
-  },
+  featureFlag: "questionnaire",
+  meta: { name: "问卷", description: "训前/训后问卷" },
+  tab: { icon: FileText, label: "问卷", priority: 99 },
+  component: () => null,
 };
+
+export { QuestionnaireOverlay };

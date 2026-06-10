@@ -26,10 +26,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { exportRecordDetail, getRecordDetail, getScoreReview, retryScoring, submitScoreReview } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import ScoreCard from "@/components/training/ScoreCard";
 import Badge from "@/components/ui/Badge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
+import { ScoreCardInner } from "@/plugins/scoring-display/ScoreCard";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData, ScoreItemData } from "@/types/score";
 
@@ -711,7 +711,7 @@ export default function RecordDetail() {
         </div>
       </div>
 
-      {showScore && record.score && <ScoreCard score={record.score as ScoreData} onClose={() => setShowScore(false)} />}
+      {showScore && record.score && <ScoreCardInner score={record.score as any} onClose={() => setShowScore(false)} />}
 
       {showReviewEditor && record.score && (
         <ReviewEditor

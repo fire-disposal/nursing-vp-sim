@@ -48,6 +48,14 @@ export interface PluginContext {
   endTraining: () => Promise<void>;
 }
 
+export interface SlotProps {
+  ctx: PluginContext;
+  features: Record<string, boolean>;
+  currentPhase: string;
+  phaseCount: number;
+  advancePhase: () => void;
+}
+
 export interface BadgeInfo {
   text: string;
   variant: "default" | "destructive";
@@ -56,8 +64,8 @@ export interface BadgeInfo {
 export interface PluginHooks {
   onInit?: (ctx: PluginContext) => void | (() => void);
   onDestroy?: () => void;
-  beforeSend?: (text: string, ctx: PluginContext) => string;
-  afterReceive?: (msg: ChatMessage, ctx: PluginContext) => ChatMessage | null;
+  beforeSend?: (text: string, ctx: PluginContext) => string | Promise<string>;
+  afterReceive?: (msg: ChatMessage, ctx: PluginContext) => ChatMessage | null | Promise<ChatMessage | null>;
   onPhaseChange?: (from: string, to: string, ctx: PluginContext) => void;
   onEnd?: (reason: "manual" | "timeout", ctx: PluginContext) => void;
 }

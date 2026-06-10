@@ -117,7 +117,12 @@ function TrainingEngineInner({ recordId, features, panelPlugins }: TrainingEngin
         const next: ChatMessage[] = [];
         for (const msg of msgs) {
           const result = plugin.hooks.afterReceive(msg, ctx);
-          if (result !== null) next.push(result);
+          if (result instanceof Promise) {
+            // Async hooks handled via side effects (bus events)
+            next.push(msg);
+          } else if (result !== null) {
+            next.push(result);
+          }
         }
         msgs = next;
       }

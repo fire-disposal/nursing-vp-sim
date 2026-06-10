@@ -1,17 +1,11 @@
-// frontend/src/plugins/physical-exam/index.ts
-import type { TrainingPlugin } from "@/engine/types";
+import { Stethoscope } from "lucide-react";
+import type { PanelPlugin } from "@/engine/types";
 import { ExamPanel } from "./ExamPanel";
 
-export const physicalExamPlugin: TrainingPlugin = {
+export const physicalExamPlugin: PanelPlugin = {
   id: "physical-exam",
-  name: "护理查体操作",
   featureFlag: "physical_exam",
-  meta: {
-    description: "查体操作面板：血压/体温/血氧/心率等",
-    icon: "stethoscope",
-    tags: ["ui", "panel", "exam"],
-  },
-  slots: {
-    panel: ExamPanel,
-  },
+  meta: { name: "护理查体", description: "执行护理查体操作" },
+  tab: { icon: Stethoscope, label: "护理查体", priority: 3 },
+  component: ExamPanel,
 };

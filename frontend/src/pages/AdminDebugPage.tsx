@@ -1,10 +1,12 @@
 import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
-import { chatDisplayPlugin } from "@/plugins/chat-display";
-import { devToolsPlugin } from "@/plugins/dev-tools";
+import { emotionPlugin } from "@/plugins/emotion";
+import { initiativePlugin } from "@/plugins/initiative";
 import { inquiryPlugin } from "@/plugins/inquiry";
-import { scoringDisplayPlugin } from "@/plugins/scoring-display";
-import { timerPlugin } from "@/plugins/timer";
+import { nursingRecordPlugin } from "@/plugins/nursing-record";
+import { patientInfoPlugin } from "@/plugins/patient-info";
+import { physicalExamPlugin } from "@/plugins/physical-exam";
+import { portraitPlugin } from "@/plugins/portrait";
 
 export default function AdminDebugPage() {
   const { recordId } = useParams<{ recordId: string }>();
@@ -14,14 +16,13 @@ export default function AdminDebugPage() {
   return (
     <TrainingEngine
       recordId={recordId}
-      scenarioConfig={{
-        features: {
-          physical_exam: true,
-          patient_initiative: false,
-          emotion: false,
-        },
+      features={{
+        physical_exam: true,
+        patient_initiative: true,
+        emotion: true,
+        portrait: true,
       }}
-      plugins={[chatDisplayPlugin, timerPlugin, inquiryPlugin, scoringDisplayPlugin, devToolsPlugin]}
+      panelPlugins={[inquiryPlugin, patientInfoPlugin, physicalExamPlugin, nursingRecordPlugin, emotionPlugin, initiativePlugin, portraitPlugin]}
     />
   );
 }
