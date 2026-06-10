@@ -27,6 +27,8 @@ services:
     container_name: nursing-vp-sim-backend-1
     ports:
       - "127.0.0.1:9001:8000"
+    volumes:
+      - ai_vp_logs:/app/data/llm_logs
     env_file:
       - .env
     environment:
@@ -54,3 +56,4 @@ services:
 
 volumes:
   ai_vp_pg_data:
+  ai_vp_logs:

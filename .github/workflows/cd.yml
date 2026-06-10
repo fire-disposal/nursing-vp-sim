@@ -55,7 +55,12 @@ jobs:
 
             BAK="/opt/nursing-vp-sim/backups/pre-deploy-\$(date +%Y%m%d-%H%M%S).sql"
             echo ">> Backup DB"
-            docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null || echo "  (skip)"
+            mkdir -p /opt/nursing-vp-sim/backups
+            if docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null; then
+              echo "  ✓ backup: \$BAK"
+            else
+              echo "::warning::备份失败，继续部署"
+            fi
 
             OLD_BACKEND=\$(docker inspect --format '{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
             OLD_VER=\$(echo "\$OLD_BACKEND" | rev | cut -d: -f1 | rev)

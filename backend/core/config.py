@@ -47,6 +47,21 @@ def validate_config():
             '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
         )
 
+    db = urlparse(DATABASE_URL)
+    if not db.scheme or not db.hostname:
+        raise RuntimeError(
+            f"DATABASE_URL 格式无效: {DATABASE_URL}\n"
+            "应为 postgresql://user:password@host:port/dbname 格式。"
+        )
+    if db.scheme not in ("postgresql", "postgresql+psycopg"):
+        raise RuntimeError(
+            f"DATABASE_URL scheme 无效: {db.scheme}（期望 postgresql 或 postgresql+psycopg）"
+        )
+
+    cors_raw = os.getenv("CORS_ORIGINS", "")
+    if not cors_raw or not any(o.strip() for o in cors_raw.split(",")):
+        log.warning("CORS_ORIGINS 未配置或为空，跨域请求将全部被拒绝")
+
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
 LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
@@ -70,6 +85,10 @@ LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))
 LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))
 LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))
 
+LLM_LOG_OVERFLOW_DIR = os.getenv("LLM_LOG_OVERFLOW_DIR", "/app/data/llm_logs")
+LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10"))
+LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
+
 # LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
     "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.6, "max_retries": 2},
@@ -92,6 +111,7 @@ def get_llm_config(purpose: str) -> dict:
     return _LLM_PURPOSE_DEFAULTS.get(purpose, _LLM_PURPOSE_DEFAULTS["patient_chat"])
 
 # 自动结算与智能评分
+REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
 CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "30"))
 AUTO_SCORE_COVERED_INQUIRIES_MIN = int(os.getenv("AUTO_SCORE_COVERED_INQUIRIES_MIN", "5"))
 AUTO_SCORE_STUDENT_CHARS_MIN = int(os.getenv("AUTO_SCORE_STUDENT_CHARS_MIN", "200"))

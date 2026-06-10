@@ -278,3 +278,12 @@ class ProfileRouter:
         finally:
             db.close()
 
+    def degraded_count(self) -> int:
+        return sum(1 for p in self._profiles.values() if getattr(p, "status", "active") == "degraded")
+
+    @property
+    def global_degraded(self) -> bool:
+        if not self._global_degraded_until:
+            return False
+        return datetime.now(UTC) < self._global_degraded_until
+

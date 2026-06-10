@@ -92,6 +92,7 @@ class User(Base):
     gender: Mapped[str | None] = mapped_column(String(4), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")

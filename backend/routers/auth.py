@@ -38,6 +38,7 @@ def _build_token_response(user: User, db: Session) -> TokenResponse:
         "role_id": user.role_id,
         "school_id": user.school_id,
         "role": user.role.name if user.role else "",
+        "tv": user.token_version,
     })
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     permissions = [r.permission for r in rows]
@@ -118,7 +119,7 @@ def register(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "register"},
     )
     return TokenResponse(
-        access_token=create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else ""}),
+        access_token=create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else "", "tv": user.token_version}),
         role=user.role.name if user.role else "",
         display_name=user.display_name,
         user_id=user.id,
@@ -147,7 +148,7 @@ async def wechat_login(
     if user is None:
         return WechatLoginResponse(need_bind=True)
 
-    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else ""})
+    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else "", "tv": user.token_version})
     log.info("微信登录成功: openid=%s user=%s", openid, user.username)
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     permissions = [r.permission for r in rows]
@@ -234,7 +235,7 @@ async def wechat_register(
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else ""})
+    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else "", "tv": user.token_version})
     log.info("微信注册成功: openid=%s username=%s", openid, username)
     return TokenResponse(
         access_token=token,
@@ -291,7 +292,7 @@ def _user_to_brief(user: User) -> UserBrief:
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh_token(current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]):
-    token = create_access_token({"user_id": current_user.id, "role_id": current_user.role_id, "school_id": current_user.school_id, "role": current_user.role.name if current_user.role else ""})
+    token = create_access_token({"user_id": current_user.id, "role_id": current_user.role_id, "school_id": current_user.school_id, "role": current_user.role.name if current_user.role else "", "tv": current_user.token_version})
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == current_user.role_id).all()
     permissions = [r.permission for r in rows]
     log.info("Token 刷新: user_id=%d", current_user.id)
@@ -315,6 +316,18 @@ async def change_password(
     if not await asyncio.to_thread(verify_password, req.old_password, current_user.password_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
     current_user.password_hash = hash_password(req.new_password)
+    current_user.token_version += 1
     db.commit()
-    log.info("密码修改: user_id=%d", current_user.id)
+    log.info("密码修改: user_id=%d (tv=%d)", current_user.id, current_user.token_version)
     return OkResponse(message="密码修改成功")
+
+
+@router.post("/logout", response_model=OkResponse)
+def logout(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    current_user.token_version += 1
+    db.commit()
+    log.info("登出: user_id=%d (tv=%d)", current_user.id, current_user.token_version)
+    return OkResponse(message="已登出")

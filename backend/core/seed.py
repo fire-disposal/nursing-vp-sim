@@ -27,6 +27,9 @@ def seed_all() -> None:
 def _seed_data() -> None:
     db = SessionLocal()
     try:
+        if db.query(School).count() > 0:
+            return
+
         # 1. 确保默认学校存在
         school = db.query(School).filter(School.name == "默认学校").first()
         if not school:

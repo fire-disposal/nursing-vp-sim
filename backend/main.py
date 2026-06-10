@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import threading
 import time
 from contextlib import asynccontextmanager, suppress
 
@@ -17,6 +18,10 @@ from core.config import (
     CLEANUP_INTERVAL_SECONDS,
     LLM_CONNECTION_KEEPALIVE,
     LLM_CONNECTION_POOL_SIZE,
+    LLM_LOG_OVERFLOW_DIR,
+    LLM_LOG_OVERFLOW_MAX_FILES,
+    LLM_LOG_OVERFLOW_MAX_SIZE_MB,
+    REQUEST_TIMEOUT_SECONDS,
     log_config,
     validate_config,
 )
@@ -31,7 +36,9 @@ from middleware.rate_limits import RateLimiter
 from repositories.training import TrainingRepository
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.prompt import PromptManager
+from infrastructure.metrics import MetricsSnapshot
 from contexts.training.service import settlement_loop
+from contexts.training.router.session import set_training_infra, stop_background_loop
 
 log = logging.getLogger(__name__)
 
@@ -75,13 +82,18 @@ async def lifespan(app: FastAPI):
     await app.state.prompt_manager.load_from_db()
     log.info("Prompt manager: ready")
 
-    app.state.log_worker = LogWorker()
+    app.state.log_worker = LogWorker(
+        overflow_dir=LLM_LOG_OVERFLOW_DIR,
+        overflow_max_size_mb=LLM_LOG_OVERFLOW_MAX_SIZE_MB,
+        overflow_max_files=LLM_LOG_OVERFLOW_MAX_FILES,
+    )
     await app.state.log_worker.start()
 
     app.state.llm_client = LLMClient(
         http=app.state.httpx_client,
         router=app.state.llm_router,
         log_worker=app.state.log_worker,
+        metrics=metrics,
     )
 
     app.state.task_queue = TaskQueue(max_workers=3)
@@ -90,6 +102,28 @@ async def lifespan(app: FastAPI):
 
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
+
+    metrics = MetricsSnapshot()
+    app.state.metrics = metrics
+
+    metrics.active_sessions_supplier = lambda: len(app.state.emotion_cache._store) if app.state.emotion_cache else 0
+    metrics.task_queue_size_supplier = lambda: app.state.task_queue.size() if app.state.task_queue else 0
+    metrics.log_queue_size_supplier = (
+        lambda: app.state.log_worker._queue.qsize() if app.state.log_worker and app.state.log_worker._queue else 0
+    )
+    metrics.degraded_providers_supplier = lambda: (
+        app.state.llm_router.degraded_count() if app.state.llm_router else 0
+    )
+    metrics.global_degraded_supplier = lambda: (
+        app.state.llm_router.global_degraded if app.state.llm_router else False
+    )
+
+    background_loop = asyncio.new_event_loop()
+    background_thread = threading.Thread(target=background_loop.run_forever, daemon=False, name="bg-loop")
+    background_thread.start()
+    app.state._background_loop = background_loop
+    app.state._background_thread = background_thread
+    set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop)
 
     cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
     app.state._cleanup_task = cleanup_task
@@ -130,6 +164,7 @@ async def lifespan(app: FastAPI):
     if app.state.httpx_client:
         await app.state.httpx_client.aclose()
     await asyncio.to_thread(engine.dispose)
+    await asyncio.to_thread(stop_background_loop)
 
 
 async def _rate_limiter_cleanup(rate_limiter: RateLimiter):
@@ -167,6 +202,9 @@ async def _log_requests(request: Request, call_next):
         log.error("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
     elif response.status_code >= 400:
         log.warning("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
+    metrics = getattr(request.app.state, "metrics", None)
+    if metrics and request.url.path not in ("/api/metrics", "/api/health"):
+        metrics.record_request(response.status_code, ms)
     return response
 
 
@@ -176,6 +214,18 @@ async def _limit_body_size(request: Request, call_next):
     if content_length and int(content_length) > _MAX_REQUEST_BYTES:
         return JSONResponse(status_code=413, content={"detail": "请求体过大"})
     return await call_next(request)
+
+
+@app.middleware("http")
+async def _request_timeout(request: Request, call_next):
+    if request.url.path.startswith("/api/chat/") and "stream" in request.url.path:
+        return await call_next(request)
+
+    try:
+        return await asyncio.wait_for(call_next(request), timeout=REQUEST_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        log.error("请求超时 %s %s (limit=%ds)", request.method, request.url.path, REQUEST_TIMEOUT_SECONDS)
+        return JSONResponse(status_code=504, content={"detail": "请求处理超时"})
 
 
 app.add_middleware(
@@ -221,3 +271,9 @@ app.include_router(student_assignments_router)
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "version": APP_VERSION}
+
+
+@app.get("/api/metrics")
+async def metrics(request: Request):
+    m = request.app.state.metrics
+    return m.snapshot()

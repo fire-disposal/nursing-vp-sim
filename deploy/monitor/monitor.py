@@ -257,6 +257,99 @@ def check_health_endpoints():
     return failures
 
 
+def fetch_metrics(endpoint_url: str) -> dict | None:
+    """Fetch /api/metrics from an endpoint. Returns None if unavailable."""
+    metrics_url = endpoint_url.replace("/api/health", "/api/metrics")
+    rc, out = run(f"curl -sS -m 10 '{metrics_url}'")
+    if rc != 0:
+        return None
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError:
+        return None
+
+
+def _delta(prev: dict, key: str) -> int:
+    """Calculate delta between current and previous counter value."""
+    old = prev.get("_metrics_prev", {}).get(key, 0)
+    cur = prev.get(key, 0)
+    return max(0, cur - old)
+
+
+def check_metrics_anomalies():
+    """Fetch metrics from each endpoint and detect anomalies via delta comparison."""
+    endpoints = getattr(sys.modules.get("config", None), "ENDPOINTS", [])
+    state = load_state()
+    anomalies = []
+
+    for ep in endpoints:
+        name = ep.get("name", ep["url"])
+        key = f"metrics:{name}"
+        prev = state.get(key, {})
+
+        m = fetch_metrics(ep["url"])
+        if m is None:
+            continue
+
+        reqs = m.get("requests", {})
+        llm = m.get("llm", {})
+
+        requests_15m = _delta({"requests": reqs, "_metrics_prev": prev}, "total")
+        errors_15m = reqs.get("by_status", {}).get("5xx", 0) - prev.get("_metrics_prev", {}).get("err5xx", 0)
+        errors_15m = max(0, errors_15m)
+
+        # Anomaly: request count dropped > 80% vs previous 15-min window
+        prev_requests = prev.get("_metrics_prev", {}).get("_requests_delta", 50)
+        if prev_requests > 50 and requests_15m < prev_requests * 0.2:
+            anomalies.append({
+                "type": "metrics", "name": name,
+                "detail": f"请求量骤降: 前周期={prev_requests}, 当前={requests_15m}",
+            })
+
+        # Anomaly: error rate > 10% in last window
+        if requests_15m > 20 and errors_15m / requests_15m > 0.10:
+            anomalies.append({
+                "type": "metrics", "name": name,
+                "detail": f"错误率飙升: {errors_15m}/{requests_15m} ({errors_15m/requests_15m*100:.0f}%)",
+            })
+
+        # Anomaly: LLM degraded providers > 0
+        degraded = llm.get("degraded_providers", 0)
+        if degraded > 0:
+            anomalies.append({
+                "type": "metrics", "name": name,
+                "detail": f"LLM Provider 降级: {degraded} 个",
+            })
+
+        # Anomaly: global LLM degraded
+        if llm.get("global_degraded"):
+            anomalies.append({
+                "type": "metrics", "name": name,
+                "detail": "LLM 全局降级",
+            })
+
+        # Store current snapshot for next comparison
+        state[key] = {
+            "total": reqs.get("total", 0),
+            "err5xx": reqs.get("by_status", {}).get("5xx", 0),
+            "uptime_seconds": m.get("uptime_seconds", 0),
+            "active_sessions": m.get("active_sessions", 0),
+            "llm_calls": llm.get("calls_total", 0),
+            "llm_errors": llm.get("calls_error", 0),
+            "llm_tokens": llm.get("tokens_used", 0),
+            "degraded": llm.get("degraded_providers", 0),
+            "p95_ms": reqs.get("latency_ms", {}).get("p95", 0),
+            "_metrics_prev": {
+                "total": prev.get("total", 0),
+                "err5xx": prev.get("err5xx", 0),
+                "_requests_delta": requests_15m,
+            },
+        }
+
+    save_state(state)
+    return anomalies
+
+
 # ── Alert key helpers ─────────────────────────────────────────────────────────
 
 def alert_key(failure):
@@ -404,7 +497,7 @@ def main():
 
     # Run all checks
     all_failures = []
-    for check_fn in [check_containers, check_disk, check_cpu, check_memory, check_health_endpoints]:
+    for check_fn in [check_containers, check_disk, check_cpu, check_memory, check_health_endpoints, check_metrics_anomalies]:
         all_failures.extend(check_fn())
 
     # Determine current failing keys

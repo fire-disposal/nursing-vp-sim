@@ -28,6 +28,8 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:9081:8000"
+    volumes:
+      - nursing_staging_logs:/app/data/llm_logs
     env_file:
       - .env
     environment:
@@ -55,3 +57,4 @@ services:
 
 volumes:
   nursing_staging_pg_data:
+  nursing_staging_logs:

@@ -50,6 +50,10 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
 
+    token_tv = payload.get("tv", 0)
+    if token_tv != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌已失效，请重新登录")
+
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     user.set_permissions_cache({r.permission for r in rows})
 

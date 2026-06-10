@@ -2,12 +2,25 @@ import type { components } from "../api-types.gen";
 import { api } from "../axios-instance";
 
 type Schemas = components["schemas"];
+type LLMCallLogItem = Schemas["LLMCallLogItem"];
+type Paginated = Schemas["PaginatedResponse_LLMCallLogItem_"];
 
 export const getLLMStats = () => api.get<Schemas["LLMStatsResponse"]>("/admin/llm-stats");
 
 export const getLLMLogs = (params: Record<string, unknown> = {}) =>
-  api.get<Schemas["PaginatedResponse_LLMCallLogItem_"]>("/admin/llm-logs", {
+  api.get<Paginated>("/admin/llm-logs", {
     params: { aggregate_patient_chat: true, ...params },
+  });
+
+export const getLogDetail = (logId: number) => api.get<LLMCallLogItem>(`/admin/llm-logs/${logId}`);
+
+export const getRecordLogs = (recordId: number) =>
+  api.get<Paginated>("/admin/llm-logs", {
+    params: {
+      aggregate_patient_chat: false,
+      record_id: recordId,
+      limit: 100,
+    },
   });
 
 export const exportLLMLogs = (dateFrom?: string, dateTo?: string) => {

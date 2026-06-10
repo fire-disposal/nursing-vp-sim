@@ -58,11 +58,17 @@ class LLMClient:
         router: ProfileRouter,
         log_worker: LogWorker,
         concurrency: int | None = None,
+        metrics = None,
     ):
         self._http = http
         self._router = router
         self._log_worker = log_worker
+        self._metrics = metrics
         self._sem = asyncio.Semaphore(concurrency or LLM_CONCURRENT_LIMIT)
+
+    def _record_metrics(self, *, status: str, tokens: int, cost: float, latency_ms: int) -> None:
+        if self._metrics:
+            self._metrics.record_llm_call(status=status, tokens=tokens, cost=cost, latency_ms=latency_ms)
 
     # ── Public API ──
 
@@ -113,6 +119,9 @@ class LLMClient:
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
             )
+            est_tokens = int((len(request_text) + len(content)) / 1.5)
+            est_cost = est_tokens / 1_000_000 * 1.5
+            self._record_metrics(status="success", tokens=est_tokens, cost=est_cost, latency_ms=latency_ms)
             return content
         except Exception:
             latency_ms = int((time.perf_counter() - t0) * 1000)
@@ -132,6 +141,7 @@ class LLMClient:
                 config_id=state.config_id,
                 provider_name=state.provider_name,
             )
+            self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=latency_ms)
             raise
 
     async def stream(
@@ -184,6 +194,9 @@ class LLMClient:
                     key_price_input=state.price_input,
                     key_price_output=state.price_output,
                 )
+                est_tokens = int((len(request_text) + len(total_text)) / 1.5)
+                est_cost = est_tokens / 1_000_000 * 1.5
+                self._record_metrics(status="success", tokens=est_tokens, cost=est_cost, latency_ms=latency_ms)
                 return
             except (httpx.TimeoutException, httpx.ConnectError,
                     httpx.RemoteProtocolError, httpx.ReadError):
@@ -220,6 +233,7 @@ class LLMClient:
             request_text=request_text, meta=ctx.log_meta,
             config_id=state.config_id, provider_name=state.provider_name,
         )
+        self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=latency_ms)
         raise NoProviderAvailable(f"purpose={purpose}")
 
     async def call_json(
