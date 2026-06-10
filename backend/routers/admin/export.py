@@ -135,6 +135,7 @@ def get_llm_logs(
     status: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    record_id: int | None = None,
     aggregate_patient_chat: bool = True,
     current_user: User = Depends(require_permission("llm_monitor")),
     db: Session = Depends(get_db),
@@ -177,6 +178,8 @@ def get_llm_logs(
                 LLMCallLog.record_id.isnot(None),
             )
         )
+        if record_id is not None:
+            agg_q = agg_q.filter(LLMCallLog.record_id == record_id)
 
         if date_from:
             agg_q = agg_q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
@@ -195,6 +198,8 @@ def get_llm_logs(
 
     if need_raw:
         q = db.query(LLMCallLog)
+        if record_id is not None:
+            q = q.filter(LLMCallLog.record_id == record_id)
         if aggregate_patient_chat and purpose is None:
             q = q.filter(LLMCallLog.purpose != "patient_chat")
         elif purpose:
