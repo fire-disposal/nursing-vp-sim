@@ -3,6 +3,7 @@ import { Activity, BarChart3, Download, Server, TrendingUp, Zap } from "lucide-r
 import { useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import CallLogTimeline from "@/components/teacher/CallLogTimeline";
 import Badge from "@/components/ui/Badge";
 import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
@@ -41,6 +42,7 @@ export default function MonitorTab() {
   const [offset, setOffset] = useState(0);
   const LIMIT = 20;
   const [filters, setFilters] = useState({ purpose: "", status: "", date_from: "", date_to: "" });
+  const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
 
   const { data: stats } = useQuery({
     queryKey: ["llmStats"],
@@ -276,6 +278,9 @@ export default function MonitorTab() {
                         时间
                       </th>
                       <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
+                        记录
+                      </th>
+                      <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
                         用途
                       </th>
                       <th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
@@ -297,9 +302,22 @@ export default function MonitorTab() {
                   </thead>
                   <tbody>
                     {logs.map((item) => (
-                      <tr key={item.id}>
+                      <tr
+                        key={item.id}
+                        className={cn(item.record_id != null && "cursor-pointer hover:bg-muted/50 transition-colors")}
+                        onClick={() => {
+                          if (item.record_id != null) setSelectedRecordId(item.record_id);
+                        }}
+                      >
                         <td className="px-4 py-3 border-b border-border text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(item.created_at).toLocaleString("zh-CN")}
+                        </td>
+                        <td className="px-4 py-3 border-b border-border text-xs">
+                          {item.record_id != null ? (
+                            <span className="text-primary hover:underline font-mono">#{item.record_id}</span>
+                          ) : (
+                            <span className="text-muted-foreground/40">\u2014</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 border-b border-border">
                           <Badge variant="info">{purposeLabel(item)}</Badge>
@@ -326,6 +344,11 @@ export default function MonitorTab() {
                 </table>
               </div>
               <Pagination total={logTotal} offset={offset} limit={LIMIT} onChange={setOffset} />
+              {selectedRecordId != null && (
+                <div className="mt-4">
+                  <CallLogTimeline recordId={selectedRecordId} onBack={() => setSelectedRecordId(null)} />
+                </div>
+              )}
             </>
           )}
         </div>
