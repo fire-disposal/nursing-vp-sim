@@ -80,22 +80,22 @@ export default function DashboardHome() {
   })();
   const isAdmin = perms.includes("score_review") || perms.includes("user_manage");
 
-  const { data: casesData } = useQuery({
+  const { data: casesData, isLoading: casesLoading } = useQuery({
     queryKey: ["cases", "student"],
     queryFn: () => getCases().then((r) => r.data),
     enabled: !isAdmin,
   });
-  const { data: durationData } = useQuery({
+  const { data: durationData, isLoading: durationLoading } = useQuery({
     queryKey: ["durationStats"],
     queryFn: () => getDurationStats().then((r) => r.data),
     enabled: !isAdmin,
   });
-  const { data: statsData } = useQuery({
+  const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ["adminStats"],
     queryFn: () => getStats().then((r) => r.data),
     enabled: isAdmin,
   });
-  const { data: recordsData } = useQuery({
+  const { data: recordsData, isLoading: recordsLoading } = useQuery({
     queryKey: ["records", "recent"],
     queryFn: () => getRecords({ limit: 5, offset: 0 }).then((r) => r.data),
   });
@@ -120,7 +120,7 @@ export default function DashboardHome() {
     }
   };
 
-  const isLoading = recordsData === undefined || casesData === undefined;
+  const isLoading = recordsLoading || (isAdmin ? statsLoading : casesLoading || durationLoading);
 
   if (isLoading) {
     return (
