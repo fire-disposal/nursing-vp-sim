@@ -17,6 +17,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate alembic migrations (no multiple heads)
+        run: |
+          cd backend
+          pip install -q alembic psycopg sqlalchemy >/dev/null 2>&1
+          HEADS=$(alembic heads 2>&1)
+          HEAD_COUNT=$(echo "$HEADS" | wc -l)
+          if [ "$HEAD_COUNT" -gt 1 ]; then
+            echo "::error::Alembic multiple heads detected!"
+            echo "$HEADS"
+            exit 1
+          fi
+          echo "✓ Single migration head: $HEADS"
+
       - name: Normalize owner
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
