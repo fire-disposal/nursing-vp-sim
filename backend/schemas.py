@@ -1126,7 +1126,8 @@ class QuestionStatsItem(BaseModel):
 # ── Training State (debug) ──
 
 class EmotionStateResponse(BaseModel):
-    score: int
+    trust: int
+    comfort: int
     state: str
     note: str
     history: list[dict] = Field(default_factory=list)
