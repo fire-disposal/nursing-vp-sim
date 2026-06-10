@@ -144,10 +144,7 @@ async def _run_scoring_job(
 async def _cleanup_orphaned_cache(
     repo, emotion_cache: EmotionCache, initiative_cache: InitiativeCache
 ) -> None:
-    record_ids: set[int] = set()
-    record_ids.update(emotion_cache.all_ids)
-    record_ids.update(initiative_cache._timers.keys())
-    record_ids.update(initiative_cache._last_triggers.keys())
+    record_ids: set[int] = emotion_cache.all_ids | initiative_cache.all_ids
 
     if not record_ids:
         return

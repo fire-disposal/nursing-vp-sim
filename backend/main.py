@@ -100,7 +100,7 @@ async def lifespan(app: FastAPI):
     app.state.metrics = metrics
 
     metrics.active_sessions_supplier = lambda: len(app.state.emotion_cache.all_ids) if app.state.emotion_cache else 0
-    metrics.task_queue_size_supplier = lambda: app.state.task_queue.qsize() if app.state.task_queue else 0
+    metrics.task_queue_size_supplier = lambda: app.state.task_queue.pending if app.state.task_queue else 0
     metrics.log_queue_size_supplier = (
         lambda: app.state.log_worker._queue.qsize() if app.state.log_worker and app.state.log_worker._queue else 0
     )

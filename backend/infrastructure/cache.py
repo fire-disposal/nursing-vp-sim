@@ -18,6 +18,12 @@ class EmotionCache:
     def __init__(self) -> None:
         self._store: dict[int, object] = {}
 
+    def get(self, record_id: int) -> object | None:
+        return self._store.get(record_id)
+
+    def set(self, record_id: int, state: object) -> None:
+        self._store[record_id] = state
+
     def cleanup(self, record_id: int) -> None:
         self._store.pop(record_id, None)
 
@@ -72,3 +78,7 @@ class InitiativeCache:
         if count:
             log.info("Cleaned %d completed initiative cache entries", count)
         return count
+
+    @property
+    def all_ids(self) -> set[int]:
+        return set(self._timers.keys()) | set(self._last_triggers.keys())

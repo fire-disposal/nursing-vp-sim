@@ -146,10 +146,10 @@ def _build_author_note(trust: int, comfort: int) -> str:
 # ── 缓存 API（使用 EmotionCache 实例） ──
 
 def get_emotion(record_id: int, cache: EmotionCache) -> EmotionState:
-    state = cache._store.get(record_id)
+    state = cache.get(record_id)
     if state is None or not isinstance(state, EmotionState):
         state = EmotionState()
-        cache._store[record_id] = state
+        cache.set(record_id, state)
     return state
 
 
