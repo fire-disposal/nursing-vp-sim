@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, BarChart3, Download, Server, TrendingUp, Zap } from "lucide-react";
+import { Activity, AlertCircle, BarChart3, Download, Server, TrendingUp, Zap } from "lucide-react";
 import { useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -51,7 +51,12 @@ export default function MonitorTab() {
   const [filters, setFilters] = useState({ purpose: "", status: "", date_from: "", date_to: "" });
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
 
-  const { data: stats } = useQuery({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsError,
+    refetch: refetchStats,
+  } = useQuery({
     queryKey: ["llmStats"],
     queryFn: () => getLLMStats().then((r) => r.data as LLMStats),
   });
@@ -82,13 +87,29 @@ export default function MonitorTab() {
     },
   });
 
-  if (!stats) {
+  if (statsLoading) {
     return (
       <div className="rounded-xl border border-border bg-card shadow-sm p-10 text-center text-muted-foreground/70">
         <Activity size={36} className="mx-auto mb-3" />
         <div>正在加载监控数据...</div>
       </div>
     );
+  }
+
+  if (statsError) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center">
+        <AlertCircle size={36} className="mx-auto mb-3 text-red-500" />
+        <div className="text-red-600 mb-2">监控数据加载失败</div>
+        <button type="button" onClick={() => refetchStats()} className="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700">
+          重试
+        </button>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return null;
   }
 
   const statCards = [

@@ -71,13 +71,7 @@ export default function DashboardHome() {
   const navigate = useNavigate();
   const toast = useToast();
 
-  const perms = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user_permissions") || "[]") as string[];
-    } catch {
-      return [];
-    }
-  })();
+  const perms = useAuthStore((s) => s.permissions);
   const isAdmin = perms.includes("score_review") || perms.includes("user_manage");
 
   const { data: casesData, isLoading: casesLoading } = useQuery({
@@ -587,7 +581,6 @@ function TeacherDashboard({
   navigate: (path: string) => void;
 }) {
   const recentRecords = records.slice(0, 5);
-  const _user = useAuthStore((s) => s.user);
 
   return (
     <>
