@@ -1043,6 +1043,7 @@ class EmotionStateResponse(BaseModel):
     score: int
     state: str
     note: str
+    history: list[dict] = Field(default_factory=list)
 
 
 class FeatureConfigResponse(BaseModel):
@@ -1055,6 +1056,8 @@ class InitiativeStateResponse(BaseModel):
     elapsed_seconds: float
     threshold_seconds: float
     percent: float
+    should_trigger: bool = False
+    last_triggered_at: str | None = None
 
 
 class TrainingStateResponse(BaseModel):
@@ -1066,6 +1069,8 @@ class TrainingStateResponse(BaseModel):
     exam_anchors: dict = Field(default_factory=dict)
     config: FeatureConfigResponse
     initiative: InitiativeStateResponse
+    current_phase: str = "history_taking"
+    feature_flags: dict[str, bool] = Field(default_factory=dict)
 
 
 class InitiativeTriggerResponse(BaseModel):

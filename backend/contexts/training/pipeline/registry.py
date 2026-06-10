@@ -45,7 +45,7 @@ def build_pipeline(feature_flags: dict[str, bool]) -> list:
     from .middleware.phase_guard import phase_guard
     from .middleware.phase_transition import phase_transition
     from .middleware.prompt_builder import prompt_builder
-    from .middleware.llm_caller import _llm_caller
+    # _llm_caller is defined in this module (line 15)
     from .middleware.persister import persister
     from .plugin import get_active_plugins
 

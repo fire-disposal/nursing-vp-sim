@@ -7,6 +7,7 @@
 """
 
 import logging
+from datetime import UTC, datetime
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class EmotionState:
 
     def __init__(self):
         self.score = 0
+        self.history: list[dict] = []
 
     @property
     def state(self) -> str:
@@ -82,6 +84,12 @@ class EmotionState:
         if delta != 0:
             old_score = self.score
             self.score = max(-2, min(2, self.score + delta))
+            self.history.append({
+                "score": self.score,
+                "state": self.state,
+                "intent": intent,
+                "timestamp": datetime.now(UTC).isoformat(),
+            })
             if self.score != old_score:
                 old_state = EMOTION_LEVELS[old_score][0]
                 new_state = EMOTION_LEVELS[self.score][0]

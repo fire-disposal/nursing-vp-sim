@@ -90,9 +90,10 @@ def get_training_state(
 
     emotion = get_emotion(record_id)
     config = record.config_snapshot or {}
-
     personality = case_data.get("personality", {})
     elapsed, threshold = get_initiative_seconds(record_id, personality, emotion.score)
+
+    emotion_history = getattr(emotion, "history", [])
 
     return {
         "record_id": record_id,
@@ -101,12 +102,11 @@ def get_training_state(
             "score": emotion.score,
             "state": emotion.state,
             "note": emotion.note,
+            "history": emotion_history[-20:],
         },
         "personality": personality,
         "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
-        "exam_anchors": {
-            k: v for k, v in case_data.get("exam_anchors", {}).items()
-        },
+        "exam_anchors": case_data.get("exam_anchors", {}),
         "config": {
             "id": record.config_id,
             "mode": config.get("mode"),
@@ -115,8 +115,11 @@ def get_training_state(
         "initiative": {
             "elapsed_seconds": round(elapsed, 1),
             "threshold_seconds": round(threshold, 1),
-            "percent": round(min(100, elapsed / threshold * 100), 1),
+            "percent": round(min(100, elapsed / max(threshold, 0.1) * 100), 1),
+            "should_trigger": should_initiate(record_id, personality, emotion.score),
         },
+        "current_phase": record.current_phase or "history_taking",
+        "feature_flags": resolve_features(record.config_snapshot),
     }
 
 
@@ -163,3 +166,32 @@ def trigger_initiative(
         return {"triggered": True, "message": msg, "id": patient_msg.id}
 
     return {"triggered": False, "message": None}
+
+
+@router.get("/{record_id}/emotion/history")
+def get_emotion_history(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    emotion = get_emotion(record_id)
+    return {"history": getattr(emotion, "history", [])}
+
+
+@router.get("/{record_id}/initiative/history")
+def get_initiative_history(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    msgs = db.query(Message).filter(
+        Message.record_id == record_id,
+        Message.role == "patient",
+    ).order_by(Message.created_at.desc()).limit(20).all()
+    return {"history": [{"id": m.id, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs]}
