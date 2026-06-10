@@ -160,8 +160,8 @@ class TrainingRecord(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
-    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id"))
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", name="fk_training_records_user_id"))
+    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", name="fk_training_records_case_id"))
     status: Mapped[str] = mapped_column(String(20), default="in_progress")
     scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -186,7 +186,7 @@ class Message(Base):
     __table_args__ = (Index("ix_msg_record_created", "record_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"))
+    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", name="fk_messages_record_id"))
     role: Mapped[str] = mapped_column(String(10))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
@@ -198,7 +198,7 @@ class Score(Base):
     __tablename__ = "scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"), unique=True)
+    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", name="fk_scores_record_id"), unique=True)
     total_score: Mapped[float] = mapped_column(Float)
     detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     strengths: Mapped[list | None] = mapped_column(JSONB, nullable=True)
