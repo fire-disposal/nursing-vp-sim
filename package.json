@@ -6,8 +6,8 @@
   "scripts": {
     "prepare": "husky",
     "dev": "concurrently -n BE,FE -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && PYTHONIOENCODING=utf-8 FORCE_COLOR=1 uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
-    "dev:frontend": "cd frontend && FORCE_COLOR=1 npm run dev",
+    "dev:backend": "cd backend && cross-env PYTHONUTF8=1 uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
+    "dev:frontend": "cd frontend && npm run dev",
     "check": "npm run check:backend && npm run check:frontend",
     "check:backend": "cd backend && uv run ruff format --check . && uv run ruff check . && uv run ty .",
     "check:frontend": "cd frontend && npx biome check . && npx tsc --noEmit",
@@ -26,6 +26,7 @@
     "@commitlint/cli": "^19",
     "@commitlint/config-conventional": "^19",
     "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
     "husky": "^9"
   }
 }
