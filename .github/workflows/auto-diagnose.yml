@@ -41,6 +41,17 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Fetch API key from server
+        id: api_key
+        env:
+          SSH_HOST: ${{ vars.SSH_HOST || 'yecaoyun' }}
+          SSH_USER: ${{ vars.SSH_USER || 'root' }}
+        run: |
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          KEY=$(ssh "$SSH_USER@$SSH_HOST" "grep DEEPSEEK_API_KEY /opt/nursing-vp-sim/.env | cut -d= -f2- | tr -d '\"' | tr -d \"'\" || echo ''")
+          echo "::add-mask::$KEY"
+          echo "DEEPSEEK_API_KEY=$KEY" >> $GITHUB_ENV
+
       - name: Collect diagnostics
         id: diag
         env:
@@ -61,7 +72,19 @@ jobs:
           echo "::group::Fetching logs ($CONTAINER, --since $TIME_RANGE)"
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           LOGS=$(ssh "$SSH_USER@$SSH_HOST" "docker logs --since $TIME_RANGE $CONTAINER 2>&1" || echo "LOG_FETCH_FAILED")
+          LOGS_COUNT=$(echo "$LOGS" | wc -l)
           echo "$LOGS" > /tmp/container.log
+
+          # Also capture recent errors with timestamps
+          echo "" >> /tmp/container.log
+          echo "=== 错误日志 (docker logs --since $TIME_RANGE 2>&1 | grep -iE 'error|traceback|exception|critical|fail') ===" >> /tmp/container.log
+          echo "$LOGS" | grep -iE 'error|traceback|exception|critical|fail' | tail -30 >> /tmp/container.log || true
+
+          # Capture recent startup events
+          echo "" >> /tmp/container.log
+          echo "=== 启动/重启事件 (docker logs --since $TIME_RANGE 2>&1 | grep -iE 'start|restart|startup|shutdown|init') ===" >> /tmp/container.log
+          echo "$LOGS" | grep -iE 'start|restart|startup|shutdown|init' | tail -10 >> /tmp/container.log || true
+
           echo "::endgroup::"
 
           echo "::group::Recent commits"
