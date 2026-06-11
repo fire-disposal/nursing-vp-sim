@@ -70,44 +70,66 @@ def fetch_metrics(base_url: str) -> dict | None:
         return None
 
 
+# ── Formatting helpers ────────────────────────────────────────────────────────
+
 def dur(seconds: float) -> str:
+    seconds = float(seconds)
     if seconds < 60:
         return f"{seconds:.0f}s"
     h, m = int(seconds // 3600), int((seconds % 3600) // 60)
     return f"{h}h {m}m" if h else f"{m}m"
 
 
-def tag(label: str, cls: str) -> str:
+def _v(val: Any) -> str:
+    if val is None:
+        return "-"
+    if isinstance(val, float):
+        return f"{val:,.1f}" if val != int(val) else f"{int(val):,}"
+    if isinstance(val, int):
+        return f"{val:,}"
+    return str(val)
+
+
+def _tag(label: str, cls: str) -> str:
     return f'<span class="tag {cls}">{label}</span>'
 
 
-def bar(pct: float, cls: str = "") -> str:
-    v = min(pct, 100)
-    c = cls if cls else "bar-blue"
-    return f'<div class="bar-wrap"><div class="bar-fill {c}" style="width:{v:.1f}%"></div></div>'
+def _color(val: float, green: float, amber: float, inverse: bool = False) -> str:
+    if inverse:
+        if val <= green:
+            return "var(--c-ok)"
+        if val <= amber:
+            return "var(--c-warn)"
+        return "var(--c-err)"
+    if val >= green:
+        return "var(--c-ok)"
+    if val >= amber:
+        return "var(--c-warn)"
+    return "var(--c-err)"
 
 
-def metric(val: str, lbl: str, sub: str = "", pct: float | None = None, trend: str = "") -> str:
-    bar_html = bar(pct) if pct is not None else ""
-    sub_html = f'<div class="m-sub">{sub}</div>' if sub else ""
-    trend_html = f'<div class="m-trend">{trend}</div>' if trend else ""
-    return f'<div class="metric"><div class="m-val">{val}</div><div class="m-lbl">{lbl}</div>{trend_html}{sub_html}{bar_html}</div>'
+def _td(val: str, color: str = "") -> str:
+    style = f' style="color:{color};font-weight:600"' if color else ""
+    return f"<td class='r'{style}>{val}</td>"
 
 
-def sr_color(pct: float) -> str:
-    if pct >= 95:
-        return "color:#22c55e"
-    if pct >= 80:
-        return "color:#f59e0b"
-    return "color:#ef4444"
+def _bar(pct: float, cls: str = "bar-blue") -> str:
+    v = min(max(pct, 0), 100)
+    return f'<div class="bar-wrap"><div class="bar-fill {cls}" style="width:{v:.1f}%"></div></div>'
 
 
-def _db_bar(pct: float) -> str:
+def _bar_td(pct: float) -> str:
     if pct == 0:
-        return "-"
-    cls = "bar-green" if pct < 60 else "bar-amber" if pct < 80 else "bar-red"
-    return f'{pct:.0f}% {bar(pct, cls)}'
+        return "<td class='r'>-</td>"
+    cls = "bar-green" if pct < 60 else ("bar-amber" if pct < 80 else "bar-red")
+    color = _color(pct, 60, 80, inverse=True)
+    return (
+        f'<td class="r" style="color:{color};font-weight:600">'
+        f'{pct:.0f}%{_bar(pct, cls)}</td>'
+    )
 
+
+# ── Report builder ────────────────────────────────────────────────────────────
 
 def build_report() -> str:
     now = datetime.now()
@@ -136,10 +158,15 @@ def build_report() -> str:
 
     req_p = pr.get("total", 0)
     req_s = sr.get("total", 0)
-    err_p = pr.get("by_status", {}).get("5xx", 0)
-    err_s = sr.get("by_status", {}).get("5xx", 0)
-    err_r_p = err_p / req_p * 100 if req_p else 0
-    err_r_s = err_s / req_s * 100 if req_s else 0
+    by_p = pr.get("by_status", {})
+    by_s = sr.get("by_status", {})
+    err5_p = by_p.get("5xx", 0)
+    err5_s = by_s.get("5xx", 0)
+    err4_p = by_p.get("4xx", 0)
+    err4_s = by_s.get("4xx", 0)
+    err_r_p = err5_p / req_p * 100 if req_p else 0
+    err_r_s = err5_s / req_s * 100 if req_s else 0
+
     llm_p = pl.get("calls_total", 0)
     llm_s = sl.get("calls_total", 0)
     llm_ok_p = pl.get("calls_success", 0)
@@ -153,63 +180,75 @@ def build_report() -> str:
     header = f"""
 <div class="header">
   <h1>Nursing VP Sim <span>每日运维报告</span></h1>
-  <div class="h-sub">{date_str} &middot; {time_str} &middot; yecaoyun</div>
+  <div class="sub">{date_str} &middot; {time_str} &middot; yecaoyun</div>
 </div>"""
 
     # ── Overview ──
-    up = dur(pm.get("uptime_seconds", 0))
-    us = dur(sm.get("uptime_seconds", 0))
+    up_p = dur(pm.get("uptime_seconds", 0))
+    up_s = dur(sm.get("uptime_seconds", 0))
+    tag_p = _tag("● 在线", "tag-ok") if prod["online"] else _tag("● 离线", "tag-err")
+    tag_s = _tag("● 在线", "tag-ok") if stag["online"] else _tag("● 离线", "tag-err")
     overview = f"""
 <div class="card">
   <h2>运行概况</h2>
   <table>
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
-    <tr><td>状态</td><td class="r">{tag("● 在线", 'tag-ok') if prod['online'] else tag('● 离线', 'tag-err')}</td><td class="r">{tag("● 在线", 'tag-ok') if stag['online'] else tag('● 离线', 'tag-err')}</td></tr>
+    <tr><td>状态</td><td class="r">{tag_p}</td><td class="r">{tag_s}</td></tr>
     <tr><td>版本</td><td class="r"><code>{prod['version']}</code></td><td class="r"><code>{stag['version']}</code></td></tr>
-    <tr><td>运行时长</td><td class="r">{up}</td><td class="r">{us}</td></tr>
+    <tr><td>运行时长</td><td class="r">{up_p}</td><td class="r">{up_s}</td></tr>
   </table>
 </div>"""
 
-    # ── Top metrics ──
-    top = f"""
-<div class="card">
-  <h2>核心指标</h2>
-  <div class="m-row">
-    {metric(f'{req_p:,}', '正式服 请求', sub=f'错误率 {err_r_p:.1f}%')}
-    {metric(f'{req_s:,}', '测试服 请求', sub=f'错误率 {err_r_s:.1f}%')}
-    {metric(f'{llm_p:,}', '正式服 LLM', sub=f'成功率 {llm_sr_p:.1f}%')}
-    {metric(f'{llm_s:,}', '测试服 LLM', sub=f'成功率 {llm_sr_s:.1f}%')}
-  </div>
-</div>"""
-
     # ── Requests ──
-    reqs = ""
     if has_metrics:
-        by_p, by_s = pr.get("by_status", {}), sr.get("by_status", {})
+        ok_p, ok_s = by_p.get("2xx", 0), by_s.get("2xx", 0)
+        lat_p, lat_s = pr.get("latency_ms", {}), sr.get("latency_ms", {})
         max_r = max(req_p, req_s, 1)
+
         chart_rows = ""
-        for label, code, cls in [("2xx 成功", "2xx", "bar-green"), ("4xx 客户端", "4xx", "bar-amber"), ("5xx 服务端", "5xx", "bar-red")]:
+        for label, code, cls in [
+            ("2xx", "2xx", "bar-green"),
+            ("4xx", "4xx", "bar-amber"),
+            ("5xx", "5xx", "bar-red"),
+        ]:
             vp, vs = by_p.get(code, 0), by_s.get(code, 0)
             chart_rows += (
                 f'<div class="ch-row">'
                 f'<span class="ch-lbl">{label}</span>'
-                f'<div class="ch-col"><span class="ch-env">P</span>{bar(vp/max_r*100, cls)}<span class="ch-num">{vp:,}</span></div>'
-                f'<div class="ch-col"><span class="ch-env">S</span>{bar(vs/max_r*100, cls)}<span class="ch-num">{vs:,}</span></div>'
+                f'<div class="ch-col"><span class="ch-env">P</span>'
+                f'{_bar(vp / max_r * 100, cls)}'
+                f'<span class="ch-num">{vp:,}</span></div>'
+                f'<div class="ch-col"><span class="ch-env">S</span>'
+                f'{_bar(vs / max_r * 100, cls)}'
+                f'<span class="ch-num">{vs:,}</span></div>'
                 f'</div>'
             )
-        lat_p, lat_s = pr.get("latency_ms", {}), sr.get("latency_ms", {})
+
         reqs = f"""
 <div class="card">
-  <h2>请求统计 · <span style="font-weight:400;font-size:11px;color:var(--c-dim)">累计 {req_p:,} / {req_s:,}</span></h2>
-  {chart_rows}
-  <div style="margin-top:20px">
+  <h2>请求统计</h2>
+  <table>
+    <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
+    <tr><td>总请求</td><td class="r" style="font-weight:600">{req_p:,}</td><td class="r" style="font-weight:600">{req_s:,}</td></tr>
+    <tr><td>2xx 成功</td>{_td(f'{ok_p:,}', 'var(--c-ok)')}{_td(f'{ok_s:,}', 'var(--c-ok)')}</tr>
+    <tr><td>4xx 客户端</td>{_td(f'{err4_p:,}', 'var(--c-warn)' if err4_p else '')}{_td(f'{err4_s:,}', 'var(--c-warn)' if err4_s else '')}</tr>
+    <tr><td>5xx 服务端</td>{_td(f'{err5_p:,}', 'var(--c-err)' if err5_p else '')}{_td(f'{err5_s:,}', 'var(--c-err)' if err5_s else '')}</tr>
+    <tr><td>5xx 错误率</td>{_td(f'{err_r_p:.1f}%', _color(err_r_p, 1, 5, inverse=True))}{_td(f'{err_r_s:.1f}%', _color(err_r_s, 1, 5, inverse=True))}</tr>
+  </table>
+
+  <div class="sub-section">
+    <h3>状态分布</h3>
+    {chart_rows}
+  </div>
+
+  <div class="sub-section">
     <h3>延迟 (ms)</h3>
     <table>
       <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
-      <tr><td>P50</td><td class="r">{lat_p.get('p50','-')}</td><td class="r">{lat_s.get('p50','-')}</td></tr>
-      <tr><td>P95</td><td class="r">{lat_p.get('p95','-')}</td><td class="r">{lat_s.get('p95','-')}</td></tr>
-      <tr><td>P99</td><td class="r">{lat_p.get('p99','-')}</td><td class="r">{lat_s.get('p99','-')}</td></tr>
-      <tr><td>Avg</td><td class="r">{lat_p.get('avg','-')}</td><td class="r">{lat_s.get('avg','-')}</td></tr>
+      <tr><td>P50</td><td class="r">{_v(lat_p.get('p50'))}</td><td class="r">{_v(lat_s.get('p50'))}</td></tr>
+      <tr><td>P95</td><td class="r">{_v(lat_p.get('p95'))}</td><td class="r">{_v(lat_s.get('p95'))}</td></tr>
+      <tr><td>P99</td><td class="r">{_v(lat_p.get('p99'))}</td><td class="r">{_v(lat_s.get('p99'))}</td></tr>
+      <tr><td>平均</td><td class="r">{_v(lat_p.get('avg'))}</td><td class="r">{_v(lat_s.get('avg'))}</td></tr>
     </table>
   </div>
 </div>"""
@@ -217,97 +256,104 @@ def build_report() -> str:
         reqs = '<div class="card"><h2>请求统计</h2><div class="dim">/api/metrics 暂不可用</div></div>'
 
     # ── LLM ──
-    llm_section = ""
     if has_metrics and (llm_p or llm_s):
-        costs = f"¥{pl.get('estimated_cost', 0):.2f} / ¥{sl.get('estimated_cost', 0):.2f}"
-        tokens = f"{pl.get('tokens_used', 0):,} / {sl.get('tokens_used', 0):,}"
-        llat_p, llat_s = pl.get("latency_ms", {}), sl.get("latency_ms", {})
+        cost_p = pl.get("estimated_cost", 0)
+        cost_s = sl.get("estimated_cost", 0)
+        tok_p = pl.get("tokens_used", 0)
+        tok_s = sl.get("tokens_used", 0)
+        llat_p = pl.get("latency_ms", {})
+        llat_s = sl.get("latency_ms", {})
 
         degraded = ""
-        dp, ds = pl.get("degraded_providers", 0), sl.get("degraded_providers", 0)
-        gp, gs = pl.get("global_degraded", False), sl.get("global_degraded", False)
+        dp = pl.get("degraded_providers", 0)
+        ds = sl.get("degraded_providers", 0)
+        gp = pl.get("global_degraded", False)
+        gs = sl.get("global_degraded", False)
         if dp or ds or gp or gs:
             parts = []
-            if dp: parts.append(f"正式服: {dp} provider 降级")
-            if ds: parts.append(f"测试服: {ds} provider 降级")
-            if gp: parts.append("正式服 LLM 全局降级")
-            if gs: parts.append("测试服 LLM 全局降级")
+            if dp:
+                parts.append(f"正式服: {dp} provider 降级")
+            if ds:
+                parts.append(f"测试服: {ds} provider 降级")
+            if gp:
+                parts.append("正式服 LLM 全局降级")
+            if gs:
+                parts.append("测试服 LLM 全局降级")
             degraded = f'<div class="alert">{"; ".join(parts)}</div>'
 
-        tp, ts = tokens.split("/")
-        cp, cs = costs.split("/")
         llm_section = f"""
 <div class="card">
   <h2>LLM 调用</h2>
   <table>
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
-    <tr><td>总调用</td><td class="r">{llm_p:,}</td><td class="r">{llm_s:,}</td></tr>
-    <tr><td>成功</td><td class="r" style="color:#22c55e">{llm_ok_p:,}</td><td class="r" style="color:#22c55e">{llm_ok_s:,}</td></tr>
-    <tr><td>失败</td><td class="r" style="color:#ef4444">{llm_err_p:,}</td><td class="r" style="color:#ef4444">{llm_err_s:,}</td></tr>
-    <tr><td>成功率</td><td class="r" style="{sr_color(llm_sr_p)};font-weight:600">{llm_sr_p:.1f}%</td><td class="r" style="{sr_color(llm_sr_s)};font-weight:600">{llm_sr_s:.1f}%</td></tr>
+    <tr><td>总调用</td><td class="r" style="font-weight:600">{llm_p:,}</td><td class="r" style="font-weight:600">{llm_s:,}</td></tr>
+    <tr><td>成功</td>{_td(f'{llm_ok_p:,}', 'var(--c-ok)')}{_td(f'{llm_ok_s:,}', 'var(--c-ok)')}</tr>
+    <tr><td>失败</td>{_td(f'{llm_err_p:,}', 'var(--c-err)' if llm_err_p else '')}{_td(f'{llm_err_s:,}', 'var(--c-err)' if llm_err_s else '')}</tr>
+    <tr><td>成功率</td>{_td(f'{llm_sr_p:.1f}%', _color(llm_sr_p, 95, 80))}{_td(f'{llm_sr_s:.1f}%', _color(llm_sr_s, 95, 80))}</tr>
+    <tr><td>Token 消耗</td><td class="r">{tok_p:,}</td><td class="r">{tok_s:,}</td></tr>
+    <tr><td>预估费用</td><td class="r">¥{cost_p:.2f}</td><td class="r">¥{cost_s:.2f}</td></tr>
+    <tr><td>平均延迟</td><td class="r">{_v(llat_p.get('avg'))} ms</td><td class="r">{_v(llat_s.get('avg'))} ms</td></tr>
+    <tr><td>P95 延迟</td><td class="r">{_v(llat_p.get('p95'))} ms</td><td class="r">{_v(llat_s.get('p95'))} ms</td></tr>
   </table>
-  <div class="m-row" style="margin-top:16px">
-    {metric(tp.strip(), '正式服 Token', sub='累计')}
-    {metric(cp.strip(), '正式服 费用', sub='CNY')}
-    {metric(llat_p.get('avg','-')+'ms', '正式服 延迟', sub='平均 LLM')}
-  </div>
-  <div class="m-row" style="margin-top:10px">
-    {metric(ts.strip() if '/' in tokens else '-', '测试服 Token', sub='累计')}
-    {metric(cs.strip() if '/' in costs else '-', '测试服 费用', sub='CNY')}
-    {metric(llat_s.get('avg','-')+'ms', '测试服 延迟', sub='平均 LLM')}
-  </div>
   {degraded}
 </div>"""
     else:
         llm_section = '<div class="card"><h2>LLM 调用</h2><div class="dim">暂无数据</div></div>'
 
     # ── Resources ──
-    act_p, act_s = pm.get("active_sessions", 0), sm.get("active_sessions", 0)
-    mem_p, mem_s = pm.get("memory_mb", 0), sm.get("memory_mb", 0)
-    qp, qs = pm.get("queue", {}), sm.get("queue", {})
-    dbp, dbs = pm.get("db", {}), sm.get("db", {})
-    db_pct_p = dbp.get("checked_out", 0) / dbp["pool_size"] * 100 if dbp and dbp.get("pool_size") else 0
-    db_pct_s = dbs.get("checked_out", 0) / dbs["pool_size"] * 100 if dbs and dbs.get("pool_size") else 0
+    act_p = pm.get("active_sessions", 0)
+    act_s = sm.get("active_sessions", 0)
+    mem_p = pm.get("memory_mb", 0)
+    mem_s = sm.get("memory_mb", 0)
+    qp = pm.get("queue", {})
+    qs = sm.get("queue", {})
+    dbp = pm.get("db", {})
+    dbs = sm.get("db", {})
+    db_pct_p = (
+        dbp.get("checked_out", 0) / dbp["pool_size"] * 100
+        if dbp and dbp.get("pool_size")
+        else 0
+    )
+    db_pct_s = (
+        dbs.get("checked_out", 0) / dbs["pool_size"] * 100
+        if dbs and dbs.get("pool_size")
+        else 0
+    )
 
-    res_content = f"""
+    res_section = f"""
 <div class="card">
   <h2>系统资源</h2>
-  <div class="m-row">
-    {metric(str(act_p), '正式服 会话', sub='活跃中')}
-    {metric(str(act_s), '测试服 会话', sub='活跃中')}
-    {metric(f'{mem_p:.0f} MB', '正式服 内存', sub='进程 RSS')}
-    {metric(f'{mem_s:.0f} MB', '测试服 内存', sub='进程 RSS')}
-  </div>
-  <div class="m-row" style="margin-top:10px">
-    {metric(str(qp.get('task_queue','-')), '任务队列 P', sub='正式服')}
-    {metric(str(qs.get('task_queue','-')), '任务队列 S', sub='测试服')}
-    {metric(str(qp.get('log_queue','-')), '日志队列 P', sub='正式服')}
-    {metric(str(qs.get('log_queue','-')), '日志队列 S', sub='测试服')}
-  </div>"""
+  <table>
+    <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
+    <tr><td>活跃会话</td><td class="r">{act_p}</td><td class="r">{act_s}</td></tr>
+    <tr><td>进程内存</td><td class="r">{mem_p:.0f} MB</td><td class="r">{mem_s:.0f} MB</td></tr>
+    <tr><td>任务队列</td><td class="r">{_v(qp.get('task_queue'))}</td><td class="r">{_v(qs.get('task_queue'))}</td></tr>
+    <tr><td>日志队列</td><td class="r">{_v(qp.get('log_queue'))}</td><td class="r">{_v(qs.get('log_queue'))}</td></tr>
+  </table>"""
 
     if dbp or dbs:
-        res_content += f"""
-  <div style="margin-top:20px">
+        res_section += f"""
+  <div class="sub-section">
     <h3>DB 连接池</h3>
     <table>
       <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
-      <tr><td>池大小</td><td class="r">{dbp.get('pool_size','-')}</td><td class="r">{dbs.get('pool_size','-')}</td></tr>
-      <tr><td>使用中</td><td class="r">{dbp.get('checked_out','-')}</td><td class="r">{dbs.get('checked_out','-')}</td></tr>
-      <tr><td>使用率</td><td class="r">{_db_bar(db_pct_p)}</td><td class="r">{_db_bar(db_pct_s)}</td></tr>
+      <tr><td>池大小</td><td class="r">{_v(dbp.get('pool_size'))}</td><td class="r">{_v(dbs.get('pool_size'))}</td></tr>
+      <tr><td>使用中</td><td class="r">{_v(dbp.get('checked_out'))}</td><td class="r">{_v(dbs.get('checked_out'))}</td></tr>
+      <tr><td>使用率</td>{_bar_td(db_pct_p)}{_bar_td(db_pct_s)}</tr>
     </table>
   </div>"""
 
     if not has_metrics:
-        res_content += '<div class="dim" style="margin-top:12px">/api/metrics 暂不可用</div>'
+        res_section += '<div class="dim">/api/metrics 暂不可用</div>'
 
-    res_content += "\n</div>"
+    res_section += "\n</div>"
 
     # ── Error / Alert summary ──
     errors: list[str] = []
-    if err_p:
-        errors.append(f"正式服 {err_p} 次 5xx 错误 ({err_r_p:.1f}%)")
-    if err_s:
-        errors.append(f"测试服 {err_s} 次 5xx 错误 ({err_r_s:.1f}%)")
+    if err5_p:
+        errors.append(f"正式服 {err5_p} 次 5xx 错误 ({err_r_p:.1f}%)")
+    if err5_s:
+        errors.append(f"测试服 {err5_s} 次 5xx 错误 ({err_r_s:.1f}%)")
     if llm_err_p:
         errors.append(f"正式服 {llm_err_p} 次 LLM 调用失败")
     if llm_err_s:
@@ -325,82 +371,108 @@ def build_report() -> str:
         items = "".join(f"<li>{e}</li>" for e in errors)
         errlog = f"""
 <div class="card">
-  <h2 style="color:var(--c-err);border-color:rgba(239,68,68,.2)">异常摘要</h2>
+  <h2 class="h-err">异常摘要</h2>
   <ul class="err-list">{items}</ul>
 </div>"""
     else:
-        errlog = f"""
+        errlog = """
 <div class="card">
-  <h2 style="color:var(--c-ok);border-color:rgba(34,197,94,.2)">异常摘要</h2>
-  <div style="color:var(--c-ok);font-size:13px;font-weight:500">当前运行正常，无异常</div>
+  <h2 class="h-ok">异常摘要</h2>
+  <div class="status-ok">当前运行正常，无异常</div>
 </div>"""
 
-    return WRAPPER.replace("{date}", date_str).replace("{time}", time_str).replace(
-        "{header}", header
-    ).replace("{overview}", overview).replace("{top}", top).replace(
-        "{reqs}", reqs
-    ).replace("{llm}", llm_section).replace("{res}", res_content).replace("{errlog}", errlog)
+    return (
+        WRAPPER
+        .replace("__HEADER__", header)
+        .replace("__OVERVIEW__", overview)
+        .replace("__REQS__", reqs)
+        .replace("__LLM__", llm_section)
+        .replace("__RES__", res_section)
+        .replace("__ERRLOG__", errlog)
+    )
 
 
-# ── CSS ──
+# ── CSS ───────────────────────────────────────────────────────────────────────
 
-CSS = """
-:root{color-scheme:light dark;--c-bg:#f1f5f9;--c-card:#fff;--c-card-bd:#e2e8f0;--c-txt:#0f172a;--c-dim:#94a3b8;--c-sub:#64748b;--c-ok:#22c55e;--c-warn:#f59e0b;--c-err:#ef4444;--c-accent:#2563eb;--c-accent-lt:#eff6ff}
-@media (prefers-color-scheme:dark){
-:root{--c-bg:#020617;--c-card:#0f1729;--c-card-bd:#1e293b;--c-txt:#e2e8f0;--c-dim:#475569;--c-sub:#64748b;--c-ok:#22c55e;--c-warn:#f59e0b;--c-err:#ef4444;--c-accent:#3b82f6;--c-accent-lt:#0f1b2d}
+CSS = """\
+:root{color-scheme:light dark}
+:root{
+  --c-bg:#f8f9fa;--c-card:#fff;--c-card-bd:#e2e8f0;
+  --c-txt:#1e293b;--c-dim:#94a3b8;--c-sub:#64748b;
+  --c-ok:#22c55e;--c-warn:#f59e0b;--c-err:#ef4444;
+  --c-accent:#2563eb;--c-accent-lt:#eff6ff
 }
-body{margin:0;padding:28px;background:var(--c-bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:var(--c-txt);line-height:1.5}
-.container{max-width:740px;margin:0 auto}
-.header{padding:8px 0 28px;border-bottom:3px solid var(--c-accent)}
-.header h1{font-size:22px;font-weight:800;margin:0;color:var(--c-txt);letter-spacing:-.3px}
-.header h1 span{color:var(--c-accent)}
-.h-sub{font-size:12px;color:var(--c-dim);margin-top:6px}
-.card{background:var(--c-card);border:1px solid var(--c-card-bd);border-radius:12px;padding:20px 24px;margin-top:20px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.card h2{font-size:12px;font-weight:700;margin:0 0 16px;color:var(--c-sub);text-transform:uppercase;letter-spacing:.8px;padding-bottom:10px;border-bottom:1px solid var(--c-card-bd)}
-.card h3{font-size:11px;font-weight:600;margin:0 0 10px;color:var(--c-dim);text-transform:uppercase;letter-spacing:.5px}
-.m-row{display:flex;flex-wrap:wrap;gap:12px}
-.metric{flex:1;min-width:140px;padding:16px 14px;background:var(--c-bg);border:1px solid var(--c-card-bd);border-radius:10px;text-align:center}
-.m-val{font-size:22px;font-weight:800;color:var(--c-txt);letter-spacing:-.3px}
-.m-lbl{font-size:10px;color:var(--c-dim);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
-.m-sub{font-size:11px;color:var(--c-sub);margin-top:2px}
-.m-trend{font-size:11px;font-weight:600;margin-top:2px}
+@media(prefers-color-scheme:dark){:root{
+  --c-bg:#0f1117;--c-card:#161b22;--c-card-bd:#21262d;
+  --c-txt:#c9d1d9;--c-dim:#484f58;--c-sub:#8b949e;
+  --c-ok:#3fb950;--c-warn:#d29922;--c-err:#f85149;
+  --c-accent:#58a6ff;--c-accent-lt:#0d1117
+}}
+body{margin:0;padding:24px;background:var(--c-bg);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:14px;color:var(--c-txt);line-height:1.5}
+.container{max-width:720px;margin:0 auto}
+.header{padding:16px 0 24px;border-bottom:2px solid var(--c-accent)}
+.header h1{font-size:20px;font-weight:700;margin:0;color:var(--c-accent)}
+.header h1 span{font-weight:400;color:var(--c-sub)}
+.header .sub{font-size:12px;color:var(--c-dim);margin-top:4px}
+.card{background:var(--c-card);border:1px solid var(--c-card-bd);
+  border-radius:8px;padding:20px 24px;margin-top:16px}
+.card h2{font-size:13px;font-weight:600;margin:0 0 16px;color:var(--c-sub);
+  text-transform:uppercase;letter-spacing:.5px;padding-bottom:10px;
+  border-bottom:1px solid var(--c-card-bd)}
+.card h3{font-size:11px;font-weight:600;margin:0 0 10px;color:var(--c-dim);
+  text-transform:uppercase;letter-spacing:.5px}
+.sub-section{margin-top:20px}
+.h-err{color:var(--c-err) !important;border-bottom-color:rgba(239,68,68,.2) !important}
+.h-ok{color:var(--c-ok) !important;border-bottom-color:rgba(34,197,94,.2) !important}
+.status-ok{color:var(--c-ok);font-size:13px;font-weight:500}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;padding:8px 12px;border-bottom:2px solid var(--c-card-bd);font-size:10px;font-weight:700;color:var(--c-dim);text-transform:uppercase;letter-spacing:.6px}
-td{padding:10px 12px;border-bottom:1px solid var(--c-card-bd);font-size:13px}td.r{text-align:right}
+th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--c-card-bd);
+  font-size:11px;font-weight:600;color:var(--c-dim);
+  text-transform:uppercase;letter-spacing:.5px}
+td{padding:8px 10px;border-bottom:1px solid var(--c-card-bd);font-size:13px}
+td.r,th.r{text-align:right}
 tr:last-child td{border-bottom:none}
-code{background:var(--c-accent-lt);color:var(--c-accent);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;border:1px solid rgba(37,99,235,.1)}
-.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
-.tag-ok{background:#ecfdf5;color:#059669}
-.tag-err{background:#fef2f2;color:#dc2626}
-.bar-wrap{height:7px;background:var(--c-card-bd);border-radius:4px;margin-top:6px;overflow:hidden}
-.bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+code{background:var(--c-accent-lt);color:var(--c-accent);padding:2px 8px;
+  border-radius:4px;font-size:12px;font-weight:600;
+  border:1px solid rgba(37,99,235,.1)}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:11px;font-weight:600}
+.tag-ok{background:rgba(34,197,94,.1);color:var(--c-ok)}
+.tag-err{background:rgba(239,68,68,.1);color:var(--c-err)}
+.bar-wrap{height:6px;background:var(--c-card-bd);border-radius:3px;
+  margin-top:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
 .bar-blue{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
 .bar-green{background:linear-gradient(90deg,#22c55e,#4ade80)}
 .bar-amber{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
 .bar-red{background:linear-gradient(90deg,#ef4444,#f87171)}
-.alert{margin-top:12px;padding:10px 14px;border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:12px;color:var(--c-err);background:rgba(239,68,68,.04)}
+.alert{margin-top:12px;padding:10px 14px;border:1px solid rgba(239,68,68,.2);
+  border-radius:6px;font-size:12px;color:var(--c-err);
+  background:rgba(239,68,68,.04)}
 .err-list{margin:0;padding:0 0 0 18px;font-size:13px;color:var(--c-txt)}
 .err-list li{padding:3px 0}
 .dim{font-size:13px;color:var(--c-dim);font-style:italic;padding:8px 0}
-.footer{margin-top:24px;padding-top:16px;text-align:center;font-size:11px;color:var(--c-dim);border-top:1px solid var(--c-card-bd)}
+.footer{margin-top:20px;text-align:center;font-size:11px;color:var(--c-dim)}
 .ch-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.ch-lbl{width:76px;font-size:11px;font-weight:600;color:var(--c-sub);text-align:right;flex-shrink:0}
+.ch-lbl{width:32px;font-size:11px;font-weight:600;color:var(--c-sub);
+  text-align:right;flex-shrink:0}
 .ch-col{flex:1;display:flex;align-items:center;gap:8px}
 .ch-col .bar-wrap{flex:1;margin-top:0}
-.ch-env{font-size:9px;font-weight:700;color:var(--c-dim);width:16px;text-align:center;flex-shrink:0;background:var(--c-bg);border-radius:3px;padding:1px 0}
-.ch-num{font-size:11px;color:var(--c-sub);width:52px;text-align:right;flex-shrink:0;font-weight:600}
-@media (prefers-color-scheme:dark){
-.tag-ok{background:rgba(34,197,94,.12);color:#22c55e}
-.tag-err{background:rgba(239,68,68,.12);color:#ef4444}
-}
+.ch-env{font-size:9px;font-weight:700;color:var(--c-dim);width:14px;
+  text-align:center;flex-shrink:0}
+.ch-num{font-size:11px;color:var(--c-sub);width:52px;text-align:right;
+  flex-shrink:0;font-weight:600}
 """
 
 WRAPPER = (
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark">'
-    f'<style>{CSS}</style></head><body><div class="container">'
-    '{header}{overview}{top}{errlog}{reqs}{llm}{res}'
-    '<div class="footer">由 daily_report.py 自动生成 · 每日 09:00 · 数据来自 /api/metrics</div>'
-    '</div></body></html>'
+    '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    '<meta name="color-scheme" content="light dark">'
+    f"<style>{CSS}</style></head><body><div class='container'>"
+    "__HEADER____OVERVIEW____ERRLOG____REQS____LLM____RES__"
+    '<div class="footer">由 daily_report.py 自动生成 · 每日 09:00 · '
+    "数据来自 /api/metrics</div></div></body></html>"
 )
 
 
