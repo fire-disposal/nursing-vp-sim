@@ -45,8 +45,8 @@ jobs:
       - name: Fetch API key from server
         id: api_key
         env:
-          SSH_HOST: ${{ vars.SSH_HOST || 'yecaoyun' }}
-          SSH_USER: ${{ vars.SSH_USER || 'root' }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           KEY=$(ssh "$SSH_USER@$SSH_HOST" "grep DEEPSEEK_API_KEY /opt/nursing-vp-sim/.env | cut -d= -f2- | tr -d '\"' | tr -d \"'\" || echo ''")
@@ -60,8 +60,8 @@ jobs:
           SYMPTOM: ${{ inputs.symptom }}
           TIME_RANGE: ${{ inputs.time_range }}
           STATE_SNIPPET: ${{ inputs.state_snippet }}
-          SSH_HOST: ${{ vars.SSH_HOST || 'yecaoyun' }}
-          SSH_USER: ${{ vars.SSH_USER || 'root' }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           pip install -q httpx
 
