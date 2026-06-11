@@ -92,7 +92,7 @@ export default function AssignmentsPage() {
   });
 
   const assignments = (listData?.data as any)?.items ?? [];
-  const cases = (casesData?.data ?? []) as any[];
+  const cases = (casesData?.data as any)?.items ?? [];
   const classes = (classesData?.data ?? []) as any[];
 
   const openCreate = () => {
