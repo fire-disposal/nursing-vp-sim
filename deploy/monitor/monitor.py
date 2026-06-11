@@ -335,7 +335,8 @@ def check_metrics_anomalies(state: dict):
                 "detail": "LLM 全局降级",
             })
 
-        # Store current snapshot for next comparison
+        # Store current snapshot for next comparison, preserving alert state
+        prev_entry = state.get(key, {})
         state[key] = {
             "total": reqs.get("total", 0),
             "err5xx": reqs.get("by_status", {}).get("5xx", 0),
@@ -346,6 +347,8 @@ def check_metrics_anomalies(state: dict):
             "llm_tokens": llm.get("tokens_used", 0),
             "degraded": llm.get("degraded_providers", 0),
             "p95_ms": reqs.get("latency_ms", {}).get("p95", 0),
+            "resolved": prev_entry.get("resolved", False),
+            "resolved_at": prev_entry.get("resolved_at"),
             "_metrics_prev": {
                 "total": prev.get("total", 0),
                 "err5xx": prev.get("err5xx", 0),
