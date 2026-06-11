@@ -10,6 +10,7 @@ export class ScoreManager {
   private _polling = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: Array<() => void> = [];
+  private _visibilityHandler: (() => void) | null = null;
 
   constructor(recordId: number | null, bus?: MessageBus) {
     this.recordId = recordId;
@@ -56,29 +57,43 @@ export class ScoreManager {
     let retries = 0;
     const maxRetries = 100;
 
-    this.pollTimer = setInterval(async () => {
+    const poll = async () => {
+      if (!this._polling || document.hidden) return;
       if (retries >= maxRetries) {
         this.stopPolling();
         return;
       }
       try {
-        const res = await api.get(`/training/records/${this.recordId}`);
-        const score = res.data?.score;
-        if (score && (score.total_score !== undefined || score.detail_scores)) {
-          this._score = score as ScoreData;
+        const res = await api.get(`/training/${this.recordId}/scoring-status`);
+        const data = res.data as { scoring_status?: string; scoring_error?: string | null; score?: { total_score?: number } | null };
+        if (data.scoring_status === "failed") {
+          this._progress = 0;
+          this.stopPolling();
+          this.notify();
+          return;
+        }
+        if (data.score && data.score.total_score !== undefined) {
+          this._score = data.score as ScoreData;
           this._progress = 100;
           this.stopPolling();
           this.notify();
-        } else {
-          this._progress = Math.min(95, 30 + retries * 2);
-          this.notify();
+          return;
         }
+        this._progress = Math.min(95, 30 + retries * 2);
+        this.notify();
       } catch {
         this._progress = Math.min(95, 30 + retries * 2);
         this.notify();
       }
       retries++;
-    }, 3000);
+    };
+
+    this.pollTimer = setInterval(poll, 3000);
+    this._visibilityHandler = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener("visibilitychange", this._visibilityHandler);
+    poll();
   }
 
   stopPolling(): void {
@@ -86,6 +101,10 @@ export class ScoreManager {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
+    }
+    if (this._visibilityHandler) {
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+      this._visibilityHandler = null;
     }
     this.notify();
   }
@@ -96,6 +115,7 @@ export class ScoreManager {
     this.listeners = [];
     this._score = null;
     this._progress = 0;
+    this._visibilityHandler = null;
   }
 
   reset(): void {

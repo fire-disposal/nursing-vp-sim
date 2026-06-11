@@ -28,6 +28,29 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/{record_id}/scoring-status")
+def get_scoring_status(
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
+        raise HTTPException(status_code=403, detail="无权限")
+
+    score = db.query(Score).filter(Score.record_id == record_id).first()
+    return {
+        "scoring_status": record.scoring_status,
+        "scoring_error": record.scoring_error,
+        "score": {
+            "total_score": score.total_score,
+            "review_status": score.review_status,
+        } if score else None,
+    }
+
+
 def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
     if not record.assignment_id or record.is_overdue:
         return

@@ -29,7 +29,6 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
   const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
   const ttsRef = useRef(new TTSManager({ autoPlay: true }));
   const cleanupRefs = useRef(new Map<string, (() => void) | void>());
-  const pluginsRegisteredRef = useRef(false);
   const seededRef = useRef(false);
 
   const { setEmotion } = useEmotion();
@@ -73,10 +72,7 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
 
   useEffect(() => {
     pluginRegistry.setFeatureFlags(features);
-    if (!pluginsRegisteredRef.current) {
-      pluginsRegisteredRef.current = true;
-      for (const p of panelPlugins) pluginRegistry.register(p);
-    }
+    for (const p of panelPlugins) pluginRegistry.register(p);
   }, [features, panelPlugins]);
 
   const activePlugins = useMemo(() => pluginRegistry.getActive(features), [features]);

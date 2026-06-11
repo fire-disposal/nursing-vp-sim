@@ -11,7 +11,6 @@ export class PluginRegistry {
 
   register(plugin: PanelPlugin): void {
     if (this.plugins.has(plugin.id)) {
-      console.warn(`[PluginRegistry] duplicate id: ${plugin.id}`);
       return;
     }
     this.plugins.set(plugin.id, { ...plugin });

@@ -14,7 +14,9 @@ export const initiativePlugin: PanelPlugin = {
   component: InitiativeTab,
   hooks: {
     onInit: (ctx) => {
+      let stopped = false;
       const interval = setInterval(async () => {
+        if (stopped) return;
         try {
           const { getTrainingState } = await import("@/api/training-state");
           const state = await getTrainingState(Number(ctx.recordId));
@@ -34,7 +36,16 @@ export const initiativePlugin: PanelPlugin = {
         }
       }, 5000);
 
-      return () => clearInterval(interval);
+      const unsubEnded = ctx.bus.on("training:ended", () => {
+        stopped = true;
+        clearInterval(interval);
+      });
+
+      return () => {
+        stopped = true;
+        clearInterval(interval);
+        unsubEnded();
+      };
     },
   },
 };
