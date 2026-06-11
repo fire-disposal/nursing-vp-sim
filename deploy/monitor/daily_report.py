@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""
-Daily report — fetches /api/metrics from prod & staging backends,
-generates an HTML email with visual charts, sends at 21:00 via cron.
+"""Daily report — fetches /api/metrics from prod & staging backends.
 
-Cron: 0 21 * * * cd /opt/monitor && python3 daily_report.py
-"""
+Cron: 0 9 * * * cd /opt/monitor && python3 daily_report.py
+Generates an HTML email with visual charts."""
 
 import json
 import logging
@@ -401,7 +399,7 @@ WRAPPER = (
     '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark">'
     f'<style>{CSS}</style></head><body><div class="container">'
     '{header}{overview}{top}{errlog}{reqs}{llm}{res}'
-    '<div class="footer">由 daily_report.py 自动生成 · 每日 21:00 · 数据来自 /api/metrics</div>'
+    '<div class="footer">由 daily_report.py 自动生成 · 每日 09:00 · 数据来自 /api/metrics</div>'
     '</div></body></html>'
 )
 
