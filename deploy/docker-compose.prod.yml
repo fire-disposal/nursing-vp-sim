@@ -52,6 +52,7 @@ services:
 
   frontend:
     image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:${IMAGE_VERSION}
+    container_name: nursing-vp-sim-frontend-1
     ports:
       - "9000:80"
     depends_on:

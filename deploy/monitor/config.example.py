@@ -1,16 +1,14 @@
 # ── monitoring config ──────────────────────────────────────────────────────────
-# Fill in your SMTP credentials below, then place this file alongside monitor.py
+# Copy this file to config.py and fill in your SMTP credentials.
+# config.py is git-ignored — never commit real credentials.
 
 # QQ SMTP
 SMTP_HOST = "smtp.qq.com"
 SMTP_PORT = 587
-SMTP_USER = "3295829485@qq.com"
-SMTP_PASS = "hptlczrhwdmudadi"
-MAIL_FROM = "3295829485@qq.com"
-MAIL_TO   = [
-    "3295829485@qq.com",
-    # "other@example.com",
-]
+SMTP_USER = "your-email@qq.com"
+SMTP_PASS = "your-authorization-code"
+MAIL_FROM = "your-email@qq.com"
+MAIL_TO = ["your-email@qq.com"]
 
 # ── Thresholds (optional — defaults below) ────────────────────────────────────
 # DISK_THRESHOLD_PCT = 85
@@ -21,6 +19,4 @@ MAIL_TO   = [
 ENDPOINTS = [
     {"name": "nursing-prod-backend",   "url": "http://localhost:9001/api/health"},
     {"name": "nursing-staging-backend","url": "http://localhost:9081/api/health"},
-    # Uncomment and adjust if emoguard has a health endpoint:
-    # {"name": "emoguard-backend",      "url": "http://localhost:8000/api/health"},
 ]
