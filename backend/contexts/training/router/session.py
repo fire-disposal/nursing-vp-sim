@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
+from core.config import SCORING_TIMEOUT_SECONDS
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.feature_flags import FEATURE_FLAGS, resolve_features
@@ -36,7 +37,7 @@ router = APIRouter()
 # 评分并发锁：防止同一 record 触发多次评分
 _scoring_pending: dict[int, float] = {}
 _scoring_pending_lock = threading.Lock()
-_SCORING_LOCK_TIMEOUT = 600
+_SCORING_LOCK_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
 
 def _try_acquire_scoring(record_id: int) -> bool:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from contexts.training.pipeline.plugin import run_plugin_hooks
 from contexts.training.score_engine import evaluate_training
 from core.database import SessionLocal, get_db
+from core.config import SCORING_TIMEOUT_SECONDS
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
@@ -68,7 +69,9 @@ async def _run_scoring_background(
     llm_client: LLMClient,
     pm: PromptManager,
 ) -> None:
-    SCORING_GLOBAL_TIMEOUT = 300
+from core.config import SCORING_TIMEOUT_SECONDS
+...
+    SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
     db = SessionLocal()
     try:
