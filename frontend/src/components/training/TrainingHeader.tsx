@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { EMOTION_LABELS, getEmotionColor, useEmotion, usePortrait } from "@/engine/PluginContext";
+import { usePortrait } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -51,7 +51,6 @@ export function TrainingHeader({
   messageCount = 0,
 }: TrainingHeaderProps) {
   const navigate = useNavigate();
-  const { emotion } = useEmotion();
   const { portraitUrl } = usePortrait();
   const [remaining, setRemaining] = useState(30 * 60);
   const [paused, setPaused] = useState(false);
@@ -165,8 +164,6 @@ export function TrainingHeader({
           >
             <MonitorCog size={14} className="sm:size-[16px]" />
           </button>
-
-          <div className={cn("hidden sm:flex items-center gap-1 px-2 text-xs font-medium", getEmotionColor(emotion))}>{EMOTION_LABELS[emotion]}</div>
 
           <button
             onClick={handleEnd}

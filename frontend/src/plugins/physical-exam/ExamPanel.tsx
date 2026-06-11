@@ -68,7 +68,9 @@ export function ExamPanel({ ctx }: PanelTabProps) {
         setResults((prev) => ({ ...prev, [opId]: data.data }));
         setHistory(data.all_results || []);
       } catch (e: unknown) {
-        setError((e as any)?.response?.data?.detail || "操作失败");
+        const err = e as any;
+        const detail = err?.response?.data?.detail || err?.message || "操作失败";
+        setError(detail);
       } finally {
         setLoading(null);
       }

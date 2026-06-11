@@ -58,7 +58,7 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
 
 
 def _parse_range(data: dict, key: str, unit: str, label: str) -> dict:
-    """从锚点范围中随机取一个值。支持'92-95%'和'92-95'格式。"""
+    """从锚点范围中随机取一个值。支持'92-95%'、'92-95'、血压'138/86-146/92'格式。"""
     raw = data.get(key, "")
     if not raw:
         return {"type": "vitals", "label": label, "value": "—", "unit": unit}
@@ -70,10 +70,25 @@ def _parse_range(data: dict, key: str, unit: str, label: str) -> dict:
             lo, hi = float(parts[0]), float(parts[1])
             val = round(random.uniform(lo, hi), 1)
         except (ValueError, IndexError):
-            val = raw
+            val = _try_parse_bp_range(raw)
         return {"type": "vitals", "label": label, "value": str(val), "unit": unit}
 
     return {"type": "vitals", "label": label, "value": raw, "unit": unit}
+
+
+def _try_parse_bp_range(raw: str) -> str:
+    """解析血压区间格式 '138/86-146/92' → 随机取一个测量值如 '141/88'。"""
+    if "/" not in raw:
+        return raw
+    try:
+        left, right = raw.split("-")
+        s_lo, d_lo = left.split("/")
+        s_hi, d_hi = right.split("/")
+        s_val = round(random.uniform(float(s_lo), float(s_hi)))
+        d_val = round(random.uniform(float(d_lo), float(d_hi)))
+        return f"{int(s_val)}/{int(d_val)}"
+    except (ValueError, IndexError):
+        return raw
 
 
 def _format_vitals(vs: dict) -> dict:
@@ -88,7 +103,15 @@ def _format_vitals(vs: dict) -> dict:
     ]
     for label, key, unit in mappings:
         val = vs.get(key, "")
-        if val:
+        if not val:
+            continue
+        if key == "blood_pressure" and "-" in str(val):
+            parsed = _try_parse_bp_range(str(val))
+            lines.append(f"{label}: {parsed}")
+        elif key in ("temperature", "heart_rate", "respiratory_rate", "spo2") and "-" in str(val):
+            result = _parse_range(vs, key, unit, label)
+            lines.append(f"{label}: {result['value']}")
+        else:
             lines.append(f"{label}: {val}")
     value = "\n".join(lines) if lines else "未配置"
     return {"type": "vitals", "label": "生命体征", "value": value, "unit": ""}

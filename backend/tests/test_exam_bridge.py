@@ -54,7 +54,7 @@ class TestHandleOperation:
             "exam_anchors": {
                 "vital_signs": {
                     "temperature": "36.5-37.2",
-                    "blood_pressure": "118-128/76-84",
+                    "blood_pressure": "118/76-128/84",
                     "heart_rate": "68-82",
                     "spo2": "96-99",
                     "respiratory_rate": "14-18",
@@ -65,7 +65,9 @@ class TestHandleOperation:
         assert result["label"] == "血压"
         assert result["unit"] == "mmHg"
         assert result["type"] == "vitals"
-        assert "-" in str(result.get("value", "")) or "/" in str(result.get("value", ""))
+        value = str(result.get("value", ""))
+        assert "/" in value
+        assert "-" not in value  # parsed to single reading like "122/80"
 
     def test_handle_skin(self):
         case_data = {"exam_anchors": {"skin": "未见明显异常"}}
