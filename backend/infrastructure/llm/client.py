@@ -223,7 +223,7 @@ class LLMClient:
                 yield content
                 return
             except Exception:
-                pass
+                log.warning("Stream fallback batch call also failed: purpose=%s", purpose)
 
         self._log_worker.enqueue(
             purpose=purpose, user_id=ctx.user_id,

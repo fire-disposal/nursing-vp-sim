@@ -96,6 +96,10 @@ async def lifespan(app: FastAPI):
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
 
+    from contexts.training.plugins import register_all_plugins
+    register_all_plugins()
+    log.info("Plugins: registered")
+
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
 

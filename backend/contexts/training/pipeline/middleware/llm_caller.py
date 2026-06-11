@@ -84,7 +84,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
             if retry.strip():
                 ctx.llm_reply = retry
         except Exception:
-            pass
+            log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
         ctx.llm_reply = "嗯……（患者似乎在犹豫）"
@@ -146,7 +146,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
                 full_reply = full_retry
                 chunks = retry_chunks
         except Exception:
-            pass
+            log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id)
 
     if not full_reply.strip():
         full_reply = "嗯……（患者似乎在犹豫）"

@@ -53,7 +53,7 @@ def _reset_initiative_timer(ctx: PipelineContext) -> None:
         if hasattr(app_state, "initiative_cache") and app_state.initiative_cache is not None:
             update_initiative_timer(ctx.record.id, app_state.initiative_cache, len(ctx.student_input or ""))
     except Exception:
-        pass
+        log.warning("Failed to reset initiative timer: record_id=%d", ctx.record.id, exc_info=True)
 
 
 def _persist_phase_op_count(ctx: PipelineContext) -> None:

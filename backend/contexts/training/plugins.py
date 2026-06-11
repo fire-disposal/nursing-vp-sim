@@ -171,6 +171,3 @@ def _build_impact_note(op_type: str, impact: dict, dt: int, dc: int, exam_count:
 def register_all_plugins():
     for p in [emotion_plugin, initiative_plugin, physical_exam_plugin, exam_emotion_bridge_plugin]:
         register_plugin(p)
-
-
-register_all_plugins()

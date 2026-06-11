@@ -132,7 +132,7 @@ async def _feedback_stage(
         _validate_feedback_fields(result2)
         return result2
     except ValueError:
-        pass
+        log.warning("Second feedback retry validation failed: record_id=%d", record_id)
 
     return _merge_feedback(result, result2, missing)
 

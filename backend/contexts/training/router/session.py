@@ -62,14 +62,16 @@ _infra_pm: PromptManager | None = None
 _infra_log_worker: LogWorker | None = None
 _main_loop: asyncio.AbstractEventLoop | None = None
 _background_thread: threading.Thread | None = None
+_loop_lock = threading.Lock()
 
 
 def _ensure_loop():
     global _main_loop, _background_thread
-    if _main_loop is None or _main_loop.is_closed():
-        _main_loop = asyncio.new_event_loop()
-        _background_thread = threading.Thread(target=_main_loop.run_forever, daemon=False)
-        _background_thread.start()
+    with _loop_lock:
+        if _main_loop is None or _main_loop.is_closed():
+            _main_loop = asyncio.new_event_loop()
+            _background_thread = threading.Thread(target=_main_loop.run_forever, daemon=False)
+            _background_thread.start()
     return _main_loop
 
 

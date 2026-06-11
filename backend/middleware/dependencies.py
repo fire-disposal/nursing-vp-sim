@@ -35,6 +35,9 @@ def get_log_worker(request: Request):
     return request.app.state.log_worker
 
 
-PromptManagerDep = Annotated[object, Depends(get_prompt_manager)]
-LLMRouterDep = Annotated[object, Depends(get_llm_router)]
+from infrastructure.llm import LogWorker, ProfileRouter
+from infrastructure.prompt import PromptManager
+
+PromptManagerDep = Annotated[PromptManager, Depends(get_prompt_manager)]
+LLMRouterDep = Annotated[ProfileRouter, Depends(get_llm_router)]
 HttpxClientDep = Annotated[httpx.AsyncClient, Depends(get_httpx_client)]
