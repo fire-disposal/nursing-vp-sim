@@ -1,4 +1,4 @@
-from contexts.training.service import count_covered_inquiries, should_auto_score
+from infrastructure.settlement import count_covered_inquiries, should_auto_score
 
 
 def test_count_covered_inquiries_empty():

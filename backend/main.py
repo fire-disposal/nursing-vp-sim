@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from contexts.training.router.session import set_training_infra, stop_background_loop
-from contexts.training.service import settlement_loop
+from infrastructure.settlement import settlement_loop
 from core.config import (
     APP_VERSION,
     CLEANUP_INTERVAL_SECONDS,

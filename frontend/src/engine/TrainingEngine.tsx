@@ -200,7 +200,6 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
           <TrainingHeader
             recordId={recordId}
             patient={patient}
-            messageCount={processedMessages.length}
             features={features}
             onToggleFeature={(key: string, enabled: boolean) => {
               setFeatures((prev) => {
@@ -216,6 +215,7 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
             onEnd={endTraining}
             sending={sending}
             featuresLocked={fromAssignment}
+            fromAssignment={fromAssignment}
             timeLimitMinutes={timeLimit}
             remainingSeconds={remainingSeconds}
           />

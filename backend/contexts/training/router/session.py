@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
-from contexts.training.service import get_config, list_configs
+from contexts.training.config_loader import get_config, list_configs
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.feature_flags import FEATURE_FLAGS, resolve_features
@@ -249,11 +249,23 @@ def start_training_from_assignment(
         TrainingRecord.assignment_id == assignment.id,
     ).first()
     if existing:
-        case_data = assignment.case.case_data if assignment.case else {}
-        patient_info = case_data.get("patient_info", {})
-        patient_name = patient_info.get("name", "患者")
-        greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '继续之前的练习。')}"
-        return TrainingStartResponse(record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else "")
+        student_msg_count = db.query(Message).filter(
+            Message.record_id == existing.id, Message.role == "student"
+        ).count()
+        if student_msg_count == 0:
+            db.query(Message).filter(Message.record_id == existing.id).delete()
+            db.query(NursingRecord).filter(NursingRecord.record_id == existing.id).delete()
+            db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == existing.id).update(
+                {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
+            )
+            db.delete(existing)
+            db.commit()
+        else:
+            case_data = assignment.case.case_data if assignment.case else {}
+            patient_info = case_data.get("patient_info", {})
+            patient_name = patient_info.get("name", "患者")
+            greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
+            return TrainingStartResponse(record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else "")
 
     case = assignment.case
     if not case:

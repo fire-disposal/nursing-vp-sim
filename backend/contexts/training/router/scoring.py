@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from contexts.training.pipeline.plugin import run_plugin_hooks
-from contexts.training.service import evaluate_training
+from contexts.training.score_engine import evaluate_training
 from core.database import SessionLocal, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user

@@ -30,7 +30,7 @@ interface TrainingHeaderProps {
   onEnd: () => Promise<void>;
   sending: boolean;
   featuresLocked?: boolean;
-  messageCount?: number;
+  fromAssignment?: boolean;
   timeLimitMinutes?: number;
   remainingSeconds?: number | null;
 }
@@ -45,7 +45,7 @@ export function TrainingHeader({
   onEnd,
   sending: _sending,
   featuresLocked = false,
-  messageCount = 0,
+  fromAssignment = false,
   timeLimitMinutes,
   remainingSeconds,
 }: TrainingHeaderProps) {
@@ -123,7 +123,6 @@ export function TrainingHeader({
   }, [timerActive, stopTimer, setTimerActive]);
 
   const allowPause = features.allow_pause ?? false;
-  const canEnd = messageCount > 1;
 
   const avatarSrc = portraitUrl || getPatientAvatar({ name: patient.name, gender: patient.gender });
 
@@ -194,9 +193,8 @@ export function TrainingHeader({
 
           <button
             onClick={handleEndClick}
-            disabled={!canEnd}
-            className="flex items-center gap-1 px-2.5 h-10 sm:h-9 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title={canEnd ? "结束训练并生成评分" : "请先与患者对话"}
+            className="flex items-center gap-1 px-2.5 h-10 sm:h-9 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors"
+            title="结束训练并生成评分"
           >
             <Phone size={13} className="sm:size-[15px]" />
             <span className="hidden sm:block">结束训练</span>

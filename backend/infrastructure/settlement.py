@@ -117,7 +117,7 @@ async def _run_scoring_job(
 ) -> None:
     from core.database import SessionLocal
 
-    from ._scoring_engine import evaluate_training
+    from contexts.training.score_engine import evaluate_training
 
     db = SessionLocal()
     try:

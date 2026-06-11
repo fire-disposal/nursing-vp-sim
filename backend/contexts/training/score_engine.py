@@ -9,7 +9,7 @@ from infrastructure.prompt import build_scoring_criteria, build_scoring_json_sch
 from models import Message, Score, TrainingRecord
 from prompts.scoring import FEEDBACK_RETRY_USER, SCORING_RETRY_USER
 
-from ._scoring_rubric import get_rubric_version_id, load_rubric_dict
+from repositories.rubric import get_rubric_version_id, load_rubric_dict
 from ._scoring_validation import (
     _check_feedback_empty,
     _coerce_numeric_fields,
