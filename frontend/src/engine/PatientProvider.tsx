@@ -1,7 +1,7 @@
 // frontend/src/engine/PatientProvider.tsx
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "@/api/axios-instance";
-import type { PatientData } from "./types";
+import type { ChatMessage, PatientData } from "./types";
 
 interface PatientContextValue {
   patient: PatientData | null;
@@ -9,6 +9,7 @@ interface PatientContextValue {
   error: string | null;
   features: Record<string, boolean>;
   fromAssignment: boolean;
+  initialMessages: ChatMessage[];
 }
 
 const PatientContext = createContext<PatientContextValue>({
@@ -17,6 +18,7 @@ const PatientContext = createContext<PatientContextValue>({
   error: null,
   features: {},
   fromAssignment: false,
+  initialMessages: [],
 });
 
 export function PatientProvider({ recordId, children }: { recordId: string; children: ReactNode }) {
@@ -25,6 +27,7 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
   const [error, setError] = useState<string | null>(null);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const [fromAssignment, setFromAssignment] = useState(false);
+  const [initialMessages, setInitialMessages] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +48,16 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
         });
         setFeatures(d.features ?? {});
         setFromAssignment(d.from_assignment ?? false);
+        const msgs = d.messages as Array<{ id: number; role: string; content: string }> | undefined;
+        if (msgs && msgs.length > 0) {
+          setInitialMessages(
+            msgs.map((m) => ({
+              id: String(m.id),
+              role: m.role === "student" ? "student" : m.role === "patient" ? "patient" : "system",
+              content: m.content,
+            })),
+          );
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || "加载患者信息失败");
@@ -57,7 +70,12 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
     };
   }, [recordId]);
 
-  return <PatientContext.Provider value={{ patient, loading, error, features, fromAssignment }}>{children}</PatientContext.Provider>;
+  const value = useMemo(
+    () => ({ patient, loading, error, features, fromAssignment, initialMessages }),
+    [patient, loading, error, features, fromAssignment, initialMessages],
+  );
+
+  return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>;
 }
 
 export function usePatient() {

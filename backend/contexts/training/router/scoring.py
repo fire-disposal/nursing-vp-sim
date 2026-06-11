@@ -28,6 +28,16 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
+    if not record.assignment_id or record.is_overdue:
+        return
+    from models import Assignment
+    from core.datetime_utils import ensure_utc
+    assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
+    if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
+        record.is_overdue = True
+
+
 async def _run_scoring_background(
     record_id: int,
     case_data: dict,
@@ -107,6 +117,7 @@ async def end_training(
 
     record.status = "completed"
     record.end_time = datetime.now(UTC)
+    _set_overdue_if_needed(record, db)
 
     _schedule_background(_run_scoring_background(
         record_id,

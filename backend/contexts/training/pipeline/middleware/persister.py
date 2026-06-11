@@ -2,6 +2,7 @@
 
 import logging
 
+from contexts.patient.initiative import update_initiative_timer
 from models import Message
 
 from ..context import PipelineContext
@@ -25,6 +26,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
 
         _persist_phase_op_count(ctx)
         ctx.db.commit()
+        _reset_initiative_timer(ctx)
         await next_mw()
         return
 
@@ -41,7 +43,17 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         log.info("Persisted: record_id=%d student=%d patient=%d",
                  ctx.record.id, len(ctx.student_input), len(ctx.llm_reply))
 
+    _reset_initiative_timer(ctx)
     await next_mw()
+
+
+def _reset_initiative_timer(ctx: PipelineContext) -> None:
+    try:
+        app_state = ctx.app_state
+        if hasattr(app_state, "initiative_cache") and app_state.initiative_cache is not None:
+            update_initiative_timer(ctx.record.id, app_state.initiative_cache, len(ctx.student_input or ""))
+    except Exception:
+        pass
 
 
 def _persist_phase_op_count(ctx: PipelineContext) -> None:

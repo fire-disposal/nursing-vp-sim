@@ -25,7 +25,7 @@ def get_nursing_record(
     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
     if not nr:
         return NursingRecordResponse(
-            id=0, record_id=record_id, sheet_data={}, status="draft",
+            id=0, record_id=record_id, sheet_data={}, status="not_found",
             updated_at=datetime.now(UTC),
         )
     if nr.user_id != current_user.id and not current_user.has_permission("score_review"):

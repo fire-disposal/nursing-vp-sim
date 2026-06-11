@@ -5,7 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
-from models import Message, TrainingRecord
+from core.datetime_utils import ensure_utc
+from models import Assignment, Message, TrainingRecord
 from repositories.base import SyncRepository
 
 
@@ -59,6 +60,10 @@ class TrainingRepository(SyncRepository):
             if record:
                 record.status = "completed"
                 record.end_time = datetime.now(UTC)
+                if record.assignment_id and not record.is_overdue:
+                    assignment = session.query(Assignment).filter(Assignment.id == record.assignment_id).first()
+                    if assignment and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
+                        record.is_overdue = True
                 session.commit()
         await self._run_in_session(_do)
 

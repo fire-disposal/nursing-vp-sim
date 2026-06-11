@@ -21,7 +21,7 @@ interface TrainingEngineProps {
 }
 
 function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) {
-  const { patient, loading, features: initialFeatures, fromAssignment } = usePatient();
+  const { patient, loading, features: initialFeatures, fromAssignment, initialMessages } = usePatient();
   const recordNum = Number(recordId);
 
   const busRef = useRef(createMessageBus());
@@ -29,6 +29,7 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
   const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
   const ttsRef = useRef(new TTSManager({ autoPlay: true }));
   const cleanupRefs = useRef(new Map<string, (() => void) | void>());
+  const seededRef = useRef(false);
 
   const { setEmotion } = useEmotion();
   const { setPortraitUrl } = usePortrait();
@@ -46,6 +47,13 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
   useEffect(() => {
     setFeatures(initialFeatures);
   }, [initialFeatures]);
+
+  useEffect(() => {
+    if (initialMessages.length > 0 && !seededRef.current) {
+      seededRef.current = true;
+      streamRef.current.setMessages(initialMessages);
+    }
+  }, [initialMessages]);
 
   useEffect(() => {
     streamRef.current.setRecordId(recordNum);

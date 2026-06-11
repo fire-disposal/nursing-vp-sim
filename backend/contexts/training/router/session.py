@@ -17,7 +17,7 @@ from core.security import get_current_user, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.prompt import PromptManager
 from middleware.dependencies import resolve_school_filter
-from models import Assignment, Case, LLMCallLog, Message, Note, Score, TrainingRecord, User, UserClass
+from models import Assignment, Case, LLMCallLog, Message, Note, NursingRecord, QuestionnaireResponse, Score, TrainingRecord, User, UserClass
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
@@ -34,21 +34,26 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 # 评分并发锁：防止同一 record 触发多次评分
-_scoring_pending: set[int] = set()
+_scoring_pending: dict[int, float] = {}
 _scoring_pending_lock = threading.Lock()
+_SCORING_LOCK_TIMEOUT = 600
 
 
 def _try_acquire_scoring(record_id: int) -> bool:
     with _scoring_pending_lock:
+        now = datetime.now(UTC).timestamp()
         if record_id in _scoring_pending:
+            if now - _scoring_pending[record_id] > _SCORING_LOCK_TIMEOUT:
+                _scoring_pending[record_id] = now
+                return True
             return False
-        _scoring_pending.add(record_id)
+        _scoring_pending[record_id] = now
         return True
 
 
 def _release_scoring(record_id: int):
     with _scoring_pending_lock:
-        _scoring_pending.discard(record_id)
+        _scoring_pending.pop(record_id, None)
 
 
 _infra_client: httpx.AsyncClient | None = None
@@ -125,7 +130,9 @@ def _resolve_features(case_data: dict, config: dict) -> dict:
     supported = case_data.get("supported_plugins", [])
     if not supported:
         return config
-    features = config.setdefault("features", {})
+    if "features" not in config:
+        return config
+    features = config["features"]
     for pid in supported:
         if pid in FEATURE_FLAGS:
             features.setdefault(pid, True)
@@ -169,8 +176,7 @@ def _create_record(
     )
     record.current_phase = "history_taking"
     db.add(record)
-    db.commit()
-    db.refresh(record)
+    db.flush()
 
     patient_info = case_data.get("patient_info", {})
     patient_name = patient_info.get("name", "患者")
@@ -180,6 +186,7 @@ def _create_record(
     greeting_msg = Message(record_id=record.id, role="patient", content=greeting)
     db.add(greeting_msg)
     db.commit()
+    db.refresh(record)
 
     from contexts.training.pipeline.plugin import run_plugin_hooks
     from contexts.training.plugins import _hook_ctx
@@ -431,6 +438,10 @@ def delete_record(
     db.query(Score).filter(Score.record_id == record_id).delete()
     db.query(Note).filter(Note.record_id == record_id).delete()
     db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
+    db.query(NursingRecord).filter(NursingRecord.record_id == record_id).delete()
+    db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).update(
+        {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
+    )
     db.delete(record)
     db.commit()
 
@@ -483,6 +494,9 @@ def submit_score_review(
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
         raise HTTPException(status_code=404, detail="该记录暂无评分")
+
+    if score.review_status == "reviewed":
+        raise HTTPException(status_code=409, detail="该评分已被复核，不可重复提交")
 
     if req.detail_scores is not None:
         score.review_detail_scores = req.detail_scores
