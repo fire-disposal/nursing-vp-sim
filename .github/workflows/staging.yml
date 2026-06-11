@@ -3,6 +3,7 @@ name: Build & Deploy to Staging
 on:
   push:
     tags: ["v*"]
+    branches: [master]
 
 permissions:
   contents: read

@@ -23,12 +23,15 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Rollback
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOST: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
         run: |
           set -e
-          HOST="${{ secrets.SSH_HOST }}"
-          USER="${{ secrets.SSH_USER }}"
-
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          ssh "$USER@$HOST" "echo '$TOKEN' | docker login ghcr.io -u fire-disposal --password-stdin" 2>&1 | tail -1
 
           scp rollback.sh "$USER@$HOST":/opt/nursing-vp-sim/rollback.sh
           ssh "$USER@$HOST" "chmod +x /opt/nursing-vp-sim/rollback.sh && cd /opt/nursing-vp-sim && bash rollback.sh --yes ${{ inputs.version }}"
