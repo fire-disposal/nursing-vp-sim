@@ -234,17 +234,14 @@ def class_summary(
             func.count(func.distinct(UserClass.user_id)).label("student_count"),
             func.count(TrainingRecord.id).label("total_sessions"),
             func.coalesce(
-                func.sum(
-                    func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60
-                ), 0
+                func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60), 0
             ).label("total_minutes"),
             func.avg(Score.total_score).label("avg_score"),
         )
         .outerjoin(UserClass, UserClass.class_id == Class.id)
         .outerjoin(
             TrainingRecord,
-            (TrainingRecord.user_id == UserClass.user_id)
-            & (TrainingRecord.status == "completed"),
+            (TrainingRecord.user_id == UserClass.user_id) & (TrainingRecord.status == "completed"),
         )
         .outerjoin(Score, Score.record_id == TrainingRecord.id)
         .filter(Class.id.in_(class_ids))

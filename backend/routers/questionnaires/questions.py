@@ -48,7 +48,9 @@ def add_question(
     )
 
 
-@router.put("/questionnaires/templates/{template_id}/questions/{question_id}", response_model=QuestionnaireQuestionResponse)
+@router.put(
+    "/questionnaires/templates/{template_id}/questions/{question_id}", response_model=QuestionnaireQuestionResponse
+)
 def update_question(
     template_id: int,
     question_id: int,

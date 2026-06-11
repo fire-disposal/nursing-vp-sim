@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from contexts.training.router.session import set_training_infra, stop_background_loop
-from infrastructure.settlement import settlement_loop
 from core.config import (
     APP_VERSION,
     CLEANUP_INTERVAL_SECONDS,
@@ -37,6 +36,7 @@ from infrastructure.llm.client import LLMClient
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
+from infrastructure.settlement import settlement_loop
 from middleware.rate_limits import RateLimiter
 from repositories.training import TrainingRepository
 
@@ -97,6 +97,7 @@ async def lifespan(app: FastAPI):
     app.state.initiative_cache = InitiativeCache()
 
     from contexts.training.plugins import register_all_plugins
+
     register_all_plugins()
     log.info("Plugins: registered")
 
@@ -105,15 +106,11 @@ async def lifespan(app: FastAPI):
 
     metrics.active_sessions_supplier = lambda: len(app.state.emotion_cache.all_ids) if app.state.emotion_cache else 0
     metrics.task_queue_size_supplier = lambda: app.state.task_queue.pending if app.state.task_queue else 0
-    metrics.log_queue_size_supplier = (
-        lambda: app.state.log_worker._queue.qsize() if app.state.log_worker and app.state.log_worker._queue else 0
+    metrics.log_queue_size_supplier = lambda: (
+        app.state.log_worker._queue.qsize() if app.state.log_worker and app.state.log_worker._queue else 0
     )
-    metrics.degraded_providers_supplier = lambda: (
-        app.state.llm_router.degraded_count() if app.state.llm_router else 0
-    )
-    metrics.global_degraded_supplier = lambda: (
-        app.state.llm_router.global_degraded if app.state.llm_router else False
-    )
+    metrics.degraded_providers_supplier = lambda: app.state.llm_router.degraded_count() if app.state.llm_router else 0
+    metrics.global_degraded_supplier = lambda: app.state.llm_router.global_degraded if app.state.llm_router else False
 
     app.state.llm_client = LLMClient(
         http=app.state.httpx_client,
@@ -127,7 +124,9 @@ async def lifespan(app: FastAPI):
     background_thread.start()
     app.state._background_loop = background_loop
     app.state._background_thread = background_thread
-    set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop)
+    set_training_infra(
+        app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop
+    )
 
     cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
     app.state._cleanup_task = cleanup_task
@@ -234,7 +233,11 @@ async def _request_timeout(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",") if o.strip()],
+    allow_origins=[
+        o.strip()
+        for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+        if o.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -284,6 +287,7 @@ app.include_router(student_assignments_router)
 @app.get("/api/health")
 async def health():
     from core.database import engine
+
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))

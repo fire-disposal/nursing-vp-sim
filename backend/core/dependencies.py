@@ -18,6 +18,7 @@ from middleware.rate_limits import RateLimiter
 
 # ── Infrastructure ──
 
+
 def get_httpx_client(request: Request) -> httpx.AsyncClient:
     return request.app.state.httpx_client
 
@@ -55,6 +56,7 @@ def get_initiative_cache(request: Request) -> InitiativeCache:
 
 
 # ── School filter ──
+
 
 def resolve_school_filter(source_user, school_id_param: int | None = None) -> int | None:
     if source_user is None:

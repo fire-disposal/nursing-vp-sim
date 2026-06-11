@@ -4,9 +4,11 @@ from contexts.training.pipeline.plugin import get_all_plugins
 
 router = APIRouter(prefix="/api/admin/plugins", tags=["admin-plugins"])
 
+
 @router.get("")
 async def list_plugins():
     from contexts.training.plugins import register_all_plugins
+
     register_all_plugins()
     return [
         {

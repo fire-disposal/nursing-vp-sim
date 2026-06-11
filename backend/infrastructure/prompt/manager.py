@@ -170,14 +170,33 @@ class PromptManager:
         for purpose, sys_prompt, user_prompt, remark in seeds:
             existing = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()
             if not existing:
-                db.add(PT(purpose=purpose, version=1, system_prompt=sys_prompt,
-                          template_engine="variable", is_active=True, created_by="system", remark=remark))
+                db.add(
+                    PT(
+                        purpose=purpose,
+                        version=1,
+                        system_prompt=sys_prompt,
+                        template_engine="variable",
+                        is_active=True,
+                        created_by="system",
+                        remark=remark,
+                    )
+                )
 
         for purpose, sys_prompt, user_prompt, remark in user_seeds:
             existing = db.query(PT).filter(PT.purpose == purpose, PT.is_active).first()
             if not existing:
-                db.add(PT(purpose=purpose, version=1, system_prompt=sys_prompt, user_prompt=user_prompt,
-                          template_engine="variable", is_active=True, created_by="system", remark=remark))
+                db.add(
+                    PT(
+                        purpose=purpose,
+                        version=1,
+                        system_prompt=sys_prompt,
+                        user_prompt=user_prompt,
+                        template_engine="variable",
+                        is_active=True,
+                        created_by="system",
+                        remark=remark,
+                    )
+                )
 
         db.commit()
 
@@ -196,7 +215,9 @@ class PromptManager:
                 t.is_active = False
                 t.system_prompt = PATIENT_CHAT_SYSTEM
             db.commit()
-            log.info("patient_chat 模板已同步到 Character Card 格式 (v%d→v%d)", existing[0].version, existing[0].version + 1)
+            log.info(
+                "patient_chat 模板已同步到 Character Card 格式 (v%d→v%d)", existing[0].version, existing[0].version + 1
+            )
 
     @staticmethod
     def _sync_builtin_patient_dynamic(db):
@@ -206,15 +227,17 @@ class PromptManager:
         existing = db.query(PT).filter(PT.purpose == "patient_dynamic", PT.is_active).first()
         if existing:
             return
-        db.add(PT(
-            purpose="patient_dynamic",
-            version=1,
-            system_prompt=PATIENT_DYNAMIC_TEMPLATE,
-            template_engine="format",
-            is_active=True,
-            created_by="system",
-            remark="病情动态数据块 — 内置模板",
-        ))
+        db.add(
+            PT(
+                purpose="patient_dynamic",
+                version=1,
+                system_prompt=PATIENT_DYNAMIC_TEMPLATE,
+                template_engine="format",
+                is_active=True,
+                created_by="system",
+                remark="病情动态数据块 — 内置模板",
+            )
+        )
         db.commit()
         log.info("patient_dynamic 内置模板已创建")
 

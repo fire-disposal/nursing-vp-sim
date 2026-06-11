@@ -62,18 +62,18 @@ exam_emotion_bridge_plugin = PipelinePlugin(
 
 
 EXAM_EMOTION_IMPACT: dict[str, dict] = {
-    "temp":   {"category": "routine",  "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes":  0},
-    "bp":     {"category": "routine",  "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes":  0},
-    "hr":     {"category": "routine",  "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes":  0},
-    "rr":     {"category": "routine",  "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes":  0},
-    "spo2":   {"category": "routine",  "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes":  0},
-    "vitals": {"category": "bundle",   "trust_no": 0, "comfort_no": -3, "trust_yes": 0, "comfort_yes": -1},
-    "skin":   {"category": "moderate", "trust_no":-2, "comfort_no": -5, "trust_yes":-1, "comfort_yes": -2},
-    "pain":   {"category": "moderate", "trust_no":-1, "comfort_no": -3, "trust_yes": 0, "comfort_yes": -1},
+    "temp": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
+    "bp": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
+    "hr": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
+    "rr": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
+    "spo2": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
+    "vitals": {"category": "bundle", "trust_no": 0, "comfort_no": -3, "trust_yes": 0, "comfort_yes": -1},
+    "skin": {"category": "moderate", "trust_no": -2, "comfort_no": -5, "trust_yes": -1, "comfort_yes": -2},
+    "pain": {"category": "moderate", "trust_no": -1, "comfort_no": -3, "trust_yes": 0, "comfort_yes": -1},
 }
 
 _CUMULATIVE_THRESHOLDS: list[tuple[int, int, int]] = [
-    (4,  0, -2),
+    (4, 0, -2),
     (7, -1, -4),
     (10, -2, -6),
 ]
@@ -108,11 +108,15 @@ def _apply_exam_emotion_effect(ctx: dict) -> None:
     if dt != 0 or dc != 0:
         emotion.trust = max(0, min(100, emotion.trust + dt))
         emotion.comfort = max(0, min(100, emotion.comfort + dc))
-        emotion.history.append({
-            "trust": emotion.trust, "comfort": emotion.comfort,
-            "state": emotion.state, "intent": f"查体:{op_type}",
-            "timestamp": "",
-        })
+        emotion.history.append(
+            {
+                "trust": emotion.trust,
+                "comfort": emotion.comfort,
+                "state": emotion.state,
+                "intent": f"查体:{op_type}",
+                "timestamp": "",
+            }
+        )
 
     impact_note = _build_impact_note(op_type, impact, dt, dc, exam_count, explained)
     if impact_note:

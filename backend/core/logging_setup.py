@@ -23,31 +23,33 @@ class _ColoredFormatter(logging.Formatter):
 
 
 def setup_logging():
-    logging.config.dictConfig({
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "default": {
-                "()": "core.logging_setup._ColoredFormatter",
-                "format": "%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s",
-                "datefmt": "%H:%M:%S",
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "default": {
+                    "()": "core.logging_setup._ColoredFormatter",
+                    "format": "%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s",
+                    "datefmt": "%H:%M:%S",
+                },
             },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "stream": sys.stderr,
-                "formatter": "default",
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "stream": sys.stderr,
+                    "formatter": "default",
+                },
             },
-        },
-        "root": {
-            "level": "INFO",
-            "handlers": ["console"],
-        },
-        "loggers": {
-            "alembic": {"level": "WARNING"},
-            "httpx": {"level": "WARNING"},
-            "sqlalchemy.engine": {"level": "WARNING"},
-            "httpcore": {"level": "WARNING"},
-        },
-    })
+            "root": {
+                "level": "INFO",
+                "handlers": ["console"],
+            },
+            "loggers": {
+                "alembic": {"level": "WARNING"},
+                "httpx": {"level": "WARNING"},
+                "sqlalchemy.engine": {"level": "WARNING"},
+                "httpcore": {"level": "WARNING"},
+            },
+        }
+    )

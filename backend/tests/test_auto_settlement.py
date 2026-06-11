@@ -38,15 +38,9 @@ class FakeMessage:
 
 
 def test_should_auto_score_passes():
-    base = (
-        "请问您叫什么名字？今年多大年龄了？"
-         "您哪里不舒服？具体是发热还是咳嗽还是头痛恶心？"
-         "喉咙痛不痛？有没有胸闷？"
-    )
+    base = "请问您叫什么名字？今年多大年龄了？您哪里不舒服？具体是发热还是咳嗽还是头痛恶心？喉咙痛不痛？有没有胸闷？"
     long_student = base * 4
-    patient_base = (
-        "我咳嗽发烧已经持续一周了，体温最高39度，头痛恶心呕吐吃不下饭睡不着觉。"
-    )
+    patient_base = "我咳嗽发烧已经持续一周了，体温最高39度，头痛恶心呕吐吃不下饭睡不着觉。"
     long_patient = patient_base * 18
     messages = [
         FakeMessage("patient", "你好，我是来就诊的。"),

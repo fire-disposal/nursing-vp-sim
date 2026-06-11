@@ -44,10 +44,6 @@ class EnvelopeMiddleware(BaseHTTPMiddleware):
         return Response(
             content=json.dumps(wrapped, ensure_ascii=False),
             status_code=response.status_code,
-            headers={
-                k: v
-                for k, v in response.headers.items()
-                if k.lower() != "content-length"
-            },
+            headers={k: v for k, v in response.headers.items() if k.lower() != "content-length"},
             media_type="application/json",
         )

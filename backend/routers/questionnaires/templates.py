@@ -116,14 +116,16 @@ def create_template(
     db.flush()
 
     for i, q in enumerate(req.questions):
-        db.add(QuestionnaireQuestion(
-            template_id=t.id,
-            sort_order=q.sort_order or i,
-            content=q.content,
-            question_type=q.question_type,
-            required=q.required,
-            options=q.options,
-        ))
+        db.add(
+            QuestionnaireQuestion(
+                template_id=t.id,
+                sort_order=q.sort_order or i,
+                content=q.content,
+                question_type=q.question_type,
+                required=q.required,
+                options=q.options,
+            )
+        )
 
     db.commit()
     db.refresh(t)
@@ -201,12 +203,14 @@ def assign_cases(
         c = db.query(Case).filter(Case.id == cid).first()
         if not c:
             raise HTTPException(status_code=400, detail=f"病例 {cid} 不存在")
-        db.add(CaseQuestionnaire(
-            case_id=cid,
-            template_id=template_id,
-            is_required=req.is_required,
-            trigger_event=req.trigger_event,
-        ))
+        db.add(
+            CaseQuestionnaire(
+                case_id=cid,
+                template_id=template_id,
+                is_required=req.is_required,
+                trigger_event=req.trigger_event,
+            )
+        )
 
     db.commit()
     return {"ok": True}

@@ -99,7 +99,9 @@ def get_training_state(
     emotion = get_emotion(record_id, app_state.emotion_cache)
     config = record.config_snapshot or {}
     personality = case_data.get("personality", {})
-    elapsed, threshold = get_initiative_seconds(record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort)
+    elapsed, threshold = get_initiative_seconds(
+        record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort
+    )
 
     emotion_history = getattr(emotion, "history", [])
 
@@ -125,7 +127,9 @@ def get_training_state(
             "elapsed_seconds": round(elapsed, 1),
             "threshold_seconds": round(threshold, 1),
             "percent": round(min(100, elapsed / max(threshold, 0.1) * 100), 1),
-            "should_trigger": check_initiate_ready(record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort),
+            "should_trigger": check_initiate_ready(
+                record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort
+            ),
         },
         "current_phase": record.current_phase or "history_taking",
         "feature_flags": resolve_features(record.config_snapshot),
@@ -201,10 +205,16 @@ def get_initiative_history(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
-    msgs = db.query(Message).filter(
-        Message.record_id == record_id,
-        Message.role == "patient",
-    ).order_by(Message.created_at.desc()).limit(20).all()
+    msgs = (
+        db.query(Message)
+        .filter(
+            Message.record_id == record_id,
+            Message.role == "patient",
+        )
+        .order_by(Message.created_at.desc())
+        .limit(20)
+        .all()
+    )
     return {"history": [{"id": m.id, "content": m.content, "created_at": m.created_at.isoformat()} for m in msgs]}
 
 
@@ -234,19 +244,34 @@ def perform_exam(
     exam_results = snapshot.get("_exam_results", [])
     if not isinstance(exam_results, list):
         exam_results = []
-    exam_results.append({"type": op_type, "label": result.get("label", ""), "value": str(result.get("value", "")), "unit": result.get("unit", "")})
+    exam_results.append(
+        {
+            "type": op_type,
+            "label": result.get("label", ""),
+            "value": str(result.get("value", "")),
+            "unit": result.get("unit", ""),
+        }
+    )
     snapshot["_exam_results"] = exam_results
     record.config_snapshot = snapshot
 
-    msg = Message(record_id=record_id, role="system", content=f"{result.get('label', '')}: {result.get('value', '')}{result.get('unit', '')}")
+    msg = Message(
+        record_id=record_id,
+        role="system",
+        content=f"{result.get('label', '')}: {result.get('value', '')}{result.get('unit', '')}",
+    )
     db.add(msg)
 
     features = resolve_features(record.config_snapshot)
     if features.get("exam_emotion_bridge") and features.get("emotion"):
         from contexts.training.pipeline.plugin import run_plugin_hooks
-        last_student_msg = db.query(Message).filter(
-            Message.record_id == record_id, Message.role == "student"
-        ).order_by(Message.created_at.desc()).first()
+
+        last_student_msg = (
+            db.query(Message)
+            .filter(Message.record_id == record_id, Message.role == "student")
+            .order_by(Message.created_at.desc())
+            .first()
+        )
         explained = bool(last_student_msg and _has_explanation(last_student_msg.content))
         exam_count = len(exam_results)
         hook_ctx = {

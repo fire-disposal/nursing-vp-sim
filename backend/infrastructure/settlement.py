@@ -4,10 +4,10 @@ import asyncio
 import logging
 import re
 
+from core.config import SCORING_TIMEOUT_SECONDS
 from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm.client import LLMClient
 from infrastructure.queue import TaskQueue
-from core.config import SCORING_TIMEOUT_SECONDS
 from models import Case
 
 log = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def count_covered_inquiries(inquiries: list[str], student_text: str) -> int:
         cleaned = re.sub(r"[（）()]", " ", inquiry)
         tokens = set()
         for i in range(len(cleaned) - 1):
-            token = cleaned[i:i + 2]
+            token = cleaned[i : i + 2]
             if token.strip():
                 tokens.add(token)
         if any(token in student_text for token in tokens):
@@ -116,9 +116,8 @@ async def _run_scoring_job(
     llm_client: LLMClient,
     pm,
 ) -> None:
-    from core.database import SessionLocal
-
     from contexts.training.score_engine import evaluate_training
+    from core.database import SessionLocal
 
     db = SessionLocal()
     try:
@@ -126,8 +125,11 @@ async def _run_scoring_job(
 
         await asyncio.wait_for(
             evaluate_training(
-                record_id, case_data, db,
-                pm=pm, llm_client=llm_client,
+                record_id,
+                case_data,
+                db,
+                pm=pm,
+                llm_client=llm_client,
             ),
             timeout=SCORING_TIMEOUT_SECONDS,
         )
@@ -143,9 +145,7 @@ async def _run_scoring_job(
         db.close()
 
 
-async def _cleanup_orphaned_cache(
-    repo, emotion_cache: EmotionCache, initiative_cache: InitiativeCache
-) -> None:
+async def _cleanup_orphaned_cache(repo, emotion_cache: EmotionCache, initiative_cache: InitiativeCache) -> None:
     record_ids: set[int] = emotion_cache.all_ids | initiative_cache.all_ids
 
     if not record_ids:
@@ -157,10 +157,13 @@ async def _cleanup_orphaned_cache(
     db = SessionLocal()
     try:
         completed = set(
-            row[0] for row in db.query(TrainingRecord.id).filter(
+            row[0]
+            for row in db.query(TrainingRecord.id)
+            .filter(
                 TrainingRecord.id.in_(list(record_ids)),
                 TrainingRecord.status == "completed",
-            ).all()
+            )
+            .all()
         )
     finally:
         db.close()

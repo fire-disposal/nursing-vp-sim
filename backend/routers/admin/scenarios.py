@@ -4,9 +4,11 @@ router = APIRouter(prefix="/api/admin/scenarios", tags=["admin-scenarios"])
 
 _scenarios_store: dict[str, dict] = {}
 
+
 @router.get("")
 async def list_scenarios():
     return list(_scenarios_store.values())
+
 
 @router.get("/{scenario_id}")
 async def get_scenario(scenario_id: str):
@@ -14,6 +16,7 @@ async def get_scenario(scenario_id: str):
     if not s:
         raise HTTPException(404, "场景不存在")
     return s
+
 
 @router.post("")
 async def create_scenario(data: dict):
@@ -23,10 +26,12 @@ async def create_scenario(data: dict):
     _scenarios_store[sid] = data
     return data
 
+
 @router.put("/{scenario_id}")
 async def update_scenario(scenario_id: str, data: dict):
     _scenarios_store[scenario_id] = data
     return data
+
 
 @router.delete("/{scenario_id}")
 async def delete_scenario(scenario_id: str):

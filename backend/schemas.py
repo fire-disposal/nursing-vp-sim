@@ -11,6 +11,7 @@ _RESP_CFG = ConfigDict(from_attributes=True)
 
 # ── Generic ──
 
+
 class PaginatedResponse[T](BaseModel):
     items: list[T]
     total: int
@@ -19,6 +20,7 @@ class PaginatedResponse[T](BaseModel):
 
 
 # ── Auth ──
+
 
 class LoginRequest(BaseModel):
     model_config = _REQ_CFG
@@ -59,6 +61,7 @@ class ChangePasswordRequest(BaseModel):
 
 # ── WeChat ──
 
+
 class WechatLoginRequest(BaseModel):
     model_config = _REQ_CFG
     code: str = Field(min_length=1)
@@ -89,6 +92,7 @@ class WechatLoginResponse(BaseModel):
 
 
 # ── Case ──
+
 
 class CaseBrief(BaseModel):
     model_config = _RESP_CFG
@@ -156,6 +160,7 @@ class CaseGenerateResponse(BaseModel):
 
 
 # ── Assignment ──
+
 
 class AssignmentCreateRequest(BaseModel):
     model_config = _REQ_CFG
@@ -241,6 +246,7 @@ class StudentAssignmentItem(BaseModel):
 
 # ── Training ──
 
+
 class TrainingStartRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
@@ -320,6 +326,7 @@ class PhaseAdvanceResponse(BaseModel):
 
 # ── Messages / Scores / Notes ──
 
+
 class MessageItem(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -363,6 +370,7 @@ class NoteCreateRequest(BaseModel):
 
 # ── Score Review ──
 
+
 class ScoreReviewRequest(BaseModel):
     model_config = _REQ_CFG
     detail_scores: dict[str, Any] | None = None
@@ -381,6 +389,7 @@ class ScoreReviewResponse(BaseModel):
 
 
 # ── User ──
+
 
 class UserBrief(BaseModel):
     model_config = _RESP_CFG
@@ -434,6 +443,7 @@ class StudentDetail(BaseModel):
 
 # ── Batch Import ──
 
+
 class BatchUserItem(BaseModel):
     model_config = _REQ_CFG
     username: str = Field(min_length=1, max_length=50)
@@ -451,6 +461,7 @@ class BatchCreateResult(BaseModel):
 
 
 # ── Admin Stats ──
+
 
 class AdminStats(BaseModel):
     total_students: int
@@ -506,6 +517,7 @@ class ClassSummaryItemSchema(BaseModel):
 
 # ── LLM Monitoring ──
 
+
 class LLMCallLogItem(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -552,6 +564,7 @@ class LLMStatsResponse(BaseModel):
 
 
 # ── ApiSecret ──
+
 
 class ApiSecretCreate(BaseModel):
     model_config = _REQ_CFG
@@ -601,6 +614,7 @@ class SecretCreateResponse(BaseModel):
 
 
 # ── LLMConfig ──
+
 
 class LLMConfigCreate(BaseModel):
     model_config = _REQ_CFG
@@ -655,6 +669,7 @@ class ConfigCreateResponse(BaseModel):
 
 
 # ── Prompt Management ──
+
 
 class PromptTemplateCreate(BaseModel):
     model_config = _REQ_CFG
@@ -729,6 +744,7 @@ class SampleVarsResponse(BaseModel):
 
 # ── QA ──
 
+
 class QASessionCreate(BaseModel):
     model_config = _REQ_CFG
     question: str = Field(min_length=1, max_length=4096)
@@ -772,6 +788,7 @@ class QASessionAdminItem(BaseModel):
 
 # ── Feedback ──
 
+
 class FeedbackSubmit(BaseModel):
     model_config = _REQ_CFG
     rating: int = Field(ge=1, le=5)
@@ -805,6 +822,7 @@ class FeedbackDailyItem(BaseModel):
 
 
 # ── Grade / Class ──
+
 
 class GradeCreate(BaseModel):
     model_config = _REQ_CFG
@@ -849,6 +867,7 @@ class ClassResponse(BaseModel):
 
 # ── Rubric ──
 
+
 class RubricDimensionItem(BaseModel):
     name: str = ""
     weight: int = 0
@@ -879,6 +898,7 @@ class RubricBrief(BaseModel):
 
 # ── Provider Catalog ──
 
+
 class ModelPresetItem(BaseModel):
     name: str
     price_input: float = 0
@@ -897,6 +917,7 @@ class CatalogResponse(BaseModel):
 
 
 # ── Health / Test ──
+
 
 class HealthCheckItem(BaseModel):
     base_url: str
@@ -919,6 +940,7 @@ class TestAllResultsResponse(BaseModel):
 
 # ── School ──
 
+
 class SchoolCreate(BaseModel):
     model_config = _REQ_CFG
     name: str = Field(min_length=1, max_length=80)
@@ -937,6 +959,7 @@ class SchoolResponse(BaseModel):
 
 
 # ── Role ──
+
 
 class RoleCreateRequest(BaseModel):
     model_config = _REQ_CFG
@@ -964,6 +987,7 @@ class RoleResponse(BaseModel):
 
 # ── Generic ──
 
+
 class DeleteResponse(BaseModel):
     ok: bool = True
     message: str = "删除成功"
@@ -984,6 +1008,7 @@ class ToggleStatusResponse(BaseModel):
 
 
 # ── Questionnaire ──
+
 
 class QuestionnaireQuestionCreate(BaseModel):
     model_config = _REQ_CFG
@@ -1124,6 +1149,7 @@ class QuestionStatsItem(BaseModel):
 
 
 # ── Training State (debug) ──
+
 
 class EmotionStateResponse(BaseModel):
     trust: int

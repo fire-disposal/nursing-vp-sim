@@ -27,10 +27,8 @@ class OAuth2LoginStrategy(LoginStrategy):
       - OAuth 2.0 RFC 6749: https://datatracker.ietf.org/doc/html/rfc6749
       - OpenID Connect Core 1.0: https://openid.net/specs/openid-connect-core-1_0.html
     """
+
     provider_type = "oauth2"
 
     async def authenticate(self, credentials: dict[str, Any]) -> User | None:
         raise NotImplementedError("OAuth2 策略尚未对接具体学校，待 auth_providers 表就绪后实现。")
-
-
-

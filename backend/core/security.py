@@ -41,12 +41,7 @@ def get_current_user(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
 
-    user = (
-        db.query(User)
-        .options(joinedload(User.role), joinedload(User.school))
-        .filter(User.id == user_id)
-        .first()
-    )
+    user = db.query(User).options(joinedload(User.role), joinedload(User.school)).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
 
@@ -67,7 +62,9 @@ def _decode_token_allow_expired(
     token = credentials.credentials
     try:
         payload = jwt.decode(
-            token, SECRET_KEY, algorithms=[ALGORITHM],
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
             options={"verify_exp": False},
         )
         user_id = payload.get("user_id")
@@ -76,12 +73,7 @@ def _decode_token_allow_expired(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的凭证")
 
-    user = (
-        db.query(User)
-        .options(joinedload(User.role), joinedload(User.school))
-        .filter(User.id == user_id)
-        .first()
-    )
+    user = db.query(User).options(joinedload(User.role), joinedload(User.school)).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
 
@@ -97,4 +89,5 @@ def require_permission(permission: str):
         if not current_user.has_permission(permission):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         return current_user
+
     return checker

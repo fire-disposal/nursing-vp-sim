@@ -19,6 +19,7 @@ class ConflictError(AppError):
 
 # ── LLM ──
 
+
 class LLMError(AppError):
     """Base for all LLM-related errors."""
 
@@ -40,6 +41,7 @@ class LLMRateLimited(LLMError):
 
 
 # ── Scoring ──
+
 
 class ScoringError(AppError):
     """Base for scoring pipeline errors."""

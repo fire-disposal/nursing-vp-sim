@@ -23,6 +23,7 @@ class LoginStrategy(ABC):
       3. 在 get_strategy_registry() 中注册
       4. 在 auth.py 中添加对应路由端点
     """
+
     provider_type: str
 
     def __init__(self, db: Session):
@@ -38,6 +39,7 @@ def get_strategy_registry() -> dict[str, type["LoginStrategy"]]:
     from core.login_strategies.oauth2 import OAuth2LoginStrategy
     from core.login_strategies.password import PasswordLoginStrategy
     from core.login_strategies.wechat import WeChatLoginStrategy
+
     return {
         "password": PasswordLoginStrategy,
         "wechat": WeChatLoginStrategy,

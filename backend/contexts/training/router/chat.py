@@ -47,9 +47,7 @@ async def _build_context(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data or {} if case else {}
 
-    messages = db.query(Message).filter(
-        Message.record_id == record_id
-    ).order_by(Message.created_at).all()
+    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
 
     ctx = PipelineContext(
         record=record,
@@ -76,7 +74,9 @@ async def send_message(
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
     features = resolve_features(ctx.record.config_snapshot)
-    pipe = get_pipeline(ctx.current_phase.id, features) if ctx.current_phase else get_pipeline("history_taking", features)
+    pipe = (
+        get_pipeline(ctx.current_phase.id, features) if ctx.current_phase else get_pipeline("history_taking", features)
+    )
     await run_pipeline(ctx, pipe)
 
     if ctx.error:
@@ -100,7 +100,11 @@ async def send_message_stream(
     async with db_session() as db:
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
         features = resolve_features(ctx.record.config_snapshot)
-        pipe = get_pipeline(ctx.current_phase.id, features) if ctx.current_phase else get_pipeline("history_taking", features)
+        pipe = (
+            get_pipeline(ctx.current_phase.id, features)
+            if ctx.current_phase
+            else get_pipeline("history_taking", features)
+        )
 
         return StreamingResponse(
             stream_pipeline(ctx, pipe),

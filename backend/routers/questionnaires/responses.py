@@ -30,7 +30,9 @@ from .templates import _template_to_detail
 router = APIRouter()
 
 
-def _build_response_item(response: QuestionnaireResponse, db: Session, answers_map=None, questions_map=None) -> QuestionnaireResponseItem:
+def _build_response_item(
+    response: QuestionnaireResponse, db: Session, answers_map=None, questions_map=None
+) -> QuestionnaireResponseItem:
     if answers_map is not None:
         answers = answers_map.get(response.id, [])
     else:
@@ -81,7 +83,11 @@ def check_questionnaire(
         raise HTTPException(status_code=400, detail="请提供 case_id 或 record_id")
 
     if record_id:
-        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id, TrainingRecord.user_id == current_user.id).first()
+        record = (
+            db.query(TrainingRecord)
+            .filter(TrainingRecord.id == record_id, TrainingRecord.user_id == current_user.id)
+            .first()
+        )
         if not record:
             raise HTTPException(status_code=404, detail="训练记录不存在")
         case_id = record.case_id
@@ -172,11 +178,13 @@ def submit_questionnaire(
         db.flush()
 
     for ans in req.answers:
-        db.add(QuestionnaireAnswer(
-            response_id=response.id,
-            question_id=ans.question_id,
-            answer_value=ans.answer_value,
-        ))
+        db.add(
+            QuestionnaireAnswer(
+                response_id=response.id,
+                question_id=ans.question_id,
+                answer_value=ans.answer_value,
+            )
+        )
 
     response.status = "completed"
     response.completed_at = datetime.now(UTC)
@@ -203,16 +211,12 @@ def my_responses(
     response_ids = [r.id for r in rows]
     template_ids = list(set(r.template_id for r in rows))
 
-    all_answers = db.query(QuestionnaireAnswer).filter(
-        QuestionnaireAnswer.response_id.in_(response_ids)
-    ).all()
+    all_answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id.in_(response_ids)).all()
     answers_map = {}
     for a in all_answers:
         answers_map.setdefault(a.response_id, []).append(a)
 
-    all_questions = db.query(QuestionnaireQuestion).filter(
-        QuestionnaireQuestion.template_id.in_(template_ids)
-    ).all()
+    all_questions = db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.template_id.in_(template_ids)).all()
     questions_map = {}
     for q in all_questions:
         questions_map.setdefault(q.template_id, {})[q.id] = q
@@ -245,16 +249,12 @@ def list_responses(
     response_ids = [r.id for r in rows]
     template_ids = list(set(r.template_id for r in rows))
 
-    all_answers = db.query(QuestionnaireAnswer).filter(
-        QuestionnaireAnswer.response_id.in_(response_ids)
-    ).all()
+    all_answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id.in_(response_ids)).all()
     answers_map = {}
     for a in all_answers:
         answers_map.setdefault(a.response_id, []).append(a)
 
-    all_questions = db.query(QuestionnaireQuestion).filter(
-        QuestionnaireQuestion.template_id.in_(template_ids)
-    ).all()
+    all_questions = db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.template_id.in_(template_ids)).all()
     questions_map = {}
     for q in all_questions:
         questions_map.setdefault(q.template_id, {})[q.id] = q

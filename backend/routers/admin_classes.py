@@ -119,6 +119,7 @@ def delete_class(
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
     from sqlalchemy import update as sa_update
+
     db.execute(sa_update(UserClass).where(UserClass.class_id == class_id).values(class_id=None))
     db.delete(cls)
     db.commit()

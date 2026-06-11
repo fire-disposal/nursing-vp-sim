@@ -274,7 +274,12 @@ class TestStudentCheckAndSubmit:
                 "type": "pre",
                 "questions": [
                     {"content": "Likert题", "question_type": "likert_5", "sort_order": 0},
-                    {"content": "选择题", "question_type": "multiple_choice", "sort_order": 1, "options": ["A", "B", "C"]},
+                    {
+                        "content": "选择题",
+                        "question_type": "multiple_choice",
+                        "sort_order": 1,
+                        "options": ["A", "B", "C"],
+                    },
                 ],
             },
             headers={"Authorization": f"Bearer {token}"},

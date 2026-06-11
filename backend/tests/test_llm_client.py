@@ -56,7 +56,6 @@ def _make_resp(content: str, tokens: int = 50):
 
 
 class TestLLMClientCall:
-
     @pytest.mark.asyncio
     async def test_successful_call(self, client, mock_http):
         mock_http.post.return_value = _make_resp("Hello, patient!")
@@ -97,7 +96,9 @@ class TestLLMClientCall:
     async def test_logs_on_failure(self, client, mock_http, mock_log_worker):
         resp = httpx.Response(500, request=httpx.Request("POST", "http://x"))
         mock_http.post.side_effect = httpx.HTTPStatusError(
-            "Server Error", request=object(), response=resp,
+            "Server Error",
+            request=object(),
+            response=resp,
         )
 
         with pytest.raises(NoProviderAvailable):
@@ -111,12 +112,12 @@ class TestLLMClientCall:
 
 
 class TestLLMClientCallJSON:
-
     @pytest.mark.asyncio
     async def test_successful_json_call(self, client, mock_http):
         mock_http.post.return_value = _make_resp('{"score": 85}')
         result = await client.call_json(
-            [{"role": "user", "content": "score"}], purpose="scoring",
+            [{"role": "user", "content": "score"}],
+            purpose="scoring",
         )
         assert result == {"score": 85}
 
@@ -125,12 +126,12 @@ class TestLLMClientCallJSON:
         mock_http.post.return_value = _make_resp("not json")
         with pytest.raises(LLMParseError):
             await client.call_json(
-                [{"role": "user", "content": "test"}], purpose="scoring",
+                [{"role": "user", "content": "test"}],
+                purpose="scoring",
             )
 
 
 class TestCallContext:
-
     def test_defaults(self):
         ctx = CallContext()
         assert ctx.purpose == "other"

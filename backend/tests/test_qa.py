@@ -25,7 +25,8 @@ class TestQAMultiTurn:
 
     def test_get_session_messages(self, client, student):
         create_resp = client.post(
-            "/api/qa/sessions", json={"question": "测试问题"},
+            "/api/qa/sessions",
+            json={"question": "测试问题"},
             headers={"Authorization": f"Bearer {student[1]}"},
         )
         sid = create_resp.json()["session_id"]
@@ -39,7 +40,8 @@ class TestQAMultiTurn:
         from models import QASession
 
         create_resp = client.post(
-            "/api/qa/sessions", json={"question": "待删除"},
+            "/api/qa/sessions",
+            json={"question": "待删除"},
             headers={"Authorization": f"Bearer {student[1]}"},
         )
         sid = create_resp.json()["session_id"]

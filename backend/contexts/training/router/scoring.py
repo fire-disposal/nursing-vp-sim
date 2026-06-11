@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 
 from contexts.training.pipeline.plugin import run_plugin_hooks
 from contexts.training.score_engine import evaluate_training
-from core.database import SessionLocal, get_db
 from core.config import SCORING_TIMEOUT_SECONDS
+from core.database import SessionLocal, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
-from models import Case, Message, TrainingRecord, User
+from models import Case, Message, Score, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 
 from .session import (
@@ -48,15 +48,18 @@ def get_scoring_status(
         "score": {
             "total_score": score.total_score,
             "review_status": score.review_status,
-        } if score else None,
+        }
+        if score
+        else None,
     }
 
 
 def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
     if not record.assignment_id or record.is_overdue:
         return
-    from models import Assignment
     from core.datetime_utils import ensure_utc
+    from models import Assignment
+
     assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
     if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
         record.is_overdue = True
@@ -81,7 +84,9 @@ async def _run_scoring_background(
 
         await asyncio.wait_for(
             evaluate_training(
-                record_id, case_data, db,
+                record_id,
+                case_data,
+                db,
                 pm=pm,
                 llm_client=llm_client,
             ),
@@ -143,18 +148,21 @@ async def end_training(
     record.end_time = datetime.now(UTC)
     _set_overdue_if_needed(record, db)
 
-    _schedule_background(_run_scoring_background(
-        record_id,
-        case.case_data if case else {},
-        llm_client=request.app.state.llm_client,
-        pm=request.app.state.prompt_manager,
-    ))
+    _schedule_background(
+        _run_scoring_background(
+            record_id,
+            case.case_data if case else {},
+            llm_client=request.app.state.llm_client,
+            pm=request.app.state.prompt_manager,
+        )
+    )
 
     record.scoring_status = "pending"
     db.commit()
 
     from contexts.training.plugins import _hook_ctx
     from core.feature_flags import resolve_features
+
     features = resolve_features(record.config_snapshot)
     hook_ctx = _hook_ctx(record, request.app.state)
     run_plugin_hooks("on_end", hook_ctx, features)
@@ -162,7 +170,11 @@ async def end_training(
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
         f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_end"},
+        extra={
+            "user_id": current_user.id,
+            "user_role": current_user.role.name if current_user.role else "",
+            "action": "training_end",
+        },
     )
     return {
         "message": "训练已结束，评分正在后台生成中",
@@ -202,11 +214,13 @@ async def retry_scoring(
     record.scoring_error = None
     db.commit()
 
-    _schedule_background(_run_scoring_background(
-        record_id,
-        case.case_data if case else {},
-        llm_client=request.app.state.llm_client,
-        pm=request.app.state.prompt_manager,
-    ))
+    _schedule_background(
+        _run_scoring_background(
+            record_id,
+            case.case_data if case else {},
+            llm_client=request.app.state.llm_client,
+            pm=request.app.state.prompt_manager,
+        )
+    )
 
     return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}

@@ -1,4 +1,5 @@
 """角色管理 (school_admin 可管理本校角色)"""
+
 import logging
 from typing import Annotated
 
@@ -40,19 +41,26 @@ def list_roles(
         perms_map.setdefault(p.role_id, []).append(p.permission)
 
     if role_ids:
-        rows = db.query(User.role_id, func.count(User.id)).filter(User.role_id.in_(role_ids)).group_by(User.role_id).all()
+        rows = (
+            db.query(User.role_id, func.count(User.id)).filter(User.role_id.in_(role_ids)).group_by(User.role_id).all()
+        )
         counts = {role_id: cnt for role_id, cnt in rows}
     else:
         counts = {}
 
     result = []
     for r in roles:
-        result.append(RoleResponse(
-            id=r.id, name=r.name, display_name=r.display_name,
-            is_system=r.is_system, school_id=r.school_id,
-            permissions=perms_map.get(r.id, []),
-            user_count=counts.get(r.id, 0),
-        ))
+        result.append(
+            RoleResponse(
+                id=r.id,
+                name=r.name,
+                display_name=r.display_name,
+                is_system=r.is_system,
+                school_id=r.school_id,
+                permissions=perms_map.get(r.id, []),
+                user_count=counts.get(r.id, 0),
+            )
+        )
     return result
 
 
@@ -74,14 +82,23 @@ def create_role(
     db.commit()
     db.refresh(role)
 
-    log.info("角色已创建: name=%s", req.name, extra={
-        "user_id": current_user.id, "school_id": current_user.school_id,
-    })
+    log.info(
+        "角色已创建: name=%s",
+        req.name,
+        extra={
+            "user_id": current_user.id,
+            "school_id": current_user.school_id,
+        },
+    )
 
     return RoleResponse(
-        id=role.id, name=role.name, display_name=role.display_name,
-        is_system=role.is_system, school_id=role.school_id,
-        permissions=req.permissions, user_count=0,
+        id=role.id,
+        name=role.name,
+        display_name=role.display_name,
+        is_system=role.is_system,
+        school_id=role.school_id,
+        permissions=req.permissions,
+        user_count=0,
     )
 
 
@@ -110,13 +127,21 @@ def update_role(
     perms = db.query(RolePermission.permission).filter(RolePermission.role_id == role.id).all()
     user_count = db.query(func.count(User.id)).filter(User.role_id == role.id).scalar() or 0
 
-    log.info("角色已更新: name=%s", role.name, extra={
-        "user_id": current_user.id, "school_id": current_user.school_id,
-    })
+    log.info(
+        "角色已更新: name=%s",
+        role.name,
+        extra={
+            "user_id": current_user.id,
+            "school_id": current_user.school_id,
+        },
+    )
 
     return RoleResponse(
-        id=role.id, name=role.name, display_name=role.display_name,
-        is_system=role.is_system, school_id=role.school_id,
+        id=role.id,
+        name=role.name,
+        display_name=role.display_name,
+        is_system=role.is_system,
+        school_id=role.school_id,
         permissions=[p.permission for p in perms],
         user_count=user_count,
     )
@@ -137,13 +162,20 @@ def delete_role(
 
     user_count = db.query(func.count(User.id)).filter(User.role_id == role.id).scalar() or 0
     if user_count > 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"该角色下还有 {user_count} 个用户，无法删除")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"该角色下还有 {user_count} 个用户，无法删除"
+        )
 
     name = role.name
     db.delete(role)
     db.commit()
 
-    log.info("角色已删除: name=%s", name, extra={
-        "user_id": current_user.id, "school_id": current_user.school_id,
-    })
+    log.info(
+        "角色已删除: name=%s",
+        name,
+        extra={
+            "user_id": current_user.id,
+            "school_id": current_user.school_id,
+        },
+    )
     return {"message": f"角色 '{name}' 已删除"}

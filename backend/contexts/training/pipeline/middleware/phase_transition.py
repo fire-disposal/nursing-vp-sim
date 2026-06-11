@@ -22,8 +22,7 @@ async def phase_transition(ctx: PipelineContext, next_mw) -> None:
     )
 
     if next_phase:
-        log.info("Phase transition: record_id=%d %s -> %s",
-                 ctx.record.id, ctx.current_phase.id, next_phase.id)
+        log.info("Phase transition: record_id=%d %s -> %s", ctx.record.id, ctx.current_phase.id, next_phase.id)
         ctx.current_phase = next_phase
         ctx.phase_index = next_phase.order - 1
         ctx.record.current_phase = next_phase.id

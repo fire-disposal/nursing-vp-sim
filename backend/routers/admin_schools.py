@@ -1,4 +1,5 @@
 """学校管理 (仅 super_admin 可访问)"""
+
 import logging
 from typing import Annotated
 
@@ -37,13 +38,25 @@ def list_schools(
     for s in schools:
         teacher_role = db.query(Role).filter(Role.name == "teacher", Role.school_id == s.id).first()
         student_role = db.query(Role).filter(Role.name == "student", Role.school_id == s.id).first()
-        teacher_count = db.query(func.count(User.id)).filter(User.school_id == s.id, User.role_id == teacher_role.id).scalar() if teacher_role else 0
-        student_count = db.query(func.count(User.id)).filter(User.school_id == s.id, User.role_id == student_role.id).scalar() if student_role else 0
-        items.append(SchoolResponse(
-            id=s.id, name=s.name,
-            teacher_count=teacher_count, student_count=student_count,
-            created_at=s.created_at,
-        ))
+        teacher_count = (
+            db.query(func.count(User.id)).filter(User.school_id == s.id, User.role_id == teacher_role.id).scalar()
+            if teacher_role
+            else 0
+        )
+        student_count = (
+            db.query(func.count(User.id)).filter(User.school_id == s.id, User.role_id == student_role.id).scalar()
+            if student_role
+            else 0
+        )
+        items.append(
+            SchoolResponse(
+                id=s.id,
+                name=s.name,
+                teacher_count=teacher_count,
+                student_count=student_count,
+                created_at=s.created_at,
+            )
+        )
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
@@ -71,24 +84,32 @@ def create_school(
             db.add(RolePermission(role_id=role.id, permission=perm))
 
     admin_role_id = role_map.get("school_admin")
-    db.add(User(
-        username=req.admin_username,
-        password_hash=hash_password(req.admin_password),
-        role_id=admin_role_id,
-        school_id=school.id,
-        display_name=req.admin_display_name,
-    ))
+    db.add(
+        User(
+            username=req.admin_username,
+            password_hash=hash_password(req.admin_password),
+            role_id=admin_role_id,
+            school_id=school.id,
+            display_name=req.admin_display_name,
+        )
+    )
     db.commit()
     db.refresh(school)
 
-    log.info("学校已创建: name=%s", req.name, extra={
-        "user_id": current_user.id,
-        "school_id": school.id,
-    })
+    log.info(
+        "学校已创建: name=%s",
+        req.name,
+        extra={
+            "user_id": current_user.id,
+            "school_id": school.id,
+        },
+    )
 
     return SchoolResponse(
-        id=school.id, name=school.name,
-        teacher_count=0, student_count=0,
+        id=school.id,
+        name=school.name,
+        teacher_count=0,
+        student_count=0,
         created_at=school.created_at,
     )
 
@@ -110,7 +131,11 @@ def delete_school(
     db.delete(school)
     db.commit()
 
-    log.info("学校已删除: name=%s", name, extra={
-        "user_id": current_user.id,
-    })
+    log.info(
+        "学校已删除: name=%s",
+        name,
+        extra={
+            "user_id": current_user.id,
+        },
+    )
     return {"message": f"学校 '{name}' 已删除"}

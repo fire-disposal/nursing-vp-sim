@@ -40,13 +40,15 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 
 def _build_token_response(user: User, db: Session) -> TokenResponse:
-    token = create_access_token({
-        "user_id": user.id,
-        "role_id": user.role_id,
-        "school_id": user.school_id,
-        "role": user.role.name if user.role else "",
-        "tv": user.token_version,
-    })
+    token = create_access_token(
+        {
+            "user_id": user.id,
+            "role_id": user.role_id,
+            "school_id": user.school_id,
+            "role": user.role.name if user.role else "",
+            "tv": user.token_version,
+        }
+    )
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     permissions = [r.permission for r in rows]
     return TokenResponse(
@@ -76,7 +78,11 @@ async def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
     await reset_login_limit(request)
-    log.info("登录成功: username=%s", req.username, extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"})
+    log.info(
+        "登录成功: username=%s",
+        req.username,
+        extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"},
+    )
     return _build_token_response(user, db)
 
 
@@ -122,11 +128,25 @@ def register(
     db.refresh(user)
     log.info(
         "用户注册: target_id=%d target_name=%s role=%s",
-        user.id, user.username, user.role.name if user.role else "",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "register"},
+        user.id,
+        user.username,
+        user.role.name if user.role else "",
+        extra={
+            "user_id": current_user.id,
+            "user_role": current_user.role.name if current_user.role else "",
+            "action": "register",
+        },
     )
     return TokenResponse(
-        access_token=create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else "", "tv": user.token_version}),
+        access_token=create_access_token(
+            {
+                "user_id": user.id,
+                "role_id": user.role_id,
+                "school_id": user.school_id,
+                "role": user.role.name if user.role else "",
+                "tv": user.token_version,
+            }
+        ),
         role=user.role.name if user.role else "",
         display_name=user.display_name,
         user_id=user.id,
@@ -155,7 +175,15 @@ async def wechat_login(
     if user is None:
         return WechatLoginResponse(need_bind=True)
 
-    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else "", "tv": user.token_version})
+    token = create_access_token(
+        {
+            "user_id": user.id,
+            "role_id": user.role_id,
+            "school_id": user.school_id,
+            "role": user.role.name if user.role else "",
+            "tv": user.token_version,
+        }
+    )
     log.info("微信登录成功: openid=%s user=%s", openid, user.username)
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     permissions = [r.permission for r in rows]
@@ -242,7 +270,15 @@ async def wechat_register(
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"user_id": user.id, "role_id": user.role_id, "school_id": user.school_id, "role": user.role.name if user.role else "", "tv": user.token_version})
+    token = create_access_token(
+        {
+            "user_id": user.id,
+            "role_id": user.role_id,
+            "school_id": user.school_id,
+            "role": user.role.name if user.role else "",
+            "tv": user.token_version,
+        }
+    )
     log.info("微信注册成功: openid=%s username=%s", openid, username)
     return TokenResponse(
         access_token=token,
@@ -298,8 +334,18 @@ def _user_to_brief(user: User) -> UserBrief:
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh_token(current_user: Annotated[User, Depends(_decode_token_allow_expired)], db: Annotated[Session, Depends(get_db)]):
-    token = create_access_token({"user_id": current_user.id, "role_id": current_user.role_id, "school_id": current_user.school_id, "role": current_user.role.name if current_user.role else "", "tv": current_user.token_version})
+def refresh_token(
+    current_user: Annotated[User, Depends(_decode_token_allow_expired)], db: Annotated[Session, Depends(get_db)]
+):
+    token = create_access_token(
+        {
+            "user_id": current_user.id,
+            "role_id": current_user.role_id,
+            "school_id": current_user.school_id,
+            "role": current_user.role.name if current_user.role else "",
+            "tv": current_user.token_version,
+        }
+    )
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == current_user.role_id).all()
     permissions = [r.permission for r in rows]
     log.info("Token 刷新: user_id=%d", current_user.id)

@@ -18,7 +18,19 @@ from core.security import get_current_user, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.prompt import PromptManager
 from middleware.dependencies import resolve_school_filter
-from models import Assignment, Case, LLMCallLog, Message, Note, NursingRecord, QuestionnaireResponse, Score, TrainingRecord, User, UserClass
+from models import (
+    Assignment,
+    Case,
+    LLMCallLog,
+    Message,
+    Note,
+    NursingRecord,
+    QuestionnaireResponse,
+    Score,
+    TrainingRecord,
+    User,
+    UserClass,
+)
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
@@ -194,6 +206,7 @@ def _create_record(
     from contexts.training.pipeline.plugin import run_plugin_hooks
     from contexts.training.plugins import _hook_ctx
     from core.feature_flags import resolve_features
+
     features = resolve_features(record.config_snapshot)
     if app_state is not None:
         run_plugin_hooks("on_record_create", _hook_ctx(record, app_state), features)
@@ -215,11 +228,17 @@ def start_training(
     config_id = req.config_id or "standard-assessment"
     config = get_config(config_id) or {}
 
-    record, greeting = _create_record(db, current_user.id, case, case.case_data or {}, config_id, config, app_state=request.app.state)
+    record, greeting = _create_record(
+        db, current_user.id, case, case.case_data or {}, config_id, config, app_state=request.app.state
+    )
 
     log.info(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else "", "action": "training_start"},
+        extra={
+            "user_id": current_user.id,
+            "user_role": current_user.role.name if current_user.role else "",
+            "action": "training_start",
+        },
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
 
@@ -232,29 +251,34 @@ def start_training_from_assignment(
     assignment_id: str = Query(...),
 ):
     assignment = (
-        db.query(Assignment)
-        .options(joinedload(Assignment.case))
-        .filter(Assignment.id == assignment_id)
-        .first()
+        db.query(Assignment).options(joinedload(Assignment.case)).filter(Assignment.id == assignment_id).first()
     )
     if not assignment:
         raise HTTPException(status_code=404, detail="练习发布不存在")
 
-    user_class = db.query(UserClass).filter(
-        UserClass.user_id == current_user.id,
-        UserClass.class_id == assignment.class_id,
-    ).first()
+    user_class = (
+        db.query(UserClass)
+        .filter(
+            UserClass.user_id == current_user.id,
+            UserClass.class_id == assignment.class_id,
+        )
+        .first()
+    )
     if not user_class:
         raise HTTPException(status_code=403, detail="你不在该练习的目标班级中")
 
-    existing = db.query(TrainingRecord).filter(
-        TrainingRecord.user_id == current_user.id,
-        TrainingRecord.assignment_id == assignment.id,
-    ).first()
+    existing = (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == current_user.id,
+            TrainingRecord.assignment_id == assignment.id,
+        )
+        .first()
+    )
     if existing:
-        student_msg_count = db.query(Message).filter(
-            Message.record_id == existing.id, Message.role == "student"
-        ).count()
+        student_msg_count = (
+            db.query(Message).filter(Message.record_id == existing.id, Message.role == "student").count()
+        )
         if student_msg_count == 0:
             db.query(Message).filter(Message.record_id == existing.id).delete()
             db.query(NursingRecord).filter(NursingRecord.record_id == existing.id).delete()
@@ -268,7 +292,9 @@ def start_training_from_assignment(
             patient_info = case_data.get("patient_info", {})
             patient_name = patient_info.get("name", "患者")
             greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
-            return TrainingStartResponse(record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else "")
+            return TrainingStartResponse(
+                record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else ""
+            )
 
     case = assignment.case
     if not case:
@@ -279,7 +305,12 @@ def start_training_from_assignment(
 
     now = datetime.now(UTC)
     record, greeting = _create_record(
-        db, current_user.id, case, case.case_data or {}, config_id, config,
+        db,
+        current_user.id,
+        case,
+        case.case_data or {},
+        config_id,
+        config,
         assignment_id=assignment.id,
         is_overdue=now > ensure_utc(assignment.end_time),
         feature_overrides=assignment.feature_overrides,

@@ -105,6 +105,7 @@ def delete_grade(
         raise HTTPException(status_code=404, detail="年级不存在")
     class_count = db.query(func.count(Class.id)).filter(Class.grade_id == grade_id).scalar() or 0
     from sqlalchemy import update as sa_update
+
     db.execute(
         sa_update(UserClass)
         .where(UserClass.class_id.in_(db.query(Class.id).filter(Class.grade_id == grade_id)))

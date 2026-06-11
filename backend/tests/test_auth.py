@@ -74,7 +74,15 @@ class TestRegister:
         _, token = teacher
 
         student_role = db_session.query(Role).filter(Role.name == "student").first()
-        db_session.add(User(username="dup", password_hash=hash_password("x"), role_id=student_role.id, school_id=1, display_name="Dup"))
+        db_session.add(
+            User(
+                username="dup",
+                password_hash=hash_password("x"),
+                role_id=student_role.id,
+                school_id=1,
+                display_name="Dup",
+            )
+        )
         db_session.commit()
 
         resp = client.post(

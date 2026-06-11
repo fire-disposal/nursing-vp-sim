@@ -14,7 +14,6 @@ def _skip_retry_delays():
 
 
 class TestBackoffDelay:
-
     def test_increases_with_attempt(self):
         d0 = backoff_delay(0)
         d2 = backoff_delay(2)
@@ -26,7 +25,6 @@ class TestBackoffDelay:
 
 
 class TestAsyncRetry:
-
     @pytest.mark.asyncio
     async def test_success_first_try(self):
         call_count = 0

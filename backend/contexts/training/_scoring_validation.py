@@ -58,9 +58,7 @@ def _validate_feedback_fields(result: dict):
     """第二阶段校验：仅检查四个反馈字段。"""
     empty = _check_feedback_empty(result)
     if empty:
-        raise ValueError(
-            f"反馈字段不完整: {', '.join([f'{f}(为空)' for f in empty])}"
-        )
+        raise ValueError(f"反馈字段不完整: {', '.join([f'{f}(为空)' for f in empty])}")
 
 
 def _validate_scoring_result(result: dict, rubric: dict | None = None):
@@ -78,7 +76,12 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
     _validate_scoring_essentials(result)
 
     empty_feedback = []
-    for field, expected_type in [("strengths", list), ("weaknesses", list), ("missed_content", list), ("suggestions", str)]:
+    for field, expected_type in [
+        ("strengths", list),
+        ("weaknesses", list),
+        ("missed_content", list),
+        ("suggestions", str),
+    ]:
         value = result.get(field)
         if value is None:
             empty_feedback.append(f"{field}(缺失)")

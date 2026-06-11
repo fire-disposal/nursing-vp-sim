@@ -48,7 +48,9 @@ router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 
 
 @router.get("/secrets", response_model=list[ApiSecretResponse])
-def list_secrets(current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]):
+def list_secrets(
+    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+):
     secrets = db.query(ApiSecret).order_by(ApiSecret.created_at.desc()).all()
     result = []
     for s in secrets:
@@ -128,7 +130,10 @@ def update_secret(
 
 @router.delete("/secrets/{secret_id}", response_model=DeleteResponse)
 async def delete_secret(
-    secret_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    secret_id: int,
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
@@ -244,7 +249,18 @@ async def update_config(
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
         raise HTTPException(status_code=404, detail="指派不存在")
-    for f in ("secret_id", "model", "purpose", "status", "label", "priority", "weight", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit"):
+    for f in (
+        "secret_id",
+        "model",
+        "purpose",
+        "status",
+        "label",
+        "priority",
+        "weight",
+        "price_input_per_1m",
+        "price_output_per_1m",
+        "monthly_cost_limit",
+    ):
         val = getattr(data, f, None)
         if val is not None:
             setattr(cfg, f, val)
@@ -255,7 +271,10 @@ async def update_config(
 
 @router.delete("/configs/{config_id}", response_model=DeleteResponse)
 async def delete_config(
-    config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    config_id: int,
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -268,7 +287,10 @@ async def delete_config(
 
 @router.post("/configs/{config_id}/toggle", response_model=ToggleStatusResponse)
 async def toggle_config(
-    config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    config_id: int,
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -281,7 +303,10 @@ async def toggle_config(
 
 @router.post("/configs/{config_id}/reset", response_model=OkResponse)
 async def reset_profile(
-    config_id: int, request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    config_id: int,
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -300,7 +325,9 @@ async def reset_profile(
 
 @router.post("/configs/{config_id}/test", response_model=TestResultItem)
 async def test_config(
-    config_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    config_id: int,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
@@ -441,7 +468,9 @@ async def test_env_fallback(current_user: Annotated[User, Depends(require_permis
 
 
 @router.get("/rubrics", response_model=list[RubricResponse])
-def list_rubrics(current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]):
+def list_rubrics(
+    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+):
     return db.query(Rubric).order_by(Rubric.created_at.desc()).all()
 
 
@@ -457,7 +486,9 @@ def get_active_rubric(current_user: Annotated[User, Depends(require_permission("
 
 @router.post("/rubrics", status_code=201, response_model=RubricResponse)
 def create_rubric(
-    data: dict, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    data: dict,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     from repositories.rubric import validate_dimensions
 
@@ -508,7 +539,9 @@ def update_rubric(
 
 @router.delete("/rubrics/{rubric_id}", response_model=DeleteResponse)
 def delete_rubric(
-    rubric_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    rubric_id: int,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:
@@ -522,7 +555,9 @@ def delete_rubric(
 
 @router.post("/rubrics/{rubric_id}/activate", response_model=OkResponse)
 def activate_rubric(
-    rubric_id: int, current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
+    rubric_id: int,
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: Annotated[Session, Depends(get_db)],
 ):
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:

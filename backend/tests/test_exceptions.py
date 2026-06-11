@@ -16,7 +16,6 @@ from core.exceptions import (
 
 
 class TestExceptionHierarchy:
-
     def test_app_error_is_base(self):
         assert issubclass(AuthError, AppError)
         assert issubclass(NotFoundError, AppError)

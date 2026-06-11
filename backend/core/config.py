@@ -49,13 +49,10 @@ def validate_config():
     db = urlparse(DATABASE_URL)
     if not db.scheme or not db.hostname:
         raise RuntimeError(
-            f"DATABASE_URL 格式无效: {DATABASE_URL}\n"
-            "应为 postgresql://user:password@host:port/dbname 格式。"
+            f"DATABASE_URL 格式无效: {DATABASE_URL}\n应为 postgresql://user:password@host:port/dbname 格式。"
         )
     if db.scheme not in ("postgresql", "postgresql+psycopg"):
-        raise RuntimeError(
-            f"DATABASE_URL scheme 无效: {db.scheme}（期望 postgresql 或 postgresql+psycopg）"
-        )
+        raise RuntimeError(f"DATABASE_URL scheme 无效: {db.scheme}（期望 postgresql 或 postgresql+psycopg）")
 
     cors_raw = os.getenv("CORS_ORIGINS", "")
     if not cors_raw or not any(o.strip() for o in cors_raw.split(",")):
@@ -109,6 +106,7 @@ def get_llm_config(purpose: str) -> dict:
             log.warning("LLM_CONFIG_JSON 解析失败，使用默认配置")
     return _LLM_PURPOSE_DEFAULTS.get(purpose, _LLM_PURPOSE_DEFAULTS["patient_chat"])
 
+
 # 自动结算与智能评分
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
 SCORING_TIMEOUT_SECONDS = int(os.getenv("SCORING_TIMEOUT_SECONDS", "300"))
@@ -134,7 +132,11 @@ def log_config(logger):
     logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)
-    logger.info("  自动结算:   每 %d 秒 (门槛: 采集点>=%d 学生>=%d字 AI>=%d字)",
-                CLEANUP_INTERVAL_SECONDS, AUTO_SCORE_COVERED_INQUIRIES_MIN,
-                AUTO_SCORE_STUDENT_CHARS_MIN, AUTO_SCORE_AI_CHARS_MIN)
+    logger.info(
+        "  自动结算:   每 %d 秒 (门槛: 采集点>=%d 学生>=%d字 AI>=%d字)",
+        CLEANUP_INTERVAL_SECONDS,
+        AUTO_SCORE_COVERED_INQUIRIES_MIN,
+        AUTO_SCORE_STUDENT_CHARS_MIN,
+        AUTO_SCORE_AI_CHARS_MIN,
+    )
     logger.info("──────────────────────────────────────")

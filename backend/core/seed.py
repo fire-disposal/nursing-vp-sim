@@ -86,21 +86,29 @@ def _seed_data() -> None:
 
         # 4. 评分标准
         if db.query(Rubric).count() == 0:
-            rubric_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "rubrics", "nursing_history_v1.json")
+            rubric_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "data",
+                "rubrics",
+                "nursing_history_v1.json",
+            )
             if os.path.isfile(rubric_path):
                 import json as _json
+
                 with open(rubric_path, encoding="utf-8") as f:
                     data = _json.load(f)
-                db.add(Rubric(
-                    name=data.get("id", "nursing_history_v1"),
-                    version=data.get("version", "1.0"),
-                    description=data.get("name", ""),
-                    total_max=data.get("total_max", 100),
-                    raw_max=data.get("raw_max", 57),
-                    raw_scale=data.get("raw_scale", 3),
-                    dimensions=data.get("dimensions", []),
-                    is_active=True,
-                ))
+                db.add(
+                    Rubric(
+                        name=data.get("id", "nursing_history_v1"),
+                        version=data.get("version", "1.0"),
+                        description=data.get("name", ""),
+                        total_max=data.get("total_max", 100),
+                        raw_max=data.get("raw_max", 57),
+                        raw_scale=data.get("raw_scale", 3),
+                        dimensions=data.get("dimensions", []),
+                        is_active=True,
+                    )
+                )
                 db.commit()
                 log.debug("评分标准已导入")
 
@@ -118,13 +126,15 @@ def _seed_data() -> None:
                 db.commit()
                 log.debug("超级管理员角色已修正 (%s → super_admin)", username)
         else:
-            db.add(User(
-                username=username,
-                password_hash=hash_password(password),
-                role_id=sa_role_id,
-                school_id=school.id,
-                display_name="超级管理员",
-            ))
+            db.add(
+                User(
+                    username=username,
+                    password_hash=hash_password(password),
+                    role_id=sa_role_id,
+                    school_id=school.id,
+                    display_name="超级管理员",
+                )
+            )
             db.commit()
             log.debug("超级管理员已创建 (%s)", username)
 
@@ -133,15 +143,17 @@ def _seed_data() -> None:
             student_role_id = school_role_ids.get("student")
             test_genders = ["男", "女", "男", "女", "男"]
             for i in range(1, 6):
-                db.add(User(
-                    username=f"student{i}",
-                    password_hash=hash_password("123456"),
-                    role_id=student_role_id,
-                    school_id=school.id,
-                    display_name=f"学生{i}",
-                    student_id=f"202400{i:02d}",
-                    gender=test_genders[i - 1],
-                ))
+                db.add(
+                    User(
+                        username=f"student{i}",
+                        password_hash=hash_password("123456"),
+                        role_id=student_role_id,
+                        school_id=school.id,
+                        display_name=f"学生{i}",
+                        student_id=f"202400{i:02d}",
+                        gender=test_genders[i - 1],
+                    )
+                )
             log.debug("测试学生已创建 (student1-5 / 123456)")
 
             cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cases")
@@ -149,9 +161,14 @@ def _seed_data() -> None:
             for fname in sorted(os.listdir(cases_dir)):
                 if fname.endswith(".json"):
                     import json as _json
+
                     with open(os.path.join(cases_dir, fname), encoding="utf-8") as f:
                         d = _json.load(f)
-                    db.add(Case(name=d.get("name", fname), description=d.get("description", ""), case_data=d, school_id=None))
+                    db.add(
+                        Case(
+                            name=d.get("name", fname), description=d.get("description", ""), case_data=d, school_id=None
+                        )
+                    )
                     case_count += 1
             db.commit()
             log.debug("内置病例已导入 (%d)", case_count)
@@ -166,10 +183,15 @@ def _seed_llm() -> None:
         suffix = DEEPSEEK_API_KEY[-4:]
 
         # 清理重复密钥（同 label + suffix 只保留第一个）
-        dupes = db.query(ApiSecret).filter(
-            ApiSecret.label == "初始服务密钥",
-            ApiSecret.key_suffix == suffix,
-        ).order_by(ApiSecret.id).all()
+        dupes = (
+            db.query(ApiSecret)
+            .filter(
+                ApiSecret.label == "初始服务密钥",
+                ApiSecret.key_suffix == suffix,
+            )
+            .order_by(ApiSecret.id)
+            .all()
+        )
         if len(dupes) > 1:
             for d in dupes[1:]:
                 db.query(LLMConfig).filter(LLMConfig.secret_id == d.id).delete()
@@ -179,11 +201,13 @@ def _seed_llm() -> None:
 
         matched = dupes[0] if dupes else None
         if matched:
-            changed = any([
-                matched.base_url != DEEPSEEK_BASE_URL,
-                float(matched.price_input_per_1m or 0) == 0,
-                float(matched.price_output_per_1m or 0) == 0,
-            ])
+            changed = any(
+                [
+                    matched.base_url != DEEPSEEK_BASE_URL,
+                    float(matched.price_input_per_1m or 0) == 0,
+                    float(matched.price_output_per_1m or 0) == 0,
+                ]
+            )
             if matched.base_url != DEEPSEEK_BASE_URL:
                 matched.base_url = DEEPSEEK_BASE_URL
             if float(matched.price_input_per_1m or 0) == 0:
@@ -195,12 +219,25 @@ def _seed_llm() -> None:
                 log.debug("种子密钥已同步 (ID=%d)", matched.id)
             secret = matched
         else:
-            secret = ApiSecret(label="初始服务密钥", encrypted_key=env_encrypted, key_suffix=suffix, base_url=DEEPSEEK_BASE_URL, price_input_per_1m=1.0, price_output_per_1m=2.0)
+            secret = ApiSecret(
+                label="初始服务密钥",
+                encrypted_key=env_encrypted,
+                key_suffix=suffix,
+                base_url=DEEPSEEK_BASE_URL,
+                price_input_per_1m=1.0,
+                price_output_per_1m=2.0,
+            )
             db.add(secret)
             db.flush()
             log.debug("种子密钥已创建")
 
-        purposes = [("scoring", DEEPSEEK_MODEL), ("patient_chat", DEEPSEEK_MODEL), ("qa", DEEPSEEK_MODEL), ("case_generation", DEEPSEEK_MODEL), ("*", DEEPSEEK_MODEL)]
+        purposes = [
+            ("scoring", DEEPSEEK_MODEL),
+            ("patient_chat", DEEPSEEK_MODEL),
+            ("qa", DEEPSEEK_MODEL),
+            ("case_generation", DEEPSEEK_MODEL),
+            ("*", DEEPSEEK_MODEL),
+        ]
         for purpose, model in purposes:
             cfg = db.query(LLMConfig).filter(LLMConfig.secret_id == secret.id, LLMConfig.purpose == purpose).first()
             if cfg:

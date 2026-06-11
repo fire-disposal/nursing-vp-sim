@@ -51,7 +51,9 @@ def _build_llm_stats(db: Session, since: datetime):
 
 
 @router.get("/llm-stats", response_model=LLMStatsResponse)
-def get_llm_stats(current_user: Annotated[User, Depends(require_permission("llm_monitor"))], db: Annotated[Session, Depends(get_db)]):
+def get_llm_stats(
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))], db: Annotated[Session, Depends(get_db)]
+):
     now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)

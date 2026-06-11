@@ -9,8 +9,8 @@ from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
 from models import Message, Score, TrainingRecord
 from prompts.scoring import FEEDBACK_RETRY_USER, SCORING_RETRY_USER
-
 from repositories.rubric import get_rubric_version_id, load_rubric_dict
+
 from ._scoring_validation import (
     _check_feedback_empty,
     _coerce_numeric_fields,
@@ -59,7 +59,11 @@ async def _score_stage(
 
     partial_json = json.dumps(result, ensure_ascii=False, indent=2)
     retry_user = SCORING_RETRY_USER.format(partial_json=partial_json)
-    retry_messages = [*messages, {"role": "assistant", "content": partial_json}, {"role": "user", "content": retry_user}]
+    retry_messages = [
+        *messages,
+        {"role": "assistant", "content": partial_json},
+        {"role": "user", "content": retry_user},
+    ]
     result2 = await llm_client.call_json(
         retry_messages,
         purpose="scoring",
@@ -113,7 +117,11 @@ async def _feedback_stage(
 
     missing = _check_feedback_empty(result)
     retry_user = FEEDBACK_RETRY_USER.format(missing=", ".join(missing))
-    retry_messages = [*messages, {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)}, {"role": "user", "content": retry_user}]
+    retry_messages = [
+        *messages,
+        {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)},
+        {"role": "user", "content": retry_user},
+    ]
     result2 = await llm_client.call_json(
         retry_messages,
         purpose="scoring_feedback",
@@ -199,12 +207,21 @@ async def evaluate_training(
     ]
 
     scoring_task = _score_stage(
-        score_messages, record_id, rubric,
-        user_id=user_id, case_id=case_id, log_meta=log_meta, llm_client=llm_client,
+        score_messages,
+        record_id,
+        rubric,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        llm_client=llm_client,
     )
     feedback_task = _feedback_stage(
-        feedback_messages, record_id,
-        user_id=user_id, case_id=case_id, log_meta=log_meta, llm_client=llm_client,
+        feedback_messages,
+        record_id,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        llm_client=llm_client,
     )
 
     scoring_result, feedback_result = await asyncio.gather(scoring_task, feedback_task)

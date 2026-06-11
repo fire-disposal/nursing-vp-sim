@@ -160,7 +160,6 @@ def list_cases_manage(
     )
 
 
-
 @router.post("/generate", response_model=CaseGenerateResponse)
 async def generate_case(
     data: CaseGenerateRequest,
@@ -235,9 +234,7 @@ def get_case(
     effective_school = resolve_school_filter(current_user)
     query = db.query(Case).filter(Case.id == case_id)
     if effective_school is not None:
-        query = query.filter(
-            (Case.school_id == effective_school) | (Case.school_id.is_(None))
-        )
+        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
@@ -257,7 +254,12 @@ def create_case(
     if len(str(cd.get("name", ""))) > 100:
         raise HTTPException(status_code=400, detail="病例名称不能超过100个字符")
     if "personality" not in cd:
-        cd["personality"] = {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"}
+        cd["personality"] = {
+            "health_literacy": "normal",
+            "verbosity": "normal",
+            "anxiety_trait": "normal",
+            "patience": "normal",
+        }
     if "deep_background" not in cd:
         cd["deep_background"] = {}
     if "exam_anchors" not in cd:
@@ -291,9 +293,7 @@ def update_case(
     effective_school = resolve_school_filter(current_user)
     query = db.query(Case).filter(Case.id == case_id)
     if effective_school is not None:
-        query = query.filter(
-            (Case.school_id == effective_school) | (Case.school_id.is_(None))
-        )
+        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
@@ -325,9 +325,7 @@ def delete_case(
     effective_school = resolve_school_filter(current_user)
     query = db.query(Case).filter(Case.id == case_id)
     if effective_school is not None:
-        query = query.filter(
-            (Case.school_id == effective_school) | (Case.school_id.is_(None))
-        )
+        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")

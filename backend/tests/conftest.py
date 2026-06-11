@@ -33,7 +33,9 @@ def engine():
     with eng.connect() as conn:
         conn.execute(Base.metadata.tables["schools"].insert().values([{"name": "\u9ed8\u8ba4\u5b66\u6821"}]))
         conn.execute(
-            Base.metadata.tables["roles"].insert().values(
+            Base.metadata.tables["roles"]
+            .insert()
+            .values(
                 [
                     {"name": "teacher", "display_name": "\u6559\u5e08", "is_system": True, "school_id": 1},
                     {"name": "student", "display_name": "\u5b66\u751f", "is_system": True, "school_id": 1},
@@ -41,12 +43,26 @@ def engine():
             )
         )
         conn.execute(
-            Base.metadata.tables["role_permissions"].insert().values(
-                [{"role_id": 1, "permission": p} for p in [
-                    "teacher_access", "user_manage", "case_manage", "score_review",
-                    "llm_monitor", "api_manage", "prompt_manage", "grade_class_manage",
-                    "stats_view", "feedback_review", "questionnaire_manage", "export_data",
-                ]]
+            Base.metadata.tables["role_permissions"]
+            .insert()
+            .values(
+                [
+                    {"role_id": 1, "permission": p}
+                    for p in [
+                        "teacher_access",
+                        "user_manage",
+                        "case_manage",
+                        "score_review",
+                        "llm_monitor",
+                        "api_manage",
+                        "prompt_manage",
+                        "grade_class_manage",
+                        "stats_view",
+                        "feedback_review",
+                        "questionnaire_manage",
+                        "export_data",
+                    ]
+                ]
                 + [{"role_id": 2, "permission": p} for p in ["training_access", "qa_access"]]
             )
         )
@@ -126,10 +142,12 @@ def client(engine, db_session):
     app.state.task_queue = mock_tq
 
     from infrastructure.cache import EmotionCache, InitiativeCache
+
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
 
     from contexts.training.router.session import set_training_infra
+
     set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker)
 
     with TestClient(app) as c:
@@ -140,10 +158,14 @@ def client(engine, db_session):
 @pytest.fixture
 def teacher(client, db_session):
     from models import Role
+
     teacher_role = db_session.query(Role).filter(Role.name == "teacher").first()
     user = User(
-        username="teacher1", password_hash=hash_password("teacher123"),
-        role_id=teacher_role.id, school_id=1, display_name="\u5f20\u8001\u5e08",
+        username="teacher1",
+        password_hash=hash_password("teacher123"),
+        role_id=teacher_role.id,
+        school_id=1,
+        display_name="\u5f20\u8001\u5e08",
     )
     db_session.add(user)
     db_session.commit()
@@ -155,10 +177,15 @@ def teacher(client, db_session):
 @pytest.fixture
 def student(client, db_session):
     from models import Role
+
     student_role = db_session.query(Role).filter(Role.name == "student").first()
     user = User(
-        username="student1", password_hash=hash_password("student123"),
-        role_id=student_role.id, school_id=1, display_name="\u674e\u660e", student_id="20240001",
+        username="student1",
+        password_hash=hash_password("student123"),
+        role_id=student_role.id,
+        school_id=1,
+        display_name="\u674e\u660e",
+        student_id="20240001",
     )
     db_session.add(user)
     db_session.commit()
@@ -196,6 +223,7 @@ def test_case(db_session):
 @pytest.fixture
 def test_grade(db_session):
     from models import Grade
+
     grade = Grade(name="2024级", school_id=1)
     db_session.add(grade)
     db_session.commit()
@@ -206,6 +234,7 @@ def test_grade(db_session):
 @pytest.fixture
 def test_class(db_session, test_grade):
     from models import Class
+
     cls = Class(name="护理1班", grade_id=test_grade.id)
     db_session.add(cls)
     db_session.commit()
@@ -216,6 +245,7 @@ def test_class(db_session, test_grade):
 @pytest.fixture
 def test_student_in_class(db_session, student, test_class):
     from models import UserClass
+
     user_class = UserClass(user_id=student[0].id, class_id=test_class.id)
     db_session.add(user_class)
     db_session.commit()

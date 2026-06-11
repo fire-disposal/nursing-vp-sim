@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Phase:
     """A single stage in the training lifecycle."""
+
     id: str
     name: str = ""
     description: str = ""

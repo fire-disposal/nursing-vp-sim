@@ -40,8 +40,9 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         ctx.db.commit()
         ctx.db.refresh(patient_msg)
         ctx.state["_saved_messages"] = [patient_msg]
-        log.info("Persisted: record_id=%d student=%d patient=%d",
-                 ctx.record.id, len(ctx.student_input), len(ctx.llm_reply))
+        log.info(
+            "Persisted: record_id=%d student=%d patient=%d", ctx.record.id, len(ctx.student_input), len(ctx.llm_reply)
+        )
 
     _reset_initiative_timer(ctx)
     await next_mw()

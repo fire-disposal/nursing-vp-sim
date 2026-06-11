@@ -95,23 +95,25 @@ def _build_builtin_prompt_entries(purpose_filter: str | None, db_prompts: list[P
         has_active_db = any(t.purpose == p and t.is_active for t in db_prompts)
 
         var_meta = builtin_registry.get_variables_jsonb(p)
-        results.append(PromptTemplateResponse(
-            id=0,
-            purpose=p,
-            version=0,
-            name=f"内置版本 — {label}",
-            system_prompt=system,
-            user_prompt=user,
-            template_engine="hardcoded",
-            variables=var_meta,
-            is_active=not has_active_db,
-            created_by="system",
-            remark="系统内置兜底提示词，不在数据库中。无 DB 激活版本时自动使用。",
-            created_at=now,
-            updated_at=now,
-            is_builtin=True,
-            locked=True,
-        ))
+        results.append(
+            PromptTemplateResponse(
+                id=0,
+                purpose=p,
+                version=0,
+                name=f"内置版本 — {label}",
+                system_prompt=system,
+                user_prompt=user,
+                template_engine="hardcoded",
+                variables=var_meta,
+                is_active=not has_active_db,
+                created_by="system",
+                remark="系统内置兜底提示词，不在数据库中。无 DB 激活版本时自动使用。",
+                created_at=now,
+                updated_at=now,
+                is_builtin=True,
+                locked=True,
+            )
+        )
 
     return results
 
@@ -272,7 +274,9 @@ async def _activate(prompt_id: int, db: Session):
 
 
 @router.post("/validate", response_model=PromptValidateResponse)
-def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
+def validate_prompt(
+    data: PromptValidateRequest, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]
+):
     errors = []
     missing = []
     vars_set = _extract_vars(data.system_prompt) | _extract_vars(data.user_prompt)
@@ -305,7 +309,9 @@ def validate_prompt(data: PromptValidateRequest, current_user: Annotated[User, D
 
 
 @router.post("/reload")
-async def reload_prompts_endpoint(request: Request, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]):
+async def reload_prompts_endpoint(
+    request: Request, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]
+):
     await request.app.state.prompt_manager.reload()
     return {"ok": True}
 

@@ -42,16 +42,23 @@ def response_stats(
         QuestionnaireResponse.status == "completed",
     )
     if effective_school is not None:
-        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(User.school_id == effective_school)
+        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(
+            User.school_id == effective_school
+        )
 
     completed_responses = resp_query.all()
     total_completed = len(completed_responses)
 
     cq_count = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).count()
 
-    questions = db.query(QuestionnaireQuestion).filter(
-        QuestionnaireQuestion.template_id == template_id,
-    ).order_by(QuestionnaireQuestion.sort_order).all()
+    questions = (
+        db.query(QuestionnaireQuestion)
+        .filter(
+            QuestionnaireQuestion.template_id == template_id,
+        )
+        .order_by(QuestionnaireQuestion.sort_order)
+        .all()
+    )
 
     question_ids = [qa.id for qa in questions]
     response_ids = [r.id for r in completed_responses]
@@ -122,13 +129,14 @@ def export_responses(
         db.query(QuestionnaireResponse)
         .options(
             joinedload(QuestionnaireResponse.user),
-            joinedload(QuestionnaireResponse.answers)
-                .joinedload(QuestionnaireAnswer.question),
+            joinedload(QuestionnaireResponse.answers).joinedload(QuestionnaireAnswer.question),
         )
         .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
     )
     if effective_school is not None:
-        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(User.school_id == effective_school)
+        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(
+            User.school_id == effective_school
+        )
     resp_query = resp_query.order_by(QuestionnaireResponse.completed_at.desc())
 
     responses = resp_query.all()

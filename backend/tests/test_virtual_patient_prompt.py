@@ -13,9 +13,16 @@ class TestBuildPatientContextKwargs:
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
         kwargs = build_patient_context_kwargs(case)
         assert set(kwargs.keys()) == {
-            "communication_style", "patient_info", "chief_complaint",
-            "present_illness", "allergy_history", "personality",
-            "deep_background", "author_note", "scenario", "example_dialogues",
+            "communication_style",
+            "patient_info",
+            "chief_complaint",
+            "present_illness",
+            "allergy_history",
+            "personality",
+            "deep_background",
+            "author_note",
+            "scenario",
+            "example_dialogues",
         }
 
     def test_patient_info_formatting(self):
@@ -80,7 +87,9 @@ class TestBuildPatientChatMessages:
 
     def test_author_note_injected_before_input(self):
         history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
-        msgs = build_patient_chat_messages("static", "dynamic", history, "test question", author_note="【当前: 患者焦虑】")
+        msgs = build_patient_chat_messages(
+            "static", "dynamic", history, "test question", author_note="【当前: 患者焦虑】"
+        )
         assert msgs[-2] == {"role": "system", "content": "【当前: 患者焦虑】"}
         assert msgs[-1] == {"role": "user", "content": "test question"}
 

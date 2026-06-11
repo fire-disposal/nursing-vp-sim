@@ -1,4 +1,5 @@
 """Integration tests for assignment management — full teacher→student flow."""
+
 from datetime import UTC, datetime, timedelta
 
 

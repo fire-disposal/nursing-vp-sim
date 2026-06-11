@@ -14,7 +14,6 @@ async def queue():
 
 
 class TestTaskQueue:
-
     @pytest.mark.asyncio
     async def test_enqueue_and_await_result(self, queue):
         async def work():

@@ -16,6 +16,7 @@ from contexts.training._scoring_validation import (
 # _coerce_numeric_fields
 # ──────────────────────────────────────────────
 
+
 def test_coerce_numeric_fields_converts_int_string():
     obj = {"total_score": "42"}
     _coerce_numeric_fields(obj)
@@ -146,6 +147,7 @@ def test_coerce_numeric_fields_mutates_in_place():
 # _validate_scoring_essentials
 # ──────────────────────────────────────────────
 
+
 def test_validate_scoring_essentials_passes_with_valid_data():
     _validate_scoring_essentials({"total_score": 50, "detail_scores": {"dim_a": {}}})
 
@@ -183,165 +185,199 @@ def test_validate_scoring_essentials_raises_detail_scores_is_string():
 # _validate_feedback_fields
 # ──────────────────────────────────────────────
 
+
 def test_validate_feedback_fields_passes_with_valid_data():
-    _validate_feedback_fields({
-        "strengths": ["good communication"],
-        "weaknesses": ["missed detail"],
-        "missed_content": ["item1"],
-        "suggestions": "do better",
-    })
+    _validate_feedback_fields(
+        {
+            "strengths": ["good communication"],
+            "weaknesses": ["missed detail"],
+            "missed_content": ["item1"],
+            "suggestions": "do better",
+        }
+    )
 
 
 def test_validate_feedback_fields_raises_empty_strengths():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": [],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "s",
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": [],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "s",
+            }
+        )
 
 
 def test_validate_feedback_fields_raises_empty_weaknesses():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": ["s"],
-            "weaknesses": [],
-            "missed_content": ["m"],
-            "suggestions": "sug",
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": ["s"],
+                "weaknesses": [],
+                "missed_content": ["m"],
+                "suggestions": "sug",
+            }
+        )
 
 
 def test_validate_feedback_fields_raises_empty_missed_content():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": [],
-            "suggestions": "sug",
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": [],
+                "suggestions": "sug",
+            }
+        )
 
 
 def test_validate_feedback_fields_raises_empty_suggestions():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "",
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "",
+            }
+        )
 
 
 def test_validate_feedback_fields_raises_whitespace_only_suggestions():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "   ",
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "   ",
+            }
+        )
 
 
 def test_validate_feedback_fields_raises_missing_field():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+            }
+        )
 
 
 def test_validate_feedback_fields_raises_wrong_type():
     with pytest.raises(ValueError, match="反馈字段不完整"):
-        _validate_feedback_fields({
-            "strengths": "not a list",
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "s",
-        })
+        _validate_feedback_fields(
+            {
+                "strengths": "not a list",
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "s",
+            }
+        )
 
 
 # ──────────────────────────────────────────────
 # _check_feedback_empty
 # ──────────────────────────────────────────────
 
+
 def test_check_feedback_empty_returns_empty_list_when_all_valid():
-    result = _check_feedback_empty({
-        "strengths": ["s"],
-        "weaknesses": ["w"],
-        "missed_content": ["m"],
-        "suggestions": "sug",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": ["s"],
+            "weaknesses": ["w"],
+            "missed_content": ["m"],
+            "suggestions": "sug",
+        }
+    )
     assert result == []
 
 
 def test_check_feedback_empty_returns_strengths_when_empty_list():
-    result = _check_feedback_empty({
-        "strengths": [],
-        "weaknesses": ["w"],
-        "missed_content": ["m"],
-        "suggestions": "s",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": [],
+            "weaknesses": ["w"],
+            "missed_content": ["m"],
+            "suggestions": "s",
+        }
+    )
     assert result == ["strengths"]
 
 
 def test_check_feedback_empty_returns_weaknesses_when_empty_list():
-    result = _check_feedback_empty({
-        "strengths": ["s"],
-        "weaknesses": [],
-        "missed_content": ["m"],
-        "suggestions": "s",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": ["s"],
+            "weaknesses": [],
+            "missed_content": ["m"],
+            "suggestions": "s",
+        }
+    )
     assert result == ["weaknesses"]
 
 
 def test_check_feedback_empty_returns_missed_content_when_empty_list():
-    result = _check_feedback_empty({
-        "strengths": ["s"],
-        "weaknesses": ["w"],
-        "missed_content": [],
-        "suggestions": "s",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": ["s"],
+            "weaknesses": ["w"],
+            "missed_content": [],
+            "suggestions": "s",
+        }
+    )
     assert result == ["missed_content"]
 
 
 def test_check_feedback_empty_returns_suggestions_when_empty_string():
-    result = _check_feedback_empty({
-        "strengths": ["s"],
-        "weaknesses": ["w"],
-        "missed_content": ["m"],
-        "suggestions": "",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": ["s"],
+            "weaknesses": ["w"],
+            "missed_content": ["m"],
+            "suggestions": "",
+        }
+    )
     assert result == ["suggestions"]
 
 
 def test_check_feedback_empty_returns_suggestions_when_whitespace_only():
-    result = _check_feedback_empty({
-        "strengths": ["s"],
-        "weaknesses": ["w"],
-        "missed_content": ["m"],
-        "suggestions": "   ",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": ["s"],
+            "weaknesses": ["w"],
+            "missed_content": ["m"],
+            "suggestions": "   ",
+        }
+    )
     assert result == ["suggestions"]
 
 
 def test_check_feedback_empty_returns_multiple_missing():
-    result = _check_feedback_empty({
-        "strengths": [],
-        "weaknesses": [],
-        "missed_content": ["m"],
-        "suggestions": "",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": [],
+            "weaknesses": [],
+            "missed_content": ["m"],
+            "suggestions": "",
+        }
+    )
     assert set(result) == {"strengths", "weaknesses", "suggestions"}
 
 
 def test_check_feedback_empty_returns_fields_when_none():
-    result = _check_feedback_empty({
-        "strengths": None,
-        "weaknesses": ["w"],
-        "missed_content": ["m"],
-        "suggestions": "s",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": None,
+            "weaknesses": ["w"],
+            "missed_content": ["m"],
+            "suggestions": "s",
+        }
+    )
     assert "strengths" in result
 
 
@@ -351,18 +387,21 @@ def test_check_feedback_empty_returns_all_fields_when_all_missing():
 
 
 def test_check_feedback_empty_handles_wrong_type_for_strengths():
-    result = _check_feedback_empty({
-        "strengths": "not a list",
-        "weaknesses": ["w"],
-        "missed_content": ["m"],
-        "suggestions": "s",
-    })
+    result = _check_feedback_empty(
+        {
+            "strengths": "not a list",
+            "weaknesses": ["w"],
+            "missed_content": ["m"],
+            "suggestions": "s",
+        }
+    )
     assert "strengths" in result
 
 
 # ──────────────────────────────────────────────
 # _merge_feedback
 # ──────────────────────────────────────────────
+
 
 def test_merge_feedback_merges_missing_fields():
     first = {
@@ -435,15 +474,18 @@ def test_merge_feedback_handles_empty_second_values():
 # _validate_scoring_result
 # ──────────────────────────────────────────────
 
+
 def test_validate_scoring_result_passes_with_complete_valid_data():
-    _validate_scoring_result({
-        "total_score": 80,
-        "detail_scores": {"dim_a": {"score": 30, "items": []}},
-        "strengths": ["good"],
-        "weaknesses": ["bad"],
-        "missed_content": ["missed"],
-        "suggestions": "do better",
-    })
+    _validate_scoring_result(
+        {
+            "total_score": 80,
+            "detail_scores": {"dim_a": {"score": 30, "items": []}},
+            "strengths": ["good"],
+            "weaknesses": ["bad"],
+            "missed_content": ["missed"],
+            "suggestions": "do better",
+        }
+    )
 
 
 def test_validate_scoring_result_defaults_wrong_type_strengths_then_raises():
@@ -520,64 +562,75 @@ def test_validate_scoring_result_leaves_correct_types_unchanged():
 
 def test_validate_scoring_result_raises_missing_total_score():
     with pytest.raises(ValueError):
-        _validate_scoring_result({
-            "detail_scores": {},
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "sug",
-        })
+        _validate_scoring_result(
+            {
+                "detail_scores": {},
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "sug",
+            }
+        )
 
 
 def test_validate_scoring_result_raises_missing_detail_scores():
     with pytest.raises(ValueError):
-        _validate_scoring_result({
-            "total_score": 80,
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "sug",
-        })
+        _validate_scoring_result(
+            {
+                "total_score": 80,
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "sug",
+            }
+        )
 
 
 def test_validate_scoring_result_raises_missing_feedback_field():
     with pytest.raises(ValueError, match="LLM评分反馈字段不完整"):
-        _validate_scoring_result({
-            "total_score": 80,
-            "detail_scores": {},
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "sug",
-        })
+        _validate_scoring_result(
+            {
+                "total_score": 80,
+                "detail_scores": {},
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "sug",
+            }
+        )
 
 
 def test_validate_scoring_result_raises_empty_strengths():
     with pytest.raises(ValueError, match="LLM评分反馈字段不完整"):
-        _validate_scoring_result({
-            "total_score": 80,
-            "detail_scores": {},
-            "strengths": [],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "sug",
-        })
+        _validate_scoring_result(
+            {
+                "total_score": 80,
+                "detail_scores": {},
+                "strengths": [],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "sug",
+            }
+        )
 
 
 def test_validate_scoring_result_raises_whitespace_suggestions():
     with pytest.raises(ValueError, match="LLM评分反馈字段不完整"):
-        _validate_scoring_result({
-            "total_score": 80,
-            "detail_scores": {},
-            "strengths": ["s"],
-            "weaknesses": ["w"],
-            "missed_content": ["m"],
-            "suggestions": "   ",
-        })
+        _validate_scoring_result(
+            {
+                "total_score": 80,
+                "detail_scores": {},
+                "strengths": ["s"],
+                "weaknesses": ["w"],
+                "missed_content": ["m"],
+                "suggestions": "   ",
+            }
+        )
 
 
 # ──────────────────────────────────────────────
 # _convert_to_100_scale
 # ──────────────────────────────────────────────
+
 
 def test_convert_to_100_scale_converts_total_score():
     result = {"total_score": 50, "detail_scores": {}}

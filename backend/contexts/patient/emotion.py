@@ -20,11 +20,11 @@ log = logging.getLogger(__name__)
 # ── 显示标签映射（向后兼容） ──
 # (信赖, 舒适) → 标签
 STATE_LABELS: list[tuple[tuple[int, int], str, str]] = [
-    ((70, 70), "open",      "开放信任，愿意详述"),
-    ((30, 60), "relaxed",   "放松配合，语气友好"),
-    ((30, 30), "neutral",   "正常配合，有所保留"),
-    ((30, 0),  "defensive", "防御抵触，需要安抚"),
-    ((0,  0),  "withdrawn", "沉默敷衍，回答极其简短"),
+    ((70, 70), "open", "开放信任，愿意详述"),
+    ((30, 60), "relaxed", "放松配合，语气友好"),
+    ((30, 30), "neutral", "正常配合，有所保留"),
+    ((30, 0), "defensive", "防御抵触，需要安抚"),
+    ((0, 0), "withdrawn", "沉默敷衍，回答极其简短"),
 ]
 
 
@@ -38,24 +38,24 @@ def _lookup_state(trust: int, comfort: int) -> tuple[str, str]:
 
 # ── 意图 → (trust_delta, comfort_delta) ──
 INTENT_TRANSITIONS: dict[str, tuple[int, int]] = {
-    "关心/共情":   (5,  15),  # 共情主要提升舒适，轻微提升信赖
-    "解释原因":    (15, 5),   # 解释原因主要提升信赖
-    "道歉/安抚":   (3,  12),  # 道歉主要恢复舒适
-    "粗鲁/指责":   (-10, -15), # 粗鲁同时打击两个维度
-    "追问隐私":    (-5,  -12), # 隐私追问主要打击舒适
-    "催促":        (0,  -10), # 催促降低舒适
-    "不明确":      (-3, -3),   # 模糊回应轻微双降
-    "普通提问":    (0,  0),    # 普通提问不变
+    "关心/共情": (5, 15),  # 共情主要提升舒适，轻微提升信赖
+    "解释原因": (15, 5),  # 解释原因主要提升信赖
+    "道歉/安抚": (3, 12),  # 道歉主要恢复舒适
+    "粗鲁/指责": (-10, -15),  # 粗鲁同时打击两个维度
+    "追问隐私": (-5, -12),  # 隐私追问主要打击舒适
+    "催促": (0, -10),  # 催促降低舒适
+    "不明确": (-3, -3),  # 模糊回应轻微双降
+    "普通提问": (0, 0),  # 普通提问不变
 }
 
 INTENT_KEYWORDS: dict[str, list[str]] = {
-    "关心/共情":    ["别担心", "没关系", "慢慢说", "理解", "辛苦", "不容易", "放心", "会好的", "别着急", "别怕"],
-    "解释原因":     ["因为", "原因是", "为了评估", "需要了解", "方便", "以便", "这样才能", "给你检查"],
-    "道歉/安抚":    ["抱歉", "对不起", "不好意思", "不是故意", "打扰", "原谅"],
-    "粗鲁/指责":    ["必须", "快点", "你怎么", "认真点", "赶紧", "别废话", "烦", "太慢"],
-    "追问隐私":     ["抽烟", "喝酒", "工资", "结婚", "家庭", "经济", "收入", "男朋友", "女朋友"],
-    "催促":         ["快点", "速度", "等不及", "着急", "还要多久"],
-    "不明确":       ["嗯", "哦", "好", "行", "知道了", "随便"],
+    "关心/共情": ["别担心", "没关系", "慢慢说", "理解", "辛苦", "不容易", "放心", "会好的", "别着急", "别怕"],
+    "解释原因": ["因为", "原因是", "为了评估", "需要了解", "方便", "以便", "这样才能", "给你检查"],
+    "道歉/安抚": ["抱歉", "对不起", "不好意思", "不是故意", "打扰", "原谅"],
+    "粗鲁/指责": ["必须", "快点", "你怎么", "认真点", "赶紧", "别废话", "烦", "太慢"],
+    "追问隐私": ["抽烟", "喝酒", "工资", "结婚", "家庭", "经济", "收入", "男朋友", "女朋友"],
+    "催促": ["快点", "速度", "等不及", "着急", "还要多久"],
+    "不明确": ["嗯", "哦", "好", "行", "知道了", "随便"],
 }
 
 
@@ -70,6 +70,7 @@ def classify_intent(msg: str) -> str:
 
 
 # ── 状态对象 ──
+
 
 @dataclass
 class EmotionState:
@@ -99,17 +100,23 @@ class EmotionState:
         new_state = _lookup_state(self.trust, self.comfort)[0]
 
         if old_state != new_state or dt != 0 or dc != 0:
-            self.history.append({
-                "trust": self.trust,
-                "comfort": self.comfort,
-                "state": new_state,
-                "intent": intent,
-                "timestamp": datetime.now(UTC).isoformat(),
-            })
+            self.history.append(
+                {
+                    "trust": self.trust,
+                    "comfort": self.comfort,
+                    "state": new_state,
+                    "intent": intent,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
             log.debug(
                 "情绪变化: %s(t=%d,c=%d) → %s(t=%d,c=%d) [意图: %s]",
-                old_state, old_trust, old_comfort,
-                new_state, self.trust, self.comfort,
+                old_state,
+                old_trust,
+                old_comfort,
+                new_state,
+                self.trust,
+                self.comfort,
                 intent,
             )
 
@@ -145,6 +152,7 @@ def _build_author_note(trust: int, comfort: int) -> str:
 
 
 # ── 缓存 API（使用 EmotionCache 实例） ──
+
 
 def get_emotion(record_id: int, cache: EmotionCache) -> EmotionState:
     state = cache.get(record_id)

@@ -13,6 +13,7 @@ from fastapi.responses import Response, StreamingResponse
 @dataclass
 class Column:
     """Column definition: header label + value extractor."""
+
     header: str
     value: Callable[[Any], str | None]
 
@@ -49,6 +50,7 @@ def stream_response(
     filename: str,
 ) -> StreamingResponse:
     """Stream CSV rows one at a time via generator (for large datasets)."""
+
     def generate() -> Generator[str]:
         buf = io.StringIO()
         writer = _make_writer(buf)

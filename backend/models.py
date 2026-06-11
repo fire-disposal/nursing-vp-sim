@@ -96,7 +96,9 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
-    user_class: Mapped["UserClass | None"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
+    user_class: Mapped["UserClass | None"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
     role: Mapped["Role"] = relationship()
     school: Mapped["School"] = relationship()
 
@@ -169,7 +171,9 @@ class TrainingRecord(Base):
     config_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
     config_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    assignment_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True)
+    assignment_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
+    )
     is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     start_time: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     end_time: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -198,7 +202,9 @@ class Score(Base):
     __tablename__ = "scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", name="fk_scores_record_id"), unique=True)
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", name="fk_scores_record_id"), unique=True
+    )
     total_score: Mapped[float] = mapped_column(Float)
     detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     strengths: Mapped[list | None] = mapped_column(JSONB, nullable=True)
@@ -416,7 +422,9 @@ class QuestionnaireTemplate(Base):
     __tablename__ = "questionnaire_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True, index=True)
+    school_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(120))
     type: Mapped[str] = mapped_column(String(20))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -424,7 +432,9 @@ class QuestionnaireTemplate(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    questions: Mapped[list["QuestionnaireQuestion"]] = relationship(back_populates="template", order_by="QuestionnaireQuestion.sort_order", cascade="all, delete-orphan")
+    questions: Mapped[list["QuestionnaireQuestion"]] = relationship(
+        back_populates="template", order_by="QuestionnaireQuestion.sort_order", cascade="all, delete-orphan"
+    )
     school: Mapped["School | None"] = relationship()
 
 
@@ -432,7 +442,9 @@ class QuestionnaireQuestion(Base):
     __tablename__ = "questionnaire_questions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    template_id: Mapped[int] = mapped_column(Integer, ForeignKey("questionnaire_templates.id", ondelete="CASCADE"), index=True)
+    template_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("questionnaire_templates.id", ondelete="CASCADE"), index=True
+    )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     content: Mapped[str] = mapped_column(Text)
     question_type: Mapped[str] = mapped_column(String(20))
@@ -454,7 +466,9 @@ class QuestionnaireResponse(Base):
     template_id: Mapped[int] = mapped_column(Integer, ForeignKey("questionnaire_templates.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     case_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True)
-    record_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("training_records.id", ondelete="SET NULL"), nullable=True)
+    record_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="SET NULL"), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(20), default="pending")
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
@@ -463,7 +477,9 @@ class QuestionnaireResponse(Base):
     user: Mapped["User"] = relationship()
     case: Mapped["Case | None"] = relationship()
     record: Mapped["TrainingRecord | None"] = relationship()
-    answers: Mapped[list["QuestionnaireAnswer"]] = relationship(back_populates="response", order_by="QuestionnaireAnswer.question_id", cascade="all, delete-orphan")
+    answers: Mapped[list["QuestionnaireAnswer"]] = relationship(
+        back_populates="response", order_by="QuestionnaireAnswer.question_id", cascade="all, delete-orphan"
+    )
 
 
 class QuestionnaireAnswer(Base):
@@ -471,7 +487,9 @@ class QuestionnaireAnswer(Base):
     __table_args__ = (UniqueConstraint("response_id", "question_id", name="uq_qa_response_question"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    response_id: Mapped[int] = mapped_column(Integer, ForeignKey("questionnaire_responses.id", ondelete="CASCADE"), index=True)
+    response_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("questionnaire_responses.id", ondelete="CASCADE"), index=True
+    )
     question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questionnaire_questions.id", ondelete="CASCADE"))
     answer_value: Mapped[str | None] = mapped_column(Text, nullable=True)
 

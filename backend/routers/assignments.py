@@ -31,12 +31,7 @@ router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 
 
 def _check_teacher_school(db: Session, teacher: User, class_id: int):
-    cls = (
-        db.query(Class)
-        .options(joinedload(Class.grade))
-        .filter(Class.id == class_id)
-        .first()
-    )
+    cls = db.query(Class).options(joinedload(Class.grade)).filter(Class.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
     if not cls.grade or cls.grade.school_id != teacher.school_id:
@@ -79,25 +74,29 @@ def _build_detail(db: Session, assignment: Assignment) -> AssignmentDetail:
     for student in students_in_class:
         record = record_by_user.get(student.id)
         if record:
-            student_items.append(AssignmentStudentItem(
-                user_id=student.id,
-                display_name=student.display_name,
-                student_id=student.student_id,
-                record_id=record.id,
-                status=record.status,
-                score_total=record.score.total_score if record.score else None,
-                scoring_status=record.scoring_status,
-                start_time=record.start_time,
-                end_time=record.end_time,
-                is_overdue=record.is_overdue,
-            ))
+            student_items.append(
+                AssignmentStudentItem(
+                    user_id=student.id,
+                    display_name=student.display_name,
+                    student_id=student.student_id,
+                    record_id=record.id,
+                    status=record.status,
+                    score_total=record.score.total_score if record.score else None,
+                    scoring_status=record.scoring_status,
+                    start_time=record.start_time,
+                    end_time=record.end_time,
+                    is_overdue=record.is_overdue,
+                )
+            )
         else:
-            student_items.append(AssignmentStudentItem(
-                user_id=student.id,
-                display_name=student.display_name,
-                student_id=student.student_id,
-                status="not_started",
-            ))
+            student_items.append(
+                AssignmentStudentItem(
+                    user_id=student.id,
+                    display_name=student.display_name,
+                    student_id=student.student_id,
+                    status="not_started",
+                )
+            )
 
     completed_count = sum(1 for s in student_items if s.status == "completed")
     scored_count = sum(1 for s in student_items if s.scoring_status == "completed")
@@ -181,14 +180,18 @@ def list_assignments(
         .scalar_subquery()
     )
 
-    q = db.query(
-        Assignment,
-        student_sub.label("student_count"),
-        completed_sub.label("completed_count"),
-    ).options(
-        joinedload(Assignment.case),
-        joinedload(Assignment.class_),
-    ).filter(Assignment.teacher_id == current_user.id)
+    q = (
+        db.query(
+            Assignment,
+            student_sub.label("student_count"),
+            completed_sub.label("completed_count"),
+        )
+        .options(
+            joinedload(Assignment.case),
+            joinedload(Assignment.class_),
+        )
+        .filter(Assignment.teacher_id == current_user.id)
+    )
 
     if class_id is not None:
         q = q.filter(Assignment.class_id == class_id)
@@ -274,9 +277,7 @@ def delete_assignment(
     if assignment.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权删除")
 
-    started = db.query(TrainingRecord).filter(
-        TrainingRecord.assignment_id == assignment_id
-    ).with_for_update().first()
+    started = db.query(TrainingRecord).filter(TrainingRecord.assignment_id == assignment_id).with_for_update().first()
     if started:
         raise HTTPException(status_code=400, detail="已有学生开始练习，无法删除")
 
@@ -392,25 +393,29 @@ def list_student_assignments(
             status = record.status
             if status != "completed" and record.is_overdue:
                 status = "overdue"
-            items.append(StudentAssignmentItem(
-                id=a.id,
-                title=a.title,
-                case_name=a.case.name if a.case else "",
-                start_time=a.start_time,
-                end_time=a.end_time,
-                status=status,
-                record_id=record.id,
-                score_total=record.score.total_score if record.score else None,
-            ))
+            items.append(
+                StudentAssignmentItem(
+                    id=a.id,
+                    title=a.title,
+                    case_name=a.case.name if a.case else "",
+                    start_time=a.start_time,
+                    end_time=a.end_time,
+                    status=status,
+                    record_id=record.id,
+                    score_total=record.score.total_score if record.score else None,
+                )
+            )
         else:
             status = "overdue" if now > ensure_utc(a.end_time) else "pending"
-            items.append(StudentAssignmentItem(
-                id=a.id,
-                title=a.title,
-                case_name=a.case.name if a.case else "",
-                start_time=a.start_time,
-                end_time=a.end_time,
-                status=status,
-            ))
+            items.append(
+                StudentAssignmentItem(
+                    id=a.id,
+                    title=a.title,
+                    case_name=a.case.name if a.case else "",
+                    start_time=a.start_time,
+                    end_time=a.end_time,
+                    status=status,
+                )
+            )
 
     return items

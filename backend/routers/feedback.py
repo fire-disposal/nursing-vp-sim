@@ -51,18 +51,15 @@ def admin_list_feedback(
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     effective_school = resolve_school_filter(current_user, school_id)
-    query = (
-        db.query(
-            Feedback.id,
-            Feedback.user_id,
-            Feedback.rating,
-            Feedback.tag,
-            Feedback.content,
-            Feedback.created_at,
-            User.display_name.label("user_name"),
-        )
-        .join(User, Feedback.user_id == User.id)
-    )
+    query = db.query(
+        Feedback.id,
+        Feedback.user_id,
+        Feedback.rating,
+        Feedback.tag,
+        Feedback.content,
+        Feedback.created_at,
+        User.display_name.label("user_name"),
+    ).join(User, Feedback.user_id == User.id)
     if effective_school is not None:
         query = query.filter(User.school_id == effective_school)
     query = query.order_by(Feedback.created_at.desc())

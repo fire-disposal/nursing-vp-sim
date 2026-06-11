@@ -5,6 +5,7 @@ import json
 
 def _get_default_rubric() -> dict:
     from repositories.rubric import load_rubric
+
     return load_rubric("nursing_history_v1")
 
 

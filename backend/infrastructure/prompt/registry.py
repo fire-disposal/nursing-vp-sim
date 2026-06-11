@@ -285,9 +285,11 @@ class VariableRegistry:
         for v in self.get_variables(purpose):
             if v.name == "scoring_criteria":
                 from .static import build_scoring_criteria
+
                 result[v.name] = build_scoring_criteria()
             elif v.name == "scoring_json_schema":
                 from .static import build_scoring_json_schema
+
                 result[v.name] = build_scoring_json_schema()
             else:
                 result[v.name] = v.default_example

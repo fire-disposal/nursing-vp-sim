@@ -18,5 +18,7 @@ async def emotion_tracker(ctx, next_mw):
 
     ctx.state["emotion_note"] = emotion.note
     ctx.state["_emotion_change"] = {"state": emotion.state, "trust": emotion.trust, "comfort": emotion.comfort}
-    ctx.system_events.append({"emotion_change": {"state": emotion.state, "trust": emotion.trust, "comfort": emotion.comfort}})
+    ctx.system_events.append(
+        {"emotion_change": {"state": emotion.state, "trust": emotion.trust, "comfort": emotion.comfort}}
+    )
     await next_mw()

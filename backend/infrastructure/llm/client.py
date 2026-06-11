@@ -59,7 +59,7 @@ class LLMClient:
         router: ProfileRouter,
         log_worker: LogWorker,
         concurrency: int | None = None,
-        metrics = None,
+        metrics=None,
     ):
         self._http = http
         self._router = router
@@ -93,8 +93,12 @@ class LLMClient:
 
         async def _attempt() -> str:
             return await self._do_call(
-                messages, state, purpose,
-                temperature, max_tokens, timeout,
+                messages,
+                state,
+                purpose,
+                temperature,
+                max_tokens,
+                timeout,
                 response_format,
             )
 
@@ -168,8 +172,12 @@ class LLMClient:
             full_reply = []
             try:
                 async for chunk in self._do_stream(
-                    messages, state, purpose,
-                    temperature, max_tokens, timeout,
+                    messages,
+                    state,
+                    purpose,
+                    temperature,
+                    max_tokens,
+                    timeout,
                 ):
                     full_reply.append(chunk)
                     yield chunk
@@ -199,8 +207,7 @@ class LLMClient:
                 est_cost = est_tokens / 1_000_000 * 1.5
                 self._record_metrics(status="success", tokens=est_tokens, cost=est_cost, latency_ms=latency_ms)
                 return
-            except (httpx.TimeoutException, httpx.ConnectError,
-                    httpx.RemoteProtocolError, httpx.ReadError):
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
                 if attempt >= max_retries:
                     break
                 await asyncio.sleep(backoff_delay(attempt))
@@ -216,9 +223,13 @@ class LLMClient:
         if not full_reply:
             try:
                 content = await self.call(
-                    messages, purpose=purpose,
-                    temperature=temperature, max_tokens=max_tokens,
-                    timeout=timeout, max_retries=0, ctx=ctx,
+                    messages,
+                    purpose=purpose,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    max_retries=0,
+                    ctx=ctx,
                 )
                 yield content
                 return
@@ -226,13 +237,20 @@ class LLMClient:
                 log.warning("Stream fallback batch call also failed: purpose=%s", purpose)
 
         self._log_worker.enqueue(
-            purpose=purpose, user_id=ctx.user_id,
-            record_id=ctx.record_id, case_id=ctx.case_id,
-            model=state.model, temperature=temperature,
-            max_tokens=max_tokens, latency_ms=latency_ms,
-            status="failed", error_type="all_providers_failed",
-            request_text=request_text, meta=ctx.log_meta,
-            config_id=state.config_id, provider_name=state.provider_name,
+            purpose=purpose,
+            user_id=ctx.user_id,
+            record_id=ctx.record_id,
+            case_id=ctx.case_id,
+            model=state.model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            latency_ms=latency_ms,
+            status="failed",
+            error_type="all_providers_failed",
+            request_text=request_text,
+            meta=ctx.log_meta,
+            config_id=state.config_id,
+            provider_name=state.provider_name,
         )
         self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=latency_ms)
         raise NoProviderAvailable(f"purpose={purpose}")
@@ -251,10 +269,14 @@ class LLMClient:
     ) -> dict:
         """call() + safe JSON parse. Raises LLMParseError on failure."""
         text = await self.call(
-            messages, purpose=purpose,
-            temperature=temperature, max_tokens=max_tokens,
-            timeout=timeout, max_retries=max_retries,
-            response_format=response_format, ctx=ctx,
+            messages,
+            purpose=purpose,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            max_retries=max_retries,
+            response_format=response_format,
+            ctx=ctx,
         )
         try:
             return _safe_parse_json(text)
@@ -288,8 +310,14 @@ class LLMClient:
         return state
 
     async def _do_call(
-        self, messages, state, purpose,
-        temperature, max_tokens, timeout, response_format,
+        self,
+        messages,
+        state,
+        purpose,
+        temperature,
+        max_tokens,
+        timeout,
+        response_format,
     ) -> str:
         """Single HTTP call attempt."""
         new_state = await self._select_config(purpose)
@@ -322,13 +350,22 @@ class LLMClient:
         usage = data.get("usage", {})
         total_tokens = usage.get("total_tokens", 0) or 0
         await self._router.report_result(
-            state._config, success=True, tokens=total_tokens, latency_ms=0, error=None,
+            state._config,
+            success=True,
+            tokens=total_tokens,
+            latency_ms=0,
+            error=None,
         )
         return content
 
     async def _do_stream(
-        self, messages, state, purpose,
-        temperature, max_tokens, timeout,
+        self,
+        messages,
+        state,
+        purpose,
+        temperature,
+        max_tokens,
+        timeout,
     ) -> AsyncIterator[str]:
         """Single streaming HTTP attempt — yields content chunks."""
         new_state = await self._select_config(purpose)

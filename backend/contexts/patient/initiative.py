@@ -15,10 +15,16 @@ from infrastructure.cache import InitiativeCache
 log = logging.getLogger(__name__)
 
 _NONVERBAL_CUES = [
-    "[叹气]", "[不安地挪动身体]", "[低头看手机]",
-    "[轻轻咳嗽]", "[揉着疼痛的部位]", "[紧张地搓手]",
-    "[看了看门口]", "[深呼吸，试图让自己平静]",
-    "[擦了擦额头的汗]", "[皱起眉头]",
+    "[叹气]",
+    "[不安地挪动身体]",
+    "[低头看手机]",
+    "[轻轻咳嗽]",
+    "[揉着疼痛的部位]",
+    "[紧张地搓手]",
+    "[看了看门口]",
+    "[深呼吸，试图让自己平静]",
+    "[擦了擦额头的汗]",
+    "[皱起眉头]",
 ]
 
 _ANXIOUS_PROMPTS = [
@@ -111,6 +117,7 @@ def generate_initiative(
 
 
 # ── Cache-based API ──
+
 
 def update_initiative_timer(record_id: int, cache: InitiativeCache, last_reply_length: int = 0) -> None:
     now = datetime.now(UTC).timestamp()

@@ -3,6 +3,7 @@
 Requires: TEST_DB_URL env var or local PostgreSQL.
 Mark: pytest -m pg
 """
+
 import os
 
 import pytest
@@ -24,6 +25,7 @@ def alembic_config():
 @pytest.fixture(scope="session")
 def alembic_engine():
     from sqlalchemy import create_engine, text
+
     engine = create_engine(ALEMBIC_URL)
     with engine.connect() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
@@ -38,11 +40,12 @@ def test_migrations_up_to_head(alembic_runner):
     alembic_runner.migrate_up_to("head")
     heads = alembic_runner.heads
     assert len(heads) == 1, f"Expected 1 head, got {len(heads)}: {heads}"
+
+
 @pytest.mark.xfail(reason="unnamed FK constraint in legacy migration prevents downgrade", strict=False)
 def test_migrations_up_down_roundtrip(alembic_runner):
     """Verify upgrade → downgrade → upgrade works without errors.
     Downgrade is expected to fail due to unnamed FK constraints in legacy migrations."""
-
 
     alembic_runner.migrate_up_to("head")
     alembic_runner.migrate_down_to("base")

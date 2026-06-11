@@ -1,4 +1,5 @@
 """Unit tests for initiative engine."""
+
 from datetime import UTC, datetime
 
 from contexts.patient.initiative import (
@@ -12,14 +13,18 @@ class TestGenerateInitiative:
     def test_returns_none_when_not_enough_wait(self):
         result = generate_initiative(
             {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50, comfort=50, wait_seconds=10
+            trust=50,
+            comfort=50,
+            wait_seconds=10,
         )
         assert result is None
 
     def test_returns_message_when_threshold_exceeded(self):
         result = generate_initiative(
             {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50, comfort=50, wait_seconds=60
+            trust=50,
+            comfort=50,
+            wait_seconds=60,
         )
         assert isinstance(result, str) or result is None
         if result is not None:
@@ -30,21 +35,27 @@ class TestGenerateInitiative:
         # threshold = 30 + 0 + 0 + 9 = 39, so 25s won't trigger
         result = generate_initiative(
             {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50, comfort=20, wait_seconds=45
+            trust=50,
+            comfort=20,
+            wait_seconds=45,
         )
         assert result is not None
 
     def test_impatient_patient_triggers_earlier(self):
         result_impatient = generate_initiative(
             {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "low"},
-            trust=50, comfort=50, wait_seconds=30
+            trust=50,
+            comfort=50,
+            wait_seconds=30,
         )
         assert result_impatient is not None
 
     def test_verbose_extra_responses(self):
         result = generate_initiative(
             {"health_literacy": "normal", "verbosity": "verbose", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50, comfort=80, wait_seconds=60
+            trust=50,
+            comfort=80,
+            wait_seconds=60,
         )
         assert isinstance(result, str) or result is None
 

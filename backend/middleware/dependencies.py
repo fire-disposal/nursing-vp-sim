@@ -35,7 +35,7 @@ def get_log_worker(request: Request):
     return request.app.state.log_worker
 
 
-from infrastructure.llm import LogWorker, ProfileRouter
+from infrastructure.llm import ProfileRouter
 from infrastructure.prompt import PromptManager
 
 PromptManagerDep = Annotated[PromptManager, Depends(get_prompt_manager)]

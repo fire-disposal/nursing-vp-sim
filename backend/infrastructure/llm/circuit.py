@@ -57,8 +57,14 @@ async def async_retry(
                 raise  # non-retryable (400, 401, 403, 404, etc.)
         if attempt < max_retries:
             delay = backoff_delay(attempt)
-            log.debug("LLM retry attempt=%d/%d delay=%.1fs purpose=%s error=%s",
-                       attempt + 1, max_retries, delay, purpose, last_error)
+            log.debug(
+                "LLM retry attempt=%d/%d delay=%.1fs purpose=%s error=%s",
+                attempt + 1,
+                max_retries,
+                delay,
+                purpose,
+                last_error,
+            )
             await asyncio.sleep(delay)
 
     if all_429 and last_error:

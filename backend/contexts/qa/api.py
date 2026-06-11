@@ -228,6 +228,7 @@ async def ask_stream(
 
         async def generate():
             import json as _json
+
             full_reply = ""
             llm_client = request.app.state.llm_client
             try:

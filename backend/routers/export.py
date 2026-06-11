@@ -23,14 +23,11 @@ def export_records(
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
     effective_school = resolve_school_filter(current_user, school_id)
 
-    query = (
-        db.query(TrainingRecord)
-        .options(
-            selectinload(TrainingRecord.user),
-            selectinload(TrainingRecord.case),
-            selectinload(TrainingRecord.score),
-            selectinload(TrainingRecord.messages),
-        )
+    query = db.query(TrainingRecord).options(
+        selectinload(TrainingRecord.user),
+        selectinload(TrainingRecord.case),
+        selectinload(TrainingRecord.score),
+        selectinload(TrainingRecord.messages),
     )
     if effective_school is not None:
         query = query.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)

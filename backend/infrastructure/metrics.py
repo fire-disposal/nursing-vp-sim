@@ -16,7 +16,6 @@ log = logging.getLogger(__name__)
 
 
 class MetricsSnapshot:
-
     def __init__(self) -> None:
         self.started_at = time.time()
 
@@ -35,7 +34,7 @@ class MetricsSnapshot:
             self._request_by_status[bucket] += 1
             self._request_latencies.append(latency_ms)
             if len(self._request_latencies) > self._LATENCY_BUFFER:
-                self._request_latencies = self._request_latencies[-self._LATENCY_BUFFER:]
+                self._request_latencies = self._request_latencies[-self._LATENCY_BUFFER :]
 
     # ── LLM tracking (populated by LLMClient) ──────────────────────────────
     _llm_lock = threading.Lock()
@@ -57,7 +56,7 @@ class MetricsSnapshot:
             self._llm_estimated_cost += cost
             self._llm_latencies.append(latency_ms)
             if len(self._llm_latencies) > self._LATENCY_BUFFER:
-                self._llm_latencies = self._llm_latencies[-self._LATENCY_BUFFER:]
+                self._llm_latencies = self._llm_latencies[-self._LATENCY_BUFFER :]
 
     # ── active training sessions (set externally from app.state) ───────────
     active_sessions_supplier: Callable[..., int] = lambda _self: 0
@@ -137,6 +136,7 @@ class MetricsSnapshot:
     def _memory_mb() -> float:
         try:
             import resource
+
             usage = resource.getrusage(resource.RUSAGE_SELF)
             return round(usage.ru_maxrss / 1024, 1)
         except Exception:

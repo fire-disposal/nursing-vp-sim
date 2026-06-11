@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 # ── RateLimiter 类 ──
 
+
 class RateLimiter:
     def __init__(self):
         self._lock = asyncio.Lock()
@@ -42,11 +43,13 @@ class RateLimiter:
 
 # ── DI 工厂 ──
 
+
 def get_rate_limiter(request: Request) -> RateLimiter:
     return request.app.state.rate_limiter
 
 
 # ── 限流 Depends ──
+
 
 def _get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For", "")

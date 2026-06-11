@@ -26,6 +26,7 @@ class CASLoginStrategy(LoginStrategy):
     参考标准：
       - CAS Protocol 3.0: https://apereo.github.io/cas/6.6.x/protocol/CAS-Protocol.html
     """
+
     provider_type = "cas"
 
     async def authenticate(self, credentials: dict[str, Any]) -> User | None:

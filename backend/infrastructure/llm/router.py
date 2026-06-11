@@ -291,4 +291,3 @@ class ProfileRouter:
             if not self._global_degraded_until:
                 return False
             return datetime.now(UTC) < self._global_degraded_until
-

@@ -52,7 +52,10 @@ def delete_session(
     db.delete(session)
     db.commit()
 
-    log.info(f"会话删除: session_id={session_id}", extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""})
+    log.info(
+        f"会话删除: session_id={session_id}",
+        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+    )
     return {"message": "删除成功"}
 
 

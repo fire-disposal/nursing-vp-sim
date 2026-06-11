@@ -2,7 +2,6 @@ from infrastructure.cache import EmotionCache, InitiativeCache
 
 
 class TestEmotionCache:
-
     def test_get_creates_default(self):
         cache = EmotionCache()
         state = cache.get(1)
@@ -36,7 +35,6 @@ class TestEmotionCache:
 
 
 class TestInitiativeCache:
-
     def test_update_and_get_timer(self):
         cache = InitiativeCache()
         cache.update_timer(1, 1000.0)

@@ -60,8 +60,7 @@ def list_users(
     total = q.count()
     users = (
         q.options(
-            joinedload(User.role),
-            joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade)
+            joinedload(User.role), joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade)
         )
         .order_by(User.created_at.desc())
         .offset(offset)
@@ -143,7 +142,9 @@ def update_user(
 
     user = (
         db.query(User)
-        .options(joinedload(User.role), joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade))
+        .options(
+            joinedload(User.role), joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade)
+        )
         .filter(User.id == user_id)
         .first()
     )
@@ -183,9 +184,12 @@ def get_user_detail(
     student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
     if not student_role:
         raise HTTPException(status_code=404, detail="学生角色不存在")
-    user = db.query(User).options(joinedload(User.role)).filter(
-        User.id == user_id, User.role_id == student_role.id, User.school_id == current_user.school_id
-    ).first()
+    user = (
+        db.query(User)
+        .options(joinedload(User.role))
+        .filter(User.id == user_id, User.role_id == student_role.id, User.school_id == current_user.school_id)
+        .first()
+    )
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在或不是学生")
 
@@ -375,14 +379,25 @@ def batch_create_users(
 
 
 @router.get("/stats", response_model=AdminStats)
-def get_stats(current_user: Annotated[User, Depends(require_permission("stats_view"))], db: Annotated[Session, Depends(get_db)]):
+def get_stats(
+    current_user: Annotated[User, Depends(require_permission("stats_view"))], db: Annotated[Session, Depends(get_db)]
+):
     student_role_id = None
     student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
     if student_role:
         student_role_id = student_role.id
-    total_students = db.query(User).filter(User.role_id == student_role_id, User.school_id == current_user.school_id).count() if student_role_id else 0
+    total_students = (
+        db.query(User).filter(User.role_id == student_role_id, User.school_id == current_user.school_id).count()
+        if student_role_id
+        else 0
+    )
     total_records = db.query(TrainingRecord).join(User).filter(User.school_id == current_user.school_id).count()
-    completed_records = db.query(TrainingRecord).join(User).filter(User.school_id == current_user.school_id, TrainingRecord.status == "completed").count()
+    completed_records = (
+        db.query(TrainingRecord)
+        .join(User)
+        .filter(User.school_id == current_user.school_id, TrainingRecord.status == "completed")
+        .count()
+    )
     avg_score = db.query(func.avg(Score.total_score)).scalar()
 
     avg_duration = (

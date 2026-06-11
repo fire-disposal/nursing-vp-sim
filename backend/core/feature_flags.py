@@ -66,7 +66,7 @@ def resolve_features(config_snapshot: dict | None) -> dict[str, bool]:
 
 def is_enabled(record, key: str) -> bool:
     """检查 TrainingRecord 的某个 feature flag 是否启用。
-    
+
     record: 需有 config_snapshot 属性的 ORM 对象（如 TrainingRecord 实例）。
     """
     return resolve_features(record.config_snapshot).get(key, False)
