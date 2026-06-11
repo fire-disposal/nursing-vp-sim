@@ -26,6 +26,11 @@ services:
     image: ghcr.io/fire-disposal/nursing-vp-sim-backend:${IMAGE_VERSION:-latest}
     container_name: nursing-backend-staging
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "127.0.0.1:9081:8000"
     volumes:

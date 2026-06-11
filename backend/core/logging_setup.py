@@ -29,7 +29,8 @@ def setup_logging():
         "formatters": {
             "default": {
                 "()": "core.logging_setup._ColoredFormatter",
-                "format": "%(levelname)s %(name)s %(message)s",
+                "format": "%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s",
+                "datefmt": "%H:%M:%S",
             },
         },
         "handlers": {
