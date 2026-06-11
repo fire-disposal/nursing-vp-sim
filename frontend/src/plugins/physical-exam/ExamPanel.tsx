@@ -69,7 +69,7 @@ export function ExamPanel({ ctx }: PanelTabProps) {
         setHistory(data.all_results || []);
       } catch (e: unknown) {
         const err = e as any;
-        const detail = err?.response?.data?.detail || err?.message || "操作失败";
+        const detail = err?.response?.data?.message || err?.response?.data?.detail || err?.message || "操作失败";
         setError(detail);
       } finally {
         setLoading(null);
