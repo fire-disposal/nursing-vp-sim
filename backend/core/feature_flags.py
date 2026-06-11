@@ -46,6 +46,12 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="查体操作影响患者心态：缺乏解释或不相关检查会降低信任/舒适度",
     ),
+    "allow_pause": FeatureFlag(
+        key="allow_pause",
+        label="允许暂停计时",
+        default=False,
+        description="允许学生在训练中暂停倒计时。后台结算仍以服务器时间为准。",
+    ),
 }
 
 

@@ -21,7 +21,7 @@ interface TrainingEngineProps {
 }
 
 function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) {
-  const { patient, loading, features: initialFeatures, fromAssignment, initialMessages } = usePatient();
+  const { patient, loading, features: initialFeatures, fromAssignment, initialMessages, timeLimit, remainingSeconds } = usePatient();
   const recordNum = Number(recordId);
 
   const busRef = useRef(createMessageBus());
@@ -216,6 +216,8 @@ function TrainingEngineContent({ recordId, panelPlugins }: TrainingEngineProps) 
             onEnd={endTraining}
             sending={sending}
             featuresLocked={fromAssignment}
+            timeLimitMinutes={timeLimit}
+            remainingSeconds={remainingSeconds}
           />
         </div>
         <div style={{ gridArea: "content", overflow: "hidden" }}>

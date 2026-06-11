@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, Ear, EarOff, MonitorCog, Phone } from "lucide-react";
+import { ArrowLeft, Clock, Ear, EarOff, MonitorCog, Pause, Phone, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { updateTrainingFeatures } from "@/api/training-state";
@@ -6,15 +6,9 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { usePortrait } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";
+import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
-
-function formatTime(sec: number): string {
-  if (sec <= 0) return "00:00";
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
 
 const FEATURE_META: Record<string, { label: string; desc: string }> = {
   emotion: { label: "患者情绪状态机", desc: "2D 信赖-舒适模型，根据学生用语动态变化患者情绪反应" },
@@ -23,6 +17,7 @@ const FEATURE_META: Record<string, { label: string; desc: string }> = {
   portrait: { label: "患者立绘", desc: "在训练界面显示患者人物立绘图片" },
   questionnaire: { label: "问卷评估", desc: "训练结束后弹出评估问卷供学生填写" },
   exam_emotion_bridge: { label: "查体-情绪联动", desc: "查体操作影响患者心态，缺乏解释或不相关检查会降低信任/舒适度" },
+  allow_pause: { label: "允许暂停计时", desc: "允许学生在训练中暂停倒计时。后台结算以服务器时间为准" },
 };
 
 interface TrainingHeaderProps {
@@ -36,6 +31,8 @@ interface TrainingHeaderProps {
   sending: boolean;
   featuresLocked?: boolean;
   messageCount?: number;
+  timeLimitMinutes?: number;
+  remainingSeconds?: number | null;
 }
 
 export function TrainingHeader({
@@ -46,52 +43,64 @@ export function TrainingHeader({
   ttsAutoPlay,
   onTtsToggle,
   onEnd,
-  sending,
+  sending: _sending,
   featuresLocked = false,
   messageCount = 0,
+  timeLimitMinutes,
+  remainingSeconds,
 }: TrainingHeaderProps) {
   const navigate = useNavigate();
   const { portraitUrl } = usePortrait();
-  const [remaining, setRemaining] = useState(30 * 60);
-  const [paused, setPaused] = useState(false);
-  const [ending, setEnding] = useState(false);
   const [featuresOpen, setFeaturesOpen] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [autoEndOpen, setAutoEndOpen] = useState(false);
+  const [autoEndCountdown, setAutoEndCountdown] = useState(10);
+  const endingRef = useRef(false);
+  const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const initialRemaining = remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : 30 * 60);
+
+  const { remaining, timerActive, stopTimer, resetTimer, formatTime, setTimerActive } = useTrainingTimer({
+    initialRemaining,
+    onAutoEnd: () => {
+      setAutoEndOpen(true);
+      setAutoEndCountdown(10);
+      stopTimer();
+    },
+  });
 
   useEffect(() => {
-    if (paused || remaining <= 0) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-    if (!timerRef.current) {
-      timerRef.current = setInterval(() => setRemaining((r) => r - 1), 1000);
-    }
+    if (!autoEndOpen) return;
+    autoEndTimerRef.current = setInterval(() => {
+      setAutoEndCountdown((c) => {
+        if (c <= 1) {
+          if (autoEndTimerRef.current) clearInterval(autoEndTimerRef.current);
+          executeEnd();
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      if (autoEndTimerRef.current) clearInterval(autoEndTimerRef.current);
     };
-  }, [paused]);
+  }, [autoEndOpen]);
 
-  useEffect(() => {
-    if (remaining <= 0 && !ending) {
-      handleEnd();
-    }
-  }, [remaining]);
-
-  const handleEnd = useCallback(async () => {
-    if (ending) return;
-    setEnding(true);
+  const executeEnd = useCallback(async () => {
+    if (endingRef.current) return;
+    endingRef.current = true;
+    setEndConfirmOpen(false);
+    setAutoEndOpen(false);
     try {
       await onEnd();
     } finally {
-      setEnding(false);
+      endingRef.current = false;
     }
-  }, [ending, onEnd]);
+  }, [onEnd]);
+
+  const handleEndClick = useCallback(() => {
+    setEndConfirmOpen(true);
+  }, []);
 
   const handleToggleFeature = useCallback(
     async (key: string, enabled: boolean) => {
@@ -99,11 +108,22 @@ export function TrainingHeader({
       try {
         await updateTrainingFeatures(Number(recordId), { [key]: enabled });
       } catch {
-        // 静默失败，本地状态已更新
+        /* silent */
       }
     },
     [onToggleFeature, recordId],
   );
+
+  const handlePauseToggle = useCallback(() => {
+    if (timerActive) {
+      stopTimer();
+    } else {
+      setTimerActive(true);
+    }
+  }, [timerActive, stopTimer, setTimerActive]);
+
+  const allowPause = features.allow_pause ?? false;
+  const canEnd = messageCount > 1;
 
   const avatarSrc = portraitUrl || getPatientAvatar({ name: patient.name, gender: patient.gender });
 
@@ -133,17 +153,24 @@ export function TrainingHeader({
 
           <div
             className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-md text-xs sm:text-sm font-bold tabular-nums border bg-card shrink-0",
-              remaining <= 120 && "border-red-200 bg-red-50 text-red-600",
-              remaining > 120 && remaining <= 300 && "border-amber-200 bg-amber-50 text-amber-600",
-              remaining > 300 && "border-border text-muted-foreground",
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs sm:text-sm font-bold tabular-nums border shrink-0 transition-colors",
+              !timerActive && "bg-muted/30 text-muted-foreground border-muted",
+              timerActive && remaining != null && remaining <= 120 && "border-red-200 bg-red-50 text-red-600",
+              timerActive && remaining != null && remaining > 120 && remaining <= 300 && "border-amber-200 bg-amber-50 text-amber-600",
+              timerActive && remaining != null && remaining > 300 && "border-border text-muted-foreground bg-card",
             )}
           >
             <Clock size={12} className="sm:size-[14px] shrink-0" />
             <span>{formatTime(remaining)}</span>
-            <button onClick={() => setPaused((p) => !p)} className="text-xs text-muted-foreground ml-0.5">
-              {paused ? "▶" : "⏸"}
-            </button>
+            {allowPause && (
+              <button
+                onClick={handlePauseToggle}
+                className="text-xs text-muted-foreground ml-0.5 hover:text-foreground"
+                title={timerActive ? "暂停计时" : "恢复计时"}
+              >
+                {timerActive ? <Pause size={12} className="sm:size-[14px]" /> : <Play size={12} className="sm:size-[14px]" />}
+              </button>
+            )}
           </div>
 
           <button
@@ -166,16 +193,40 @@ export function TrainingHeader({
           </button>
 
           <button
-            onClick={handleEnd}
-            disabled={ending || messageCount <= 1}
+            onClick={handleEndClick}
+            disabled={!canEnd}
             className="flex items-center gap-1 px-2.5 h-10 sm:h-9 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={canEnd ? "结束训练并生成评分" : "请先与患者对话"}
           >
             <Phone size={13} className="sm:size-[15px]" />
-            <span className="hidden sm:block">{ending ? "评分中..." : "结束训练"}</span>
-            <span className="sm:hidden">{ending ? "..." : "结束"}</span>
+            <span className="hidden sm:block">结束训练</span>
+            <span className="sm:hidden">结束</span>
           </button>
         </div>
       </header>
+
+      <Modal open={endConfirmOpen} onClose={() => setEndConfirmOpen(false)} title="结束训练" maxWidth={360}>
+        <p className="text-sm text-muted-foreground mb-5">确定要结束本次训练吗？结束后系统将自动生成评分。</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEndConfirmOpen(false)}>
+            取消
+          </Button>
+          <Button variant="destructive" size="sm" onClick={executeEnd}>
+            确认结束
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={autoEndOpen} onClose={() => setAutoEndOpen(false)} title="训练时间到" maxWidth={360}>
+        <p className="text-sm text-muted-foreground mb-2">本次训练时间已用尽，即将自动结束。</p>
+        <p className="text-2xl font-bold text-center tabular-nums mb-5 text-destructive">{autoEndCountdown} 秒</p>
+        <div className="flex justify-center">
+          <Button variant="destructive" size="sm" onClick={executeEnd}>
+            立即结束
+          </Button>
+        </div>
+      </Modal>
+
       <Modal open={featuresOpen} onClose={() => setFeaturesOpen(false)} title="插件特性" maxWidth={420}>
         {featuresLocked ? (
           <p className="text-sm text-amber-600 bg-amber-50 rounded-md px-3 py-2 mb-3">此练习的插件配置由教师设定，不可更改</p>

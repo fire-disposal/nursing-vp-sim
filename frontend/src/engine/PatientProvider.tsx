@@ -10,6 +10,8 @@ interface PatientContextValue {
   features: Record<string, boolean>;
   fromAssignment: boolean;
   initialMessages: ChatMessage[];
+  timeLimit: number;
+  remainingSeconds: number | null;
 }
 
 const PatientContext = createContext<PatientContextValue>({
@@ -19,6 +21,8 @@ const PatientContext = createContext<PatientContextValue>({
   features: {},
   fromAssignment: false,
   initialMessages: [],
+  timeLimit: 20,
+  remainingSeconds: null,
 });
 
 export function PatientProvider({ recordId, children }: { recordId: string; children: ReactNode }) {
@@ -28,6 +32,8 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const [fromAssignment, setFromAssignment] = useState(false);
   const [initialMessages, setInitialMessages] = useState<ChatMessage[]>([]);
+  const [timeLimit, setTimeLimit] = useState(20);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +54,8 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
         });
         setFeatures(d.features ?? {});
         setFromAssignment(d.from_assignment ?? false);
+        setTimeLimit(d.time_limit ?? 20);
+        setRemainingSeconds(d.remaining_seconds ?? null);
         const msgs = d.messages as Array<{ id: number; role: string; content: string }> | undefined;
         if (msgs && msgs.length > 0) {
           setInitialMessages(
@@ -71,8 +79,8 @@ export function PatientProvider({ recordId, children }: { recordId: string; chil
   }, [recordId]);
 
   const value = useMemo(
-    () => ({ patient, loading, error, features, fromAssignment, initialMessages }),
-    [patient, loading, error, features, fromAssignment, initialMessages],
+    () => ({ patient, loading, error, features, fromAssignment, initialMessages, timeLimit, remainingSeconds }),
+    [patient, loading, error, features, fromAssignment, initialMessages, timeLimit, remainingSeconds],
   );
 
   return <PatientContext.Provider value={value}>{children}</PatientContext.Provider>;
