@@ -55,7 +55,7 @@ services:
     container_name: nursing-frontend-staging
     restart: unless-stopped
     ports:
-      - "9080:80"
+      - "127.0.0.1:9080:80"
     depends_on:
       backend:
         condition: service_healthy
