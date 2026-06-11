@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -78,7 +79,6 @@ async def _score_stage(
 
 async def _feedback_stage(
     messages: list[dict],
-    scoring_result: dict,
     record_id: int,
     *,
     user_id: int,
@@ -112,8 +112,7 @@ async def _feedback_stage(
         )
 
     missing = _check_feedback_empty(result)
-    partial_json = json.dumps(scoring_result, ensure_ascii=False, indent=2)[:2000]
-    retry_user = FEEDBACK_RETRY_USER.format(missing=", ".join(missing), partial_json=partial_json)
+    retry_user = FEEDBACK_RETRY_USER.format(missing=", ".join(missing))
     retry_messages = [*messages, {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)}, {"role": "user", "content": retry_user}]
     result2 = await llm_client.call_json(
         retry_messages,
@@ -147,9 +146,10 @@ async def evaluate_training(
 ) -> Score:
     """对训练对话进行评分并保存结果。
 
-    两阶段流水线：
-      第一阶段 → 逐项评分（total_score + detail_scores + evidence/reason）
-      第二阶段 → 基于评分结果生成反馈（strengths/weaknesses/missed_content/suggestions）
+    两阶段并行：
+      评分（total_score + detail_scores + evidence/reason）
+      反馈（strengths/weaknesses/missed_content/suggestions）
+    ——同时发起 LLM 调用，约 50% 提速。
     """
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -175,7 +175,6 @@ async def evaluate_training(
     case_id = record.case_id
     log_meta = {"message_count": len(messages)}
 
-    # ── 第一阶段：评分 ──
     tmpl_score = await pm.get("scoring")
     score_system, score_user = tmpl_score.render_pair(
         scoring_criteria=scoring_criteria_text,
@@ -187,36 +186,29 @@ async def evaluate_training(
         {"role": "system", "content": score_system},
         {"role": "user", "content": score_user},
     ]
-    scoring_result = await _score_stage(
-        score_messages, record_id, rubric,
-        user_id=user_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        llm_client=llm_client,
-    )
 
-    # ── 第二阶段：反馈 ──
-    scoring_result_json = json.dumps(scoring_result, ensure_ascii=False, indent=2)
     tmpl_feedback = await pm.get("scoring_feedback")
     feedback_system, feedback_user = tmpl_feedback.render_pair(
         scoring_criteria=scoring_criteria_text,
         required_inquiries=required_inquiries_text,
-        scoring_result=scoring_result_json,
         conversation_text=conversation_text,
     )
     feedback_messages = [
         {"role": "system", "content": feedback_system},
         {"role": "user", "content": feedback_user},
     ]
-    feedback_result = await _feedback_stage(
-        feedback_messages, scoring_result, record_id,
-        user_id=user_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        llm_client=llm_client,
+
+    scoring_task = _score_stage(
+        score_messages, record_id, rubric,
+        user_id=user_id, case_id=case_id, log_meta=log_meta, llm_client=llm_client,
+    )
+    feedback_task = _feedback_stage(
+        feedback_messages, record_id,
+        user_id=user_id, case_id=case_id, log_meta=log_meta, llm_client=llm_client,
     )
 
-    # ── 合并最终结果 ──
+    scoring_result, feedback_result = await asyncio.gather(scoring_task, feedback_task)
+
     result = {**scoring_result}
     for field in ("strengths", "weaknesses", "missed_content", "suggestions"):
         val = feedback_result.get(field)

@@ -92,11 +92,11 @@ SCORING_FEEDBACK_SYSTEM = """你是一位经验丰富的护理教育导师，专
 
 ## 反馈要求
 
-你的任务是根据已完成的评分结果和对话内容，生成四项反馈。评分结果由另一位评估专家独立完成，你不能修改分数，只负责生成反馈。
+你的任务是根据对话内容独立评估，生成四项反馈：
 
 1. **strengths（必填，至少2条）**：列出学生做得好的具体行为。必须引用对话中的实际表现，不能是笼统评价。如果学生表现极差，也要找出至少1-2条闪光点。
 
-2. **weaknesses（必填，至少2条）**：列出需要改进的具体方面。必须结合评分中得分较低的条目。如果学生表现极好，也要提出至少1条可提升之处。
+2. **weaknesses（必填，至少2条）**：列出需要改进的具体方面。对照评分标准指出差距。如果学生表现极好，也要提出至少1条可提升之处。
 
 3. **missed_content（必填，至少2条）**：列出学生确实没有问到的重要信息。对照"必须采集到的内容清单"找出遗漏。如果所有重要信息都问了，列出1-2条可以进一步深究的细节。
 
@@ -116,21 +116,18 @@ SCORING_FEEDBACK_SYSTEM = """你是一位经验丰富的护理教育导师，专
 ## 输出前自检
 
 - [ ] strengths 至少 2 条，每条引用对话具体行为
-- [ ] weaknesses 至少 2 条，结合低分条目
+- [ ] weaknesses 至少 2 条，对照评分标准
 - [ ] missed_content 至少 2 条，对照必须采集清单
 - [ ] suggestions 200-350 字，包含肯定+不足+可操作方法
 
 这四项是给学生看的核心反馈，缺一不可。直接输出 JSON，不要 markdown 标记。"""
 
-SCORING_FEEDBACK_USER = """请根据以下评分结果和对话内容，生成 strengths、weaknesses、missed_content、suggestions。
-
-## 已完成评分
-{#scoring_result#}
+SCORING_FEEDBACK_USER = """请根据以下对话内容，生成 strengths、weaknesses、missed_content、suggestions。
 
 ## 对话记录
 {#conversation_text#}
 
-仔细分析评分结果：哪些条目得分高（strengths），哪些得分低（weaknesses），对照必须采集清单找出遗漏（missed_content），最后给出个性化建议（suggestions）。只输出 JSON。"""
+仔细分析对话：学生哪些提问专业到位（strengths），哪些方面存在不足（weaknesses），对照必须采集清单找出遗漏（missed_content），最后给出个性化建议（suggestions）。只输出 JSON。"""
 
 
 # ── 重试提示（内联模板，使用 Python .format() 注入上轮结果）──
@@ -143,7 +140,9 @@ SCORING_RETRY_USER = (
 
 FEEDBACK_RETRY_USER = (
     "你上一次的输出中，以下反馈字段为空：{missing}。\n\n"
-    "请勿重新评分，只补全以上缺失字段。补充时必须引用对话中的具体行为。\n\n"
+    "请补全以上缺失字段。补充时必须引用对话中的具体行为。\n\n"
+    "只输出缺失字段的 JSON（不需要重新输出已有的正确字段）。"
+)
     "评分结果（保持不变）：\n```json\n{partial_json}\n```\n\n"
     "请输出 strengths、weaknesses、missed_content、suggestions 四个字段的完整 JSON。"
 )
