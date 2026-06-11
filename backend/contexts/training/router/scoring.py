@@ -69,8 +69,6 @@ async def _run_scoring_background(
     llm_client: LLMClient,
     pm: PromptManager,
 ) -> None:
-from core.config import SCORING_TIMEOUT_SECONDS
-...
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
     db = SessionLocal()

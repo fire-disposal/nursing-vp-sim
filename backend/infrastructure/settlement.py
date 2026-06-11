@@ -129,8 +129,6 @@ async def _run_scoring_job(
                 record_id, case_data, db,
                 pm=pm, llm_client=llm_client,
             ),
-from core.config import SCORING_TIMEOUT_SECONDS
-...
             timeout=SCORING_TIMEOUT_SECONDS,
         )
         await repo.update_scoring_status(record_id, "completed")
