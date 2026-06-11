@@ -94,3 +94,34 @@ jobs:
             --body "$BODY" \
             --label "auto-diagnose,bug" \
             --repo "$GITHUB_REPOSITORY"
+
+      - name: Email report
+        if: success()
+        env:
+          SSH_HOST: ${{ vars.SSH_HOST || 'yecaoyun' }}
+          SSH_USER: ${{ vars.SSH_USER || 'root' }}
+          DIAGNOSIS_FILE: ${{ steps.diag.outputs.diagnosis_file }}
+          SYMPTOM: ${{ inputs.symptom }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          scp "$DIAGNOSIS_FILE" "$SSH_USER@$SSH_HOST:/tmp/last_diagnosis.md"
+          ssh "$SSH_USER@$SSH_HOST" "python3 -c \"
+import smtplib, sys
+sys.path.insert(0, '/opt/monitor')
+from config import *
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+body = open('/tmp/last_diagnosis.md').read()
+msg = MIMEMultipart('alternative')
+msg['Subject'] = f'[Auto-Diagnose] $SERVICE: $SYMPTOM'
+msg['From'] = MAIL_FROM
+msg['To'] = MAIL_TO
+msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
+    s.ehlo(); s.starttls(); s.ehlo()
+    s.login(SMTP_USER, SMTP_PASS)
+    s.sendmail(MAIL_FROM, [MAIL_TO], msg.as_string())
+print('Diagnosis email sent')
+\""

@@ -576,7 +576,8 @@ def main():
 
 
 def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
-    """Trigger GitHub Actions auto-diagnose workflow for new failures."""
+    """Trigger GitHub Actions auto-diagnose workflow for new failures.
+    Cooldown: 2 hours per (service, symptom) pair to prevent flooding."""
     try:
         import os
         token = os.environ.get("GITHUB_TOKEN", "")
@@ -586,11 +587,28 @@ def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
 
         from urllib.request import Request, urlopen
 
+        state = load_state()
+        diag_state = state.get("_diagnosis", {})
+
         for f in failures[:3]:
             if f["type"] == "metrics":
-                continue  # skip metrics anomalies for now
+                continue
+
             svc = "staging" if "staging" in f.get("name", "") else "prod"
             sym = f["detail"][:100]
+            diag_key = f"diag_{svc}_{sym[:50]}"
+
+            now = datetime.now()
+            last_run_str = diag_state.get(diag_key)
+            if last_run_str:
+                try:
+                    last_run = datetime.fromisoformat(last_run_str)
+                    if (now - last_run).total_seconds() < 2 * 3600:
+                        log.info("Auto-diagnose cooldown: %s (last run %s)", diag_key, last_run_str)
+                        continue
+                except ValueError:
+                    pass
+
             body = json.dumps({
                 "ref": "master",
                 "inputs": {
@@ -611,6 +629,10 @@ def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
             )
             urlopen(req, timeout=10)
             log.info("Auto-diagnose triggered: service=%s symptom=%s", svc, sym)
+
+            diag_state[diag_key] = now.isoformat()
+            state["_diagnosis"] = diag_state
+            save_state(state)
     except Exception as e:
         log.warning("Auto-diagnose trigger failed: %s", e)
 
