@@ -143,6 +143,3 @@ FEEDBACK_RETRY_USER = (
     "请补全以上缺失字段。补充时必须引用对话中的具体行为。\n\n"
     "只输出缺失字段的 JSON（不需要重新输出已有的正确字段）。"
 )
-    "评分结果（保持不变）：\n```json\n{partial_json}\n```\n\n"
-    "请输出 strengths、weaknesses、missed_content、suggestions 四个字段的完整 JSON。"
-)
