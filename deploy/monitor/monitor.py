@@ -577,7 +577,7 @@ def main():
 
 def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
     """Trigger GitHub Actions auto-diagnose workflow for new failures.
-    Cooldown: 2 hours per (service, symptom) pair to prevent flooding."""
+    Cooldown: 24 hours per (service, symptom) pair — emergency use only."""
     try:
         import os
         token = os.environ.get("GITHUB_TOKEN", "")
@@ -603,7 +603,7 @@ def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
             if last_run_str:
                 try:
                     last_run = datetime.fromisoformat(last_run_str)
-                    if (now - last_run).total_seconds() < 2 * 3600:
+                    if (now - last_run).total_seconds() < 24 * 3600:
                         log.info("Auto-diagnose cooldown: %s (last run %s)", diag_key, last_run_str)
                         continue
                 except ValueError:
