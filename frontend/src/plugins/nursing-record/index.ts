@@ -1,22 +1,10 @@
 import { ClipboardList } from "lucide-react";
 import type { PanelPlugin } from "@/engine/types";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
-import CheckboxGroupItem from "./items/CheckboxGroupItem";
-import InputItem from "./items/InputItem";
-import RadioItem from "./items/RadioItem";
-import SelectItem from "./items/SelectItem";
-import TextareaItem from "./items/TextareaItem";
-import VitalSignItem from "./items/VitalSignItem";
+import { ITEM_COMPONENTS } from "./items/registry";
 import { NursingRecordPanel } from "./NursingRecordPanel";
 
-export const ITEM_COMPONENTS: Record<string, React.ComponentType<any>> = {
-	input: InputItem,
-	textarea: TextareaItem,
-	select: SelectItem,
-	radio: RadioItem,
-	checkbox_group: CheckboxGroupItem,
-	vital_sign: VitalSignItem,
-};
+export { ITEM_COMPONENTS };
 
 const TOTAL_ITEMS = NURSING_RECORD_SHEET_CONFIG.sections.reduce(
 	(sum, s) => sum + s.items.length,

@@ -4,7 +4,9 @@ export type ItemType =
 	| "select"
 	| "radio"
 	| "checkbox_group"
-	| "vital_sign";
+	| "vital_sign"
+	| "compound"
+	| "repeater";
 
 export interface BaseItem {
 	key: string;
@@ -51,13 +53,42 @@ export interface VitalSignItem extends BaseItem {
 	type: "vital_sign";
 }
 
+export interface CompoundItem extends BaseItem {
+	type: "compound";
+	trigger: SelectItem | RadioItem;
+	branches: Record<string, RecordSheetItem[]>;
+}
+
+export interface RepeaterField {
+	key: string;
+	type: ItemType;
+	label: string;
+	unit?: string;
+	placeholder?: string;
+	options?: string[] | CheckboxOption[];
+	showWhen?: Record<string, string>;
+}
+
+export interface RepeaterRow {
+	key: string;
+	label: string;
+}
+
+export interface RepeaterItem extends BaseItem {
+	type: "repeater";
+	rows: RepeaterRow[];
+	fields: RepeaterField[];
+}
+
 export type RecordSheetItem =
 	| InputItem
 	| TextareaItem
 	| SelectItem
 	| RadioItem
 	| CheckboxGroupItem
-	| VitalSignItem;
+	| VitalSignItem
+	| CompoundItem
+	| RepeaterItem;
 
 export interface RecordSheetSection {
 	key: string;

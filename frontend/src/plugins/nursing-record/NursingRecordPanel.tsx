@@ -5,7 +5,7 @@ import type { PanelTabProps } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
 import { ITEM_COMPONENTS } from "./index";
-import type { RecordSheetSection } from "./types";
+import type { RecordSheetItem, RecordSheetSection } from "./types";
 
 const STORAGE_PREFIX = "nursing_record_sheet_";
 
@@ -62,6 +62,28 @@ function SectionHeader({
 			</h4>
 		</button>
 	);
+}
+
+function isItemFilled(item: RecordSheetItem, val: unknown): boolean {
+	if (val === undefined || val === null) return false;
+	if (item.type === "compound") {
+		const v = val as Record<string, unknown>;
+		return !!v?.trigger;
+	}
+	if (item.type === "repeater") {
+		const v = val as Record<string, Record<string, unknown>>;
+		if (!v || Object.keys(v).length === 0) return false;
+		return Object.values(v).some(
+			(row) =>
+				row &&
+				Object.values(row).some(
+					(f) => f !== undefined && f !== null && f !== "",
+				),
+		);
+	}
+	if (typeof val === "string") return val.trim().length > 0;
+	if (typeof val === "object") return Object.keys(val as object).length > 0;
+	return false;
 }
 
 export function NursingRecordPanel({ ctx }: PanelTabProps) {
@@ -131,14 +153,7 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 				const sectionVal = values[section.key];
 				if (!sectionVal) continue;
 				const val = sectionVal[item.key];
-				if (val === undefined || val === null) continue;
-				if (typeof val === "string" && (val as string).trim().length > 0)
-					count++;
-				else if (
-					typeof val === "object" &&
-					Object.keys(val as object).length > 0
-				)
-					count++;
+				if (isItemFilled(item, val)) count++;
 			}
 		}
 		return count;
