@@ -15,7 +15,7 @@ from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
-from models import Case, Message, Score, TrainingRecord, User
+from models import Case, Message, Score, ScoreReview, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 
 from .session import (
@@ -42,12 +42,13 @@ def get_scoring_status(
         raise HTTPException(status_code=403, detail="无权限")
 
     score = db.query(Score).filter(Score.record_id == record_id).first()
+    review_exists = score and db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first() is not None
     return {
         "scoring_status": record.scoring_status,
         "scoring_error": record.scoring_error,
         "score": {
             "total_score": score.total_score,
-            "review_status": score.review_status,
+            "review_status": "reviewed" if review_exists else "pending",
         }
         if score
         else None,
@@ -163,7 +164,7 @@ async def end_training(
     from contexts.training.plugins import _hook_ctx
     from core.feature_flags import resolve_features
 
-    features = resolve_features(record.config_snapshot)
+    features = resolve_features(record.practice_snapshot)
     hook_ctx = _hook_ctx(record, request.app.state)
     run_plugin_hooks("on_end", hook_ctx, features)
 

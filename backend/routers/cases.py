@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
-from models import Case, TrainingRecord, User
+from models import Case, Practice, TrainingRecord, User
 from schemas import (
     CaseBrief,
     CaseCreateRequest,
@@ -19,6 +19,7 @@ from schemas import (
     CaseUpdateRequest,
     DeleteResponse,
     PaginatedResponse,
+    PracticeBrief,
 )
 
 log = logging.getLogger(__name__)
@@ -223,6 +224,21 @@ async def generate_case(
         return CaseGenerateResponse(field_value=field_value, field=data.field)
 
     return CaseGenerateResponse(case_data=result)
+
+
+@router.get("/{case_id}/practices", response_model=list[PracticeBrief])
+def list_case_practices(
+    case_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    practices = (
+        db.query(Practice)
+        .filter(Practice.case_id == case_id, Practice.is_active == True)
+        .order_by(Practice.name)
+        .all()
+    )
+    return practices
 
 
 @router.get("/{case_id}", response_model=CaseDetail)

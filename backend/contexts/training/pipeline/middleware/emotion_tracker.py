@@ -1,8 +1,13 @@
 from contexts.patient.emotion import classify_intent, get_emotion
+from core.feature_flags import is_enabled
 
 
 async def emotion_tracker(ctx, next_mw):
     if ctx.should_shortcut or ctx.error:
+        await next_mw()
+        return
+
+    if not is_enabled(ctx.record, "emotion"):
         await next_mw()
         return
 

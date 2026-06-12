@@ -34,8 +34,8 @@ def update_training_features(
         if k not in valid_keys:
             raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
 
-    snapshot = dict(record.config_snapshot or {})
+    snapshot = dict(record.practice_snapshot or {})
     snapshot["features"] = {**snapshot.get("features", {}), **features}
-    record.config_snapshot = snapshot
+    record.practice_snapshot = snapshot
     db.commit()
-    return {"ok": True, "features": resolve_features(record.config_snapshot)}
+    return {"ok": True, "features": resolve_features(record.practice_snapshot)}

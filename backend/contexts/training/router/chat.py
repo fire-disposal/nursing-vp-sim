@@ -73,9 +73,9 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    features = resolve_features(ctx.record.config_snapshot)
+    features = resolve_features(ctx.record.practice_snapshot)
     pipe = (
-        get_pipeline(ctx.current_phase.id, features) if ctx.current_phase else get_pipeline("history_taking", features)
+        get_pipeline(features)
     )
     await run_pipeline(ctx, pipe)
 
@@ -99,12 +99,8 @@ async def send_message_stream(
 ):
     async with db_session() as db:
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-        features = resolve_features(ctx.record.config_snapshot)
-        pipe = (
-            get_pipeline(ctx.current_phase.id, features)
-            if ctx.current_phase
-            else get_pipeline("history_taking", features)
-        )
+        features = resolve_features(ctx.record.practice_snapshot)
+        pipe = get_pipeline(features)
 
         return StreamingResponse(
             stream_pipeline(ctx, pipe),

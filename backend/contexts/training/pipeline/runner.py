@@ -14,8 +14,7 @@ PipelineMiddleware = Callable[
 ]
 
 
-async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddleware]) -> None:
-    """Execute middleware chain. Middleware may set ctx.should_shortcut to skip remainder."""
+def _make_next(ctx: PipelineContext, middlewares: list[PipelineMiddleware]):
     index = 0
 
     async def next_mw():
@@ -27,8 +26,13 @@ async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddlewar
             index += 1
             await mw(ctx, next_mw)
 
+    return next_mw
+
+
+async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddleware]) -> None:
+    """Execute middleware chain. Middleware may set ctx.should_shortcut to skip remainder."""
     try:
-        await next_mw()
+        await _make_next(ctx, middlewares)()
     except Exception as e:
         log.exception("Pipeline error: record_id=%d", ctx.record.id)
         ctx.error = str(e)
@@ -36,19 +40,8 @@ async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddlewar
 
 async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddleware]):
     """Execute pipeline in streaming mode, yielding SSE events."""
-    index = 0
-
-    async def next_mw():
-        nonlocal index
-        if ctx.should_shortcut:
-            return
-        if index < len(middlewares):
-            mw = middlewares[index]
-            index += 1
-            await mw(ctx, next_mw)
-
     try:
-        await next_mw()
+        await _make_next(ctx, middlewares)()
     except Exception as e:
         log.exception("Stream pipeline error: record_id=%d", ctx.record.id)
         ctx.error = str(e)

@@ -60,6 +60,6 @@ def _reset_initiative_timer(ctx: PipelineContext) -> None:
 def _persist_phase_op_count(ctx: PipelineContext) -> None:
     count = ctx.state.get("_phase_op_count")
     if count is not None:
-        snapshot = ctx.record.config_snapshot or {}
+        snapshot = ctx.record.practice_snapshot or {}
         snapshot["_phase_op_count"] = count
-        ctx.record.config_snapshot = snapshot
+        ctx.record.practice_snapshot = snapshot

@@ -10,7 +10,7 @@ from .middleware import (
 from .middleware.llm_caller import llm_caller
 
 
-def get_pipeline(phase_id: str, feature_flags: dict[str, bool] | None = None) -> list:
+def get_pipeline(feature_flags: dict[str, bool] | None = None) -> list:
     flags = feature_flags or {}
     return build_pipeline(flags)
 

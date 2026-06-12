@@ -69,28 +69,13 @@ def init_db() -> None:
         return
 
     alembic_cfg = Config(alembic_ini)
-    try:
-        command.upgrade(alembic_cfg, "head")
-        log.debug("数据库迁移完成")
-    except Exception as e:
-        log.warning("迁移失败: %s", e)
-        from alembic.script import ScriptDirectory
-        from sqlalchemy import inspect
+    command.upgrade(alembic_cfg, "head")
 
-        insp = inspect(engine)
-        existing = insp.get_table_names()
-        script = ScriptDirectory.from_config(alembic_cfg)
-        head = script.get_current_head()
-        if head is None:
-            log.warning("No migration head found, skipping stamp")
-            if not existing:
-                Base.metadata.create_all(bind=engine)
-            return
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import text
 
-        if existing:
-            log.info("检测到现有表 (%d)，stamp head: %s", len(existing), head)
-            command.stamp(alembic_cfg, head)
-        else:
-            log.info("全新数据库，create_all + stamp: %s", head)
-            Base.metadata.create_all(bind=engine)
-            command.stamp(alembic_cfg, head)
+    script = ScriptDirectory.from_config(alembic_cfg)
+    head = script.get_current_head()
+    with engine.connect() as conn:
+        current = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+    log.info("数据库迁移完成: %s (head=%s)", current, head)

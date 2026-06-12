@@ -120,9 +120,9 @@ def _apply_exam_emotion_effect(ctx: dict) -> None:
 
     impact_note = _build_impact_note(op_type, impact, dt, dc, exam_count, explained)
     if impact_note:
-        snapshot = record.config_snapshot or {}
+        snapshot = record.practice_snapshot or {}
         snapshot["_exam_impact_note"] = impact_note
-        record.config_snapshot = snapshot
+        record.practice_snapshot = snapshot
 
 
 _EXAM_EMOTION_IMPACT_LABELS: dict[str, str] = {

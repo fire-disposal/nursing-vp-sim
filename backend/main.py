@@ -58,7 +58,6 @@ async def lifespan(app: FastAPI):
     log_config(log)
 
     init_db()
-    log.info("Database: migrations complete")
 
     seed_all()
     log.info("Seeds: complete")
@@ -260,7 +259,7 @@ from routers import (
     stats,
 )
 from routers.admin.plugins import router as admin_plugins_router
-from routers.admin.scenarios import router as admin_scenarios_router
+from routers.admin.practices import router as admin_practices_router
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
@@ -272,8 +271,8 @@ for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, n
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)
-app.include_router(admin_scenarios_router)
 app.include_router(admin_plugins_router)
+app.include_router(admin_practices_router)
 app.include_router(admin_schools_router)
 app.include_router(admin_roles_router)
 app.include_router(training_router)

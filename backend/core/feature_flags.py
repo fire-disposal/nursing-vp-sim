@@ -55,10 +55,10 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
 }
 
 
-def resolve_features(config_snapshot: dict | None) -> dict[str, bool]:
+def resolve_features(practice_snapshot: dict | None) -> dict[str, bool]:
     result = {k: v.default for k, v in FEATURE_FLAGS.items()}
-    if config_snapshot:
-        for k, v in config_snapshot.get("features", {}).items():
+    if practice_snapshot:
+        for k, v in practice_snapshot.get("features", {}).items():
             if k in result:
                 result[k] = v
     return result
@@ -67,6 +67,6 @@ def resolve_features(config_snapshot: dict | None) -> dict[str, bool]:
 def is_enabled(record, key: str) -> bool:
     """检查 TrainingRecord 的某个 feature flag 是否启用。
 
-    record: 需有 config_snapshot 属性的 ORM 对象（如 TrainingRecord 实例）。
+    record: 需有 practice_snapshot 属性的 ORM 对象（如 TrainingRecord 实例）。
     """
-    return resolve_features(record.config_snapshot).get(key, False)
+    return resolve_features(record.practice_snapshot).get(key, False)

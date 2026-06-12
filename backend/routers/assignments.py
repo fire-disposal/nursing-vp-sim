@@ -13,7 +13,7 @@ from core.datetime_utils import ensure_utc
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from infrastructure.export import Column, buffered_response
-from models import Assignment, Case, Class, TrainingRecord, User, UserClass
+from models import Assignment, Class, Practice, TrainingRecord, User, UserClass
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -43,7 +43,7 @@ def _build_assignment_list_item(a: Assignment, student_count: int = 0, completed
     return AssignmentListItem(
         id=a.id,
         title=a.title,
-        case_name=a.case.name if a.case else "",
+        practice_name=a.practice.name if a.practice else "",
         class_name=a.class_.name if a.class_ else "",
         start_time=a.start_time,
         end_time=a.end_time,
@@ -105,12 +105,10 @@ def _build_detail(db: Session, assignment: Assignment) -> AssignmentDetail:
         id=assignment.id,
         title=assignment.title,
         description=assignment.description,
-        case_id=assignment.case_id,
-        case_name=assignment.case.name if assignment.case else "",
+        practice_id=assignment.practice_id,
+        practice_name=assignment.practice.name if assignment.practice else "",
         class_id=assignment.class_id,
         class_name=assignment.class_.name if assignment.class_ else "",
-        config_id=assignment.config_id,
-        feature_overrides=assignment.feature_overrides,
         start_time=assignment.start_time,
         end_time=assignment.end_time,
         created_at=assignment.created_at,
@@ -130,23 +128,26 @@ def create_assignment(
 ):
     _check_teacher_school(db, current_user, req.class_id)
 
-    case = db.query(Case).filter(Case.id == req.case_id).first()
-    if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
-    if case.school_id is not None and case.school_id != current_user.school_id:
+    practice = (
+        db.query(Practice)
+        .options(joinedload(Practice.case))
+        .filter(Practice.id == req.practice_id)
+        .first()
+    )
+    if not practice:
+        raise HTTPException(status_code=404, detail="练习不存在")
+    if practice.case.school_id is not None and practice.case.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="无权使用该校病例")
 
     if req.end_time <= req.start_time:
         raise HTTPException(status_code=400, detail="截止时间必须晚于开始时间")
 
     assignment = Assignment(
-        case_id=req.case_id,
+        practice_id=req.practice_id,
         class_id=req.class_id,
         teacher_id=current_user.id,
         title=req.title,
         description=req.description,
-        config_id=req.config_id,
-        feature_overrides=req.feature_overrides,
         start_time=req.start_time,
         end_time=req.end_time,
     )
@@ -187,7 +188,7 @@ def list_assignments(
             completed_sub.label("completed_count"),
         )
         .options(
-            joinedload(Assignment.case),
+            joinedload(Assignment.practice),
             joinedload(Assignment.class_),
         )
         .filter(Assignment.teacher_id == current_user.id)
@@ -217,7 +218,7 @@ def get_assignment(
     assignment = (
         db.query(Assignment)
         .options(
-            joinedload(Assignment.case),
+            joinedload(Assignment.practice),
             joinedload(Assignment.class_),
         )
         .filter(Assignment.id == assignment_id)
@@ -247,10 +248,6 @@ def update_assignment(
         assignment.title = req.title
     if req.description is not None:
         assignment.description = req.description
-    if req.config_id is not None:
-        assignment.config_id = req.config_id
-    if req.feature_overrides is not None:
-        assignment.feature_overrides = req.feature_overrides
     if req.start_time is not None:
         assignment.start_time = req.start_time
     if req.end_time is not None:
@@ -294,7 +291,7 @@ def export_assignment(
 ):
     assignment = (
         db.query(Assignment)
-        .options(joinedload(Assignment.case), joinedload(Assignment.class_))
+        .options(joinedload(Assignment.practice), joinedload(Assignment.class_))
         .filter(Assignment.id == assignment_id)
         .first()
     )
@@ -365,7 +362,7 @@ def list_student_assignments(
     now = datetime.now(UTC)
     assignments = (
         db.query(Assignment)
-        .options(joinedload(Assignment.case))
+        .options(joinedload(Assignment.practice))
         .filter(
             Assignment.class_id == user_class.class_id,
             Assignment.start_time <= now,
@@ -397,7 +394,7 @@ def list_student_assignments(
                 StudentAssignmentItem(
                     id=a.id,
                     title=a.title,
-                    case_name=a.case.name if a.case else "",
+                    practice_name=a.practice.name if a.practice else "",
                     start_time=a.start_time,
                     end_time=a.end_time,
                     status=status,
@@ -411,7 +408,7 @@ def list_student_assignments(
                 StudentAssignmentItem(
                     id=a.id,
                     title=a.title,
-                    case_name=a.case.name if a.case else "",
+                    practice_name=a.practice.name if a.practice else "",
                     start_time=a.start_time,
                     end_time=a.end_time,
                     status=status,

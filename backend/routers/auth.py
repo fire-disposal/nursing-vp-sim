@@ -316,7 +316,9 @@ def update_me(
 
 
 def _user_to_brief(user: User) -> UserBrief:
-    cls = user.user_class.class_ if user.user_class else None
+    ucs = user.user_classes
+    first = ucs[0] if ucs else None
+    cls = first.class_ if first else None
     return UserBrief(
         id=user.id,
         username=user.username,

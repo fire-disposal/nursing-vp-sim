@@ -62,16 +62,16 @@ def advance_phase(
         raise HTTPException(status_code=400, detail="当前无有效阶段")
 
     msg_count = db.query(Message).filter(Message.record_id == record_id).count()
-    op_count = (record.config_snapshot or {}).get("_phase_op_count", 0)
+    op_count = (record.practice_snapshot or {}).get("_phase_op_count", 0)
 
     next_phase = try_advance_phase(current, phases, msg_count, op_count, manual_requested=True)
     if next_phase is None:
         raise HTTPException(status_code=400, detail="不满足推进条件或已是最后一个阶段")
 
     record.current_phase = next_phase.id
-    snapshot = record.config_snapshot or {}
+    snapshot = record.practice_snapshot or {}
     snapshot["_phase_op_count"] = 0
-    record.config_snapshot = snapshot
+    record.practice_snapshot = snapshot
     db.commit()
 
     log.info("Phase advanced: record_id=%d %s -> %s", record_id, current.id, next_phase.id)
@@ -96,43 +96,46 @@ def get_training_state(
         raise HTTPException(status_code=404, detail="病例不存在")
     case_data = case.case_data or {}
     app_state = request.app.state
-    emotion = get_emotion(record_id, app_state.emotion_cache)
-    config = record.config_snapshot or {}
+    features = resolve_features(record.practice_snapshot)
+    config = record.practice_snapshot or {}
     personality = case_data.get("personality", {})
-    elapsed, threshold = get_initiative_seconds(
-        record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort
-    )
 
-    emotion_history = getattr(emotion, "history", [])
-
-    return {
-        "record_id": record_id,
-        "case_id": record.case_id,
-        "emotion": {
+    emotion_data = None
+    if features.get("emotion"):
+        emotion = get_emotion(record_id, app_state.emotion_cache)
+        emotion_history = getattr(emotion, "history", [])
+        emotion_data = {
             "trust": emotion.trust,
             "comfort": emotion.comfort,
             "state": emotion.state,
             "note": emotion.note,
             "history": emotion_history[-20:],
-        },
+        }
+    else:
+        emotion = None
+
+    initiative_data = None
+    if features.get("patient_initiative"):
+        total_elapsed = (datetime.now(UTC) - record.start_time).total_seconds()
+        initiative_data = {
+            "elapsed_seconds": round(total_elapsed, 1),
+            "percent": 0,
+        }
+
+    return {
+        "record_id": record_id,
+        "case_id": record.case_id,
+        "emotion": emotion_data,
         "personality": personality,
         "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
         "exam_anchors": case_data.get("exam_anchors", {}),
         "config": {
-            "id": record.config_id,
             "mode": config.get("mode"),
-            "features": resolve_features(record.config_snapshot),
+            "features": features,
         },
-        "initiative": {
-            "elapsed_seconds": round(elapsed, 1),
-            "threshold_seconds": round(threshold, 1),
-            "percent": round(min(100, elapsed / max(threshold, 0.1) * 100), 1),
-            "should_trigger": check_initiate_ready(
-                record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort
-            ),
-        },
+        "initiative": initiative_data,
         "current_phase": record.current_phase or "history_taking",
-        "feature_flags": resolve_features(record.config_snapshot),
+        "feature_flags": features,
     }
 
 
@@ -240,7 +243,7 @@ def perform_exam(
 
     result = handle_operation(op_type, case.case_data or {})
 
-    snapshot = record.config_snapshot or {}
+    snapshot = record.practice_snapshot or {}
     exam_results = snapshot.get("_exam_results", [])
     if not isinstance(exam_results, list):
         exam_results = []
@@ -253,7 +256,7 @@ def perform_exam(
         }
     )
     snapshot["_exam_results"] = exam_results
-    record.config_snapshot = snapshot
+    record.practice_snapshot = snapshot
 
     msg = Message(
         record_id=record_id,
@@ -262,7 +265,7 @@ def perform_exam(
     )
     db.add(msg)
 
-    features = resolve_features(record.config_snapshot)
+    features = resolve_features(record.practice_snapshot)
     if features.get("exam_emotion_bridge") and features.get("emotion"):
         from contexts.training.pipeline.plugin import run_plugin_hooks
 

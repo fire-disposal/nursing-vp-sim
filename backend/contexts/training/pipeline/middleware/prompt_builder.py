@@ -6,6 +6,7 @@ from contexts.patient import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
 )
+from contexts.patient.guard import get_identity_correction_note, has_identity_leak
 from infrastructure.prompt import render_template
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
@@ -19,7 +20,16 @@ def _collect_author_note(ctx) -> str:
     if ctx.state.get("emotion_note"):
         notes.append(ctx.state["emotion_note"])
 
-    snapshot = ctx.record.config_snapshot or {}
+    # Identity leak guard: check last patient reply
+    last_patient = None
+    for msg in reversed(ctx.messages):
+        if msg.role == "patient":
+            last_patient = msg.content
+            break
+    if last_patient and has_identity_leak(last_patient):
+        notes.append(get_identity_correction_note())
+
+    snapshot = ctx.record.practice_snapshot or {}
     exam_results = snapshot.get("_exam_results", [])
     if isinstance(exam_results, list) and exam_results:
         lines = []

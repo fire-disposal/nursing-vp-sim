@@ -25,8 +25,10 @@ from models import (
     Message,
     Note,
     NursingRecord,
+    Practice,
     QuestionnaireResponse,
     Score,
+    ScoreReview,
     TrainingRecord,
     User,
     UserClass,
@@ -161,33 +163,27 @@ def _create_record(
     user_id: int,
     case: Case,
     case_data: dict,
-    config_id: str,
     config: dict,
     *,
+    practice_id: int | None = None,
     assignment_id: str | None = None,
     is_overdue: bool = False,
-    feature_overrides: dict | None = None,
     app_state=None,
 ):
     time_limit = case_data.get("time_limit", 20)
     time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
 
     config = _resolve_features(case_data, config)
-    if feature_overrides:
-        for key, value in feature_overrides.items():
-            if key in FEATURE_FLAGS:
-                config.setdefault("features", {})[key] = value
-        config["_from_assignment"] = True
 
     record = TrainingRecord(
         user_id=user_id,
         case_id=case.id,
+        practice_id=practice_id,
+        practice_snapshot=config or None,
         assignment_id=assignment_id,
         is_overdue=is_overdue,
         status="in_progress",
         time_limit=time_limit,
-        config_id=config_id,
-        config_snapshot=config or None,
     )
     record.current_phase = "history_taking"
     db.add(record)
@@ -207,7 +203,7 @@ def _create_record(
     from contexts.training.plugins import _hook_ctx
     from core.feature_flags import resolve_features
 
-    features = resolve_features(record.config_snapshot)
+    features = resolve_features(record.practice_snapshot)
     if app_state is not None:
         run_plugin_hooks("on_record_create", _hook_ctx(record, app_state), features)
 
@@ -225,11 +221,36 @@ def start_training(
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
 
-    config_id = req.config_id or "standard-assessment"
-    config = get_config(config_id) or {}
+    if req.practice_id:
+        practice = db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
+        if not practice:
+            raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
+        config = {
+            "id": practice.name,
+            "name": practice.name,
+            "mode": practice.mode,
+            "features": practice.features or {},
+            "behavior": practice.behavior or {},
+            "assessment": practice.assessment or {},
+        }
+    else:
+        practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
+        if practice:
+            config = {
+                "id": practice.name,
+                "name": practice.name,
+                "mode": practice.mode,
+                "features": practice.features or {},
+                "behavior": practice.behavior or {},
+                "assessment": practice.assessment or {},
+            }
+        else:
+            config = get_config("standard-assessment") or {}
 
     record, greeting = _create_record(
-        db, current_user.id, case, case.case_data or {}, config_id, config, app_state=request.app.state
+        db, current_user.id, case, case.case_data or {}, config,
+        practice_id=practice.id if practice else None,
+        app_state=request.app.state,
     )
 
     log.info(
@@ -251,7 +272,7 @@ def start_training_from_assignment(
     assignment_id: str = Query(...),
 ):
     assignment = (
-        db.query(Assignment).options(joinedload(Assignment.case)).filter(Assignment.id == assignment_id).first()
+        db.query(Assignment).options(joinedload(Assignment.practice).joinedload(Practice.case)).filter(Assignment.id == assignment_id).first()
     )
     if not assignment:
         raise HTTPException(status_code=404, detail="练习发布不存在")
@@ -288,20 +309,27 @@ def start_training_from_assignment(
             db.delete(existing)
             db.commit()
         else:
-            case_data = assignment.case.case_data if assignment.case else {}
+            case_data = assignment.practice.case.case_data if assignment.practice and assignment.practice.case else {}
             patient_info = case_data.get("patient_info", {})
             patient_name = patient_info.get("name", "患者")
             greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
             return TrainingStartResponse(
-                record_id=existing.id, greeting=greeting, case_name=assignment.case.name if assignment.case else ""
+                record_id=existing.id, greeting=greeting, case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else ""
             )
 
-    case = assignment.case
-    if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
+    practice = assignment.practice
+    if not practice or not practice.case:
+        raise HTTPException(status_code=404, detail="练习模板或病例不存在")
+    case = practice.case
 
-    config_id = assignment.config_id or "standard-assessment"
-    config = get_config(config_id) or {}
+    config = {
+        "id": practice.mode,
+        "name": practice.name,
+        "mode": practice.mode,
+        "features": practice.features or {},
+        "behavior": practice.behavior or {},
+        "assessment": practice.assessment or {},
+    }
 
     now = datetime.now(UTC)
     record, greeting = _create_record(
@@ -309,11 +337,10 @@ def start_training_from_assignment(
         current_user.id,
         case,
         case.case_data or {},
-        config_id,
         config,
+        practice_id=practice.id,
         assignment_id=assignment.id,
         is_overdue=now > ensure_utc(assignment.end_time),
-        feature_overrides=assignment.feature_overrides,
         app_state=request.app.state,
     )
 
@@ -459,8 +486,8 @@ def get_record_detail(
         notes=note_records,
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
-        features=resolve_features(record.config_snapshot),
-        from_assignment=record.config_snapshot.get("_from_assignment", False) if record.config_snapshot else False,
+        features=resolve_features(record.practice_snapshot),
+        from_assignment=record.assignment_id is not None,
     )
 
 
@@ -514,19 +541,23 @@ def get_score_review(
     if not score:
         raise HTTPException(status_code=404, detail="该记录暂无评分")
 
+    latest_review = (
+        db.query(ScoreReview).filter(ScoreReview.score_id == score.id)
+        .order_by(ScoreReview.created_at.desc()).first()
+    )
     reviewer_name = None
-    if score.reviewed_by:
-        reviewer = db.query(User).filter(User.id == score.reviewed_by).first()
+    if latest_review and latest_review.reviewed_by:
+        reviewer = db.query(User).filter(User.id == latest_review.reviewed_by).first()
         reviewer_name = reviewer.display_name if reviewer else None
 
     return ScoreReviewResponse(
         score_id=score.id,
-        review_status=score.review_status or "pending",
+        review_status="reviewed" if latest_review else "pending",
         reviewed_by_name=reviewer_name,
-        reviewed_at=score.reviewed_at,
+        reviewed_at=latest_review.created_at if latest_review else None,
         original_detail_scores=score.detail_scores,
-        review_detail_scores=score.review_detail_scores,
-        review_comment=score.review_comment,
+        review_detail_scores=latest_review.detail_scores if latest_review else None,
+        review_comment=latest_review.comment if latest_review else None,
     )
 
 
@@ -541,11 +572,11 @@ def submit_score_review(
     if not score:
         raise HTTPException(status_code=404, detail="该记录暂无评分")
 
-    if score.review_status == "reviewed":
+    already_reviewed = db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first()
+    if already_reviewed:
         raise HTTPException(status_code=409, detail="该评分已被复核，不可重复提交")
 
     if req.detail_scores is not None:
-        score.review_detail_scores = req.detail_scores
         new_total = 0.0
         for dim_data in req.detail_scores.values():
             if isinstance(dim_data, dict):
@@ -558,27 +589,27 @@ def submit_score_review(
                 else:
                     new_total += raw_score
         score.total_score = round(new_total, 1)
-    if req.comment is not None:
-        score.review_comment = req.comment
-
-    score.review_status = "reviewed"
-    score.reviewed_by = current_user.id
-    score.reviewed_at = datetime.now(UTC)
+    review = ScoreReview(
+        score_id=score.id,
+        reviewed_by=current_user.id,
+        detail_scores=req.detail_scores,
+        comment=req.comment,
+    )
+    db.add(review)
     db.commit()
-    db.refresh(score)
+    db.refresh(review)
 
     log.info(
         f"评分复核: score_id={score.id} reviewer_id={current_user.id}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
 
-    reviewer_name = current_user.display_name
     return ScoreReviewResponse(
         score_id=score.id,
-        review_status=score.review_status or "reviewed",
-        reviewed_by_name=reviewer_name,
-        reviewed_at=score.reviewed_at,
+        review_status="reviewed",
+        reviewed_by_name=current_user.display_name,
+        reviewed_at=review.created_at,
         original_detail_scores=score.detail_scores,
-        review_detail_scores=score.review_detail_scores,
-        review_comment=score.review_comment,
+        review_detail_scores=review.detail_scores,
+        review_comment=review.comment,
     )

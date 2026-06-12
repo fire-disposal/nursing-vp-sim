@@ -60,7 +60,7 @@ def list_users(
     total = q.count()
     users = (
         q.options(
-            joinedload(User.role), joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade)
+            joinedload(User.role), joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade)
         )
         .order_by(User.created_at.desc())
         .offset(offset)
@@ -70,7 +70,8 @@ def list_users(
 
     items = []
     for u in users:
-        uc = u.user_class
+        ucs = u.user_classes
+        uc = ucs[0] if ucs else None
         cls = uc.class_ if uc else None
         items.append(
             UserBrief(
@@ -143,13 +144,14 @@ def update_user(
     user = (
         db.query(User)
         .options(
-            joinedload(User.role), joinedload(User.user_class).joinedload(UserClass.class_).joinedload(Class.grade)
+            joinedload(User.role), joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade)
         )
         .filter(User.id == user_id)
         .first()
     )
 
-    uc = user.user_class if user else None
+    ucs = user.user_classes if user else []
+    uc = ucs[0] if ucs else None
     cls = uc.class_ if uc else None
 
     if user is None:
