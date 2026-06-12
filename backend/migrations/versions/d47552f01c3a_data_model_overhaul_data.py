@@ -34,7 +34,7 @@ def upgrade() -> None:
     ]
     for tbl in tables_with_id:
         op.execute(
-            f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 0))"
+            f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1))"
         )
 
     # ── Populate nullable columns before NOT NULL enforcement ──
