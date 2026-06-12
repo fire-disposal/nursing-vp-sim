@@ -88,7 +88,7 @@ rollback_to() {
     sed -i "s|image: .*nursing-vp-sim-frontend:.*|image: ${frontend_img}|" docker-compose.yml
 
     msg_ok "重启服务..."
-    docker compose up -d --remove-orphans
+    docker compose --env-file .env up -d --remove-orphans
 
     echo ""
     msg_ok "健康检查..."

@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 try:
     from dotenv import load_dotenv
 
-    env_path = Path(__file__).resolve().parent.parent / ".env"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     load_dotenv(env_path)
 except ImportError:
     log.warning("python-dotenv 未安装，使用系统环境变量")
