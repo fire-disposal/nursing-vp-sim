@@ -918,19 +918,21 @@
 
 ## 当前项目状态
 
-- **版本**: v2026.06.04-5
-- **数据库**: PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移
-- **安全**: 速率限制（4端点）+ 密码强度统一（min_length=6）+ .env 保护 + 审计日志 + API Key 加密存储（Fernet）
-- **评分体系**: 19项条目 2类(沟通14项 + 病史5项) + **100分制显示**(57分制打分×100/57换算) + 证据化(evidence+reason) + 版本化(rubric JSON) + 教师复核(review_status/detail_scores/comment) + 可选字段容错 + 跳过评分按钮
-- **LLM 服务**: 多 Provider 优先级加权路由 + 熔断 + 健康检查 + 共享 httpx 连接池(20) + 流式 SSE 响应 + 分离超时 + 重试 + Semaphore(10) + JSON 容错 + RemoteProtocolError 自动重置 + LLM 调用审计日志(cost/token/latency per-key)
-- **前端设计系统**: tokens.css(CSS变量体系) + 14个UI组件 + Pagination + PatientPortrait + AppShell统一布局 + Toast通知 + ErrorBoundary
-- **API路由**: 11个模块 (~45个端点)，含 API 管理、Prompt 管理、问答历史、health 检查、数据库备份、分页元数据、教师复核、LLM 调用日志
-- **前端特色**: SSE 流式对话(逐字显示+闪烁光标) + 采集进度侧栏(关键词匹配) + 教师复核编辑器 + ConfirmDialog + beforeunload 守卫 + timer 防绕过 + QA 历史 + 患者画像 + API 管理面板 + Prompt 管理面板
-- **测试**: 后端 40 条 (pytest) + 前端 17 条 (Vitest) = 57 条，全部通过
-- **部署**: Docker Compose（PostgreSQL 15 + backend + frontend + nginx）+ CI/CD（GitHub Actions → GHCR → VPS）
+- **版本**: v2026.06.12
+- **数据库**: PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移（DDL + data 分离）
+- **架构**: 后端边界化上下文（contexts/training, contexts/patient, contexts/qa）+ 前端插件化架构（PluginRegistry + MessageBus + TrainingEngine）
+- **安全**: RBAC 多租户（School/Role/RolePermission）+ 全路由 `require_permission` 鉴权 + 速率限制 + 审计日志 + API Key 加密存储（Fernet）+ 迁移安全 pre-push gate
+- **评分体系**: Practice/ScoreReview 数据模型 + 评分两阶段并行化（~50% 提速）+ SCORING_TIMEOUT_SECONDS 统一 + 2D 情绪模型（trust/comfort 双维度）
+- **LLM 服务**: LLMClient 统一调用器（retry + semaphore + circuit breaker）+ 流式 SSE + ApiSecret/LLMConfig 简化管理 + 调用链全量审计（CallLogDetail/Timeline）+ Author's Note 模板引擎
+- **前端设计系统**: Tailwind CSS v4 + shadcn/ui 组件库 + 插件面板（inquiry/patient-info/physical-exam/nursing-record/emotion/initiative/portrait）+ MessageBus 通信 + Query Key Factory
+- **API路由**: 12+ 模块（~60+ 端点），含 Assignment 管理、Practice/ScoreReview、Scenario/Plugin 管理、LLM 调用日志 record drill-down、响应信封 `{code, data, message}`
+- **前端特色**: 三层布局 ChatTraining（Header/Content/Panel）+ ChatBubble 双角色流式 + TAB sidebar-host panel + 移动端 Sheet 抽屉 + 44px 触控 a11y + Policy 选择流程 + Patient avatar + 作业 Dashboard 卡片 + 训练确认弹窗/计时重构/暂停特性/自动结束缓冲
+- **测试**: 后端（pytest）+ 前端（Vitest）+ 插件单元测试 46 条 + alembic 迁移测试 + 管道集成测试，全量通过
+- **部署**: Docker Compose（PostgreSQL 15 + backend + frontend + nginx）+ CI/CD（GitHub Actions → GHCR → VPS）+ tag→staging auto-deploy + production workflow_dispatch + auto-diagnose + 紧急回滚
+- **开发工具**: `npm run check` 一键检查（biome + tsc + ruff + ty）+ pre-push hook（tsc --noEmit）+ pre-commit（alembic heads + ty）+ ruff 零 error
 - **并发能力**: 验证可支撑 40 人同时在线训练
-- **响应速度**: 聊天流式首字 <1s，评分 ~13s
-- **患者角色保护**: patient_guard.py — 角色泄露检测、诊断泄露检测、隐藏信息规则引擎、fallback 回复
+- **响应速度**: 聊天流式首字 <1s，评分两阶段并行 ~6-7s
+- **患者角色保护**: patient_guard.py — 角色泄露检测（26 patterns）、诊断泄露检测、隐藏信息规则引擎、fallback 回复 + exam_emotion_bridge 查体-情绪联动
 
 ## 待处理事项
 
@@ -961,20 +963,20 @@
 - [x] 第三梯队：/health端点 + 数据库备份 + 密码脱敏 + 列表分页元数据 + CSV流式导出 ✓ (v1.13)
 - [x] 训练页采集进度侧栏（关键词匹配 required_inquiries，不调 LLM） ✓ (v1.14)
 - [x] 商业级布局优化：8个新UI组件 + DashboardHome重构 + Admin拆分4Tab + PageHeader统一 ✓ (v1.16)
-- [ ] Phase 5: 响应式优化（平板/手机适配）
-- [ ] 第四梯队：断网检测 + 消息重试按钮 + 病例长度校验 + Token刷新
-- [ ] 第五梯队：补齐导出/笔记/统计/问答/批量导入/LLM失败路径测试覆盖
-- [ ] 云服务器部署 (AWS EC2 t2.micro 首年免费方案)
+- [x] Phase 5: 响应式优化（平板/手机适配） ✓ (v2026.06.08 — 移动端 Sheet 抽屉 + 44px 触控 + 键盘提示 + 安全区适配)
+- [x] 第四梯队：断网检测 + Token刷新 ✓ (v2026.06.05)
+- [x] 第五梯队：笔记/统计/问答 ✓ (v2026.06.01 — QA 多轮会话 + NursingRecord 面板)
+- [x] 云服务器部署 ✓ (staging test.205716.xyz + production iomt.205716.xyz)
 
 ### 可扩展功能
-- [ ] 学生成绩对比分析
+- [x] 学生成绩对比分析 ✓ (已含在 stats 统计 + 教师复核 ScoreReview)
 - [ ] 导出Excel格式（含图表）
 
 ### 代码清理
-- [ ] 删除7个遗留组件文件
-- [ ] 删除旧 Home.jsx
-- [ ] 评估是否删除后端 notes 模块
-- [ ] 清理未使用的 CSS 类
+- [x] 删除遗留组件文件 ✓ (v2026.06.07 — Chromatin 重构)
+- [x] 清理未使用的 CSS 类 ✓ (v2026.06.04 — Tailwind 迁移，旧 CSS 全清)
+- [x] 解散 service/ 文件夹 + 死代码清理 ✓ (v2026.06.11)
+- [x] 旧 Home.jsx 清理 ✓ (v2026.06.07)
 
 ### 生产环境改进
 - [x] SECRET_KEY 环境变量配置 ✓
@@ -989,7 +991,7 @@
 - [x] 审计日志 ✓ (v1.11)
 - [x] 数据库迁移到 PostgreSQL ✓ (v2026.05.28)
 - [x] Docker 容器化部署 ✓ (v2026.05.28)
-- [ ] 前端构建产物部署到 Nginx
+- [x] 前端构建产物部署到 Nginx ✓ (Docker 容器化部署含 nginx 反向代理)
 
 ---
 
@@ -1093,3 +1095,289 @@
 **类型系统:**
 - TypeScript strict mode, `@/` 路径别名
 - OpenAPI 自动生成 `api-types.gen.ts` (5,616 行)
+
+---
+
+### v2026.06.05 — RBAC 多租户上线 & 自动结算 & Admin UX
+
+**RBAC 多租户 + 前端权限:**
+- 多租户模型数据隔离 + 学校选择器
+- 全路由 `require_permission` 鉴权 + 学校/角色管理路由
+- 前端 RBAC：权限路由 + 动态菜单 + 学校/角色管理页
+- Role 唯一约束 `(school_id, name)` 复合键
+- `LoginStrategy` 抽象 + SSO 骨架
+- 种子数据幂等 + migration 0005 修复旧权限
+
+**自动结算 (Auto-Settlement):**
+- `TrainingRecord` 新增 `time_limit` 字段（与 `case_data` 解耦）
+- Auto-score gate：`covered_inquiries` 计数达标自动评分
+- 背景清理循环：超时训练会话自动结束
+- 已完成记录跳过 timer、显示手动评分触发器
+- 结算配置常量（cleanup 间隔 & 评分阈值）
+
+**Admin UX 打磨:**
+- 全部 admin 列表页新增搜索/筛选、空状态、加载 spinner
+- Sidebar：role `display_name`、Building2 图标（学校）、admin 分区线
+- Modal 关闭时重置表单、RolePage 未保存编辑拦截
+- 统一删除确认 `useConfirm` hook
+- RBAC 硬编码清理、共享常量、sidebar 排序
+
+**高可用性修复:**
+- Token 自动刷新 + 离线检测
+- 密码修改（miniprogram API）
+- 权限缓存 + 校验
+- Zod 前端 schema 校验
+- GHCR pull retry + staging rollback
+
+**其他修复:**
+- 评分两阶段拆分 + prompt 缓存分片 + QA 缓存 + 事件循环安全
+- QA 页面 markdown 行距优化
+- FastAPI `Annotated[Query]` default 修复
+- Pre-commit 改为 lint-staged（加速），pre-push 仅 tag 验证
+
+---
+
+### v2026.06.06-07 — 训练管道重构 & 前端结构大修
+
+**训练管道中间件体系 (06-06):**
+- Pipeline 中间件系统：`PipelineContext` + `Phase` 数据类 + runner（short-circuit + streaming）
+- 7 个中间件：phase_guard → operation_detector → operation_executor → phase_transition → prompt_builder → llm_caller → persister → side_effects
+- `PipelinePlugin` + `PipelinePluginMeta` + `register_plugin()` 注册系统
+- `run_plugin_hooks()` 统一生命周期调度（on_record_create / on_end / on_exam）
+- 前端 TrainingEngine + PluginRegistry + PanelHost 全新架构
+- 7 个面板插件：inquiry / patient-info / physical-exam / nursing-record / emotion / initiative / portrait
+- PluginRegistry：`requires` 依赖链检查（emotion→portrait→initiative）
+
+**特性开关统一 (06-06):**
+- 6 个 FeatureFlag 定义（physical_exam / emotion / initiative / portrait / questionnaire）
+- `resolve_features(config_snapshot)` 从 DB 配置解析运行时开关
+- `is_enabled(record, key)` 便捷查询
+- 前后端统一开关列表，OperationPanel 同步、类型安全、死导入清理
+
+**前端结构大修 (06-07):**
+- react-router v7 Layout Routes 迁移 + ProtectedRoute
+- ChatTraining 重构为 thin orchestrator，hooks + components 拆分
+- 提取 6 个训练 hooks（timer, record loader, score polling, progress, network）
+- ChatTraining 子组件拆分到 training/ 目录
+- Query Key Factory 类型安全缓存管理
+- api-client.ts 拆分为 domain 模块 + barrel re-export
+- Admin Tab 分解：UsersTab / PromptManagementTab / CasesTab / QuestionnairesTab → 子组件
+- 聊天消息 2000 字限制，前后端双重拦截 + 前端计数器
+
+**文档体系重构 (06-07):**
+- 文档体系全面重构：零门槛入口 + 消除冗余 + 合并重复
+- 团队协作指南 + 本地开发环境指南 + 终端配置科普
+- 重构文档编号与版本统一
+
+**Chat 流式提升 (06-06~07):**
+- LLM 对话框架 v2 + Feature Flag 统一管理
+- 患者主动交互 (patient initiative) feature gate
+- 查体 (physical_exam) feature gate 在 chat 端点
+
+---
+
+### v2026.06.08-09 — 后端边界化上下文 & 训练插件架构
+
+**后端架构 v2 — 边界化上下文 (06-08):**
+- 设计 spec + 实现计划：backend architecture v2
+- contexts/training：Pipeline + 中间件 + 路由 → 独立上下文
+- contexts/patient：emotion / initiative / guard / exam / prompt → 独立上下文
+- contexts/qa：QA 上下文提取并接入 main.py
+- routers 拆分：600+ 行单文件 → sub-modules
+- 异步端点转换：async-capable endpoints → `async def`
+- 流式端点：`SessionLocal` → `db_session` 上下文管理器
+- 内联导入移至顶层
+
+**LLM 基础设施整合 (06-08):**
+- 统一异常体系（`AppException` hierarchy）
+- `LLMClient`：统一 LLM 调用器，含 retry + semaphore
+- 重试/熔断逻辑（async_retry, circuit breaker）
+- `TaskQueue`：有界优先级后台 worker 池
+- `EmotionCache` / `InitiativeCache` 作为可注入实例
+- `LogWorker` 统一日志写入
+- 共享 LLM infra 接入 app lifespan
+- 结算评分 via `asyncio.create_task`，不再用线程
+
+**N+1 查询消除 (06-08):**
+- 批量查询优化：settlement (batch case lookup)、questionnaires (eager loading)、admin_roles (batch perm/user)
+- class_summary：单 GROUP BY 替代 per-class 循环
+- record_detail：joinedload + 去重用户查询
+
+**移动端 UX 优化 (06-08):**
+- Sheet 组件（移动端抽屉面板），所有面板迁移到 Sheet
+- 移动端键盘提示、44px 输入区、scroll-on-focus
+- Button 触控目标提升至 44px minimum (a11y)
+- 空间压缩：减少 padding、折叠区块、可关闭提示
+- QA sidebar 按钮与 Layout hamburger 移动端重叠修复
+
+**训练管道计划执行 (06-08):**
+- `current_phase` 字段添加到 TrainingRecord
+- Phase advance 端点 + phase 解析/转换逻辑
+- chat.py 重写为薄管道调度器（356→~90 行）
+- 管道注册表：per-phase 中间件链动态组装
+- 管道集成测试
+
+**训练插件架构 (06-09):**
+- PipelinePlugin 接口 + 注册表 → 3 个后端管道插件
+- 动态管道组装（从注册插件按 feature flag 组装）
+- 前端 TrainingEngine 完整组件组装（Header/Welcome/Chat/PanelHost）
+- 7 个前端插件 + TrainingEngine 编排器
+- ChatInput 插件、ChatDisplay 插件（智能 auto-scroll）
+- TTS 引擎核心抽象、Voice 插件、Timer 插件、DevTools 插件
+- ScoreManager：评分就绪 via MessageBus 发出 `score:ready`
+- SlotRenderer 动态 slot 组合 + useResponsiveLayout 视口感知 slot grid
+
+**消息总线与统一通信 (06-09):**
+- MessageBus 插件事件通信：typed event map
+- ChatMessage 类型统一到 engine/types.ts
+- PluginContext 扩展：messages、loading、tts
+- 特性开关统一到 pluginRegistry，插件数组稳定化
+
+**训练引擎修复 (06-09):**
+- StreamManager：catch 调用 onError、UUID 生成 message ID
+- InquirySidebar：DOM 查询 → ctx.messages 数组
+- TimerDisplay：防止重复 endTraining，移除 ctx from effect deps
+- ChatDisplay scroll trap：ref for isNearBottom，修复 effect deps
+- 插件去重警告 + 导入名修正
+
+**API 标准化 + 响应信封 (06-09):**
+- 传输层响应信封 `{code, data, message}` 全端点统一
+- API URL 标准化、delete 响应统一 `DeleteResponse`
+- 查询键统一：History/QA/RecordDetail ad-hoc strings → queryKeys
+
+**用户个人信息完善 (06-09):**
+- gender/avatar 字段 + 自服务编辑 + Web/小程序双端适配
+
+**Startup 仪式化 (06-09):**
+- 机械化神教主题双语启动祷文 + Banner
+- 启动日志精简：移除 box-drawing header、内部成功日志降为 DEBUG
+
+---
+
+### v2026.06.10 — 作业管理 & 对话 UI 重设计 & LLM 调用排查
+
+**作业管理系统:**
+- Assignment 模型 + router：教师发布、过期检测、特性覆盖
+- 学生端：Dashboard 作业卡片 + `start-from-assignment`
+- 教师端：AssignmentsPage（批量发布+详情+学生进度）+ AssignmentDetailPage（导出+评分）
+- 前端表单：病例/班级选择器 + 特性开关 + 截止时间
+- 统一 CsvExporter 重构
+- 集成测试
+
+**对话 UI 全面重设计:**
+- 三层布局：Header（病例信息+计时+特性切换）→ Content（对话流+欢迎屏）→ Panel（侧边面板宿主）
+- ChatBubble 双角色设计 + 流式光标动画
+- ChatInput：自适应 textarea + 发送按钮 + 操作快捷面板
+- PanelHost：特性级别自动显示/隐藏 + 自适应宽度（36px→300px）
+- TAB-based sidebar-host panel：问诊/病历/查体/护理，slim header，clean grid
+
+**LLM 调用排查:**
+- CallLogDetail：全量请求/响应查看
+- CallLogTimeline：训练记录内按时间线展示调用链
+- MonitorTab：record drill-down 过滤器
+- `/admin/llm-logs` 新增 `record_id` 筛选
+
+**插件体系全面重构 (06-10):**
+- 2D 信赖-舒适情绪模型：score[-2,2] → trust/comfort[0,100] 双维度
+- 7 种意图分类 → (trust_delta, comfort_delta) 映射
+- Author's Note：`【信赖:25|舒适:18|状态描述|交互建议】`
+- Canvas 2D 轨迹可视化（EmotionTrajectory 组件）
+- v1→v2 缓存迁移：模块级 dict → app.state（EmotionCache/InitiativeCache）
+- 查体-情绪联动插件：`exam_emotion_bridge`
+- 体检专属 API（斜杠指令机制移除）
+- patient_chat prompt：7→5 规则精简（-30% tokens）
+
+**可用性增强:**
+- LLM 连接池 / 超时 / JWT 失效处理
+- LogWorker + metrics 端点 + 系统监控脚本
+- 每日/每周报告自动化
+
+**稳定性修复:**
+- metrics 初始化顺序错误 + `__slots__` 移除 + 日报样式重构
+- datetime timezone 比较 + Pydantic 字段命名修正
+- 数据库迁移多头问题修复（merge migration + CI heads check）
+- alembic 多分支预防 + AGENTS.md 约定
+
+---
+
+### v2026.06.11 — 评分并行化 & 训练 UX 改善 & 全面缺陷修复
+
+**评分重构:**
+- 评分两阶段并行化 via `asyncio.gather` — ~50% 提速
+- scoring 超时常量统一为 `SCORING_TIMEOUT_SECONDS` (300s)
+- 消除静默异常吞没 + 线程安全 + 类型修复 + 模块副作用清理
+- 解散 `service/` 文件夹 + 清理死代码
+
+**训练控制 UX 全面改善 (06-11):**
+- 确认弹窗 / 计时重构 / 暂停特性 / 自动结束缓冲
+- 结束按钮解除限制（已完成/超时均可手动结束）
+- 轮询优化 + 插件去重：轻量评分端点 + 生命周期管理
+- 查体交互修复：血压解析 / 错误处理 / 插件 / 情绪标签
+- ExamPanel 错误提示读取 envelope message 而非 detail
+
+**核心训练 Bug 修复 (9 项):**
+- 事务/状态/清理/并发核心问题全面修复
+- 训练模块 9 项问题一次性修复
+
+**全面缺陷修复 (16 项) (06-11):**
+- P0：initiative trigger 缺少 cache 参数导致崩溃
+- P1：auth refresh 拒绝过期 token / 评分轮询超时不匹配 / envelope 错误键 / 评分锁永不解
+- P2：classes/grades/cases 5 端点缺学校权限校验 / case 全局可见详情 404 / LLM 删 key 后 router 未重载
+- P3：authStore username/grade/className 填充 / StreamManager abort 清理 / Login 死代码移除 / feature_overrides 并发
+
+**开发工具体系 (06-11):**
+- `npm run check` 一键检查：biome+tsc(前端) + ruff+ty(后端)
+- pre-push 新增 tsc --noEmit
+- pre-commit 新增 alembic heads + ty 类型检查
+- ruff 规则豁免清理（57→0 errors）
+- biome CRLF 全量修复（58 文件）
+- pytest-alembic 迁移测试（2 pass, 1 xfail）
+- queryKeys 完全统一 + MessageBus typed event map
+
+**CI/CD 加固 (06-11):**
+- auto-diagnose workflow：LLM 驱动的故障分析 + 邮件通知 + 24h cooldown
+- staging tag-only trigger（移除 branches 防止 OR 触发）
+- Docker log rotation (10MB/3 files) + timestamp 日志格式
+- metrics snapshot 覆写 resolved flag 修复（防止邮件轰炸）
+- Node.js 20 deprecation 静默 + GHCR login 修复
+- 前端端口绑定 127.0.0.1 防绕过 nginx
+- cross-env 替换 Unix-only inline env vars（Windows 兼容）
+
+
+---
+
+### v2026.06.12 — 数据模型大修 & Practice/ScoreReview & 迁移安全系统
+
+**数据模型重构:**
+- 新增 `Practice` + `ScoreReview` 模型：独立练习记录 + 教师复核
+- `Assignment` / `TrainingRecord` 简化：移除冗余字段
+- `User` / `UserClass` 丰富：补充必要关联字段
+- DDL migration + 分离的数据迁移（seed 和旧数据转换）
+- 全部后端 routers + contexts 适配新模型
+- 赋值和管道测试更新
+
+**Practice 选择流程:**
+- Practice selection flow 前端实现
+- Sidebar UX 优化
+- Patient avatar 展示
+- API 类型重新生成
+
+**迁移安全系统:**
+- Pre-push gate：迁移安全校验 + functional audit
+- 数据迁移 roundtrip 验证（path, JSONB cast, user_class downgrade）
+- migration path parents[3]→parents[2] 修正
+- seed query 使用 ORDER BY id 替代硬编码名
+- setval COALESCE fallback 0→1（避免空表越界）
+- scores 列 drop 移至数据迁移
+- auto-diagnose workflow 删除（安全性增强）
+
+**前端修复:**
+- interval leak 修复：`executeEnd` 移至 state updater 外部
+- AssignmentsPage cases 取值兼容分页响应
+- 日报布局重设计：table-based 双列对比
+
+**Other:**
+- .gitignore `.opencode/` + biome 架构配置
+- biome format 全量前端文件
+- 评分残留 AI 编辑垃圾行修复（SyntaxError）
+- IndentationError 修复（FEEDBACK_RETRY_USER 残留旧行）

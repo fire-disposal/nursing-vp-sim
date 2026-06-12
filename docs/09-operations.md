@@ -1,6 +1,6 @@
 # 09 — 运维安全指南
 
-> 适用版本: v2026.06.04-5 | 最后更新: 2026-06-07
+> 适用版本: v2026.06.12 | 最后更新: 2026-06-12
 
 面对生产环境运维人员的操作手册，涵盖部署流程、回滚、备份、安全加固要点、应急预案。
 
@@ -15,6 +15,7 @@
 | `staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
 | `cd.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
 | `rollback.yml` | `workflow_dispatch`（手动） | 回滚 | — |
+| `maintenance.yml` | `workflow_dispatch`（手动） | 维护模式 | — |
 
 ### 日常发布流程
 
@@ -64,7 +65,7 @@ npm run tag → v2026.06.02-N
 | 项目 | 生产 | Staging |
 |------|------|---------|
 | 目录 | `/opt/nursing-vp-sim/` | `/opt/nursing-vp-staging/` |
-| Compose | `docker-compose.yml` | `docker-compose.staging.yml` |
+| Compose (来源) | `deploy/docker-compose.prod.yml` | `deploy/docker-compose.staging.yml` |
 | 前端端口 | 9000 | 9080 |
 | 后端端口 | 9001 | 9081 |
 | DB 端口 | 5433 | 5434 |
@@ -159,6 +160,7 @@ rm /opt/nursing-vp-sim/.version-history
 
 ### 基础命令
 
+**生产环境：**
 ```bash
 # 服务状态
 cd /opt/nursing-vp-sim && docker compose ps
@@ -174,6 +176,15 @@ docker compose restart
 # 停止/启动
 docker compose down
 docker compose up -d
+```
+
+**Staging 环境：**
+```bash
+cd /opt/nursing-vp-staging
+docker compose -f docker-compose.staging.yml ps
+docker logs nursing-backend-staging --tail 100
+docker logs nursing-frontend-staging --tail 100
+docker logs nursing-db-staging --tail 50
 ```
 
 ### 数据库管理
@@ -194,15 +205,18 @@ docker system df -v | grep ai_vp_pg_data
 
 | 项目 | 值 |
 |------|-----|
-| 容器名 | `nursing-db` |
+| 容器名 | `nursing-db` (prod) / `nursing-db-staging` (staging) |
 | 用户/数据库 | `nursing / nursing_vp` |
 | 宿主机端口 | `127.0.0.1:5433` |
 | 容器内端口 | `5432` |
 | 密码来源 | `.env` 中 `POSTGRES_PASSWORD` |
 
 ```bash
-# 从宿主机直连
+# 从宿主机直连 (生产)
 docker exec -it nursing-db psql -U nursing -d nursing_vp
+
+# 从宿主机直连 (staging)
+docker exec -it nursing-db-staging psql -U nursing -d nursing_vp
 
 # 从宿主机端口连接（需 psql 客户端）
 psql -h 127.0.0.1 -p 5433 -U nursing -d nursing_vp
@@ -213,8 +227,13 @@ psql -h 127.0.0.1 -p 5433 -U nursing -d nursing_vp
 **备份（SQL 转储）**
 
 ```bash
+# 生产
 cd /opt/nursing-vp-sim
 docker exec nursing-db pg_dump -U nursing -d nursing_vp > "backups/backup-$(date +%Y%m%d-%H%M%S).sql"
+
+# Staging
+cd /opt/nursing-vp-staging
+docker exec nursing-db-staging pg_dump -U nursing -d nursing_vp > "backups/backup-$(date +%Y%m%d-%H%M%S).sql"
 
 # 备份到远程（拉回本地）
 rsync -avz 用户名@服务器:/opt/nursing-vp-sim/backups/ ./local-backups/
@@ -225,8 +244,11 @@ CD 流水线每次部署前也会自动执行备份，存放在 `backups/pre-dep
 **恢复**
 
 ```bash
-# 前提：目标数据库为空。如果已有数据，先清空
+# 生产
 docker exec -i nursing-db psql -U nursing -d nursing_vp < backups/backup-20260602-143000.sql
+
+# Staging
+docker exec -i nursing-db-staging psql -U nursing -d nursing_vp < backups/backup-20260602-143000.sql
 ```
 
 **通过教师后台触发**
@@ -238,19 +260,30 @@ docker exec -i nursing-db psql -U nursing -d nursing_vp < backups/backup-2026060
 后端启动时自动执行 Alembic 迁移（`main.py` 启动事件）。Schema 变更通过代码中的模型定义自动同步，无需手动运行迁移命令。
 
 ```bash
-# 查看当前迁移版本
+# 查看当前迁移版本 (生产)
 docker exec nursing-vp-sim-backend-1 bash -c "cd /app && alembic current"
+
+# 查看当前迁移版本 (staging)
+docker exec nursing-backend-staging bash -c "cd /app && alembic current"
 
 # 手动生成迁移（开发时在本地执行）
 cd backend && uv run alembic revision --autogenerate -m "描述"
 cd backend && uv run alembic upgrade head
 ```
 
+提交前 pre-commit hook (`check-migration-autogen.js`) 会验证迁移规则：
+- autogenerate 文件不允许包含 `op.execute()`
+- 数据迁移必须有 `# Manual override reason: data_only` 标记
+- 空迁移不允许提交
+
 #### 常用诊断命令
 
 ```sql
--- 进入 psql
+-- 进入 psql (生产)
 docker exec -it nursing-db psql -U nursing -d nursing_vp
+
+-- 进入 psql (staging)
+docker exec -it nursing-db-staging psql -U nursing -d nursing_vp
 
 -- 查看所有表
 \dt
@@ -273,19 +306,31 @@ SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname
 #### 数据库重置（危险）
 
 ```bash
+# 生产
 cd /opt/nursing-vp-sim
 docker compose down -v   # 删除数据卷（含所有数据）
 docker compose up -d      # 重新创建 → 触发 seed 数据 → 默认账号恢复
+
+# Staging
+cd /opt/nursing-vp-staging
+docker compose -f docker-compose.staging.yml down -v
+IMAGE_VERSION=<version> docker compose -f docker-compose.staging.yml --env-file .env up -d
 ```
 
 ### 健康检查
 
 ```bash
-# 后端 API
-curl -s http://localhost:8000/api/health
+# 后端 API (生产)
+curl -s http://localhost:9001/api/health
 
-# 通过 Docker healthcheck
+# 后端 API (staging)
+curl -s http://localhost:9081/api/health
+
+# 通过 Docker healthcheck (生产)
 docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1
+
+# 通过 Docker healthcheck (staging)
+docker inspect --format='{{.State.Health.Status}}' nursing-backend-staging
 ```
 
 ---
@@ -335,9 +380,14 @@ docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1
 ssh user@<server_ip>
 docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 free -h && df -h && docker stats --no-stream
+# 生产
 docker logs nursing-vp-sim-backend-1 --tail 50
 docker logs nursing-vp-sim-frontend-1 --tail 50
 docker logs nursing-db --tail 50
+# Staging
+docker logs nursing-backend-staging --tail 50
+docker logs nursing-frontend-staging --tail 50
+docker logs nursing-db-staging --tail 50
 ```
 
 **应急措施**:
@@ -345,6 +395,10 @@ docker logs nursing-db --tail 50
 # 方案 A: 重启所有服务
 cd /opt/nursing-vp-sim
 docker compose -f docker-compose.yml up -d --force-recreate
+
+# Staging
+cd /opt/nursing-vp-staging
+docker compose -f docker-compose.staging.yml up -d --force-recreate
 
 # 方案 B: 仅重启后端
 docker restart nursing-vp-sim-backend-1
@@ -472,14 +526,14 @@ sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s 
 
 | # | 薄弱点 | 风险 | 应对 |
 |---|--------|------|------|
-| 1 | **患者角色守卫直通模式** (`backend/services/patient_guard.py`): 整个守卫系统硬编码直通 | 虚拟患者可能泄露是 AI、直接给出诊断 | 抽查对话记录，关注敏感词 |
+| 1 | **患者角色守卫直通模式** (`backend/contexts/patient/guard.py`): 整个守卫系统硬编码直通 | 虚拟患者可能泄露是 AI、直接给出诊断 | 抽查对话记录，关注敏感词 |
 | 2 | **Docker 容器无资源限制**: 任一容器可耗尽宿主机资源 | 拖垮整个系统 | 建议添加 `deploy.resources.limits`；监控 `docker stats` |
 | 3 | **无 Nginx 级速率限制**: 仅 Python 层 rate limit（内存型） | 大流量攻击仍能消耗 FastAPI 资源 | 在 nginx snippets 中添加 rate limit |
 | 4 | **JWT Token 无主动撤销机制** (`backend/core/security.py`): 角色变更后旧 token 仍有效（最长 8h） | 权限变更不立即生效 | 紧急情况改 `SECRET_KEY` 使所有 token 失效 |
 | 5 | **Token 存储在 localStorage** (`frontend/src/api/axios-instance.ts`): XSS 可窃取 | 身份凭证泄露 | 依赖 React XSS 防护 + CSP；长期方案迁移 HttpOnly Cookie |
 | 6 | **DB 备份失败静默忽略** (`.github/workflows/cd.yml`): 部署前备份使用 `|| echo " (skip)"` | 备份失败不会被感知 | 部署前手动确认备份有效 |
-| 7 | **LLM 环境变量兜底无限额** (`backend/services/llm_router.py`): 所有 DB 密钥失效后回退 `.env` key，无费用上限 | 可能产生高额费用 | 在 DeepSeek 控制台设置硬限额 |
-| 8 | **自动结算线程生命周期不可控** (`backend/services/auto_settlement.py`): daemon 线程进程终止时被强制 kill | 评分半途而废，DB 事务悬空 | 重启前确保无活跃评分 |
+| 7 | **LLM 环境变量兜底无限额** (`backend/infrastructure/llm/router.py`): 所有 DB 密钥失效后回退 `.env` key，无费用上限 | 可能产生高额费用 | 在 DeepSeek 控制台设置硬限额 |
+| 8 | **自动结算线程生命周期不可控** (`backend/infrastructure/settlement.py`): daemon 线程进程终止时被强制 kill | 评分半途而废，DB 事务悬空 | 重启前确保无活跃评分 |
 
 ---
 
