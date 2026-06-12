@@ -103,9 +103,9 @@ npm run tag
 ```
 npm run tag
   │
-  ├─ 1. 自动计算版本号 vYYYY.MM.DD-N（当天第 N 次）
-  ├─ 2. git tag v2026.06.07-1
-  ├─ 3. git push origin v2026.06.07-1
+  ├─ 1. 自动计算版本号 vYYYY.MM.DD-HH（按北京时间）
+  ├─ 2. git tag v2026.06.12-6
+  ├─ 3. git push origin v2026.06.12-6
   │
   ▼  推送 tag 触发 GitHub Actions staging.yml
   │

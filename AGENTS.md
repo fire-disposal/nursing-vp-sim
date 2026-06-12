@@ -45,15 +45,51 @@ cd backend && pytest -m pg
 cd backend && pytest -m "not pg"
 ```
 
+## Commit Format
+
+`<emoji> <type>: <description>`
+
+| Emoji | Type | Use |
+|-------|------|-----|
+| ✨ | feat | New feature |
+| 🐛 | fix | Bug fix |
+| 📝 | docs | Documentation |
+| ♻️ | refactor | Code restructure (no behavior change) |
+| 🔧 | chore | Config, dependencies, tooling |
+| ✅ | test | Tests |
+| 🎨 | style | UI / formatting |
+| 🚀 | ci | CI/CD workflows |
+| 📦 | build | Build config |
+| ⚡ | perf | Performance |
+| 🔀 | merge | Branch merge |
+| 🔒 | security | Security fixes |
+| 🗃️ | db | Database / migrations |
+| ⏪ | revert | Rollback |
+| 🔥 | remove | Delete code/feature |
+
+## Tag Naming
+
+`vYYYY.MM.DD-HH` — date + sequential hour suffix, Beijing time.
+
+```bash
+# Create and push
+git tag -a v2026.06.12-6 -m "describe changes"
+git push origin v2026.06.12-6
+```
+
+Only tag push triggers staging deployment. Never push directly to master expecting deploy.
+
+## Pre-push Gate
+
+All pushes pass through `.husky/pre-push`:
+- **Alembic roundtrip**: `alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
+- **TypeScript**: `tsc --noEmit`
+- **Tag format**: pushed tags must match `vYYYY.MM.DD-HH`
+
 ## Pre-commit Checks
 
 All commits must pass:
 - `ruff check` / `ruff format` (backend)
 - `biome check --write` (frontend)
 - `tsc --noEmit` (frontend)
-
-## Commit Format
-
-<emoji> <type>: <description>
-
-Types: feat, fix, refactor, ci, test, style, chore, perf, security, db, docs, remove
+- Migration autogen rules (`check-migration-autogen.js`)

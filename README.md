@@ -10,7 +10,7 @@
 
 ## 快速开始
 
-> 零基础用户请先看 **[START-HERE.md](START-HERE.md)** — 从工具安装到第一次修改代码，全程手把手。
+> 零基础用户请先看 **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** — 工具安装、提交规范、部署流程，全程手把手。
 
 ```bash
 # 首次安装
@@ -54,9 +54,8 @@ npm run dev
 
 | 顺序 | 文档 | 说明 |
 |------|------|------|
-| **0** | **[START-HERE.md](START-HERE.md)** | 零基础入口：工具安装、Vibe Coding 概念、从下载到第一次改代码 |
-| **1** | **[GIT-GUIDE.md](GIT-GUIDE.md)** | 提交格式、版本号、CI/CD 部署流程 |
-| **2** | **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** | 环境详解、提交规范、OpenCode 用法、Actions 说明 |
+| **0** | **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** | 零基础入口：工具安装、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
+| **→** | **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** | 环境详解、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
 | | | |
 | | [docs/01-architecture.md](docs/01-architecture.md) | 系统架构与技术栈 |
 | | [docs/02-api-reference.md](docs/02-api-reference.md) | API 接口文档 |
@@ -91,7 +90,7 @@ npm run dev
 
 Husky + commitlint 强制校验格式：`<emoji> <type>: <描述>`
 
-> 完整格式表和使用说明见 **[GIT-GUIDE.md](GIT-GUIDE.md)**
+> 完整格式表和使用说明见 **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)**
 
 ## 许可
 

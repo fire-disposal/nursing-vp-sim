@@ -375,7 +375,13 @@ fix scoring bug            ← 缺少 emoji
 :feat: 添加功能            ← 缺少 emoji
 ```
 
-> **完整 15 种类型表见 [GIT-GUIDE.md](../GIT-GUIDE.md)**。提交前自动运行 Biome 格式化前端代码，不用手动 format。提交后自动运行 commitlint 校验 type 枚举和格式，不匹配则拦截。
+> 提交前自动运行 Biome 格式化前端代码，不用手动 format。提交后自动运行 commitlint 校验 type 枚举和格式，不匹配则拦截。
+
+**常见问题**：
+- **commit 被 Husky 拦住了？** 看错误提示，最常见是忘了 emoji 或类型不匹配。用上方复制前缀即可。
+- **push tag 被拦住了？** tag 必须是 `vYYYY.MM.DD-N` 格式。用 `npm run tag` 自动生成就不会出错。
+- **为什么必须 Emoji 提交？** 一眼看出每次 commit 的类型——翻 `git log` 时立刻知道哪个是新功能、哪个是修 bug。
+- **`npm run tag` 提示 tag 已存在？** 正常——同天多次发版自动递增 `-N`。如已有 `v2026.06.12-1`，运行后生成 `v2026.06.12-2`。
 
 ### 2.3 快速复制前缀
 
@@ -646,7 +652,19 @@ git push origin v2026.06.07-1
 
 > **版本门禁**确保所有上生产的版本必须先经过测试服验证，杜绝未经测试的部署。
 
-### 5.4 rollback.yml — 紧急回滚
+### 5.3 两个环境对比
+
+| | 测试服 (Staging) | 正式服 (Production) |
+|---|---|---|
+| 域名 | `test.205716.xyz` | `iomt.205716.xyz` |
+| 部署 | 推送 `v*` tag → 自动 | GitHub Actions 手动触发 |
+| 数据库端口 | 5434 (独立) | 5433 (独立) |
+| 用途 | 开发人员验证 | 真实用户 |
+| 镜像 | 和正式服同一份 | 和测试服同一份 |
+
+> 测试服和正式服用**完全相同的 Docker 镜像**，测试服验证过的，正式服一定是同一份代码。
+
+### 5.5 rollback.yml — 紧急回滚
 
 **触发条件：** 手动触发，需输入目标版本号
 
@@ -665,7 +683,7 @@ ssh <user>@<host> "cd /opt/nursing-vp-sim && bash rollback.sh"
 
 > 回滚使用 `.version-history` 中记录的历史版本，自动拉取对应镜像并重启。
 
-### 5.5 maintenance.yml — 维护模式
+### 5.6 maintenance.yml — 维护模式
 
 **触发条件：** 手动触发，选择环境 + 操作
 
@@ -681,7 +699,7 @@ ssh <user>@<host> "cd /opt/nursing-vp-sim && bash rollback.sh"
 关闭维护: rm /opt/nursing-vp-sim/maintenance.on    → nginx reload
 ```
 
-### 5.6 一键操作速查
+### 5.7 一键操作速查
 
 | 想做什么 | 操作 |
 |----------|------|
@@ -749,5 +767,6 @@ npx vitest run
 | [01-系统架构](01-architecture.md) | 技术栈与架构设计 |
 | [02-API 接口文档](02-api-reference.md) | 完整 API 端点 |
 | [09-运维安全指南](09-operations.md) | 生产运维、应急预案 |
-| [GIT-GUIDE.md](../GIT-GUIDE.md) | Git/Husky/CI-CD 快速入门 |
 | [.github/DEPLOYMENT.md](../.github/DEPLOYMENT.md) | 部署流水线详解 |
+
+> **记住三件事就够了：** `git commit -m "✨ feat: 描述"` → `npm run tag` → GitHub Actions 手动触发 Production。

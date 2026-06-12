@@ -1042,7 +1042,7 @@
 **工具链:**
 - Husky emoji 升级（💄→🎨，新增 🔀merge 🔒security 🗃️db ⏪revert 🔥remove，共 15 种）
 - `npm run tag` 自动日期版本号生成
-- `GIT-GUIDE.md` 面向零基础入门
+- `docs/00-dev-onboarding.md` 统一面向零基础入门（已合并原 GIT-GUIDE.md）
 - SECURITY-AUDIT 精简（12→6 项待处理）
 
 **EmoGuard 优化:** Gunicorn 3→1 worker, Celery solo pool + embedded beat, -53% 内存（741→352 MB）

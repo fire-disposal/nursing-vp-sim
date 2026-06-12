@@ -6,7 +6,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| **[👉 从这里开始](../START-HERE.md)** | **零基础入口**：工具安装、Vibe Coding 概念、从下载到第一次改代码 |
+| **[👉 从这里开始](00-dev-onboarding.md)** | **零基础入口**：工具安装、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
 | [00-参与开发快速指南](00-dev-onboarding.md) | 环境搭建、提交规范、OpenCode使用、Git管理、Actions说明 |
 | [01-系统架构](01-architecture.md) | 技术栈、项目结构、架构设计 |
 | [02-API接口文档](02-api-reference.md) | 完整API端点、请求/响应格式 |
@@ -18,7 +18,6 @@
 | [08-概念设计与创新方向](08-conceptual-design.md) | 系统未来演进方向的概念探索：生理模拟引擎、护理记录书写训练、情感模型等 |
 | [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固、应急预案 |
 | [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) 两周变更记录 |
-| [Git/Husky/CI 指南](../GIT-GUIDE.md) | Git 工作流、提交规范、CI/CD 专题 |
 | [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理、协作流程 |
 | [部署流水线详解](../.github/DEPLOYMENT.md) | GitHub Actions 部署流水线技术细节 |
 
@@ -32,14 +31,12 @@
 ## 快速了解
 
 新接触项目？按顺序读：
-1. **[👉 从这里开始](../START-HERE.md)** — 工具安装、Vibe Coding、从零到第一次改代码
-2. **[Git/Husky/CI 指南](../GIT-GUIDE.md)** — 怎么提交、怎么发版、怎么部署
-3. **[00-参与开发快速指南](00-dev-onboarding.md)** — 环境详解、OpenCode 用法
+1. **[00-参与开发快速指南](00-dev-onboarding.md)** — 工具安装、怎么提交、怎么发版、怎么部署
 
 想了解代码结构：
-4. [06-开发日志](06-dev-log.md) — 当前进度与历史
-5. [01-系统架构](01-architecture.md) — 技术栈与架构设计
-6. [04-前端设计](04-frontend.md) — 前端组件、设计系统、布局
+2. [06-开发日志](06-dev-log.md) — 当前进度与历史
+3. [01-系统架构](01-architecture.md) — 技术栈与架构设计
+4. [04-前端设计](04-frontend.md) — 前端组件、设计系统、布局
 
 ## 核心功能
 
