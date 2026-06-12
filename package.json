@@ -13,6 +13,7 @@
     "check:frontend": "cd frontend && npx biome check . && npx tsc --noEmit",
     "db:migrate": "cd backend && uv run python -m alembic upgrade head",
     "db:migration": "cd backend && uv run python -m alembic revision --autogenerate -m",
+    "db:data": "node scripts/create-data-migration.js",
     "db:downgrade": "cd backend && uv run python -m alembic downgrade -1",
     "tag": "node .husky/_/auto-tag.mjs --push",
     "tag:local": "node .husky/_/auto-tag.mjs",
