@@ -164,12 +164,10 @@ class CaseGenerateResponse(BaseModel):
 
 class AssignmentCreateRequest(BaseModel):
     model_config = _REQ_CFG
-    case_id: int
+    practice_id: int
     class_id: int
     title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
-    config_id: str = Field(default="standard-assessment", max_length=50)
-    feature_overrides: dict[str, bool] = Field(default_factory=dict)
     start_time: datetime
     end_time: datetime
 
@@ -178,8 +176,6 @@ class AssignmentUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
-    config_id: str | None = Field(default=None, max_length=50)
-    feature_overrides: dict[str, bool] | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
 
@@ -188,7 +184,7 @@ class AssignmentListItem(BaseModel):
     model_config = _RESP_CFG
     id: str
     title: str
-    case_name: str = ""
+    practice_name: str = ""
     class_name: str = ""
     start_time: datetime
     end_time: datetime
@@ -216,12 +212,10 @@ class AssignmentDetail(BaseModel):
     id: str
     title: str
     description: str | None = None
-    case_id: int
-    case_name: str = ""
+    practice_id: int
+    practice_name: str = ""
     class_id: int
     class_name: str = ""
-    config_id: str
-    feature_overrides: dict[str, bool] = Field(default_factory=dict)
     start_time: datetime
     end_time: datetime
     created_at: datetime
@@ -236,7 +230,7 @@ class StudentAssignmentItem(BaseModel):
     model_config = _RESP_CFG
     id: str
     title: str
-    case_name: str
+    practice_name: str
     start_time: datetime
     end_time: datetime
     status: str = "pending"
@@ -250,7 +244,7 @@ class StudentAssignmentItem(BaseModel):
 class TrainingStartRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
-    config_id: str | None = None
+    practice_id: int | None = None
 
 
 class TrainingStartResponse(BaseModel):
@@ -1005,6 +999,61 @@ class OkResponse(BaseModel):
 class ToggleStatusResponse(BaseModel):
     ok: bool = True
     status: str
+
+
+# ── Practice ──
+
+
+class PracticeCreate(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+    case_id: int
+    mode: str = Field(default="training", pattern="^(training|assessment|free_play)$")
+    features: dict[str, bool] = Field(default_factory=dict)
+    behavior: dict[str, Any] = Field(default_factory=dict)
+    assessment: dict[str, Any] | None = None
+
+
+class PracticeUpdate(BaseModel):
+    model_config = _REQ_CFG
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+    case_id: int | None = None
+    mode: str | None = Field(default=None, pattern="^(training|assessment|free_play)$")
+    features: dict[str, bool] | None = None
+    behavior: dict[str, Any] | None = None
+    assessment: dict[str, Any] | None = None
+    is_active: bool | None = None
+
+
+class PracticeItem(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    description: str | None = None
+    case_id: int
+    case_name: str = ""
+    mode: str
+    features: dict[str, bool] = Field(default_factory=dict)
+    behavior: dict[str, Any] = Field(default_factory=dict)
+    assessment: dict[str, Any] | None = None
+    is_active: bool = True
+    training_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+PracticeResponse = PracticeItem
+
+
+class PracticeBrief(BaseModel):
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    mode: str
+    features: dict[str, bool] = Field(default_factory=dict)
+    behavior: dict[str, Any] = Field(default_factory=dict)
 
 
 # ── Questionnaire ──

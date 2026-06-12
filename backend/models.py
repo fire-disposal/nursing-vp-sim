@@ -1,11 +1,27 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import BigInteger, Float, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
+
+
+def _now_utc() -> datetime:
+    return datetime.now(UTC)
 
 
 class School(Base):
@@ -13,7 +29,7 @@ class School(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(80), unique=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
 
 class Role(Base):
@@ -44,8 +60,9 @@ class Grade(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
+    academic_year: Mapped[str | None] = mapped_column(String(9), nullable=True)
     school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"))
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     classes: Mapped[list["Class"]] = relationship(back_populates="grade", cascade="all, delete-orphan")
     school: Mapped["School"] = relationship()
@@ -61,7 +78,7 @@ class Class(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     grade_id: Mapped[int] = mapped_column(Integer, ForeignKey("grades.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(60))
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     grade: Mapped["Grade"] = relationship(back_populates="classes")
     user_classes: Mapped[list["UserClass"]] = relationship(back_populates="class_", cascade="all, delete-orphan")
@@ -71,16 +88,18 @@ class UserClass(Base):
     __tablename__ = "user_class"
     __table_args__ = (Index("ix_user_class_class_id", "class_id"),)
 
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     class_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("classes.id", ondelete="SET NULL"), nullable=True)
-    joined_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    joined_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
-    user: Mapped["User"] = relationship(back_populates="user_class")
+    user: Mapped["User"] = relationship(back_populates="user_classes")
     class_: Mapped["Class"] = relationship(back_populates="user_classes")
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (Index("ix_users_school_id", "school_id"), Index("ix_users_student_id", "student_id"))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
@@ -89,15 +108,19 @@ class User(Base):
     school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"))
     display_name: Mapped[str] = mapped_column(String(50))
     student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(120), nullable=True)
     gender: Mapped[str | None] = mapped_column(String(4), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
-    user_class: Mapped["UserClass | None"] = relationship(
-        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    user_classes: Mapped[list["UserClass"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
     role: Mapped["Role"] = relationship()
     school: Mapped["School"] = relationship()
@@ -120,9 +143,41 @@ class Case(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     case_data: Mapped[dict] = mapped_column(JSONB)
     school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     school: Mapped["School | None"] = relationship()
+    practices: Mapped[list["Practice"]] = relationship(back_populates="case")
+
+
+class Practice(Base):
+    __tablename__ = "practices"
+    __table_args__ = (
+        Index("ix_practices_case_id", "case_id"),
+        Index("ix_practices_school_id", "school_id"),
+        CheckConstraint(
+            "mode IN ('training', 'assessment', 'free_play')",
+            name="ck_practices_mode",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
+    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
+    mode: Mapped[str] = mapped_column(String(20), default="training")
+    features: Mapped[dict] = mapped_column(JSONB, default=dict)
+    behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
+    assessment: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
+
+    case: Mapped["Case"] = relationship(back_populates="practices")
+    school: Mapped["School | None"] = relationship()
+    assignments: Mapped[list["Assignment"]] = relationship(back_populates="practice")
+    training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="practice")
 
 
 class Assignment(Base):
@@ -130,23 +185,21 @@ class Assignment(Base):
     __table_args__ = (
         Index("ix_assignments_teacher", "teacher_id"),
         Index("ix_assignments_class", "class_id"),
-        Index("ix_assignments_case", "case_id"),
+        Index("ix_assignments_practice", "practice_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
+    practice_id: Mapped[int] = mapped_column(Integer, ForeignKey("practices.id", ondelete="RESTRICT"))
     class_id: Mapped[int] = mapped_column(Integer, ForeignKey("classes.id", ondelete="RESTRICT"))
     teacher_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="RESTRICT"))
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    config_id: Mapped[str] = mapped_column(String(50), default="standard-assessment")
-    feature_overrides: Mapped[dict] = mapped_column(JSONB, default=dict)
     start_time: Mapped[datetime] = mapped_column()
     end_time: Mapped[datetime] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
-    case: Mapped["Case"] = relationship()
+    practice: Mapped["Practice"] = relationship(back_populates="assignments")
     class_: Mapped["Class"] = relationship()
     teacher: Mapped["User"] = relationship(foreign_keys=[teacher_id])
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="assignment")
@@ -159,27 +212,43 @@ class TrainingRecord(Base):
         Index("ix_tr_status", "status"),
         Index("ix_tr_start_time", "start_time"),
         Index("ix_tr_case_id", "case_id"),
+        Index("ix_tr_practice_id", "practice_id"),
+        CheckConstraint(
+            "status IN ('in_progress', 'completed', 'abandoned')",
+            name="ck_training_records_status",
+        ),
+        CheckConstraint(
+            "scoring_status IN ('pending', 'processing', 'completed', 'failed')",
+            name="ck_training_records_scoring_status",
+        ),
+        CheckConstraint(
+            "current_phase IN ('history_taking', 'physical_exam', 'ending')",
+            name="ck_training_records_current_phase",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", name="fk_training_records_user_id"))
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", name="fk_training_records_case_id"))
+    practice_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("practices.id", name="fk_training_records_practice_id"), nullable=True
+    )
+    practice_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="in_progress")
     scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
-    config_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    config_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
     )
     is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
-    start_time: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    start_time: Mapped[datetime] = mapped_column(default=_now_utc)
     end_time: Mapped[datetime | None] = mapped_column(nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="training_records")
     case: Mapped["Case"] = relationship()
+    practice: Mapped["Practice | None"] = relationship(back_populates="training_records")
     assignment: Mapped["Assignment | None"] = relationship(back_populates="training_records")
     messages: Mapped[list["Message"]] = relationship(back_populates="record", order_by="Message.created_at")
     score: Mapped["Score | None"] = relationship(back_populates="record", uselist=False)
@@ -187,13 +256,20 @@ class TrainingRecord(Base):
 
 class Message(Base):
     __tablename__ = "messages"
-    __table_args__ = (Index("ix_msg_record_created", "record_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_msg_record_created", "record_id", "created_at"),
+        Index("ix_msg_role", "role"),
+        CheckConstraint(
+            "role IN ('student', 'patient', 'system')",
+            name="ck_messages_role",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id", name="fk_messages_record_id"))
     role: Mapped[str] = mapped_column(String(10))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     record: Mapped["TrainingRecord"] = relationship(back_populates="messages")
 
@@ -215,14 +291,27 @@ class Score(Base):
     model_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     prompt_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
     score_scale: Mapped[int | None] = mapped_column(Integer, nullable=True, default=100)
-    review_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    reviewed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    reviewed_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    review_detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    review_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     record: Mapped["TrainingRecord"] = relationship(back_populates="score")
+    reviews: Mapped[list["ScoreReview"]] = relationship(
+        back_populates="score", order_by="ScoreReview.created_at", cascade="all, delete-orphan"
+    )
+
+
+class ScoreReview(Base):
+    __tablename__ = "score_reviews"
+    __table_args__ = (Index("ix_score_reviews_score_id", "score_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    score_id: Mapped[int] = mapped_column(Integer, ForeignKey("scores.id", ondelete="CASCADE"))
+    reviewed_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    detail_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+
+    score: Mapped["Score"] = relationship(back_populates="reviews")
+    reviewer: Mapped["User | None"] = relationship()
 
 
 class Note(Base):
@@ -233,8 +322,8 @@ class Note(Base):
     record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"))
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class Rubric(Base):
@@ -249,8 +338,8 @@ class Rubric(Base):
     raw_scale: Mapped[int] = mapped_column(Integer, default=3)
     dimensions: Mapped[list] = mapped_column(JSONB)
     is_active: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class LLMCallLog(Base):
@@ -282,7 +371,7 @@ class LLMCallLog(Base):
     request_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     response_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(index=True, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
 
     config: Mapped["LLMConfig"] = relationship()
 
@@ -294,8 +383,8 @@ class QASession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     title: Mapped[str] = mapped_column(String(80))
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     user: Mapped["User"] = relationship()
     records: Mapped[list["QARecord"]] = relationship(back_populates="session", order_by="QARecord.created_at")
@@ -310,7 +399,7 @@ class QARecord(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     role: Mapped[str] = mapped_column(String(20))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(index=True, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
 
     user: Mapped["User"] = relationship()
     session: Mapped["QASession"] = relationship(back_populates="records")
@@ -339,8 +428,8 @@ class ApiSecret(Base):
     stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
     last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     configs: Mapped[list["LLMConfig"]] = relationship(back_populates="secret", cascade="all, delete-orphan")
 
@@ -360,13 +449,13 @@ class LLMConfig(Base):
     price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
     price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
     monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     secret: Mapped["ApiSecret"] = relationship(back_populates="configs")
 
 
-# DEPRECATED models — kept for migration compatibility
+# DEPRECATED — kept for migration compatibility, will be dropped in a future cleanup
 class ApiProvider(Base):
     __tablename__ = "api_providers"
 
@@ -378,8 +467,8 @@ class ApiProvider(Base):
     default_model: Mapped[str] = mapped_column(String(80))
     is_enabled: Mapped[bool] = mapped_column(default=True)
     priority: Mapped[int] = mapped_column(Integer, default=100)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class Feedback(Base):
@@ -395,7 +484,7 @@ class Feedback(Base):
     rating: Mapped[int] = mapped_column(Integer)
     tag: Mapped[str] = mapped_column(String(20))
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     user: Mapped["User"] = relationship()
 
@@ -414,8 +503,8 @@ class PromptTemplate(Base):
     is_active: Mapped[bool] = mapped_column(default=False)
     created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class QuestionnaireTemplate(Base):
@@ -429,8 +518,8 @@ class QuestionnaireTemplate(Base):
     type: Mapped[str] = mapped_column(String(20))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     questions: Mapped[list["QuestionnaireQuestion"]] = relationship(
         back_populates="template", order_by="QuestionnaireQuestion.sort_order", cascade="all, delete-orphan"
@@ -471,7 +560,7 @@ class QuestionnaireResponse(Base):
     )
     status: Mapped[str] = mapped_column(String(20), default="pending")
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     template: Mapped["QuestionnaireTemplate"] = relationship()
     user: Mapped["User"] = relationship()
@@ -520,8 +609,8 @@ class NursingRecord(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     sheet_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="draft")
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     record: Mapped["TrainingRecord"] = relationship()
     user: Mapped["User"] = relationship()
