@@ -78,7 +78,7 @@ def upgrade() -> None:
                 op.execute(
                     sa.text(
                         "INSERT INTO practices (name, case_id, mode, features, behavior, assessment, created_at, updated_at) "
-                        "VALUES (:name, :case_id, :mode, :features, :behavior, :assessment, now(), now())"
+                        "VALUES (:name, :case_id, :mode, CAST(:features AS jsonb), CAST(:behavior AS jsonb), CAST(:assessment AS jsonb), now(), now())"
                     ).bindparams(
                         name=cfg.get("name", cfg["id"]),
                         case_id=case_id,
@@ -106,9 +106,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Restore user_class composite PK
+    # Restore user_class composite PK (id column stays — DDL owns it)
     op.execute("ALTER TABLE user_class DROP CONSTRAINT IF EXISTS user_class_pkey")
-    op.drop_column('user_class', 'id')
+    op.alter_column('user_class', 'id', nullable=True)
     op.execute("ALTER TABLE user_class ADD PRIMARY KEY (user_id, class_id)")
 
     # Re-add review columns to scores as nullable

@@ -13,6 +13,46 @@ say()  { echo "${CYAN}$1${NC}"; }
 ok()   { echo "  ${GREEN}ok${NC}  $1"; }
 fail() { echo "  ${RED}FAIL${NC} $1"; PASS=1; }
 
+# ═══ Migration roundtrip test ═══
+HAS_ALEMBIC=false
+if [ -f "$ROOT/backend/alembic.ini" ]; then
+  MIGRATION_DIR="$ROOT/backend"
+  if [ -f "$MIGRATION_DIR/.venv/bin/alembic" ]; then
+    ALEMBIC="$MIGRATION_DIR/.venv/bin/alembic"
+  elif [ -f "$MIGRATION_DIR/.venv/Scripts/alembic.exe" ]; then
+    ALEMBIC="$MIGRATION_DIR/.venv/Scripts/alembic.exe"
+  fi
+  if [ -n "${ALEMBIC:-}" ] && [ -f "$ALEMBIC" ]; then
+    HAS_ALEMBIC=true
+  fi
+fi
+
+if $HAS_ALEMBIC; then
+  say "Migration roundtrip test"
+  cd "$MIGRATION_DIR"
+
+  export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/vptest}"
+
+  # Roundtrip: ensure head → downgrade one → upgrade back
+  if "$ALEMBIC" upgrade head 2>&1; then
+    if "$ALEMBIC" downgrade -1 2>&1; then
+      if "$ALEMBIC" upgrade head 2>&1; then
+        ok "alembic upgrade/downgrade roundtrip"
+      else
+        fail "alembic re-upgrade failed after downgrade"
+      fi
+    else
+      fail "alembic downgrade -1 failed — irreversible migration?"
+    fi
+  else
+    fail "alembic upgrade head failed — migration cannot be applied"
+  fi
+
+  cd "$ROOT"
+else
+  say "Migration roundtrip skipped (no alembic or DB tooling)"
+fi
+
 # ═══ Frontend type check ═══
 if [ -f "$ROOT/frontend/tsconfig.json" ]; then
   cd "$ROOT/frontend"
