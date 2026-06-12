@@ -9,14 +9,27 @@ import { physicalExamPlugin } from "@/plugins/physical-exam";
 import { portraitPlugin } from "@/plugins/portrait";
 
 export default function AdminDebugPage() {
-  const { recordId } = useParams<{ recordId: string }>();
+	const { recordId } = useParams<{ recordId: string }>();
 
-  if (!recordId) return <div className="flex h-screen items-center justify-center">缺少训练记录 ID</div>;
+	if (!recordId)
+		return (
+			<div className="flex h-screen items-center justify-center">
+				缺少训练记录 ID
+			</div>
+		);
 
-  return (
-    <TrainingEngine
-      recordId={recordId}
-      panelPlugins={[inquiryPlugin, patientInfoPlugin, physicalExamPlugin, nursingRecordPlugin, emotionPlugin, initiativePlugin, portraitPlugin]}
-    />
-  );
+	return (
+		<TrainingEngine
+			recordId={recordId}
+			panelPlugins={[
+				inquiryPlugin,
+				patientInfoPlugin,
+				physicalExamPlugin,
+				nursingRecordPlugin,
+				emotionPlugin,
+				initiativePlugin,
+				portraitPlugin,
+			]}
+		/>
+	);
 }

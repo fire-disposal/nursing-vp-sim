@@ -1,4 +1,11 @@
-import { Building2, ExternalLink, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import {
+	Building2,
+	ExternalLink,
+	Loader2,
+	Plus,
+	Search,
+	Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
@@ -12,193 +19,252 @@ import Modal from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 
 interface SchoolItem {
-  id: number;
-  name: string;
-  teacher_count: number;
-  student_count: number;
-  created_at: string;
+	id: number;
+	name: string;
+	teacher_count: number;
+	student_count: number;
+	created_at: string;
 }
 
 export default function SchoolsPage() {
-  const toast = useToast();
-  const navigate = useNavigate();
-  const [schools, setSchools] = useState<SchoolItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState("");
-  const [adminUsername, setAdminUsername] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [adminDisplayName, setAdminDisplayName] = useState("");
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
-  const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const LIMIT = 50;
-  const { confirm } = useConfirm();
+	const toast = useToast();
+	const navigate = useNavigate();
+	const [schools, setSchools] = useState<SchoolItem[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [showCreate, setShowCreate] = useState(false);
+	const [name, setName] = useState("");
+	const [adminUsername, setAdminUsername] = useState("");
+	const [adminPassword, setAdminPassword] = useState("");
+	const [adminDisplayName, setAdminDisplayName] = useState("");
+	const [search, setSearch] = useState("");
+	const [searchInput, setSearchInput] = useState("");
+	const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
+	const [offset, setOffset] = useState(0);
+	const [total, setTotal] = useState(0);
+	const LIMIT = 50;
+	const { confirm } = useConfirm();
 
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      setSearch(value);
-      setOffset(0);
-    }, 200);
-  };
+	const handleSearchChange = (value: string) => {
+		setSearchInput(value);
+		if (searchTimer.current) clearTimeout(searchTimer.current);
+		searchTimer.current = setTimeout(() => {
+			setSearch(value);
+			setOffset(0);
+		}, 200);
+	};
 
-  const loadSchools = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get("/admin/schools", { params: { search: search || undefined, limit: LIMIT, offset } });
-      setSchools(data.items || []);
-      setTotal(data.total || 0);
-    } catch {
-      toast.error("加载学校列表失败");
-    } finally {
-      setLoading(false);
-    }
-  };
+	const loadSchools = async () => {
+		setLoading(true);
+		try {
+			const { data } = await api.get("/admin/schools", {
+				params: { search: search || undefined, limit: LIMIT, offset },
+			});
+			setSchools(data.items || []);
+			setTotal(data.total || 0);
+		} catch {
+			toast.error("加载学校列表失败");
+		} finally {
+			setLoading(false);
+		}
+	};
 
-  useEffect(() => {
-    loadSchools();
-  }, [loadSchools]);
+	useEffect(() => {
+		loadSchools();
+	}, [loadSchools]);
 
-  const handleCreate = async () => {
-    if (!name.trim() || !adminUsername.trim() || !adminPassword || !adminDisplayName.trim()) {
-      toast.error("请填写所有字段");
-      return;
-    }
-    try {
-      await api.post("/admin/schools", { name, admin_username: adminUsername, admin_password: adminPassword, admin_display_name: adminDisplayName });
-      toast.success("学校创建成功");
-      setName("");
-      setAdminUsername("");
-      setAdminPassword("");
-      setAdminDisplayName("");
-      setShowCreate(false);
-      loadSchools();
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "创建失败");
-    }
-  };
+	const handleCreate = async () => {
+		if (
+			!name.trim() ||
+			!adminUsername.trim() ||
+			!adminPassword ||
+			!adminDisplayName.trim()
+		) {
+			toast.error("请填写所有字段");
+			return;
+		}
+		try {
+			await api.post("/admin/schools", {
+				name,
+				admin_username: adminUsername,
+				admin_password: adminPassword,
+				admin_display_name: adminDisplayName,
+			});
+			toast.success("学校创建成功");
+			setName("");
+			setAdminUsername("");
+			setAdminPassword("");
+			setAdminDisplayName("");
+			setShowCreate(false);
+			loadSchools();
+		} catch (e: any) {
+			toast.error(e?.response?.data?.detail || "创建失败");
+		}
+	};
 
-  const handleDelete = async (id: number, schoolName: string) => {
-    const ok = await confirm({
-      title: "删除学校",
-      message: `确定要删除学校「${schoolName}」？此操作不可恢复。`,
-    });
-    if (!ok) return;
-    try {
-      await api.delete(`/admin/schools/${id}`);
-      toast.success("学校已删除");
-      loadSchools();
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "删除失败");
-    }
-  };
+	const handleDelete = async (id: number, schoolName: string) => {
+		const ok = await confirm({
+			title: "删除学校",
+			message: `确定要删除学校「${schoolName}」？此操作不可恢复。`,
+		});
+		if (!ok) return;
+		try {
+			await api.delete(`/admin/schools/${id}`);
+			toast.success("学校已删除");
+			loadSchools();
+		} catch (e: any) {
+			toast.error(e?.response?.data?.detail || "删除失败");
+		}
+	};
 
-  return (
-    <>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="搜索学校名称..."
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
-            />
-          </div>
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> 新建学校
-          </Button>
-        </div>
+	return (
+		<>
+			<div className="space-y-6">
+				<div className="flex items-center gap-3 mb-4">
+					<div className="relative flex-1 max-w-xs">
+						<Search
+							size={16}
+							className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+						/>
+						<input
+							type="text"
+							placeholder="搜索学校名称..."
+							value={searchInput}
+							onChange={(e) => handleSearchChange(e.target.value)}
+							className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+						/>
+					</div>
+					<Button onClick={() => setShowCreate(true)}>
+						<Plus size={16} /> 新建学校
+					</Button>
+				</div>
 
-        <div className="rounded-xl border bg-card">
-          {loading && schools.length === 0 ? (
-            <div className="flex justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : schools.length === 0 ? (
-            <EmptyState icon={Building2} title="暂无学校" description="创建第一个学校后这里会显示" />
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="px-4 py-3">学校名称</th>
-                  <th className="px-4 py-3">教师数</th>
-                  <th className="px-4 py-3">学生数</th>
-                  <th className="px-4 py-3">创建时间</th>
-                  <th className="px-4 py-3">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schools.map((s) => (
-                  <tr key={s.id} className="border-b last:border-0 text-sm">
-                    <td className="px-4 py-3 font-medium">{s.name}</td>
-                    <td className="px-4 py-3">{s.teacher_count}</td>
-                    <td className="px-4 py-3">{s.student_count}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => navigate("/home")} title="进入此学校管理">
-                          <ExternalLink size={14} className="mr-1" />
-                          进入管理
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive h-8" onClick={() => handleDelete(s.id, s.name)}>
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+				<div className="rounded-xl border bg-card">
+					{loading && schools.length === 0 ? (
+						<div className="flex justify-center py-12">
+							<Loader2
+								size={24}
+								className="animate-spin text-muted-foreground"
+							/>
+						</div>
+					) : schools.length === 0 ? (
+						<EmptyState
+							icon={Building2}
+							title="暂无学校"
+							description="创建第一个学校后这里会显示"
+						/>
+					) : (
+						<table className="w-full">
+							<thead>
+								<tr className="border-b text-left text-sm text-muted-foreground">
+									<th className="px-4 py-3">学校名称</th>
+									<th className="px-4 py-3">教师数</th>
+									<th className="px-4 py-3">学生数</th>
+									<th className="px-4 py-3">创建时间</th>
+									<th className="px-4 py-3">操作</th>
+								</tr>
+							</thead>
+							<tbody>
+								{schools.map((s) => (
+									<tr key={s.id} className="border-b last:border-0 text-sm">
+										<td className="px-4 py-3 font-medium">{s.name}</td>
+										<td className="px-4 py-3">{s.teacher_count}</td>
+										<td className="px-4 py-3">{s.student_count}</td>
+										<td className="px-4 py-3 text-muted-foreground">
+											{s.created_at
+												? new Date(s.created_at).toLocaleDateString()
+												: ""}
+										</td>
+										<td className="px-4 py-3">
+											<div className="flex items-center gap-1">
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-8 text-xs"
+													onClick={() => navigate("/home")}
+													title="进入此学校管理"
+												>
+													<ExternalLink size={14} className="mr-1" />
+													进入管理
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="text-destructive h-8"
+													onClick={() => handleDelete(s.id, s.name)}
+												>
+													<Trash2 size={14} />
+												</Button>
+											</div>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					)}
+				</div>
 
-        {total > LIMIT && (
-          <div className="mt-4 flex justify-center">
-            <Pagination offset={offset} limit={LIMIT} total={total} onChange={(v) => setOffset(v)} />
-          </div>
-        )}
+				{total > LIMIT && (
+					<div className="mt-4 flex justify-center">
+						<Pagination
+							offset={offset}
+							limit={LIMIT}
+							total={total}
+							onChange={(v) => setOffset(v)}
+						/>
+					</div>
+				)}
 
-        <Modal
-          open={showCreate}
-          onClose={() => {
-            setName("");
-            setAdminUsername("");
-            setAdminPassword("");
-            setAdminDisplayName("");
-            setShowCreate(false);
-          }}
-          title="新建学校"
-        >
-          <div className="space-y-4 py-2">
-            <div>
-              <Label>学校名称</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：北京护理学院" />
-            </div>
-            <div>
-              <Label>管理员用户名</Label>
-              <Input value={adminUsername} onChange={(e) => setAdminUsername(e.target.value)} placeholder="学校管理员账号" />
-            </div>
-            <div>
-              <Label>管理员密码</Label>
-              <Input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="至少6位" />
-            </div>
-            <div>
-              <Label>管理员显示名</Label>
-              <Input value={adminDisplayName} onChange={(e) => setAdminDisplayName(e.target.value)} placeholder="管理员姓名" />
-            </div>
-            <Button className="w-full" onClick={handleCreate}>
-              创建学校
-            </Button>
-          </div>
-        </Modal>
-      </div>
-    </>
-  );
+				<Modal
+					open={showCreate}
+					onClose={() => {
+						setName("");
+						setAdminUsername("");
+						setAdminPassword("");
+						setAdminDisplayName("");
+						setShowCreate(false);
+					}}
+					title="新建学校"
+				>
+					<div className="space-y-4 py-2">
+						<div>
+							<Label>学校名称</Label>
+							<Input
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+								placeholder="例如：北京护理学院"
+							/>
+						</div>
+						<div>
+							<Label>管理员用户名</Label>
+							<Input
+								value={adminUsername}
+								onChange={(e) => setAdminUsername(e.target.value)}
+								placeholder="学校管理员账号"
+							/>
+						</div>
+						<div>
+							<Label>管理员密码</Label>
+							<Input
+								type="password"
+								value={adminPassword}
+								onChange={(e) => setAdminPassword(e.target.value)}
+								placeholder="至少6位"
+							/>
+						</div>
+						<div>
+							<Label>管理员显示名</Label>
+							<Input
+								value={adminDisplayName}
+								onChange={(e) => setAdminDisplayName(e.target.value)}
+								placeholder="管理员姓名"
+							/>
+						</div>
+						<Button className="w-full" onClick={handleCreate}>
+							创建学校
+						</Button>
+					</div>
+				</Modal>
+			</div>
+		</>
+	);
 }

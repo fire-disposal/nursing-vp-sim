@@ -6,14 +6,14 @@ import { defineConfig } from "vitest/config";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: { "@": path.resolve(__dirname, "src") },
-  },
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/__tests__/setup.ts"],
-    globals: true,
-    css: { modules: { classNameStrategy: "non-scoped" } },
-  },
+	plugins: [react()],
+	resolve: {
+		alias: { "@": path.resolve(__dirname, "src") },
+	},
+	test: {
+		environment: "jsdom",
+		setupFiles: ["./src/__tests__/setup.ts"],
+		globals: true,
+		css: { modules: { classNameStrategy: "non-scoped" } },
+	},
 });
