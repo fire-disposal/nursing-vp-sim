@@ -16,7 +16,7 @@ async def test_pipeline_shortcuts_on_operation():
     record.user_id = 1
     record.case_id = 1
     record.current_phase = None
-    record.config_snapshot = {"features": {"physical_exam": True}}
+    record.practice_snapshot = {"features": {"physical_exam": True}}
 
     user = MagicMock()
     user.id = 1
@@ -63,7 +63,7 @@ async def test_pipeline_shortcuts_on_operation():
     ctx.setup_phases()
     ctx.current_phase = Phase(id="history_taking", operations=["chat", "vitals", "bp", "temp", "spo2", "hr", "rr"])
 
-    pipe = get_pipeline("history_taking", {"physical_exam": True})
+    pipe = get_pipeline({"physical_exam": True})
     await run_pipeline(ctx, pipe)
 
     assert ctx.should_shortcut is True
@@ -80,7 +80,7 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     record.user_id = 1
     record.case_id = 1
     record.current_phase = None
-    record.config_snapshot = {"features": {}}
+    record.practice_snapshot = {"features": {}}
 
     user = MagicMock()
     user.id = 1
@@ -136,7 +136,7 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     ctx.current_phase = Phase(id="history_taking")
 
     # Run up to prompt_builder only (skip LLM call)
-    history_pipe = get_pipeline("history_taking")
+    history_pipe = get_pipeline()
     middlewares = [m for m in history_pipe if m.__name__ not in ("_llm_caller",)]
     await run_pipeline(ctx, middlewares)
 

@@ -34,17 +34,17 @@ class TestResolveFeatures:
 class TestIsEnabled:
     def test_false_by_default(self):
         record = MagicMock()
-        record.config_snapshot = None
+        record.practice_snapshot = None
         assert is_enabled(record, "physical_exam") is False
 
     def test_true_when_overridden(self):
         record = MagicMock()
-        record.config_snapshot = {"features": {"physical_exam": True}}
+        record.practice_snapshot = {"features": {"physical_exam": True}}
         assert is_enabled(record, "physical_exam") is True
 
     def test_unknown_key_returns_false(self):
         record = MagicMock()
-        record.config_snapshot = None
+        record.practice_snapshot = None
         assert is_enabled(record, "nonexistent") is False
 
 

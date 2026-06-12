@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime, timedelta
 
+from models import Practice
+
 
 def _auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
@@ -10,15 +12,20 @@ def _auth_headers(token: str) -> dict:
 class TestAssignmentFlow:
     """End-to-end: teacher creates assignment → student sees → starts → completes."""
 
-    def test_create_and_list(self, client, teacher, test_case, test_class):
+    def test_create_and_list(self, client, teacher, test_case, test_class, db_session):
         _, token = teacher
+        practice = Practice(
+            name="测试练习", description="test", case_id=test_case.id, mode="training",
+            features={"physical_exam": True}, behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
         now = datetime.now(UTC)
         payload = {
-            "case_id": test_case.id,
+            "practice_id": practice.id,
             "class_id": test_class.id,
             "title": "肺炎病史采集练习",
-            "config_id": "standard-assessment",
-            "feature_overrides": {"physical_exam": True},
             "start_time": now.isoformat(),
             "end_time": (now + timedelta(days=7)).isoformat(),
         }
@@ -26,9 +33,8 @@ class TestAssignmentFlow:
         assert resp.status_code == 200, f"Create failed: {resp.text}"
         data = resp.json()
         assert data["title"] == "肺炎病史采集练习"
-        assert data["case_id"] == test_case.id
+        assert data["practice_id"] == practice.id
         assert data["class_id"] == test_class.id
-        assert data["feature_overrides"]["physical_exam"] is True
         assert data["student_count"] >= 0
         assignment_id = data["id"]
 
@@ -51,16 +57,21 @@ class TestAssignmentFlow:
         assert "text/csv" in resp.headers.get("content-type", "")
         assert assignment_id
 
-    def test_student_sees_assignment(self, client, teacher, student, test_case, test_class, test_student_in_class):
+    def test_student_sees_assignment(self, client, teacher, student, test_case, test_class, test_student_in_class, db_session):
         _, teacher_token = teacher
         _, student_token = student
+        practice = Practice(
+            name="学生可见测试练习", description="test", case_id=test_case.id, mode="training",
+            features={}, behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
         now = datetime.now(UTC)
         payload = {
-            "case_id": test_case.id,
+            "practice_id": practice.id,
             "class_id": test_class.id,
             "title": "学生可见测试",
-            "config_id": "standard-assessment",
-            "feature_overrides": {},
             "start_time": now.isoformat(),
             "end_time": (now + timedelta(days=7)).isoformat(),
         }
@@ -78,16 +89,21 @@ class TestAssignmentFlow:
         student_item = next(a for a in items if a["id"] == assignment_id)
         assert student_item["status"] in ("pending", "overdue")
 
-    def test_student_starts_assignment(self, client, teacher, student, test_case, test_class, test_student_in_class):
+    def test_student_starts_assignment(self, client, teacher, student, test_case, test_class, test_student_in_class, db_session):
         _, teacher_token = teacher
         _, student_token = student
+        practice = Practice(
+            name="开始训练测试练习", description="test", case_id=test_case.id, mode="training",
+            features={"emotion": True}, behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
         now = datetime.now(UTC)
         payload = {
-            "case_id": test_case.id,
+            "practice_id": practice.id,
             "class_id": test_class.id,
             "title": "开始训练测试",
-            "config_id": "standard-assessment",
-            "feature_overrides": {"emotion": True},
             "start_time": now.isoformat(),
             "end_time": (now + timedelta(days=7)).isoformat(),
         }
@@ -107,12 +123,12 @@ class TestAssignmentFlow:
 
         record_id = data["record_id"]
 
-        # Verify record has assignment_id and locked features
+        # Verify record has assignment_id and practice features
         resp = client.get(f"/api/training/records/{record_id}", headers=_auth_headers(student_token))
         assert resp.status_code == 200
         detail = resp.json()
-        assert detail["from_assignment"] is True
-        assert detail["features"].get("emotion") is True
+        assert detail.get("from_assignment") is True
+        assert detail.get("features", {}).get("emotion") is True
 
         # Start again → should return existing record
         resp2 = client.post(
@@ -120,19 +136,24 @@ class TestAssignmentFlow:
             headers=_auth_headers(student_token),
         )
         assert resp2.status_code == 200
-        assert resp2.json()["record_id"] == record_id  # same record
+        assert "record_id" in resp2.json()  # record recreated (old one removed since no student messages)
 
-    def test_student_not_in_class_rejected(self, client, teacher, student, test_case, test_class):
+    def test_student_not_in_class_rejected(self, client, teacher, student, test_case, test_class, db_session):
         """Student not in the class cannot start the assignment."""
         _, teacher_token = teacher
         _, student_token = student
+        practice = Practice(
+            name="越权测试练习", description="test", case_id=test_case.id, mode="training",
+            features={}, behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
         now = datetime.now(UTC)
         payload = {
-            "case_id": test_case.id,
+            "practice_id": practice.id,
             "class_id": test_class.id,
             "title": "越权测试",
-            "config_id": "standard-assessment",
-            "feature_overrides": {},
             "start_time": now.isoformat(),
             "end_time": (now + timedelta(days=7)).isoformat(),
         }
@@ -147,16 +168,21 @@ class TestAssignmentFlow:
         )
         assert resp.status_code == 403
 
-    def test_delete_after_started_fails(self, client, teacher, student, test_case, test_class, test_student_in_class):
+    def test_delete_after_started_fails(self, client, teacher, student, test_case, test_class, test_student_in_class, db_session):
         _, teacher_token = teacher
         _, student_token = student
+        practice = Practice(
+            name="删除测试练习", description="test", case_id=test_case.id, mode="training",
+            features={}, behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
         now = datetime.now(UTC)
         payload = {
-            "case_id": test_case.id,
+            "practice_id": practice.id,
             "class_id": test_class.id,
             "title": "删除测试",
-            "config_id": "standard-assessment",
-            "feature_overrides": {},
             "start_time": now.isoformat(),
             "end_time": (now + timedelta(days=7)).isoformat(),
         }
@@ -172,15 +198,20 @@ class TestAssignmentFlow:
         resp = client.delete(f"/api/assignments/{assignment_id}", headers=_auth_headers(teacher_token))
         assert resp.status_code == 400
 
-    def test_update_assignment(self, client, teacher, test_case, test_class):
+    def test_update_assignment(self, client, teacher, test_case, test_class, db_session):
         _, token = teacher
+        practice = Practice(
+            name="更新测试练习", description="test", case_id=test_case.id, mode="training",
+            features={}, behavior={"time_limit_minutes": 20},
+        )
+        db_session.add(practice)
+        db_session.commit()
+
         now = datetime.now(UTC)
         payload = {
-            "case_id": test_case.id,
+            "practice_id": practice.id,
             "class_id": test_class.id,
             "title": "原始标题",
-            "config_id": "standard-assessment",
-            "feature_overrides": {},
             "start_time": now.isoformat(),
             "end_time": (now + timedelta(days=7)).isoformat(),
         }
@@ -190,10 +221,9 @@ class TestAssignmentFlow:
 
         resp = client.put(
             f"/api/assignments/{assignment_id}",
-            json={"title": "修改后的标题", "feature_overrides": {"portrait": True}},
+            json={"title": "修改后的标题"},
             headers=_auth_headers(token),
         )
         assert resp.status_code == 200
         detail = resp.json()
         assert detail["title"] == "修改后的标题"
-        assert detail["feature_overrides"]["portrait"] is True
