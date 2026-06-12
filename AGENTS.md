@@ -69,7 +69,7 @@ cd backend && pytest -m "not pg"
 
 ## Tag Naming
 
-`vYYYY.MM.DD-HH` — date + sequential hour suffix, Beijing time.
+`vYYYY.MM.DD-N` — date + sequential counter for the day, Beijing time.
 
 ```bash
 # Create and push
