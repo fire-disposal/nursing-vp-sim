@@ -92,13 +92,7 @@ def upgrade() -> None:
 
     op.create_index('ix_msg_role', 'messages', ['role'], unique=False)
 
-    # ── Scores: drop review columns ──
-
-    op.drop_column('scores', 'reviewed_by')
-    op.drop_column('scores', 'review_status')
-    op.drop_column('scores', 'reviewed_at')
-    op.drop_column('scores', 'review_comment')
-    op.drop_column('scores', 'review_detail_scores')
+    # ── Scores: review columns dropped in data migration after data copy ──
 
     # ── UserClass ──
 
@@ -154,11 +148,7 @@ def downgrade() -> None:
     op.drop_index('ix_tr_practice_id', table_name='training_records')
     op.drop_column('training_records', 'practice_snapshot')
     op.drop_column('training_records', 'practice_id')
-    op.add_column('scores', sa.Column('review_detail_scores', postgresql.JSONB(astext_type=sa.Text()), autoincrement=False, nullable=True))
-    op.add_column('scores', sa.Column('review_comment', sa.TEXT(), autoincrement=False, nullable=True))
-    op.add_column('scores', sa.Column('reviewed_at', postgresql.TIMESTAMP(), autoincrement=False, nullable=True))
-    op.add_column('scores', sa.Column('review_status', sa.VARCHAR(length=20), autoincrement=False, nullable=True))
-    op.add_column('scores', sa.Column('reviewed_by', sa.INTEGER(), autoincrement=False, nullable=True))
+    # scores review columns are now dropped in data migration's downgrade
     op.drop_index('ix_msg_role', table_name='messages')
     op.drop_column('grades', 'academic_year')
     op.drop_column('cases', 'updated_at')

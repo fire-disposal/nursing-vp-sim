@@ -55,13 +55,13 @@ def upgrade() -> None:
     # ── Roles: cleanup leftover column ──
     op.execute("ALTER TABLE roles DROP COLUMN IF EXISTS id_new")
 
-    # ── Migrate score review data to score_reviews ──
-    op.execute(
-        "INSERT INTO score_reviews (score_id, reviewed_by, detail_scores, comment, created_at) "
-        "SELECT id, reviewed_by, review_detail_scores, review_comment, reviewed_at "
-        "FROM scores "
-        "WHERE review_status IS NOT NULL AND reviewed_at IS NOT NULL"
-    )
+    # ── Scores: drop legacy review columns (data lost — no reviews in staging) ──
+    # DDL already created score_reviews table; old scores columns are no longer used.
+    op.drop_column('scores', 'reviewed_by')
+    op.drop_column('scores', 'review_status')
+    op.drop_column('scores', 'reviewed_at')
+    op.drop_column('scores', 'review_comment')
+    op.drop_column('scores', 'review_detail_scores')
 
     # ── Seed practices from session config JSONs ──
     import json
@@ -111,12 +111,12 @@ def downgrade() -> None:
     op.drop_column('user_class', 'id')
     op.execute("ALTER TABLE user_class ADD PRIMARY KEY (user_id, class_id)")
 
-    # Re-add review columns to scores as nullable (data was migrated in upgrade, lost here)
+    # Re-add review columns to scores as nullable
+    op.add_column('scores', sa.Column('review_detail_scores', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
+    op.add_column('scores', sa.Column('review_comment', sa.TEXT(), nullable=True))
+    op.add_column('scores', sa.Column('reviewed_at', sa.DateTime(), nullable=True))
     op.add_column('scores', sa.Column('review_status', sa.VARCHAR(length=20), nullable=True))
     op.add_column('scores', sa.Column('reviewed_by', sa.INTEGER(), nullable=True))
-    op.add_column('scores', sa.Column('reviewed_at', sa.DateTime(), nullable=True))
-    op.add_column('scores', sa.Column('review_comment', sa.TEXT(), nullable=True))
-    op.add_column('scores', sa.Column('review_detail_scores', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
 
     # Re-add NOT NULL to ddl-added columns (reverse the NOT NULL enforcement)
     op.alter_column('cases', 'updated_at', nullable=True)
