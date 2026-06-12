@@ -363,6 +363,32 @@
         ]
       }
     },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/users": {
       "get": {
         "tags": [
@@ -839,6 +865,22 @@
                 }
               ],
               "title": "Date To"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Record Id"
             }
           },
           {
@@ -1657,6 +1699,57 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/cases/{case_id}/practices": {
+      "get": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "List Case Practices",
+        "operationId": "list_case_practices_api_cases__case_id__practices_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PracticeBrief"
+                  },
+                  "title": "Response List Case Practices Api Cases  Case Id  Practices Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/cases/{case_id}": {
@@ -5036,13 +5129,13 @@
         }
       }
     },
-    "/api/admin/scenarios": {
+    "/api/admin/plugins": {
       "get": {
         "tags": [
-          "admin-scenarios"
+          "admin-plugins"
         ],
-        "summary": "List Scenarios",
-        "operationId": "list_scenarios_api_admin_scenarios_get",
+        "summary": "List Plugins",
+        "operationId": "list_plugins_api_admin_plugins_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5053,31 +5146,97 @@
             }
           }
         }
-      },
-      "post": {
+      }
+    },
+    "/api/admin/practices": {
+      "get": {
         "tags": [
-          "admin-scenarios"
+          "练习管理"
         ],
-        "summary": "Create Scenario",
-        "operationId": "create_scenario_api_admin_scenarios_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Data"
-              }
+        "summary": "List Practices",
+        "operationId": "list_practices_api_admin_practices_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
             }
           },
-          "required": true
-        },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_PracticeItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "练习管理"
+        ],
+        "summary": "Create Practice",
+        "operationId": "create_practice_api_admin_practices_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeItem"
+                }
               }
             }
           },
@@ -5094,21 +5253,26 @@
         }
       }
     },
-    "/api/admin/scenarios/{scenario_id}": {
+    "/api/admin/practices/{practice_id}": {
       "get": {
         "tags": [
-          "admin-scenarios"
+          "练习管理"
         ],
-        "summary": "Get Scenario",
-        "operationId": "get_scenario_api_admin_scenarios__scenario_id__get",
+        "summary": "Get Practice",
+        "operationId": "get_practice_api_admin_practices__practice_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "scenario_id",
+            "name": "practice_id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Scenario Id"
+              "type": "integer",
+              "title": "Practice Id"
             }
           }
         ],
@@ -5117,7 +5281,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeItem"
+                }
               }
             }
           },
@@ -5135,18 +5301,23 @@
       },
       "put": {
         "tags": [
-          "admin-scenarios"
+          "练习管理"
         ],
-        "summary": "Update Scenario",
-        "operationId": "update_scenario_api_admin_scenarios__scenario_id__put",
+        "summary": "Update Practice",
+        "operationId": "update_practice_api_admin_practices__practice_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "scenario_id",
+            "name": "practice_id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Scenario Id"
+              "type": "integer",
+              "title": "Practice Id"
             }
           }
         ],
@@ -5155,9 +5326,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Data"
+                "$ref": "#/components/schemas/PracticeUpdate"
               }
             }
           }
@@ -5167,7 +5336,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeItem"
+                }
               }
             }
           },
@@ -5185,18 +5356,23 @@
       },
       "delete": {
         "tags": [
-          "admin-scenarios"
+          "练习管理"
         ],
-        "summary": "Delete Scenario",
-        "operationId": "delete_scenario_api_admin_scenarios__scenario_id__delete",
+        "summary": "Delete Practice",
+        "operationId": "delete_practice_api_admin_practices__practice_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "scenario_id",
+            "name": "practice_id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "title": "Scenario Id"
+              "type": "integer",
+              "title": "Practice Id"
             }
           }
         ],
@@ -5205,7 +5381,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
               }
             }
           },
@@ -5216,25 +5394,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/plugins": {
-      "get": {
-        "tags": [
-          "admin-plugins"
-        ],
-        "summary": "List Plugins",
-        "operationId": "list_plugins_api_admin_plugins_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -6082,6 +6241,51 @@
         }
       }
     },
+    "/api/training/{record_id}/scoring-status": {
+      "get": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Get Scoring Status",
+        "operationId": "get_scoring_status_api_training__record_id__scoring_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/{record_id}/end": {
       "post": {
         "tags": [
@@ -6382,6 +6586,60 @@
             "schema": {
               "type": "integer",
               "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/{record_id}/exam/{op_type}": {
+      "post": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Perform Exam",
+        "operationId": "perform_exam_api_training__record_id__exam__op_type__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          },
+          {
+            "name": "op_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Op Type"
             }
           }
         ],
@@ -7516,6 +7774,22 @@
           }
         }
       }
+    },
+    "/api/metrics": {
+      "get": {
+        "summary": "Metrics",
+        "operationId": "metrics_api_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7830,9 +8104,9 @@
       },
       "AssignmentCreateRequest": {
         "properties": {
-          "case_id": {
+          "practice_id": {
             "type": "integer",
-            "title": "Case Id"
+            "title": "Practice Id"
           },
           "class_id": {
             "type": "integer",
@@ -7856,19 +8130,6 @@
             ],
             "title": "Description"
           },
-          "config_id": {
-            "type": "string",
-            "maxLength": 50,
-            "title": "Config Id",
-            "default": "standard-assessment"
-          },
-          "feature_overrides": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Feature Overrides"
-          },
           "start_time": {
             "type": "string",
             "format": "date-time",
@@ -7883,7 +8144,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "case_id",
+          "practice_id",
           "class_id",
           "title",
           "start_time",
@@ -7912,13 +8173,13 @@
             ],
             "title": "Description"
           },
-          "case_id": {
+          "practice_id": {
             "type": "integer",
-            "title": "Case Id"
+            "title": "Practice Id"
           },
-          "case_name": {
+          "practice_name": {
             "type": "string",
-            "title": "Case Name",
+            "title": "Practice Name",
             "default": ""
           },
           "class_id": {
@@ -7929,17 +8190,6 @@
             "type": "string",
             "title": "Class Name",
             "default": ""
-          },
-          "config_id": {
-            "type": "string",
-            "title": "Config Id"
-          },
-          "feature_overrides": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Feature Overrides"
           },
           "start_time": {
             "type": "string",
@@ -7988,9 +8238,8 @@
         "required": [
           "id",
           "title",
-          "case_id",
+          "practice_id",
           "class_id",
-          "config_id",
           "start_time",
           "end_time",
           "created_at",
@@ -8008,9 +8257,9 @@
             "type": "string",
             "title": "Title"
           },
-          "case_name": {
+          "practice_name": {
             "type": "string",
-            "title": "Case Name",
+            "title": "Practice Name",
             "default": ""
           },
           "class_name": {
@@ -8176,32 +8425,6 @@
               }
             ],
             "title": "Description"
-          },
-          "config_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Config Id"
-          },
-          "feature_overrides": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "boolean"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Feature Overrides"
           },
           "start_time": {
             "anyOf": [
@@ -8933,9 +9156,13 @@
       },
       "EmotionStateResponse": {
         "properties": {
-          "score": {
+          "trust": {
             "type": "integer",
-            "title": "Score"
+            "title": "Trust"
+          },
+          "comfort": {
+            "type": "integer",
+            "title": "Comfort"
           },
           "state": {
             "type": "string",
@@ -8956,7 +9183,8 @@
         },
         "type": "object",
         "required": [
-          "score",
+          "trust",
+          "comfort",
           "state",
           "note"
         ],
@@ -9304,17 +9532,6 @@
             "type": "boolean",
             "title": "Should Trigger",
             "default": false
-          },
-          "last_triggered_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Triggered At"
           }
         },
         "type": "object",
@@ -10364,6 +10581,37 @@
         ],
         "title": "PaginatedResponse[LLMCallLogItem]"
       },
+      "PaginatedResponse_PracticeItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PracticeItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[PracticeItem]"
+      },
       "PaginatedResponse_QASessionAdminItem_": {
         "properties": {
           "items": {
@@ -10634,6 +10882,298 @@
           "order"
         ],
         "title": "PhaseAdvanceResponse"
+      },
+      "PracticeBrief": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "behavior": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Behavior"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "mode"
+        ],
+        "title": "PracticeBrief"
+      },
+      "PracticeCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "mode": {
+            "type": "string",
+            "pattern": "^(training|assessment|free_play)$",
+            "title": "Mode",
+            "default": "training"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "behavior": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Behavior"
+          },
+          "assessment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "case_id"
+        ],
+        "title": "PracticeCreate"
+      },
+      "PracticeItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "behavior": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Behavior"
+          },
+          "assessment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          },
+          "training_count": {
+            "type": "integer",
+            "title": "Training Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "case_id",
+          "mode",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PracticeItem"
+      },
+      "PracticeUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(training|assessment|free_play)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "features": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Features"
+          },
+          "behavior": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Behavior"
+          },
+          "assessment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PracticeUpdate"
       },
       "PromptPreviewResponse": {
         "properties": {
@@ -12759,9 +13299,9 @@
             "type": "string",
             "title": "Title"
           },
-          "case_name": {
+          "practice_name": {
             "type": "string",
-            "title": "Case Name"
+            "title": "Practice Name"
           },
           "start_time": {
             "type": "string",
@@ -12805,7 +13345,7 @@
         "required": [
           "id",
           "title",
-          "case_name",
+          "practice_name",
           "start_time",
           "end_time"
         ],
@@ -13350,6 +13890,11 @@
             },
             "type": "object",
             "title": "Features"
+          },
+          "from_assignment": {
+            "type": "boolean",
+            "title": "From Assignment",
+            "default": false
           }
         },
         "type": "object",
@@ -13371,16 +13916,16 @@
             "type": "integer",
             "title": "Case Id"
           },
-          "config_id": {
+          "practice_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Config Id"
+            "title": "Practice Id"
           }
         },
         "additionalProperties": false,
