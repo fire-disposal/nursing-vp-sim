@@ -67,7 +67,7 @@ def upgrade() -> None:
     import json
     from pathlib import Path
 
-    config_dir = Path(__file__).resolve().parents[3] / "data" / "session_configs"
+    config_dir = Path(__file__).resolve().parents[2] / "data" / "session_configs"
     if config_dir.exists():
         case_id = op.get_bind().execute(
             sa.text("SELECT id FROM cases ORDER BY id LIMIT 1")
@@ -92,7 +92,7 @@ def upgrade() -> None:
     # ── Migrate assignments: config_id → practice_id ──
     op.execute(
         "UPDATE assignments a SET practice_id = ("
-        "  SELECT p.id FROM practices p WHERE p.name = 'standard-assessment' LIMIT 1"
+        "  SELECT p.id FROM practices p ORDER BY p.id LIMIT 1"
         ") WHERE a.practice_id IS NULL"
     )
     op.alter_column('assignments', 'practice_id', nullable=False)
