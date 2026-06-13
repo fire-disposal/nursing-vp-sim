@@ -614,3 +614,27 @@ class NursingRecord(Base):
 
     record: Mapped["TrainingRecord"] = relationship()
     user: Mapped["User"] = relationship()
+
+
+class SystemNotification(Base):
+    __tablename__ = "system_notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "level IN ('info', 'warning', 'success')",
+            name="ck_sn_level",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    content: Mapped[str] = mapped_column(Text)
+    level: Mapped[str] = mapped_column(String(20), default="info")
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_by: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    published_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
+
+    creator: Mapped["User | None"] = relationship()
