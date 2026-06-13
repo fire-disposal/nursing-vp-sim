@@ -254,7 +254,7 @@ export default function PromptManagementTab() {
 			<div className="mb-4 flex gap-2">
 				<Button
 					variant="outline"
-					className="border-blue-600 text-blue-600"
+					className="border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
 					onClick={() => setShowActiveModal(true)}
 				>
 					<Eye size={13} /> 查看生效版本
@@ -342,8 +342,8 @@ export default function PromptManagementTab() {
 									className={cn(
 										"text-xs px-1.5 py-0.5 rounded-full font-semibold",
 										eff.is_builtin
-											? "bg-amber-100 text-amber-700"
-											: "bg-green-100 text-green-700",
+											? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+											: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
 									)}
 								>
 									{eff.is_builtin ? "系统内置" : `DB v${eff.version}`}

@@ -141,9 +141,9 @@ export default function PromptForm({
 							type="button"
 							onClick={onTogglePreview}
 							className={cn(
-								"px-2 py-0.5 border border-blue-300 rounded-sm text-xs font-semibold cursor-pointer",
+								"px-2 py-0.5 border border-blue-300 rounded-sm text-xs font-semibold cursor-pointer dark:border-blue-700",
 								showEditorPreview
-									? "bg-blue-500 text-white"
+									? "bg-blue-500 text-white dark:bg-blue-600"
 									: "bg-card text-primary",
 							)}
 						>
@@ -158,9 +158,9 @@ export default function PromptForm({
 					className={cn(
 						"flex-1 min-h-[200px] w-full p-2 rounded-lg text-sm font-mono resize-y",
 						showEditorPreview
-							? "border border-blue-300 bg-blue-50"
+							? "border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950"
 							: isBuiltinEditing
-								? "border border-amber-200 bg-amber-50"
+								? "border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"
 								: "border border-border bg-card",
 						"text-foreground focus:outline-none focus:border-blue-500",
 					)}
@@ -184,9 +184,9 @@ export default function PromptForm({
 						className={cn(
 							"w-full p-2 rounded-lg text-sm font-mono resize-y",
 							showEditorPreview
-								? "border border-blue-300 bg-blue-50"
+								? "border border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950"
 								: isBuiltinEditing
-									? "border border-amber-200 bg-amber-50"
+									? "border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"
 									: "border border-border bg-card",
 							"text-foreground focus:outline-none focus:border-blue-500",
 						)}
@@ -229,7 +229,7 @@ export default function PromptForm({
 					className={cn(
 						"p-3 rounded-lg mb-3 text-sm",
 						validation.valid
-							? "bg-green-50 text-green-700"
+							? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
 							: "bg-destructive/10 text-destructive",
 					)}
 				>
@@ -248,7 +248,7 @@ export default function PromptForm({
 				{editedPrompt && !editedPrompt.is_active && (
 					<Button
 						variant="outline"
-						className="border-green-400 bg-green-50 text-green-700"
+						className="border-green-400 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-950 dark:text-green-300"
 						onClick={() => onActivate(editedPrompt)}
 					>
 						<CheckCircle size={14} /> 保存并激活

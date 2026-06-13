@@ -64,7 +64,7 @@ export default function PromptList({
 								<Button
 									variant="outline"
 									size="xs"
-									className="bg-blue-50 border-blue-200 text-blue-600"
+									className="bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-400"
 									onClick={(e) => {
 										e.stopPropagation();
 										onOpenNew(purpose);
@@ -94,16 +94,16 @@ export default function PromptList({
 												className={cn(
 													"flex items-center gap-2 px-4 py-2 border-t border-border cursor-pointer transition-colors",
 													v.locked
-														? "bg-amber-50/50 hover:bg-amber-100/50"
+														? "bg-amber-50/50 hover:bg-amber-100/50 dark:bg-amber-950/30 dark:hover:bg-amber-900/40"
 														: editing === v.id
-															? "bg-blue-50"
+															? "bg-blue-50 dark:bg-blue-950/50"
 															: v.is_active
-																? "bg-green-50"
+																? "bg-green-50 dark:bg-green-950/30"
 																: "bg-transparent",
 												)}
 											>
 												{v.locked ? (
-													<span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-amber-100 border border-amber-200 min-w-[36px] text-center text-amber-700">
+													<span className="text-xs font-bold px-1.5 py-0.5 rounded-sm bg-amber-100 border border-amber-200 min-w-[36px] text-center text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300">
 														内置
 													</span>
 												) : (
@@ -115,7 +115,7 @@ export default function PromptList({
 													{v.name || "-"}
 												</span>
 												{v.is_active ? (
-													<span className="text-xs px-1.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap inline-flex items-center gap-0.5">
+													<span className="text-xs px-1.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap inline-flex items-center gap-0.5 dark:bg-green-900/30 dark:text-green-300">
 														<CheckCircle size={10} />{" "}
 														{v.locked ? "内置生效" : "激活"}
 													</span>

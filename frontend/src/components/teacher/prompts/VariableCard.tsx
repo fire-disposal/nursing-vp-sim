@@ -56,18 +56,18 @@ export default function VariableCard({
 	return (
 		<div className="border border-border rounded-lg p-2 bg-muted">
 			<div className="flex items-center justify-between mb-1">
-				<code className="text-sm font-semibold text-blue-700">
+				<code className="text-sm font-semibold text-blue-700 dark:text-blue-400">
 					{"{#}"}
 					{vName}
 					{"#}"}
 				</code>
 				<div className="flex items-center gap-1">
 					{isSystem && (
-						<span className="text-[0.625rem] bg-amber-100 text-amber-700 px-1 rounded-full leading-[17px] whitespace-nowrap">
+						<span className="text-[0.625rem] bg-amber-100 text-amber-700 px-1 rounded-full leading-[17px] whitespace-nowrap dark:bg-amber-900/30 dark:text-amber-300">
 							系统注入
 						</span>
 					)}
-					<span className="text-xs text-muted-foreground/70 bg-gray-100 px-1.5 rounded-full">
+					<span className="text-xs text-muted-foreground/70 bg-gray-100 px-1.5 rounded-full dark:bg-gray-800">
 						{meta.type || "string"}
 					</span>
 				</div>
@@ -84,7 +84,7 @@ export default function VariableCard({
 						}}
 						autoFocus
 						placeholder="变量描述..."
-						className="w-full text-xs py-0.5 px-1.5 border border-blue-300 rounded outline-none"
+						className="w-full text-xs py-0.5 px-1.5 border border-blue-300 rounded outline-none dark:border-blue-700 dark:bg-card"
 					/>
 				</div>
 			) : (
@@ -114,7 +114,7 @@ export default function VariableCard({
 							}}
 							autoFocus
 							placeholder="变量来源..."
-							className="w-full text-xs py-0.5 px-1.5 border border-amber-300 rounded outline-none"
+							className="w-full text-xs py-0.5 px-1.5 border border-amber-300 rounded outline-none dark:border-amber-700 dark:bg-card"
 						/>
 					</div>
 				) : (
@@ -151,7 +151,7 @@ export default function VariableCard({
 							}}
 							autoFocus
 							placeholder="默认值..."
-							className="w-full text-xs py-0.5 px-1.5 border border-green-300 rounded outline-none"
+							className="w-full text-xs py-0.5 px-1.5 border border-green-300 rounded outline-none dark:border-green-700 dark:bg-card"
 						/>
 					) : (
 						<div
