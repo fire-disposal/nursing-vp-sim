@@ -26,109 +26,153 @@ def upgrade() -> None:
 
     # ── New tables ──
 
-    op.create_table('practices',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=100), nullable=False),
-    sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('case_id', sa.Integer(), nullable=False),
-    sa.Column('school_id', sa.Integer(), nullable=True),
-    sa.Column('mode', sa.String(length=20), nullable=False),
-    sa.Column('features', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('behavior', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('assessment', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.CheckConstraint("mode IN ('training', 'assessment', 'free_play')", name='ck_practices_mode'),
-    sa.ForeignKeyConstraint(['case_id'], ['cases.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['school_id'], ['schools.id'], ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('ix_practices_case_id', 'practices', ['case_id'], unique=False)
-    op.create_index('ix_practices_school_id', 'practices', ['school_id'], unique=False)
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
 
-    op.create_table('score_reviews',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('score_id', sa.Integer(), nullable=False),
-    sa.Column('reviewed_by', sa.Integer(), nullable=True),
-    sa.Column('detail_scores', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.Column('comment', sa.Text(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['reviewed_by'], ['users.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['score_id'], ['scores.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('ix_score_reviews_score_id', 'score_reviews', ['score_id'], unique=False)
+    if "practices" not in insp.get_table_names():
+        op.create_table('practices',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('case_id', sa.Integer(), nullable=False),
+        sa.Column('school_id', sa.Integer(), nullable=True),
+        sa.Column('mode', sa.String(length=20), nullable=False),
+        sa.Column('features', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column('behavior', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column('assessment', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.CheckConstraint("mode IN ('training', 'assessment', 'free_play')", name='ck_practices_mode'),
+        sa.ForeignKeyConstraint(['case_id'], ['cases.id'], ondelete='RESTRICT'),
+        sa.ForeignKeyConstraint(['school_id'], ['schools.id'], ondelete='SET NULL'),
+        sa.PrimaryKeyConstraint('id')
+        )
+        op.create_index('ix_practices_case_id', 'practices', ['case_id'], unique=False)
+        op.create_index('ix_practices_school_id', 'practices', ['school_id'], unique=False)
 
+    if "score_reviews" not in insp.get_table_names():
+        op.create_table('score_reviews',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('score_id', sa.Integer(), nullable=False),
+        sa.Column('reviewed_by', sa.Integer(), nullable=True),
+        sa.Column('detail_scores', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('comment', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['reviewed_by'], ['users.id'], ondelete='SET NULL'),
+        sa.ForeignKeyConstraint(['score_id'], ['scores.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id')
+        )
+        op.create_index('ix_score_reviews_score_id', 'score_reviews', ['score_id'], unique=False)
     # ── Assignment changes ──
 
-    op.add_column('assignments', sa.Column('practice_id', sa.Integer(), nullable=True))
-    op.create_index('ix_assignments_practice', 'assignments', ['practice_id'], unique=False)
-    op.create_foreign_key(None, 'assignments', 'practices', ['practice_id'], ['id'], ondelete='RESTRICT')
-    op.drop_constraint('assignments_case_id_fkey', 'assignments', type_='foreignkey')
-    op.drop_index(op.f('ix_assignments_case'), table_name='assignments')
-    op.drop_column('assignments', 'feature_overrides')
-    op.drop_column('assignments', 'config_id')
-    op.drop_column('assignments', 'case_id')
+    cols = [c["name"] for c in insp.get_columns("assignments")]
+    if "practice_id" not in cols:
+        op.add_column('assignments', sa.Column('practice_id', sa.Integer(), nullable=True))
+    # Check if index already exists before creating
+    existing_idxs = {i["name"] for i in insp.get_indexes("assignments")}
+    if "ix_assignments_practice" not in existing_idxs:
+        op.create_index('ix_assignments_practice', 'assignments', ['practice_id'], unique=False)
+    # FK guard: check if constraint name already exists
+    existing_fks = {fk["name"] for fk in insp.get_foreign_keys("assignments")}
+    if "assignments_practice_id_fkey" not in existing_fks:
+        op.create_foreign_key(None, 'assignments', 'practices', ['practice_id'], ['id'], ondelete='RESTRICT')
+    if "assignments_case_id_fkey" in existing_fks:
+        op.drop_constraint('assignments_case_id_fkey', 'assignments', type_='foreignkey')
+    if "ix_assignments_case" in existing_idxs:
+        op.drop_index(op.f('ix_assignments_case'), table_name='assignments')
+    if "feature_overrides" in cols:
+        op.drop_column('assignments', 'feature_overrides')
+    if "config_id" in cols:
+        op.drop_column('assignments', 'config_id')
+    if "case_id" in cols:
+        op.drop_column('assignments', 'case_id')
 
     # ── TrainingRecord changes ──
 
-    op.add_column('training_records', sa.Column('practice_id', sa.Integer(), nullable=True))
-    op.add_column('training_records', sa.Column('practice_snapshot', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
-    op.create_index('ix_tr_practice_id', 'training_records', ['practice_id'], unique=False)
-    op.create_foreign_key('fk_training_records_practice_id', 'training_records', 'practices', ['practice_id'], ['id'])
-    op.drop_column('training_records', 'config_snapshot')
-    op.drop_column('training_records', 'config_id')
+    tr_cols = [c["name"] for c in insp.get_columns("training_records")]
+    if "practice_id" not in tr_cols:
+        op.add_column('training_records', sa.Column('practice_id', sa.Integer(), nullable=True))
+    if "practice_snapshot" not in tr_cols:
+        op.add_column('training_records', sa.Column('practice_snapshot', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
+    tr_idxs = {i["name"] for i in insp.get_indexes("training_records")}
+    tr_fks = {fk["name"] for fk in insp.get_foreign_keys("training_records")}
+    if "ix_tr_practice_id" not in tr_idxs:
+        op.create_index('ix_tr_practice_id', 'training_records', ['practice_id'], unique=False)
+    if "fk_training_records_practice_id" not in tr_fks:
+        op.create_foreign_key('fk_training_records_practice_id', 'training_records', 'practices', ['practice_id'], ['id'])
+    if "config_snapshot" in tr_cols:
+        op.drop_column('training_records', 'config_snapshot')
+    if "config_id" in tr_cols:
+        op.drop_column('training_records', 'config_id')
 
     # ── Cases ──
 
-    op.add_column('cases', sa.Column('updated_at', sa.DateTime(), nullable=True))
+    if "updated_at" not in [c["name"] for c in insp.get_columns("cases")]:
+        op.add_column('cases', sa.Column('updated_at', sa.DateTime(), nullable=True))
 
     # ── Grades ──
 
-    op.add_column('grades', sa.Column('academic_year', sa.String(length=9), nullable=True))
+    if "academic_year" not in [c["name"] for c in insp.get_columns("grades")]:
+        op.add_column('grades', sa.Column('academic_year', sa.String(length=9), nullable=True))
 
     # ── Messages ──
 
-    op.create_index('ix_msg_role', 'messages', ['role'], unique=False)
+    if "ix_msg_role" not in {i["name"] for i in insp.get_indexes("messages")}:
+        op.create_index('ix_msg_role', 'messages', ['role'], unique=False)
 
     # ── Scores: review columns dropped in data migration after data copy ──
 
     # ── UserClass ──
 
-    op.add_column('user_class', sa.Column('id', sa.Integer(), nullable=True))
+    if "id" not in [c["name"] for c in insp.get_columns("user_class")]:
+        op.add_column('user_class', sa.Column('id', sa.Integer(), nullable=True))
 
     # ── Users ──
 
-    op.add_column('users', sa.Column('email', sa.String(length=120), nullable=True))
-    op.add_column('users', sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False))
-    op.add_column('users', sa.Column('last_login_at', sa.DateTime(), nullable=True))
-    op.add_column('users', sa.Column('updated_at', sa.DateTime(), nullable=True))
-    op.create_index('ix_users_school_id', 'users', ['school_id'], unique=False)
-    op.create_index('ix_users_student_id', 'users', ['student_id'], unique=False)
+    usr_cols = [c["name"] for c in insp.get_columns("users")]
+    if "email" not in usr_cols:
+        op.add_column('users', sa.Column('email', sa.String(length=120), nullable=True))
+    if "is_active" not in usr_cols:
+        op.add_column('users', sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False))
+    if "last_login_at" not in usr_cols:
+        op.add_column('users', sa.Column('last_login_at', sa.DateTime(), nullable=True))
+    if "updated_at" not in usr_cols:
+        op.add_column('users', sa.Column('updated_at', sa.DateTime(), nullable=True))
+    usr_idxs = {i["name"] for i in insp.get_indexes("users")}
+    if "ix_users_school_id" not in usr_idxs:
+        op.create_index('ix_users_school_id', 'users', ['school_id'], unique=False)
+    if "ix_users_student_id" not in usr_idxs:
+        op.create_index('ix_users_student_id', 'users', ['student_id'], unique=False)
 
     # ── CHECK constraints ──
 
-    op.create_check_constraint(
-        'ck_training_records_status',
-        'training_records',
-        "status IN ('in_progress', 'completed', 'abandoned')",
-    )
-    op.create_check_constraint(
-        'ck_training_records_scoring_status',
-        'training_records',
-        "scoring_status IN ('pending', 'processing', 'completed', 'failed')",
-    )
-    op.create_check_constraint(
-        'ck_training_records_current_phase',
-        'training_records',
-        "current_phase IN ('history_taking', 'physical_exam', 'ending')",
-    )
-    op.create_check_constraint(
-        'ck_messages_role',
-        'messages',
-        "role IN ('student', 'patient', 'system')",
-    )
+    existing_ck = {c["name"] for c in insp.get_check_constraints("training_records")}
+    if "ck_training_records_status" not in existing_ck:
+        op.create_check_constraint(
+            'ck_training_records_status',
+            'training_records',
+            "status IN ('in_progress', 'completed', 'abandoned')",
+        )
+    if "ck_training_records_scoring_status" not in existing_ck:
+        op.create_check_constraint(
+            'ck_training_records_scoring_status',
+            'training_records',
+            "scoring_status IN ('pending', 'processing', 'completed', 'failed')",
+        )
+    if "ck_training_records_current_phase" not in existing_ck:
+        op.create_check_constraint(
+            'ck_training_records_current_phase',
+            'training_records',
+            "current_phase IN ('history_taking', 'physical_exam', 'ending')",
+        )
+    existing_msg_ck = {c["name"] for c in insp.get_check_constraints("messages")}
+    if "ck_messages_role" not in existing_msg_ck:
+        op.create_check_constraint(
+            'ck_messages_role',
+            'messages',
+            "role IN ('student', 'patient', 'system')",
+        )
 
     # ### end Alembic commands ###
 

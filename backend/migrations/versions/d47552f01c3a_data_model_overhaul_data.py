@@ -57,11 +57,19 @@ def upgrade() -> None:
 
     # ── Scores: drop legacy review columns (data lost — no reviews in staging) ──
     # DDL already created score_reviews table; old scores columns are no longer used.
-    op.drop_column('scores', 'reviewed_by')
-    op.drop_column('scores', 'review_status')
-    op.drop_column('scores', 'reviewed_at')
-    op.drop_column('scores', 'review_comment')
-    op.drop_column('scores', 'review_detail_scores')
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    score_cols = {c["name"] for c in insp.get_columns("scores")}
+    if "reviewed_by" in score_cols:
+        op.drop_column('scores', 'reviewed_by')
+    if "review_status" in score_cols:
+        op.drop_column('scores', 'review_status')
+    if "reviewed_at" in score_cols:
+        op.drop_column('scores', 'reviewed_at')
+    if "review_comment" in score_cols:
+        op.drop_column('scores', 'review_comment')
+    if "review_detail_scores" in score_cols:
+        op.drop_column('scores', 'review_detail_scores')
 
     # ── Seed practices from session config JSONs ──
     import json
