@@ -143,3 +143,6 @@ ignore-variadic-names = true
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.ty.src]
+exclude = ["tests/", "migrations/versions/"]

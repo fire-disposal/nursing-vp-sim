@@ -1,5 +1,5 @@
-import type { components } from "./api-types.gen";
 import type { ApiPath } from "./api-path";
+import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
 
 type Schemas = components["schemas"];

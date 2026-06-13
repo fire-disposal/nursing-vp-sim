@@ -59,7 +59,7 @@ class TrainingRepository(SyncRepository):
                 record.end_time = datetime.now(UTC)
                 if record.assignment_id and not record.is_overdue:
                     assignment = session.query(Assignment).filter(Assignment.id == record.assignment_id).first()
-                    if assignment and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
+                    if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
                         record.is_overdue = True
                 session.commit()
 

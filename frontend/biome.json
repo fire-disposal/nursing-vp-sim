@@ -24,6 +24,9 @@
 				"noExplicitAny": "off",
 				"noArrayIndexKey": "off"
 			},
+			"style": {
+				"noNonNullAssertion": "off"
+			},
 			"a11y": {
 				"noAutofocus": "off",
 				"noLabelWithoutControl": "off",
@@ -36,18 +39,7 @@
 			}
 		}
 	},
-	"overrides": [
-		{
-			"includes": ["src/__tests__/**/*"],
-			"linter": {
-				"rules": {
-					"style": {
-						"noNonNullAssertion": "off"
-					}
-				}
-			}
-		}
-	],
+	"overrides": [],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"

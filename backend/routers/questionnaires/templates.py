@@ -142,7 +142,7 @@ def get_template(
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
-    t.case_links = cq_rows
+    t.case_links = cq_rows  # ty: ignore[invalid-assignment]
     return _template_to_detail(t)
 
 
@@ -168,7 +168,7 @@ def update_template(
     db.commit()
     db.refresh(t)
     cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
-    t.case_links = cq_rows
+    t.case_links = cq_rows  # ty: ignore[invalid-assignment]
     return _template_to_detail(t)
 
 

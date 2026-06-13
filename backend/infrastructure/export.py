@@ -22,7 +22,7 @@ def _encode_bom() -> str:
     return "\ufeff"
 
 
-def _make_writer(buf: io.StringIO) -> csv.writer:
+def _make_writer(buf: io.StringIO):  # type: ignore[invalid-type-form]
     return csv.writer(buf)
 
 

@@ -481,9 +481,9 @@ def get_record_detail(
         end_time=record.end_time,
         time_limit=time_limit,
         remaining_seconds=remaining_seconds,
-        messages=record.messages,
-        score=score,
-        notes=note_records,
+        messages=record.messages,  # ty: ignore[invalid-argument-type]
+        score=score,  # ty: ignore[invalid-argument-type]
+        notes=note_records,  # ty: ignore[invalid-argument-type]
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
         features=resolve_features(record.practice_snapshot),

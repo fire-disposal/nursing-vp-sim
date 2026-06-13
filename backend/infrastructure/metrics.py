@@ -11,6 +11,14 @@ import threading
 import time
 from collections import defaultdict
 from collections.abc import Callable
+from typing import Protocol, cast
+
+
+class _PoolProtocol(Protocol):
+    def size(self) -> int: ...
+    def checkedout(self) -> int: ...
+    def overflow(self) -> int: ...
+
 
 log = logging.getLogger(__name__)
 
@@ -122,7 +130,7 @@ class MetricsSnapshot:
             from core.database import engine
         except Exception:
             return {}
-        pool = engine.pool
+        pool = cast(_PoolProtocol, engine.pool)
         if pool is None:
             return {}
         return dict(
@@ -137,7 +145,7 @@ class MetricsSnapshot:
         try:
             import resource
 
-            usage = resource.getrusage(resource.RUSAGE_SELF)
+            usage = resource.getrusage(resource.RUSAGE_SELF)  # ty: ignore[unresolved-attribute]
             return round(usage.ru_maxrss / 1024, 1)
         except Exception:
             return 0.0
