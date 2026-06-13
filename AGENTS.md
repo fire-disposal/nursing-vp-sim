@@ -33,7 +33,11 @@ This ensures:
 
 If `--autogenerate` produces an empty migration, do not commit it.
 
-Pre-commit hook (`check-migration-autogen.js`) enforces both rules.
+**`0001_initial` is the base.** It was regenerated with `--autogenerate` to contain explicit DDL (`op.create_table()` for every table). Any new `--autogenerate` migration will correctly diff only incremental changes. Do not hand-edit `0001_initial.py`.
+
+**Idempotency**: downstream migrations that add tables/columns/indexes to objects already created by `0001` MUST use existence guards (`insp.get_columns()`, `insp.get_indexes()`, `insp.get_table_names()`). Never use bare `try/except` — PostgreSQL aborts the entire transaction on the first DDL error.
+
+Pre-commit hook (`check-migration-autogen.js`) enforces the DDL/data separation rules.
 
 ## Testing
 
@@ -44,6 +48,8 @@ cd backend && pytest -m pg
 # Unit tests only (no DB required)
 cd backend && pytest -m "not pg"
 ```
+
+Test DB is configured via `TEST_DB_URL` in `.env` (defaults to `nursing_test`). App DB via `DATABASE_URL` (defaults to `vptest`). See `.env.example` for all environment variables.
 
 ## API Client Generation
 
@@ -95,6 +101,107 @@ api.get(RECORD_DETAIL.replace("{record_id}", String(id)));
 
 后端改路由后，若手写模块未同步更新路径，`tsc --noEmit` 会报错。
 
+## npm Scripts
+
+All scripts run from the monorepo root.
+
+### Development
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Start backend (uvicorn :8000) + frontend (vite :3000) concurrently |
+| `npm run dev:backend` | Backend only |
+| `npm run dev:frontend` | Frontend only |
+
+### Code Quality
+
+| Script | Purpose |
+|--------|---------|
+| `npm run check` | Full check: backend (ruff + ty) + frontend (biome + tsc) |
+| `npm run check:backend` | Backend: ruff format --check, ruff check, ty |
+| `npm run check:frontend` | Frontend: biome lint + tsc --noEmit |
+| `npm run check:api` | Regenerate API clients + verify no drift (`git diff --exit-code`) |
+| `npm run lint` (frontend) | `biome lint src/` |
+| `npm run lint:fix` (frontend) | `biome lint --fix src/` |
+| `npm run typecheck` (frontend) | `tsc --noEmit` |
+
+### Database
+
+| Script | Purpose |
+|--------|---------|
+| `npm run db:migrate` | `alembic upgrade head` |
+| `npm run db:downgrade` | `alembic downgrade -1` |
+| `npm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
+| `npm run db:data "name"` | Scaffold data-only migration (via `scripts/create-data-migration.js`) |
+
+### API Client
+
+| Script | Purpose |
+|--------|---------|
+| `npm run api:spec` | Dump openapi.json from running backend |
+| `npm run api:generate` | Generate `frontend/src/api/api-types.gen.ts` |
+| `npm run api:generate:miniapp` | Generate `miniprogram/api/types.gen.ts` |
+| `npm run api:update` | spec + generate (web only) |
+| `npm run api:update:all` | spec + generate web + generate miniapp |
+
+### Tagging
+
+| Script | Purpose |
+|--------|---------|
+| `npm run tag` | Auto-generate date-based tag + push (triggers staging deploy) |
+| `npm run tag:local` | Auto-generate tag locally without pushing |
+
+## Environment Configuration
+
+`.env` (git-ignored) in the project root. Copy from `.env.example`:
+
+```bash
+ENV=development
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
+TEST_DB_URL=postgresql://postgres:postgres@localhost:5432/nursing_test
+SECRET_KEY=...
+DEEPSEEK_API_KEY=...
+```
+
+- `DATABASE_URL` — app database, read by `core/config.py` via `load_dotenv()`
+- `TEST_DB_URL` — pytest database, read by `tests/conftest.py`
+- Pre-push hook also reads `.env` for PGUSER/PGPASSWORD/PGHOST/PGPORT
+
+## Husky Hooks
+
+### pre-commit (`.husky/pre-commit`)
+
+Runs on `git commit`:
+1. `lint-staged` — `biome lint` on staged `*.{ts,tsx}` files (check-only, no auto-fix)
+2. `tsc --noEmit` — frontend type check
+3. If Python files staged: `ruff format --check`, `ruff check`, `ty`
+4. If migration files staged: alembic heads check + `check-migration-autogen.js`
+
+### pre-push (`.husky/pre-push`)
+
+Runs on `git push`:
+1. **Migration roundtrip**: creates temp DB `vptest_roundtrip_$$`, runs `alembic upgrade head → downgrade -1 → upgrade head`, drops temp DB. Timeout: 120s per alembic step, 30s for DB create/drop.
+2. **Frontend lint**: `biome lint --max-diagnostics 50`
+3. **Tag format**: pushed tags must match `vYYYY.MM.DD-N`
+
+### commit-msg (`.husky/commit-msg`)
+
+Validates commit message format: `<emoji> <type>: <description>` via `validate-commit.js`.
+
+## Lint Configuration
+
+### Frontend — Biome (`frontend/biome.json`)
+
+- **Linter**: `recommended` rules, `biome lint` only (formatter disabled)
+- **Disabled rules**: `noExplicitAny`, `noArrayIndexKey`, all a11y rules, `useExhaustiveDependencies`
+- **Test override**: `noNonNullAssertion` disabled in `src/__tests__/**/*`
+- **Assist**: `organizeImports` on source actions
+
+### Backend — Ruff + ty (`backend/pyproject.toml`)
+
+- `ruff format --check` / `ruff check` for formatting and linting
+- `ty` for type checking
+
 ## Commit Format
 
 `<emoji> <type>: <description>`
@@ -132,14 +239,14 @@ Only tag push triggers staging deployment. Never push directly to master expecti
 ## Pre-push Gate
 
 All pushes pass through `.husky/pre-push`:
-- **Alembic roundtrip**: `alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
-- **Biome check**: `biome lint` (frontend lint, no auto-fix)
+- **Alembic roundtrip**: temp DB → `alembic upgrade head && alembic downgrade -1 && alembic upgrade head` → drop temp DB
+- **Biome lint**: `biome lint --max-diagnostics 50`
 - **Tag format**: pushed tags must match `vYYYY.MM.DD-N` (sequential counter, e.g. `v2026.06.12-1`)
 
 ## Pre-commit Checks
 
 All commits must pass:
 - `ruff check` / `ruff format` (backend)
-- `biome check` (frontend, check-only on staged TS/TSX)
+- `biome lint` (frontend, check-only on staged TS/TSX)
 - `tsc --noEmit` (frontend)
 - Migration autogen rules (`check-migration-autogen.js`)
