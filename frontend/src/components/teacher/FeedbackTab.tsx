@@ -24,6 +24,7 @@ import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { ChartTooltip } from "@/components/ui/ChartTooltip";
 import EmptyState from "@/components/ui/EmptyState";
 import LoadingState from "@/components/ui/LoadingState";
 import Pagination from "@/components/ui/Pagination";
@@ -199,6 +200,7 @@ function FeedbackChart() {
 						width={24}
 					/>
 					<Tooltip
+						content={<ChartTooltip />}
 						formatter={(value, name) => [
 							value,
 							labelMap[name as string] || name,
@@ -317,6 +319,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 						))}
 					</Pie>
 					<Tooltip
+						content={<ChartTooltip />}
 						formatter={(value, name) => {
 							const n = String(name);
 							return [

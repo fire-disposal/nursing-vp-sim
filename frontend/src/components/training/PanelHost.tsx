@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PanelPlugin, PluginContext } from "@/engine/types";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 
 interface PanelHostProps {
@@ -14,14 +15,7 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
 		plugins[0]?.id ?? null,
 	);
 	const [isCollapsed, setIsCollapsed] = useState(false);
-	const [isMobile, setIsMobile] = useState(false);
-
-	useEffect(() => {
-		const check = () => setIsMobile(window.innerWidth < 768);
-		check();
-		window.addEventListener("resize", check);
-		return () => window.removeEventListener("resize", check);
-	}, []);
+	const isMobile = useIsMobile();
 
 	const activePlugin = plugins.find((p) => p.id === activeTabId);
 

@@ -6,7 +6,10 @@ export function useNetworkStatus() {
 	const toast = useToast();
 
 	useEffect(() => {
-		const onOnline = () => setIsOnline(true);
+		const onOnline = () => {
+			setIsOnline(true);
+			toast.success("网络已恢复");
+		};
 		const onOffline = () => {
 			setIsOnline(false);
 			toast.warning("网络已断开");
@@ -17,7 +20,7 @@ export function useNetworkStatus() {
 			window.removeEventListener("online", onOnline);
 			window.removeEventListener("offline", onOffline);
 		};
-	}, [toast.warning]);
+	}, [toast.warning, toast.success]);
 
 	return isOnline;
 }

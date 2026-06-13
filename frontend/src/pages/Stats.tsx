@@ -28,6 +28,7 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
+import { ChartTooltip } from "@/components/ui/ChartTooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
@@ -42,6 +43,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
@@ -166,6 +168,8 @@ function StatsContent({
 		};
 	});
 	const hasData = daily.length > 0;
+	const chartTheme = useChartTheme();
+	const barColors = useBarColors();
 
 	return (
 		<>
@@ -237,7 +241,7 @@ function StatsContent({
 								data={daily}
 								margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
 							>
-								<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+								<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
 								<XAxis
 									dataKey="date"
 									tick={{ fontSize: 12 }}
@@ -264,13 +268,13 @@ function StatsContent({
 										style: { fontSize: 12 },
 									}}
 								/>
-								<Tooltip content={<CustomTooltip />} />
+								<Tooltip content={<ChartTooltip />} />
 								<Legend />
 								<Bar
 									yAxisId="left"
 									dataKey="sessions"
 									name="训练次数"
-									fill="#2563eb"
+									fill={barColors.sessions}
 									radius={[4, 4, 0, 0]}
 									barSize={28}
 								/>
@@ -278,7 +282,7 @@ function StatsContent({
 									yAxisId="right"
 									dataKey="minutes"
 									name="训练时长"
-									fill="#f59e0b"
+									fill={barColors.minutes}
 									radius={[4, 4, 0, 0]}
 									barSize={28}
 								/>
@@ -303,7 +307,7 @@ function StatsContent({
 								data={daily}
 								margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
 							>
-								<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+								<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
 								<XAxis
 									dataKey="date"
 									tick={{ fontSize: 12 }}
@@ -331,13 +335,13 @@ function StatsContent({
 										style: { fontSize: 12 },
 									}}
 								/>
-								<Tooltip content={<CustomTooltip />} />
+								<Tooltip content={<ChartTooltip />} />
 								<Legend />
 								<Bar
 									yAxisId="left"
 									dataKey="sessions"
 									name="训练次数"
-									fill="#2563eb"
+									fill={barColors.sessions}
 									radius={[4, 4, 0, 0]}
 									barSize={28}
 								/>
@@ -346,9 +350,9 @@ function StatsContent({
 									type="monotone"
 									dataKey="avg_score"
 									name="平均得分"
-									stroke="#22c55e"
+									stroke={barColors.score}
 									strokeWidth={2.5}
-									dot={{ r: 4, fill: "#22c55e" }}
+									dot={{ r: 4, fill: barColors.score }}
 									connectNulls
 								/>
 							</ComposedChart>
@@ -488,42 +492,6 @@ function StatsContent({
 				</Card>
 			)}
 		</>
-	);
-}
-
-interface TooltipPayloadItem {
-	color?: string;
-	name?: string;
-	value?: number;
-}
-
-function CustomTooltip({
-	active,
-	payload,
-	label,
-}: {
-	active?: boolean;
-	payload?: TooltipPayloadItem[];
-	label?: string;
-}) {
-	if (!active || !payload?.length) return null;
-	return (
-		<div className="bg-background border border-border rounded-lg px-3.5 py-2.5 shadow-md">
-			<div className="text-xs text-muted-foreground mb-1">{label}</div>
-			{payload.map((p, i) => (
-				<div key={i} className="text-xs" style={{ color: p.color }}>
-					{p.name}:{" "}
-					<strong>
-						{p.value}
-						{p.name?.includes("得分")
-							? "分"
-							: p.name?.includes("时长")
-								? "分钟"
-								: "次"}
-					</strong>
-				</div>
-			))}
-		</div>
 	);
 }
 

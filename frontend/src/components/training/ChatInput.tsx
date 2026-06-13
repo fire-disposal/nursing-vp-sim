@@ -30,7 +30,10 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 	);
 
 	return (
-		<div className="flex items-end gap-2 px-3 py-2 border-t border-border bg-background shrink-0">
+		<div
+			className="flex items-end gap-2 px-3 py-2 border-t border-border bg-background shrink-0"
+			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+		>
 			<textarea
 				ref={inputRef}
 				value={text}

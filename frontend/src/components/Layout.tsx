@@ -22,9 +22,12 @@
 import { type ReactNode, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
+import { NetworkBanner } from "@/components/NetworkBanner";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Separator } from "@/components/ui/separator";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
@@ -142,6 +145,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const isTrainingPage = location.pathname.startsWith("/training/");
 	const isQAPage = location.pathname.startsWith("/qa");
 	const isFullPage = isTrainingPage || isQAPage;
+	const isOnline = useNetworkStatus();
 
 	const userAvatar = getUserAvatar(user?.gender);
 
@@ -259,7 +263,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 							</div>
 						</div>
 					</NavLink>
-					<div className="flex gap-1 flex-wrap">
+					<div className="flex gap-1 flex-wrap items-center">
+						<ModeToggle />
 						<Button
 							variant="ghost"
 							size="sm"
@@ -321,6 +326,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 				className="flex flex-1 flex-col md:ml-60 overflow-hidden"
 				style={{ paddingTop: "max(env(safe-area-inset-top), 0px)" }}
 			>
+				{!isOnline && <NetworkBanner />}
 				<div className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden shrink-0">
 					<button
 						type="button"

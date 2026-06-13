@@ -24,7 +24,9 @@ import { getStudentDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { ChartTooltip } from "@/components/ui/ChartTooltip";
 import PageHeader from "@/components/ui/PageHeader";
+import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
@@ -45,30 +47,6 @@ interface DailyItem {
 	avg_score: number | null;
 }
 
-interface ChartTooltipProps {
-	active?: boolean;
-	payload?: { color: string; name: string; value: number }[];
-	label?: string;
-}
-
-function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
-	if (!active || !payload?.length) return null;
-	return (
-		<div className="bg-card border border-border rounded-md px-3.5 py-2.5 shadow-md">
-			<div className="text-xs text-muted-foreground mb-1">{label}</div>
-			{payload.map((p, i) => (
-				<div key={i} className="text-sm" style={{ color: p.color }}>
-					{p.name}:{" "}
-					<strong>
-						{p.value}
-						{p.name.includes("得分") ? "分" : "次"}
-					</strong>
-				</div>
-			))}
-		</div>
-	);
-}
-
 const statCardClass =
 	"bg-card rounded-xl shadow-sm p-5 border border-border flex items-center gap-3.5";
 const statIconClass =
@@ -77,6 +55,8 @@ const statIconClass =
 export default function UserDetailPage() {
 	const { userId } = useParams<{ userId: string }>();
 	const navigate = useNavigate();
+	const chartTheme = useChartTheme();
+	const barColors = useBarColors();
 
 	const { data: student, isLoading } = useQuery({
 		queryKey: ["studentDetail", userId],
@@ -168,7 +148,7 @@ export default function UserDetailPage() {
 							data={daily}
 							margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
 						>
-							<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+							<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
 							<XAxis
 								dataKey="date"
 								tick={{ fontSize: 12 }}
@@ -202,7 +182,7 @@ export default function UserDetailPage() {
 								yAxisId="left"
 								dataKey="sessions"
 								name="训练次数"
-								fill="#2563eb"
+								fill={barColors.sessions}
 								radius={[4, 4, 0, 0]}
 								barSize={28}
 							/>
@@ -211,9 +191,9 @@ export default function UserDetailPage() {
 								type="monotone"
 								dataKey="avg_score"
 								name="平均得分"
-								stroke="#22c55e"
+								stroke={barColors.score}
 								strokeWidth={2.5}
-								dot={{ r: 4, fill: "#22c55e" }}
+								dot={{ r: 4, fill: barColors.score }}
 								connectNulls
 							/>
 						</ComposedChart>

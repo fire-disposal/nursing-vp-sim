@@ -1,18 +1,11 @@
 ﻿import lottie from "lottie-web";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import placeholderAnimation from "@/assets/lottie/animation.json";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export default function LoginIllustration() {
-	const [visible, setVisible] = useState(false);
+	const visible = useMediaQuery("(min-width: 1024px)");
 	const containerRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const mql = window.matchMedia("(min-width: 1024px)");
-		setVisible(mql.matches);
-		const handler = (e: MediaQueryListEvent) => setVisible(e.matches);
-		mql.addEventListener("change", handler);
-		return () => mql.removeEventListener("change", handler);
-	}, []);
 
 	useEffect(() => {
 		if (!visible || !containerRef.current) return;

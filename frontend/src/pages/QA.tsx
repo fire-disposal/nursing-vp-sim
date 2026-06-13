@@ -402,7 +402,10 @@ export default function QA() {
 						</div>
 					)}
 
-					<div className="flex gap-2 items-center border-t p-4">
+					<div
+						className="flex gap-2 items-center border-t p-4"
+						style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+					>
 						<input
 							ref={inputRef}
 							className="flex-1 rounded-lg border border-input bg-background px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"

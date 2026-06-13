@@ -194,10 +194,10 @@ export default function History() {
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
 											病例
 										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
+										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">
 											开始时间
 										</TableHead>
-										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
+										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">
 											时长
 										</TableHead>
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
@@ -236,13 +236,14 @@ export default function History() {
 												<TableCell className="font-medium">
 													{String(re.case_name ?? "")}
 												</TableCell>
-												<TableCell className="text-xs text-muted-foreground">
+												<TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
 													{new Date(re.start_time as string).toLocaleString(
 														"zh-CN",
 													)}
 												</TableCell>
 												<TableCell
 													className={cn(
+														"hidden sm:table-cell",
 														durMins != null
 															? "text-muted-foreground"
 															: "text-muted-foreground/50",

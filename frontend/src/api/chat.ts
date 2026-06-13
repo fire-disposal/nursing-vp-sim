@@ -1,3 +1,4 @@
+import useAuthStore from "@/stores/authStore";
 import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
 
@@ -33,16 +34,35 @@ export async function sendMessageStream(
 	}) => void,
 	onInitiative?: (data: { content: string }) => void,
 ) {
-	const token = localStorage.getItem("token");
-	const resp = await fetch(`/api/chat/${recordId}/message/stream`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
-		},
-		body: JSON.stringify({ content }),
-		signal,
-	});
+	const doFetch = async (): Promise<Response> => {
+		const token = localStorage.getItem("token");
+		return fetch(`/api/chat/${recordId}/message/stream`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({ content }),
+			signal,
+		});
+	};
+
+	let resp = await doFetch();
+
+	if (resp.status === 401) {
+		try {
+			const refreshed = await useAuthStore.getState().refreshAuth();
+			if (refreshed) {
+				resp = await doFetch();
+			}
+		} catch {
+			useAuthStore.getState().logout();
+			if (!window.location.pathname.includes("/login")) {
+				window.location.href = "/login";
+			}
+			return;
+		}
+	}
 
 	if (!resp.ok) {
 		const err = await resp.json().catch(() => ({ detail: "请求失败" }));

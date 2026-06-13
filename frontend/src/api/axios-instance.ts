@@ -86,6 +86,9 @@ api.interceptors.response.use(
 		if (!originalRequest || retryCount >= MAX_RETRIES) {
 			return Promise.reject(err);
 		}
+		if (!navigator.onLine) {
+			return Promise.reject(err);
+		}
 		const isIdempotent =
 			!originalRequest.method ||
 			["get", "head", "options"].includes(originalRequest.method.toLowerCase());

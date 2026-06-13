@@ -11,7 +11,9 @@ import {
 	YAxis,
 } from "recharts";
 import { getTrends } from "@/api/api-client";
+import { ChartTooltip } from "@/components/ui/ChartTooltip";
 import EmptyState from "@/components/ui/EmptyState";
+import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import { cn } from "@/lib/utils";
 
 interface DayItem {
@@ -56,6 +58,9 @@ export default function TrainingDurationChart() {
 	const averageMinutes = trends?.total_sessions
 		? Math.round((trends.total_minutes || 0) / trends.total_sessions)
 		: 0;
+
+	const chartTheme = useChartTheme();
+	const barColors = useBarColors();
 
 	return (
 		<div className="bg-card border border-border rounded-xl p-6">
@@ -118,43 +123,40 @@ export default function TrainingDurationChart() {
 					>
 						<CartesianGrid
 							strokeDasharray="3 3"
-							stroke="#f3f4f6"
+							stroke={chartTheme.grid}
 							vertical={false}
 						/>
 						<XAxis
 							dataKey="name"
-							tick={{ fontSize: 11, fill: "#9ca3af" }}
+							tick={{ fontSize: 11, fill: chartTheme.axisTick }}
 							axisLine={false}
 							tickLine={false}
 						/>
 						<YAxis
 							yAxisId="left"
-							tick={{ fontSize: 11, fill: "#9ca3af" }}
+							tick={{ fontSize: 11, fill: chartTheme.axisTick }}
 							axisLine={false}
 							tickLine={false}
 						/>
 						<YAxis
 							yAxisId="right"
 							orientation="right"
-							tick={{ fontSize: 11, fill: "#9ca3af" }}
+							tick={{ fontSize: 11, fill: chartTheme.axisTick }}
 							axisLine={false}
 							tickLine={false}
 							unit="min"
 						/>
 						<Tooltip
-							contentStyle={{
-								borderRadius: 8,
-								border: "1px solid #e5e7eb",
-								boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-								fontSize: "0.8rem",
-							}}
+							content={
+								<ChartTooltip unitMap={{ 训练次数: "次", 训练时长: "分钟" }} />
+							}
 						/>
 						<Legend />
 						<Bar
 							yAxisId="left"
 							dataKey="sessions"
 							name="训练次数"
-							fill="#2563eb"
+							fill={barColors.sessions}
 							radius={[4, 4, 0, 0]}
 							maxBarSize={28}
 						/>
@@ -162,7 +164,7 @@ export default function TrainingDurationChart() {
 							yAxisId="right"
 							dataKey="minutes"
 							name="训练时长"
-							fill="#f59e0b"
+							fill={barColors.minutes}
 							radius={[4, 4, 0, 0]}
 							maxBarSize={28}
 						/>

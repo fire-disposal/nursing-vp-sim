@@ -357,7 +357,7 @@ export default function RecordDetail() {
 	const [showReviewEditor, setShowReviewEditor] = useState(false);
 	const [submittingReview, setSubmittingReview] = useState(false);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-		const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
+		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
 		return {
 			strengths: isDesktop,
 			weaknesses: isDesktop,
