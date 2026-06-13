@@ -11,6 +11,7 @@ fail() { echo "  FAIL $1"; PASS=1; }
 
 # ═══ Migration roundtrip test ═══
 HAS_ALEMBIC=false
+HAS_PSQL=false
 if [ -f "$ROOT/backend/alembic.ini" ]; then
   MIGRATION_DIR="$ROOT/backend"
   if [ -f "$MIGRATION_DIR/.venv/bin/alembic" ]; then
@@ -21,15 +22,43 @@ if [ -f "$ROOT/backend/alembic.ini" ]; then
   if [ -n "${ALEMBIC:-}" ] && [ -f "$ALEMBIC" ]; then
     HAS_ALEMBIC=true
   fi
+  if command -v psql >/dev/null 2>&1; then
+    HAS_PSQL=true
+  fi
 fi
 
 if $HAS_ALEMBIC; then
   say "Migration roundtrip test"
-  cd "$MIGRATION_DIR"
 
-  export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/vptest}"
+  # 优先读取 .env 中的数据库连接信息
+  if [ -f "$ROOT/.env" ]; then
+    # shellcheck source=/dev/null
+    . "$ROOT/.env"
+  fi
 
-  # Roundtrip: ensure head → downgrade one → upgrade back
+  PGUSER="${PGUSER:-postgres}"
+  PGPASSWORD="${PGPASSWORD:-postgres}"
+  PGHOST="${PGHOST:-localhost}"
+  PGPORT="${PGPORT:-5432}"
+  export PGUSER PGPASSWORD PGHOST PGPORT
+
+  TEMP_DB="vptest_roundtrip_$$"
+
+  if $HAS_PSQL; then
+    if psql -d postgres -c "CREATE DATABASE \"$TEMP_DB\";" >/dev/null 2>&1; then
+      trap "psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEMP_DB\\\";\" >/dev/null 2>&1" EXIT
+    else
+      fail "cannot create temp database $TEMP_DB"
+      cd "$ROOT" || exit 1
+      exit 1
+    fi
+    export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${TEMP_DB}"
+  else
+    export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/vptest}"
+  fi
+
+  cd "$MIGRATION_DIR" || exit 1
+
   if "$ALEMBIC" upgrade head 2>&1; then
     if "$ALEMBIC" downgrade -1 2>&1; then
       if "$ALEMBIC" upgrade head 2>&1; then
@@ -44,7 +73,7 @@ if $HAS_ALEMBIC; then
     fail "alembic upgrade head failed — migration cannot be applied"
   fi
 
-  cd "$ROOT"
+  cd "$ROOT" || exit 1
 else
   say "Migration roundtrip skipped (no alembic or DB tooling)"
 fi
