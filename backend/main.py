@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import textwrap
 import threading
 import time
 from contextlib import asynccontextmanager, suppress
@@ -45,10 +46,25 @@ log = logging.getLogger(__name__)
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 
 
+BANNER = textwrap.dedent(r"""\
+ ____             __                             ____    ____    
+/\  _`\          /\ \                           /\  _`\ /\  _`\  
+\ \ \/\_\  __  __\ \ \____     __   _ __        \ \,\L\_\ \ \L\ \
+ \ \ \/_/_/\ \/\ \\ \ '__`\  /'__`\/\`'__\_______\/_\__ \\ \ ,__/
+  \ \ \L\ \ \ \_\ \\ \ \L\ \/\  __/\ \ \//\______\ /\ \L\ \ \ \/ 
+   \ \____/\/`____ \\ \_,__/\ \____\\ \_\\/______/ \ `\____\ \_\ 
+    \/___/  `/___/> \\/___/  \/____/ \/_/           \/_____/\/_/ 
+               /\___/                                            
+               \/__/                                             
+                                                                                                                     
+""").strip()# noqa: W291 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
     validate_config()
+    
+    log.info(msg=BANNER)
     log.info("──────────────────────────────────────────────")
     log.info("Animus Machinae excitus est.")
     log.info("机魂已唤醒")
