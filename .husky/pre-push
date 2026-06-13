@@ -43,10 +43,18 @@ if $HAS_ALEMBIC; then
   export PGUSER PGPASSWORD PGHOST PGPORT
 
   TEMP_DB="vptest_roundtrip_$$"
+  # Prefer GNU timeout if available, otherwise run without limit
+  if command -v timeout >/dev/null 2>&1; then
+    TOCMD="timeout 30"
+    TOCMD_LONG="timeout 120"
+  else
+    TOCMD=""
+    TOCMD_LONG=""
+  fi
 
   if $HAS_PSQL; then
-    if psql -d postgres -c "CREATE DATABASE \"$TEMP_DB\";" >/dev/null 2>&1; then
-      trap "psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEMP_DB\\\";\" >/dev/null 2>&1" EXIT
+    if $TOCMD psql -d postgres -c "CREATE DATABASE \"$TEMP_DB\";" >/dev/null 2>&1; then
+      trap "$TOCMD psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEMP_DB\\\";\" >/dev/null 2>&1" EXIT
     else
       fail "cannot create temp database $TEMP_DB"
       cd "$ROOT" || exit 1
@@ -59,9 +67,9 @@ if $HAS_ALEMBIC; then
 
   cd "$MIGRATION_DIR" || exit 1
 
-  if "$ALEMBIC" upgrade head 2>&1; then
-    if "$ALEMBIC" downgrade -1 2>&1; then
-      if "$ALEMBIC" upgrade head 2>&1; then
+  if $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
+    if $TOCMD_LONG "$ALEMBIC" downgrade -1 2>&1; then
+      if $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
         ok "alembic upgrade/downgrade roundtrip"
       else
         fail "alembic re-upgrade failed after downgrade"
