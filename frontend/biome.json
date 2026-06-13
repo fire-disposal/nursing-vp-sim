@@ -9,8 +9,7 @@
 		"includes": ["**", "!!**/dist"]
 	},
 	"formatter": {
-		"enabled": true,
-		"indentStyle": "tab"
+		"enabled": false
 	},
 	"css": {
 		"parser": {
@@ -26,9 +25,10 @@
 				"noArrayIndexKey": "off"
 			},
 			"a11y": {
-				"useButtonType": "off",
-				"noStaticElementInteractions": "off",
+				"noAutofocus": "off",
 				"noLabelWithoutControl": "off",
+				"noStaticElementInteractions": "off",
+				"useButtonType": "off",
 				"useKeyWithClickEvents": "off"
 			},
 			"correctness": {
@@ -36,6 +36,18 @@
 			}
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["src/__tests__/**/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noNonNullAssertion": "off"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"

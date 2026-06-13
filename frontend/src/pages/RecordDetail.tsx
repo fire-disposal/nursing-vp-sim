@@ -473,14 +473,12 @@ export default function RecordDetail() {
 
 	if (!record) {
 		return (
-			<>
-				<div className="flex items-center justify-center py-24 text-muted-foreground">
-					<div className="flex flex-col items-center gap-3">
-						<div className="w-8 h-8 border-2 border-muted border-t-primary rounded-full animate-spin" />
-						<span className="text-sm">加载中...</span>
-					</div>
+			<div className="flex items-center justify-center py-24 text-muted-foreground">
+				<div className="flex flex-col items-center gap-3">
+					<div className="w-8 h-8 border-2 border-muted border-t-primary rounded-full animate-spin" />
+					<span className="text-sm">加载中...</span>
 				</div>
-			</>
+			</div>
 		);
 	}
 
@@ -757,9 +755,8 @@ export default function RecordDetail() {
 									)}
 								/>
 							</button>
-							{expanded.strengths && (
-								<>
-									{recordScore.strengths && recordScore.strengths.length > 0 ? (
+							{expanded.strengths &&
+								(recordScore.strengths && recordScore.strengths.length > 0 ? (
 										<ul className="space-y-1.5">
 											{recordScore.strengths.map((s, i) => (
 												<li
@@ -778,8 +775,7 @@ export default function RecordDetail() {
 										<p className="text-sm text-muted-foreground/50 italic">
 											AI 未生成此部分内容，可重新评分获取完整报告
 										</p>
-									)}
-								</>
+									)
 							)}
 						</div>
 
@@ -805,9 +801,8 @@ export default function RecordDetail() {
 									)}
 								/>
 							</button>
-							{expanded.weaknesses && (
-								<>
-									{recordScore.weaknesses &&
+							{expanded.weaknesses &&
+								(recordScore.weaknesses &&
 									recordScore.weaknesses.length > 0 ? (
 										<ul className="space-y-1.5">
 											{recordScore.weaknesses.map((w, i) => (
@@ -824,8 +819,7 @@ export default function RecordDetail() {
 										<p className="text-sm text-muted-foreground/50 italic">
 											AI 未生成此部分内容，可重新评分获取完整报告
 										</p>
-									)}
-								</>
+									)
 							)}
 						</div>
 
@@ -851,9 +845,8 @@ export default function RecordDetail() {
 									)}
 								/>
 							</button>
-							{expanded.missed_content && (
-								<>
-									{recordScore.missed_content &&
+							{expanded.missed_content &&
+								(recordScore.missed_content &&
 									recordScore.missed_content.length > 0 ? (
 										<ul className="space-y-1.5">
 											{recordScore.missed_content.map((m, i) => (
@@ -873,8 +866,7 @@ export default function RecordDetail() {
 										<p className="text-sm text-muted-foreground/50 italic">
 											AI 未生成此部分内容，可重新评分获取完整报告
 										</p>
-									)}
-								</>
+									)
 							)}
 						</div>
 
@@ -900,19 +892,16 @@ export default function RecordDetail() {
 									)}
 								/>
 							</button>
-							{expanded.suggestions && (
-								<>
-									{recordScore.suggestions ? (
-										<p className="text-sm text-muted-foreground leading-relaxed">
-											{recordScore.suggestions}
-										</p>
-									) : (
-										<p className="text-sm text-muted-foreground/50 italic">
-											AI 未生成改进建议，可重新评分获取完整报告
-										</p>
-									)}
-								</>
-							)}
+							{expanded.suggestions &&
+								(recordScore.suggestions ? (
+									<p className="text-sm text-muted-foreground leading-relaxed">
+										{recordScore.suggestions}
+									</p>
+								) : (
+									<p className="text-sm text-muted-foreground/50 italic">
+										AI 未生成改进建议，可重新评分获取完整报告
+									</p>
+								))}
 						</div>
 					</div>
 				)}

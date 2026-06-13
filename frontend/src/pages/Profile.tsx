@@ -5,7 +5,6 @@ import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
@@ -16,7 +15,7 @@ export default function Profile() {
 
 	const [displayName, setDisplayName] = useState(storeUser?.display_name || "");
 	const [gender, setGender] = useState(storeUser?.gender || "");
-	const [avatarValue, setAvatarValue] = useState(storeUser?.avatar || "");
+	const [avatarValue, _setAvatarValue] = useState(storeUser?.avatar || "");
 	const [studentId, setStudentId] = useState(
 		(storeUser as any)?.student_id || "",
 	);

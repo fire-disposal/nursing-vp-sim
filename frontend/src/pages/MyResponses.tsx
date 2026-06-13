@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/table";
 
 type ResponseItem = components["schemas"]["QuestionnaireResponseItem"];
-type AnswerItem = components["schemas"]["QuestionnaireAnswerItem"];
 
 const LIKERT_LABELS = ["非常不同意", "不同意", "一般", "同意", "非常同意"];
 const LIMIT = 20;

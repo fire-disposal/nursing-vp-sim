@@ -173,8 +173,7 @@ export default function GradesClassesPage() {
 	const items = tab === "grades" ? filteredGrades : filteredClasses;
 
 	return (
-		<>
-			<div>
+		<div>
 				<PageHeader
 					title="班级管理"
 					subtitle="管理年级和班级，组织学生归属"
@@ -390,6 +389,5 @@ export default function GradesClassesPage() {
 					</FormField>
 				</Modal>
 			</div>
-		</>
 	);
 }

@@ -72,7 +72,7 @@ export function TrainingHeader({
 	onEnd,
 	sending: _sending,
 	featuresLocked = false,
-	fromAssignment = false,
+	fromAssignment: _fromAssignment = false,
 	timeLimitMinutes,
 	remainingSeconds,
 }: TrainingHeaderProps) {
@@ -92,7 +92,6 @@ export function TrainingHeader({
 		remaining,
 		timerActive,
 		stopTimer,
-		resetTimer,
 		formatTime,
 		setTimerActive,
 	} = useTrainingTimer({

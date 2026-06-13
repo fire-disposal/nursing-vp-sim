@@ -86,11 +86,7 @@ export default function UserDetailPage() {
 	});
 
 	if (isLoading || !student) {
-		return (
-			<>
-				<div className="text-center py-12 text-muted-foreground">加载中...</div>
-			</>
-		);
+		return <div className="text-center py-12 text-muted-foreground">加载中...</div>;
 	}
 
 	const daily = (student.daily || []) as unknown as DailyItem[];

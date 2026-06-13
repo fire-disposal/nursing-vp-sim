@@ -44,7 +44,7 @@ function TrainingEngineContent({
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
 	const ttsRef = useRef(new TTSManager({ autoPlay: true }));
-	const cleanupRefs = useRef(new Map<string, (() => void) | void>());
+	const cleanupRefs = useRef(new Map<string, (() => void) | undefined>());
 	const seededRef = useRef(false);
 
 	const { setEmotion } = useEmotion();

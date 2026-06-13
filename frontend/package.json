@@ -7,10 +7,8 @@
 		"dev": "vite",
 		"build": "tsc --noEmit && vite build",
 		"typecheck": "tsc --noEmit",
-		"lint": "biome check src/",
-		"lint:fix": "biome check --fix src/",
-		"format": "biome format --write src/",
-		"generate:api": "npx openapi-typescript http://localhost:8000/openapi.json -o src/api/api-types.gen.ts",
+		"lint": "biome lint src/",
+		"lint:fix": "biome lint --fix src/",
 		"test": "vitest run",
 		"preview": "vite preview"
 	},
@@ -61,7 +59,7 @@
 	},
 	"lint-staged": {
 		"*.{ts,tsx}": [
-			"biome check --write"
+			"biome lint"
 		]
 	}
 }

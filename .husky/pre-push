@@ -49,13 +49,13 @@ else
   say "Migration roundtrip skipped (no alembic or DB tooling)"
 fi
 
-# ═══ Frontend type check ═══
+# ═══ Frontend lint check ═══
 if [ -f "$ROOT/frontend/tsconfig.json" ]; then
   cd "$ROOT/frontend"
-  if npx tsc --noEmit 2>&1; then
-    ok "tsc --noEmit"
+  if npx biome lint --max-diagnostics 50 2>&1; then
+    ok "biome lint"
   else
-    fail "tsc --noEmit has errors"
+    fail "biome lint"
   fi
   cd "$ROOT"
 fi

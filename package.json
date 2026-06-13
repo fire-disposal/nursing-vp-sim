@@ -10,7 +10,7 @@
     "dev:frontend": "cd frontend && npm run dev",
     "check": "npm run check:backend && npm run check:frontend",
     "check:backend": "cd backend && uv run ruff format --check . && uv run ruff check . && uv run ty .",
-    "check:frontend": "cd frontend && npx biome check . && npx tsc --noEmit",
+    "check:frontend": "cd frontend && npx biome lint . && npx tsc --noEmit",
     "db:migrate": "cd backend && uv run python -m alembic upgrade head",
     "db:migration": "cd backend && uv run python -m alembic revision --autogenerate -m",
     "db:data": "node scripts/create-data-migration.js",
@@ -21,7 +21,8 @@
     "api:generate": "cd frontend && npx openapi-typescript ../openapi.json -o src/api/api-types.gen.ts",
     "api:generate:miniapp": "node scripts/generate-miniapp-api.mjs",
     "api:update": "npm run api:spec && npm run api:generate",
-    "api:update:all": "npm run api:spec && npm run api:generate && npm run api:generate:miniapp"
+    "api:update:all": "npm run api:spec && npm run api:generate && npm run api:generate:miniapp",
+    "check:api": "npm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts miniprogram/api/types.gen.ts openapi.json"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",

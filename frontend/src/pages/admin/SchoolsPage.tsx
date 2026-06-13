@@ -117,8 +117,7 @@ export default function SchoolsPage() {
 	};
 
 	return (
-		<>
-			<div className="space-y-6">
+		<div className="space-y-6">
 				<div className="flex items-center gap-3 mb-4">
 					<div className="relative flex-1 max-w-xs">
 						<Search
@@ -265,6 +264,5 @@ export default function SchoolsPage() {
 					</div>
 				</Modal>
 			</div>
-		</>
 	);
 }

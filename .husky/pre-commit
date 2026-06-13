@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-commit: format + lint + migration sanity
+# Pre-commit: format + lint + type check + migration sanity
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # Frontend checks
 cd "$ROOT/frontend" || exit 1
 npx lint-staged
+npx tsc --noEmit
 
 # Backend checks — only if Python files are staged
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM -- "$ROOT/backend/*.py" 2>/dev/null || true)

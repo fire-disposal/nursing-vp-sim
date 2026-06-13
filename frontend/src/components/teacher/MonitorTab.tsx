@@ -33,7 +33,7 @@ const PURPOSE_LABELS: Record<string, string> = {
 function safeDate(iso: string | null | undefined): string {
 	if (!iso) return "\u2014";
 	const d = new Date(iso);
-	if (isNaN(d.getTime())) return iso;
+	if (Number.isNaN(d.getTime())) return iso;
 	return d.toLocaleString("zh-CN");
 }
 

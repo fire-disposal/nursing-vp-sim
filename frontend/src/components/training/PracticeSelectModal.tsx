@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock, Play, Sparkles } from "lucide-react";
 import { api } from "@/api/axios-instance";
 import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 import LoadingState from "@/components/ui/LoadingState";
 import Modal from "@/components/ui/Modal";
 

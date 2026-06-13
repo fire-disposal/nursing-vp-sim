@@ -15,7 +15,6 @@
 	Settings,
 	Shield,
 	Stethoscope,
-	User,
 	UserSearch,
 	Users,
 	X,
@@ -145,7 +144,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const isFullPage = isTrainingPage || isQAPage;
 
 	const userAvatar = getUserAvatar(user?.gender);
-	const currentSchoolName = user?.school_name || "";
 
 	const close = () => setMobileOpen(false);
 

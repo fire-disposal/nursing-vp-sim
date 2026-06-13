@@ -45,6 +45,56 @@ cd backend && pytest -m pg
 cd backend && pytest -m "not pg"
 ```
 
+## API Client Generation
+
+**API 客户端代码必须自动生成，禁止手动编辑以下文件：**
+
+| 文件 | 生成方式 | 更新命令 |
+|------|----------|----------|
+| `frontend/src/api/api-types.gen.ts` | `openapi-typescript` 从 openapi.json 生成 | `npm run api:generate` 或 `npm run api:update` |
+| `miniprogram/api/types.gen.ts` | `scripts/generate-miniapp-api.mjs` 从 openapi.json 生成 | `npm run api:generate:miniapp` 或 `npm run api:update:all` |
+
+**完整更新流程**（后端接口变更后必须执行）：
+
+```bash
+# 1. 导出最新 openapi.json（需要后端运行在 localhost:8000）
+npm run api:spec
+
+# 2. 同时更新 Web 端和小程序端 API 客户端
+npm run api:update:all
+```
+
+**检查生成文件是否过期**（CI/提交前）：
+
+```bash
+npm run check:api
+# 等价于 api:update:all + git diff --exit-code（后端须运行）
+```
+
+**规范：**
+- 手动修改 `.gen.ts` 文件会被下次生成覆盖，修改应通过 schema 或生成脚本完成
+- 小程序端的 `miniprogram/api/auth.ts`、`miniprogram/api/cases.ts` 等手写 API 模块，其类型定义应从 `types.gen.ts` 导入，不可重复定义
+- 新增小程序端 API 端点时，应在 `scripts/generate-miniapp-api.mjs` 中维护 `endpointStyle` 映射，然后重新生成
+- 前端 Web 端 API 函数（`frontend/src/api/*.ts`）使用 `api-types.gen.ts` 中的 `components["schemas"]` 类型，删除端点时同步清理对应函数
+
+### Web 端路径类型安全
+
+`frontend/src/api/api-path.ts` 从 `api-types.gen.ts` 的 `paths` 类型自动衍生出 `ApiPath`（所有有效 API 路径的联合类型）。
+
+**静态路径**用 `satisfies ApiPath` 校验，编译时捕获路径拼写错误：
+```typescript
+import type { ApiPath } from "./api-path";
+api.get("/auth/login" satisfies ApiPath as string, config);
+```
+
+**动态路径**用模板常量 + `satisfies`，运行时 `replace` 插值：
+```typescript
+const RECORD_DETAIL = "/training/records/{record_id}" satisfies ApiPath;
+api.get(RECORD_DETAIL.replace("{record_id}", String(id)));
+```
+
+后端改路由后，若手写模块未同步更新路径，`tsc --noEmit` 会报错。
+
 ## Commit Format
 
 `<emoji> <type>: <description>`
@@ -83,13 +133,13 @@ Only tag push triggers staging deployment. Never push directly to master expecti
 
 All pushes pass through `.husky/pre-push`:
 - **Alembic roundtrip**: `alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
-- **TypeScript**: `tsc --noEmit`
-- **Tag format**: pushed tags must match `vYYYY.MM.DD-HH`
+- **Biome check**: `biome lint` (frontend lint, no auto-fix)
+- **Tag format**: pushed tags must match `vYYYY.MM.DD-N` (sequential counter, e.g. `v2026.06.12-1`)
 
 ## Pre-commit Checks
 
 All commits must pass:
 - `ruff check` / `ruff format` (backend)
-- `biome check --write` (frontend)
+- `biome check` (frontend, check-only on staged TS/TSX)
 - `tsc --noEmit` (frontend)
 - Migration autogen rules (`check-migration-autogen.js`)

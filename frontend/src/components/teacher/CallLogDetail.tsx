@@ -9,12 +9,9 @@ import {
 	Zap,
 } from "lucide-react";
 import { getLogDetail } from "@/api/api-client";
-import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/Badge";
 import Sheet from "@/components/ui/Sheet";
 import { cn } from "@/lib/utils";
-
-type LLMCallLogItem = components["schemas"]["LLMCallLogItem"];
 
 interface CallLogDetailProps {
 	logId: number | null;

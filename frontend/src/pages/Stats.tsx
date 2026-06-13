@@ -138,11 +138,7 @@ export default function Stats() {
 }
 
 export function StatsPage() {
-	return (
-		<>
-			<Stats />
-		</>
-	);
+	return <Stats />;
 }
 
 function StatsContent({

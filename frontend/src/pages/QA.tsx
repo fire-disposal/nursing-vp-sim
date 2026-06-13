@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-	askInQASession,
 	askInQASessionStream,
 	createQASession,
 	deleteQASession,
@@ -228,8 +227,7 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<>
-			<div className="flex h-dvh overflow-hidden">
+		<div className="flex h-dvh overflow-hidden">
 				{showSidebar && (
 					<div
 						className="fixed inset-0 z-40 bg-black/40 md:hidden"
@@ -427,6 +425,5 @@ export default function QA() {
 					</div>
 				</main>
 			</div>
-		</>
 	);
 }
