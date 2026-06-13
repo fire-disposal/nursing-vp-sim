@@ -7,12 +7,10 @@ export const createAssignment = (data: Schemas["AssignmentCreateRequest"]) =>
 	api.post<Schemas["AssignmentDetail"]>("/assignments", data);
 
 export const getAssignments = (params?: Record<string, unknown>) =>
-	api.get<{
-		items: Schemas["AssignmentListItem"][];
-		total: number;
-		offset: number;
-		limit: number;
-	}>("/assignments", { params });
+	api.get<Schemas["PaginatedResponse_AssignmentListItem_"]>(
+		"/assignments",
+		{ params },
+	);
 
 export const getAssignment = (id: string) =>
 	api.get<Schemas["AssignmentDetail"]>(`/assignments/${id}`);

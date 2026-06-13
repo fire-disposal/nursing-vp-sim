@@ -139,7 +139,7 @@ async def _run_scoring_job(
         await repo.update_scoring_status(record_id, "failed", "评分超时（超过5分钟）")
         log.exception("评分超时 record_id=%d", record_id)
     except Exception as e:
-        await repo.update_scoring_status(record_id, "failed", str(e)[:2000])
+        await repo.update_scoring_status(record_id, "failed", str(e)[:2000] or f"{type(e).__name__}")
         log.exception("评分失败 record_id=%d", record_id)
     finally:
         db.close()

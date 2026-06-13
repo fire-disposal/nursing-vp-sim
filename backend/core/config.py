@@ -54,7 +54,7 @@ def validate_config():
     if db.scheme not in ("postgresql", "postgresql+psycopg"):
         raise RuntimeError(f"DATABASE_URL scheme 无效: {db.scheme}（期望 postgresql 或 postgresql+psycopg）")
 
-    cors_raw = os.getenv("CORS_ORIGINS", "")
+    cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
     if not cors_raw or not any(o.strip() for o in cors_raw.split(",")):
         log.warning("CORS_ORIGINS 未配置或为空，跨域请求将全部被拒绝")
 

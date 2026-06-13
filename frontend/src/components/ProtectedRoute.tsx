@@ -15,9 +15,11 @@ export default function ProtectedRoute({
 	const permissions = useAuthStore((s) => s.permissions);
 
 	if (!token || !user) return <Navigate to="/login" replace />;
-	if (permission && !permissions.includes(permission))
-		return <Navigate to="/login" replace />;
-	if (role && user.role !== role) return <Navigate to="/login" replace />;
+
+	if (permission && !permissions.includes(permission)) {
+		if (role && user.role !== role) return <Navigate to="/home" replace />;
+		return <Navigate to="/home" replace />;
+	}
 
 	return <Outlet />;
 }

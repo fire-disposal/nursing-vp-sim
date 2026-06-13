@@ -77,7 +77,7 @@ export default function AssignmentDetailPage() {
 			<div className="p-8 text-center text-muted-foreground">加载失败</div>
 		);
 
-	const detail = data.data as any;
+	const detail = data.data;
 
 	return (
 		<div className="space-y-6">

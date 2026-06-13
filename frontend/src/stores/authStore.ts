@@ -21,6 +21,27 @@ const loadPermissions = (): string[] => {
 };
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let isRefreshing = false;
+
+export function startRefreshTimer(): void {
+	const token = localStorage.getItem("token");
+	if (!token) return;
+	if (refreshTimer) clearInterval(refreshTimer);
+	refreshTimer = setInterval(() => {
+		if (isRefreshing) return;
+		isRefreshing = true;
+		useAuthStore.getState().refreshAuth().finally(() => {
+			isRefreshing = false;
+		});
+	}, 50 * 60 * 1000);
+}
+
+export function stopRefreshTimer(): void {
+	if (refreshTimer) {
+		clearInterval(refreshTimer);
+		refreshTimer = null;
+	}
+}
 
 const useAuthStore = create<ExtendedAuthState>((set, get) => ({
 	user: ((): User | null => {
@@ -50,22 +71,20 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
 		localStorage.setItem("token", data.access_token);
 		const user: User = {
 			user_id: data.user_id,
-			username: (data as any).username || username,
+			username: data.display_name || username,
 			role: data.role,
-			role_display_name: (data as any).role_display_name || data.role,
+			role_display_name: data.role,
 			display_name: data.display_name,
-			gender: (data as any).gender ?? null,
-			avatar: (data as any).avatar ?? null,
-			school_id: (data as any).school_id ?? undefined,
-			school_name: (data as any).school_name ?? undefined,
+			gender: data.gender ?? null,
+			avatar: data.avatar ?? null,
+			school_id: data.school_id ?? undefined,
+			school_name: data.school_name ?? undefined,
 		};
 		localStorage.setItem("user", JSON.stringify(user));
-		const perms = (data as any).permissions || [];
-		localStorage.setItem("user_permissions", JSON.stringify(perms));
-		set({ user, token: data.access_token, permissions: perms });
+		localStorage.setItem("user_permissions", JSON.stringify(data.permissions));
+		set({ user, token: data.access_token, permissions: data.permissions });
 
-		if (refreshTimer) clearInterval(refreshTimer);
-		refreshTimer = setInterval(() => get().refreshAuth(), 50 * 60 * 1000);
+		startRefreshTimer();
 
 		return user;
 	},
@@ -74,9 +93,8 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
 		try {
 			const { data } = await apiRefreshToken();
 			localStorage.setItem("token", data.access_token);
-			const perms = (data as any).permissions || [];
-			localStorage.setItem("user_permissions", JSON.stringify(perms));
-			set({ token: data.access_token, permissions: perms });
+			localStorage.setItem("user_permissions", JSON.stringify(data.permissions));
+			set({ token: data.access_token, permissions: data.permissions });
 			return true;
 		} catch {
 			console.warn("[authStore] refreshAuth 失败，强制登出");
@@ -91,17 +109,16 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
 			const current = get().user;
 			const user: User = {
 				user_id: data.id,
-				username: (data as any).username || current?.username || "",
+				username: data.username || current?.username || "",
 				role: data.role,
-				role_display_name: (data as any).role_display_name || data.role,
+				role_display_name: data.role_display_name || data.role,
 				display_name: data.display_name,
-				gender: (data as any).gender ?? null,
-				avatar: (data as any).avatar ?? null,
-				grade: (data as any).grade_name ?? current?.grade ?? "",
-				className: (data as any).class_name ?? current?.className ?? "",
-				school_id: current?.school_id ?? (data as any).school_id ?? undefined,
-				school_name:
-					current?.school_name ?? (data as any).school_name ?? undefined,
+				gender: data.gender ?? null,
+				avatar: data.avatar ?? null,
+				grade: data.grade_name ?? current?.grade ?? "",
+				className: data.class_name ?? current?.className ?? "",
+				school_id: current?.school_id,
+				school_name: current?.school_name,
 			};
 			localStorage.setItem("user", JSON.stringify(user));
 			set({ user });
@@ -112,10 +129,7 @@ const useAuthStore = create<ExtendedAuthState>((set, get) => ({
 	},
 
 	logout: (): void => {
-		if (refreshTimer) {
-			clearInterval(refreshTimer);
-			refreshTimer = null;
-		}
+		stopRefreshTimer();
 		localStorage.removeItem("token");
 		localStorage.removeItem("user");
 		localStorage.removeItem("user_permissions");

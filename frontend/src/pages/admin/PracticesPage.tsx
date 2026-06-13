@@ -81,8 +81,8 @@ export default function PracticesPage() {
 		staleTime: 5 * 60_000,
 	});
 
-	const practices = (listData?.data as any)?.items ?? [];
-	const cases = (casesData?.data as any)?.items ?? [];
+	const practices = listData?.data?.items ?? [];
+	const cases = casesData?.data?.items ?? [];
 
 	const openCreate = () => {
 		setEditingId(null);
@@ -90,10 +90,17 @@ export default function PracticesPage() {
 		setModalOpen(true);
 	};
 
-	const openEdit = async (id: number) => {
+	const 	openEdit = async (id: number) => {
 		try {
 			const res = await api.get(`/admin/practices/${id}`);
-			const d = res.data as any;
+			const d = res.data as {
+				name?: string;
+				description?: string;
+				case_id?: number;
+				mode?: string;
+				features?: Record<string, boolean>;
+				behavior?: { time_limit_minutes?: number; max_rounds?: number };
+			};
 			setEditingId(id);
 			setForm({
 				name: d.name || "",

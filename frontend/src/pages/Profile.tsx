@@ -16,9 +16,7 @@ export default function Profile() {
 	const [displayName, setDisplayName] = useState(storeUser?.display_name || "");
 	const [gender, setGender] = useState(storeUser?.gender || "");
 	const [avatarValue, _setAvatarValue] = useState(storeUser?.avatar || "");
-	const [studentId, setStudentId] = useState(
-		(storeUser as any)?.student_id || "",
-	);
+	const [studentId, setStudentId] = useState(storeUser?.student_id || "");
 	const [saving, setSaving] = useState(false);
 	const [saveMsg, setSaveMsg] = useState("");
 

@@ -2,7 +2,7 @@
 import { Activity, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import LoginIllustration from "@/components/login/LoginIllustration";
 import { Button } from "@/components/ui/Button";
 import {
@@ -22,11 +22,17 @@ export default function Login() {
 	const [loading, setLoading] = useState(false);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
+	const user = useAuthStore((s) => s.user);
+	const token = useAuthStore((s) => s.token);
 
 	const form = useForm<LoginFormValues>({
 		resolver: zodResolver(loginSchema),
 		defaultValues: { username: "", password: "" },
 	});
+
+	if (token && user) {
+		return <Navigate to="/home" replace />;
+	}
 
 	const onSubmit = async (values: LoginFormValues) => {
 		setError("");

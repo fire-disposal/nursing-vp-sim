@@ -113,7 +113,7 @@ async def _run_scoring_background(
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record:
                 record.scoring_status = "failed"
-                record.scoring_error = str(e)[:2000]
+                record.scoring_error = str(e)[:2000] or f"{type(e).__name__}"
                 db.commit()
         except Exception as inner:
             log.warning("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})

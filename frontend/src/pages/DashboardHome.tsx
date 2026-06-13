@@ -215,7 +215,7 @@ function StudentDashboard({
 		queryFn: () => getStudentAssignments().then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
-	const studentAssignments = (studentAssignmentsData ?? []) as any[];
+	const studentAssignments = studentAssignmentsData ?? [];
 
 	const handleStartAssignment = async (assignmentId: string) => {
 		try {

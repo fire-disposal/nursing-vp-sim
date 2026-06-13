@@ -37,13 +37,13 @@ export default function SecretModal({
 	useEffect(() => {
 		if (open) {
 			setLabel(secret?.label || "");
-			setBaseUrl((secret as any)?.base_url || "");
+			setBaseUrl(secret?.base_url || "");
 			setRawKey("");
-			setPriceInput(String((secret as any)?.price_input_per_1m ?? 0.5));
-			setPriceOutput(String((secret as any)?.price_output_per_1m ?? 0.5));
+			setPriceInput(String(secret?.price_input_per_1m ?? 0.5));
+			setPriceOutput(String(secret?.price_output_per_1m ?? 0.5));
 			setMonthlyLimit(
-				(secret as any)?.monthly_cost_limit
-					? String((secret as any).monthly_cost_limit)
+				secret?.monthly_cost_limit != null
+					? String(secret.monthly_cost_limit)
 					: "",
 			);
 		}
@@ -64,7 +64,7 @@ export default function SecretModal({
 					label: label.trim(),
 					base_url: baseUrl.trim(),
 					...pricing,
-				} as any);
+				});
 				success("密钥已更新");
 			} else {
 				await createSecret({
@@ -72,7 +72,7 @@ export default function SecretModal({
 					raw_key: rawKey.trim(),
 					base_url: baseUrl.trim() || undefined,
 					...pricing,
-				} as any);
+				});
 				success("密钥已创建");
 			}
 			onSaved();

@@ -1,3 +1,4 @@
+import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
 
@@ -17,7 +18,7 @@ export const retryScoring = (recordId: number | string) =>
 
 export const getRecords = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_TrainingRecordBrief_"]>(
-		"/training/records",
+		"/training/records" satisfies ApiPath as string,
 		{ params },
 	);
 

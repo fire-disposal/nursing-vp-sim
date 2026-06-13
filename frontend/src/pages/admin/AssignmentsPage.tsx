@@ -93,9 +93,9 @@ export default function AssignmentsPage() {
 		staleTime: 5 * 60_000,
 	});
 
-	const assignments = (listData?.data as any)?.items ?? [];
-	const practices = (practicesData?.data as any[]) ?? [];
-	const classes = (classesData?.data ?? []) as any[];
+	const assignments = listData?.data?.items ?? [];
+	const practices = practicesData?.data?.items ?? [];
+	const classes = classesData?.data ?? [];
 
 	const openCreate = () => {
 		setEditingId(null);
@@ -103,10 +103,10 @@ export default function AssignmentsPage() {
 		setModalOpen(true);
 	};
 
-	const openEdit = async (id: string) => {
+	const 	openEdit = async (id: string) => {
 		try {
 			const res = await fetchAssignment(id);
-			const d = res.data as any;
+			const d = res.data;
 			setEditingId(id);
 			setForm({
 				title: d.title,
