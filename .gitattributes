@@ -1,0 +1,33 @@
+# 强制所有文本文件使用 LF 换行符，消除 Windows / Linux 差异
+* text=auto eol=lf
+
+# 二进制文件不出现在 text diff 中
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.mp3 binary
+*.mp4 binary
+*.mov binary
+*.pdf binary
+*.db binary
+*.db-wal binary
+*.db-shm binary
+
+# Shell 脚本必须 LF（否则 Linux 上无法执行）
+*.sh text eol=lf
+
+# 生成文件强制 LF
+frontend/src/api/api-types.gen.ts text eol=lf
+miniprogram/api/types.gen.ts text eol=lf

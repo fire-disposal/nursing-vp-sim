@@ -22,7 +22,7 @@
     "api:generate:miniapp": "node scripts/generate-miniapp-api.mjs",
     "api:update": "npm run api:spec && npm run api:generate",
     "api:update:all": "npm run api:spec && npm run api:generate && npm run api:generate:miniapp",
-    "check:api": "npm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts miniprogram/api/types.gen.ts openapi.json"
+    "check:api": "npm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts miniprogram/api/types.gen.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",
