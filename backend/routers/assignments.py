@@ -128,12 +128,7 @@ def create_assignment(
 ):
     _check_teacher_school(db, current_user, req.class_id)
 
-    practice = (
-        db.query(Practice)
-        .options(joinedload(Practice.case))
-        .filter(Practice.id == req.practice_id)
-        .first()
-    )
+    practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
     if not practice:
         raise HTTPException(status_code=404, detail="练习不存在")
     if practice.case.school_id is not None and practice.case.school_id != current_user.school_id:

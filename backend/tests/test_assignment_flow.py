@@ -15,8 +15,12 @@ class TestAssignmentFlow:
     def test_create_and_list(self, client, teacher, test_case, test_class, db_session):
         _, token = teacher
         practice = Practice(
-            name="测试练习", description="test", case_id=test_case.id, mode="training",
-            features={"physical_exam": True}, behavior={"time_limit_minutes": 20},
+            name="测试练习",
+            description="test",
+            case_id=test_case.id,
+            mode="training",
+            features={"physical_exam": True},
+            behavior={"time_limit_minutes": 20},
         )
         db_session.add(practice)
         db_session.commit()
@@ -57,12 +61,18 @@ class TestAssignmentFlow:
         assert "text/csv" in resp.headers.get("content-type", "")
         assert assignment_id
 
-    def test_student_sees_assignment(self, client, teacher, student, test_case, test_class, test_student_in_class, db_session):
+    def test_student_sees_assignment(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
         _, teacher_token = teacher
         _, student_token = student
         practice = Practice(
-            name="学生可见测试练习", description="test", case_id=test_case.id, mode="training",
-            features={}, behavior={"time_limit_minutes": 20},
+            name="学生可见测试练习",
+            description="test",
+            case_id=test_case.id,
+            mode="training",
+            features={},
+            behavior={"time_limit_minutes": 20},
         )
         db_session.add(practice)
         db_session.commit()
@@ -89,12 +99,18 @@ class TestAssignmentFlow:
         student_item = next(a for a in items if a["id"] == assignment_id)
         assert student_item["status"] in ("pending", "overdue")
 
-    def test_student_starts_assignment(self, client, teacher, student, test_case, test_class, test_student_in_class, db_session):
+    def test_student_starts_assignment(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
         _, teacher_token = teacher
         _, student_token = student
         practice = Practice(
-            name="开始训练测试练习", description="test", case_id=test_case.id, mode="training",
-            features={"emotion": True}, behavior={"time_limit_minutes": 20},
+            name="开始训练测试练习",
+            description="test",
+            case_id=test_case.id,
+            mode="training",
+            features={"emotion": True},
+            behavior={"time_limit_minutes": 20},
         )
         db_session.add(practice)
         db_session.commit()
@@ -143,8 +159,12 @@ class TestAssignmentFlow:
         _, teacher_token = teacher
         _, student_token = student
         practice = Practice(
-            name="越权测试练习", description="test", case_id=test_case.id, mode="training",
-            features={}, behavior={"time_limit_minutes": 20},
+            name="越权测试练习",
+            description="test",
+            case_id=test_case.id,
+            mode="training",
+            features={},
+            behavior={"time_limit_minutes": 20},
         )
         db_session.add(practice)
         db_session.commit()
@@ -168,12 +188,18 @@ class TestAssignmentFlow:
         )
         assert resp.status_code == 403
 
-    def test_delete_after_started_fails(self, client, teacher, student, test_case, test_class, test_student_in_class, db_session):
+    def test_delete_after_started_fails(
+        self, client, teacher, student, test_case, test_class, test_student_in_class, db_session
+    ):
         _, teacher_token = teacher
         _, student_token = student
         practice = Practice(
-            name="删除测试练习", description="test", case_id=test_case.id, mode="training",
-            features={}, behavior={"time_limit_minutes": 20},
+            name="删除测试练习",
+            description="test",
+            case_id=test_case.id,
+            mode="training",
+            features={},
+            behavior={"time_limit_minutes": 20},
         )
         db_session.add(practice)
         db_session.commit()
@@ -201,8 +227,12 @@ class TestAssignmentFlow:
     def test_update_assignment(self, client, teacher, test_case, test_class, db_session):
         _, token = teacher
         practice = Practice(
-            name="更新测试练习", description="test", case_id=test_case.id, mode="training",
-            features={}, behavior={"time_limit_minutes": 20},
+            name="更新测试练习",
+            description="test",
+            case_id=test_case.id,
+            mode="training",
+            features={},
+            behavior={"time_limit_minutes": 20},
         )
         db_session.add(practice)
         db_session.commit()

@@ -248,7 +248,11 @@ def start_training(
             config = get_config("standard-assessment") or {}
 
     record, greeting = _create_record(
-        db, current_user.id, case, case.case_data or {}, config,
+        db,
+        current_user.id,
+        case,
+        case.case_data or {},
+        config,
         practice_id=practice.id if practice else None,
         app_state=request.app.state,
     )
@@ -272,7 +276,10 @@ def start_training_from_assignment(
     assignment_id: str = Query(...),
 ):
     assignment = (
-        db.query(Assignment).options(joinedload(Assignment.practice).joinedload(Practice.case)).filter(Assignment.id == assignment_id).first()
+        db.query(Assignment)
+        .options(joinedload(Assignment.practice).joinedload(Practice.case))
+        .filter(Assignment.id == assignment_id)
+        .first()
     )
     if not assignment:
         raise HTTPException(status_code=404, detail="练习发布不存在")
@@ -314,7 +321,9 @@ def start_training_from_assignment(
             patient_name = patient_info.get("name", "患者")
             greeting = f"你好，我是{patient_name}。{case_data.get('opening_line', '我今天感觉不太舒服，所以来看看。')}"
             return TrainingStartResponse(
-                record_id=existing.id, greeting=greeting, case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else ""
+                record_id=existing.id,
+                greeting=greeting,
+                case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else "",
             )
 
     practice = assignment.practice
@@ -542,8 +551,7 @@ def get_score_review(
         raise HTTPException(status_code=404, detail="该记录暂无评分")
 
     latest_review = (
-        db.query(ScoreReview).filter(ScoreReview.score_id == score.id)
-        .order_by(ScoreReview.created_at.desc()).first()
+        db.query(ScoreReview).filter(ScoreReview.score_id == score.id).order_by(ScoreReview.created_at.desc()).first()
     )
     reviewer_name = None
     if latest_review and latest_review.reviewed_by:

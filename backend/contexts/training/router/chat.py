@@ -74,9 +74,7 @@ async def send_message(
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
     features = resolve_features(ctx.record.practice_snapshot)
-    pipe = (
-        get_pipeline(features)
-    )
+    pipe = get_pipeline(features)
     await run_pipeline(ctx, pipe)
 
     if ctx.error:

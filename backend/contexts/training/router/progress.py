@@ -6,10 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from contexts.patient import (
-    check_initiate_ready,
     generate_initiative,
     get_emotion,
-    get_initiative_seconds,
     handle_operation,
     should_initiate,
     update_initiative_timer,

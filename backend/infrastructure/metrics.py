@@ -130,7 +130,7 @@ class MetricsSnapshot:
             from core.database import engine
         except Exception:
             return {}
-        pool = cast(_PoolProtocol, engine.pool)
+        pool = cast("_PoolProtocol", engine.pool)
         if pool is None:
             return {}
         return dict(

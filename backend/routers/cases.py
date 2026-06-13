@@ -232,13 +232,9 @@ def list_case_practices(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    practices = (
-        db.query(Practice)
-        .filter(Practice.case_id == case_id, Practice.is_active == True)
-        .order_by(Practice.name)
-        .all()
+    return (
+        db.query(Practice).filter(Practice.case_id == case_id, Practice.is_active == True).order_by(Practice.name).all()
     )
-    return practices
 
 
 @router.get("/{case_id}", response_model=CaseDetail)

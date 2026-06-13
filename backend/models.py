@@ -119,9 +119,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
-    user_classes: Mapped[list["UserClass"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    user_classes: Mapped[list["UserClass"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     role: Mapped["Role"] = relationship()
     school: Mapped["School"] = relationship()
 
@@ -630,9 +628,7 @@ class SystemNotification(Base):
     content: Mapped[str] = mapped_column(Text)
     level: Mapped[str] = mapped_column(String(20), default="info")
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_by: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
+    created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
