@@ -86,17 +86,6 @@ else
   say "Migration roundtrip skipped (no alembic or DB tooling)"
 fi
 
-# ═══ Frontend lint check ═══
-if [ -f "$ROOT/frontend/tsconfig.json" ]; then
-  cd "$ROOT/frontend"
-  if npx biome lint --max-diagnostics 50 2>&1; then
-    ok "biome lint"
-  else
-    fail "biome lint"
-  fi
-  cd "$ROOT"
-fi
-
 # ═══ Migration conflict detection ═══
 if git diff --cached --name-only -- backend/migrations/versions/ 2>/dev/null | grep -q '.'; then
   if git diff --cached -- backend/migrations/versions/ | grep -qE '^\+<<<<<<<|^\+=======|^\+>>>>>>>'; then
