@@ -87,6 +87,10 @@ rollback_to() {
     sed -i "s|image: .*nursing-vp-sim-backend:.*|image: ${backend_img}|" docker-compose.yml
     sed -i "s|image: .*nursing-vp-sim-frontend:.*|image: ${frontend_img}|" docker-compose.yml
 
+    msg_ok "回滚数据库迁移 (alembic downgrade -1)..."
+    docker compose --env-file .env exec -T backend alembic downgrade -1 2>/dev/null \
+        || msg_warn "迁移回滚失败（可能无需回滚或首次部署），继续"
+
     msg_ok "重启服务..."
     docker compose --env-file .env up -d --remove-orphans
 

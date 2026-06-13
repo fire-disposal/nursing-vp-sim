@@ -96,6 +96,9 @@ jobs:
                 healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
                 unhealthy)
                   echo "  ✗ unhealthy! Rolling back..."
+                  echo "  >> attempting alembic downgrade before rolling back image..."
+                  docker compose -f docker-compose.yml --env-file .env exec -T backend alembic downgrade -1 2>/dev/null \
+                    || echo "  ⚠ downgrade failed (container may be too broken, will be dropped)"
                   if [ -n "\$OLD_VER" ]; then
                     IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.yml --env-file .env up -d
                     echo "  ⚠ rolled back to v\$OLD_VER"
@@ -110,7 +113,7 @@ jobs:
 
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
             echo "\$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:\$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:\$VER" >> .version-history
-            tail -5 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
+            tail -10 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
             echo ">> Production v$VER ✓"
             docker image prune -f
           DEPLOY

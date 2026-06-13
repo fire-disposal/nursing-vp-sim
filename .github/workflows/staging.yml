@@ -158,6 +158,9 @@ jobs:
                 healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
                 unhealthy)
                   echo "  ✗ unhealthy! Rolling back..."
+                  echo "  >> attempting alembic downgrade before rolling back image..."
+                  docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging exec -T backend alembic downgrade -1 2>/dev/null \
+                    || echo "  ⚠ downgrade failed (container may be too broken, will be dropped)"
                   if [ -n "\$OLD_IMG" ]; then
                     OLD_VER=\$(echo "\$OLD_IMG" | rev | cut -d: -f1 | rev)
                     IMAGE_VERSION=\$OLD_VER docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d
@@ -169,6 +172,8 @@ jobs:
             done
             [ "\$OK" = true ] || { echo "  ✗ timeout"; exit 1; }
             curl -sf http://127.0.0.1:9081/api/health && echo ">> Staging v$VER ✓"
+            echo "\$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:\$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:\$VER" >> .version-history
+            tail -10 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
             docker image prune -f
           DEPLOY
 
