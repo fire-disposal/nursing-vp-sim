@@ -8,7 +8,6 @@ from .phase import (
     parse_phases,
     try_advance_phase,
 )
-from .plugin import run_plugin_hooks
 from .registry import get_pipeline
 from .runner import PipelineMiddleware, run_pipeline, stream_pipeline
 
@@ -21,7 +20,6 @@ __all__ = [
     "parse_phase",
     "parse_phases",
     "run_pipeline",
-    "run_plugin_hooks",
     "stream_pipeline",
     "try_advance_phase",
 ]

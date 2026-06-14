@@ -21,7 +21,7 @@ class PhysicalExamPlugin(Plugin):
         return [
             RouteDef(
                 method="POST",
-                path="/{record_id}/exam/{op_type}",
+                path="/training/{record_id}/exam/{op_type}",
                 handler=perform_exam,
             )
         ]

@@ -99,7 +99,7 @@ class TestHandleOperation:
 
 class TestExamEmotionImpact:
     def test_impact_mapping_exists(self):
-        from contexts.training.plugins import EXAM_EMOTION_IMPACT
+        from plugins.exam_emotion_bridge.plugin import EXAM_EMOTION_IMPACT
 
         assert "temp" in EXAM_EMOTION_IMPACT
         assert "skin" in EXAM_EMOTION_IMPACT
@@ -110,7 +110,7 @@ class TestExamEmotionImpact:
             assert "comfort_no" in impact
 
     def test_cumulative_thresholds(self):
-        from contexts.training.plugins import _CUMULATIVE_THRESHOLDS
+        from plugins.exam_emotion_bridge.plugin import _CUMULATIVE_THRESHOLDS
 
         assert len(_CUMULATIVE_THRESHOLDS) == 3
         for threshold, dt, dc in _CUMULATIVE_THRESHOLDS:

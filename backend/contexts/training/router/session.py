@@ -199,13 +199,19 @@ def _create_record(
     db.commit()
     db.refresh(record)
 
-    from contexts.training.pipeline.plugin import run_plugin_hooks
-    from contexts.training.plugins import _hook_ctx
+    from plugins.manager import get_plugin_manager
+    from plugins.base import RecordCreateContext
     from core.feature_flags import resolve_features
 
     features = resolve_features(record.practice_snapshot)
     if app_state is not None:
-        run_plugin_hooks("on_record_create", _hook_ctx(record, app_state), features)
+        pm = get_plugin_manager()
+        ctx = RecordCreateContext(
+            record=record,
+            emotion_cache=app_state.emotion_cache,
+            initiative_cache=app_state.initiative_cache,
+        )
+        pm.run_hook_sync("on_record_create", ctx, features)
 
     return record, greeting
 

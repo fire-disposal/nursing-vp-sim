@@ -1,34 +1,38 @@
 from unittest.mock import MagicMock
 
-from core.feature_flags import FEATURE_FLAGS, is_enabled, resolve_features
+from core.feature_flags import FEATURE_FLAGS, all_feature_flags, is_enabled, resolve_features
 
-_defaults = {k: v.default for k, v in FEATURE_FLAGS.items()}
+
+def _all_flags() -> dict[str, bool]:
+    return {k: v.default for k, v in all_feature_flags().items()}
 
 
 def _expected(**overrides: bool) -> dict[str, bool]:
-    return {**_defaults, **overrides}
+    return {**_all_flags(), **overrides}
 
 
 class TestResolveFeatures:
     def test_defaults_when_no_snapshot(self):
         result = resolve_features(None)
-        assert result == _defaults
+        assert result == _all_flags()
 
     def test_defaults_when_empty_snapshot(self):
         result = resolve_features({})
-        assert result == _defaults
+        assert result == _all_flags()
 
     def test_override_single_flag(self):
         result = resolve_features({"features": {"physical_exam": True}})
         assert result == _expected(physical_exam=True)
 
     def test_override_all_flags(self):
-        result = resolve_features({"features": {"physical_exam": True, "patient_initiative": True}})
+        result = resolve_features(
+            {"features": {"physical_exam": True, "patient_initiative": True}}
+        )
         assert result == _expected(physical_exam=True, patient_initiative=True)
 
     def test_unknown_key_ignored(self):
         result = resolve_features({"features": {"unknown_flag": True}})
-        assert result == _defaults
+        assert result == _all_flags()
 
 
 class TestIsEnabled:

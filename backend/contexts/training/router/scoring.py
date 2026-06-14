@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from contexts.training.pipeline.plugin import run_plugin_hooks
+from plugins.manager import get_plugin_manager
 from contexts.training.score_engine import evaluate_training
 from core.config import SCORING_TIMEOUT_SECONDS
 from core.database import SessionLocal, get_db
@@ -161,12 +161,17 @@ async def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    from contexts.training.plugins import _hook_ctx
+    from plugins.base import EndContext
     from core.feature_flags import resolve_features
 
     features = resolve_features(record.practice_snapshot)
-    hook_ctx = _hook_ctx(record, request.app.state)
-    run_plugin_hooks("on_end", hook_ctx, features)
+    pm = get_plugin_manager()
+    ctx = EndContext(
+        record=record,
+        emotion_cache=request.app.state.emotion_cache,
+        initiative_cache=request.app.state.initiative_cache,
+    )
+    pm.run_hook_sync("on_training_end", ctx, features)
 
     message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
     log.info(
