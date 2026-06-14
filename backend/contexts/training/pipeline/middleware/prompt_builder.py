@@ -6,7 +6,7 @@ from contexts.patient import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
 )
-from contexts.patient.guard import get_identity_correction_note, has_identity_leak
+from contexts.patient.sources import collect_author_note
 from infrastructure.prompt import render_template
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
@@ -15,44 +15,13 @@ from ..context import PipelineContext
 log = logging.getLogger(__name__)
 
 
-def _collect_author_note(ctx) -> str:
-    notes = []
-    if ctx.state.get("emotion_note"):
-        notes.append(ctx.state["emotion_note"])
-
-    # Identity leak guard: check last patient reply
-    last_patient = None
-    for msg in reversed(ctx.messages):
-        if msg.role == "patient":
-            last_patient = msg.content
-            break
-    if last_patient and has_identity_leak(last_patient):
-        notes.append(get_identity_correction_note())
-
-    snapshot = ctx.record.practice_snapshot or {}
-    exam_results = snapshot.get("_exam_results", [])
-    if isinstance(exam_results, list) and exam_results:
-        lines = []
-        for r in exam_results[-5:]:
-            label = r.get("label", "")
-            value = r.get("value", "")
-            unit = r.get("unit", "")
-            lines.append(f"{label}: {value}{unit}")
-        notes.append("已查体征: " + " | ".join(lines))
-
-    impact_note = snapshot.get("_exam_impact_note")
-    if impact_note and isinstance(impact_note, str) and impact_note.strip():
-        notes.append(impact_note)
-
-    return "【" + " | ".join(notes) + "】" if notes else ""
-
-
 async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     if ctx.should_shortcut:
         await next_mw()
         return
 
-    author_note = _collect_author_note(ctx)
+    author_note, traces = await collect_author_note(ctx)
+    ctx.state["_source_traces"] = traces
 
     kwargs = build_patient_context_kwargs(ctx.case_data, author_note=author_note)
     pm = ctx.app_state.prompt_manager
