@@ -111,10 +111,11 @@ async def lifespan(app: FastAPI):
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
 
-    from contexts.training.plugins import register_all_plugins
+    from plugins.manager import get_plugin_manager
 
-    register_all_plugins()
-    log.info("Plugins: registered")
+    pm = get_plugin_manager()
+    pm.discover()
+    log.info("Plugins: registered (%d discovered)", len(pm._plugins))
 
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
@@ -297,6 +298,13 @@ app.include_router(nursing_router)
 app.include_router(qa_router)
 app.include_router(assignments_router)
 app.include_router(student_assignments_router)
+
+from plugins.manifest import router as manifest_router
+app.include_router(manifest_router)
+
+from plugins.manager import get_plugin_manager
+pm = get_plugin_manager()
+pm.register_routes(nursing_router)
 
 
 @app.get("/api/health")
