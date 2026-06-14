@@ -145,7 +145,7 @@ class MetricsSnapshot:
         try:
             import resource
 
-            usage = resource.getrusage(resource.RUSAGE_SELF)  # ty: ignore[unresolved-attribute]
+            usage = resource.getrusage(resource.RUSAGE_SELF)
             return round(usage.ru_maxrss / 1024, 1)
         except Exception:
             return 0.0

@@ -12,11 +12,11 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from .base import PipelineMiddleware, Plugin
+    from .base import Plugin
 
 log = logging.getLogger(__name__)
 
-CORE_MIDDLEWARE: dict[PipelineStage, list[PipelineMiddleware]] = {}
+CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 
 
 class PluginManager:
@@ -64,7 +64,7 @@ class PluginManager:
                 return False
         return True
 
-    def build_pipeline(self, feature_flags: dict[str, bool] | None = None) -> list[PipelineMiddleware]:
+    def build_pipeline(self, feature_flags: dict[str, bool] | None = None) -> list[Any]:
         if not CORE_MIDDLEWARE:
             from contexts.training.pipeline.middleware import (
                 llm_caller,
@@ -84,15 +84,13 @@ class PluginManager:
             CORE_MIDDLEWARE[PipelineStage.PLUGIN_EARLY] = []
 
         flags = feature_flags or {}
-        stage_buckets: dict[PipelineStage, list[PipelineMiddleware]] = {
-            s: list(CORE_MIDDLEWARE.get(s, [])) for s in PipelineStage
-        }
+        stage_buckets: dict[PipelineStage, list[Any]] = {s: list(CORE_MIDDLEWARE.get(s, [])) for s in PipelineStage}
 
         for plugin in self.get_active(flags):
             for stage, mw in plugin.get_middleware():
                 stage_buckets.setdefault(stage, []).append(mw)
 
-        result: list[PipelineMiddleware] = []
+        result: list[Any] = []
         for stage in sorted(PipelineStage, key=stage_order):
             result.extend(stage_buckets.get(stage, []))
         return result
@@ -136,7 +134,7 @@ class PluginManager:
     def generate_manifest(self, feature_flags: dict[str, bool] | None = None) -> dict:
         plugins_data: list[dict] = []
         for plugin in self.get_active(feature_flags):
-            entry = {
+            entry: dict[str, Any] = {
                 "id": plugin.id,
                 "name": plugin.name,
                 "description": plugin.description,
