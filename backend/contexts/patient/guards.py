@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from contexts.patient.guard import IDENTITY_LEAK_PATTERNS, get_identity_correction_note, has_identity_leak
+from contexts.patient.guard import IDENTITY_LEAK_PATTERNS, get_identity_correction_note
 
 
 @dataclass
@@ -30,13 +30,22 @@ class PatternGuard(PostGuard):
         self._patterns = patterns if patterns is not None else list(IDENTITY_LEAK_PATTERNS)
 
     async def check(self, reply: str) -> GuardResult:
-        if has_identity_leak(reply):
+        if self._match_any(reply):
             return GuardResult(
                 passed=False,
                 correction_note=get_identity_correction_note(),
                 trigger_detail="identity_leak_pattern",
             )
         return GuardResult(passed=True)
+
+    def _match_any(self, reply: str) -> bool:
+        if not reply or not reply.strip():
+            return False
+        reply_lower = reply.lower()
+        for pattern in self._patterns:
+            if pattern.lower() in reply_lower:
+                return True
+        return False
 
 
 class NoGuard(PostGuard):
