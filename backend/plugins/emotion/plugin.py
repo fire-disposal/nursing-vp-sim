@@ -1,7 +1,6 @@
 """EmotionPlugin — 2D trust-comfort emotional state machine."""
 
 from core.feature_flags import FeatureFlag
-
 from plugins.base import EndContext, PipelineStage, Plugin, UIManifest
 from plugins.emotion.middleware import emotion_tracker
 

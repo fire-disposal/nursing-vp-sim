@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from plugins.manager import get_plugin_manager
 from contexts.training.score_engine import evaluate_training
 from core.config import SCORING_TIMEOUT_SECONDS
 from core.database import SessionLocal, get_db
@@ -16,6 +15,7 @@ from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
 from models import Case, Message, Score, ScoreReview, TrainingRecord, User
+from plugins.manager import get_plugin_manager
 from schemas import ScoringTriggerResponse
 
 from .session import (
@@ -161,8 +161,8 @@ async def end_training(
     record.scoring_status = "pending"
     db.commit()
 
-    from plugins.base import EndContext
     from core.feature_flags import resolve_features
+    from plugins.base import EndContext
 
     features = resolve_features(record.practice_snapshot)
     pm = get_plugin_manager()

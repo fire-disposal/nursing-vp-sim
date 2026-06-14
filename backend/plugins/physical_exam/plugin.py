@@ -1,7 +1,6 @@
 """PhysicalExamPlugin — allows students to perform nursing exam operations."""
 
 from core.feature_flags import FeatureFlag
-
 from plugins.base import Plugin, RouteDef, UIManifest
 from plugins.physical_exam.routes import perform_exam
 

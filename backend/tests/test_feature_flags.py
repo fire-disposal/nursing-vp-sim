@@ -25,9 +25,7 @@ class TestResolveFeatures:
         assert result == _expected(physical_exam=True)
 
     def test_override_all_flags(self):
-        result = resolve_features(
-            {"features": {"physical_exam": True, "patient_initiative": True}}
-        )
+        result = resolve_features({"features": {"physical_exam": True, "patient_initiative": True}})
         assert result == _expected(physical_exam=True, patient_initiative=True)
 
     def test_unknown_key_ignored(self):

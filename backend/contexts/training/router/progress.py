@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from contexts.patient import (
     generate_initiative,
     get_emotion,
-    handle_operation,
     should_initiate,
     update_initiative_timer,
 )

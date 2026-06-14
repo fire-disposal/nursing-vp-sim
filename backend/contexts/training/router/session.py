@@ -199,9 +199,9 @@ def _create_record(
     db.commit()
     db.refresh(record)
 
-    from plugins.manager import get_plugin_manager
-    from plugins.base import RecordCreateContext
     from core.feature_flags import resolve_features
+    from plugins.base import RecordCreateContext
+    from plugins.manager import get_plugin_manager
 
     features = resolve_features(record.practice_snapshot)
     if app_state is not None:

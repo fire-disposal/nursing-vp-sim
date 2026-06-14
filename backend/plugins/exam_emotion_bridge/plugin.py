@@ -1,9 +1,7 @@
 """ExamEmotionBridgePlugin — exam operations impact patient trust/comfort."""
 
 from core.feature_flags import FeatureFlag
-
 from plugins.base import ExamContext, ExamEffect, Plugin
-
 
 EXAM_EMOTION_IMPACT: dict[str, dict] = {
     "temp": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
@@ -85,18 +83,14 @@ def _apply_exam_emotion_effect(ctx: ExamContext) -> ExamEffect | None:
             }
         )
 
-    impact_note = _build_impact_note(
-        ctx.op_type, impact, dt, dc, ctx.exam_count, ctx.explanation_given
-    )
+    impact_note = _build_impact_note(ctx.op_type, impact, dt, dc, ctx.exam_count, ctx.explanation_given)
     effect = ExamEffect(emotion_delta=(dt, dc))
     if impact_note:
         effect.snapshot_updates["_exam_impact_note"] = impact_note
     return effect
 
 
-def _build_impact_note(
-    op_type: str, impact: dict, dt: int, dc: int, exam_count: int, explained: bool
-) -> str | None:
+def _build_impact_note(op_type: str, impact: dict, dt: int, dc: int, exam_count: int, explained: bool) -> str | None:
     label = _EXAM_EMOTION_IMPACT_LABELS.get(op_type, op_type)
     category = impact["category"]
 

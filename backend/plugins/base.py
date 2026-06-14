@@ -5,21 +5,16 @@ from __future__ import annotations
 from abc import ABC
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar
-
-if TYPE_CHECKING:
-    from core.feature_flags import FeatureFlag
-    from core.config import EmotionCache, InitiativeCache
-    from models import TrainingRecord
+from enum import StrEnum
+from typing import Any, ClassVar
 
 PipelineMiddleware = Callable[
-    ["PipelineContext", Callable[[], Awaitable[None]]],
+    [object, Callable[[], Awaitable[None]]],  # (PipelineContext, next)
     Awaitable[None],
 ]
 
 
-class PipelineStage(str, Enum):
+class PipelineStage(StrEnum):
     GUARD = "guard"
     PLUGIN_EARLY = "plugin_early"
     TRANSITION = "transition"
@@ -117,19 +112,19 @@ class Plugin(ABC):
         return []
 
     async def on_record_create(self, ctx: RecordCreateContext) -> None:
-        pass
+        return
 
     async def on_exam(self, ctx: ExamContext) -> ExamEffect | None:
         return None
 
     async def on_training_end(self, ctx: EndContext) -> None:
-        pass
+        return
 
     async def on_phase_change(self, ctx: PhaseChangeContext) -> None:
-        pass
+        return
 
     async def on_score(self, ctx: ScoreContext) -> None:
-        pass
+        return
 
     def ui_manifest(self) -> UIManifest | None:
         return None

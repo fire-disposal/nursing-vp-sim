@@ -57,13 +57,14 @@ BANNER = textwrap.dedent(r"""\
                /\___/                                            
                \/__/                                             
                                                                                                                      
-""").strip()# noqa: W291 
+""").strip()  # noqa: W291
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
     validate_config()
-    
+
     log.info(msg=BANNER)
     log.info("──────────────────────────────────────────────")
     log.info("Animus Machinae excitus est.")
@@ -300,9 +301,11 @@ app.include_router(assignments_router)
 app.include_router(student_assignments_router)
 
 from plugins.manifest import router as manifest_router
+
 app.include_router(manifest_router)
 
 from plugins.manager import get_plugin_manager
+
 pm = get_plugin_manager()
 pm.register_routes(nursing_router)
 

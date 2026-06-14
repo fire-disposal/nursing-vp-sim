@@ -16,15 +16,15 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-CORE_MIDDLEWARE: dict[PipelineStage, list["PipelineMiddleware"]] = {}
+CORE_MIDDLEWARE: dict[PipelineStage, list[PipelineMiddleware]] = {}
 
 
 class PluginManager:
     def __init__(self):
-        self._plugins: dict[str, "Plugin"] = {}
+        self._plugins: dict[str, Plugin] = {}
         self._initialized = False
 
-    def register(self, plugin: "Plugin") -> None:
+    def register(self, plugin: Plugin) -> None:
         if plugin.id in self._plugins:
             log.warning("Plugin %s already registered, overwriting", plugin.id)
         self._plugins[plugin.id] = plugin
@@ -41,20 +41,16 @@ class PluginManager:
             except Exception:
                 log.exception("Failed to instantiate plugin class %s", cls.__name__)
 
-    def get_active(
-        self, feature_flags: dict[str, bool] | None = None
-    ) -> list["Plugin"]:
+    def get_active(self, feature_flags: dict[str, bool] | None = None) -> list[Plugin]:
         flags = feature_flags or {}
-        active: list["Plugin"] = []
+        active: list[Plugin] = []
         for plugin in self._plugins.values():
             if not self._is_active(plugin, flags):
                 continue
             active.append(plugin)
         return active
 
-    def _is_active(
-        self, plugin: "Plugin", flags: dict[str, bool]
-    ) -> bool:
+    def _is_active(self, plugin: Plugin, flags: dict[str, bool]) -> bool:
         ff = plugin.feature_flag
         if ff is not None:
             flag_key = ff.key
@@ -68,9 +64,7 @@ class PluginManager:
                 return False
         return True
 
-    def build_pipeline(
-        self, feature_flags: dict[str, bool] | None = None
-    ) -> list["PipelineMiddleware"]:
+    def build_pipeline(self, feature_flags: dict[str, bool] | None = None) -> list[PipelineMiddleware]:
         if not CORE_MIDDLEWARE:
             from contexts.training.pipeline.middleware import (
                 llm_caller,
@@ -80,6 +74,7 @@ class PluginManager:
                 prompt_builder,
                 side_effects,
             )
+
             CORE_MIDDLEWARE[PipelineStage.GUARD] = [phase_guard]
             CORE_MIDDLEWARE[PipelineStage.TRANSITION] = [phase_transition]
             CORE_MIDDLEWARE[PipelineStage.PROMPT] = [prompt_builder]
@@ -89,7 +84,7 @@ class PluginManager:
             CORE_MIDDLEWARE[PipelineStage.PLUGIN_EARLY] = []
 
         flags = feature_flags or {}
-        stage_buckets: dict[PipelineStage, list["PipelineMiddleware"]] = {
+        stage_buckets: dict[PipelineStage, list[PipelineMiddleware]] = {
             s: list(CORE_MIDDLEWARE.get(s, [])) for s in PipelineStage
         }
 
@@ -97,7 +92,7 @@ class PluginManager:
             for stage, mw in plugin.get_middleware():
                 stage_buckets.setdefault(stage, []).append(mw)
 
-        result: list["PipelineMiddleware"] = []
+        result: list[PipelineMiddleware] = []
         for stage in sorted(PipelineStage, key=stage_order):
             result.extend(stage_buckets.get(stage, []))
         return result
@@ -114,10 +109,7 @@ class PluginManager:
             if hook is None:
                 continue
             try:
-                if asyncio.iscoroutinefunction(hook):
-                    result = await hook(ctx)
-                else:
-                    result = hook(ctx)
+                result = await hook(ctx) if asyncio.iscoroutinefunction(hook) else hook(ctx)
                 results.append(result)
             except Exception:
                 log.exception("Plugin %s hook %s failed", plugin.id, hook_name)
@@ -135,18 +127,13 @@ class PluginManager:
             if hook is None:
                 continue
             try:
-                if asyncio.iscoroutinefunction(hook):
-                    result = asyncio.run(hook(ctx))
-                else:
-                    result = hook(ctx)
+                result = asyncio.run(hook(ctx)) if asyncio.iscoroutinefunction(hook) else hook(ctx)
                 results.append(result)
             except Exception:
                 log.exception("Plugin %s hook %s failed", plugin.id, hook_name)
         return results
 
-    def generate_manifest(
-        self, feature_flags: dict[str, bool] | None = None
-    ) -> dict:
+    def generate_manifest(self, feature_flags: dict[str, bool] | None = None) -> dict:
         plugins_data: list[dict] = []
         for plugin in self.get_active(feature_flags):
             entry = {
@@ -180,7 +167,6 @@ class PluginManager:
         return {"plugins": plugins_data, "feature_flags": feature_flags_data}
 
     def register_routes(self, router: Any) -> None:
-        from fastapi import APIRouter
 
         for plugin in self._plugins.values():
             for rd in plugin.get_routes():
@@ -212,11 +198,7 @@ def _all_plugin_classes() -> list[type]:
             mod = importlib.import_module(plugin_module_path)
             for attr_name in dir(mod):
                 attr = getattr(mod, attr_name)
-                if (
-                    isinstance(attr, type)
-                    and issubclass(attr, Plugin)
-                    and attr is not Plugin
-                ):
+                if isinstance(attr, type) and issubclass(attr, Plugin) and attr is not Plugin:
                     classes.append(attr)
         except ImportError:
             log.debug("No plugin module: %s", plugin_module_path)

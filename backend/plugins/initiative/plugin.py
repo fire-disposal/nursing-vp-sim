@@ -1,7 +1,6 @@
 """InitiativePlugin — patient proactively sends messages based on personality/emotion/wait time."""
 
 from core.feature_flags import FeatureFlag
-
 from plugins.base import EndContext, Plugin, RecordCreateContext, UIManifest
 
 
