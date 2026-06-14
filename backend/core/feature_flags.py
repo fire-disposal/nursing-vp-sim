@@ -25,6 +25,8 @@ def _get_all_flags() -> dict[str, FeatureFlag]:
         from plugins.manager import get_plugin_manager
 
         pm = get_plugin_manager()
+        if not pm._plugins:
+            pm.discover()
         for plugin in pm._plugins.values():
             ff = plugin.feature_flag
             if ff is not None:
