@@ -10,6 +10,7 @@ TEST_DB_URL = os.environ.get(
     "TEST_DB_URL",
     "postgresql://postgres:postgres@localhost:5432/nursing_test",
 )
+os.environ["DATABASE_URL"] = TEST_DB_URL
 
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock

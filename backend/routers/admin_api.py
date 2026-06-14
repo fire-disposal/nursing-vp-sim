@@ -82,7 +82,7 @@ def list_secrets(
 
 
 @router.post("/secrets", status_code=201, response_model=SecretCreateResponse)
-async def create_secret(
+def create_secret(
     data: ApiSecretCreate,
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],

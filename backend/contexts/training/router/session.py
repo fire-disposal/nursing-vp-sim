@@ -50,12 +50,12 @@ router = APIRouter()
 
 # 评分并发锁：防止同一 record 触发多次评分
 _scoring_pending: dict[int, float] = {}
-_scoring_pending_lock = threading.Lock()
+_scoring_pending_lock = asyncio.Lock()
 _SCORING_LOCK_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
 
-def _try_acquire_scoring(record_id: int) -> bool:
-    with _scoring_pending_lock:
+async def _try_acquire_scoring(record_id: int) -> bool:
+    async with _scoring_pending_lock:
         now = datetime.now(UTC).timestamp()
         if record_id in _scoring_pending:
             if now - _scoring_pending[record_id] > _SCORING_LOCK_TIMEOUT:
@@ -66,8 +66,8 @@ def _try_acquire_scoring(record_id: int) -> bool:
         return True
 
 
-def _release_scoring(record_id: int):
-    with _scoring_pending_lock:
+async def _release_scoring(record_id: int):
+    async with _scoring_pending_lock:
         _scoring_pending.pop(record_id, None)
 
 

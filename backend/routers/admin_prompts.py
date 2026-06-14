@@ -227,7 +227,7 @@ async def update_prompt(
 
 
 @router.delete("/{prompt_id}", response_model=DeleteResponse)
-async def delete_prompt(
+def delete_prompt(
     prompt_id: int,
     current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],
@@ -325,7 +325,7 @@ def get_sample_vars(purpose: str, current_user: Annotated[User, Depends(require_
 
 
 @router.get("/active/preview", response_model=PromptPreviewResponse)
-async def preview_active_prompt(
+def preview_active_prompt(
     purpose: str,
     current_user: Annotated[User, Depends(require_permission("prompt_manage"))],
     db: Annotated[Session, Depends(get_db)],

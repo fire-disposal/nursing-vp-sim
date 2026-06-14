@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from contexts.training.score_engine import evaluate_training
 from core.config import SCORING_TIMEOUT_SECONDS
-from core.database import SessionLocal, get_db
+from core.database import SessionLocal, db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
@@ -120,7 +120,7 @@ async def _run_scoring_background(
         log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
     finally:
         db.close()
-        _release_scoring(record_id)
+        await _release_scoring(record_id)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
@@ -128,65 +128,65 @@ async def end_training(
     record_id: int,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
 ):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
-    if record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="只能结束自己的训练")
-    if record.status == "completed":
-        raise HTTPException(status_code=400, detail="训练已结束")
-    if record.scoring_status in ("pending", "processing"):
-        raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
+    async with db_session() as db:
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="训练记录不存在")
+        if record.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="只能结束自己的训练")
+        if record.status == "completed":
+            raise HTTPException(status_code=400, detail="训练已结束")
+        if record.scoring_status in ("pending", "processing"):
+            raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
-    if not _try_acquire_scoring(record_id):
-        raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
+        if not await _try_acquire_scoring(record_id):
+            raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
-    case = db.query(Case).filter(Case.id == record.case_id).first()
+        case = db.query(Case).filter(Case.id == record.case_id).first()
 
-    record.status = "completed"
-    record.end_time = datetime.now(UTC)
-    _set_overdue_if_needed(record, db)
+        record.status = "completed"
+        record.end_time = datetime.now(UTC)
+        _set_overdue_if_needed(record, db)
 
-    _schedule_background(
-        _run_scoring_background(
-            record_id,
-            case.case_data if case else {},
-            llm_client=request.app.state.llm_client,
-            pm=request.app.state.prompt_manager,
+        _schedule_background(
+            _run_scoring_background(
+                record_id,
+                case.case_data if case else {},
+                llm_client=request.app.state.llm_client,
+                pm=request.app.state.prompt_manager,
+            )
         )
-    )
 
-    record.scoring_status = "pending"
-    db.commit()
+        record.scoring_status = "pending"
+        db.commit()
 
-    from core.feature_flags import resolve_features
-    from plugins.base import EndContext
+        from core.feature_flags import resolve_features
+        from plugins.base import EndContext
 
-    features = resolve_features(record.practice_snapshot)
-    pm = get_plugin_manager()
-    ctx = EndContext(
-        record=record,
-        emotion_cache=request.app.state.emotion_cache,
-        initiative_cache=request.app.state.initiative_cache,
-    )
-    pm.run_hook_sync("on_training_end", ctx, features)
+        features = resolve_features(record.practice_snapshot)
+        pm = get_plugin_manager()
+        ctx = EndContext(
+            record=record,
+            emotion_cache=request.app.state.emotion_cache,
+            initiative_cache=request.app.state.initiative_cache,
+        )
+        pm.run_hook_sync("on_training_end", ctx, features)
 
-    message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
-    log.info(
-        f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
-        extra={
-            "user_id": current_user.id,
-            "user_role": current_user.role.name if current_user.role else "",
-            "action": "training_end",
-        },
-    )
-    return {
-        "message": "训练已结束，评分正在后台生成中",
-        "record_id": record_id,
-        "scoring_status": "pending",
-    }
+        message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
+        log.info(
+            f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
+            extra={
+                "user_id": current_user.id,
+                "user_role": current_user.role.name if current_user.role else "",
+                "action": "training_end",
+            },
+        )
+        return {
+            "message": "训练已结束，评分正在后台生成中",
+            "record_id": record_id,
+            "scoring_status": "pending",
+        }
 
 
 @router.post("/{record_id}/retry-scoring", response_model=ScoringTriggerResponse)
@@ -194,39 +194,39 @@ async def retry_scoring(
     record_id: int,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
 ):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权操作此记录")
-    if record.status != "completed":
-        raise HTTPException(status_code=400, detail="训练尚未结束")
-    if record.scoring_status == "pending":
-        raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
-    if record.scoring_status == "processing":
-        if record.end_time and (datetime.now(UTC) - ensure_utc(record.end_time)).total_seconds() > 300:
-            record.scoring_status = "failed"
-            db.commit()
-        else:
+    async with db_session() as db:
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="训练记录不存在")
+        if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="无权操作此记录")
+        if record.status != "completed":
+            raise HTTPException(status_code=400, detail="训练尚未结束")
+        if record.scoring_status == "pending":
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
+        if record.scoring_status == "processing":
+            if record.end_time and (datetime.now(UTC) - ensure_utc(record.end_time)).total_seconds() > 300:
+                record.scoring_status = "failed"
+                db.commit()
+            else:
+                raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
-    if not _try_acquire_scoring(record_id):
-        raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
+        if not await _try_acquire_scoring(record_id):
+            raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
-    case = db.query(Case).filter(Case.id == record.case_id).first()
-    record.scoring_status = "pending"
-    record.scoring_error = None
-    db.commit()
+        case = db.query(Case).filter(Case.id == record.case_id).first()
+        record.scoring_status = "pending"
+        record.scoring_error = None
+        db.commit()
 
-    _schedule_background(
-        _run_scoring_background(
-            record_id,
-            case.case_data if case else {},
-            llm_client=request.app.state.llm_client,
-            pm=request.app.state.prompt_manager,
+        _schedule_background(
+            _run_scoring_background(
+                record_id,
+                case.case_data if case else {},
+                llm_client=request.app.state.llm_client,
+                pm=request.app.state.prompt_manager,
+            )
         )
-    )
 
-    return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
+        return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}

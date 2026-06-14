@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import secrets
 import string
@@ -363,12 +362,12 @@ def refresh_token(
 
 
 @router.put("/change-password", response_model=OkResponse)
-async def change_password(
+def change_password(
     req: ChangePasswordRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    if not await asyncio.to_thread(verify_password, req.old_password, current_user.password_hash):
+    if not verify_password(req.old_password, current_user.password_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
     current_user.password_hash = hash_password(req.new_password)
     current_user.token_version += 1
