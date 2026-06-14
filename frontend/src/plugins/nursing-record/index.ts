@@ -1,17 +1,18 @@
 import { ClipboardList } from "lucide-react";
-import type { PanelPlugin } from "@/engine/types";
+import { definePlugin } from "@/engine/types";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
-import { ITEM_COMPONENTS } from "./items/registry";
 import { NursingRecordPanel } from "./NursingRecordPanel";
 
-export { ITEM_COMPONENTS };
+export { ITEM_COMPONENTS } from "./items/registry";
 
 const TOTAL_ITEMS = NURSING_RECORD_SHEET_CONFIG.sections.reduce(
 	(sum, s) => sum + s.items.length,
 	0,
 );
 
-function countFilled(data: Record<string, Record<string, unknown>>): number {
+function countFilled(
+	data: Record<string, Record<string, unknown>>,
+): number {
 	let count = 0;
 	for (const section of NURSING_RECORD_SHEET_CONFIG.sections) {
 		const sectionData = data[section.key] || {};
@@ -23,7 +24,7 @@ function countFilled(data: Record<string, Record<string, unknown>>): number {
 	return count;
 }
 
-export const nursingRecordPlugin: PanelPlugin = {
+export default definePlugin({
 	id: "nursing-record",
 	meta: { name: "护理记录", description: "填写护理检查单" },
 	tab: {
@@ -37,11 +38,14 @@ export const nursingRecordPlugin: PanelPlugin = {
 				);
 				const data = raw ? JSON.parse(raw) : {};
 				const filled = countFilled(data);
-				return { text: `${filled}/${TOTAL_ITEMS}`, variant: "default" };
+				return {
+					text: `${filled}/${TOTAL_ITEMS}`,
+					variant: "default",
+				};
 			} catch {
 				return null;
 			}
 		},
 	},
 	component: NursingRecordPanel,
-};
+});

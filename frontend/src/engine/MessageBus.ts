@@ -1,20 +1,48 @@
-// frontend/src/engine/MessageBus.ts
-import type { MessageBus } from "./types";
+import type { MessageBus, ScoreData } from "./types";
 
 export interface BusEvents {
 	"stream:chunk": [];
 	"stream:done": [replyId?: number];
 	"stream:error": [err: string];
 	"training:ended": [];
-	"score:ready": [score: import("./types").ScoreData];
-	"emotion:changed": [{ state: string; trust: number; comfort: number }];
+	"score:ready": [score: ScoreData];
+	"emotion:changed": [
+		{ state: string; trust: number; comfort: number },
+	];
 	"initiative:state": [
-		{ elapsed_seconds?: number; threshold_seconds?: number; percent?: number },
+		{
+			elapsed_seconds?: number;
+			threshold_seconds?: number;
+			percent?: number;
+		},
 	];
 	"initiative:triggered": [{ content: string }];
 	"exam:result": [{ type: string; data: Record<string, unknown> }];
 	"plugins:updated": [];
 	"portrait:changed": [{ url: string }];
+}
+
+export class TypedMessageBus implements MessageBus {
+	constructor(private raw: MessageBus) {}
+
+	on<E extends keyof BusEvents>(
+		event: E,
+		handler: (...args: BusEvents[E]) => void,
+	): () => void {
+		return this.raw.on(event as string, handler as (...args: any[]) => void);
+	}
+
+	emit<E extends keyof BusEvents>(event: E, ...args: BusEvents[E]): void {
+		this.raw.emit(event as string, ...args);
+	}
+
+	off(event: string, handler: (...args: any[]) => void): void {
+		this.raw.off(event, handler);
+	}
+
+	listEvents(): string[] {
+		return this.raw.listEvents();
+	}
 }
 
 export function createMessageBus(): MessageBus {
@@ -38,7 +66,10 @@ export function createMessageBus(): MessageBus {
 				try {
 					h(...args);
 				} catch (e) {
-					console.error(`[MessageBus] error in handler for "${event}":`, e);
+					console.error(
+						`[MessageBus] error in handler for "${event}":`,
+						e,
+					);
 				}
 			}
 		},

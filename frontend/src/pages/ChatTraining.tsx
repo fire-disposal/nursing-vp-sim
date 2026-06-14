@@ -1,27 +1,8 @@
-﻿import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+﻿import { useParams } from "react-router-dom";
 import { TrainingEngine } from "@/engine";
-import { emotionPlugin } from "@/plugins/emotion";
-import { initiativePlugin } from "@/plugins/initiative";
-import { inquiryPlugin } from "@/plugins/inquiry";
-import { nursingRecordPlugin } from "@/plugins/nursing-record";
-import { patientInfoPlugin } from "@/plugins/patient-info";
-import { physicalExamPlugin } from "@/plugins/physical-exam";
 
 export default function ChatTraining() {
 	const { recordId } = useParams<{ recordId: string }>();
-
-	const panelPlugins = useMemo(
-		() => [
-			patientInfoPlugin,
-			inquiryPlugin,
-			physicalExamPlugin,
-			nursingRecordPlugin,
-			emotionPlugin,
-			initiativePlugin,
-		],
-		[],
-	);
 
 	if (!recordId)
 		return (
@@ -30,5 +11,5 @@ export default function ChatTraining() {
 			</div>
 		);
 
-	return <TrainingEngine recordId={recordId} panelPlugins={panelPlugins} />;
+	return <TrainingEngine recordId={recordId} />;
 }

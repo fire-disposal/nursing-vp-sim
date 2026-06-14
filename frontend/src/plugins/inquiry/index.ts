@@ -1,8 +1,8 @@
 import { ListChecks } from "lucide-react";
-import type { PanelPlugin } from "@/engine/types";
+import { definePlugin } from "@/engine/types";
 import { InquiryTab } from "./InquiryTab";
 
-export const inquiryPlugin: PanelPlugin = {
+export default definePlugin({
 	id: "inquiry",
 	meta: { name: "问诊进度", description: "展示问诊要求完成进度" },
 	tab: {
@@ -12,7 +12,9 @@ export const inquiryPlugin: PanelPlugin = {
 		badge: (ctx) => {
 			const inquiries = ctx.patient.requiredInquiries ?? [];
 			if (inquiries.length === 0) return null;
-			const studentMsgs = ctx.messages.filter((m) => m.role === "student");
+			const studentMsgs = ctx.messages.filter(
+				(m) => m.role === "student",
+			);
 			const done = inquiries.filter((inq) =>
 				studentMsgs.some((m) =>
 					(m.content ?? "")
@@ -24,4 +26,4 @@ export const inquiryPlugin: PanelPlugin = {
 		},
 	},
 	component: InquiryTab,
-};
+});

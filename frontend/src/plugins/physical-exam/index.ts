@@ -1,12 +1,11 @@
 import { Stethoscope } from "lucide-react";
-import type { PanelPlugin } from "@/engine/types";
+import { definePlugin } from "@/engine/types";
 import { ExamPanel } from "./ExamPanel";
 
 const TOTAL_EXAMS = 8;
 
-export const physicalExamPlugin: PanelPlugin = {
+export default definePlugin({
 	id: "physical-exam",
-	featureFlag: "physical_exam",
 	meta: { name: "护理查体", description: "通过专属面板执行体检操作" },
 	tab: {
 		icon: Stethoscope,
@@ -16,7 +15,10 @@ export const physicalExamPlugin: PanelPlugin = {
 			let count = 0;
 			for (const msg of ctx.messages) {
 				if (msg.role === "system") {
-					const stripped = (msg.content ?? "").replace(/[:\s]/g, "");
+					const stripped = (msg.content ?? "").replace(
+						/[:\s]/g,
+						"",
+					);
 					if (
 						stripped.includes("生命体征") ||
 						stripped.includes("体温") ||
@@ -32,8 +34,11 @@ export const physicalExamPlugin: PanelPlugin = {
 				}
 			}
 			if (count === 0) return null;
-			return { text: `${count}/${TOTAL_EXAMS}`, variant: "default" as const };
+			return {
+				text: `${count}/${TOTAL_EXAMS}`,
+				variant: "default" as const,
+			};
 		},
 	},
 	component: ExamPanel,
-};
+});

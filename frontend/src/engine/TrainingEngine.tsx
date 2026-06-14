@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatArea } from "@/components/training/ChatArea";
 import { PanelHost } from "@/components/training/PanelHost";
+import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import { QuestionnaireOverlay } from "@/plugins/questionnaire/QuestionnaireOverlay";
 import { ScoreCard } from "@/plugins/scoring-display/ScoreCard";
 import { ScoringOverlay } from "@/plugins/scoring-display/ScoringOverlay";
+import { discoverPluginDefs } from "./discovery";
+import { useManifest } from "./manifest";
 import { createMessageBus } from "./MessageBus";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PluginContext";
@@ -18,17 +21,34 @@ import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
-import type { ChatMessage, PanelPlugin, PluginContext } from "./types";
+import type {
+	ChatMessage,
+	FrontendPluginDef,
+	PanelPlugin,
+	PluginContext,
+} from "./types";
 
 interface TrainingEngineProps {
 	recordId: string;
-	panelPlugins: PanelPlugin[];
 }
 
-function TrainingEngineContent({
-	recordId,
-	panelPlugins,
-}: TrainingEngineProps) {
+function buildPanelPlugin(def: FrontendPluginDef): PanelPlugin | null {
+	if (!def.component || !def.tab) return null;
+	return {
+		id: def.id,
+		meta: def.meta,
+		tab: {
+			icon: def.tab.icon,
+			label: def.tab.label,
+			badge: def.tab.badge,
+			priority: def.tab.priority,
+		},
+		component: def.component,
+		hooks: def.hooks,
+	};
+}
+
+function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const {
 		patient,
 		loading,
@@ -61,6 +81,9 @@ function TrainingEngineContent({
 	const [features, setFeatures] =
 		useState<Record<string, boolean>>(initialFeatures);
 
+	const { manifest } = useManifest(recordId);
+	const localDefs = useMemo(() => discoverPluginDefs(), []);
+
 	useEffect(() => {
 		setFeatures(initialFeatures);
 	}, [initialFeatures]);
@@ -91,12 +114,16 @@ function TrainingEngineContent({
 
 	useEffect(() => {
 		pluginRegistry.setFeatureFlags(features);
-		for (const p of panelPlugins) pluginRegistry.register(p);
-	}, [features, panelPlugins]);
+		if (manifest) pluginRegistry.setManifest(manifest);
+		for (const def of localDefs) {
+			const plugin = buildPanelPlugin(def);
+			if (plugin) pluginRegistry.register(plugin);
+		}
+	}, [features, manifest, localDefs]);
 
 	const activePlugins = useMemo(
 		() => pluginRegistry.getActive(features),
-		[features],
+		[features, pluginRegistry.version],
 	);
 
 	const sendMessage = useCallback((text: string) => {
@@ -159,7 +186,9 @@ function TrainingEngineContent({
 		}
 	}, [activePlugins, ctx]);
 
-	const [processedMessages, setProcessedMessages] = useState<ChatMessage[]>([]);
+	const [processedMessages, setProcessedMessages] = useState<ChatMessage[]>(
+		[],
+	);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -193,15 +222,21 @@ function TrainingEngineContent({
 	}, [messages, activePlugins, ctx]);
 
 	useEffect(() => {
-		return busRef.current.on("emotion:changed", (data: { state: string }) => {
-			setEmotion(data.state as EmotionState);
-		});
+		return busRef.current.on(
+			"emotion:changed",
+			(data: { state: string }) => {
+				setEmotion(data.state as EmotionState);
+			},
+		);
 	}, [setEmotion]);
 
 	useEffect(() => {
-		return busRef.current.on("portrait:changed", (data: { url: string }) => {
-			setPortraitUrl(data.url);
-		});
+		return busRef.current.on(
+			"portrait:changed",
+			(data: { url: string }) => {
+				setPortraitUrl(data.url);
+			},
+		);
 	}, [setPortraitUrl]);
 
 	if (loading) {
@@ -219,6 +254,15 @@ function TrainingEngineContent({
 			</div>
 		);
 	}
+
+	const panelPluginsWrapped = activePlugins.map((p) => ({
+		...p,
+		component: (props: unknown) => (
+			<PluginErrorBoundary pluginName={p.meta.name}>
+				<p.component {...(props as any)} />
+			</PluginErrorBoundary>
+		),
+	}));
 
 	return (
 		<>
@@ -265,7 +309,11 @@ function TrainingEngineContent({
 					/>
 				</div>
 				<div style={{ gridArea: "panel", overflow: "hidden" }}>
-					<PanelHost ctx={ctx} features={features} plugins={activePlugins} />
+					<PanelHost
+						ctx={ctx}
+						features={features}
+						plugins={panelPluginsWrapped}
+					/>
 				</div>
 			</div>
 			<QuestionnaireOverlay

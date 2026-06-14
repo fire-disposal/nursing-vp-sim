@@ -96,8 +96,6 @@ export interface PanelTabProps {
 
 export interface PanelPlugin {
 	id: string;
-	featureFlag?: string;
-	requires?: string[];
 	meta: { name: string; description?: string };
 	tab: {
 		icon: ComponentType<{ size?: number }>;
@@ -107,4 +105,70 @@ export interface PanelPlugin {
 	};
 	component: ComponentType<PanelTabProps>;
 	hooks?: PluginHooks;
+}
+
+// ── Backend Manifest types ──
+
+export interface ManifestPlugin {
+	id: string;
+	name: string;
+	description?: string;
+	feature_flag?: string;
+	requires: string[];
+	ui?: ManifestUI;
+}
+
+export interface ManifestUI {
+	type: "panel" | "overlay";
+	tab?: {
+		icon: string;
+		label: string;
+		priority?: number;
+		badge?: string;
+	};
+	actions?: ManifestAction[];
+}
+
+export interface ManifestAction {
+	id: string;
+	label: string;
+	type: string;
+	op_type?: string;
+}
+
+export interface ManifestResponse {
+	plugins: ManifestPlugin[];
+	feature_flags: Record<
+		string,
+		{
+			key: string;
+			label: string;
+			default: boolean;
+			description: string;
+		}
+	>;
+}
+
+// ── Frontend Plugin (local definition) ──
+
+export interface FrontendPluginDef {
+	id: string;
+	meta: { name: string; description?: string };
+	tab?: {
+		icon: ComponentType<{ size?: number }>;
+		label: string;
+		priority?: number;
+		badge?: (ctx: PluginContext) => BadgeInfo | null;
+	};
+	component?: ComponentType<PanelTabProps>;
+	hooks?: PluginHooks;
+	overlayComponent?: ComponentType<{
+		recordId: string;
+		bus: MessageBus;
+		features: Record<string, boolean>;
+	}>;
+}
+
+export function definePlugin(def: FrontendPluginDef): FrontendPluginDef {
+	return def;
 }
