@@ -2,36 +2,40 @@ from infrastructure.cache import EmotionCache, InitiativeCache
 
 
 class TestEmotionCache:
-    def test_get_creates_default(self):
+    def test_get_returns_none_for_missing(self):
         cache = EmotionCache()
-        state = cache.get(1)
-        assert state.score == 0
-        assert state.state == "neutral"
+        assert cache.get(1) is None
 
     def test_set_and_get(self):
         cache = EmotionCache()
-        cache.set(1, score=2, state="engaged", note="良好")
-        state = cache.get(1)
-        assert state.score == 2
-        assert state.state == "engaged"
+        state = object()
+        cache.set(1, state)
+        assert cache.get(1) is state
 
     def test_cleanup_removes(self):
         cache = EmotionCache()
-        cache.set(1, score=1, state="neutral", note="")
-        assert cache.size == 1
+        cache.set(1, object())
+        assert cache.get(1) is not None
         cache.cleanup(1)
-        assert cache.size == 0
-        state = cache.get(1)
-        assert state.score == 0  # creates fresh default
+        assert cache.get(1) is None
 
     def test_cleanup_completed(self):
         cache = EmotionCache()
-        cache.set(1, score=0, state="neutral", note="")
-        cache.set(2, score=0, state="neutral", note="")
-        cache.set(3, score=0, state="neutral", note="")
+        cache.set(1, object())
+        cache.set(2, object())
+        cache.set(3, object())
         removed = cache.cleanup_completed({1, 3})
         assert removed == 2
-        assert cache.size == 1
+        assert cache.get(1) is None
+        assert cache.get(2) is not None
+        assert cache.get(3) is None
+
+    def test_all_ids(self):
+        cache = EmotionCache()
+        cache.set(1, object())
+        cache.set(2, object())
+        assert 1 in cache.all_ids
+        assert 2 in cache.all_ids
 
 
 class TestInitiativeCache:
@@ -57,9 +61,10 @@ class TestInitiativeCache:
         cache = InitiativeCache()
         cache.update_timer(1, 1000.0)
         cache.set_last_trigger(1, 2000.0)
-        assert cache.size == 1
+        assert cache.get_timer(1, 0.0) == 1000.0
         cache.cleanup(1)
-        assert cache.size == 0
+        assert cache.get_timer(1, 0.0) == 0.0
+        assert cache.get_last_trigger(1) == 0.0
 
     def test_cleanup_completed(self):
         cache = InitiativeCache()
@@ -67,4 +72,13 @@ class TestInitiativeCache:
         cache.update_timer(2, 2000.0)
         removed = cache.cleanup_completed({1})
         assert removed >= 1
-        assert cache.size == 1
+        assert cache.get_timer(1, 0.0) == 0.0
+        assert cache.get_timer(2, 0.0) == 2000.0
+
+    def test_all_ids(self):
+        cache = InitiativeCache()
+        cache.update_timer(1, 1000.0)
+        cache.set_last_trigger(2, 2000.0)
+        ids = cache.all_ids
+        assert 1 in ids
+        assert 2 in ids

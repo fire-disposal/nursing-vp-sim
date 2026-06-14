@@ -269,7 +269,7 @@ class TestScoreReview:
             "/api/training/records/99999/review",
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_submit_review_requires_teacher(self, client, student, test_case, db_session):
         _, token = student

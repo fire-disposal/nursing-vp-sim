@@ -9,9 +9,13 @@ class TestRegistryLookup:
         vars_ = r.get_variables("patient_chat")
         assert len(vars_) == 10
 
-    def test_qa_has_no_variables(self):
+    def test_qa_has_variables(self):
         r = get_registry()
-        assert r.get_variables("qa") == []
+        vars_ = r.get_variables("qa")
+        assert len(vars_) >= 2
+        names = {v.name for v in vars_}
+        assert "user_name" in names
+        assert "user_role" in names
 
     def test_unknown_purpose_returns_empty(self):
         r = get_registry()
@@ -35,8 +39,8 @@ class TestRegistryLookup:
     def test_get_variable_map_scoring(self):
         r = get_registry()
         m = r.get_variable_map("scoring")
-        assert "scoring_rubric" in m
-        assert isinstance(m["scoring_rubric"], VariableDef)
+        assert "scoring_criteria" in m
+        assert isinstance(m["scoring_criteria"], VariableDef)
 
     def test_get_variable_map_unknown_purpose_returns_empty(self):
         r = get_registry()
@@ -48,13 +52,17 @@ class TestRegistryLookup:
         assert "description" in defaults
         assert "reference_material" in defaults
 
-    def test_get_defaults_qa_empty(self):
+    def test_get_defaults_qa_has_defaults(self):
         r = get_registry()
-        assert r.get_defaults("qa") == {}
+        defaults = r.get_defaults("qa")
+        assert "user_name" in defaults
+        assert "user_role" in defaults
 
-    def test_get_variable_names_qa_empty(self):
+    def test_get_variable_names_qa_not_empty(self):
         r = get_registry()
-        assert r.get_variable_names("qa") == set()
+        names = r.get_variable_names("qa")
+        assert "user_name" in names
+        assert "user_role" in names
 
     def test_get_sample_kwargs_case_generation_has_keys(self):
         r = get_registry()
@@ -62,16 +70,18 @@ class TestRegistryLookup:
         assert "description" in kwargs
         assert "reference_material" in kwargs
 
-    def test_get_sample_kwargs_scoring_has_rubric(self):
+    def test_get_sample_kwargs_scoring_has_criteria(self):
         r = get_registry()
         kwargs = r.get_sample_kwargs("scoring")
-        assert "scoring_rubric" in kwargs
+        assert "scoring_criteria" in kwargs
         assert "conversation_text" in kwargs
-        assert len(kwargs["scoring_rubric"]) > 50
+        assert len(kwargs["scoring_criteria"]) > 50
 
-    def test_get_sample_kwargs_qa_empty(self):
+    def test_get_sample_kwargs_qa_not_empty(self):
         r = get_registry()
-        assert r.get_sample_kwargs("qa") == {}
+        kwargs = r.get_sample_kwargs("qa")
+        assert "user_name" in kwargs
+        assert "user_role" in kwargs
 
 
 class TestRegistryValidation:
@@ -137,9 +147,13 @@ class TestVariablesJsonb:
             assert "example" in entry
             assert entry["desc"] != ""
 
-    def test_jsonb_qa_empty(self):
+    def test_jsonb_qa_has_entries(self):
         r = get_registry()
-        assert r.get_variables_jsonb("qa") == []
+        data = r.get_variables_jsonb("qa")
+        assert len(data) >= 2
+        names = {e["name"] for e in data}
+        assert "user_name" in names
+        assert "user_role" in names
 
     def test_jsonb_unknown_purpose_empty(self):
         r = get_registry()
