@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
     pm.discover()
     log.info("Plugins: registered (%d discovered)", len(pm._plugins))
 
-    from contexts.patient.sources import PluginAuthorNoteSource, register_source
+    from contexts.patient import PluginAuthorNoteSource, register_source
 
     register_source(PluginAuthorNoteSource())
     log.info("PluginAuthorNoteSource registered")

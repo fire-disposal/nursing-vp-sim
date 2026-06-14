@@ -80,11 +80,9 @@ async def send_message(
     if ctx.error:
         raise HTTPException(status_code=500, detail=ctx.error)
 
-    op = ctx.operation
     return ChatMessageResponse(
         role="patient",
         content=ctx.llm_reply or "",
-        operation=op,
     )
 
 

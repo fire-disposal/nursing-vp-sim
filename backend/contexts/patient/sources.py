@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from contexts.training.pipeline.context import PipelineContext
 
-from contexts.patient.guard import get_identity_correction_note, has_identity_leak
+from contexts.patient.guards import get_identity_correction_note, has_identity_leak
 
 log = logging.getLogger(__name__)
 

@@ -15,9 +15,15 @@ from .exam import (
 )
 
 # 患者守卫
-from .guard import (
+from .guards import (
+    GuardResult,
+    NoGuard,
+    PatternGuard,
+    PostGuard,
+    get_guard,
     get_identity_correction_note,
     has_identity_leak,
+    register_guard,
 )
 
 # 主动行为引擎
@@ -40,28 +46,28 @@ from .prompt import (
 # 提示词组装策略
 from .sources import (
     ContextSource,
+    EmotionNoteSource,
+    ExamImpactSource,
+    ExamResultsSource,
+    IdentityGuardSource,
+    PluginAuthorNoteSource,
     collect_author_note,
     clear_sources,
     get_sources,
     register_source,
 )
 
-# 身份守卫策略
-from .guards import (
-    GuardResult,
-    NoGuard,
-    PatternGuard,
-    PostGuard,
-    get_guard,
-    register_guard,
-)
-
 __all__ = [
     "ContextSource",
+    "EmotionNoteSource",
     "EmotionState",
+    "ExamImpactSource",
+    "ExamResultsSource",
     "GuardResult",
+    "IdentityGuardSource",
     "NoGuard",
     "PatternGuard",
+    "PluginAuthorNoteSource",
     "PostGuard",
     "build_patient_chat_messages",
     "build_patient_context_kwargs",

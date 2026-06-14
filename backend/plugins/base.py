@@ -79,19 +79,6 @@ class EndContext:
 
 
 @dataclass
-class PhaseChangeContext:
-    record: Any  # TrainingRecord
-    from_phase: str
-    to_phase: str
-
-
-@dataclass
-class ScoreContext:
-    record: Any  # TrainingRecord
-    score_data: dict = field(default_factory=dict)
-
-
-@dataclass
 class UIManifest:
     type: str  # "panel" | "overlay"
     tab: dict | None = None
@@ -118,12 +105,6 @@ class Plugin(ABC):
         return None
 
     async def on_training_end(self, ctx: EndContext) -> None:
-        return
-
-    async def on_phase_change(self, ctx: PhaseChangeContext) -> None:
-        return
-
-    async def on_score(self, ctx: ScoreContext) -> None:
         return
 
     def ui_manifest(self) -> UIManifest | None:

@@ -28,8 +28,6 @@ class PipelineContext:
     manual_advance_requested: bool = False
     phase_operation_count: int = 0
 
-    operation: dict | None = None
-    exam_result: dict | None = None
     system_events: list[dict] = field(default_factory=list)
 
     llm_messages: list[dict] | None = None

@@ -38,11 +38,12 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 async def _call_batch(ctx: PipelineContext) -> None:
     import httpx
 
-    from contexts.patient import get_identity_correction_note, has_identity_leak
+    from contexts.patient import get_guard
     from core.config import get_llm_config
 
     app = ctx.app_state
     llm_client = app.llm_client
+    log_meta = {"source_traces": ctx.state.get("_source_traces", [])}
     try:
         reply = await llm_client.call(
             ctx.llm_messages,
@@ -52,6 +53,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 user_id=ctx.current_user.id,
                 record_id=ctx.record.id,
                 case_id=ctx.record.case_id,
+                log_meta=log_meta,
             ),
             **get_llm_config("patient_chat"),
         )
@@ -61,43 +63,48 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
     ctx.llm_reply = reply
 
-    if has_identity_leak(reply):
-        log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
-        corrected = get_identity_correction_note()
-        if ctx.llm_messages is None:
-            ctx.llm_reply = reply
-            return
-        msgs = list(ctx.llm_messages)
-        msgs.insert(-1, {"role": "system", "content": corrected})
-        try:
-            retry = await llm_client.call(
-                msgs,
-                purpose="patient_chat",
-                ctx=CallContext(
+    guard = get_guard("pattern")
+    if guard is not None:
+        result = await guard.check(reply)
+        if not result.passed:
+            log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
+            corrected = result.correction_note
+            if ctx.llm_messages is None:
+                ctx.llm_reply = reply
+                return
+            msgs = list(ctx.llm_messages)
+            msgs.insert(-1, {"role": "system", "content": corrected})
+            try:
+                retry = await llm_client.call(
+                    msgs,
                     purpose="patient_chat",
-                    user_id=ctx.current_user.id,
-                    record_id=ctx.record.id,
-                    case_id=ctx.record.case_id,
-                ),
-                **get_llm_config("patient_chat"),
-            )
-            if retry.strip():
-                ctx.llm_reply = retry
-        except Exception:
-            log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
+                    ctx=CallContext(
+                        purpose="patient_chat",
+                        user_id=ctx.current_user.id,
+                        record_id=ctx.record.id,
+                        case_id=ctx.record.case_id,
+                        log_meta=log_meta,
+                    ),
+                    **get_llm_config("patient_chat"),
+                )
+                if retry.strip():
+                    ctx.llm_reply = retry
+            except Exception:
+                log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
         ctx.llm_reply = "嗯……（患者似乎在犹豫）"
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
-    from contexts.patient import get_identity_correction_note, has_identity_leak
+    from contexts.patient import get_guard
     from core.config import get_llm_config
 
     app = ctx.app_state
     llm_client = app.llm_client
     full_reply = ""
     chunks = []
+    log_meta = {"source_traces": ctx.state.get("_source_traces", [])}
 
     try:
         async for chunk in llm_client.stream(
@@ -108,6 +115,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
                 user_id=ctx.current_user.id,
                 record_id=ctx.record.id,
                 case_id=ctx.record.case_id,
+                log_meta=log_meta,
             ),
             **get_llm_config("patient_chat"),
         ):
@@ -118,35 +126,39 @@ async def _call_stream(ctx: PipelineContext) -> None:
         full_reply = random.choice(FALLBACK_REPLIES)
         chunks = [full_reply]
 
-    if has_identity_leak(full_reply):
-        log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
-        corrected = get_identity_correction_note()
-        if ctx.llm_messages is None:
-            ctx.llm_reply = full_reply
-            return
-        msgs = list(ctx.llm_messages)
-        msgs.insert(-1, {"role": "system", "content": corrected})
-        full_retry = ""
-        retry_chunks = []
-        try:
-            async for chunk in llm_client.stream(
-                msgs,
-                purpose="patient_chat",
-                ctx=CallContext(
+    guard = get_guard("pattern")
+    if guard is not None:
+        result = await guard.check(full_reply)
+        if not result.passed:
+            log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
+            corrected = result.correction_note
+            if ctx.llm_messages is None:
+                ctx.llm_reply = full_reply
+                return
+            msgs = list(ctx.llm_messages)
+            msgs.insert(-1, {"role": "system", "content": corrected})
+            full_retry = ""
+            retry_chunks = []
+            try:
+                async for chunk in llm_client.stream(
+                    msgs,
                     purpose="patient_chat",
-                    user_id=ctx.current_user.id,
-                    record_id=ctx.record.id,
-                    case_id=ctx.record.case_id,
-                ),
-                **get_llm_config("patient_chat"),
-            ):
-                full_retry += chunk
-                retry_chunks.append(chunk)
-            if full_retry.strip():
-                full_reply = full_retry
-                chunks = retry_chunks
-        except Exception:
-            log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id)
+                    ctx=CallContext(
+                        purpose="patient_chat",
+                        user_id=ctx.current_user.id,
+                        record_id=ctx.record.id,
+                        case_id=ctx.record.case_id,
+                        log_meta=log_meta,
+                    ),
+                    **get_llm_config("patient_chat"),
+                ):
+                    full_retry += chunk
+                    retry_chunks.append(chunk)
+                if full_retry.strip():
+                    full_reply = full_retry
+                    chunks = retry_chunks
+            except Exception:
+                log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id)
 
     if not full_reply.strip():
         full_reply = "嗯……（患者似乎在犹豫）"

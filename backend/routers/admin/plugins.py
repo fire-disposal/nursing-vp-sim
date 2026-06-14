@@ -17,10 +17,8 @@ async def list_plugins():
             "middleware_count": len(p.get_middleware()),
             "has_hooks": {
                 "on_record_create": True,
-                "on_phase_change": True,
                 "on_exam": True,
                 "on_training_end": True,
-                "on_score": True,
             },
             "meta": {
                 "description": p.description,
