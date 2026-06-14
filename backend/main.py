@@ -118,6 +118,11 @@ async def lifespan(app: FastAPI):
     pm.discover()
     log.info("Plugins: registered (%d discovered)", len(pm._plugins))
 
+    from contexts.patient.sources import PluginAuthorNoteSource, register_source
+
+    register_source(PluginAuthorNoteSource())
+    log.info("PluginAuthorNoteSource registered")
+
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
 
@@ -311,7 +316,7 @@ pm.register_routes(nursing_router)
 
 
 @app.get("/api/health")
-async def health():
+def health():
     from core.database import engine
 
     try:

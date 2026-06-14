@@ -72,6 +72,32 @@ class ExamImpactSource(ContextSource):
         return None
 
 
+class PluginAuthorNoteSource(ContextSource):
+    name = "plugin_author_notes"
+
+    async def collect(self, ctx: "PipelineContext") -> str | None:
+        try:
+            from plugins.manager import get_plugin_manager
+            from core.feature_flags import resolve_features
+        except ImportError:
+            log.debug("PluginManager not available")
+            return None
+
+        pm = get_plugin_manager()
+        features = resolve_features(ctx.record.practice_snapshot or {})
+        plugins = pm.get_active(features)
+
+        notes = []
+        for plugin in plugins:
+            try:
+                note = plugin.author_note(ctx)
+                if note and note.strip():
+                    notes.append(note)
+            except Exception:
+                log.exception("Plugin %s author_note() failed", plugin.id)
+        return " | ".join(notes) if notes else None
+
+
 _sources: list[ContextSource] = []
 
 
