@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core.database import Base, get_db
@@ -25,9 +25,10 @@ from core.security import hash_password
 from models import Case, User
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def engine():
     eng = create_engine(TEST_DB_URL.replace("postgresql://", "postgresql+psycopg://", 1))
+    Base.metadata.drop_all(bind=eng)
     Base.metadata.create_all(bind=eng)
 
     with eng.connect() as conn:
@@ -75,16 +76,13 @@ def engine():
 
 @pytest.fixture
 def db_session(engine):
-    connection = engine.connect()
-    trans = connection.begin()
-    SessionLocal = sessionmaker(bind=connection)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = SessionLocal()
     try:
         yield session
     finally:
+        session.rollback()
         session.close()
-        trans.rollback()
-        connection.close()
 
 
 @pytest.fixture
