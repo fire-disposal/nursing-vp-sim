@@ -39,103 +39,20 @@ cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
 ```
 
-### 1.3 终端配置（推荐）
 
-#### 为什么要折腾终端？
+### 1.3 安装 OpenCode + Superpowers Skills
 
-终端是你和项目打交道的主战场——启动服务、运行测试、执行 git 命令、与 AI 编程助手对话，全都发生在终端里。Windows 自带的 PowerShell 或 cmd 功能简陋（单色文字、无 Tab、字体粗糙），一套好的终端配置能显著提升开发效率和心情：
-
-- **看得快**：Git 分支、文件状态、命令耗时一行就看清
-- **敲得少**：自动补全、命令历史搜索、多 Tab 切换
-- **不费眼**：等宽字体 + 清晰的图标 + 舒适的配色
-
-以下是推荐的"入门三件套"，安装总耗时约 5 分钟。
-
-#### 1. Windows Terminal
-
-Windows Terminal 是微软官方的现代终端模拟器，免费、开源，在 Microsoft Store 可直接安装。
-
-**安装**：打开 Microsoft Store，搜索 "Windows Terminal"，点击安装。
-
-**为什么比自带终端好？**
-- **多标签页**：Ctrl+Shift+T 新标签，Ctrl+Tab 切换，再也不用开一堆窗口
-- **GPU 加速渲染**：文字渲染平滑流畅，拖动窗口无撕裂感
-- **多 Profile 支持**：同一个窗口里可以同时开 PowerShell、Git Bash、cmd、WSL
-- **Ctrl+Shift+P 命令面板**：类似 VS Code，搜索即可执行操作
-
-**配置建议**：安装后打开设置（Ctrl+,），在"外观"中将默认配色方案改为 **One Half Dark**（经典护眼方案）。
-
-#### 2. Starship —— 让提示符说话
-
-Starship 是一个跨 Shell 的提示符美化工具。安装后，你的终端提示符会从这样：
-
-```
-PS C:\Users\用户名\nursing-vp-sim>
+```bash
+npm install -g @anthropic/opencode
 ```
 
-变成这样：
+在项目目录启动 OpenCode 后，输入以下指令安装 Superpowers Skills：
 
-```
-nursing-vp-sim on  master [!] is 📦 v0.1.0 via 🐍 v3.13.5 took 2s
-```
+> Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md
 
-一行即看清：当前目录、Git 分支、是否有未提交改动、Node 版本、Python 版本、上条命令耗时——所有这些信息在你按下 Enter 的瞬间自动更新。
-
-**安装**（PowerShell 管理员模式）：
-
-```powershell
-# 方式一：winget（Windows 11 自带）
-winget install Starship.Starship
-
-# 方式二：scoop（推荐包管理器，需先装 scoop.sh）
-scoop install starship
-
-# 方式三：直接下载
-# 从 https://starship.rs 下载 exe，放到 PATH 目录下
-```
-
-**启用**（在 PowerShell 中执行）：
-
-```powershell
-# 编辑 PowerShell 配置文件
-notepad $PROFILE
-```
-
-在打开的（或新建的）文件中添加一行：
-
-```powershell
-Invoke-Expression (&starship init powershell)
-```
-
-保存后重新打开终端即可看到效果。
-
-> **Starship 极简配置**：Starship 开箱即用，无需配置文件。如果你对默认样式不满意，创建 `~/.config/starship.toml` 即可自定义。初学者建议先不改配置，用一周再根据自己的偏好微调。
-
-#### 3. JetBrains Mono Nerd Font —— 图标不会"口"
-
-当你安装 Starship 后，可能会发现提示符中有一些方框乱码 `□`——比如 Git 分支图标、Python 图标显示不出来。这是因为默认字体不包含编程图标。
-
-**Nerd Font** 是一类打过"图标补丁"的等宽字体，在程序员常用字体（如 Fira Code、JetBrains Mono、Cascadia Code）的基础上内嵌了数千个开发用图标（Git、Docker、语言 Logo、电源符号等），让终端能正确显示这些特殊字符。
-
-推荐 **JetBrainsMono Nerd Font**——JetBrains Mono 是 IntelliJ 团队设计的编程字体，字距清晰、l/I/1 高度可辨，搭配 Nerd Font 图标补丁后是终端配置的黄金选择。
-
-**安装步骤**：
-
-1. 前往 [nerdfonts.com](https://www.nerdfonts.com/font-downloads) 或 [GitHub Releases](https://github.com/ryanoasis/nerd-fonts/releases/latest)
-2. 搜索 "JetBrainsMono"，下载 **JetBrainsMono.zip**
-3. 解压，全选所有 `.ttf` 文件 → 右键 → **"为所有用户安装"**
-4. 打开 **Windows Terminal** → 设置（Ctrl+,）→ 左侧选择你的默认 Profile（如 PowerShell）
-5. 外观 → 字体 → 选择 **"JetBrainsMono Nerd Font"** → 保存
-
-安装后重新打开终端，Starship 的图标应该全部正常显示了。
-
-> **备选字体**：如果你更喜欢微软风格，**CaskaydiaCove Nerd Font**（基于 Cascadia Code）也是很好的选择，网感类似但风格稍有不同。
+OpenCode 配合 Superpowers Skills 实现规范化 AI 辅助开发（设计→计划→实施→验证→审查全流程），所有可用 Skills 见后文。
 
 ### 1.4 PostgreSQL 安装与初始化（Windows）
-
-#### 什么是 PostgreSQL？
-
-PostgreSQL（简称 PG）是一个开源的关系型数据库。本项目用它来存储用户、病例、训练记录、评分结果等所有业务数据。后端通过 SQLAlchemy（Python 的 ORM 框架）与它交互——你不需要写 SQL，但理解数据库的基本概念有助于调试。
 
 #### 安装步骤
 
@@ -169,15 +86,11 @@ PostgreSQL（简称 PG）是一个开源的关系型数据库。本项目用它�
 1. 右键数据库连接 → Create → Database
 2. Database name 填 `vptest` → OK
 
-> **数据库 vs 表的概念**：`vptest` 是一个**数据库**（Database），相当于一个独立的"仓库"。仓库里面有多个**表**（Table），比如 `users`（用户表）、`training_records`（训练记录表）等。表由后端启动时通过 Alembic 自动创建，你不需要手动建表。
+
 
 ### 1.5 DBeaver 连接配置
 
-#### 什么是 DBeaver？
-
-DBeaver 是一个免费的通用数据库管理工具（GUI）。它让你可以像使用 Excel 一样浏览数据库——查看表结构、浏览数据、执行查询、导入导出，全都有图形界面。开发过程中你经常需要：确认数据是否正确写入、手动修改测试数据、排查数据层面的 bug——这些用 DBeaver 比写 SQL 命令行要直观得多。
-
-#### 安装与连接
+免费数据库 GUI。安装后创建连接：
 
 1. 前往 [dbeaver.io](https://dbeaver.io/download/)，下载 **Windows 安装版**并安装（一路 Next 即可）
 
@@ -229,17 +142,13 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 > | `SECRET_KEY` | (必填) | JWT签名密钥 + API Key 加密派生 |
 > | `DEEPSEEK_API_KEY` | (必填) | 首次启动自动 seed 为默认 Provider |
 > | `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/vptest` | 数据库连接 |
-> | `LLM_CHAT_TIMEOUT` | 30 | 聊天请求超时(秒) |
-> | `LLM_CHAT_MAX_TOKENS` | 512 | 聊天最大输出token |
-> | `LLM_SCORING_TIMEOUT` | 120 | 评分请求超时(秒) |
-> | `LLM_SCORING_MAX_TOKENS` | 2048 | 评分最大输出token |
-> | `LLM_CONCURRENT_LIMIT` | 10 | LLM并发调用上限 |
-> | `LLM_MAX_RETRIES` | 3 | LLM调用失败最大重试次数 |
-> | `LLM_CONNECTION_POOL_SIZE` | 20 | HTTP连接池大小 |
-> | `LLM_CONNECTION_KEEPALIVE` | 10 | HTTP Keepalive连接数 |
+> | `LLM_CONCURRENT_LIMIT` | 50 | LLM并发调用上限 |
+> | `LLM_MAX_RETRIES` | 3 | LLM调用失败最大重试次数（per-purpose 可能更低） |
+> | `LLM_CONNECTION_POOL_SIZE` | 60 | HTTP连接池大小 |
+> | `LLM_CONNECTION_KEEPALIVE` | 30 | HTTP Keepalive连接数 |
 > | `ACCESS_TOKEN_EXPIRE_MINUTES` | 480 | JWT过期时间(分钟) |
 > 
-> Provider、模型、定价等 LLM 参数均在教师管理面板「API 管理」中配置，无需环境变量。
+> 超时、max_tokens、温度等调用参数按 purpose 管理（`patient_chat`/`scoring`/`qa` 各不同），见 `core/config.py` 中 `_LLM_PURPOSE_DEFAULTS`。Provider、模型、定价在教师管理面板「API 管理」中配置。
 
 ### 1.7 启动开发
 
@@ -397,32 +306,9 @@ fix scoring bug            ← 缺少 emoji
 
 ## 三、OpenCode 辅助开发
 
-### 3.1 前置：安装 OpenCode
+> 安装：[前置条件](#13-安装-opencode--superpowers-skills) 已包含安装步骤。
 
-OpenCode 是命令行 AI 编程助手，配合 Superpowers Skills 体系实现规范化的 AI 辅助开发。
-
-```bash
-# 安装 OpenCode（全局）
-npm install -g @anthropic/opencode
-
-# 在项目目录启动
-cd nursing-vp-sim
-opencode
-```
-
-### 3.2 安装 Superpowers Skills
-
-Superpowers Skills 不会随 OpenCode 自动附带，需要单独安装。即使你已在其他工具（如 Claude Code）中用过 Superpowers，也必须为 OpenCode 再装一次。
-
-**在 OpenCode 对话中输入以下指令：**
-
-> Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md
-
-OpenCode 会拉取安装指南并自动完成配置。安装完成后，OpenCode 即可使用全部 Superpowers Skills。
-
-> 详细文档见 [Superpowers 仓库](https://github.com/obra/superpowers) 的 `docs/README.opencode.md`。
-
-### 3.3 可用 Skills 速览
+### 3.2 可用 Skills 速览
 
 安装完成后，OpenCode 可用的 Superpowers Skills：
 
@@ -441,7 +327,7 @@ OpenCode 会拉取安装指南并自动完成配置。安装完成后，OpenCode
 | **using-git-worktrees** | 隔离工作区 | 需要多个独立工作区时 |
 | **verification-before-completion** | 完成前验证 | 声称完成/修复/通过前 |
 
-### 3.4 典型开发场景
+### 3.3 典型开发场景
 
 **场景 A：实现一个新功能**
 
@@ -471,7 +357,7 @@ OpenCode 会拉取安装指南并自动完成配置。安装完成后，OpenCode
 3. 修复问题后再次验证
 ```
 
-### 3.5 与项目约定的协作
+### 3.4 与项目约定的协作
 
 OpenCode 在本项目中会自动遵循以下约定：
 
@@ -482,7 +368,7 @@ OpenCode 在本项目中会自动遵循以下约定：
 - **文档位置**：设计文档写入 `docs/superpowers/specs/`，实施计划写入 `docs/superpowers/plans/`
 - **测试要求**：修改代码前理解现有测试，新增功能需补测试
 
-### 3.6 快捷 NPM Scripts
+### 3.5 快捷 NPM Scripts
 
 除了 `npm run dev` 外，这些 scripts 也经常用到：
 
