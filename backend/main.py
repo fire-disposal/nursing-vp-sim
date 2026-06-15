@@ -78,13 +78,9 @@ def _recover_stuck_scoring_records():
             )
             .all()
         )
-        now = datetime.now(UTC)
         for rec in stuck:
-            if rec.scoring_status == "pending" or (
-                rec.end_time and (now - rec.end_time.replace(tzinfo=UTC)).total_seconds() > 300
-            ):
-                rec.scoring_status = "failed"
-                rec.scoring_error = "服务重启导致评分中断，请点击重新评分"
+            rec.scoring_status = "failed"
+            rec.scoring_error = "服务重启导致评分中断，请点击重新评分"
         db.commit()
         if stuck:
             log.info(

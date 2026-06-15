@@ -160,6 +160,7 @@ class LLMClient:
             return content
         except Exception:
             latency_ms = int((time.perf_counter() - t0) * 1000)
+            log.exception("LLM call failed: purpose=%s latency=%dms", purpose, latency_ms)
             self._log_worker.enqueue(
                 purpose=purpose,
                 user_id=ctx.user_id,
@@ -280,7 +281,7 @@ class LLMClient:
                 yield content
                 return
             except Exception:
-                log.warning("Stream fallback batch call also failed: purpose=%s", purpose)
+                log.exception("Stream fallback batch call also failed: purpose=%s", purpose)
 
         self._log_worker.enqueue(
             purpose=purpose,

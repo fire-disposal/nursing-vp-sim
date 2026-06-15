@@ -155,7 +155,11 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		for (const plugin of activePlugins) {
 			plugin.hooks?.onEnd?.("manual", ctxRef.current);
 		}
-		await scoreRef.current.end();
+		try {
+			await scoreRef.current.end();
+		} catch {
+			// end() 已更新 UI 为失败状态，继续发出事件以允许 overlay 显示
+		}
 		busRef.current.emit("training:ended");
 	}, [activePlugins]);
 

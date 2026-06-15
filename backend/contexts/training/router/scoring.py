@@ -91,7 +91,9 @@ async def _run_scoring_background(
     try:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
+            log.warning("评分任务：记录不存在", extra={"record_id": record_id})
             return
+        log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
         record.scoring_status = "processing"
         db.commit()
 
@@ -231,9 +233,18 @@ async def retry_scoring(
             raise HTTPException(status_code=400, detail="训练尚未结束")
 
         now = datetime.now(UTC)
-        if record.scoring_status == "processing":
+        if record.scoring_status == "pending":
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
+        elif record.scoring_status == "processing":
+            if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
+                raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
+
+        # 清理上次评分结果（Score + ScoreReview），避免唯一约束冲突
+        old_score = db.query(Score).filter(Score.record_id == record_id).first()
+        if old_score:
+            db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
+            db.delete(old_score)
 
         record.scoring_status = None
         record.scoring_error = None

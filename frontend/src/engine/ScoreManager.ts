@@ -1,6 +1,6 @@
 // frontend/src/engine/ScoreManager.ts
 import { api } from "@/api/axios-instance";
-import type { MessageBus, ScoreData, ScoringProgress } from "./types";
+import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types";
 
 export class ScoreManager {
 	private recordId: number | null;
@@ -37,7 +37,13 @@ export class ScoreManager {
 		if (!this.recordId) return;
 		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
 		this.notify();
-		await api.post(`/training/${this.recordId}/end`);
+		try {
+			await api.post(`/training/${this.recordId}/end`);
+		} catch (e) {
+			this._progress = { phase: "failed", percentage: 0, message: "结束训练失败，请重试" };
+			this.notify();
+			throw e;
+		}
 		this._progress = { phase: "loading", percentage: 10, message: "评分已触发，等待后台处理..." };
 		this.notify();
 		this.startPolling();
@@ -84,8 +90,12 @@ export class ScoreManager {
 				}
 				// Use backend real progress if available
 				if (data.progress) {
+					const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
+					const phase = VALID_PHASES.includes(data.progress.phase as any)
+						? (data.progress.phase as ScorePhase)
+						: null;
 					this._progress = {
-						phase: data.progress.phase as any,
+						phase,
 						percentage: data.progress.percentage,
 						message: data.progress.message,
 					};
@@ -95,6 +105,12 @@ export class ScoreManager {
 				}
 				this.notify();
 			} catch {
+				if (retries >= maxRetries - 5) {
+					this._progress = { phase: "failed", percentage: 0, message: "评分状态查询失败" };
+					this.stopPolling();
+					this.notify();
+					return;
+				}
 				const pct = Math.min(95, 10 + retries * 1.5);
 				this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
 				this.notify();
