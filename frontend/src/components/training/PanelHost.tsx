@@ -20,6 +20,12 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
 	const activePlugin = plugins.find((p) => p.id === activeTabId);
 
 	useEffect(() => {
+		if (plugins.length > 0 && activeTabId === null) {
+			setActiveTabId(plugins[0].id);
+		}
+	}, [plugins, activeTabId]);
+
+	useEffect(() => {
 		if (isMobile && !isCollapsed) {
 			document.body.style.overflow = "hidden";
 			return () => {

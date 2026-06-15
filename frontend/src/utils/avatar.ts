@@ -28,6 +28,14 @@ export interface PatientInfo {
 	age?: number | null;
 }
 
+function isFemale(gender: string | null | undefined): boolean {
+	return gender === "女" || gender === "female";
+}
+
+function isMale(gender: string | null | undefined): boolean {
+	return gender === "男" || gender === "male";
+}
+
 export function getAgeGroup(age: number | null | undefined): string {
 	if (age == null) return "youth";
 	if (age < 15) return "child";
@@ -36,17 +44,20 @@ export function getAgeGroup(age: number | null | undefined): string {
 	return "elder";
 }
 
-export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
-	if (!patientInfo) return avatars.patient_youth_male;
-
+export function getPatientKey(patientInfo?: PatientInfo | null): string {
+	if (!patientInfo) return "patient_youth_male";
 	const group = getAgeGroup(patientInfo.age);
-	const sex = patientInfo.gender === "女" ? "female" : "male";
-	const key = `patient_${group}_${sex}`;
+	const sex = isFemale(patientInfo.gender) ? "female" : "male";
+	return `patient_${group}_${sex}`;
+}
+
+export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
+	const key = getPatientKey(patientInfo);
 	return avatars[key] || avatars.patient_youth_male;
 }
 
 export function getNurseAvatar(gender?: string | null): string {
-	const sex = gender === "男" ? "male" : "female";
+	const sex = isMale(gender) ? "male" : "female";
 	return avatars[`nurse_${sex}`] || avatars.nurse_female;
 }
 

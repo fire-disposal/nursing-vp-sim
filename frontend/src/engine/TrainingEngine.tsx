@@ -3,6 +3,7 @@ import { ChatArea } from "@/components/training/ChatArea";
 import { PanelHost } from "@/components/training/PanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
+import { ScoreCard, ScoringOverlay } from "@/plugins/scoring-display";
 import { discoverPluginDefs } from "./discovery";
 import { createMessageBus } from "./MessageBus";
 import { useManifest } from "./manifest";
@@ -17,7 +18,6 @@ import {
 import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
-import { ScoreCard, ScoringOverlay } from "@/plugins/scoring-display";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
