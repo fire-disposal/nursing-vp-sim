@@ -400,22 +400,36 @@ def get_stats(
         .filter(User.school_id == current_user.school_id, TrainingRecord.status == "completed")
         .count()
     )
-    avg_score = db.query(func.avg(Score.total_score)).scalar()
+    avg_score = (
+        db.query(func.avg(Score.total_score))
+        .join(TrainingRecord, Score.record_id == TrainingRecord.id)
+        .join(User, TrainingRecord.user_id == User.id)
+        .filter(User.school_id == current_user.school_id)
+        .scalar()
+    )
 
     avg_duration = (
         db.query(func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60))
+        .join(User, TrainingRecord.user_id == User.id)
         .filter(
             TrainingRecord.status == "completed",
             TrainingRecord.end_time.isnot(None),
             TrainingRecord.start_time.isnot(None),
+            User.school_id == current_user.school_id,
         )
         .scalar()
     )
 
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     today_records = (
-        db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.start_time >= today_start).scalar() or 0
-    )
+        db.query(func.count(TrainingRecord.id))
+        .join(User, TrainingRecord.user_id == User.id)
+        .filter(
+            TrainingRecord.start_time >= today_start,
+            User.school_id == current_user.school_id,
+        )
+        .scalar()
+    ) or 0
 
     return AdminStats(
         total_students=total_students,

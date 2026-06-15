@@ -10,7 +10,7 @@
     "dev:backend": "cd backend && cross-env PYTHONUTF8=1 uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
     "dev:frontend": "cd frontend && pnpm dev",
     "check": "pnpm run check:backend && pnpm run check:frontend",
-    "check:backend": "cd backend && uv run ruff format --check . && uv run ruff check . && uv run ty .",
+    "check:backend": "cd backend && uv run ruff format --check . && uv run ruff check . && uv run ty check .",
     "check:frontend": "cd frontend && pnpm biome lint . && pnpm tsc --noEmit",
     "db:migrate": "cd backend && uv run python -m alembic upgrade head",
     "db:migration": "cd backend && uv run python -m alembic revision --autogenerate -m",

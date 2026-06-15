@@ -50,7 +50,12 @@ def list_practices(
     current_user: User = Depends(require_permission("case_manage")),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Practice).options(joinedload(Practice.case)).order_by(Practice.created_at.desc())
+    query = (
+        db.query(Practice)
+        .options(joinedload(Practice.case))
+        .filter(Practice.school_id == current_user.school_id)
+        .order_by(Practice.created_at.desc())
+    )
     practices, total = paginate(query, offset, limit)
 
     practice_ids = [p.id for p in practices]
@@ -120,7 +125,7 @@ def update_practice(
     current_user: User = Depends(require_permission("case_manage")),
     db: Session = Depends(get_db),
 ):
-    p = db.query(Practice).filter(Practice.id == practice_id).first()
+    p = db.query(Practice).filter(Practice.id == practice_id, Practice.school_id == current_user.school_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
 
@@ -147,7 +152,7 @@ def delete_practice(
     current_user: User = Depends(require_permission("case_manage")),
     db: Session = Depends(get_db),
 ):
-    p = db.query(Practice).filter(Practice.id == practice_id).first()
+    p = db.query(Practice).filter(Practice.id == practice_id, Practice.school_id == current_user.school_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
 

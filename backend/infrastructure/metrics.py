@@ -144,11 +144,15 @@ class MetricsSnapshot:
     def _memory_mb() -> float:
         try:
             import resource
-
-            usage = resource.getrusage(resource.RUSAGE_SELF)
-            return round(usage.ru_maxrss / 1024, 1)
-        except Exception:
+        except ImportError:
             return 0.0
+
+        import platform
+
+        if platform.system() != "Linux":
+            return 0.0
+        usage = resource.getrusage(resource.RUSAGE_SELF)  # ty: ignore
+        return round(usage.ru_maxrss / 1024, 1)
 
     def snapshot(self) -> dict:
         return dict(

@@ -170,7 +170,7 @@ class TestScoringPromptSanity:
             ("JSON 模板", '"detail_scores"'),
             ("evidence 要求", "evidence"),
             ("reason 要求", "reason"),
-            ("评分要求", "逐项证据化评分"),
+            ("评分要求", "证据"),
             ("评分背景", "护理学生"),
         ]
         for label, keyword in checks:

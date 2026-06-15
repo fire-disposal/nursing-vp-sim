@@ -55,9 +55,6 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
     for event in ctx.system_events:
         yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
-    if ctx.exam_result:
-        yield f"data: {json.dumps({'exam_result': ctx.exam_result}, ensure_ascii=False)}\n\n"
-
     if ctx.llm_reply:
         async for chunk in _emit_chunks(ctx):
             yield chunk
