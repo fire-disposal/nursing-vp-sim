@@ -6,7 +6,7 @@ from contexts.patient import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
 )
-from contexts.patient.sources import collect_author_note
+
 from infrastructure.prompt import render_template
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
@@ -20,8 +20,9 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         await next_mw()
         return
 
-    author_note, traces = await collect_author_note(ctx)
-    ctx.state["_source_traces"] = traces
+    author_note = ""
+    if ctx.note_collector:
+        author_note = await ctx.note_collector.collect(ctx)
 
     kwargs = build_patient_context_kwargs(ctx.case_data, author_note=author_note)
     pm = ctx.app_state.prompt_manager

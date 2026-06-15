@@ -1,14 +1,10 @@
 """Unit tests for ContextSource implementations."""
 
 from contexts.patient.sources import (
-    ContextSource,
     EmotionNoteSource,
     ExamImpactSource,
     ExamResultsSource,
     IdentityGuardSource,
-    clear_sources,
-    collect_author_note,
-    register_source,
 )
 
 
@@ -122,47 +118,3 @@ class TestExamImpactSource:
         assert result is None
 
 
-class TestRegistry:
-    def teardown_method(self):
-        clear_sources()
-
-    async def test_collect_author_note_aggregates_all(self):
-        clear_sources()
-
-        class AlwaysSource(ContextSource):
-            name = "always"
-
-            async def collect(self, ctx):
-                return "hello"
-
-        register_source(AlwaysSource())
-        register_source(AlwaysSource())
-
-        ctx = FakeContext()
-        result, traces = await collect_author_note(ctx)
-        assert "hello" in result
-        assert " | " in result
-
-    async def test_collect_author_note_survives_exception(self):
-        clear_sources()
-
-        class GoodSource(ContextSource):
-            name = "good"
-
-            async def collect(self, ctx):
-                return "good"
-
-        class BadSource(ContextSource):
-            name = "bad"
-
-            async def collect(self, ctx):
-                raise RuntimeError("boom")
-
-        register_source(GoodSource())
-        register_source(BadSource())
-
-        ctx = FakeContext()
-        result, traces = await collect_author_note(ctx)
-        assert "good" in result
-        error_trace = [t for t in traces if t["source"] == "bad"]
-        assert error_trace[0]["error"] is True

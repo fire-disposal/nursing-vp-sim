@@ -1,4 +1,8 @@
-"""ContextSource — composable author_note contribution per round."""
+"""ContextSource implementations — composable author_note contributions per round.
+
+NoteSources are now assembled by NoteCollector at pipeline build time,
+not registered globally. See note_collector.py and plugins/manager.py.
+"""
 
 from __future__ import annotations
 
@@ -96,42 +100,3 @@ class PluginAuthorNoteSource(ContextSource):
         return " | ".join(notes) if notes else None
 
 
-_sources: list[ContextSource] = []
-
-
-def register_source(source: ContextSource) -> None:
-    _sources.append(source)
-
-
-def get_sources() -> list[ContextSource]:
-    return list(_sources)
-
-
-def clear_sources() -> None:
-    _sources.clear()
-
-
-async def collect_author_note(ctx: "PipelineContext") -> tuple[str, list[dict]]:
-    notes = []
-    traces = []
-    for src in get_sources():
-        try:
-            text = await src.collect(ctx)
-        except Exception:
-            log.exception("ContextSource %s failed", src.name)
-            traces.append({"source": src.name, "triggered": False, "error": True})
-            continue
-        if text and text.strip():
-            notes.append(text)
-            traces.append({"source": src.name, "length": len(text), "triggered": True})
-        else:
-            traces.append({"source": src.name, "length": 0, "triggered": False})
-    joined = "【" + " | ".join(notes) + "】" if notes else ""
-    return joined, traces
-
-
-register_source(EmotionNoteSource())
-register_source(IdentityGuardSource())
-register_source(ExamResultsSource())
-register_source(ExamImpactSource())
-register_source(PluginAuthorNoteSource())

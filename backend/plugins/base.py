@@ -112,3 +112,6 @@ class Plugin(ABC):
 
     def author_note(self, ctx: Any) -> str | None:
         return None
+
+    def get_note_sources(self) -> list:
+        return []

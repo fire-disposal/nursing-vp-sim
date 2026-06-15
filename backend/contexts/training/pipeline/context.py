@@ -37,6 +37,8 @@ class PipelineContext:
     state: dict = field(default_factory=dict)
     error: str | None = None
 
+    note_collector: Any | None = None
+
     @property
     def message_count(self) -> int:
         return len(self.messages)

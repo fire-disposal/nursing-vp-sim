@@ -72,7 +72,7 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     ctx.current_phase = Phase(id="history_taking")
 
     # Run up to prompt_builder only (skip LLM call)
-    history_pipe = get_pipeline()
+    history_pipe, _ = get_pipeline()
     middlewares = [m for m in history_pipe if m.__name__ not in ("_llm_caller",)]
     await run_pipeline(ctx, middlewares)
 

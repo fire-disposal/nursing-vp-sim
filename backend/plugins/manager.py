@@ -67,7 +67,7 @@ class PluginManager:
                 return False
         return True
 
-    def build_pipeline(self, feature_flags: dict[str, bool] | None = None) -> list[Any]:
+    def build_pipeline(self, feature_flags: dict[str, bool] | None = None) -> tuple[list[Any], Any]:
         if not CORE_MIDDLEWARE:
             from contexts.training.pipeline.middleware import (
                 llm_caller,
@@ -96,7 +96,23 @@ class PluginManager:
         result: list[Any] = []
         for stage in sorted(PipelineStage, key=stage_order):
             result.extend(stage_buckets.get(stage, []))
-        return result
+
+        # --- assemble NoteCollector ---
+        from contexts.patient.note_collector import NoteCollector
+        from contexts.patient.sources import (
+            EmotionNoteSource, ExamImpactSource, ExamResultsSource, IdentityGuardSource,
+        )
+
+        collector = NoteCollector()
+        for src_cls in [EmotionNoteSource, IdentityGuardSource, ExamResultsSource, ExamImpactSource]:
+            collector.add(src_cls())
+
+        for plugin in self.get_active(flags):
+            for ns in plugin.get_note_sources():
+                collector.add(ns)
+        # --- END ---
+
+        return result, collector
 
     async def run_hook(
         self,

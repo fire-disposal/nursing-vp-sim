@@ -51,10 +51,6 @@ from .sources import (
     ExamResultsSource,
     IdentityGuardSource,
     PluginAuthorNoteSource,
-    collect_author_note,
-    clear_sources,
-    get_sources,
-    register_source,
 )
 
 __all__ = [
@@ -75,8 +71,7 @@ __all__ = [
     "classify_intent",
     "cleanup_emotion",
     "cleanup_initiative",
-    "clear_sources",
-    "collect_author_note",
+
     "detect_operation",
     "format_case_for_prompt",
     "generate_initiative",
@@ -84,11 +79,9 @@ __all__ = [
     "get_guard",
     "get_identity_correction_note",
     "get_initiative_seconds",
-    "get_sources",
     "handle_operation",
     "has_identity_leak",
     "register_guard",
-    "register_source",
     "should_initiate",
     "update_initiative_timer",
 ]
