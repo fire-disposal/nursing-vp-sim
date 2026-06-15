@@ -343,7 +343,10 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					/>
 				</div>
 			</div>
-			<ScoringOverlay bus={busRef.current} />
+			<ScoringOverlay
+				bus={busRef.current}
+				getProgress={() => scoreRef.current?.progress ?? { phase: null, percentage: 0, message: "" }}
+			/>
 			<ScoreCard bus={busRef.current} recordId={recordId} />
 		</>
 	);
