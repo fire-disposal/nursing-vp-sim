@@ -165,6 +165,34 @@ DEEPSEEK_API_KEY=...
 - `TEST_DB_URL` — pytest database, read by `tests/conftest.py`
 - Pre-push hook also reads `.env` for DB credentials
 
+## Database Backup
+
+Scripts for backup and restore, managed in `deploy/`:
+
+| Script | Purpose |
+|--------|---------|
+| `deploy/db-backup.sh` | `pg_dump` + gzip, archive management, auto-prune |
+| `deploy/db-restore.sh` | Safe restore with pre-snapshot + integrity check |
+
+```bash
+# Backup
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh staging"
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh prod"
+
+# List available backups
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh staging list"
+
+# Restore (interactive)
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-restore.sh /opt/nursing-vp-sim/backups/prod/prod_20260615_120000.sql.gz"
+
+# Restore (AI non-interactive)
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-restore.sh /path/to/backup.gz --yes"
+```
+
+Auto-backup is configured via crontab every 3 days (staging 03:00, prod 04:00).
+Backups are stored in `backups/{staging,prod}/`, retained for 30 days.
+Tracked in `.backup-history` for agent-parsable version history.
+
 ## Pre-push Gate
 
 All pushes pass through `.husky/pre-push`:
