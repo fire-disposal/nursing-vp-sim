@@ -227,7 +227,7 @@ class ProfileRouter:
     def _update_stats(self, profile, prompt_tokens: int, completion_tokens: int):
         today = datetime.now(UTC).date()
         total_tokens = prompt_tokens + completion_tokens
-        if profile.stats_date is None or profile.stats_date < today:
+        if profile.stats_date is None or profile.stats_date.date() < today:
             profile.call_count_today = 0
             profile.total_tokens_today = 0
             profile.total_cost_today = float(0)
