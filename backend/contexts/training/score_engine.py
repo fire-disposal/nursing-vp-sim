@@ -17,6 +17,7 @@ from ._scoring_validation import (
     _convert_to_100_scale,
     _merge_feedback,
     _validate_feedback_fields,
+    _validate_items_content,
     _validate_scoring_essentials,
     _validate_scoring_result,
 )
@@ -59,7 +60,12 @@ async def _score_stage(
         log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
 
     partial_json = json.dumps(result, ensure_ascii=False, indent=2)
-    retry_user = SCORING_RETRY_USER.format(partial_json=partial_json)
+    item_errors = _validate_items_content(result.get("detail_scores", {}))
+    validation_msg = "; ".join(item_errors) if item_errors else "字段缺失或不完整"
+    retry_user = SCORING_RETRY_USER.format(
+        partial_json=partial_json,
+        validation_errors=validation_msg,
+    )
     retry_messages = [
         *messages,
         {"role": "assistant", "content": partial_json},
