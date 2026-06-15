@@ -39,10 +39,15 @@ async def _call_batch(ctx: PipelineContext) -> None:
     import httpx
 
     from contexts.patient import get_guard
-    from core.config import get_llm_config
 
     app = ctx.app_state
     llm_client = app.llm_client
+    llm_cfg = ctx.state.get("_patient_chat_cfg")
+    if llm_cfg is None:
+        from core.config import get_llm_config
+
+        llm_cfg = get_llm_config("patient_chat")
+        ctx.state["_patient_chat_cfg"] = llm_cfg
     log_meta = {"source_traces": ctx.state.get("_source_traces", [])}
     try:
         reply = await llm_client.call(
@@ -55,7 +60,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 case_id=ctx.record.case_id,
                 log_meta=log_meta,
             ),
-            **get_llm_config("patient_chat"),
+            **llm_cfg,
         )
     except (httpx.HTTPError, OSError, RuntimeError, ValueError):
         log.exception("LLM batch call failed: record_id=%d", ctx.record.id)
@@ -85,7 +90,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                         case_id=ctx.record.case_id,
                         log_meta=log_meta,
                     ),
-                    **get_llm_config("patient_chat"),
+                    **llm_cfg,
                 )
                 if retry.strip():
                     ctx.llm_reply = retry
@@ -98,10 +103,15 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 async def _call_stream(ctx: PipelineContext) -> None:
     from contexts.patient import get_guard
-    from core.config import get_llm_config
 
     app = ctx.app_state
     llm_client = app.llm_client
+    llm_cfg = ctx.state.get("_patient_chat_cfg")
+    if llm_cfg is None:
+        from core.config import get_llm_config
+
+        llm_cfg = get_llm_config("patient_chat")
+        ctx.state["_patient_chat_cfg"] = llm_cfg
     full_reply = ""
     chunks = []
     log_meta = {"source_traces": ctx.state.get("_source_traces", [])}
@@ -117,7 +127,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
                 case_id=ctx.record.case_id,
                 log_meta=log_meta,
             ),
-            **get_llm_config("patient_chat"),
+            **llm_cfg,
         ):
             full_reply += chunk
             chunks.append(chunk)
@@ -150,7 +160,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
                         case_id=ctx.record.case_id,
                         log_meta=log_meta,
                     ),
-                    **get_llm_config("patient_chat"),
+                    **llm_cfg,
                 ):
                     full_retry += chunk
                     retry_chunks.append(chunk)

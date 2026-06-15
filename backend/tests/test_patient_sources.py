@@ -109,9 +109,7 @@ class TestExamResultsSource:
 class TestExamImpactSource:
     async def test_returns_impact_note(self):
         src = ExamImpactSource()
-        record = FakeContext.Record(
-            practice_snapshot={"_exam_impact_note": "频繁检查让患者不耐烦"}
-        )
+        record = FakeContext.Record(practice_snapshot={"_exam_impact_note": "频繁检查让患者不耐烦"})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result == "频繁检查让患者不耐烦"
@@ -133,8 +131,10 @@ class TestRegistry:
 
         class AlwaysSource(ContextSource):
             name = "always"
+
             async def collect(self, ctx):
                 return "hello"
+
         register_source(AlwaysSource())
         register_source(AlwaysSource())
 
@@ -148,11 +148,13 @@ class TestRegistry:
 
         class GoodSource(ContextSource):
             name = "good"
+
             async def collect(self, ctx):
                 return "good"
 
         class BadSource(ContextSource):
             name = "bad"
+
             async def collect(self, ctx):
                 raise RuntimeError("boom")
 

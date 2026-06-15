@@ -1,6 +1,7 @@
 """评分标准（Rubric）服务 —— 从 DB / JSON 文件加载、验证"""
 
 import json
+import time
 from pathlib import Path
 
 from core.database import SessionLocal
@@ -8,6 +9,8 @@ from models import Rubric
 
 _RUBRIC_DIR = Path(__file__).resolve().parent.parent / "data" / "rubrics"
 _CACHE: dict[str, dict] = {}
+_ACTIVE_RUBRIC_CACHE: tuple[float, dict | None] | None = None
+_ACTIVE_RUBRIC_TTL = 60.0
 
 
 def load_rubric(version: str = "nursing_history_v1") -> dict:
@@ -17,8 +20,10 @@ def load_rubric(version: str = "nursing_history_v1") -> dict:
     path = _RUBRIC_DIR / f"{version}.json"
     if not path.exists():
         raise FileNotFoundError(f"评分标准文件不存在: {path}")
-    with open(path, encoding="utf-8") as f:
-        rubric = json.load(f)
+    try:
+        rubric = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"评分标准 JSON 解析失败: {path}: {e}") from e
     _CACHE[version] = rubric
     return rubric
 
@@ -33,10 +38,20 @@ def load_active_rubric() -> Rubric | None:
 
 
 def load_rubric_dict() -> dict:
-    """从 DB 加载激活评分标准，DB 无激活版本则回退到 data/rubrics/ JSON 文件。"""
+    """从 DB 加载激活评分标准，DB 无激活版本则回退到 data/rubrics/ JSON 文件。
+
+    结果缓存 60 秒（后台变更通过管理员界面，非高频操作）。
+    """
+    global _ACTIVE_RUBRIC_CACHE
+    now = time.monotonic()
+    if _ACTIVE_RUBRIC_CACHE is not None:
+        ts, cached = _ACTIVE_RUBRIC_CACHE
+        if now - ts < _ACTIVE_RUBRIC_TTL and cached is not None:
+            return cached
+
     active = load_active_rubric()
     if active:
-        return {
+        result = {
             "id": active.name,
             "name": active.name,
             "version": active.version,
@@ -45,7 +60,12 @@ def load_rubric_dict() -> dict:
             "raw_scale": active.raw_scale,
             "dimensions": active.dimensions,
         }
-    return load_rubric("nursing_history_v1")
+        _ACTIVE_RUBRIC_CACHE = (now, result)
+        return result
+
+    result = load_rubric("nursing_history_v1")
+    _ACTIVE_RUBRIC_CACHE = (now, result)
+    return result
 
 
 def get_rubric_version_id(rubric_dict: dict) -> str:

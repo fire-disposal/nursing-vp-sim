@@ -41,9 +41,12 @@ class EnvelopeMiddleware(BaseHTTPMiddleware):
         else:
             wrapped = {"code": 0, "data": data, "message": "success"}
 
+        wrapped_json = json.dumps(wrapped, ensure_ascii=False)
+        headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        headers["content-length"] = str(len(wrapped_json.encode("utf-8")))
         return Response(
-            content=json.dumps(wrapped, ensure_ascii=False),
+            content=wrapped_json,
             status_code=response.status_code,
-            headers={k: v for k, v in response.headers.items() if k.lower() != "content-length"},
+            headers=headers,
             media_type="application/json",
         )

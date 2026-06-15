@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+import threading
 
 from prompts import (
     CASE_GENERATION_SYSTEM,
@@ -97,7 +98,8 @@ class PromptManager:
     def __init__(self):
         self._cache: dict[str, PromptTemplateObj] = {}
         self._last_valid_cache: dict[str, PromptTemplateObj] | None = None
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
+        self._load_lock = asyncio.Lock()
 
     async def load_from_db(self):
         from core.database import SessionLocal
@@ -119,14 +121,14 @@ class PromptManager:
                     variables=r.variables,
                 )
 
-            async with self._lock:
-                self._last_valid_cache = self._cache
+            async with self._load_lock:
+                self._last_valid_cache = dict(self._cache)
                 self._cache = new_cache
             log.debug("PromptManager loaded: %d templates", len(new_cache))
         except Exception:
             log.exception("PromptManager load failed")
             if self._last_valid_cache:
-                async with self._lock:
+                async with self._load_lock:
                     self._cache = self._last_valid_cache
                 log.warning("retaining last valid cache")
             raise
@@ -134,7 +136,7 @@ class PromptManager:
             db.close()
 
     async def get(self, purpose: str) -> PromptTemplateObj:
-        async with self._lock:
+        with self._lock:
             tmpl = self._cache.get(purpose)
         if tmpl is not None:
             return tmpl
@@ -142,7 +144,7 @@ class PromptManager:
             await self.load_from_db()
         except Exception:
             log.warning("reload failed, using hardcoded fallback for purpose=%s", purpose)
-        async with self._lock:
+        with self._lock:
             tmpl = self._cache.get(purpose)
         if tmpl is not None:
             return tmpl

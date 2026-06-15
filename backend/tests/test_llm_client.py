@@ -41,7 +41,6 @@ def client(mock_http, mock_router, mock_log_worker):
         http=mock_http,
         router=mock_router,
         log_worker=mock_log_worker,
-        concurrency=10,
     )
 
 

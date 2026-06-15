@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from core.config import LLM_CONCURRENT_LIMIT
 from core.exceptions import LLMParseError, NoProviderAvailable
 from infrastructure.llm.circuit import async_retry, backoff_delay
 
@@ -23,6 +22,22 @@ from .parsing import _safe_parse_json
 from .router import ProfileRouter
 
 log = logging.getLogger(__name__)
+
+# Per-purpose concurrency limits — scoring shouldn't block chat
+_PURPOSE_SEMAPHORE_LIMITS: dict[str, int] = {
+    "patient_chat": 50,
+    "qa": 50,
+    "scoring": 10,
+    "scoring_feedback": 10,
+    "case_generation": 3,
+}
+
+
+def _semaphore_limit(purpose: str) -> int:
+    for prefix, limit in _PURPOSE_SEMAPHORE_LIMITS.items():
+        if purpose.startswith(prefix):
+            return limit
+    return 50
 
 
 @dataclass
@@ -58,14 +73,23 @@ class LLMClient:
         http: httpx.AsyncClient,
         router: ProfileRouter,
         log_worker: LogWorker,
-        concurrency: int | None = None,
         metrics=None,
     ):
         self._http = http
         self._router = router
         self._log_worker = log_worker
         self._metrics = metrics
-        self._sem = asyncio.Semaphore(concurrency or LLM_CONCURRENT_LIMIT)
+        # Per-purpose semaphores — scoring doesn't block chat
+        self._semaphores: dict[str, asyncio.Semaphore] = {
+            p: asyncio.Semaphore(limit) for p, limit in _PURPOSE_SEMAPHORE_LIMITS.items()
+        }
+        self._default_sem = asyncio.Semaphore(50)
+
+    def _sem_for(self, purpose: str) -> asyncio.Semaphore:
+        for prefix in _PURPOSE_SEMAPHORE_LIMITS:
+            if purpose.startswith(prefix):
+                return self._semaphores[prefix]
+        return self._default_sem
 
     def _record_metrics(self, *, status: str, tokens: int, cost: float, latency_ms: int) -> None:
         if self._metrics:
@@ -333,7 +357,7 @@ class LLMClient:
             payload["response_format"] = response_format
 
         async with asyncio.timeout(timeout + 10):
-            async with self._sem:
+            async with self._sem_for(purpose):
                 resp = await self._http.post(
                     f"{state.base_url}/v1/chat/completions",
                     headers={
@@ -380,7 +404,7 @@ class LLMClient:
         }
 
         async with asyncio.timeout(timeout + 10):
-            async with self._sem:
+            async with self._sem_for(purpose):
                 async with self._http.stream(
                     "POST",
                     f"{state.base_url}/v1/chat/completions",

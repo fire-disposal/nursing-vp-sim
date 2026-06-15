@@ -49,8 +49,7 @@ class PostGuard(ABC):
     name: str = ""
 
     @abstractmethod
-    async def check(self, reply: str) -> GuardResult:
-        ...
+    async def check(self, reply: str) -> GuardResult: ...
 
 
 class PatternGuard(PostGuard):

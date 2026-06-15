@@ -18,8 +18,7 @@ class ContextSource(ABC):
     name: str = ""
 
     @abstractmethod
-    async def collect(self, ctx: "PipelineContext") -> str | None:
-        ...
+    async def collect(self, ctx: "PipelineContext") -> str | None: ...
 
 
 class EmotionNoteSource(ContextSource):
@@ -78,13 +77,12 @@ class PluginAuthorNoteSource(ContextSource):
     async def collect(self, ctx: "PipelineContext") -> str | None:
         try:
             from plugins.manager import get_plugin_manager
-            from core.feature_flags import resolve_features
         except ImportError:
             log.debug("PluginManager not available")
             return None
 
         pm = get_plugin_manager()
-        features = resolve_features(ctx.record.practice_snapshot or {})
+        features = ctx.state.get("features") or {}
         plugins = pm.get_active(features)
 
         notes = []

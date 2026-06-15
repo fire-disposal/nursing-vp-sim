@@ -4,8 +4,10 @@ Extracted from main.py to keep the application entrypoint thin.
 Called once during app startup (lifespan).
 """
 
+import json
 import logging
 import os
+from pathlib import Path
 
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from core.database import SessionLocal
@@ -15,6 +17,8 @@ from infrastructure.llm import encrypt_api_key
 from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, User
 
 log = logging.getLogger(__name__)
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def seed_all() -> None:
@@ -86,17 +90,13 @@ def _seed_data() -> None:
 
         # 4. 评分标准
         if db.query(Rubric).count() == 0:
-            rubric_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "data",
-                "rubrics",
-                "nursing_history_v1.json",
-            )
-            if os.path.isfile(rubric_path):
-                import json as _json
-
-                with open(rubric_path, encoding="utf-8") as f:
-                    data = _json.load(f)
+            rubric_path = _PROJECT_ROOT / "data" / "rubrics" / "nursing_history_v1.json"
+            if rubric_path.exists():
+                try:
+                    data = json.loads(rubric_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as e:
+                    log.warning("评分标准文件读取失败: %s", e)
+                    data = {}
                 db.add(
                     Rubric(
                         name=data.get("id", "nursing_history_v1"),
@@ -113,10 +113,10 @@ def _seed_data() -> None:
                 log.debug("评分标准已导入")
 
         # 5. 超级管理员
-        username = os.environ.get("SEED_ADMIN_USERNAME", "admin")
-        password = os.environ.get("SEED_ADMIN_PASSWORD", "admin123")
+        username = os.getenv("SEED_ADMIN_USERNAME", "admin")
+        password = os.getenv("SEED_ADMIN_PASSWORD", "admin123")
         sa_role_id = school_role_ids.get("super_admin")
-        if not os.environ.get("SEED_ADMIN_USERNAME"):
+        if not os.getenv("SEED_ADMIN_USERNAME"):
             log.warning("SEED_ADMIN_* 未设置，使用默认 admin/admin123")
         admin_user = db.query(User).filter(User.username == username).first()
         if admin_user:
@@ -156,20 +156,22 @@ def _seed_data() -> None:
                 )
             log.debug("测试学生已创建 (student1-5 / 123456)")
 
-            cases_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cases")
+            cases_dir = _PROJECT_ROOT / "data" / "cases"
             case_count = 0
-            for fname in sorted(os.listdir(cases_dir)):
-                if fname.endswith(".json"):
-                    import json as _json
-
-                    with open(os.path.join(cases_dir, fname), encoding="utf-8") as f:
-                        d = _json.load(f)
+            for fpath in sorted(cases_dir.glob("*.json")):
+                try:
+                    d = json.loads(fpath.read_text(encoding="utf-8"))
                     db.add(
                         Case(
-                            name=d.get("name", fname), description=d.get("description", ""), case_data=d, school_id=None
+                            name=d.get("name", fpath.stem),
+                            description=d.get("description", ""),
+                            case_data=d,
+                            school_id=None,
                         )
                     )
                     case_count += 1
+                except (OSError, json.JSONDecodeError) as e:
+                    log.warning("病例文件读取失败 %s: %s", fpath.name, e)
             db.commit()
             log.debug("内置病例已导入 (%d)", case_count)
     finally:

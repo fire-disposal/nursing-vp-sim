@@ -61,6 +61,7 @@ async def _build_context(
     )
     ctx.setup_phases()
     ctx.state["_stream_mode"] = stream_mode
+    ctx.state["features"] = resolve_features(ctx.record.practice_snapshot)
     return ctx
 
 
@@ -73,8 +74,7 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    features = resolve_features(ctx.record.practice_snapshot)
-    pipe = get_pipeline(features)
+    pipe = get_pipeline(ctx.state["features"])
     await run_pipeline(ctx, pipe)
 
     if ctx.error:
@@ -95,8 +95,7 @@ async def send_message_stream(
 ):
     async with db_session() as db:
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-        features = resolve_features(ctx.record.practice_snapshot)
-        pipe = get_pipeline(features)
+        pipe = get_pipeline(ctx.state["features"])
 
         return StreamingResponse(
             stream_pipeline(ctx, pipe),

@@ -18,11 +18,7 @@ from models import Case, Message, Score, ScoreReview, TrainingRecord, User
 from plugins.manager import get_plugin_manager
 from schemas import ScoringTriggerResponse
 
-from .session import (
-    _release_scoring,
-    _schedule_background,
-    _try_acquire_scoring,
-)
+from .session import _try_acquire_scoring
 
 log = logging.getLogger(__name__)
 
@@ -120,7 +116,6 @@ async def _run_scoring_background(
         log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
     finally:
         db.close()
-        await _release_scoring(record_id)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
@@ -140,7 +135,7 @@ async def end_training(
         if record.scoring_status in ("pending", "processing"):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
-        if not await _try_acquire_scoring(record_id):
+        if not await _try_acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
@@ -149,16 +144,16 @@ async def end_training(
         record.end_time = datetime.now(UTC)
         _set_overdue_if_needed(record, db)
 
-        _schedule_background(
-            _run_scoring_background(
+        await request.app.state.task_queue.enqueue(
+            lambda: _run_scoring_background(
                 record_id,
                 case.case_data if case else {},
                 llm_client=request.app.state.llm_client,
                 pm=request.app.state.prompt_manager,
-            )
+            ),
+            priority=5,
         )
 
-        record.scoring_status = "pending"
         db.commit()
 
         from core.feature_flags import resolve_features
@@ -212,21 +207,22 @@ async def retry_scoring(
             else:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
-        if not await _try_acquire_scoring(record_id):
+        case = db.query(Case).filter(Case.id == record.case_id).first()
+
+        if not await _try_acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
-        case = db.query(Case).filter(Case.id == record.case_id).first()
-        record.scoring_status = "pending"
         record.scoring_error = None
         db.commit()
 
-        _schedule_background(
-            _run_scoring_background(
+        await request.app.state.task_queue.enqueue(
+            lambda: _run_scoring_background(
                 record_id,
                 case.case_data if case else {},
                 llm_client=request.app.state.llm_client,
                 pm=request.app.state.prompt_manager,
-            )
+            ),
+            priority=5,
         )
 
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}

@@ -89,8 +89,20 @@ LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
     "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.6, "max_retries": 2},
     "qa": {"timeout": 30, "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
-    "scoring": {"timeout": 120, "max_tokens": 4096, "temperature": 0, "max_retries": 3},
-    "scoring_feedback": {"timeout": 60, "max_tokens": 2048, "temperature": 0.3, "max_retries": 2},
+    "scoring": {
+        "timeout": 120,
+        "max_tokens": 4096,
+        "temperature": 0,
+        "max_retries": 3,
+        "response_format": {"type": "json_object"},
+    },
+    "scoring_feedback": {
+        "timeout": 60,
+        "max_tokens": 2048,
+        "temperature": 0.3,
+        "max_retries": 2,
+        "response_format": {"type": "json_object"},
+    },
     "case_generation": {"timeout": 120, "max_tokens": 4096, "temperature": 0.3, "max_retries": 3},
 }
 

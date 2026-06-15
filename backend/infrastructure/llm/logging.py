@@ -4,8 +4,8 @@ import asyncio
 import contextlib
 import json as _json
 import logging
-import os
 import time
+from pathlib import Path
 
 from core.config import (
     LLM_COST_CURRENCY,
@@ -103,11 +103,11 @@ class LogWorker:
     def __init__(self, overflow_dir: str = "", overflow_max_size_mb: int = 10, overflow_max_files: int = 5):
         self._queue: asyncio.Queue[dict] | None = None
         self._task: asyncio.Task | None = None
-        self._overflow_dir = overflow_dir
+        self._overflow_dir = Path(overflow_dir) if overflow_dir else None
         self._overflow_max_bytes = overflow_max_size_mb * 1024 * 1024
         self._overflow_max_files = max(overflow_max_files, 1)
-        if overflow_dir:
-            os.makedirs(overflow_dir, exist_ok=True)
+        if self._overflow_dir:
+            self._overflow_dir.mkdir(parents=True, exist_ok=True)
 
     async def start(self):
         self._queue = asyncio.Queue(maxsize=2000)
@@ -132,7 +132,7 @@ class LogWorker:
                 batch.append(item)
             except TimeoutError:
                 _drain_count += 1
-                if _drain_count >= 5 and self._overflow_dir:
+                if _drain_count >= 5 and self._overflow_dir is not None:
                     self._drain_overflow_files(batch)
                     _drain_count = 0
                 if batch:
@@ -152,7 +152,7 @@ class LogWorker:
                     batch.append(self._queue.get_nowait())
                 except asyncio.QueueEmpty:
                     break
-        if self._overflow_dir:
+        if self._overflow_dir is not None:
             self._drain_overflow_files(batch)
         if batch:
             self._flush(batch)
@@ -243,14 +243,15 @@ class LogWorker:
             else:
                 log.error("llm log queue full (%d), entry lost", self._queue.maxsize)
 
-    def _overflow_path(self) -> str:
+    def _overflow_path(self) -> Path:
         ts = time.strftime("%Y%m%d_%H%M%S")
-        return os.path.join(self._overflow_dir, f"llm_log_overflow_{ts}.jsonl")
+        assert self._overflow_dir is not None
+        return self._overflow_dir / f"llm_log_overflow_{ts}.jsonl"
 
     def _write_overflow(self, entry: dict) -> None:
         try:
             path = self._overflow_path()
-            with open(path, "a", encoding="utf-8") as f:
+            with path.open("a", encoding="utf-8") as f:
                 f.write(_json.dumps(entry, ensure_ascii=False, default=str) + "\n")
         except OSError:
             log.exception("llm log overflow write failed, entry lost")
@@ -259,17 +260,13 @@ class LogWorker:
         if not self._overflow_dir:
             return
         try:
-            files = sorted(
-                [f for f in os.listdir(self._overflow_dir) if f.endswith(".jsonl")],
-                key=lambda f: os.path.getmtime(os.path.join(self._overflow_dir, f)),
-            )
+            files = sorted(self._overflow_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
         except OSError:
             return
 
-        for fname in files:
-            fpath = os.path.join(self._overflow_dir, fname)
+        for fpath in files:
             try:
-                with open(fpath, encoding="utf-8") as f:
+                with fpath.open(encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if not line:
@@ -277,16 +274,16 @@ class LogWorker:
                         try:
                             entry = _json.loads(line)
                         except _json.JSONDecodeError:
-                            log.warning("corrupted overflow line in %s, skipping", fname)
+                            log.warning("corrupted overflow line in %s, skipping", fpath.name)
                             continue
                         batch.append(entry)
                         if len(batch) >= 20:
                             self._flush(batch)
                             batch.clear()
-                os.remove(fpath)
-                log.info("drained overflow file: %s", fname)
+                fpath.unlink()
+                log.info("drained overflow file: %s", fpath.name)
             except OSError:
-                log.warning("failed to drain overflow file: %s", fname)
+                log.warning("failed to drain overflow file: %s", fpath.name)
                 continue
 
         self._rotate_overflow_files()
@@ -295,31 +292,23 @@ class LogWorker:
         if not self._overflow_dir:
             return
         try:
-            files = sorted(
-                [f for f in os.listdir(self._overflow_dir) if f.endswith(".jsonl")],
-                key=lambda f: os.path.getmtime(os.path.join(self._overflow_dir, f)),
-            )
+            files = sorted(self._overflow_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
         except OSError:
             return
 
-        current = files[-1] if files else ""
-        current_path = os.path.join(self._overflow_dir, current) if current else ""
-        if current_path and os.path.getsize(current_path) >= self._overflow_max_bytes:
-            new_name = current.replace(".jsonl", "") + f"_r{int(time.time())}.jsonl"
+        current = files[-1] if files else None
+        if current and current.stat().st_size >= self._overflow_max_bytes:
+            new_name = current.stem + f"_r{int(time.time())}.jsonl"
             try:
-                os.rename(current_path, os.path.join(self._overflow_dir, new_name))
+                current.rename(self._overflow_dir / new_name)
             except OSError:
                 pass
 
-        all_files = sorted(
-            [f for f in os.listdir(self._overflow_dir) if f.endswith(".jsonl")],
-            key=lambda f: os.path.getmtime(os.path.join(self._overflow_dir, f)),
-        )
+        all_files = sorted(self._overflow_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
         while len(all_files) > self._overflow_max_files:
-            oldest = os.path.join(self._overflow_dir, all_files[0])
             try:
-                os.remove(oldest)
-                log.info("rotated out old overflow file: %s", all_files[0])
+                all_files[0].unlink()
+                log.info("rotated out old overflow file: %s", all_files[0].name)
             except OSError:
                 break
             all_files.pop(0)

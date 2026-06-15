@@ -33,9 +33,10 @@ async def _score_stage(
     case_id: int,
     log_meta: dict | None,
     llm_client: LLMClient,
+    llm_cfg: dict | None = None,
 ) -> dict:
     """第一阶段：逐项评分（total_score + detail_scores + evidence/reason）。"""
-    cfg = get_llm_config("scoring")
+    cfg = llm_cfg or get_llm_config("scoring")
 
     result = await llm_client.call_json(
         messages,
@@ -76,7 +77,6 @@ async def _score_stage(
         ),
         **cfg,
     )
-    _coerce_numeric_fields(result2)
     _validate_scoring_essentials(result2)
     return result2
 
@@ -89,9 +89,10 @@ async def _feedback_stage(
     case_id: int,
     log_meta: dict | None,
     llm_client: LLMClient,
+    llm_cfg: dict | None = None,
 ) -> dict:
     """第二阶段：生成反馈（strengths/weaknesses/missed_content/suggestions）。"""
-    cfg = get_llm_config("scoring_feedback")
+    cfg = llm_cfg or get_llm_config("scoring_feedback")
 
     result = await llm_client.call_json(
         messages,
@@ -206,6 +207,9 @@ async def evaluate_training(
         {"role": "user", "content": feedback_user},
     ]
 
+    scoring_cfg = get_llm_config("scoring")
+    feedback_cfg = get_llm_config("scoring_feedback")
+
     scoring_task = _score_stage(
         score_messages,
         record_id,
@@ -214,6 +218,7 @@ async def evaluate_training(
         case_id=case_id,
         log_meta=log_meta,
         llm_client=llm_client,
+        llm_cfg=scoring_cfg,
     )
     feedback_task = _feedback_stage(
         feedback_messages,
@@ -222,6 +227,7 @@ async def evaluate_training(
         case_id=case_id,
         log_meta=log_meta,
         llm_client=llm_client,
+        llm_cfg=feedback_cfg,
     )
 
     scoring_result, feedback_result = await asyncio.gather(scoring_task, feedback_task)

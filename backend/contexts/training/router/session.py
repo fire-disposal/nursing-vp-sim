@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
-from core.config import SCORING_TIMEOUT_SECONDS
+
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.feature_flags import FEATURE_FLAGS, resolve_features
@@ -48,27 +48,23 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# 评分并发锁：防止同一 record 触发多次评分
-_scoring_pending: dict[int, float] = {}
-_scoring_pending_lock = asyncio.Lock()
-_SCORING_LOCK_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
+async def _try_acquire_scoring(record_id: int, db) -> bool:
+    """原子性地将 scoring_status 从 NULL 更新为 'pending'。
 
-async def _try_acquire_scoring(record_id: int) -> bool:
-    async with _scoring_pending_lock:
-        now = datetime.now(UTC).timestamp()
-        if record_id in _scoring_pending:
-            if now - _scoring_pending[record_id] > _SCORING_LOCK_TIMEOUT:
-                _scoring_pending[record_id] = now
-                return True
-            return False
-        _scoring_pending[record_id] = now
-        return True
+    用 DB 原子 UPDATE 代替内存锁，避免测试间状态泄漏，
+    同时消除并发触发同一 record 评分的竞态。
+    """
+    import asyncio
 
+    from sqlalchemy import text
 
-async def _release_scoring(record_id: int):
-    async with _scoring_pending_lock:
-        _scoring_pending.pop(record_id, None)
+    result = await asyncio.to_thread(
+        db.execute,
+        text("UPDATE training_records SET scoring_status = 'pending' WHERE id = :id AND scoring_status IS NULL"),
+        {"id": record_id},
+    )
+    return result.rowcount > 0
 
 
 _infra_client: httpx.AsyncClient | None = None

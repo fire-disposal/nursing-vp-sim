@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -54,7 +55,7 @@ def init_db() -> None:
 
     import models  # noqa: F401
 
-    if os.environ.get("SKIP_MIGRATION"):
+    if os.getenv("SKIP_MIGRATION"):
         Base.metadata.create_all(bind=engine)
         log.info("数据库迁移跳过 (SKIP_MIGRATION=1)，使用 create_all")
         return
@@ -62,8 +63,8 @@ def init_db() -> None:
     from alembic import command
     from alembic.config import Config
 
-    alembic_ini = os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
-    if not os.path.isfile(alembic_ini):
+    alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+    if not alembic_ini.exists():
         log.warning("alembic.ini 不存在，跳过迁移，使用 create_all")
         Base.metadata.create_all(bind=engine)
         return

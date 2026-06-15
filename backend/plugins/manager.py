@@ -18,6 +18,9 @@ log = logging.getLogger(__name__)
 
 CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 
+# Reusable event loop for run_hook_sync — avoids asyncio.run() overhead
+_shared_hook_loop: asyncio.AbstractEventLoop | None = None
+
 
 class PluginManager:
     def __init__(self):
@@ -119,13 +122,19 @@ class PluginManager:
         ctx: Any,
         feature_flags: dict[str, bool] | None = None,
     ) -> list[Any]:
+        global _shared_hook_loop
         results: list[Any] = []
         for plugin in self.get_active(feature_flags):
             hook = getattr(plugin, hook_name, None)
             if hook is None:
                 continue
             try:
-                result = asyncio.run(hook(ctx)) if asyncio.iscoroutinefunction(hook) else hook(ctx)
+                if asyncio.iscoroutinefunction(hook):
+                    if _shared_hook_loop is None or _shared_hook_loop.is_closed():
+                        _shared_hook_loop = asyncio.new_event_loop()
+                    result = _shared_hook_loop.run_until_complete(hook(ctx))
+                else:
+                    result = hook(ctx)
                 results.append(result)
             except Exception:
                 log.exception("Plugin %s hook %s failed", plugin.id, hook_name)
