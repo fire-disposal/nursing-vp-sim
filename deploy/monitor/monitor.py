@@ -642,82 +642,12 @@ def main():
             daily["_sent"] = daily.get("_sent", 0) + 1
             log.info("Alert sent: %d failures", len(new_failures))
 
-        _trigger_diagnosis(new_failures, hostname)
     else:
         log.info(
             "Check OK — no new alerts to send. Active issues: %d", len(active_keys)
         )
 
     save_state(state)
-
-
-def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
-    """Trigger GitHub Actions auto-diagnose workflow for new failures.
-    Cooldown: 24 hours per (service, symptom) pair — emergency use only."""
-    try:
-        import os
-
-        token = os.environ.get("GITHUB_TOKEN", "")
-        if not token:
-            log.info("Auto-diagnose skipped: GITHUB_TOKEN not set")
-            return
-
-        from urllib.request import Request, urlopen
-
-        state = load_state()
-        diag_state = state.get("_diagnosis", {})
-
-        for f in failures[:3]:
-            if f["type"] == "metrics":
-                continue
-
-            svc = "staging" if "staging" in f.get("name", "") else "prod"
-            sym = f["detail"][:100]
-            diag_key = f"diag_{svc}_{sym[:50]}"
-
-            now = datetime.now()
-            last_run_str = diag_state.get(diag_key)
-            if last_run_str:
-                try:
-                    last_run = datetime.fromisoformat(last_run_str)
-                    if (now - last_run).total_seconds() < 24 * 3600:
-                        log.info(
-                            "Auto-diagnose cooldown: %s (last run %s)",
-                            diag_key,
-                            last_run_str,
-                        )
-                        continue
-                except ValueError:
-                    pass
-
-            body = json.dumps(
-                {
-                    "ref": "master",
-                    "inputs": {
-                        "service": svc,
-                        "symptom": sym,
-                        "time_range": "30m",
-                    },
-                }
-            )
-            req = Request(
-                f"https://api.github.com/repos/fire-disposal/nursing-vp-sim/actions/workflows/auto-diagnose.yml/dispatches",
-                data=body.encode(),
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": "monitor.py/auto-diagnose",
-                },
-            )
-            urlopen(req, timeout=10)
-            log.info("Auto-diagnose triggered: service=%s symptom=%s", svc, sym)
-
-            diag_state[diag_key] = now.isoformat()
-            state["_diagnosis"] = diag_state
-            save_state(state)
-    except Exception as e:
-        log.warning("Auto-diagnose trigger failed: %s", e)
 
 
 if __name__ == "__main__":
