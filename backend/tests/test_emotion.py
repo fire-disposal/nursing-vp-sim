@@ -30,6 +30,27 @@ class TestClassifyIntent:
     def test_neutral(self):
         assert classify_intent("请问你哪里不舒服") == "普通提问"
 
+    def test_death_wish(self):
+        assert classify_intent("去死吧") == "粗鲁/指责"
+        assert classify_intent("去死吧你") == "粗鲁/指责"
+
+    def test_swear(self):
+        assert classify_intent("滚") == "粗鲁/指责"
+        assert classify_intent("滚开") == "粗鲁/指责"
+        assert classify_intent("闭嘴") == "粗鲁/指责"
+
+    def test_dismissive(self):
+        assert classify_intent("我不管") == "粗鲁/指责"
+        assert classify_intent("懒得理你") == "粗鲁/指责"
+        assert classify_intent("关你什么事") == "粗鲁/指责"
+        assert classify_intent("听不懂人话") == "粗鲁/指责"
+
+    def test_patient_state_unchanged_by_offensive_input(self):
+        e = EmotionState()
+        e.update(classify_intent("去死吧"))
+        assert e.trust < 50
+        assert e.comfort < 50
+
     def test_empty(self):
         assert classify_intent("") == "普通提问"
 

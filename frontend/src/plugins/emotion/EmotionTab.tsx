@@ -45,18 +45,31 @@ export function EmotionTab({ ctx }: PanelTabProps) {
 			},
 		);
 
-		const fetchHistory = async () => {
+		const loadInitial = async () => {
 			try {
-				const res = await fetch(
-					`/api/training/${ctx.recordId}/emotion/history`,
-				);
-				const json = await res.json();
-				if (json.history) setHistory(json.history);
+				const [stateRes, histRes] = await Promise.all([
+					fetch(`/api/training/${ctx.recordId}/state`),
+					fetch(`/api/training/${ctx.recordId}/emotion/history`),
+				]);
+				const stateJson = await stateRes.json();
+				const histJson = await histRes.json();
+
+				const emo = stateJson.emotion;
+				if (emo) {
+					setData({
+						trust: emo.trust,
+						comfort: emo.comfort,
+						state: emo.state,
+						note: emo.note || "",
+					});
+					setEmotion(emo.state as EmotionState);
+				}
+				if (histJson.history) setHistory(histJson.history);
 			} catch {
 				/* ignore */
 			}
 		};
-		fetchHistory();
+		loadInitial();
 
 		return () => {
 			unsub();
