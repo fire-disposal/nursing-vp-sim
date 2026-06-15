@@ -9,6 +9,7 @@ class InitiativePlugin(Plugin):
     name = "患者主动回复"
     description = "患者根据性格/情绪/等待时长主动发言"
     requires = ["emotion"]
+    required_case_fields = ["personality"]
     feature_flag = FeatureFlag(
         key="patient_initiative",
         label="患者主动追问",

@@ -4,6 +4,8 @@ import json
 import time
 from pathlib import Path
 
+import sqlalchemy as sa
+
 from core.database import SessionLocal
 from models import Rubric
 
@@ -65,6 +67,50 @@ def load_rubric_dict() -> dict:
 
     result = load_rubric("nursing_history_v1")
     _ACTIVE_RUBRIC_CACHE = (now, result)
+    return result
+
+
+_RUBRIC_VERSION_CACHE: dict[str, tuple[float, dict]] = {}
+_RUBRIC_VERSION_TTL = 300.0
+
+
+def load_rubric_by_version(version_id: str) -> dict:
+    """Load a rubric by frozen version ID ({name}@{version}).
+
+    Has independent 5-minute cache (separate from the 60s active-rubric cache).
+    """
+    now = time.monotonic()
+    if version_id in _RUBRIC_VERSION_CACHE:
+        ts, cached = _RUBRIC_VERSION_CACHE[version_id]
+        if now - ts < _RUBRIC_VERSION_TTL:
+            return cached
+
+    name, sep, ver = version_id.partition("@")
+    if not sep:
+        name, ver = version_id, ""
+
+    db = SessionLocal()
+    try:
+        rubric = (
+            db.query(Rubric).filter(Rubric.name == name).filter(Rubric.version == ver if ver else sa.true()).first()
+        )
+        if rubric:
+            result = {
+                "id": rubric.name,
+                "name": rubric.name,
+                "version": rubric.version,
+                "total_max": rubric.total_max,
+                "raw_max": rubric.raw_max,
+                "raw_scale": rubric.raw_scale,
+                "dimensions": rubric.dimensions,
+            }
+            _RUBRIC_VERSION_CACHE[version_id] = (now, result)
+            return result
+    finally:
+        db.close()
+
+    result = load_rubric(name)
+    _RUBRIC_VERSION_CACHE[version_id] = (now, result)
     return result
 
 

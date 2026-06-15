@@ -59,3 +59,20 @@ class TestCaseDataSchema:
         data = {"name": "病例", "supported_plugins": ["emotion", "physical_exam"]}
         result = CaseDataSchema(**data)
         assert "emotion" in result.supported_plugins
+
+
+class TestPluginContract:
+    def test_strict_missing_field_raises(self):
+        data = {"name": "病例", "supported_plugins": ["physical-exam"]}
+        with pytest.raises(ValidationError):
+            assert_valid_case_data(data)
+
+    def test_strict_with_field_passes(self):
+        data = {"name": "病例", "supported_plugins": ["physical-exam"], "exam_anchors": {"vital_signs": {}}}
+        result = assert_valid_case_data(data)
+        assert result["name"] == "病例"
+
+    def test_warn_missing_field_returns_raw(self):
+        data = {"name": "病例", "supported_plugins": ["physical-exam"]}
+        result = validate_case_data(data, strict=False)
+        assert result == data

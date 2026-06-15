@@ -9,7 +9,7 @@ from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
 from models import Message, Score, TrainingRecord
 from prompts.scoring import FEEDBACK_RETRY_USER, SCORING_RETRY_USER
-from repositories.rubric import get_rubric_version_id, load_rubric_dict
+from repositories.rubric import get_rubric_version_id, load_rubric_by_version
 
 from ._scoring_validation import (
     _check_feedback_empty,
@@ -172,7 +172,7 @@ async def evaluate_training(
         conversation_lines.append(f"{role_label}：{msg.content}")
     conversation_text = "\n\n".join(conversation_lines)
 
-    rubric = load_rubric_dict()
+    rubric = load_rubric_by_version(record.rubric_frozen or "nursing_history_v1@1.0")
     all_required = case_data.get("required_inquiries", [])
     raw_max = rubric.get("raw_max", 57)
 

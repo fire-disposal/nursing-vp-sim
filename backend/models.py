@@ -237,6 +237,7 @@ class TrainingRecord(Base):
     scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
+    rubric_frozen: Mapped[str | None] = mapped_column(String(80), nullable=True)
     current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True

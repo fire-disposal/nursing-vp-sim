@@ -90,6 +90,7 @@ class Plugin(ABC):
     name: ClassVar[str]
     description: ClassVar[str] = ""
     requires: ClassVar[list[str]] = []
+    required_case_fields: ClassVar[list[str]] = []
     feature_flag: ClassVar[Any] = None  # FeatureFlag | None
 
     def get_middleware(self) -> list[tuple[PipelineStage, PipelineMiddleware]]:

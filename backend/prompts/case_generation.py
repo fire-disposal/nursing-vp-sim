@@ -23,28 +23,7 @@ CASE_GENERATION_SYSTEM = """你是一名资深的护理学教育专家和临床�
   "communication_style": "沟通风格描述（友善自然/紧张焦虑/含糊其辞+细节）",
   "hidden_info": ["隐藏信息列表（患者不会主动透露但学生应通过问诊发现的线索）"],
   "required_inquiries": ["必须采集到的关键内容"],
-  "scoring_criteria": {
-    "沟通技能": {
-      "max": 42,
-      "description": "评估学生的沟通能力",
-      "items": [
-        {"id": "comm_1", "name": "主动问候与自我介绍", "anchors": {"1": "未问候", "2": "部分问候", "3": "完整问候与自我介绍"}},
-        {"id": "comm_2", "name": "使用通俗易懂的语言", "anchors": {"1": "使用大量专业术语", "2": "部分通俗", "3": "语言通俗易懂"}},
-        {"id": "comm_3", "name": "表达关怀与尊重", "anchors": {"1": "缺乏关怀", "2": "偶尔表达", "3": "全程表达关怀"}}
-      ]
-    },
-    "病史采集": {
-      "max": 15,
-      "description": "评估病史采集的系统性和完整性",
-      "items": [
-        {"id": "hist_1", "name": "主诉信息采集完整性", "anchors": {"1": "仅问名称", "2": "问部分细节", "3": "完整采集部位/性质/时间/诱因"}},
-        {"id": "hist_2", "name": "现病史采集", "anchors": {"1": "未问", "2": "部分采集", "3": "系统采集起病、经过、诊疗"}},
-        {"id": "hist_3", "name": "既往史采集", "anchors": {"1": "未问", "2": "简单提及", "3": "系统询问"}},
-        {"id": "hist_4", "name": "过敏史采集", "anchors": {"1": "未问", "2": "简单提及", "3": "具体询问过敏史"}},
-        {"id": "hist_5", "name": "用药史采集", "anchors": {"1": "未问", "2": "简单提及", "3": "详细询问"}}
-      ]
-    }
-  },
+  "rubric_ref": "active",  // 评分标准由中央 rubric 管理
   "personality": {
     "health_literacy": "normal",
     "verbosity": "normal",
@@ -89,7 +68,7 @@ CASE_GENERATION_SYSTEM = """你是一名资深的护理学教育专家和临床�
 ## 临床生成指南
 1. **真实可信**：症状描述、时间线、流行病学特征（年龄、性别高发）需符合临床实际。用药史包含具体药品名、剂量、用法
 2. **教育价值**：hidden_info 和 required_inquiries 应有挑战性但不过于冷门，适合护理学生训练
-3. **评分标准**：根据病例的临床特点微调 scoring_criteria 的 items，确保与 required_inquiries 对应。items 数量与评分维度匹配（沟通技能 14 项、病史采集 5 项 是典型配置）
+3. **评分标准**：评分标准由中央 rubric 管理，病例中不包含 scoring_criteria 字段
 4. **语言口语化**：opening_line、communication_style、example_dialogues 要有真实患者的口吻，避免书面语或模板感
 5. **患者信息多样化**：姓名随机生成，年龄与疾病流行病学特征匹配
 6. **人格模型**：personality 四维度需根据病例背景设定。例如：久病成医者 health_literacy=high，急性重症者 anxiety_trait=anxious，老年寡言者 verbosity=terse

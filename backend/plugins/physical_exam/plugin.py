@@ -9,6 +9,7 @@ class PhysicalExamPlugin(Plugin):
     id = "physical-exam"
     name = "护理查体锚点交互"
     description = "通过专属 Tab 触发体检操作，结果注入 Author's Note"
+    required_case_fields = ["exam_anchors"]
     feature_flag = FeatureFlag(
         key="physical_exam",
         label="护理查体",

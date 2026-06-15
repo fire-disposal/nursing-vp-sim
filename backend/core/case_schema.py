@@ -80,13 +80,42 @@ class CaseDataSchema(BaseModel):
 
 
 def validate_case_data(data: dict, *, strict: bool = False) -> dict:
+    # Pydantic schema check
     try:
-        return CaseDataSchema(**data).model_dump(exclude_none=True)
+        CaseDataSchema(**data)
     except ValidationError as e:
         if strict:
             raise
         log.warning("case_data validation warning: %s", e)
         return data
+
+    # Plugin contract check
+    supported = data.get("supported_plugins", [])
+    if supported:
+        try:
+            from plugins.manager import get_plugin_manager
+
+            pm = get_plugin_manager()
+            if not pm._plugins:
+                pm.discover()
+            for plugin_id in supported:
+                plugin = pm._plugins.get(plugin_id)
+                if plugin is None:
+                    msg = f"未知插件: {plugin_id}"
+                    if strict:
+                        raise ValidationError.from_exception_data(msg, [])
+                    log.warning(msg)
+                    continue
+                for field in plugin.required_case_fields:
+                    if field not in data:
+                        msg = f"插件 '{plugin_id}' 需要 case_data 字段 '{field}'"
+                        if strict:
+                            raise ValidationError.from_exception_data(msg, [])
+                        log.warning(msg)
+        except ImportError:
+            pass  # running outside app context
+
+    return data
 
 
 def assert_valid_case_data(data: dict) -> dict:

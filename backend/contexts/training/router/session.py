@@ -200,6 +200,20 @@ def _create_record(
     from core.feature_flags import resolve_features
     from plugins.base import RecordCreateContext
     from plugins.manager import get_plugin_manager
+    from repositories.rubric import load_active_rubric, load_rubric_by_version
+
+    def _resolve_rubric_ref(rubric_ref: str) -> str:
+        if rubric_ref == "active":
+            active = load_active_rubric()
+            if active:
+                return f"{active.name}@{active.version}"
+            return "nursing_history_v1@1.0"
+        load_rubric_by_version(rubric_ref)  # validate it resolves
+        return rubric_ref
+
+    record.rubric_frozen = _resolve_rubric_ref(
+        case_data.get("rubric_ref", "active")
+    )
 
     features = resolve_features(record.practice_snapshot)
     if app_state is not None:
