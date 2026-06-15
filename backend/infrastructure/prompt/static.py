@@ -9,7 +9,7 @@ def _get_default_rubric() -> dict:
     return load_rubric("nursing_history_v1")
 
 
-def build_scoring_criteria(rubric: dict | None = None) -> str:
+def build_scoring_criteria(rubric: dict | None = None, level: str = "full") -> str:
     """构建评分标准文本（维度、条目、锚点），不含必须采集清单和 JSON 模板"""
     if rubric is None:
         rubric = _get_default_rubric()
@@ -39,9 +39,12 @@ def build_scoring_criteria(rubric: dict | None = None) -> str:
         lines.append("")
 
         for i, item in enumerate(dim["items"]):
-            anchors = item.get("anchors", {})
-            anchor_text = " / ".join(f"{k}分: {v}" for k, v in sorted(anchors.items()))
-            lines.append(f"{i + 1}. {item['name']} — {anchor_text}")
+            if level == "brief":
+                lines.append(f"{i+1}. {item['name']}（满分{raw_scale}分）")
+            else:
+                anchors = item.get("anchors", {})
+                anchor_text = " / ".join(f"{k}分: {v}" for k, v in sorted(anchors.items()))
+                lines.append(f"{i + 1}. {item['name']} — {anchor_text}")
 
         lines.append("")
 
