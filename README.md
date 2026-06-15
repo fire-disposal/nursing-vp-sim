@@ -6,7 +6,7 @@
 
 学生与 LLM 驱动的虚拟患者进行自然语言对话，模拟真实病史采集。系统自动对沟通技能（14项）和病史采集（5项）进行 19 项细粒度评分（100分制），提供证据化反馈。教师可复核修改 AI 评分，管理用户和病例，监控 LLM 调用与成本。
 
-> **版本:** v2026.06.04-5 · **数据库:** PostgreSQL · **部署:** Docker Compose
+> **数据库:** PostgreSQL · **部署:** Docker Compose
 
 ## 快速开始
 
@@ -22,7 +22,7 @@ cd frontend && npm install && cd ..
 npm run dev
 ```
 
-- 后端: http://localhost:8000 （API 文档: /docs）
+- 后端: http://localhost:8000（Swagger API 文档: /docs）
 - 前端: http://localhost:3000
 - 默认账号: 教师 `admin` / `admin123` | 学生 `student1~5` / `123456`
 
@@ -55,13 +55,11 @@ npm run dev
 | 顺序 | 文档 | 说明 |
 |------|------|------|
 | **0** | **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** | 零基础入口：工具安装、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
-| **→** | **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)** | 环境详解、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
 | | | |
 | | [docs/01-architecture.md](docs/01-architecture.md) | 系统架构与技术栈 |
-| | [docs/02-api-reference.md](docs/02-api-reference.md) | API 接口文档 |
+| | [API 文档](#api-文档) | Swagger UI（`/docs`）+ OpenAPI 自动生成类型 |
 | | [docs/03-database.md](docs/03-database.md) | 数据库设计 |
 | | [docs/04-frontend.md](docs/04-frontend.md) | 前端组件与路由 |
-| | [docs/06-dev-log.md](docs/06-dev-log.md) | 开发进度与历史 |
 | | [docs/07-polish-handoff.md](docs/07-polish-handoff.md) | 当前状态与待完善问题 |
 | | [docs/09-operations.md](docs/09-operations.md) | 运维、回滚、备份、应急预案 |
 | | [CONTRIBUTING.md](CONTRIBUTING.md) | 分支模型、PR 规范 |
@@ -73,7 +71,8 @@ npm run dev
 ```
 ├── backend/                  # FastAPI
 │   ├── routers/              # API 路由
-│   ├── services/             # LLM 路由、评分、Prompt 管理
+│   ├── contexts/             # 业务上下文（training / patient / qa）
+│   ├── infrastructure/       # 基础设施（LLM、Prompt、缓存）
 │   └── tests/
 ├── frontend/                 # React SPA
 │   ├── src/pages/            # 页面组件
@@ -85,6 +84,10 @@ npm run dev
 ├── Dockerfile.backend / Dockerfile.frontend
 └── package.json              # 根 npm scripts
 ```
+
+## API 文档
+
+后端运行时访问 `http://localhost:8000/docs`（Swagger UI）。前端类型定义由 OpenAPI spec 自动生成到 `frontend/src/api/api-types.gen.ts`，API 客户端函数按领域拆分在 `frontend/src/api/*.ts`。
 
 ## 提交规范
 

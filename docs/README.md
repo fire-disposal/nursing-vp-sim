@@ -7,19 +7,15 @@
 | 文档 | 说明 |
 |------|------|
 | **[👉 从这里开始](00-dev-onboarding.md)** | **零基础入口**：工具安装、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
-| [00-参与开发快速指南](00-dev-onboarding.md) | 环境搭建、提交规范、OpenCode使用、Git管理、Actions说明 |
 | [01-系统架构](01-architecture.md) | 技术栈、项目结构、架构设计 |
-| [02-API接口文档](02-api-reference.md) | 完整API端点、请求/响应格式 |
-| [03-数据库设计](03-database.md) | 表结构、字段说明、关系映射 |
+| [API 文档](../README.md#api-文档) | Swagger UI（`/docs`）或 OpenAPI 自动生成的前端类型 || [03-数据库设计](03-database.md) | 表结构、字段说明、关系映射 |
 | [04-前端设计](04-frontend.md) | 页面组件、路由设计、两种布局系统 |
 | [05-LLM与评分设计](05-llm-design.md) | 虚拟患者Prompt、评分Prompt、病例结构 |
-| [06-开发日志](06-dev-log.md) | 开发进度、修改记录、当前状态 |
 | [07-交接记录](07-polish-handoff.md) | 当前版本状态、待完善问题、压缩上下文摘要 |
 | [08-概念设计与创新方向](08-conceptual-design.md) | 系统未来演进方向的概念探索：生理模拟引擎、护理记录书写训练、情感模型等 |
 | [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固、应急预案 |
 | [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) 两周变更记录 |
 | [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理、协作流程 |
-| [部署流水线详解](../.github/DEPLOYMENT.md) | GitHub Actions 部署流水线技术细节 |
 
 ## 当前版本
 
@@ -34,9 +30,8 @@
 1. **[00-参与开发快速指南](00-dev-onboarding.md)** — 工具安装、怎么提交、怎么发版、怎么部署
 
 想了解代码结构：
-2. [06-开发日志](06-dev-log.md) — 当前进度与历史
-3. [01-系统架构](01-architecture.md) — 技术栈与架构设计
-4. [04-前端设计](04-frontend.md) — 前端组件、设计系统、布局
+2. [01-系统架构](01-architecture.md) — 技术栈与架构设计
+3. [04-前端设计](04-frontend.md) — 前端组件、设计系统、布局
 
 ## 核心功能
 
@@ -87,7 +82,6 @@
 | LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义），SSE 流式 |
 | 图表 | recharts (ComposedChart) |
 | 图标 | lucide-react |
-| 图表 | recharts (ComposedChart) |
 | 表单 | react-hook-form + zod |
 | 通知 | sonner |
 | Lint | Biome |

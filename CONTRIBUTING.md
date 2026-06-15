@@ -73,6 +73,21 @@ Closes #
 
 单个 PR 控制在 300 行以内。超过的拆成多个小 PR，通过 Feature Flag 控制未完成功能的暴露。
 
+## 验证门禁（本地 → CI）
+
+```
+git commit                  git push              GitHub PR
+    │                           │                     │
+    ▼                           ▼                     ▼
+Husky pre-commit           Husky pre-push         GitHub Actions
+├─ Biome lint (staged)     ├─ tag 格式校验         ├─ ruff check
+├─ commit-msg 格式校验      └─ alembic 双向回滚     ├─ biome lint
+└─ 迁移规则检查                                      ├─ tsc --noEmit
+(check-migration-autogen.js)                        └─ pytest + vitest
+```
+
+本地通不过的不要 push；CI 通不过的不要合入。
+
 ## Feature Flag 使用原则
 
 项目已有 Feature Flag 系统。团队协作下：
@@ -90,67 +105,14 @@ Closes #
 
 ## 部署流
 
-### 从代码到测试服
+| 操作 | 命令 / 方式 |
+|------|-------------|
+| 部署测试服 | `npm run tag`（自动 tag + push → staging.yml） |
+| 部署正式服 | GitHub Actions → Deploy to Production |
+| 回滚 | Actions → Emergency Rollback / `ssh <host> bash rollback.sh` |
+| 维护模式 | Actions → Maintenance Mode（Nginx 层，不依赖后端） |
 
-当代码合入 master 后，**打 tag 即部署**：
-
-```bash
-npm run tag
-```
-
-这条命令的实际效果：
-
-```
-npm run tag
-  │
-  ├─ 1. 自动计算版本号 vYYYY.MM.DD-N（当天第 N 次）
-  ├─ 2. git tag v2026.06.12-6
-  ├─ 3. git push origin v2026.06.12-6
-  │
-  ▼  推送 tag 触发 GitHub Actions staging.yml
-  │
-  ├─ 4. 构建 Docker 镜像（backend + frontend）
-  ├─ 5. 推送到 GHCR 容器仓库
-  ├─ 6. SSH 到 VPS，docker compose up -d
-  ├─ 7. 健康检查（60s 内确认服务正常）
-  └─ 8. 部署完成 → test.205716.xyz 可访问
-```
-
-> **关键认知**：`npm run tag` ≠ 仅仅打标签。它是一条"部署测试服"命令。执行后约 2-3 分钟，你的代码就会出现在 `test.205716.xyz`。
-
-### 从测试服到正式服
-
-测试服验证通过后，手动触发正式部署：
-
-```
-GitHub Actions → Deploy to Production
-  │
-  ├─ 1. 版本门禁：检查 staging 当前版本 == 输入版本（不匹配则拒绝）
-  ├─ 2. 数据库自动备份
-  ├─ 3. 拉取镜像 → docker compose up -d → 健康检查
-  └─ 4. 失败则自动回滚到上一版本
-```
-
-**版本门禁**确保所有上生产的版本必须先经过测试服验证。
-
-### 回滚
-
-两种方式：
-
-| 方式 | 操作 |
-|------|------|
-| GitHub Actions | Actions → Emergency Rollback → 输入目标版本号 → Run |
-| SSH 手动 | `ssh <user>@<host> "cd /opt/nursing-vp-sim && bash rollback.sh"` |
-
-回滚使用 `.version-history` 中保留的最近 5 次部署记录，自动拉取对应镜像并重启。
-
-### 维护模式
-
-GitHub Actions → Maintenance Mode → 选择环境（staging/production）+ enable/disable。
-
-原理：在服务器创建/删除标记文件，Nginx 检测到后所有请求返回 503 + 维护页面。不依赖后端进程。
-
-> 完整部署细节见 [.github/DEPLOYMENT.md](.github/DEPLOYMENT.md) 和 [运维安全指南](docs/09-operations.md)。
+> 版本门禁：上生产的版本必须先经过测试服验证。完整运维细节见 [09-运维安全指南](docs/09-operations.md)。
 
 ---
 

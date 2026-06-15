@@ -158,180 +158,76 @@ rm /opt/nursing-vp-sim/.version-history
 
 ## 日常运维
 
-### 基础命令
+### 环境参数速查
 
-**生产环境：**
+| 项目 | 生产 (iomt) | Staging (test) |
+|------|-------------|----------------|
+| 工作目录 | `/opt/nursing-vp-sim` | `/opt/nursing-vp-staging` |
+| Compose 文件 | `docker-compose.prod.yml` | `docker-compose.staging.yml` |
+| 后端端口 | 9001 | 9081 |
+| 前端端口 | 9000 | 9080 |
+| DB 端口 | 5433 | 5434 |
+| DB 容器名 | `nursing-db` | `nursing-db-staging` |
+| 后端容器名 | `nursing-vp-sim-backend-1` | `nursing-backend-staging` |
+| 前端容器名 | `nursing-vp-sim-frontend-1` | `nursing-frontend-staging` |
+| DB 用户/库 | `nursing / nursing_vp` | 同 |
+| DB 密码 | `.env` → `POSTGRES_PASSWORD` | 同 |
+| 健康检查 | `curl localhost:9001/api/health` | `curl localhost:9081/api/health` |
+
+### 常用命令（以 prod 为例，替换参数即可用于 staging）
+
 ```bash
 # 服务状态
 cd /opt/nursing-vp-sim && docker compose ps
 
 # 查看日志
 docker logs nursing-vp-sim-backend-1 --tail 100
-docker logs nursing-vp-sim-frontend-1 --tail 100
 docker logs nursing-db --tail 50
 
-# 重启服务
+# 重启 / 停止 / 启动
 docker compose restart
-
-# 停止/启动
 docker compose down
 docker compose up -d
-```
 
-**Staging 环境：**
-```bash
-cd /opt/nursing-vp-staging
-docker compose -f docker-compose.staging.yml ps
-docker logs nursing-backend-staging --tail 100
-docker logs nursing-frontend-staging --tail 100
-docker logs nursing-db-staging --tail 50
-```
-
-### 数据库管理
-
-#### 数据卷与持久化
-
-PostgreSQL 数据存储在 Docker 命名卷 `ai_vp_pg_data` 中，位于宿主机 `/var/lib/docker/volumes/` 下。容器删除重建后数据保留。
-
-```bash
-# 查看卷信息
-docker volume inspect nursing-vp-sim_ai_vp_pg_data
-
-# 检查磁盘占用
-docker system df -v | grep ai_vp_pg_data
-```
-
-#### 连接信息
-
-| 项目 | 值 |
-|------|-----|
-| 容器名 | `nursing-db` (prod) / `nursing-db-staging` (staging) |
-| 用户/数据库 | `nursing / nursing_vp` |
-| 宿主机端口 | `127.0.0.1:5433` |
-| 容器内端口 | `5432` |
-| 密码来源 | `.env` 中 `POSTGRES_PASSWORD` |
-
-```bash
-# 从宿主机直连 (生产)
+# 数据库: 进入 psql / 备份 / 恢复
 docker exec -it nursing-db psql -U nursing -d nursing_vp
-
-# 从宿主机直连 (staging)
-docker exec -it nursing-db-staging psql -U nursing -d nursing_vp
-
-# 从宿主机端口连接（需 psql 客户端）
-psql -h 127.0.0.1 -p 5433 -U nursing -d nursing_vp
-```
-
-#### 备份与恢复
-
-**备份（SQL 转储）**
-
-```bash
-# 生产
-cd /opt/nursing-vp-sim
 docker exec nursing-db pg_dump -U nursing -d nursing_vp > "backups/backup-$(date +%Y%m%d-%H%M%S).sql"
+docker exec -i nursing-db psql -U nursing -d nursing_vp < backups/backup-<date>.sql
 
-# Staging
-cd /opt/nursing-vp-staging
-docker exec nursing-db-staging pg_dump -U nursing -d nursing_vp > "backups/backup-$(date +%Y%m%d-%H%M%S).sql"
-
-# 备份到远程（拉回本地）
-rsync -avz 用户名@服务器:/opt/nursing-vp-sim/backups/ ./local-backups/
-```
-
-CD 流水线每次部署前也会自动执行备份，存放在 `backups/pre-deploy-*.sql`。
-
-**恢复**
-
-```bash
-# 生产
-docker exec -i nursing-db psql -U nursing -d nursing_vp < backups/backup-20260602-143000.sql
-
-# Staging
-docker exec -i nursing-db-staging psql -U nursing -d nursing_vp < backups/backup-20260602-143000.sql
-```
-
-**通过教师后台触发**
-
-登录 → 管理后台 → 数据库备份（完整 admin.py:168）。
-
-#### 迁移机制
-
-后端启动时自动执行 Alembic 迁移（`main.py` 启动事件）。Schema 变更通过代码中的模型定义自动同步，无需手动运行迁移命令。
-
-```bash
-# 查看当前迁移版本 (生产)
+# 迁移版本
 docker exec nursing-vp-sim-backend-1 bash -c "cd /app && alembic current"
 
-# 查看当前迁移版本 (staging)
-docker exec nursing-backend-staging bash -c "cd /app && alembic current"
+# 健康检查
+curl -s http://localhost:9001/api/health
+docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1
 
-# 手动生成迁移（开发时在本地执行）
-cd backend && uv run alembic revision --autogenerate -m "描述"
-cd backend && uv run alembic upgrade head
+# 数据卷
+docker volume inspect nursing-vp-sim_ai_vp_pg_data
+
+# 数据库重置（危险 — 清空所有数据）
+cd /opt/nursing-vp-sim && docker compose down -v && docker compose up -d
 ```
 
-提交前 pre-commit hook (`check-migration-autogen.js`) 会验证迁移规则：
-- autogenerate 文件不允许包含 `op.execute()`
-- 数据迁移必须有 `# Manual override reason: data_only` 标记
-- 空迁移不允许提交
-
-#### 常用诊断命令
+### 常用诊断 SQL
 
 ```sql
--- 进入 psql (生产)
-docker exec -it nursing-db psql -U nursing -d nursing_vp
-
--- 进入 psql (staging)
-docker exec -it nursing-db-staging psql -U nursing -d nursing_vp
-
--- 查看所有表
 \dt
-
--- 各表行数
 SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY n_live_tup DESC;
-
--- 数据库大小
 SELECT pg_size_pretty(pg_database_size('nursing_vp'));
-
--- 表大小排名
 SELECT tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
-FROM pg_tables WHERE schemaname='public'
-ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
-
--- 当前连接
+  FROM pg_tables WHERE schemaname='public'
+  ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname='nursing_vp';
 ```
 
-#### 数据库重置（危险）
+### 迁移规范
 
-```bash
-# 生产
-cd /opt/nursing-vp-sim
-docker compose down -v   # 删除数据卷（含所有数据）
-docker compose up -d      # 重新创建 → 触发 seed 数据 → 默认账号恢复
+后端启动时自动执行 Alembic 迁移。Husky pre-commit hook（`check-migration-autogen.js`）强制：
+- autogenerate 文件不含 `op.execute()`
+- 数据迁移须标注 `# Manual override reason: data_only`
+- 空迁移不允许提交
 
-# Staging
-cd /opt/nursing-vp-staging
-docker compose -f docker-compose.staging.yml down -v
-IMAGE_VERSION=<version> docker compose -f docker-compose.staging.yml --env-file .env up -d
-```
-
-### 健康检查
-
-```bash
-# 后端 API (生产)
-curl -s http://localhost:9001/api/health
-
-# 后端 API (staging)
-curl -s http://localhost:9081/api/health
-
-# 通过 Docker healthcheck (生产)
-docker inspect --format='{{.State.Health.Status}}' nursing-vp-sim-backend-1
-
-# 通过 Docker healthcheck (staging)
-docker inspect --format='{{.State.Health.Status}}' nursing-backend-staging
-```
+手动命令：`cd backend && uv run alembic revision --autogenerate -m "描述"`
 
 ---
 

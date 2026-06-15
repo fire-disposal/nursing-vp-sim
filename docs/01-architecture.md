@@ -309,33 +309,3 @@ TrainingEngine 采用插件化架构，通过 PluginRegistry 动态加载功能�
   → 教师可创建 ScoreReview 进行复核
 ```
 
-## 并发支持
-
-- PostgreSQL 支持高并发读写，无需 WAL 模式额外配置
-- SQLAlchemy QueuePool 连接池：连接复用，避免频繁创建/销毁
-- 共享 httpx.AsyncClient：TLS 连接复用，减少 LLM API 延迟
-- asyncio.Semaphore(10)：LLM 调用并发限流，防止触发 API 限流
-- 前端 AbortController：页面离开时取消进行中请求，释放服务器资源
-- 分离超时策略：聊天 30s（512 tokens，2次重试），评分 120s（2048 tokens，3次重试）
-- 后端异步队列 (infrastructure/queue.py)：评分等耗时任务异步处理
-
-## 新增特性 (v2026.06.x)
-
-- **Practice 练习模式**：从 Case 中独立出来，支持 training/assessment/free_play 三种模式，可配置 features、behavior、assessment
-- **TrainingEngine 插件化**：前端训练页面采用 PluginRegistry 架构，插件包括 emotion（情绪追踪）、inquiry（问诊进度）、physical-exam（体格检查）、nursing-record（护理记录）、portrait（患者画像）、questionnaire（问卷）、scoring-display（评分展示）、patient-info（患者信息）、initiative（患者主动发起）
-- **Training Pipeline**：后端训练流程采用中间件链模式，emotion_tracker → prompt_builder → llm_caller → persister → side_effects
-- **有界上下文架构**：业务逻辑按 contexts/training、contexts/patient、contexts/qa 三个有界上下文组织
-- **患者画像 + 体检**：新增 PatientInfo 插件展示患者基本信息，PhysicalExam 插件支持体格检查交互
-- **护理记录插件**：训练过程中可填写结构化护理记录 (NursingRecord sheet_data JSONB)
-- **情绪追踪**：emotion_tracker 中间件分析患者情绪状态，前端 EmotionTrajectory 展示情绪变化曲线
-- **ScoreReview 独立表**：教师复核从 Score 表中分离为独立 ScoreReview 表，支持多次复核历史
-- **RBAC 权限系统**：Role + RolePermission 模型，支持自定义角色和权限分配
-- **多学校支持**：School → Grade → Class → UserClass 层级管理
-- **问卷系统**：QuestionnaireTemplate → QuestionnaireQuestion → QuestionnaireResponse → QuestionnaireAnswer 完整问卷流程
-- **QA会话化**：QASession + QARecord 替代旧版扁平 qa_records 表
-- **ApiSecret + LLMConfig**：统一 API Key 和模型配置管理，支持 per-purpose 配置 (chat/scoring/qa 各自独立模型)
-- **微信集成**：用户支持微信 OpenID 登录 (wechat_openid)
-
-## 历史版本摘要
-
-系统从 v1.8 开始逐步演进，经历了评分标准版本化 (v1.14: 19项条目+evidence/reason)、57→100分制转换 (v1.15)、商业级布局优化 (v1.16: 8个UI组件+角色分流Dashboard)、问答历史+患者画像 (v2026.05.30)、多API管理+Prompt模板 (v2026.05.31)。当前版本 (v2026.06.12) 完成了有界上下文重构、Training Pipeline 架构、插件化引擎、RBAC权限系统、多学校支持和问卷系统等重大升级。

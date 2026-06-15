@@ -1,98 +1,175 @@
 # 05 — LLM 设计与提示词工程
 
-> 适用版本: v2026.06.04-5 | 最后更新: 2026-06-07
+> 适用版本: 当前 | 最后更新: 2026-06-15
+
+## 架构总览
+
+```
+LLMClient (infrastructure/llm/client.py)
+  ┌─ ProfileRouter (router.py) — 按 purpose 选配置 → ApiSecret
+  ├─ circuit.py — async_retry + backoff_delay 指数退避
+  ├─ logging.py — LogWorker 异步队列批量写 DB
+  ├─ parsing.py — _safe_parse_json 容错解析
+  ├─ crypto_utils.py — Fernet 加密 API Key
+  └─ provider_catalog.py — Provider 产品目录 (providers.json)
+```
 
 ## LLM 配置
 
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| 路由策略 | 多配置优先级降级 + 熔断 | `llm_router.py`，按 Config.purpose+priority 选择 |
-| 默认 Provider | DeepSeek | 首次启动自动 seed |
-| 模型 | deepseek-v4-flash / deepseek-v4-pro | Config 级别配置 |
-| 温度 | 对话0.6 / QA 0.7 / 评分0.3 | 调用点硬编码 |
-| 聊天 max_tokens | 512 | LLM_CHAT_MAX_TOKENS |
-| 评分 max_tokens | 4096 | LLM_SCORING_MAX_TOKENS |
-| 聊天超时 | 30s | LLM_CHAT_TIMEOUT |
-| 评分超时 | 120s | LLM_SCORING_TIMEOUT |
-| 并发限制 | 50 | LLM_CONCURRENT_LIMIT |
-| 连接池 | 60 max / 30 keepalive | LLM_CONNECTION_POOL_SIZE / KEEPALIVE |
-| 重试延迟 | `min(2^a,4)+rand(0,0.5)`s | `_backoff()` |
-| JSON 模式 | `response_format: json_object` | 评分调用启用 |
+按 purpose 管理超时/token/温度，集中在 `core/config.py` 的 `_LLM_PURPOSE_DEFAULTS`：
 
-## 路由与熔断 (ConfigRouter)
+| purpose | timeout | max_tokens | temperature | max_retries |
+|---------|---------|------------|-------------|-------------|
+| patient_chat | 30s | 512 | 0.6 | 2 |
+| qa | 30s | 1024 | 0.7 | 2 |
+| scoring | 120s | 4096 | 0 | 3 |
+| scoring_feedback | 60s | 2048 | 0.3 | 2 |
+| case_generation | 120s | 4096 | 0.3 | 3 |
 
-基于 DB `LLMConfig` 表的优先级路由：
+支持 `LLM_CONFIG_JSON` 环境变量覆盖任意 purpose 参数。全局回退：
+
+| 参数 | 默认值 |
+|------|--------|
+| LLM_CONCURRENT_LIMIT | 50 |
+| LLM_CONNECTION_POOL_SIZE | 60 |
+| LLM_CONNECTION_KEEPALIVE | 30 |
+| LLM_MAX_RETRIES | 3（此为全局上限，具体 per-purpose 见上表） |
+| LLM_REQUEST_TIMEOUT | 90s（此为中转超时，按 purpose 有更精确的调用超时） |
+
+成本估算全局回退：input ¥1/1M tokens, output ¥2/1M tokens，DB 中 per-key 定价优先。
+
+## LLMClient (client.py)
+
+单一入口点，三个公开方法：
+
+| 方法 | 用途 | 默认参数 |
+|------|------|---------|
+| `call()` | 普通补全 | temperature=0.7, max_tokens=512, timeout=30, max_retries=2 |
+| `stream()` | 流式 SSE | 同上，重试耗尽回退非流式 call() 兜底 |
+| `call_json()` | 补全 + JSON 解析 | temperature=0.3, max_tokens=2048, timeout=120, max_retries=3 |
+
+内部结构：
+- `_select_config()` → 通过 ProfileRouter 按 purpose 选配置，解密 API Key
+- `_do_call()` / `_do_stream()` → 发送 HTTP 请求
+- `async_retry()` 包装重试逻辑
+- `asyncio.Semaphore(50)` 并发限流
+- 调用日志通过 LogWorker 异步入队
+
+## 路由与熔断 (ProfileRouter in router.py)
+
+基于 DB `ApiSecret` + `LLMConfig` 表的按 purpose 路由：
 
 ```
-select_key(purpose)
-  1. 按 purpose 匹配，priority 升序
-  2. 跳过 disabled / 冷却中的 degraded
-  3. purpose 无匹配 → 回退通配符 "*"
-  4. 全部不可用 → 最后防线：.env DEEPSEEK_API_KEY
-  5. .env 也没有 → 全局降级 30s
+select(purpose)
+  1. 按 purpose 查找 binding（LLMConfig）
+  2. binding 匹配 → 查找对应 ApiSecret
+  3. 跳过 status=degraded 且冷却期未过的
+  4. 无匹配 → 最后防线：.env DEEPSEEK_API_KEY（_SyntheticConfig）
+  5. 全部不可用 → 全局降级 30s
 ```
 
 **熔断规则（`report_result`）：**
-- 成功 → 重置计数器，累计成本
-- HTTP 429 → 立即冷却 60s
-- 其他 5xx → 累计失败次数，≥5 次熔断 300s
-- 月度成本超限 → 熔断至下月
+- 成功 → 重置 consecutive_failures，累计成本
+- HTTP 429 → degraded 60s（rate_limited）
+- 其他 5xx → cumulative, ≥5 次 degraded 300s（consecutive_failures）
+- 月度成本超限 → degraded 至下月
+- 状态变化（degraded/每5次调用）自动写回 DB
+
+启动时 `load_from_db()`：从 DB 加载所有配置 + 恢复已过冷却期的 profile。
 
 **加密存储：** API Key 经 Fernet（SHA-256(SECRET_KEY) 派生）加密存入 `api_secrets.encrypted_key`。
 
-## LLM 服务基础设施 (`llm_service.py`)
+## 重试与退避 (circuit.py)
 
-### `_backoff(attempt)`
-统一退避函数，消除原 6 处重复代码。公式同前。
+```python
+backoff_delay(attempt)  # attempt 0-indexed
+  → min(2^(attempt+1), 16) + rand(0, 0.5)
+```
 
-### `_CallContext`
-日志上下文 dataclass，统一 `call_llm` / `call_llm_stream` 的日志收集和写入。消除原 `_log_llm_success` / `_log_llm_failure` 两个长签名函数。
+异步重试 `async_retry()` 包装：
+- 可重试的 HTTP 状态码：429, 500, 502, 503, 504
+- 可重试的异常：TimeoutException, ConnectError, RemoteProtocolError, ReadError
+- 非可重试（400/401/403/404 等）：直接抛出
+- 全部 429 → LLMRateLimited；其余失败 → NoProviderAvailable
 
-### `_acquire_sema`
-信号量超时包装（30s），排队过久返回报错而非无限挂起。
+## 调用日志 (LogWorker in logging.py)
 
-### 响应去重缓存（`llm_cache.py`）
-30s TTL 精确匹配缓存，防止短时间内重复调用浪费 token。按 `sha256(messages+temperature+max_tokens+model)` 建键。
+异步队列批量写入 `llm_call_logs` 表：
+- `enqueue()` 将日志条目放入 `asyncio.Queue(maxsize=2000)`
+- 后台协程每 2 秒或满 20 条 flush 一次
+- 队列满时溢出到磁盘 JSONL 文件（`LLM_LOG_OVERFLOW_DIR`）
+- 溢出文件自动回卷：最大 10MB/文件，保留 5 个
+- 单条目写入失败不回滚整批（`savepoint` 隔离）
 
-## 流式调用优化
+## JSON 解析容错 (parsing.py)
 
-- `call_llm_stream`：SSE 逐 token 推送
-- 全部重试耗尽且无内容产出 → 自动回退非流式 `call_llm` 兜底
-- 流中断但已有内容 → 返回 `{truncated: true}` 标记
-- 共享 HTTP/2 客户端，多路复用
+`_safe_parse_json()` 按顺序尝试：
+1. 标准 `json.loads()`
+2. 移除尾部逗号后重试
+3. 截断修复（补全缺失的 `]` 和 `}`）
+4. 正则降级提取（逐字段 match total_score、strengths、suggestions 等）
+5. 以上均失败 → ValueError
 
-## 成本追踪 (`llm_logging.py`)
+## Prompt 管理 (infrastructure/prompt/)
 
-异步队列批量写入 `llm_call_logs` 表（每2秒或满20条刷新）。每配置独立追踪：日调用数、日 token、日成本、月成本。超限自动降解。
+### PromptManager
+- 从 DB `prompt_templates` 表加载模板，按 `purpose` 缓存
+- 热切换：`reload()` 重新加载，加载失败保留上次有效缓存
+- 内置硬编码兜底：DB 不可用时回退 `prompts/` 目录的静态模板
+- 启动时自动 seed 内置模板到 DB（幂等）
 
-## Prompt 变量工程 (`VariableRegistry`)
+### VariableRegistry
+集中管理每个 purpose 的合法变量定义：
 
-集中管理所有 purpose 的合法变量定义。模板创建/更新时即时校验——未知变量产生警告（不阻断），仅 QA purpose 的变量硬阻断。
+| purpose | 变量数 | 关键变量 |
+|---------|--------|----------|
+| patient_chat | 9 | patient_info, scenario, personality, chief_complaint, present_illness, allergy_history, deep_background, example_dialogues, author_note |
+| patient_dynamic | 4 | chief_complaint, present_illness, allergy_history, deep_background |
+| scoring | 4 | scoring_criteria, required_inquiries, scoring_json_schema, conversation_text |
+| scoring_feedback | 4 | scoring_criteria, required_inquiries, scoring_result, conversation_text |
+| case_generation | 3 | description, reference_material, field_instruction |
+| qa | 2 | user_name, user_role |
 
-| Purpose | 变量数 | 示例 |
-|---------|--------|------|
-| patient_chat | 6 | `patient_info`, `hidden_info_rules`, ... |
-| scoring | 5 | `scoring_criteria`, `required_inquiries`, `scoring_json_schema`, `conversation_text`, `scoring_rubric`(deprecated) |
-| case_generation | 2 | `description`, `reference_material` |
-| QA | 0 | 纯静态模板 |
+模板使用 `{#variable_name#}` 语法渲染。缺失变量运行时抛错。
 
-变量元数据（desc/source/type/example）存于 `PromptTemplate.variables` JSONB。前端 VariableCard 支持点击编辑描述、来源、默认值。`render()` 在 kwargs 缺失时回退到模板的 `default_value`。
+### 评分标准拆分
+评分 Prompt 拆为三个独立变量，教师可在管理面板独立调整：
+- `scoring_criteria` — 19 项评分标准（维度+条目+锚点），由 `rubrics/nursing_history_v1.json` + `build_scoring_criteria()` 自动生成
+- `required_inquiries` — 必须采集清单（来自病例数据）
+- `scoring_json_schema` — LLM 输出 JSON 格式模板
 
-## 评分标准拆分
+## 患者安全护栏 (contexts/patient/guards.py)
 
-`{#scoring_rubric#}` 拆为三个独立变量：
+### PostGuard 策略模式
+- **PatternGuard**（默认）：26 条身份泄露 forbidden pattern（"我是AI"、"评分标准"、"训练模式"等）
+- **NoGuard**：直通模式（开发/调试用）
 
-| 变量 | 来源 | 内容 |
-|------|------|------|
-| `scoring_criteria` | `prompt_static.build_scoring_criteria()` | 19 项评分标准（维度+条目+锚点） |
-| `required_inquiries` | `case_data.required_inquiries` | 必须采集清单（JSON） |
-| `scoring_json_schema` | `prompt_static.build_scoring_json_schema()` | LLM 输出 JSON 格式模板 |
+检测到泄露后返回修正提示，注入到下一轮系统消息前缀。
 
-教师可在 Prompt 编辑器中独立调整各部分的措辞和位置。向后兼容：`scoring_rubric` 变量保留（deprecated），旧模板仍可使用。
+### 身份泄露模式（部分示例）
+```
+我是AI, 我是人工智能, 我是AI助手, 我是虚拟患者,
+作为AI, 评分标准, 教学反馈, 你应该继续问,
+你还需要问, 训练模式, ...
+```
 
-## 安全护栏 (`patient_guard.py`)
+## Provider 产品目录 (provider_catalog.py)
 
-- 角色泄露检测：26 条 forbidden pattern（"作为AI"、"我是语言模型"等）
-- 诊断化检测：7 条（"诊断为"、"你患有"等）
-- 称谓归一化：自动将"医生/大夫/医师"替换为"护士/同学"
-- 严重越界时替换为随机兜底回复
+`providers.json` 集中管理多 Provider 的模型和定价数据，支持自动匹配 `base_url` 获取模型列表和定价信息。
+
+## 关键文件定位
+
+| 文件 | 用途 |
+|------|------|
+| `infrastructure/llm/client.py` | LLMClient 统一入口 |
+| `infrastructure/llm/router.py` | ProfileRouter 配置路由 |
+| `infrastructure/llm/circuit.py` | 重试+退避 |
+| `infrastructure/llm/logging.py` | LogWorker 异步日志 |
+| `infrastructure/llm/parsing.py` | JSON 容错解析 |
+| `infrastructure/llm/crypto_utils.py` | Fernet 加密 |
+| `infrastructure/llm/provider_catalog.py` | Provider 目录 |
+| `infrastructure/prompt/manager.py` | Prompt 模板管理 |
+| `infrastructure/prompt/registry.py` | VariableRegistry 变量注册 |
+| `infrastructure/prompt/static.py` | 评分标准文本生成 |
+| `contexts/patient/guards.py` | PostGuard 患者身份保护 |
+| `core/config.py` | LLM 配置常量 |
