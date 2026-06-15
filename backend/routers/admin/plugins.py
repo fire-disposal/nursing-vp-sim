@@ -7,7 +7,7 @@ router = APIRouter(prefix="/api/admin/plugins", tags=["admin-plugins"])
 
 
 @router.get("")
-async def list_plugins(_: Depends(require_permission("api_manage"))):
+async def list_plugins(_ = Depends(require_permission("api_manage"))):
     pm = get_plugin_manager()
     return [
         {
