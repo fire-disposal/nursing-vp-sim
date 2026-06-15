@@ -28,18 +28,21 @@ def _merge_feedback(first: dict, second: dict, missing: list[str]) -> dict:
     return merged
 
 
-def _coerce_numeric_fields(obj: dict):
+def _coerce_numeric_fields(obj: dict, depth: int = 0):
+    if depth > 10:
+        log.warning("coerce_numeric_fields 超过最大递归深度 %d", depth)
+        return
     for key in ("total_score", "score", "max"):
         if key in obj and isinstance(obj[key], str):
             with suppress(ValueError):
                 obj[key] = float(obj[key]) if "." in obj[key] else int(obj[key])
     for value in obj.values():
         if isinstance(value, dict):
-            _coerce_numeric_fields(value)
+            _coerce_numeric_fields(value, depth + 1)
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
-                    _coerce_numeric_fields(item)
+                    _coerce_numeric_fields(item, depth + 1)
 
 
 def _validate_scoring_essentials(result: dict):
@@ -61,6 +64,23 @@ def _validate_feedback_fields(result: dict):
         raise ValueError(f"反馈字段不完整: {', '.join([f'{f}(为空)' for f in empty])}")
 
 
+def _validate_items_content(detail_scores: dict) -> list[str]:
+    errors = []
+    for dim_name, dim_data in detail_scores.items():
+        if not isinstance(dim_data, dict):
+            continue
+        for item in dim_data.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            ev = (item.get("evidence") or "").strip()
+            rea = (item.get("reason") or "").strip()
+            if len(ev) < 10:
+                errors.append(f"{dim_name}.{item.get('name','?')}: evidence 过短 ({len(ev)}字)")
+            if len(rea) < 5:
+                errors.append(f"{dim_name}.{item.get('name','?')}: reason 过短 ({len(rea)}字)")
+    return errors
+
+
 def _validate_scoring_result(result: dict, rubric: dict | None = None):
     """最终校验：全字段完整性检查。"""
     type_defaults = {
@@ -74,6 +94,10 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
             result[field] = default
 
     _validate_scoring_essentials(result)
+
+    item_errors = _validate_items_content(result.get("detail_scores", {}))
+    if item_errors:
+        log.warning("评分条目内容校验不通过", extra={"errors": item_errors})
 
     empty_feedback = []
     for field, expected_type in [
