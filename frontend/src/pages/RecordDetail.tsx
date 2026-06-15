@@ -413,12 +413,12 @@ export default function RecordDetail() {
 				const { data } = await getRecordDetail(id!);
 				if (!mountedRef.current) break;
 				if (data.scoring_status === "completed" && data.score) {
-					queryClient.setQueryData(["recordDetail", id], data);
+					queryClient.setQueryData(queryKeys.training.detail(id!), data);
 					toast.success("评分已完成");
 					break;
 				}
 				if (data.scoring_status === "failed") {
-					queryClient.setQueryData(["recordDetail", id], data);
+					queryClient.setQueryData(queryKeys.training.detail(id!), data);
 					toast.error(`评分再次失败: ${data.scoring_error || "未知错误"}`);
 					break;
 				}

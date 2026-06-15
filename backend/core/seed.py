@@ -114,10 +114,10 @@ def _seed_data() -> None:
 
         # 5. 超级管理员
         username = os.getenv("SEED_ADMIN_USERNAME", "admin")
-        password = os.getenv("SEED_ADMIN_PASSWORD", "admin123")
+        password = os.getenv("SEED_ADMIN_PASSWORD")
+        if not password:
+            raise RuntimeError("SEED_ADMIN_PASSWORD 环境变量未设置")
         sa_role_id = school_role_ids.get("super_admin")
-        if not os.getenv("SEED_ADMIN_USERNAME"):
-            log.warning("SEED_ADMIN_* 未设置，使用默认 admin/admin123")
         admin_user = db.query(User).filter(User.username == username).first()
         if admin_user:
             if sa_role_id is not None and (admin_user.role_id != sa_role_id or admin_user.school_id != school.id):

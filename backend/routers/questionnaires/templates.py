@@ -138,7 +138,11 @@ def get_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    effective_school = resolve_school_filter(current_user)
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
@@ -153,7 +157,11 @@ def update_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    effective_school = resolve_school_filter(current_user)
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     if req.title is not None:
@@ -178,7 +186,11 @@ def delete_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    effective_school = resolve_school_filter(current_user)
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     db.delete(t)
@@ -193,14 +205,23 @@ def assign_cases(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    effective_school = resolve_school_filter(current_user)
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
 
     db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).delete()
 
     for cid in req.case_ids:
-        c = db.query(Case).filter(Case.id == cid).first()
+        case_query = db.query(Case).filter(Case.id == cid)
+        if effective_school is not None:
+            case_query = case_query.filter(
+                (Case.school_id == effective_school) | (Case.school_id.is_(None))
+            )
+        c = case_query.first()
         if not c:
             raise HTTPException(status_code=400, detail=f"病例 {cid} 不存在")
         db.add(

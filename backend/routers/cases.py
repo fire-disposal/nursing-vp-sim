@@ -235,9 +235,11 @@ def list_case_practices(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    return (
-        db.query(Practice).filter(Practice.case_id == case_id, Practice.is_active == True).order_by(Practice.name).all()
-    )
+    effective_school = resolve_school_filter(current_user)
+    query = db.query(Practice).filter(Practice.case_id == case_id, Practice.is_active == True)
+    if effective_school is not None:
+        query = query.filter((Practice.school_id == effective_school) | (Practice.school_id.is_(None)))
+    return query.order_by(Practice.name).all()
 
 
 @router.get("/{case_id}", response_model=CaseDetail)

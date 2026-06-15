@@ -46,6 +46,8 @@ def save_nursing_record(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="训练记录不存在")
+    if record.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权操作此训练记录")
 
     nr = db.query(NursingRecord).filter(NursingRecord.record_id == record_id).first()
     if nr:

@@ -175,7 +175,7 @@ async def wechat_login(
             "tv": user.token_version,
         }
     )
-    log.info("微信登录成功: openid=%s user=%s", openid, user.username)
+    log.info("微信登录成功: openid=%s user=%s", openid[:4] + "***", user.username)
     rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
     permissions = [r.permission for r in rows]
     return WechatLoginResponse(
@@ -213,7 +213,7 @@ async def wechat_bind(
 
     current_user.wechat_openid = openid
     db.commit()
-    log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid)
+    log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid[:4] + "***")
     return OkResponse(message="微信绑定成功")
 
 
@@ -270,7 +270,7 @@ async def wechat_register(
             "tv": user.token_version,
         }
     )
-    log.info("微信注册成功: openid=%s username=%s", openid, username)
+    log.info("微信注册成功: openid=%s username=%s", openid[:4] + "***", username)
     return TokenResponse(
         access_token=token,
         role=user.role.name if user.role else "",

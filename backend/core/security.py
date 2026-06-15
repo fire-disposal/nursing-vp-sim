@@ -42,8 +42,8 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
 
     user = db.query(User).options(joinedload(User.role), joinedload(User.school)).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
 
     token_tv = payload.get("tv", 0)
     if token_tv != user.token_version:
@@ -74,8 +74,8 @@ def _decode_token_allow_expired(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的凭证")
 
     user = db.query(User).options(joinedload(User.role), joinedload(User.school)).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
 
     token_tv = payload.get("tv", 0)
     if token_tv != user.token_version:

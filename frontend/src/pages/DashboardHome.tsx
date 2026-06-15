@@ -27,6 +27,7 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
+import { queryKeys } from "@/api/query-keys";
 import TrainingDurationChart from "@/components/dashboard/TrainingDurationChart";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { useToast } from "@/components/Toast";
@@ -117,8 +118,8 @@ export default function DashboardHome() {
 		staleTime: 2 * 60_000,
 	});
 	const { data: recordsData, isLoading: recordsLoading } = useQuery({
-		queryKey: ["records", "recent"],
-		queryFn: () => getRecords({ limit: 5, offset: 0 }).then((r) => r.data),
+		queryKey: queryKeys.training.recent(),
+		queryFn: () => getRecords({ limit: 20, offset: 0 }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
 

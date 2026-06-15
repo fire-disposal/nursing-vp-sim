@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
+from middleware.dependencies import resolve_school_filter
 from models import QuestionnaireQuestion, QuestionnaireTemplate, User
 from schemas import (
     DeleteResponse,
@@ -23,7 +24,11 @@ def add_question(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
+    effective_school = resolve_school_filter(current_user)
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     q = QuestionnaireQuestion(
@@ -58,8 +63,15 @@ def update_question(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    effective_school = resolve_school_filter(current_user)
     q = db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.id == question_id).first()
     if not q:
+        raise HTTPException(status_code=404, detail="题目不存在")
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == q.template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
+    if not t:
         raise HTTPException(status_code=404, detail="题目不存在")
     if req.content is not None:
         q.content = req.content
@@ -91,8 +103,15 @@ def delete_question(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    effective_school = resolve_school_filter(current_user)
     q = db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.id == question_id).first()
     if not q:
+        raise HTTPException(status_code=404, detail="题目不存在")
+    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == q.template_id)
+    if effective_school is not None:
+        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
+    t = t_query.first()
+    if not t:
         raise HTTPException(status_code=404, detail="题目不存在")
     db.delete(q)
     db.commit()

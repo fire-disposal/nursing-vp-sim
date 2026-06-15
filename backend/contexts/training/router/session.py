@@ -233,7 +233,11 @@ def start_training(
     db: Annotated[Session, Depends(get_db)],
     request: Request,
 ):
-    case = db.query(Case).filter(Case.id == req.case_id).first()
+    effective_school = resolve_school_filter(current_user)
+    case_query = db.query(Case).filter(Case.id == req.case_id)
+    if effective_school is not None:
+        case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
+    case = case_query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
 

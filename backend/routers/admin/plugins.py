@@ -1,12 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from core.security import require_permission
 from plugins.manager import get_plugin_manager
 
 router = APIRouter(prefix="/api/admin/plugins", tags=["admin-plugins"])
 
 
 @router.get("")
-async def list_plugins():
+async def list_plugins(_: Depends(require_permission("api_manage"))):
     pm = get_plugin_manager()
     return [
         {

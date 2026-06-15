@@ -267,8 +267,14 @@ async def _log_requests(request: Request, call_next):
 @app.middleware("http")
 async def _limit_body_size(request: Request, call_next):
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > _MAX_REQUEST_BYTES:
-        return JSONResponse(status_code=413, content={"detail": "请求体过大"})
+    transfer_encoding = request.headers.get("transfer-encoding", "").lower()
+    if content_length:
+        if int(content_length) > _MAX_REQUEST_BYTES:
+            return JSONResponse(status_code=413, content={"detail": "请求体过大"})
+    elif transfer_encoding == "chunked":
+        body = await request.body()
+        if len(body) > _MAX_REQUEST_BYTES:
+            return JSONResponse(status_code=413, content={"detail": "请求体过大"})
     return await call_next(request)
 
 

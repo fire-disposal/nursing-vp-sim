@@ -104,18 +104,23 @@ export default function AssignmentsPage() {
 		setModalOpen(true);
 	};
 
-	const 	openEdit = async (id: string) => {
+	const openEdit = async (id: string) => {
 		try {
 			const res = await fetchAssignment(id);
 			const d = res.data;
+			const toLocalDatetime = (iso: string) => {
+				const date = new Date(iso);
+				const pad = (n: number) => String(n).padStart(2, "0");
+				return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+			};
 			setEditingId(id);
 			setForm({
 				title: d.title,
 				desc: d.description || "",
 				practiceId: d.practice_id,
 				classId: d.class_id,
-				startTime: new Date(d.start_time).toISOString().slice(0, 16),
-				endTime: new Date(d.end_time).toISOString().slice(0, 16),
+				startTime: toLocalDatetime(d.start_time),
+				endTime: toLocalDatetime(d.end_time),
 			});
 			setModalOpen(true);
 		} catch (e: any) {

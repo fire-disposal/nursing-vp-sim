@@ -1,5 +1,5 @@
 import { Loader2, Plus, Save, Search, Shield, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
@@ -56,7 +56,7 @@ export default function RolesPage() {
 		searchTimer.current = setTimeout(() => setSearch(value), 200);
 	};
 
-	const loadRoles = async () => {
+	const loadRoles = useCallback(async () => {
 		setLoading(true);
 		try {
 			const { data } = await api.get("/admin/roles", {
@@ -68,7 +68,7 @@ export default function RolesPage() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [search]);
 
 	useEffect(() => {
 		loadRoles();

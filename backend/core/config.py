@@ -57,6 +57,9 @@ def validate_config():
     cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
     if not cors_raw or not any(o.strip() for o in cors_raw.split(",")):
         log.warning("CORS_ORIGINS 未配置或为空，跨域请求将全部被拒绝")
+    origins = [o.strip() for o in cors_raw.split(",") if o.strip()]
+    if "*" in origins:
+        log.warning("CORS_ORIGINS 包含通配符 *, 这可能会导致安全问题")
 
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
