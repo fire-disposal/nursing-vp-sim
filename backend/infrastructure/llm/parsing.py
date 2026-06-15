@@ -2,7 +2,26 @@
 
 import json
 import re
-from contextlib import suppress
+
+
+def _extract_json_value(text: str, start: int) -> tuple[dict, int] | None:
+    max_depth = 15
+    depth = 0
+    for i, ch in enumerate(text[start:], start=start):
+        if ch == "{":
+            depth += 1
+            if depth > max_depth:
+                return None
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    decoder = json.JSONDecoder()
+                    obj, end = decoder.raw_decode(text, start)
+                    return obj, end
+                except json.JSONDecodeError:
+                    return None
+    return None
 
 
 def _safe_parse_json(text: str) -> dict:
@@ -52,22 +71,13 @@ def _safe_parse_json(text: str) -> dict:
                 items = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
                 result[field] = items
         elif field == "detail_scores":
-            m = re.search(r'"detail_scores"\s*:\s*(\{)', text, re.DOTALL)
-            if m:
-                start_pos = m.start(1)
-                depth = 0
-                end_pos = start_pos
-                for i, ch in enumerate(text[start_pos:], start=start_pos):
-                    if ch == "{":
-                        depth += 1
-                    elif ch == "}":
-                        depth -= 1
-                        if depth == 0:
-                            end_pos = i + 1
-                            break
-                if end_pos > start_pos:
-                    with suppress(json.JSONDecodeError):
-                        result["detail_scores"] = json.loads(text[start_pos:end_pos])
+            idx = text.find('"detail_scores"')
+            if idx != -1:
+                colon = text.find(":", idx + 15)
+                if colon != -1:
+                    parsed = _extract_json_value(text, colon + 1)
+                    if parsed:
+                        result["detail_scores"] = parsed[0]
 
     if not result or ("total_score" not in result and "detail_scores" not in result):
         raise ValueError(f"无法解析LLM返回的JSON: {text[:500]}")
