@@ -8,17 +8,43 @@ export interface SSEHandlers {
 	onExamResult?: (data: { type: string; data: Record<string, unknown> }) => void;
 }
 
+const STREAM_IDLE_TIMEOUT = 25_000;
+
 export async function readSSEStream(
 	reader: ReadableStreamDefaultReader<Uint8Array>,
 	handlers: SSEHandlers,
+	abortSignal?: AbortSignal,
 ) {
 	const decoder = new TextDecoder();
 	let buffer = "";
+	let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function resetIdleTimer() {
+		if (idleTimer) clearTimeout(idleTimer);
+		idleTimer = setTimeout(() => {
+			reader.cancel();
+			handlers.onError?.("响应超时，请重试");
+		}, STREAM_IDLE_TIMEOUT);
+	}
+
+	function clearIdleTimer() {
+		if (idleTimer) {
+			clearTimeout(idleTimer);
+			idleTimer = null;
+		}
+	}
+
+	resetIdleTimer();
 
 	try {
 		while (true) {
+			if (abortSignal?.aborted) {
+				clearIdleTimer();
+				return;
+			}
 			const { done, value } = await reader.read();
 			if (done) break;
+			resetIdleTimer();
 
 			buffer += decoder.decode(value, { stream: true });
 			const lines = buffer.split("\n");
@@ -29,6 +55,7 @@ export async function readSSEStream(
 				try {
 					const data = JSON.parse(line.slice(6));
 					if (data.error) {
+						clearIdleTimer();
 						handlers.onError?.(data.error);
 						try { reader.cancel(); } catch { /* ignore */ }
 						return;
@@ -38,6 +65,7 @@ export async function readSSEStream(
 					if (data.emotion_change) { handlers.onEmotionChange?.(data.emotion_change); continue; }
 					if (data.initiative) { handlers.onInitiative?.(data.initiative); continue; }
 					if (data.done) {
+						clearIdleTimer();
 						handlers.onDone?.(data.id);
 						try { reader.cancel(); } catch { /* ignore */ }
 						return;
@@ -49,6 +77,7 @@ export async function readSSEStream(
 			}
 		}
 	} finally {
+		clearIdleTimer();
 		try { reader.cancel(); } catch { /* ignore */ }
 	}
 }

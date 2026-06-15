@@ -5,6 +5,7 @@ export interface ChatMessage {
 	role: "student" | "patient" | "system";
 	content: string;
 	streaming?: boolean;
+	streamError?: string;
 	timestamp?: string;
 	examResult?: { type: string; data: Record<string, unknown> };
 }

@@ -147,9 +147,15 @@ export class StreamManager {
 					if (this.abortController === controller) this.abortController = null;
 				},
 				(err) => {
-					this.messages = this.messages.filter(
-						(m) => !m.streaming && m.id !== placeholderId,
-					);
+					const partial = this.findStreaming();
+					if (partial?.content.trim()) {
+						partial.streaming = false;
+						partial.streamError = err;
+					} else {
+						this.messages = this.messages.filter(
+							(m) => !m.streaming && m.id !== placeholderId,
+						);
+					}
 					this.notifySync();
 					this.setLoading(false);
 					callbacks.onError?.(err);
@@ -186,9 +192,15 @@ export class StreamManager {
 				},
 			);
 		} catch (err: unknown) {
-			this.messages = this.messages.filter(
-				(m) => !m.streaming && m.id !== placeholderId,
-			);
+			const partial = this.findStreaming();
+			if (partial?.content.trim()) {
+				partial.streaming = false;
+				partial.streamError = (err as Error)?.message || "发送失败";
+			} else {
+				this.messages = this.messages.filter(
+					(m) => !m.streaming && m.id !== placeholderId,
+				);
+			}
 			this.notifySync();
 			this.setLoading(false);
 			callbacks.onError?.((err as any)?.message || "发送失败");
