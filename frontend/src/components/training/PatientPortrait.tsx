@@ -21,7 +21,7 @@ export function PatientPortrait({
 
 	return (
 		<div className="text-center space-y-2">
-			<div className="relative mx-auto w-44 h-56 overflow-hidden rounded-xl border-2 border-border bg-muted">
+			<div className="relative mx-auto size-56 overflow-hidden rounded-full border-2 border-border bg-muted">
 				<img
 					src={avatarSrc}
 					alt={patient.name}
