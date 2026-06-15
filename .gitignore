@@ -25,6 +25,9 @@ htmlcov/
 node_modules/
 frontend/dist/
 
+# npm → pnpm migration
+package-lock.json
+
 # IDE
 .vscode/
 .idea/

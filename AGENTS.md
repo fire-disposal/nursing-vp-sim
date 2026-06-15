@@ -85,33 +85,33 @@ api.get(RECORD_DETAIL.replace("{record_id}", String(id)));
 
 后端改路由后，若手写模块未同步更新路径，`tsc --noEmit` 会报错。
 
-## npm Scripts
+## pnpm Scripts
 
-All scripts run from the monorepo root.
+All scripts run from the monorepo root (pnpm workspace).
 
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | Start backend (uvicorn :8000) + frontend (vite :3000) concurrently |
-| `npm run dev:backend` | Backend only |
-| `npm run dev:frontend` | Frontend only |
-| `npm run check` | Full check: backend (ruff + ty) + frontend (biome + tsc) |
-| `npm run check:backend` | Backend: ruff format --check, ruff check, ty |
-| `npm run check:frontend` | Frontend: biome lint + tsc --noEmit |
-| `npm run check:api` | Regenerate API clients + verify no drift (`git diff --exit-code`) |
-| `npm run lint` (frontend) | `biome lint src/` |
-| `npm run lint:fix` (frontend) | `biome lint --fix src/` |
-| `npm run typecheck` (frontend) | `tsc --noEmit` |
-| `npm run db:migrate` | `alembic upgrade head` |
-| `npm run db:downgrade` | `alembic downgrade -1` |
-| `npm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
-| `npm run db:data "name"` | Scaffold data-only migration (via `scripts/create-data-migration.js`) |
-| `npm run api:spec` | Dump openapi.json from running backend |
-| `npm run api:generate` | Generate `frontend/src/api/api-types.gen.ts` |
-| `npm run api:generate:miniapp` | Generate `miniprogram/api/types.gen.ts` |
-| `npm run api:update` | spec + generate (web only) |
-| `npm run api:update:all` | spec + generate web + generate miniapp |
-| `npm run tag` | Auto-generate date-based tag + push (triggers staging deploy) |
-| `npm run tag:local` | Auto-generate tag locally without pushing |
+| `pnpm run dev` | Start backend (uvicorn :8000) + frontend (vite :3000) concurrently |
+| `pnpm run dev:backend` | Backend only |
+| `pnpm run dev:frontend` | Frontend only |
+| `pnpm run check` | Full check: backend (ruff + ty) + frontend (biome + tsc) |
+| `pnpm run check:backend` | Backend: ruff format --check, ruff check, ty |
+| `pnpm run check:frontend` | Frontend: biome lint + tsc --noEmit |
+| `pnpm run check:api` | Regenerate API clients + verify no drift (`git diff --exit-code`) |
+| `pnpm run lint` (frontend) | `biome lint src/` |
+| `pnpm run lint:fix` (frontend) | `biome lint --fix src/` |
+| `pnpm run typecheck` (frontend) | `tsc --noEmit` |
+| `pnpm run db:migrate` | `alembic upgrade head` |
+| `pnpm run db:downgrade` | `alembic downgrade -1` |
+| `pnpm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
+| `pnpm run db:data "name"` | Scaffold data-only migration (via `scripts/create-data-migration.js`) |
+| `pnpm run api:spec` | Dump openapi.json from running backend |
+| `pnpm run api:generate` | Generate `frontend/src/api/api-types.gen.ts` |
+| `pnpm run api:generate:miniapp` | Generate `miniprogram/api/types.gen.ts` |
+| `pnpm run api:update` | spec + generate (web only) |
+| `pnpm run api:update:all` | spec + generate web + generate miniapp |
+| `pnpm run tag` | Auto-generate date-based tag + push (triggers staging deploy) |
+| `pnpm run tag:local` | Auto-generate tag locally without pushing |
 
 ## Commit Format
 

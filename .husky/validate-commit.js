@@ -69,7 +69,7 @@ fs.writeFileSync(lintFile, stripped + msg.slice(firstLine.length), 'utf-8');
 
 let ok = true;
 try {
-  execSync(`npx --no -- commitlint --edit "${lintFile}"`, { stdio: 'inherit' });
+  execSync(`pnpm exec commitlint --edit "${lintFile}"`, { stdio: 'inherit' });
 } catch (e) {
   ok = false;
 } finally {
