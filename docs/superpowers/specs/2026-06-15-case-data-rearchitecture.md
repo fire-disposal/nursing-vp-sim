@@ -177,6 +177,20 @@ class PipelineContext:
 | `sources.py:ExamImpactSource` | `snapshot.get("_exam_impact_note")` | `runtime_state.get("exam_impact_note")` |
 | `progress.py` | `practice_snapshot.get("_phase_op_count")` | `runtime_state.get("phase_op_count")` |
 
+### 缓存边界
+
+`runtime_state`（DB JSONB）与 `EmotionCache` / `InitiativeCache`（app.state 内存）的分工：
+
+```
+DB runtime_state:  exam_results, phase_op_count, exam_impact_note
+  → 跨请求持久化，server 重启不丢失
+
+Memory Cache:      emotion 状态对象, initiative 定时器
+  → 瞬态, _TTLOrderedDict(maxsize=200, TTL=3600s), 重启丢失
+```
+
+runtime_state **不覆盖** cache 中的 emotion/initiative 瞬态数据。emotion state 对象有复杂的内部状态（trust/comfort 坐标、history 数组），不适合序列化到 JSONB。cache 已有 TTL 驱逐机制，不需要 runtime_state 参与。
+
 ### 存量迁移
 
 Alembic migration 中执行：
@@ -369,6 +383,11 @@ def validate_case_data(data: dict, *, strict: bool = False) -> dict:
 
 ---
 
+> 上下文：近期 `⚡ perf` 提交做了以下相关变更：
+> - 结算循环不再自动评分（`settlement.py`），仅标记完成 + 清理缓存 → 简化 Phase 2 的竞争条件处理
+> - 引入 `_TTLOrderedDict` 内存缓存（maxsize=200, TTL=1h）→ Phase 2 明确 runtime_state 不覆盖此缓存
+> - Rubric 加载加 60s TTL 缓存 → Phase 5 的冻结版本读取需独立函数绕过 active cache
+
 ## Phase 5: Rubric 链路闭环
 
 ### 问题
@@ -390,18 +409,65 @@ class CaseDataSchema(BaseModel):
 ```python
 # session.py:_create_record()
 def _resolve_rubric_ref(rubric_ref: str) -> str:
-    from repositories.rubric import load_active_rubric, load_rubric
+    from repositories.rubric import load_active_rubric, load_rubric_by_version
     if rubric_ref == "active":
         active = load_active_rubric()
         if active:
             return f"{active.name}@{active.version}"
         return "nursing_history_v1@1.0"
+    # 校验 rubric_ref 可解析，提前暴露错误
+    load_rubric_by_version(rubric_ref)
     return rubric_ref
 
 # 创建记录时
 record.rubric_frozen = _resolve_rubric_ref(
     case_data.get("rubric_ref", "active")
 )
+```
+
+### `load_rubric_by_version()` 实现
+
+```python
+# repositories/rubric.py — 新增函数，不经过 active rubric 60s TTL 缓存
+_RUBRIC_VERSION_CACHE: dict[str, tuple[float, dict]] = {}
+_RUBRIC_VERSION_TTL = 300.0  # 5分钟，rubric 定义在训练期间不变
+
+def load_rubric_by_version(version_id: str) -> dict:
+    now = time.monotonic()
+    if version_id in _RUBRIC_VERSION_CACHE:
+        ts, cached = _RUBRIC_VERSION_CACHE[version_id]
+        if now - ts < _RUBRIC_VERSION_TTL:
+            return cached
+
+    # 解析 "{name}@{version}" 格式
+    name, sep, ver = version_id.partition("@")
+    if not sep:
+        name, ver = version_id, ""
+
+    # 先查 DB
+    db = SessionLocal()
+    try:
+        rubric = (
+            db.query(Rubric)
+            .filter(Rubric.name == name, Rubric.version == ver)
+            .first()
+        )
+        if rubric:
+            result = {
+                "id": rubric.name, "name": rubric.name,
+                "version": rubric.version, "total_max": rubric.total_max,
+                "raw_max": rubric.raw_max, "raw_scale": rubric.raw_scale,
+                "dimensions": rubric.dimensions,
+            }
+            _RUBRIC_VERSION_CACHE[version_id] = (now, result)
+            return result
+    finally:
+        db.close()
+
+    # 回退到文件
+    result = load_rubric(name)
+    _RUBRIC_VERSION_CACHE[version_id] = (now, result)
+    return result
 ```
 
 ### 评分引擎使用冻结版本
