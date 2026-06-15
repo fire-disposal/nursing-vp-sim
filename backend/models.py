@@ -232,6 +232,7 @@ class TrainingRecord(Base):
         Integer, ForeignKey("practices.id", name="fk_training_records_practice_id"), nullable=True
     )
     practice_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    runtime_state: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), default=dict)
     status: Mapped[str] = mapped_column(String(20), default="in_progress")
     scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)

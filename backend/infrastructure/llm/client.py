@@ -63,6 +63,7 @@ class _CallState:
     base_url: str = ""
     price_input: float = 0.0
     price_output: float = 0.0
+    usage: dict | None = None
 
 
 class LLMClient:
@@ -129,6 +130,10 @@ class LLMClient:
         try:
             content = await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
             latency_ms = int((time.perf_counter() - t0) * 1000)
+            usage = state.usage or {}
+            prompt_tokens = usage.get("prompt_tokens", 0) or 0
+            completion_tokens = usage.get("completion_tokens", 0) or 0
+            total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
             self._log_worker.enqueue(
                 purpose=purpose,
                 user_id=ctx.user_id,
@@ -141,16 +146,17 @@ class LLMClient:
                 status="success",
                 request_text=request_text,
                 response_text=content,
-                usage=None,
+                usage=usage or None,
                 meta=ctx.log_meta,
                 config_id=state.config_id,
                 provider_name=state.provider_name,
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
             )
-            est_tokens = int((len(request_text) + len(content)) / 1.5)
-            est_cost = est_tokens / 1_000_000 * 1.5
-            self._record_metrics(status="success", tokens=est_tokens, cost=est_cost, latency_ms=latency_ms)
+            pi = state.price_input or 1.0
+            po = state.price_output or 2.0
+            actual_cost = (prompt_tokens / 1_000_000 * pi) + (completion_tokens / 1_000_000 * po)
+            self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
             return content
         except Exception:
             latency_ms = int((time.perf_counter() - t0) * 1000)
@@ -208,6 +214,21 @@ class LLMClient:
                 # success
                 latency_ms = int((time.perf_counter() - t0) * 1000)
                 total_text = "".join(full_reply)
+                usage = state.usage or {}
+                prompt_tokens = usage.get("prompt_tokens", 0) or 0
+                completion_tokens = usage.get("completion_tokens", 0) or 0
+                total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
+
+                await self._router.report_result(
+                    state._config,
+                    success=True,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    latency_ms=latency_ms,
+                    error=None,
+                )
+
                 self._log_worker.enqueue(
                     purpose=purpose,
                     user_id=ctx.user_id,
@@ -220,16 +241,17 @@ class LLMClient:
                     status="success",
                     request_text=request_text,
                     response_text=total_text,
-                    usage=None,
+                    usage=usage or None,
                     meta=ctx.log_meta,
                     config_id=state.config_id,
                     provider_name=state.provider_name,
                     key_price_input=state.price_input,
                     key_price_output=state.price_output,
                 )
-                est_tokens = int((len(request_text) + len(total_text)) / 1.5)
-                est_cost = est_tokens / 1_000_000 * 1.5
-                self._record_metrics(status="success", tokens=est_tokens, cost=est_cost, latency_ms=latency_ms)
+                pi = state.price_input or 1.0
+                po = state.price_output or 2.0
+                actual_cost = (prompt_tokens / 1_000_000 * pi) + (completion_tokens / 1_000_000 * po)
+                self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
                 return
             except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
                 if attempt >= max_retries:
@@ -356,6 +378,7 @@ class LLMClient:
         if response_format:
             payload["response_format"] = response_format
 
+        t0 = time.perf_counter()
         async with asyncio.timeout(timeout + 10):
             async with self._sem_for(purpose):
                 resp = await self._http.post(
@@ -370,14 +393,20 @@ class LLMClient:
         resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
+        latency_ms = int((time.perf_counter() - t0) * 1000)
 
         usage = data.get("usage", {})
-        total_tokens = usage.get("total_tokens", 0) or 0
+        state.usage = usage
+        prompt_tokens = usage.get("prompt_tokens", 0) or 0
+        completion_tokens = usage.get("completion_tokens", 0) or 0
+        total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
         await self._router.report_result(
             state._config,
             success=True,
-            tokens=total_tokens,
-            latency_ms=0,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            latency_ms=latency_ms,
             error=None,
         )
         return content
@@ -416,19 +445,24 @@ class LLMClient:
                     timeout=httpx.Timeout(timeout, connect=15.0),
                 ) as resp:
                     resp.raise_for_status()
+                    last_obj = None
                     async for line in resp.aiter_lines():
                         if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
+                            raw = line[6:]
+                            if raw == "[DONE]":
                                 break
                             try:
-                                obj = json.loads(data)
+                                obj = json.loads(raw)
+                                last_obj = obj
                                 delta = obj["choices"][0].get("delta", {})
                                 content = delta.get("content", "")
                                 if content:
                                     yield content
                             except (json.JSONDecodeError, KeyError, IndexError):
                                 pass
+                    # Extract usage from last SSE chunk (some providers include it)
+                    if last_obj and "usage" in last_obj:
+                        state.usage = last_obj["usage"]
 
     @staticmethod
     def _copy_state(src: _CallState, dst: _CallState) -> None:
@@ -440,6 +474,7 @@ class LLMClient:
         dst.base_url = src.base_url
         dst.price_input = src.price_input
         dst.price_output = src.price_output
+        dst.usage = src.usage
 
     @staticmethod
     def _infer_provider(base_url: str) -> str:

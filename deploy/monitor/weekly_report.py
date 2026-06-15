@@ -31,9 +31,12 @@ WEEK_AGO = NOW - timedelta(days=7)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def run(cmd, timeout=15):
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+        )
         return r.returncode, r.stdout.strip()
     except Exception:
         return -1, ""
@@ -65,8 +68,15 @@ def dur(s):
 
 # ── Data collectors ───────────────────────────────────────────────────────────
 
+
 def collect_system():
-    info = {"hostname": HOSTNAME, "os": "", "uptime": "", "load": "", "time": NOW.strftime("%Y-%m-%d %H:%M:%S")}
+    info = {
+        "hostname": HOSTNAME,
+        "os": "",
+        "uptime": "",
+        "load": "",
+        "time": NOW.strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
     with open("/etc/os-release") as f:
         for line in f:
@@ -94,7 +104,12 @@ def collect_resources():
     if rc == 0:
         parts = out.split()
         if len(parts) >= 5:
-            info["disk"] = {"total": parts[1], "used": parts[2], "avail": parts[3], "pct": parts[4]}
+            info["disk"] = {
+                "total": parts[1],
+                "used": parts[2],
+                "avail": parts[3],
+                "pct": parts[4],
+            }
 
     # Memory
     try:
@@ -110,7 +125,10 @@ def collect_resources():
         info["mem"] = {
             "total_mb": mem.get("MemTotal", 0) // 1024,
             "avail_mb": mem.get("MemAvailable", 0) // 1024,
-            "pct": round((1 - mem.get("MemAvailable", 0) / max(mem.get("MemTotal", 1), 1)) * 100, 1),
+            "pct": round(
+                (1 - mem.get("MemAvailable", 0) / max(mem.get("MemTotal", 1), 1)) * 100,
+                1,
+            ),
         }
     except Exception:
         info["mem"] = {"total_mb": "?", "avail_mb": "?", "pct": "?"}
@@ -137,16 +155,20 @@ def collect_containers():
         healthy = "healthy" in status.lower() if state == "running" else False
         unhealthy = "unhealthy" in status.lower()
 
-        containers.append({
-            "name": c.get("Names", "?"),
-            "image": c.get("Image", "?"),
-            "state": state,
-            "healthy": healthy,
-            "unhealthy": unhealthy,
-            "uptime": c.get("RunningFor", "?"),
-            "uptime_h": dur(c.get("RunningFor", "")) if state == "running" else 0,
-            "status_short": "healthy" if healthy else ("unhealthy" if unhealthy else state),
-        })
+        containers.append(
+            {
+                "name": c.get("Names", "?"),
+                "image": c.get("Image", "?"),
+                "state": state,
+                "healthy": healthy,
+                "unhealthy": unhealthy,
+                "uptime": c.get("RunningFor", "?"),
+                "uptime_h": dur(c.get("RunningFor", "")) if state == "running" else 0,
+                "status_short": "healthy"
+                if healthy
+                else ("unhealthy" if unhealthy else state),
+            }
+        )
 
     containers.sort(key=lambda x: (0 if x["state"] == "running" else 1, -x["uptime_h"]))
     return containers
@@ -163,14 +185,16 @@ def collect_docker_stats():
     for line in out.splitlines():
         parts = line.split("\t")
         if len(parts) >= 6:
-            stats.append({
-                "name": parts[0],
-                "cpu": parts[1],
-                "mem_pct": parts[2],
-                "mem_usage": parts[3],
-                "net_io": parts[4],
-                "block_io": parts[5],
-            })
+            stats.append(
+                {
+                    "name": parts[0],
+                    "cpu": parts[1],
+                    "mem_pct": parts[2],
+                    "mem_usage": parts[3],
+                    "net_io": parts[4],
+                    "block_io": parts[5],
+                }
+            )
     return stats
 
 
@@ -190,13 +214,15 @@ def collect_recent_alerts():
         except Exception:
             continue
         if last >= WEEK_AGO:
-            alerts.append({
-                "key": key,
-                "count": entry.get("count", 0),
-                "last": last.strftime("%m-%d %H:%M"),
-                "resolved": entry.get("resolved", False),
-                "detail": entry.get("detail", ""),
-            })
+            alerts.append(
+                {
+                    "key": key,
+                    "count": entry.get("count", 0),
+                    "last": last.strftime("%m-%d %H:%M"),
+                    "resolved": entry.get("resolved", False),
+                    "detail": entry.get("detail", ""),
+                }
+            )
     alerts.sort(key=lambda x: x["last"], reverse=True)
     return alerts
 
@@ -286,7 +312,11 @@ def bar(pct, label=""):
 def tag(status):
     ok_set = {"running", "healthy", "normal", "running", "运行中", "正常"}
     err_set = {"exited", "unhealthy", "dead", "已停止", "异常", "已死亡"}
-    cls = "tag-ok" if status in ok_set else ("tag-err" if status in err_set else "tag-warn")
+    cls = (
+        "tag-ok"
+        if status in ok_set
+        else ("tag-err" if status in err_set else "tag-warn")
+    )
     label = status.upper() if status.isascii() else status
     return f'<span class="tag {cls}">{label}</span>'
 
@@ -298,7 +328,13 @@ def metric(val, label, pct=None, sub=None):
 
 
 def status_cn(s):
-    m = {"healthy": "正常", "unhealthy": "异常", "running": "运行中", "exited": "已停止", "dead": "已死亡"}
+    m = {
+        "healthy": "正常",
+        "unhealthy": "异常",
+        "running": "运行中",
+        "exited": "已停止",
+        "dead": "已死亡",
+    }
     return m.get(s, s)
 
 
@@ -308,7 +344,7 @@ def build_html(sys_info, res, containers, stats, alerts):
 
     rows = ""
     for c in containers:
-        st = status_cn(c['status_short'])
+        st = status_cn(c["status_short"])
         rows += (
             f"<tr><td>{c['name']}</td><td style='font-size:11px;color:var(--c-dim,#94a3b8)'>{c['image'][:54]}</td>"
             f"<td>{tag(st)}</td><td style='font-size:12px'>{c['uptime']}</td></tr>"
@@ -316,8 +352,8 @@ def build_html(sys_info, res, containers, stats, alerts):
 
     stats_rows = ""
     for s in stats:
-        cpu_class = "color:#dc2626" if float(s['cpu'].replace('%','')) > 80 else ""
-        mem_class = "color:#dc2626" if float(s['mem_pct'].replace('%','')) > 80 else ""
+        cpu_class = "color:#dc2626" if float(s["cpu"].replace("%", "")) > 80 else ""
+        mem_class = "color:#dc2626" if float(s["mem_pct"].replace("%", "")) > 80 else ""
         stats_rows += (
             f"<tr><td>{s['name']}</td><td style='{cpu_class}'>{s['cpu']}</td>"
             f"<td style='{mem_class}'>{s['mem_pct']}</td><td style='font-size:11px'>{s['mem_usage']}</td>"
@@ -339,39 +375,47 @@ def build_html(sys_info, res, containers, stats, alerts):
     range_str = f"{WEEK_AGO.strftime('%m/%d')} &mdash; {NOW.strftime('%m/%d')}"
     css_block = f"<style>{CSS}</style>"
 
-    disk_pct = str(res['disk'].get('pct', '0')).replace('%', '')
-    disk_used = res['disk'].get('used', '?')
-    disk_total = res['disk'].get('total', '?')
-    mem_pct = str(res['mem'].get('pct', '0'))
-    mem_avail = res['mem'].get('avail_mb', '?')
-    mem_total = res['mem'].get('total_mb', '?')
-    load_parts = sys_info.get('load', '?').split()
-    load1 = load_parts[0] if load_parts else '?'
+    disk_pct = str(res["disk"].get("pct", "0")).replace("%", "")
+    disk_used = res["disk"].get("used", "?")
+    disk_total = res["disk"].get("total", "?")
+    mem_pct = str(res["mem"].get("pct", "0"))
+    mem_avail = res["mem"].get("avail_mb", "?")
+    mem_total = res["mem"].get("total_mb", "?")
+    load_parts = sys_info.get("load", "?").split()
+    load1 = load_parts[0] if load_parts else "?"
 
     cpu_chart = ""
-    cpu_sorted = sorted(stats, key=lambda s: float(s['cpu'].replace('%', '').replace('--', '0')), reverse=True)[:8]
+    cpu_sorted = sorted(
+        stats,
+        key=lambda s: float(s["cpu"].replace("%", "").replace("--", "0")),
+        reverse=True,
+    )[:8]
     for s in cpu_sorted:
-        v = float(s['cpu'].replace('%', '').replace('--', '0'))
+        v = float(s["cpu"].replace("%", "").replace("--", "0"))
         width = max(v, 2) if v > 0.01 else 0
         cpu_chart += (
             f'<div class="chart-row">'
             f'<span class="chart-label">{s["name"]}</span>'
             f'<div class="chart-bar-wrap"><div class="chart-bar chart-bar-cpu" style="width:{width}%"></div></div>'
             f'<span class="chart-val">{s["cpu"]}</span>'
-            f'</div>'
+            f"</div>"
         )
 
     mem_chart = ""
-    mem_sorted = sorted(stats, key=lambda s: float(s['mem_pct'].replace('%', '').replace('--', '0')), reverse=True)[:8]
+    mem_sorted = sorted(
+        stats,
+        key=lambda s: float(s["mem_pct"].replace("%", "").replace("--", "0")),
+        reverse=True,
+    )[:8]
     for s in mem_sorted:
-        v = float(s['mem_pct'].replace('%', '').replace('--', '0'))
+        v = float(s["mem_pct"].replace("%", "").replace("--", "0"))
         width = max(v, 2) if v > 0.01 else 0
         mem_chart += (
             f'<div class="chart-row">'
             f'<span class="chart-label">{s["name"]}</span>'
             f'<div class="chart-bar-wrap"><div class="chart-bar chart-bar-mem" style="width:{width}%"></div></div>'
             f'<span class="chart-val">{s["mem_pct"]}</span>'
-            f'</div>'
+            f"</div>"
         )
 
     return f"""\
@@ -382,31 +426,31 @@ def build_html(sys_info, res, containers, stats, alerts):
 
 <div class="header">
   <h1>服务器周报</h1>
-  <div class="sub">{sys_info['hostname']} &middot; {range_str}</div>
+  <div class="sub">{sys_info["hostname"]} &middot; {range_str}</div>
 </div>
 
 <div class="card">
   <h2>系统信息</h2>
   <table>
-    <tr><td style="width:120px;font-weight:500">Hostname</td><td>{sys_info['hostname']}</td></tr>
-    <tr><td style="font-weight:500">OS</td><td>{sys_info['os']}</td></tr>
-    <tr><td style="font-weight:500">运行时间</td><td>{sys_info['uptime']}</td></tr>
-    <tr><td style="font-weight:500">Load (1/5/15)</td><td>{sys_info['load']}</td></tr>
-    <tr><td style="font-weight:500">生成时间</td><td>{sys_info['time']}</td></tr>
+    <tr><td style="width:120px;font-weight:500">Hostname</td><td>{sys_info["hostname"]}</td></tr>
+    <tr><td style="font-weight:500">OS</td><td>{sys_info["os"]}</td></tr>
+    <tr><td style="font-weight:500">运行时间</td><td>{sys_info["uptime"]}</td></tr>
+    <tr><td style="font-weight:500">Load (1/5/15)</td><td>{sys_info["load"]}</td></tr>
+    <tr><td style="font-weight:500">生成时间</td><td>{sys_info["time"]}</td></tr>
   </table>
 </div>
 
 <div class="card">
   <h2>资源使用</h2>
   <div class="row">
-    {metric(disk_pct+'%', '磁盘', pct=disk_pct, sub=f'{disk_used} / {disk_total}')}
-    {metric(mem_pct+'%', '内存', pct=mem_pct, sub=f'{mem_avail} MB / {mem_total} MB')}
-    {metric(load1, 'Load', sub=f'{res["cpu_cores"]} 核')}
+    {metric(disk_pct + "%", "磁盘", pct=disk_pct, sub=f"{disk_used} / {disk_total}")}
+    {metric(mem_pct + "%", "内存", pct=mem_pct, sub=f"{mem_avail} MB / {mem_total} MB")}
+    {metric(load1, "Load", sub=f"{res["cpu_cores"]} 核")}
   </div>
 </div>
 
 <div class="card">
-  <h2>容器状态 &mdash; <span style="font-weight:400;font-size:12px">{running} 个运行中</span>{' <span style="font-weight:400;font-size:12px;color:#dc2626">/ '+str(stopped)+' 个已停止</span>' if stopped else ''}</h2>
+  <h2>容器状态 &mdash; <span style="font-weight:400;font-size:12px">{running} 个运行中</span>{' <span style="font-weight:400;font-size:12px;color:#dc2626">/ ' + str(stopped) + " 个已停止</span>" if stopped else ""}</h2>
   <table>
     <tr><th>名称</th><th>镜像</th><th>状态</th><th>运行时长</th></tr>
     {rows}
@@ -444,13 +488,14 @@ def build_html(sys_info, res, containers, stats, alerts):
 </div>
 
 <div class="footer">
-  由 monitor.py 生成于 {NOW.strftime('%Y-%m-%d %H:%M')}
+  由 monitor.py 生成于 {NOW.strftime("%Y-%m-%d %H:%M")}
 </div>
 
 </div></body></html>"""
 
 
 # ── Email send ────────────────────────────────────────────────────────────────
+
 
 def send_email(subject, body_html):
     try:
@@ -491,6 +536,7 @@ def send_email(subject, body_html):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main():
     print(f"[{NOW.strftime('%Y-%m-%d %H:%M:%S')}] Generating weekly report...")
 
@@ -502,7 +548,7 @@ def main():
 
     html = build_html(sys_info, res, containers, stats, alerts)
 
-    subject = f"[WEEKLY] {HOSTNAME} — {containers.count(lambda c: c['state']=='running') if hasattr(containers, 'count') else len([c for c in containers if c['state']=='running'])}/{len(containers)} containers UP"
+    subject = f"[WEEKLY] {HOSTNAME} — {containers.count(lambda c: c['state'] == 'running') if hasattr(containers, 'count') else len([c for c in containers if c['state'] == 'running'])}/{len(containers)} containers UP"
     running = sum(1 for c in containers if c["state"] == "running")
     subject = f"[WEEKLY] {HOSTNAME} — {running}/{len(containers)} containers UP | {WEEK_AGO.strftime('%m/%d')}-{NOW.strftime('%m/%d')}"
 

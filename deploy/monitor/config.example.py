@@ -17,6 +17,6 @@ MAIL_TO = ["your-email@qq.com"]
 
 # ── HTTP health endpoints to probe ────────────────────────────────────────────
 ENDPOINTS = [
-    {"name": "nursing-prod-backend",   "url": "http://localhost:9001/api/health"},
-    {"name": "nursing-staging-backend","url": "http://localhost:9081/api/health"},
+    {"name": "nursing-prod-backend", "url": "http://localhost:9001/api/health"},
+    {"name": "nursing-staging-backend", "url": "http://localhost:9081/api/health"},
 ]

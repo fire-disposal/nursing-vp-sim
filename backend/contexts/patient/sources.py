@@ -47,8 +47,8 @@ class ExamResultsSource(ContextSource):
     name = "exam_results"
 
     async def collect(self, ctx: "PipelineContext") -> str | None:
-        snapshot = ctx.record.practice_snapshot or {}
-        exam_results = snapshot.get("_exam_results", [])
+        rs = ctx.record.runtime_state or {}
+        exam_results = rs.get("exam_results", [])
         if not isinstance(exam_results, list) or not exam_results:
             return None
         lines = []
@@ -64,8 +64,8 @@ class ExamImpactSource(ContextSource):
     name = "exam_impact"
 
     async def collect(self, ctx: "PipelineContext") -> str | None:
-        snapshot = ctx.record.practice_snapshot or {}
-        note = snapshot.get("_exam_impact_note")
+        rs = ctx.record.runtime_state or {}
+        note = rs.get("exam_impact_note")
         if note and isinstance(note, str) and note.strip():
             return note
         return None

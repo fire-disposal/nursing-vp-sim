@@ -39,8 +39,8 @@ def perform_exam(
 
     result = handle_operation(op_type, case.case_data or {})
 
-    snapshot = record.practice_snapshot or {}
-    exam_results = snapshot.get("_exam_results", [])
+    rs = dict(record.runtime_state or {})
+    exam_results = rs.get("exam_results", [])
     if not isinstance(exam_results, list):
         exam_results = []
     exam_results.append(
@@ -51,8 +51,8 @@ def perform_exam(
             "unit": result.get("unit", ""),
         }
     )
-    snapshot["_exam_results"] = exam_results
-    record.practice_snapshot = snapshot
+    rs["exam_results"] = exam_results
+    record.runtime_state = rs
 
     msg = Message(
         record_id=record_id,
@@ -84,9 +84,11 @@ def perform_exam(
         for effect in results:
             if effect is not None:
                 if effect.snapshot_updates:
-                    snap = record.practice_snapshot or {}
-                    snap.update(effect.snapshot_updates)
-                    record.practice_snapshot = snap
+                    rs = dict(record.runtime_state or {})
+                    for k, v in effect.snapshot_updates.items():
+                        key = k.lstrip("_")
+                        rs[key] = v
+                    record.runtime_state = rs
 
     db.commit()
     return {"type": op_type, "data": result, "all_results": exam_results}

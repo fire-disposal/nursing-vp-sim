@@ -23,14 +23,14 @@ LOG_FILE = SCRIPT_DIR / "monitor.log"
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
 DISK_THRESHOLD_PCT = 85
-CPU_LOAD_MULTIPLIER = 1.5     # load avg ÷ cpu cores → alert if above
-MEM_MIN_MB = 500              # available memory below this → alert
+CPU_LOAD_MULTIPLIER = 1.5  # load avg ÷ cpu cores → alert if above
+MEM_MIN_MB = 500  # available memory below this → alert
 
 # ── Cooldown tiers (by alert count for same key) ──────────────────────────────
 # Format: (up_to_count, cooldown_minutes)
 COOLDOWN_TIERS = [
-    (3, 60),     # alerts 1-3:  1 hour between
-    (6, 240),    # alerts 4-6:  4 hours between
+    (3, 60),  # alerts 1-3:  1 hour between
+    (6, 240),  # alerts 4-6:  4 hours between
     (999, 720),  # alerts 7+:   12 hours between
 ]
 MAX_EMAILS_PER_DAY = 20
@@ -38,7 +38,7 @@ MAX_EMAILS_PER_DAY = 20
 # ── Load user config ──────────────────────────────────────────────────────────
 sys.path.insert(0, str(SCRIPT_DIR))
 try:
-    from config import *   # noqa: F403  — overrides thresholds / SMTP / ENDPOINTS
+    from config import *  # noqa: F403  — overrides thresholds / SMTP / ENDPOINTS
 except ImportError:
     pass
 
@@ -54,10 +54,13 @@ log = logging.getLogger("monitor")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def run(cmd, timeout=15):
     """Run a shell command, return (rc, stdout)."""
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+        )
         return r.returncode, r.stdout.strip()
     except subprocess.TimeoutExpired:
         return -1, ""
@@ -101,7 +104,11 @@ def should_send(state, alert_key):
         daily = {"_date": today_key, "_sent": 0}
         state["_daily"] = daily
     if daily.get("_sent", 0) >= MAX_EMAILS_PER_DAY:
-        log.warning("Daily email cap (%d) reached, suppressing alert: %s", MAX_EMAILS_PER_DAY, alert_key)
+        log.warning(
+            "Daily email cap (%d) reached, suppressing alert: %s",
+            MAX_EMAILS_PER_DAY,
+            alert_key,
+        )
         return False
 
     entry = state.get(alert_key)
@@ -122,12 +129,19 @@ def should_send(state, alert_key):
 
 # ── Check functions — each returns list of failure dicts ──────────────────────
 
+
 def check_containers():
     """Check all Docker containers are running and healthy."""
     failures = []
     rc, out = run("docker ps -a --format json 2>/dev/null")
     if rc != 0:
-        failures.append({"type": "container", "name": "docker-daemon", "detail": "Docker daemon unreachable"})
+        failures.append(
+            {
+                "type": "container",
+                "name": "docker-daemon",
+                "detail": "Docker daemon unreachable",
+            }
+        )
         return failures
 
     for line in out.splitlines():
@@ -142,17 +156,21 @@ def check_containers():
         status = c.get("Status", "")
 
         if state != "running":
-            failures.append({
-                "type": "container",
-                "name": name,
-                "detail": f"State={state}, Status={status}",
-            })
+            failures.append(
+                {
+                    "type": "container",
+                    "name": name,
+                    "detail": f"State={state}, Status={status}",
+                }
+            )
         elif "unhealthy" in status.lower():
-            failures.append({
-                "type": "container",
-                "name": name,
-                "detail": f"Healthcheck failing — {status}",
-            })
+            failures.append(
+                {
+                    "type": "container",
+                    "name": name,
+                    "detail": f"Healthcheck failing — {status}",
+                }
+            )
 
     return failures
 
@@ -172,7 +190,13 @@ def check_disk():
         return []
     if pct >= DISK_THRESHOLD_PCT:
         total, used, avail = parts[1], parts[2], parts[3]
-        return [{"type": "disk", "name": "/", "detail": f"{pct}% used — total={total}, used={used}, avail={avail}"}]
+        return [
+            {
+                "type": "disk",
+                "name": "/",
+                "detail": f"{pct}% used — total={total}, used={used}, avail={avail}",
+            }
+        ]
     return []
 
 
@@ -189,7 +213,13 @@ def check_cpu():
     threshold = cores * CPU_LOAD_MULTIPLIER
     if load1 > threshold:
         loads = Path("/proc/loadavg").read_text().strip()
-        return [{"type": "cpu", "name": "loadavg", "detail": f"load={loads} (cores={cores}, threshold={threshold:.1f})"}]
+        return [
+            {
+                "type": "cpu",
+                "name": "loadavg",
+                "detail": f"load={loads} (cores={cores}, threshold={threshold:.1f})",
+            }
+        ]
     return []
 
 
@@ -212,7 +242,13 @@ def check_memory():
     total = mem.get("MemTotal", 0) // 1024
     available = mem.get("MemAvailable", 0) // 1024
     if 0 < available < MEM_MIN_MB:
-        return [{"type": "memory", "name": "RAM", "detail": f"Available={available}MB / Total={total}MB (threshold={MEM_MIN_MB}MB)"}]
+        return [
+            {
+                "type": "memory",
+                "name": "RAM",
+                "detail": f"Available={available}MB / Total={total}MB (threshold={MEM_MIN_MB}MB)",
+            }
+        ]
     return []
 
 
@@ -227,16 +263,22 @@ def check_health_endpoints():
         name = ep.get("name", url)
         rc, out = run(f"curl -sS -m 10 -w '\\n%{{http_code}}' {url}")
         if rc != 0:
-            failures.append({"type": "health", "name": name, "detail": f"不可达: {out[:200]}"})
+            failures.append(
+                {"type": "health", "name": name, "detail": f"不可达: {out[:200]}"}
+            )
             continue
         lines = out.splitlines()
         if len(lines) < 2:
-            failures.append({"type": "health", "name": name, "detail": f"异常响应: {out[:200]}"})
+            failures.append(
+                {"type": "health", "name": name, "detail": f"异常响应: {out[:200]}"}
+            )
             continue
         http_code = lines[-1]
         body = "\n".join(lines[:-1])
         if http_code != "200":
-            failures.append({"type": "health", "name": name, "detail": f"HTTP {http_code}"})
+            failures.append(
+                {"type": "health", "name": name, "detail": f"HTTP {http_code}"}
+            )
             continue
         try:
             raw = json.loads(body)
@@ -247,10 +289,14 @@ def check_health_endpoints():
 
         status = data.get("status", "")
         if status not in ("ok", "healthy"):
-            failures.append({"type": "health", "name": name, "detail": f"状态异常: status={status}"})
+            failures.append(
+                {"type": "health", "name": name, "detail": f"状态异常: status={status}"}
+            )
 
         if data.get("db") == "error" or data.get("database") == "error":
-            failures.append({"type": "health", "name": name, "detail": "数据库连接失败"})
+            failures.append(
+                {"type": "health", "name": name, "detail": "数据库连接失败"}
+            )
 
         if data.get("llm") in ("unavailable", "low"):
             label = "LLM 额度不足" if data["llm"] == "low" else "LLM 不可用"
@@ -302,38 +348,52 @@ def check_metrics_anomalies(state: dict):
         llm = m.get("llm", {})
 
         requests_15m = _delta({"requests": reqs, "_metrics_prev": prev}, "total")
-        errors_15m = reqs.get("by_status", {}).get("5xx", 0) - prev.get("_metrics_prev", {}).get("err5xx", 0)
+        errors_15m = reqs.get("by_status", {}).get("5xx", 0) - prev.get(
+            "_metrics_prev", {}
+        ).get("err5xx", 0)
         errors_15m = max(0, errors_15m)
 
         # Anomaly: request count dropped > 80% vs previous 15-min window
         prev_requests = prev.get("_metrics_prev", {}).get("_requests_delta", 50)
         if prev_requests > 50 and requests_15m < prev_requests * 0.2:
-            anomalies.append({
-                "type": "metrics", "name": name,
-                "detail": f"请求量骤降: 前周期={prev_requests}, 当前={requests_15m}",
-            })
+            anomalies.append(
+                {
+                    "type": "metrics",
+                    "name": name,
+                    "detail": f"请求量骤降: 前周期={prev_requests}, 当前={requests_15m}",
+                }
+            )
 
         # Anomaly: error rate > 10% in last window
         if requests_15m > 20 and errors_15m / requests_15m > 0.10:
-            anomalies.append({
-                "type": "metrics", "name": name,
-                "detail": f"错误率飙升: {errors_15m}/{requests_15m} ({errors_15m/requests_15m*100:.0f}%)",
-            })
+            anomalies.append(
+                {
+                    "type": "metrics",
+                    "name": name,
+                    "detail": f"错误率飙升: {errors_15m}/{requests_15m} ({errors_15m / requests_15m * 100:.0f}%)",
+                }
+            )
 
         # Anomaly: LLM degraded providers > 0
         degraded = llm.get("degraded_providers", 0)
         if degraded > 0:
-            anomalies.append({
-                "type": "metrics", "name": name,
-                "detail": f"LLM Provider 降级: {degraded} 个",
-            })
+            anomalies.append(
+                {
+                    "type": "metrics",
+                    "name": name,
+                    "detail": f"LLM Provider 降级: {degraded} 个",
+                }
+            )
 
         # Anomaly: global LLM degraded
         if llm.get("global_degraded"):
-            anomalies.append({
-                "type": "metrics", "name": name,
-                "detail": "LLM 全局降级",
-            })
+            anomalies.append(
+                {
+                    "type": "metrics",
+                    "name": name,
+                    "detail": "LLM 全局降级",
+                }
+            )
 
         # Store current snapshot for next comparison, preserving alert state
         prev_entry = state.get(key, {})
@@ -360,6 +420,7 @@ def check_metrics_anomalies(state: dict):
 
 
 # ── Alert key helpers ─────────────────────────────────────────────────────────
+
 
 def alert_key(failure):
     """Map a failure dict to a stable alert key for dedup."""
@@ -412,8 +473,14 @@ def build_email_body(failures, hostname):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     rows = ""
     for f in failures:
-        type_cn = {"container": "容器", "disk": "磁盘", "cpu": "CPU", "memory": "内存", "health": "健康检查"}.get(f["type"], f["type"])
-        rows += f"<tr><td>{type_cn}</td><td>{f.get('name','-')}</td><td style='font-size:11px'>{f.get('detail','')}</td></tr>"
+        type_cn = {
+            "container": "容器",
+            "disk": "磁盘",
+            "cpu": "CPU",
+            "memory": "内存",
+            "health": "健康检查",
+        }.get(f["type"], f["type"])
+        rows += f"<tr><td>{type_cn}</td><td>{f.get('name', '-')}</td><td style='font-size:11px'>{f.get('detail', '')}</td></tr>"
 
     return f"""\
 <!DOCTYPE html>
@@ -493,6 +560,7 @@ def send_email(subject, body_html):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main():
     now = datetime.now()
     hostname = "yeacoyun"
@@ -506,7 +574,13 @@ def main():
 
     # Run all checks
     all_failures = []
-    for check_fn in [check_containers, check_disk, check_cpu, check_memory, check_health_endpoints]:
+    for check_fn in [
+        check_containers,
+        check_disk,
+        check_cpu,
+        check_memory,
+        check_health_endpoints,
+    ]:
         all_failures.extend(check_fn())
     all_failures.extend(check_metrics_anomalies(state))
 
@@ -570,7 +644,9 @@ def main():
 
         _trigger_diagnosis(new_failures, hostname)
     else:
-        log.info("Check OK — no new alerts to send. Active issues: %d", len(active_keys))
+        log.info(
+            "Check OK — no new alerts to send. Active issues: %d", len(active_keys)
+        )
 
     save_state(state)
 
@@ -580,6 +656,7 @@ def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
     Cooldown: 24 hours per (service, symptom) pair — emergency use only."""
     try:
         import os
+
         token = os.environ.get("GITHUB_TOKEN", "")
         if not token:
             log.info("Auto-diagnose skipped: GITHUB_TOKEN not set")
@@ -604,19 +681,25 @@ def _trigger_diagnosis(failures: list[dict], hostname: str) -> None:
                 try:
                     last_run = datetime.fromisoformat(last_run_str)
                     if (now - last_run).total_seconds() < 24 * 3600:
-                        log.info("Auto-diagnose cooldown: %s (last run %s)", diag_key, last_run_str)
+                        log.info(
+                            "Auto-diagnose cooldown: %s (last run %s)",
+                            diag_key,
+                            last_run_str,
+                        )
                         continue
                 except ValueError:
                     pass
 
-            body = json.dumps({
-                "ref": "master",
-                "inputs": {
-                    "service": svc,
-                    "symptom": sym,
-                    "time_range": "30m",
-                },
-            })
+            body = json.dumps(
+                {
+                    "ref": "master",
+                    "inputs": {
+                        "service": svc,
+                        "symptom": sym,
+                        "time_range": "30m",
+                    },
+                }
+            )
             req = Request(
                 f"https://api.github.com/repos/fire-disposal/nursing-vp-sim/actions/workflows/auto-diagnose.yml/dispatches",
                 data=body.encode(),

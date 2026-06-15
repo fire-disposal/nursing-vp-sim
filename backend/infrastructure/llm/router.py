@@ -31,12 +31,13 @@ async def set_env_fallback_state(available: bool, latency_ms: int | None = None,
         _env_fallback_error = error
 
 
-async def _update_synthetic_stats(success: bool, tokens: int):
+async def _update_synthetic_stats(success: bool, prompt_tokens: int, completion_tokens: int):
     if success:
+        total = prompt_tokens + completion_tokens
         async with _env_fallback_lock:
             _env_fallback_stats["call_count"] += 1
-            _env_fallback_stats["total_tokens"] += tokens
-            _env_fallback_stats["total_cost"] += 1.5 * tokens / 1_000_000
+            _env_fallback_stats["total_tokens"] += total
+            _env_fallback_stats["total_cost"] += (prompt_tokens * 1.0 + completion_tokens * 2.0) / 1_000_000
 
 
 async def get_env_fallback_state() -> dict:
@@ -178,9 +179,19 @@ class ProfileRouter:
             return decrypt_api_key(profile.encrypted_key)
         return decrypt_api_key(config.secret.encrypted_key)
 
-    async def report_result(self, config, *, success: bool, tokens: int, latency_ms: int, error: str | None):
+    async def report_result(
+        self,
+        config,
+        *,
+        success: bool,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        total_tokens: int = 0,
+        latency_ms: int = 0,
+        error: str | None = None,
+    ):
         if isinstance(config, _SyntheticConfig):
-            await _update_synthetic_stats(success, tokens)
+            await _update_synthetic_stats(success, prompt_tokens, completion_tokens)
             return
 
         with self._state_lock:
@@ -195,7 +206,7 @@ class ProfileRouter:
                     profile.status = "active"
                     profile.degraded_reason = None
                     profile.degraded_until = None
-                self._update_stats(profile, tokens)
+                self._update_stats(profile, prompt_tokens, completion_tokens)
             elif error and "429" in error:
                 profile.status = "degraded"
                 profile.degraded_reason = "rate_limited"
@@ -207,13 +218,15 @@ class ProfileRouter:
                     profile.degraded_reason = "consecutive_failures"
                     profile.degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
 
-            should_persist = profile.status == "degraded" or profile.call_count_today % 5 == 0
+            # 每次成功调用都持久化计费数据，防止崩溃丢失
+            should_persist = success or profile.status == "degraded"
 
         if should_persist:
             self._persist_stats(profile)
 
-    def _update_stats(self, profile, tokens: int):
+    def _update_stats(self, profile, prompt_tokens: int, completion_tokens: int):
         today = datetime.now(UTC).date()
+        total_tokens = prompt_tokens + completion_tokens
         if profile.stats_date is None or profile.stats_date < today:
             profile.call_count_today = 0
             profile.total_tokens_today = 0
@@ -231,10 +244,10 @@ class ProfileRouter:
             profile.stats_month = today.strftime("%Y-%m")
 
         profile.call_count_today = (profile.call_count_today or 0) + 1
-        profile.total_tokens_today = (profile.total_tokens_today or 0) + tokens
+        profile.total_tokens_today = (profile.total_tokens_today or 0) + total_tokens
         pi = float(profile.price_input_per_1m or 0)
         po = float(profile.price_output_per_1m or 0)
-        cost = (pi * 0.7 + po * 0.3) * tokens / 1_000_000
+        cost = (prompt_tokens / 1_000_000 * pi) + (completion_tokens / 1_000_000 * po)
         profile.total_cost_today = float(profile.total_cost_today or 0) + cost
         profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + cost
         profile.last_used_at = datetime.now(UTC)

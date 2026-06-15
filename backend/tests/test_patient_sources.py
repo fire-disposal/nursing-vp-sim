@@ -21,8 +21,8 @@ class FakeContext:
         self.record = kwargs.get("record")
 
     class Record:
-        def __init__(self, practice_snapshot=None):
-            self.practice_snapshot = practice_snapshot
+        def __init__(self, runtime_state=None):
+            self.runtime_state = runtime_state
 
     class Message:
         def __init__(self, role, content):
@@ -76,8 +76,8 @@ class TestExamResultsSource:
     async def test_formats_exam_results(self):
         src = ExamResultsSource()
         record = FakeContext.Record(
-            practice_snapshot={
-                "_exam_results": [
+            runtime_state={
+                "exam_results": [
                     {"label": "体温", "value": "36.5", "unit": "℃"},
                     {"label": "血压", "value": "120/80", "unit": "mmHg"},
                 ]
@@ -91,7 +91,7 @@ class TestExamResultsSource:
 
     async def test_returns_none_when_no_results(self):
         src = ExamResultsSource()
-        record = FakeContext.Record(practice_snapshot={})
+        record = FakeContext.Record(runtime_state={})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result is None
@@ -99,7 +99,7 @@ class TestExamResultsSource:
     async def test_limits_to_last_5(self):
         src = ExamResultsSource()
         results = [{"label": f"T{i}", "value": str(i), "unit": ""} for i in range(10)]
-        record = FakeContext.Record(practice_snapshot={"_exam_results": results})
+        record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert "T0" not in result
@@ -109,14 +109,14 @@ class TestExamResultsSource:
 class TestExamImpactSource:
     async def test_returns_impact_note(self):
         src = ExamImpactSource()
-        record = FakeContext.Record(practice_snapshot={"_exam_impact_note": "频繁检查让患者不耐烦"})
+        record = FakeContext.Record(runtime_state={"exam_impact_note": "频繁检查让患者不耐烦"})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result == "频繁检查让患者不耐烦"
 
     async def test_returns_none_when_empty(self):
         src = ExamImpactSource()
-        record = FakeContext.Record(practice_snapshot={"_exam_impact_note": ""})
+        record = FakeContext.Record(runtime_state={"exam_impact_note": ""})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result is None

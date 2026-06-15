@@ -56,4 +56,5 @@ class PipelineContext:
         self._count_phase_operations()
 
     def _count_phase_operations(self):
-        self.phase_operation_count = self.case_data.get("_phase_op_count", 0)
+        rs = self.record.runtime_state or {}
+        self.phase_operation_count = rs.get("phase_op_count", 0)

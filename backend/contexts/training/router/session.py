@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
 
+from core.case_schema import validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.feature_flags import FEATURE_FLAGS, resolve_features
@@ -170,6 +171,7 @@ def _create_record(
     time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
 
     config = _resolve_features(case_data, config)
+    validate_case_data(case_data, strict=False)
 
     record = TrainingRecord(
         user_id=user_id,

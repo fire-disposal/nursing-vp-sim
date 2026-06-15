@@ -59,16 +59,16 @@ def advance_phase(
         raise HTTPException(status_code=400, detail="当前无有效阶段")
 
     msg_count = db.query(Message).filter(Message.record_id == record_id).count()
-    op_count = (record.practice_snapshot or {}).get("_phase_op_count", 0)
+    op_count = (record.runtime_state or {}).get("phase_op_count", 0)
 
     next_phase = try_advance_phase(current, phases, msg_count, op_count, manual_requested=True)
     if next_phase is None:
         raise HTTPException(status_code=400, detail="不满足推进条件或已是最后一个阶段")
 
     record.current_phase = next_phase.id
-    snapshot = record.practice_snapshot or {}
-    snapshot["_phase_op_count"] = 0
-    record.practice_snapshot = snapshot
+    rs = record.runtime_state or {}
+    rs["phase_op_count"] = 0
+    record.runtime_state = rs
     db.commit()
 
     log.info("Phase advanced: record_id=%d %s -> %s", record_id, current.id, next_phase.id)

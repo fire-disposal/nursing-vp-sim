@@ -79,7 +79,7 @@ class TestLLMClientCall:
         mock_router.report_result.assert_called_once()
         call_args = mock_router.report_result.call_args
         assert call_args.kwargs["success"] is True
-        assert call_args.kwargs["tokens"] == 42
+        assert call_args.kwargs["total_tokens"] == 42
 
     @pytest.mark.asyncio
     async def test_logs_on_success(self, client, mock_http, mock_log_worker):

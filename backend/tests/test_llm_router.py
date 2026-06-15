@@ -100,7 +100,9 @@ async def test_report_result_circuit_breaks_on_consecutive_failures():
     router._bindings = {"qa": cfg}
 
     for _i in range(5):
-        await router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="timeout")
+        await router.report_result(
+            cfg, success=False, prompt_tokens=0, completion_tokens=0, latency_ms=0, error="timeout"
+        )
     assert secret.status == "degraded"
     assert secret.degraded_reason == "consecutive_failures"
 
@@ -113,7 +115,7 @@ async def test_report_result_429_sets_rate_limited():
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": cfg}
 
-    await router.report_result(cfg, success=False, tokens=0, latency_ms=0, error="HTTP 429")
+    await router.report_result(cfg, success=False, prompt_tokens=0, completion_tokens=0, latency_ms=0, error="HTTP 429")
     assert secret.status == "degraded"
     assert secret.degraded_reason == "rate_limited"
 
@@ -129,7 +131,9 @@ async def test_report_result_success_clears_degraded():
     router._profiles = {secret.id: secret}
     router._bindings = {"qa": cfg}
 
-    await router.report_result(cfg, success=True, tokens=100, latency_ms=50, error=None)
+    await router.report_result(
+        cfg, success=True, prompt_tokens=70, completion_tokens=30, total_tokens=100, latency_ms=50, error=None
+    )
     assert secret.status == "active"
     assert secret.degraded_reason is None
     assert secret.consecutive_failures == 0

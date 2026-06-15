@@ -32,14 +32,16 @@ logging.basicConfig(
 log = logging.getLogger("daily_report")
 
 ENV: dict[str, dict[str, str]] = {
-    "prod":    {"label": "正式服", "url": "http://localhost:9001"},
+    "prod": {"label": "正式服", "url": "http://localhost:9001"},
     "staging": {"label": "测试服", "url": "http://localhost:9081"},
 }
 
 
 def run(cmd: str, timeout: int = 15) -> tuple[int, str]:
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+        )
         return r.returncode, r.stdout.strip()
     except Exception:
         return -1, ""
@@ -71,6 +73,7 @@ def fetch_metrics(base_url: str) -> dict | None:
 
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
+
 
 def dur(seconds: float) -> str:
     seconds = float(seconds)
@@ -125,11 +128,12 @@ def _bar_td(pct: float) -> str:
     color = _color(pct, 60, 80, inverse=True)
     return (
         f'<td class="r" style="color:{color};font-weight:600">'
-        f'{pct:.0f}%{_bar(pct, cls)}</td>'
+        f"{pct:.0f}%{_bar(pct, cls)}</td>"
     )
 
 
 # ── Report builder ────────────────────────────────────────────────────────────
+
 
 def build_report() -> str:
     now = datetime.now()
@@ -194,7 +198,7 @@ def build_report() -> str:
   <table>
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
     <tr><td>状态</td><td class="r">{tag_p}</td><td class="r">{tag_s}</td></tr>
-    <tr><td>版本</td><td class="r"><code>{prod['version']}</code></td><td class="r"><code>{stag['version']}</code></td></tr>
+    <tr><td>版本</td><td class="r"><code>{prod["version"]}</code></td><td class="r"><code>{stag["version"]}</code></td></tr>
     <tr><td>运行时长</td><td class="r">{up_p}</td><td class="r">{up_s}</td></tr>
   </table>
 </div>"""
@@ -216,12 +220,12 @@ def build_report() -> str:
                 f'<div class="ch-row">'
                 f'<span class="ch-lbl">{label}</span>'
                 f'<div class="ch-col"><span class="ch-env">P</span>'
-                f'{_bar(vp / max_r * 100, cls)}'
+                f"{_bar(vp / max_r * 100, cls)}"
                 f'<span class="ch-num">{vp:,}</span></div>'
                 f'<div class="ch-col"><span class="ch-env">S</span>'
-                f'{_bar(vs / max_r * 100, cls)}'
+                f"{_bar(vs / max_r * 100, cls)}"
                 f'<span class="ch-num">{vs:,}</span></div>'
-                f'</div>'
+                f"</div>"
             )
 
         reqs = f"""
@@ -230,10 +234,10 @@ def build_report() -> str:
   <table>
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
     <tr><td>总请求</td><td class="r" style="font-weight:600">{req_p:,}</td><td class="r" style="font-weight:600">{req_s:,}</td></tr>
-    <tr><td>2xx 成功</td>{_td(f'{ok_p:,}', 'var(--c-ok)')}{_td(f'{ok_s:,}', 'var(--c-ok)')}</tr>
-    <tr><td>4xx 客户端</td>{_td(f'{err4_p:,}', 'var(--c-warn)' if err4_p else '')}{_td(f'{err4_s:,}', 'var(--c-warn)' if err4_s else '')}</tr>
-    <tr><td>5xx 服务端</td>{_td(f'{err5_p:,}', 'var(--c-err)' if err5_p else '')}{_td(f'{err5_s:,}', 'var(--c-err)' if err5_s else '')}</tr>
-    <tr><td>5xx 错误率</td>{_td(f'{err_r_p:.1f}%', _color(err_r_p, 1, 5, inverse=True))}{_td(f'{err_r_s:.1f}%', _color(err_r_s, 1, 5, inverse=True))}</tr>
+    <tr><td>2xx 成功</td>{_td(f"{ok_p:,}", "var(--c-ok)")}{_td(f"{ok_s:,}", "var(--c-ok)")}</tr>
+    <tr><td>4xx 客户端</td>{_td(f"{err4_p:,}", "var(--c-warn)" if err4_p else "")}{_td(f"{err4_s:,}", "var(--c-warn)" if err4_s else "")}</tr>
+    <tr><td>5xx 服务端</td>{_td(f"{err5_p:,}", "var(--c-err)" if err5_p else "")}{_td(f"{err5_s:,}", "var(--c-err)" if err5_s else "")}</tr>
+    <tr><td>5xx 错误率</td>{_td(f"{err_r_p:.1f}%", _color(err_r_p, 1, 5, inverse=True))}{_td(f"{err_r_s:.1f}%", _color(err_r_s, 1, 5, inverse=True))}</tr>
   </table>
 
   <div class="sub-section">
@@ -245,10 +249,10 @@ def build_report() -> str:
     <h3>延迟 (ms)</h3>
     <table>
       <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
-      <tr><td>P50</td><td class="r">{_v(lat_p.get('p50'))}</td><td class="r">{_v(lat_s.get('p50'))}</td></tr>
-      <tr><td>P95</td><td class="r">{_v(lat_p.get('p95'))}</td><td class="r">{_v(lat_s.get('p95'))}</td></tr>
-      <tr><td>P99</td><td class="r">{_v(lat_p.get('p99'))}</td><td class="r">{_v(lat_s.get('p99'))}</td></tr>
-      <tr><td>平均</td><td class="r">{_v(lat_p.get('avg'))}</td><td class="r">{_v(lat_s.get('avg'))}</td></tr>
+      <tr><td>P50</td><td class="r">{_v(lat_p.get("p50"))}</td><td class="r">{_v(lat_s.get("p50"))}</td></tr>
+      <tr><td>P95</td><td class="r">{_v(lat_p.get("p95"))}</td><td class="r">{_v(lat_s.get("p95"))}</td></tr>
+      <tr><td>P99</td><td class="r">{_v(lat_p.get("p99"))}</td><td class="r">{_v(lat_s.get("p99"))}</td></tr>
+      <tr><td>平均</td><td class="r">{_v(lat_p.get("avg"))}</td><td class="r">{_v(lat_s.get("avg"))}</td></tr>
     </table>
   </div>
 </div>"""
@@ -287,18 +291,20 @@ def build_report() -> str:
   <table>
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
     <tr><td>总调用</td><td class="r" style="font-weight:600">{llm_p:,}</td><td class="r" style="font-weight:600">{llm_s:,}</td></tr>
-    <tr><td>成功</td>{_td(f'{llm_ok_p:,}', 'var(--c-ok)')}{_td(f'{llm_ok_s:,}', 'var(--c-ok)')}</tr>
-    <tr><td>失败</td>{_td(f'{llm_err_p:,}', 'var(--c-err)' if llm_err_p else '')}{_td(f'{llm_err_s:,}', 'var(--c-err)' if llm_err_s else '')}</tr>
-    <tr><td>成功率</td>{_td(f'{llm_sr_p:.1f}%', _color(llm_sr_p, 95, 80))}{_td(f'{llm_sr_s:.1f}%', _color(llm_sr_s, 95, 80))}</tr>
+    <tr><td>成功</td>{_td(f"{llm_ok_p:,}", "var(--c-ok)")}{_td(f"{llm_ok_s:,}", "var(--c-ok)")}</tr>
+    <tr><td>失败</td>{_td(f"{llm_err_p:,}", "var(--c-err)" if llm_err_p else "")}{_td(f"{llm_err_s:,}", "var(--c-err)" if llm_err_s else "")}</tr>
+    <tr><td>成功率</td>{_td(f"{llm_sr_p:.1f}%", _color(llm_sr_p, 95, 80))}{_td(f"{llm_sr_s:.1f}%", _color(llm_sr_s, 95, 80))}</tr>
     <tr><td>Token 消耗</td><td class="r">{tok_p:,}</td><td class="r">{tok_s:,}</td></tr>
     <tr><td>预估费用</td><td class="r">¥{cost_p:.2f}</td><td class="r">¥{cost_s:.2f}</td></tr>
-    <tr><td>平均延迟</td><td class="r">{_v(llat_p.get('avg'))} ms</td><td class="r">{_v(llat_s.get('avg'))} ms</td></tr>
-    <tr><td>P95 延迟</td><td class="r">{_v(llat_p.get('p95'))} ms</td><td class="r">{_v(llat_s.get('p95'))} ms</td></tr>
+    <tr><td>平均延迟</td><td class="r">{_v(llat_p.get("avg"))} ms</td><td class="r">{_v(llat_s.get("avg"))} ms</td></tr>
+    <tr><td>P95 延迟</td><td class="r">{_v(llat_p.get("p95"))} ms</td><td class="r">{_v(llat_s.get("p95"))} ms</td></tr>
   </table>
   {degraded}
 </div>"""
     else:
-        llm_section = '<div class="card"><h2>LLM 调用</h2><div class="dim">暂无数据</div></div>'
+        llm_section = (
+            '<div class="card"><h2>LLM 调用</h2><div class="dim">暂无数据</div></div>'
+        )
 
     # ── Resources ──
     act_p = pm.get("active_sessions", 0)
@@ -327,8 +333,8 @@ def build_report() -> str:
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
     <tr><td>活跃会话</td><td class="r">{act_p}</td><td class="r">{act_s}</td></tr>
     <tr><td>进程内存</td><td class="r">{mem_p:.0f} MB</td><td class="r">{mem_s:.0f} MB</td></tr>
-    <tr><td>任务队列</td><td class="r">{_v(qp.get('task_queue'))}</td><td class="r">{_v(qs.get('task_queue'))}</td></tr>
-    <tr><td>日志队列</td><td class="r">{_v(qp.get('log_queue'))}</td><td class="r">{_v(qs.get('log_queue'))}</td></tr>
+    <tr><td>任务队列</td><td class="r">{_v(qp.get("task_queue"))}</td><td class="r">{_v(qs.get("task_queue"))}</td></tr>
+    <tr><td>日志队列</td><td class="r">{_v(qp.get("log_queue"))}</td><td class="r">{_v(qs.get("log_queue"))}</td></tr>
   </table>"""
 
     if dbp or dbs:
@@ -337,8 +343,8 @@ def build_report() -> str:
     <h3>DB 连接池</h3>
     <table>
       <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>
-      <tr><td>池大小</td><td class="r">{_v(dbp.get('pool_size'))}</td><td class="r">{_v(dbs.get('pool_size'))}</td></tr>
-      <tr><td>使用中</td><td class="r">{_v(dbp.get('checked_out'))}</td><td class="r">{_v(dbs.get('checked_out'))}</td></tr>
+      <tr><td>池大小</td><td class="r">{_v(dbp.get("pool_size"))}</td><td class="r">{_v(dbs.get("pool_size"))}</td></tr>
+      <tr><td>使用中</td><td class="r">{_v(dbp.get("checked_out"))}</td><td class="r">{_v(dbs.get("checked_out"))}</td></tr>
       <tr><td>使用率</td>{_bar_td(db_pct_p)}{_bar_td(db_pct_s)}</tr>
     </table>
   </div>"""
@@ -382,8 +388,7 @@ def build_report() -> str:
 </div>"""
 
     return (
-        WRAPPER
-        .replace("__HEADER__", header)
+        WRAPPER.replace("__HEADER__", header)
         .replace("__OVERVIEW__", overview)
         .replace("__REQS__", reqs)
         .replace("__LLM__", llm_section)
