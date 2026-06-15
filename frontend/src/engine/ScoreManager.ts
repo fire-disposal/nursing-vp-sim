@@ -1,12 +1,12 @@
 // frontend/src/engine/ScoreManager.ts
 import { api } from "@/api/axios-instance";
-import type { MessageBus, ScoreData } from "./types";
+import type { MessageBus, ScoreData, ScoringProgress } from "./types";
 
 export class ScoreManager {
 	private recordId: number | null;
 	private bus: MessageBus | null;
 	private _score: ScoreData | null = null;
-	private _progress = 0;
+	private _progress: ScoringProgress = { phase: null, percentage: 0, message: "" };
 	private _polling = false;
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private listeners: Array<() => void> = [];
@@ -17,21 +17,13 @@ export class ScoreManager {
 		this.bus = bus ?? null;
 	}
 
-	get score(): ScoreData | null {
-		return this._score;
-	}
-	get progress(): number {
-		return this._progress;
-	}
-	get polling(): boolean {
-		return this._polling;
-	}
+	get score(): ScoreData | null { return this._score; }
+	get progress(): ScoringProgress { return this._progress; }
+	get polling(): boolean { return this._polling; }
 
 	subscribe(fn: () => void): () => void {
 		this.listeners.push(fn);
-		return () => {
-			this.listeners = this.listeners.filter((l) => l !== fn);
-		};
+		return () => { this.listeners = this.listeners.filter((l) => l !== fn); };
 	}
 
 	private notify(): void {
@@ -43,10 +35,10 @@ export class ScoreManager {
 
 	async end(): Promise<void> {
 		if (!this.recordId) return;
-		this._progress = 10;
+		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
 		this.notify();
 		await api.post(`/training/${this.recordId}/end`);
-		this._progress = 30;
+		this._progress = { phase: "loading", percentage: 10, message: "评分已触发，等待后台处理..." };
 		this.notify();
 		this.startPolling();
 	}
@@ -55,12 +47,14 @@ export class ScoreManager {
 		if (this._polling || !this.recordId) return;
 		this._polling = true;
 		let retries = 0;
-		const maxRetries = 100;
+		const maxRetries = 200;
 
 		const poll = async () => {
 			if (!this._polling || document.hidden) return;
 			if (retries >= maxRetries) {
+				this._progress = { phase: "failed", percentage: 0, message: "评分超时" };
 				this.stopPolling();
+				this.notify();
 				return;
 			}
 			try {
@@ -69,33 +63,47 @@ export class ScoreManager {
 					scoring_status?: string;
 					scoring_error?: string | null;
 					score?: { total_score?: number } | null;
+					progress?: { phase: string; percentage: number; message: string } | null;
 				};
 				if (data.scoring_status === "failed") {
-					this._progress = 0;
+					this._progress = {
+						phase: "failed",
+						percentage: 0,
+						message: data.scoring_error || "评分失败",
+					};
 					this.stopPolling();
 					this.notify();
 					return;
 				}
 				if (data.score && data.score.total_score !== undefined) {
 					this._score = data.score as ScoreData;
-					this._progress = 100;
+					this._progress = { phase: "completed", percentage: 100, message: "评分完成" };
 					this.stopPolling();
 					this.notify();
 					return;
 				}
-				this._progress = Math.min(95, 30 + retries * 2);
+				// Use backend real progress if available
+				if (data.progress) {
+					this._progress = {
+						phase: data.progress.phase as any,
+						percentage: data.progress.percentage,
+						message: data.progress.message,
+					};
+				} else {
+					const pct = Math.min(95, 10 + retries * 1.5);
+					this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
+				}
 				this.notify();
 			} catch {
-				this._progress = Math.min(95, 30 + retries * 2);
+				const pct = Math.min(95, 10 + retries * 1.5);
+				this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
 				this.notify();
 			}
 			retries++;
 		};
 
-		this.pollTimer = setInterval(poll, 3000);
-		this._visibilityHandler = () => {
-			if (!document.hidden) poll();
-		};
+		this.pollTimer = setInterval(poll, 1500);
+		this._visibilityHandler = () => { if (!document.hidden) poll(); };
 		document.addEventListener("visibilitychange", this._visibilityHandler);
 		poll();
 	}
@@ -118,14 +126,14 @@ export class ScoreManager {
 		this.bus = null;
 		this.listeners = [];
 		this._score = null;
-		this._progress = 0;
+		this._progress = { phase: null, percentage: 0, message: "" };
 		this._visibilityHandler = null;
 	}
 
 	reset(): void {
 		this.stopPolling();
 		this._score = null;
-		this._progress = 0;
+		this._progress = { phase: null, percentage: 0, message: "" };
 		this.notify();
 	}
 

@@ -33,6 +33,14 @@ export interface ScoreDimensionItem {
 	reason?: string;
 }
 
+export type ScorePhase = "loading" | "scoring" | "feedback" | "saving" | "completed" | "failed" | "processing" | null;
+
+export interface ScoringProgress {
+	phase: ScorePhase;
+	percentage: number;
+	message: string;
+}
+
 export interface ScoreData {
 	total_score?: number;
 	detail_scores?: Record<string, ScoreDimension>;
