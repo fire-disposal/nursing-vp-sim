@@ -24,6 +24,7 @@ from schemas import (
 
 log = logging.getLogger(__name__)
 
+from core.case_schema import assert_valid_case_data
 from contexts.patient import format_case_for_prompt
 from core.config import get_llm_config
 from core.pagination import paginate
@@ -223,6 +224,7 @@ async def generate_case(
         field_value = result.get("field_value") or result.get(data.field)
         return CaseGenerateResponse(field_value=field_value, field=data.field)
 
+    result = assert_valid_case_data(result)
     return CaseGenerateResponse(case_data=result)
 
 
@@ -261,23 +263,7 @@ def create_case(
 ):
     """创建新病例"""
     cd = req.case_data
-    if not cd.get("name"):
-        raise HTTPException(status_code=400, detail="病例数据必须包含 name 字段")
-    if len(str(cd.get("name", ""))) > 100:
-        raise HTTPException(status_code=400, detail="病例名称不能超过100个字符")
-    if "personality" not in cd:
-        cd["personality"] = {
-            "health_literacy": "normal",
-            "verbosity": "normal",
-            "anxiety_trait": "normal",
-            "patience": "normal",
-        }
-    if "deep_background" not in cd:
-        cd["deep_background"] = {}
-    if "exam_anchors" not in cd:
-        cd["exam_anchors"] = {}
-    if "example_dialogues" not in cd:
-        cd["example_dialogues"] = []
+    cd = assert_valid_case_data(cd)
     case = Case(
         name=cd["name"],
         description=cd.get("description", ""),
@@ -310,10 +296,7 @@ def update_case(
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
     cd = req.case_data
-    if not cd.get("name"):
-        raise HTTPException(status_code=400, detail="病例数据必须包含 name 字段")
-    if len(str(cd.get("name", ""))) > 100:
-        raise HTTPException(status_code=400, detail="病例名称不能超过100个字符")
+    cd = assert_valid_case_data(cd)
     case.name = cd["name"]
     case.description = cd.get("description", "")
     case.case_data = cd
