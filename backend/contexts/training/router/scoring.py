@@ -229,22 +229,20 @@ async def retry_scoring(
             raise HTTPException(status_code=403, detail="无权操作此记录")
         if record.status != "completed":
             raise HTTPException(status_code=400, detail="训练尚未结束")
-        if record.scoring_status == "pending":
-            raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
+
+        now = datetime.now(UTC)
         if record.scoring_status == "processing":
-            if record.end_time and (datetime.now(UTC) - ensure_utc(record.end_time)).total_seconds() > 300:
-                record.scoring_status = "failed"
-                db.commit()
-            else:
+            if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
+
+        record.scoring_status = None
+        record.scoring_error = None
+        db.commit()
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
 
         if not await _try_acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
-
-        record.scoring_error = None
-        db.commit()
 
         await request.app.state.task_queue.enqueue(
             lambda: _run_scoring_background(

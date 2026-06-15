@@ -61,6 +61,43 @@ BANNER = textwrap.dedent(r"""\
 """).strip()  # noqa: W291
 
 
+def _recover_stuck_scoring_records():
+    """Recover scoring records stuck in 'pending'/'processing' from a previous instance crash."""
+    from datetime import UTC, datetime
+
+    from core.database import SessionLocal
+    from models import TrainingRecord
+
+    db = SessionLocal()
+    try:
+        stuck = (
+            db.query(TrainingRecord)
+            .filter(
+                TrainingRecord.scoring_status.in_(["pending", "processing"]),
+                TrainingRecord.status == "completed",
+            )
+            .all()
+        )
+        now = datetime.now(UTC)
+        for rec in stuck:
+            if rec.scoring_status == "pending" or (
+                rec.end_time and (now - rec.end_time.replace(tzinfo=UTC)).total_seconds() > 300
+            ):
+                rec.scoring_status = "failed"
+                rec.scoring_error = "服务重启导致评分中断，请点击重新评分"
+        db.commit()
+        if stuck:
+            log.info(
+                "恢复了 %d 条卡住的评分记录",
+                len(stuck),
+                extra={"count": len(stuck), "action": "scoring_recovery"},
+            )
+    except Exception:
+        log.exception("恢复卡住的评分记录失败")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -79,6 +116,10 @@ async def lifespan(app: FastAPI):
 
     seed_all()
     log.info("Seeds: complete")
+
+    _recover_stuck_scoring_records()
+
+    log.info("Scoring recovery: done")
 
     app.state.rate_limiter = RateLimiter()
 

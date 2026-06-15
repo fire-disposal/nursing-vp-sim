@@ -87,6 +87,7 @@ class TaskQueue:
                     task.future.cancel()
                 break
             except Exception as exc:
+                log.exception("TaskQueue 任务异常", exc_info=exc)
                 if not task.future.done():
                     task.future.set_exception(exc)
             finally:
