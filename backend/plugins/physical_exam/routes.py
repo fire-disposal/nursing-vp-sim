@@ -11,7 +11,7 @@ from core.database import get_db
 from core.feature_flags import resolve_features
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
-from plugins.base import ExamContext, ExamEffect, ExamEffect
+from plugins.base import ExamContext, ExamEffect
 
 log = logging.getLogger(__name__)
 

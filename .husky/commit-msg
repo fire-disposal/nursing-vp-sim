@@ -1,1 +1,2 @@
+#!/bin/sh
 node .husky/validate-commit.js "$1"
