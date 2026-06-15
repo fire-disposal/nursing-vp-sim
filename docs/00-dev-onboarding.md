@@ -30,20 +30,20 @@ git clone git@github.com:fire-disposal/nursing-vp-sim.git
 cd nursing-vp-sim
 
 # 2. 安装根依赖（husky + commitlint + concurrently）
-npm install
+pnpm install
 
 # 3. 安装后端依赖
 cd backend && uv sync && cd ..
 
 # 4. 安装前端依赖
-cd frontend && npm install && cd ..
+cd frontend && pnpm install && cd ..
 ```
 
 
 ### 1.3 安装 OpenCode + Superpowers Skills
 
 ```bash
-npm install -g @anthropic/opencode
+pnpm install -g @anthropic/opencode
 ```
 
 在项目目录启动 OpenCode 后，输入以下指令安装 Superpowers Skills：
@@ -167,7 +167,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 **一键启动（推荐）**
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 自动并行启动前后端（蓝色=后端，绿色=前端），Ctrl+C 同时停止。
@@ -176,11 +176,11 @@ npm run dev
 
 ```bash
 # 1. 启动后端
-npm run dev:backend
+pnpm run dev:backend
 # → 输出: Uvicorn running on http://0.0.0.0:8000
 
 # 2. 新开终端，启动前端
-npm run dev:frontend
+pnpm run dev:frontend
 # → 输出: Local: http://localhost:3000/
 ```
 
@@ -222,7 +222,7 @@ Start-Service postgresql-x64-15
 2. 确认数据库 `vptest` 已创建：用 DBeaver 连接，看左侧导航栏是否有该数据库
 3. 确认密码正确：安装时设置的密码是否与 `.env` 中 `DATABASE_URL` 的密码一致
 
-**Q: `npm run dev:backend` 报 `uv` 未找到？**
+**Q: `pnpm run dev:backend` 报 `uv` 未找到？**
 去 https://docs.astral.sh/uv/getting-started/installation/ 安装 uv（Windows 用 PowerShell 一键安装），安装后重启终端再试。
 
 **Q: 前端代理不通？**
@@ -288,9 +288,9 @@ fix scoring bug            ← 缺少 emoji
 
 **常见问题**：
 - **commit 被 Husky 拦住了？** 看错误提示，最常见是忘了 emoji 或类型不匹配。用上方复制前缀即可。
-- **push tag 被拦住了？** tag 必须是 `vYYYY.MM.DD-N` 格式。用 `npm run tag` 自动生成就不会出错。
+- **push tag 被拦住了？** tag 必须是 `vYYYY.MM.DD-N` 格式。用 `pnpm run tag` 自动生成就不会出错。
 - **为什么必须 Emoji 提交？** 一眼看出每次 commit 的类型——翻 `git log` 时立刻知道哪个是新功能、哪个是修 bug。
-- **`npm run tag` 提示 tag 已存在？** 正常——同天多次发版自动递增 `-N`。如已有 `v2026.06.12-1`，运行后生成 `v2026.06.12-2`。
+- **`pnpm run tag` 提示 tag 已存在？** 正常——同天多次发版自动递增 `-N`。如已有 `v2026.06.12-1`，运行后生成 `v2026.06.12-2`。
 
 ### 2.3 快速复制前缀
 
@@ -370,18 +370,18 @@ OpenCode 在本项目中会自动遵循以下约定：
 
 ### 3.5 快捷 NPM Scripts
 
-除了 `npm run dev` 外，这些 scripts 也经常用到：
+除了 `pnpm run dev` 外，这些 scripts 也经常用到：
 
 | Script | 作用 | 场景 |
 |--------|------|------|
-| `npm run dev` | 一键启动前后端 | 日常开发 |
-| `npm run dev:backend` | 只启动后端 | 只改后端时 |
-| `npm run dev:frontend` | 只启动前端 | 只改前端时 |
-| `npm run tag` | 自动生成日期版本号并推送 | 发版 |
-| `npm run tag:local` | 只生成本地 tag | 暂不推送 |
-| `npm run db:migrate` | 执行数据库迁移 | 数据库变更后 |
-| `npm run api:update` | 更新 OpenAPI spec + 生成 TS 类型 | 改 API 后 |
-| `npm run api:update:all` | 更新所有 API 客户端（含小程序） | 改 API 影响小程序时 |
+| `pnpm run dev` | 一键启动前后端 | 日常开发 |
+| `pnpm run dev:backend` | 只启动后端 | 只改后端时 |
+| `pnpm run dev:frontend` | 只启动前端 | 只改前端时 |
+| `pnpm run tag` | 自动生成日期版本号并推送 | 发版 |
+| `pnpm run tag:local` | 只生成本地 tag | 暂不推送 |
+| `pnpm run db:migrate` | 执行数据库迁移 | 数据库变更后 |
+| `pnpm run api:update` | 更新 OpenAPI spec + 生成 TS 类型 | 改 API 后 |
+| `pnpm run api:update:all` | 更新所有 API 客户端（含小程序） | 改 API 影响小程序时 |
 
 ---
 
@@ -424,7 +424,7 @@ OpenCode 在本项目中会自动遵循以下约定：
          ◄────────── merge ───────────────────┘
          │
          ▼
-      npm run tag → v2026.06.07-1
+      pnpm run tag → v2026.06.07-1
          │
          ▼
       Staging 自动部署（到测试服）
@@ -446,8 +446,8 @@ v2026.06.07-3    ← 当天第三个版本
 **快捷操作：**
 
 ```bash
-npm run tag           # 自动计算版本号 → git tag → git push → 触发 Staging 部署
-npm run tag:local     # 只创建本地 tag，不推送（手动审查后再 push）
+pnpm run tag           # 自动计算版本号 → git tag → git push → 触发 Staging 部署
+pnpm run tag:local     # 只创建本地 tag，不推送（手动审查后再 push）
 ```
 
 > Tag 推送时 pre-push hook 自动校验格式和计数器，不合规的 tag 会被拦截。
@@ -467,7 +467,7 @@ PR 描述:
 
 ```
 1. 代码合入 master
-2. npm run tag → 自动部署到测试服 (test.205716.xyz)
+2. pnpm run tag → 自动部署到测试服 (test.205716.xyz)
 3. 在测试服验证功能
 4. GitHub Actions → Deploy to Production
    输入与测试服相同的版本号
@@ -589,7 +589,7 @@ ssh <user>@<host> "cd /opt/nursing-vp-sim && bash rollback.sh"
 
 | 想做什么 | 操作 |
 |----------|------|
-| 部署测试服 | `npm run tag` |
+| 部署测试服 | `pnpm run tag` |
 | 部署正式服 | GitHub Actions → Deploy to Production → 输入版本号 |
 | 回滚生产 | GitHub Actions → Emergency Rollback → 输入版本号 |
 | 开启维护 | GitHub Actions → Maintenance Mode → enable |
@@ -609,7 +609,7 @@ uv run python -m pytest tests/ -v
 
 # 前端测试（Vitest）
 cd frontend
-npx vitest run
+pnpm vitest run
 ```
 
 > CI 流水线在 PR 时会自动运行全部测试。测试不通过则无法合并。
@@ -621,10 +621,10 @@ npx vitest run
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  环境搭建                                                │
-│  npm install && cd backend && uv sync && cd .. &&        │
-│  cd frontend && npm install && cd ..                     │
+│  pnpm install && cd backend && uv sync && cd .. &&        │
+│  cd frontend && pnpm install && cd ..                     │
 │  cp .env.example .env     # 填写 SECRET_KEY + API_KEY   │
-│  npm run dev              # 一键启动                      │
+│  pnpm run dev              # 一键启动                      │
 ├─────────────────────────────────────────────────────────┤
 │  提交规范                                                │
 │  <emoji> <type>: <描述>                                  │
@@ -632,7 +632,7 @@ npx vitest run
 │       🐛 fix: 修复XXX问题                                │
 ├─────────────────────────────────────────────────────────┤
 │  发版                                                    │
-│  npm run tag              # 自动版本号 + push + 部署测试服│
+│  pnpm run tag              # 自动版本号 + push + 部署测试服│
 │  GitHub Actions → Deploy to Production（手动）           │
 ├─────────────────────────────────────────────────────────┤
 │  应急                                                    │
@@ -655,4 +655,4 @@ npx vitest run
 | [09-运维安全指南](09-operations.md) | 生产运维、应急预案 |
 | [.github/DEPLOYMENT.md](../.github/DEPLOYMENT.md) | 部署流水线详解 |
 
-> **记住三件事就够了：** `git commit -m "✨ feat: 描述"` → `npm run tag` → GitHub Actions 手动触发 Production。
+> **记住三件事就够了：** `git commit -m "✨ feat: 描述"` → `pnpm run tag` → GitHub Actions 手动触发 Production。

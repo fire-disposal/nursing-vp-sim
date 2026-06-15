@@ -20,7 +20,7 @@
 ### 日常发布流程
 
 ```
-npm run tag → v2026.06.02-N
+pnpm run tag → v2026.06.02-N
     │
     ▼ staging.yml 自动触发
   构建镜像 → 部署到测试服（60s）

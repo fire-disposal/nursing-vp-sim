@@ -14,12 +14,12 @@
 
 ```bash
 # 首次安装
-npm install
+pnpm install
 cd backend && uv sync && cd ..
-cd frontend && npm install && cd ..
+cd frontend && pnpm install && cd ..
 
 # 开发模式（一键启动前后端）
-npm run dev
+pnpm run dev
 ```
 
 - 后端: http://localhost:8000（Swagger API 文档: /docs）

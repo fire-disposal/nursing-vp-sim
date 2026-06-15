@@ -203,7 +203,7 @@ frontend/src/
 cd backend && uv sync && uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 # 前端 (端口 3000)
-cd frontend && npm install && npm run dev
+cd frontend && pnpm install && pnpm run dev
 ```
 
 默认账号: 教师 admin/admin123 | 学生 student1/123456 ~ student5/123456

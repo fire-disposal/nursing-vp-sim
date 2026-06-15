@@ -85,4 +85,4 @@ console.log(`  Down revision: ${head}`);
 console.log();
 console.log("Next steps:");
 console.log("  1. Edit upgrade() — add your INSERT/UPDATE/seed operations");
-console.log("  2. Run: npm run db:migrate");
+console.log("  2. Run: pnpm run db:migrate");

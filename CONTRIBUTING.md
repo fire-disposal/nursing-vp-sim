@@ -107,7 +107,7 @@ Husky pre-commit           Husky pre-push         GitHub Actions
 
 | 操作 | 命令 / 方式 |
 |------|-------------|
-| 部署测试服 | `npm run tag`（自动 tag + push → staging.yml） |
+| 部署测试服 | `pnpm run tag`（自动 tag + push → staging.yml） |
 | 部署正式服 | GitHub Actions → Deploy to Production |
 | 回滚 | Actions → Emergency Rollback / `ssh <host> bash rollback.sh` |
 | 维护模式 | Actions → Maintenance Mode（Nginx 层，不依赖后端） |
