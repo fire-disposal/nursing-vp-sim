@@ -79,6 +79,13 @@ class CaseDataSchema(BaseModel):
     example_dialogues: list[dict] = []
 
 
+GENDER_MAP = {"男": "male", "女": "female"}
+
+
+def normalize_gender(gender: str) -> str:
+    return GENDER_MAP.get(gender, gender)
+
+
 def validate_case_data(data: dict, *, strict: bool = False) -> dict:
     # Pydantic schema check
     try:

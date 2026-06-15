@@ -210,11 +210,19 @@ export default function CaseSelect() {
 										<div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
 											<span className="inline-flex items-center gap-1">
 												<User size={14} />
-												{summary.gender === "男"
+											{(() => {
+												const g =
+													summary.gender === "男"
+														? "male"
+														: summary.gender === "女"
+															? "female"
+															: summary.gender;
+												return g === "male"
 													? "男性"
-													: summary.gender === "女"
+													: g === "female"
 														? "女性"
-														: summary.gender}
+														: g;
+											})()}
 											</span>
 											{typeof summary.age === "number" && (
 												<span>{summary.age}岁</span>

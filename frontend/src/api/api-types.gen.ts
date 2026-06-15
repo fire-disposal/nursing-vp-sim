@@ -4474,6 +4474,11 @@ export interface components {
             patient_info?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Patient Gender
+             * @default
+             */
+            patient_gender: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -4483,6 +4488,10 @@ export interface components {
              * @default false
              */
             from_assignment: boolean;
+            /** Exam Anchors */
+            exam_anchors?: {
+                [key: string]: unknown;
+            };
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {

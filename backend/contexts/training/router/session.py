@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
-from core.case_schema import validate_case_data
+from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.feature_flags import FEATURE_FLAGS, resolve_features
@@ -514,6 +514,7 @@ def get_record_detail(
         notes=note_records,  # ty: ignore[invalid-argument-type]
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
+        patient_gender=normalize_gender(patient_info.get("gender", "")),
         features=resolve_features(record.practice_snapshot),
         from_assignment=record.assignment_id is not None,
         exam_anchors=case_data.get("exam_anchors", {}),

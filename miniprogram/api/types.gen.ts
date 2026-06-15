@@ -1080,8 +1080,10 @@ export interface TrainingRecordDetail {
   notes?: NoteItem[]
   required_inquiries?: unknown[] | null
   patient_info?: Record<string, unknown> | null
+  patient_gender?: string
   features?: Record<string, unknown>
   from_assignment?: boolean
+  exam_anchors?: Record<string, unknown>
 }
 
 export interface TrainingStartRequest {

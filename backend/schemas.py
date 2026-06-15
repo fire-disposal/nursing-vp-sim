@@ -301,6 +301,7 @@ class TrainingRecordDetail(BaseModel):
     notes: list["NoteItem"] = []
     required_inquiries: list | None = None
     patient_info: dict[str, Any] | None = None
+    patient_gender: str = ""
     features: dict[str, bool] = Field(default_factory=dict)
     from_assignment: bool = False
     exam_anchors: dict[str, Any] = Field(default_factory=dict)

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.case_schema import normalize_gender
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
@@ -64,14 +65,14 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
         description=case.description,
         patient_name=info.get("name", ""),
         patient_age=info.get("age"),
-        patient_gender=info.get("gender", ""),
-        chief_complaint=cd.get("chief_complaint", ""),
-        time_limit=cd.get("time_limit", 20),
-        difficulty=cd.get("difficulty", 1),
-        patient_personality=_personality_label(personality),
-        created_at=case.created_at,
-        training_count=training_count,
-    )
+		patient_gender=normalize_gender(info.get("gender", "")),
+		chief_complaint=cd.get("chief_complaint", ""),
+		time_limit=cd.get("time_limit", 20),
+		difficulty=cd.get("difficulty", 1),
+		patient_personality=_personality_label(personality),
+		created_at=case.created_at,
+		training_count=training_count,
+	)
 
 
 @router.get("", response_model=PaginatedResponse[CaseBrief])
@@ -147,7 +148,7 @@ def list_cases_manage(
                 description=c.description,
                 patient_name=(c.case_data or {}).get("patient_info", {}).get("name", ""),
                 patient_age=(c.case_data or {}).get("patient_info", {}).get("age"),
-                patient_gender=(c.case_data or {}).get("patient_info", {}).get("gender", ""),
+                patient_gender=normalize_gender((c.case_data or {}).get("patient_info", {}).get("gender", "")),
                 chief_complaint=(c.case_data or {}).get("chief_complaint", ""),
                 time_limit=(c.case_data or {}).get("time_limit", 20),
                 difficulty=(c.case_data or {}).get("difficulty", 1),

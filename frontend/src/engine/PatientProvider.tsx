@@ -56,10 +56,12 @@ export function PatientProvider({
 			.then((res) => {
 				if (cancelled) return;
 				const d = res.data;
-				setPatient({
+				const rawGender = d.patient_gender || d.patient_info?.gender || "male";
+			const gender = rawGender === "男" ? "male" : rawGender === "女" ? "female" : rawGender;
+			setPatient({
 					name: d.patient_name ?? d.patient?.name ?? "患者",
 					age: d.patient_age ?? d.patient?.age ?? 0,
-					gender: d.patient_gender ?? d.patient?.gender ?? "male",
+					gender,
 					caseTitle: d.case_title ?? d.case?.title ?? "",
 					chiefComplaint: d.chief_complaint ?? d.case?.chief_complaint ?? "",
 					personality: d.personality ?? d.case?.personality ?? "",

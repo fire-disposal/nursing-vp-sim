@@ -13956,6 +13956,11 @@
             ],
             "title": "Patient Info"
           },
+          "patient_gender": {
+            "type": "string",
+            "title": "Patient Gender",
+            "default": ""
+          },
           "features": {
             "additionalProperties": {
               "type": "boolean"
@@ -13967,6 +13972,11 @@
             "type": "boolean",
             "title": "From Assignment",
             "default": false
+          },
+          "exam_anchors": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Exam Anchors"
           }
         },
         "type": "object",
