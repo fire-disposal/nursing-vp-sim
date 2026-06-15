@@ -116,5 +116,3 @@ class TestExamImpactSource:
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result is None
-
-

@@ -71,10 +71,7 @@ class PatternGuard(PostGuard):
         if not reply or not reply.strip():
             return False
         reply_lower = reply.lower()
-        for pattern in self._patterns:
-            if pattern.lower() in reply_lower:
-                return True
-        return False
+        return any(pattern.lower() in reply_lower for pattern in self._patterns)
 
 
 class NoGuard(PostGuard):

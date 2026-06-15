@@ -36,13 +36,6 @@ from .initiative import (
     update_initiative_timer,
 )
 
-# 提示词构建
-from .prompt import (
-    build_patient_chat_messages,
-    build_patient_context_kwargs,
-    format_case_for_prompt,
-)
-
 # NoteSource 实例（组合 author_note）
 from .note_source import (
     EmotionNoteSource,
@@ -51,6 +44,13 @@ from .note_source import (
     IdentityGuardSource,
     NoteSource,
     PluginAuthorNoteSource,
+)
+
+# 提示词构建
+from .prompt import (
+    build_patient_chat_messages,
+    build_patient_context_kwargs,
+    format_case_for_prompt,
 )
 
 __all__ = [
@@ -71,7 +71,6 @@ __all__ = [
     "classify_intent",
     "cleanup_emotion",
     "cleanup_initiative",
-
     "detect_operation",
     "format_case_for_prompt",
     "generate_initiative",

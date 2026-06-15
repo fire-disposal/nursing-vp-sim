@@ -40,7 +40,7 @@ def build_scoring_criteria(rubric: dict | None = None, level: str = "full") -> s
 
         for i, item in enumerate(dim["items"]):
             if level == "brief":
-                lines.append(f"{i+1}. {item['name']}（满分{raw_scale}分）")
+                lines.append(f"{i + 1}. {item['name']}（满分{raw_scale}分）")
             else:
                 anchors = item.get("anchors", {})
                 anchor_text = " / ".join(f"{k}分: {v}" for k, v in sorted(anchors.items()))

@@ -20,8 +20,7 @@ class NoteSource(ABC):
     max_tokens: int = 100
 
     @abstractmethod
-    async def collect(self, ctx: PipelineContext) -> str | None:
-        ...
+    async def collect(self, ctx: PipelineContext) -> str | None: ...
 
 
 class EmotionNoteSource(NoteSource):
@@ -31,7 +30,7 @@ class EmotionNoteSource(NoteSource):
 
     async def collect(self, ctx: PipelineContext) -> str | None:
         note = ctx.state.get("emotion_note")
-        return note if note else None
+        return note or None
 
 
 class IdentityGuardSource(NoteSource):

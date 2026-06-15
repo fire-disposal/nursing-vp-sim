@@ -6,7 +6,6 @@ from contexts.patient import (
     build_patient_chat_messages,
     build_patient_context_kwargs,
 )
-
 from infrastructure.prompt import render_template
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 

@@ -1,13 +1,11 @@
 """Tests for NoteSource ABC and NoteCollector."""
 
-import pytest
-from contexts.patient.note_source import NoteSource
 from contexts.patient.note_collector import (
     MAX_AUTHOR_NOTE_TOKENS,
     NoteCollector,
     _estimate_tokens,
-    _truncate_tokens,
 )
+from contexts.patient.note_source import NoteSource
 
 
 class FakeSource(NoteSource):

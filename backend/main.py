@@ -120,8 +120,6 @@ async def lifespan(app: FastAPI):
     pm.discover()
     log.info("Plugins: registered (%d discovered)", len(pm._plugins))
 
-
-
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
 

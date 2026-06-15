@@ -29,13 +29,12 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
 
     try:
         case_data = ctx.case_data or {}
-        personality = (
-            case_data.get("personality", {})
-            or case_data.get("patient_info", {}).get("personality", {})
-        )
+        personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
         emotion_state = get_emotion(ctx.record.id, emotion_cache)
 
-        if not should_initiate(ctx.record.id, initiative_cache, personality, emotion_state.trust, emotion_state.comfort):
+        if not should_initiate(
+            ctx.record.id, initiative_cache, personality, emotion_state.trust, emotion_state.comfort
+        ):
             update_initiative_timer(ctx.record.id, initiative_cache, len(ctx.llm_reply))
             return
 
@@ -49,9 +48,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         ctx.db.refresh(msg)
 
         ctx.state.setdefault("_saved_messages", []).append(msg)
-        ctx.state.setdefault("_post_stream_events", []).append(
-            {"initiative": {"content": msg_text, "id": msg.id}}
-        )
+        ctx.state.setdefault("_post_stream_events", []).append({"initiative": {"content": msg_text, "id": msg.id}})
     except Exception:
         log.warning("Initiative generation failed: record_id=%d", ctx.record.id, exc_info=True)
     finally:

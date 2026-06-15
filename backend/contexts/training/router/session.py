@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
-
 from core.case_schema import validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
@@ -211,9 +210,7 @@ def _create_record(
         load_rubric_by_version(rubric_ref)  # validate it resolves
         return rubric_ref
 
-    record.rubric_frozen = _resolve_rubric_ref(
-        case_data.get("rubric_ref", "active")
-    )
+    record.rubric_frozen = _resolve_rubric_ref(case_data.get("rubric_ref", "active"))
 
     features = resolve_features(record.practice_snapshot)
     if app_state is not None:

@@ -75,9 +75,9 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
             ev = (item.get("evidence") or "").strip()
             rea = (item.get("reason") or "").strip()
             if len(ev) < 10:
-                errors.append(f"{dim_name}.{item.get('name','?')}: evidence 过短 ({len(ev)}字)")
+                errors.append(f"{dim_name}.{item.get('name', '?')}: evidence 过短 ({len(ev)}字)")
             if len(rea) < 5:
-                errors.append(f"{dim_name}.{item.get('name','?')}: reason 过短 ({len(rea)}字)")
+                errors.append(f"{dim_name}.{item.get('name', '?')}: reason 过短 ({len(rea)}字)")
     return errors
 
 
