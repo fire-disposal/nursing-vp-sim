@@ -159,7 +159,7 @@ for (const [path, cfg] of Object.entries(endpointStyle)) {
     typesOutput += `export function ${fn}(`
     if (path.includes("record_id")) typesOutput += `recordId: number, `
     typesOutput += `data: ${body}): Promise<${resType}> {\n`
-    typesOutput += `  return ${method === "POST" ? "post" : "get"}<${resType}>(\`${apiPath}\`, data as unknown as Record<string, unknown>)\n`
+    typesOutput += `  return ${["POST", "PUT", "PATCH"].includes(method) ? "post" : "get"}<${resType}>(\`${apiPath}\`, data as unknown as Record<string, unknown>)\n`
     typesOutput += "}\n\n"
   } else if (params) {
     const apiPath = path.replace(/\{(\w+)\}/g, "${$1}")
@@ -173,7 +173,7 @@ for (const [path, cfg] of Object.entries(endpointStyle)) {
     typesOutput += `export function ${fn}(`
     if (path.includes("record_id")) typesOutput += `recordId: number`
     typesOutput += `): Promise<${resType}> {\n`
-    typesOutput += `  return ${method === "DELETE" ? "request" : "get"}<${resType}>("${method}", \`${apiPath}\`)\n`
+    typesOutput += `  return ${["DELETE", "PUT", "PATCH"].includes(method) ? "request" : "get"}<${resType}>("${method}", \`${apiPath}\`)\n`
     typesOutput += "}\n\n"
   }
 }

@@ -59,7 +59,8 @@ jobs:
             if docker exec nursing-db pg_dump -U nursing -d nursing_vp > "\$BAK" 2>/dev/null; then
               echo "  ✓ backup: \$BAK"
             else
-              echo "::warning::备份失败，继续部署"
+              echo "::error::备份失败，停止部署"
+              exit 1
             fi
 
             OLD_BACKEND=\$(docker inspect --format '{{.Config.Image}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
