@@ -55,12 +55,9 @@ async def _try_acquire_scoring(record_id: int, db) -> bool:
     用 DB 原子 UPDATE 代替内存锁，避免测试间状态泄漏，
     同时消除并发触发同一 record 评分的竞态。
     """
-    import asyncio
-
     from sqlalchemy import text
 
-    result = await asyncio.to_thread(
-        db.execute,
+    result = db.execute(
         text("UPDATE training_records SET scoring_status = 'pending' WHERE id = :id AND scoring_status IS NULL"),
         {"id": record_id},
     )

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -43,11 +42,11 @@ def get_db():
 
 @asynccontextmanager
 async def db_session():
-    session = await asyncio.to_thread(SessionLocal)
+    session = SessionLocal()
     try:
         yield session
     finally:
-        await asyncio.to_thread(session.close)
+        session.close()
 
 
 def init_db() -> None:

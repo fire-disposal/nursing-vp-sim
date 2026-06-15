@@ -108,6 +108,7 @@ class PromptManager:
         db = SessionLocal()
         try:
             self._seed_all_builtin(db)
+            self._sync_builtin_scoring_feedback(db)
             rows = db.query(PT).filter(PT.is_active).all()
 
             new_cache = {}
@@ -242,6 +243,38 @@ class PromptManager:
         )
         db.commit()
         log.info("patient_dynamic 内置模板已创建")
+
+    @staticmethod
+    def _sync_builtin_scoring_feedback(db):
+        """强制同步 scoring_feedback 内置模板到 DB，移除旧版已弃用的变量引用。"""
+        from models import PromptTemplate as PT
+        from prompts.scoring import SCORING_FEEDBACK_SYSTEM, SCORING_FEEDBACK_USER
+
+        existing = db.query(PT).filter(PT.purpose == "scoring_feedback", PT.is_active).first()
+        if not existing:
+            return
+        old_text = (existing.user_prompt or "") + (existing.system_prompt or "")
+        if "{#scoring_result#}" not in old_text:
+            return
+        existing.is_active = False
+        db.add(
+            PT(
+                purpose="scoring_feedback",
+                version=existing.version + 1,
+                system_prompt=SCORING_FEEDBACK_SYSTEM,
+                user_prompt=SCORING_FEEDBACK_USER,
+                template_engine="variable",
+                is_active=True,
+                created_by="system",
+                remark="评分反馈 — 内置模板（已同步）",
+            )
+        )
+        db.commit()
+        log.info(
+            "scoring_feedback 模板已同步 (v%d→v%d), 移除旧版 scoring_result 变量",
+            existing.version,
+            existing.version + 1,
+        )
 
 
 def _hardcoded_fallback(purpose: str) -> PromptTemplateObj:
