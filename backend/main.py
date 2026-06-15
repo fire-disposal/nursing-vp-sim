@@ -37,6 +37,7 @@ from infrastructure.llm.client import LLMClient
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
+from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
 from middleware.rate_limits import RateLimiter
 from repositories.training import TrainingRepository
@@ -111,6 +112,7 @@ async def lifespan(app: FastAPI):
 
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
+    app.state.scoring_tracker = ScoringProgressTracker()
 
     from plugins.manager import get_plugin_manager
 
