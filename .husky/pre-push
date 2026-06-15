@@ -95,6 +95,11 @@ if git diff --cached --name-only -- backend/migrations/versions/ 2>/dev/null | g
   fi
 fi
 
+# ═══ Migration location check — no files should be in versions/ root ═══
+if git diff --cached --name-only -- 'backend/migrations/versions/*.py' 2>/dev/null | grep -vE '(ddl/|data/|__pycache__)' | grep -q '\.py$'; then
+  fail "new migration files must go in versions/ddl/ or versions/data/, not versions/ root"
+fi
+
 pattern='^v([0-9]{4})\.([0-9]{2})\.([0-9]{2})-([1-9][0-9]*)$'
 today=$(date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d 2>/dev/null || echo "")
 

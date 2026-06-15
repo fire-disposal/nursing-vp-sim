@@ -18,7 +18,7 @@ if (!desc) {
 
 const ROOT = path.resolve(__dirname, "..");
 const BACKEND = path.join(ROOT, "backend");
-const VERSIONS = path.join(BACKEND, "migrations", "versions");
+const VERSIONS = path.join(BACKEND, "migrations", "versions", "data");
 
 if (!existsSync(VERSIONS)) {
   console.error("Versions directory not found:", VERSIONS);
@@ -80,7 +80,7 @@ def downgrade() -> None:
 `;
 
 writeFileSync(filepath, content, "utf-8");
-console.log(`Created: backend/migrations/versions/${filename}`);
+console.log(`Created: backend/migrations/versions/data/${filename}`);
 console.log(`  Down revision: ${head}`);
 console.log();
 console.log("Next steps:");
