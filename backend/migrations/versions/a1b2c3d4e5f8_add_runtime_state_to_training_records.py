@@ -48,7 +48,7 @@ def upgrade() -> None:
                 del snap[key]
         conn.execute(
             sa.text(
-                "UPDATE training_records SET practice_snapshot = :snap::jsonb, runtime_state = :rt::jsonb WHERE id = :id"
+                "UPDATE training_records SET practice_snapshot = CAST(:snap AS jsonb), runtime_state = CAST(:rt AS jsonb) WHERE id = :id"
             ),
             {"snap": json.dumps(snap), "rt": json.dumps(runtime), "id": row.id},
         )
@@ -78,7 +78,7 @@ def downgrade() -> None:
             if "exam_impact_note" in rt:
                 snap["_exam_impact_note"] = rt.pop("exam_impact_note")
             conn.execute(
-                sa.text("UPDATE training_records SET practice_snapshot = :snap::jsonb WHERE id = :id"),
+                sa.text("UPDATE training_records SET practice_snapshot = CAST(:snap AS jsonb) WHERE id = :id"),
                 {"snap": json.dumps(snap), "id": row.id},
             )
 
