@@ -2,8 +2,8 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=${APP_VERSION}
-COPY package.json pnpm-lock.yaml ./
-COPY frontend/ frontend/
+# .dockerignore 已排除 node_modules/.git/.env 等, 放心全量复制
+COPY . .
 RUN corepack enable && pnpm install --frozen-lockfile && pnpm --filter frontend run build
 
 FROM nginx:alpine
