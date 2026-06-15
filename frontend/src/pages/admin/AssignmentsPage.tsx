@@ -11,6 +11,7 @@ import {
 } from "@/api/assignments";
 import { getClasses } from "@/api/grades-classes";
 import { getPractices } from "@/api/practices";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -78,17 +79,17 @@ export default function AssignmentsPage() {
 		setForm((f) => ({ ...f, ...patch }));
 
 	const { data: listData, isLoading } = useQuery({
-		queryKey: ["assignments"],
+		queryKey: queryKeys.assignments.all,
 		queryFn: () => getAssignments({ limit: 100 }),
 		staleTime: 2 * 60_000,
 	});
 	const { data: practicesData } = useQuery({
-		queryKey: ["practices"],
+		queryKey: queryKeys.practices.all,
 		queryFn: () => getPractices(),
 		staleTime: 5 * 60_000,
 	});
 	const { data: classesData } = useQuery({
-		queryKey: ["classes"],
+		queryKey: queryKeys.grades.classes(),
 		queryFn: () => getClasses({}),
 		staleTime: 5 * 60_000,
 	});
@@ -145,7 +146,7 @@ export default function AssignmentsPage() {
 				await createAssignment(payload);
 				toast.success("创建成功");
 			}
-			queryClient.invalidateQueries({ queryKey: ["assignments"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 			setModalOpen(false);
 		} catch (e: any) {
 			toast.error(e.message || "操作失败");
@@ -159,7 +160,7 @@ export default function AssignmentsPage() {
 		try {
 			await deleteAssignment(deleteTarget);
 			toast.success("已删除");
-			queryClient.invalidateQueries({ queryKey: ["assignments"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 		} catch (e: any) {
 			toast.error(e.message || "删除失败");
 		} finally {

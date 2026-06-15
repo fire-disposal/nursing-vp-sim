@@ -377,7 +377,7 @@ export default function RecordDetail() {
 	});
 
 	const { data: review } = useQuery({
-		queryKey: ["scoreReview", id],
+		queryKey: queryKeys.training.review(id!),
 		queryFn: () => getScoreReview(id!).then((r) => r.data),
 		enabled: !!id && !!record?.score,
 		placeholderData: (prev) => prev,
@@ -462,7 +462,7 @@ export default function RecordDetail() {
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.training.detail(id!),
 			});
-			queryClient.invalidateQueries({ queryKey: ["scoreReview", id] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.training.review(id!) });
 		} catch (err: unknown) {
 			const axiosErr = err as { response?: { data?: { detail?: string } } };
 			toast.error(axiosErr.response?.data?.detail || "提交复核失败");

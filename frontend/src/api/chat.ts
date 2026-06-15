@@ -1,4 +1,5 @@
 import useAuthStore from "@/stores/authStore";
+import { waitForOnline } from "@/utils/network";
 import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
 import { readSSEStream } from "./sse";
@@ -35,8 +36,10 @@ export async function sendMessageStream(
 	}) => void,
 	onInitiative?: (data: { content: string }) => void,
 ) {
+	const MAX_RETRIES = 3;
+
 	const doFetch = async (): Promise<Response> => {
-		const token = localStorage.getItem("token");
+		const token = useAuthStore.getState().token;
 		return fetch(`/api/chat/${recordId}/message/stream`, {
 			method: "POST",
 			headers: {
@@ -48,42 +51,63 @@ export async function sendMessageStream(
 		});
 	};
 
-	let resp = await doFetch();
-
-	if (resp.status === 401) {
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
-			const refreshed = await useAuthStore.getState().refreshAuth();
-			if (refreshed) {
-				resp = await doFetch();
+			let resp = await doFetch();
+
+			if (resp.status === 401) {
+				try {
+					const refreshed = await useAuthStore.getState().refreshAuth();
+					if (refreshed) {
+						resp = await doFetch();
+					}
+				} catch {
+					useAuthStore.getState().logout();
+					return;
+				}
 			}
-		} catch {
-			useAuthStore.getState().logout();
-			if (!window.location.pathname.includes("/login")) {
-				window.location.href = "/login";
+
+			if (!resp.ok) {
+				const err = await resp.json().catch(() => ({ detail: "请求失败" }));
+				onError(err.detail || "请求失败");
+				return;
 			}
+
+			if (!resp.body) {
+				onError("响应体为空");
+				return;
+			}
+
+			const reader = resp.body.getReader();
+			await readSSEStream(reader, {
+				onChunk,
+				onDone,
+				onError,
+				onSystem,
+				onExamResult,
+				onEmotionChange,
+				onInitiative,
+			});
 			return;
+		} catch (e: unknown) {
+			if (signal?.aborted) return;
+			const isNetworkError = e instanceof TypeError || (e as { code?: string }).code === "ERR_NETWORK";
+			if (!isNetworkError || attempt >= MAX_RETRIES) {
+				onError(e instanceof Error ? e.message : "连接失败");
+				return;
+			}
+			if (!navigator.onLine) {
+				onError?.("网络已断开，等待恢复...");
+				onChunk?.("");
+				try {
+					await waitForOnline();
+				} catch {
+					onError("等待网络超时，请稍后重试");
+					return;
+				}
+			} else {
+				await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+			}
 		}
 	}
-
-	if (!resp.ok) {
-		const err = await resp.json().catch(() => ({ detail: "请求失败" }));
-		onError(err.detail || "请求失败");
-		return;
-	}
-
-	if (!resp.body) {
-		onError("响应体为空");
-		return;
-	}
-
-	const reader = resp.body.getReader();
-	await readSSEStream(reader, {
-		onChunk,
-		onDone,
-		onError,
-		onSystem,
-		onExamResult,
-		onEmotionChange,
-		onInitiative,
-	});
 }

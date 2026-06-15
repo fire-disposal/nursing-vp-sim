@@ -16,6 +16,7 @@ import {
 	updateConfig,
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
@@ -58,29 +59,29 @@ export default function ApiManagementTab() {
 	);
 
 	const { data: secrets = [] } = useQuery({
-		queryKey: ["apiSecrets"],
+		queryKey: queryKeys.apiManagement.secrets,
 		queryFn: () => fetchSecrets().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const { data: configs = [] } = useQuery({
-		queryKey: ["apiConfigs"],
+		queryKey: queryKeys.apiManagement.configs(),
 		queryFn: () => fetchConfigs(undefined).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const { data: presets } = useQuery({
-		queryKey: ["modelPresets"],
+		queryKey: queryKeys.apiManagement.modelPresets,
 		queryFn: () => fetchModelPresets().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const { data: envFallback } = useQuery({
-		queryKey: ["apiFallback"],
+		queryKey: queryKeys.apiManagement.fallback,
 		queryFn: () => fetchEnvFallback().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 
 	const invalidate = () => {
-		void queryClient.invalidateQueries({ queryKey: ["apiSecrets"] });
-		void queryClient.invalidateQueries({ queryKey: ["apiConfigs"] });
+		void queryClient.invalidateQueries({ queryKey: queryKeys.apiManagement.secrets });
+		void queryClient.invalidateQueries({ queryKey: queryKeys.apiManagement.configs() });
 	};
 
 	const configsByPurpose: Record<string, LLMConfigResponse[]> = {};

@@ -17,6 +17,7 @@ import {
 	updateRubric,
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -53,7 +54,7 @@ export default function RubricTab() {
 	const toast = useToast();
 	const queryClient = useQueryClient();
 	const { data: rubrics = [] } = useQuery({
-		queryKey: ["rubrics"],
+		queryKey: queryKeys.rubric.all,
 		queryFn: () => fetchRubrics().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
@@ -75,7 +76,7 @@ export default function RubricTab() {
 	const [expandedId, setExpandedId] = useState<number | null>(null);
 
 	const refresh = () =>
-		queryClient.invalidateQueries({ queryKey: ["rubrics"] });
+		queryClient.invalidateQueries({ queryKey: queryKeys.rubric.all });
 
 	const applyStructuredDims = (dims: RubricDimension[]) => {
 		setFormDims(dims);

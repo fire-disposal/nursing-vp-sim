@@ -64,7 +64,7 @@ export default function History() {
 		mutationFn: (id: number) => deleteRecord(id),
 		onSuccess: () => {
 			toast.success("训练记录已删除");
-			queryClient.invalidateQueries({ queryKey: ["records"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
 		},
 		onError: (err: unknown) => {
 			const axiosErr = err as { response?: { data?: { detail?: string } } };

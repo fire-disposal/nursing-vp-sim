@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
 	BrowserRouter,
 	Navigate,
 	Outlet,
 	Route,
 	Routes,
+	useNavigate,
 } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
@@ -13,6 +14,7 @@ import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { Toaster } from "@/components/ui/sonner";
+import { onForceLogout } from "@/events";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -52,6 +54,12 @@ const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
 );
 
+function ForceLogoutListener() {
+	const navigate = useNavigate();
+	useEffect(() => onForceLogout(() => navigate("/login", { replace: true })), [navigate]);
+	return null;
+}
+
 function PageLoader() {
 	return (
 		<div className="flex h-screen flex-col items-center justify-center gap-3">
@@ -65,6 +73,7 @@ export default function App() {
 	return (
 		<BrowserRouter>
 			<QueryClientProvider client={queryClient}>
+				<ForceLogoutListener />
 				<Toaster />
 				<ConfirmProvider>
 					<FeedbackProvider>

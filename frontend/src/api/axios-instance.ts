@@ -21,7 +21,7 @@ const processQueue = (error: unknown) => {
 };
 
 api.interceptors.request.use((config) => {
-	const token = localStorage.getItem("token");
+	const token = useAuthStore.getState().token;
 	if (token) {
 		config.headers.Authorization = `Bearer ${token}`;
 	}
@@ -70,11 +70,8 @@ api.interceptors.response.use(
 				throw new Error("refresh failed");
 			} catch {
 				processQueue(err);
-				console.warn("[axios] Token 刷新失败，跳转登录页");
+				console.warn("[axios] Token 刷新失败");
 				useAuthStore.getState().logout();
-				if (!window.location.pathname.includes("/login")) {
-					window.location.href = "/login";
-				}
 				return Promise.reject(err);
 			} finally {
 				isRefreshing = false;

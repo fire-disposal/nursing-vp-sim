@@ -51,6 +51,11 @@ export const queryKeys = {
 		admin: () => [...queryKeys.stats.all, "admin"] as const,
 	},
 	admin: {
+		schools: {
+			all: ["admin", "schools"] as const,
+			list: (search: string, offset: number) =>
+				["admin", "schools", search, offset] as const,
+		},
 		users: {
 			all: ["admin", "users"] as const,
 			list: (params: Record<string, unknown>) =>
@@ -126,6 +131,9 @@ export const queryKeys = {
 		}) => [...queryKeys.questionnaires.all, "check", params] as const,
 		myResponses: (params?: Record<string, unknown>) =>
 			[...queryKeys.questionnaires.all, "myResponses", params] as const,
+	},
+	practices: {
+		all: ["practices"] as const,
 	},
 	sessionConfigs: ["sessionConfigs"] as const,
 	nursingRecord: (recordId: number) => ["nursingRecord", recordId] as const,

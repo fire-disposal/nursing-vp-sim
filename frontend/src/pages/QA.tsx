@@ -72,7 +72,7 @@ export default function QA() {
 	});
 
 	const loadSessions = useCallback(async () => {
-		await queryClient.invalidateQueries({ queryKey: ["qaSessions"] });
+		await queryClient.invalidateQueries({ queryKey: queryKeys.qa.all });
 	}, [queryClient]);
 
 	useEffect(() => {

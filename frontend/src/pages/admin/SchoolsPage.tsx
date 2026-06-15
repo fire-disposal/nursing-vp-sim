@@ -10,6 +10,7 @@ import {
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createSchool, deleteSchool, getSchools } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -45,7 +46,7 @@ export default function SchoolsPage() {
 	};
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["schools", search, offset],
+		queryKey: queryKeys.admin.schools.list(search, offset),
 		queryFn: () =>
 			getSchools({
 				search: search || undefined,
@@ -77,7 +78,7 @@ export default function SchoolsPage() {
 			toast.success("学校创建成功");
 			resetForm();
 			setShowCreate(false);
-			queryClient.invalidateQueries({ queryKey: ["schools"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.admin.schools.all });
 		},
 		onError: (e: unknown) => {
 			const err = e as { response?: { data?: { detail?: string } } };
@@ -89,7 +90,7 @@ export default function SchoolsPage() {
 		mutationFn: (id: number) => deleteSchool(id),
 		onSuccess: () => {
 			toast.success("学校已删除");
-			queryClient.invalidateQueries({ queryKey: ["schools"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.admin.schools.all });
 		},
 		onError: (e: unknown) => {
 			const err = e as { response?: { data?: { detail?: string } } };

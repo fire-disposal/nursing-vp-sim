@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api } from "@/api/axios-instance";
 import { getCases } from "@/api/cases";
 import { getPractices } from "@/api/practices";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -71,12 +72,12 @@ export default function PracticesPage() {
 		setForm((f) => ({ ...f, ...patch }));
 
 	const { data: listData, isLoading } = useQuery({
-		queryKey: ["practices"],
+		queryKey: queryKeys.practices.all,
 		queryFn: () => getPractices(),
 		staleTime: 2 * 60_000,
 	});
 	const { data: casesData } = useQuery({
-		queryKey: ["cases", "admin"],
+		queryKey: queryKeys.cases.managed.all,
 		queryFn: () => getCases(),
 		staleTime: 5 * 60_000,
 	});
@@ -140,7 +141,7 @@ export default function PracticesPage() {
 				await api.post("/admin/practices", payload);
 				toast.success("创建成功");
 			}
-			queryClient.invalidateQueries({ queryKey: ["practices"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 			setModalOpen(false);
 		} catch (e: any) {
 			toast.error(e.message || "操作失败");
@@ -154,7 +155,7 @@ export default function PracticesPage() {
 		try {
 			await api.delete(`/admin/practices/${deleteTarget}`);
 			toast.success("已删除");
-			queryClient.invalidateQueries({ queryKey: ["practices"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 		} catch (e: any) {
 			toast.error(e.message || "删除失败");
 		} finally {
