@@ -191,8 +191,28 @@ docker compose up -d
 
 # 数据库: 进入 psql / 备份 / 恢复
 docker exec -it nursing-db psql -U nursing -d nursing_vp
-docker exec nursing-db pg_dump -U nursing -d nursing_vp > "backups/backup-$(date +%Y%m%d-%H%M%S).sql"
-docker exec -i nursing-db psql -U nursing -d nursing_vp < backups/backup-<date>.sql
+
+# 推荐使用封装脚本（自动存档 + 清理 + 完整性校验）
+# 位于仓库 deploy/ 目录，已复制到服务器 /opt/nursing-vp-sim/deploy/
+
+## 创建备份
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh staging"
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh prod"
+
+## 查看可用备份
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh staging list"
+
+## 交互恢复
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-restore.sh /opt/nursing-vp-sim/backups/prod/prod_20260615_120000.sql.gz"
+
+## AI 非交互恢复
+ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-restore.sh /path/to/backup.gz --yes"
+
+## 自动备份
+# 已通过 crontab 配置: staging 每 3 天 03:00, prod 每 3 天 04:00
+# 备份文件存放: backups/{staging,prod}/
+# 保留策略: 30 天自动清理
+# 版本追踪: .backup-history (AI 可解析)
 
 # 迁移版本
 docker exec nursing-vp-sim-backend-1 bash -c "cd /app && alembic current"
