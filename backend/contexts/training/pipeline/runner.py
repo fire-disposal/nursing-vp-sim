@@ -70,6 +70,9 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
 
     yield f"data: {json.dumps({'done': True, 'id': done_id}, ensure_ascii=False)}\n\n"
 
+    for event in ctx.state.get("_post_stream_events", []):
+        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
 
 async def _emit_chunks(ctx: PipelineContext):
     chunks = ctx.state.get("_stream_chunks", [])

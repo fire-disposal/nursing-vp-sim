@@ -16,6 +16,24 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="允许学生在训练中暂停倒计时。后台结算仍以服务器时间为准。",
     ),
+    "patient_initiative": FeatureFlag(
+        key="patient_initiative",
+        label="患者主动追问",
+        default=False,
+        description="患者根据性格/情绪/等待时长主动发言",
+    ),
+    "emotion": FeatureFlag(
+        key="emotion",
+        label="患者情绪状态机",
+        default=False,
+        description="5态情绪模型（withdrawn/defensive/neutral/relaxed/open），根据学生用语动态变化，注入 author_note 影响患者表现",
+    ),
+    "exam_emotion_bridge": FeatureFlag(
+        key="exam_emotion_bridge",
+        label="查体-情绪联动",
+        default=False,
+        description="查体操作影响患者心态：缺乏解释或不相关检查会降低信任/舒适度",
+    ),
 }
 
 

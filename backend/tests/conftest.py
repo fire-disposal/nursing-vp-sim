@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from core.database import Base, get_db
@@ -25,21 +25,20 @@ from core.security import hash_password
 from models import Case, User
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def engine():
     eng = create_engine(TEST_DB_URL.replace("postgresql://", "postgresql+psycopg://", 1))
-    Base.metadata.drop_all(bind=eng)
     Base.metadata.create_all(bind=eng)
 
     with eng.connect() as conn:
-        conn.execute(Base.metadata.tables["schools"].insert().values([{"name": "\u9ed8\u8ba4\u5b66\u6821"}]))
+        conn.execute(Base.metadata.tables["schools"].insert().values([{"name": "默认学校"}]))
         conn.execute(
             Base.metadata.tables["roles"]
             .insert()
             .values(
                 [
-                    {"name": "teacher", "display_name": "\u6559\u5e08", "is_system": True, "school_id": 1},
-                    {"name": "student", "display_name": "\u5b66\u751f", "is_system": True, "school_id": 1},
+                    {"name": "teacher", "display_name": "教师", "is_system": True, "school_id": 1},
+                    {"name": "student", "display_name": "学生", "is_system": True, "school_id": 1},
                 ]
             )
         )
@@ -76,13 +75,16 @@ def engine():
 
 @pytest.fixture
 def db_session(engine):
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    connection = engine.connect()
+    trans = connection.begin()
+    SessionLocal = sessionmaker(bind=connection)
     session = SessionLocal()
     try:
         yield session
     finally:
-        session.rollback()
         session.close()
+        trans.rollback()
+        connection.close()
 
 
 @pytest.fixture

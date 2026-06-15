@@ -17,6 +17,7 @@ import {
 import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
+import { ScoreCard, ScoringOverlay } from "@/plugins/scoring-display";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
@@ -265,14 +266,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		);
 	}, [setPortraitUrl]);
 
-	const overlayPluginDefs = useMemo(() => {
-		if (!manifest) return [];
-		const manifestIds = new Set(manifest.plugins.map((p) => p.id));
-		return localDefs.filter(
-			(d) => d.overlayComponent && manifestIds.has(d.id),
-		);
-	}, [manifest, localDefs]);
-
 	if (loading) {
 		return (
 			<div className="flex h-screen items-center justify-center">
@@ -350,21 +343,8 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					/>
 				</div>
 			</div>
-			{overlayPluginDefs.map((def) => {
-				const Overlay = def.overlayComponent!;
-				return (
-					<PluginErrorBoundary
-						key={def.id}
-						pluginName={def.meta.name}
-					>
-						<Overlay
-							recordId={recordId}
-							bus={busRef.current}
-							features={features}
-						/>
-					</PluginErrorBoundary>
-				);
-			})}
+			<ScoringOverlay bus={busRef.current} />
+			<ScoreCard bus={busRef.current} recordId={recordId} />
 		</>
 	);
 }

@@ -1,6 +1,6 @@
-"""Unit tests for ContextSource implementations."""
+"""Unit tests for NoteSource implementations."""
 
-from contexts.patient.sources import (
+from contexts.patient.note_source import (
     EmotionNoteSource,
     ExamImpactSource,
     ExamResultsSource,

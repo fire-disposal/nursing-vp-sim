@@ -224,6 +224,10 @@ def _create_record(
             initiative_cache=app_state.initiative_cache,
         )
         pm.run_hook_sync("on_record_create", ctx, features)
+        if features.get("patient_initiative"):
+            from contexts.patient.initiative import update_initiative_timer
+
+            update_initiative_timer(ctx.record.id, ctx.initiative_cache)
 
     return record, greeting
 

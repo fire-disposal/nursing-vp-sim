@@ -50,12 +50,10 @@ export interface ApiSecretUpdate {
 }
 
 export interface AssignmentCreateRequest {
-  case_id: number
+  practice_id: number
   class_id: number
   title: string
   description?: string | null
-  config_id?: string
-  feature_overrides?: Record<string, unknown>
   start_time: string
   end_time: string
 }
@@ -64,12 +62,10 @@ export interface AssignmentDetail {
   id: string
   title: string
   description?: string | null
-  case_id: number
-  case_name?: string
+  practice_id: number
+  practice_name?: string
   class_id: number
   class_name?: string
-  config_id: string
-  feature_overrides?: Record<string, unknown>
   start_time: string
   end_time: string
   created_at: string
@@ -83,7 +79,7 @@ export interface AssignmentDetail {
 export interface AssignmentListItem {
   id: string
   title: string
-  case_name?: string
+  practice_name?: string
   class_name?: string
   start_time: string
   end_time: string
@@ -108,8 +104,6 @@ export interface AssignmentStudentItem {
 export interface AssignmentUpdateRequest {
   title?: string | null
   description?: string | null
-  config_id?: string | null
-  feature_overrides?: Record<string, unknown> | null
   start_time?: string | null
   end_time?: string | null
 }
@@ -253,7 +247,8 @@ export interface DurationStats {
 }
 
 export interface EmotionStateResponse {
-  score: number
+  trust: number
+  comfort: number
   state: string
   note: string
   history?: Record<string, unknown>[]
@@ -333,7 +328,6 @@ export interface InitiativeStateResponse {
   threshold_seconds: number
   percent: number
   should_trigger?: boolean
-  last_triggered_at?: string | null
 }
 
 export interface InitiativeTriggerResponse {
@@ -513,6 +507,13 @@ export interface PaginatedResponse_LLMCallLogItem_ {
   limit: number
 }
 
+export interface PaginatedResponse_PracticeItem_ {
+  items: PracticeItem[]
+  total: number
+  offset: number
+  limit: number
+}
+
 export interface PaginatedResponse_QASessionAdminItem_ {
   items: QASessionAdminItem[]
   total: number
@@ -573,6 +574,51 @@ export interface PhaseAdvanceResponse {
   current_phase: string
   name: string
   order: number
+}
+
+export interface PracticeBrief {
+  id: number
+  name: string
+  mode: string
+  features?: Record<string, unknown>
+  behavior?: Record<string, unknown>
+}
+
+export interface PracticeCreate {
+  name: string
+  description?: string | null
+  case_id: number
+  mode?: string
+  features?: Record<string, unknown>
+  behavior?: Record<string, unknown>
+  assessment?: Record<string, unknown> | null
+}
+
+export interface PracticeItem {
+  id: number
+  name: string
+  description?: string | null
+  case_id: number
+  case_name?: string
+  mode: string
+  features?: Record<string, unknown>
+  behavior?: Record<string, unknown>
+  assessment?: Record<string, unknown> | null
+  is_active?: boolean
+  training_count?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface PracticeUpdate {
+  name?: string | null
+  description?: string | null
+  case_id?: number | null
+  mode?: string | null
+  features?: Record<string, unknown> | null
+  behavior?: Record<string, unknown> | null
+  assessment?: Record<string, unknown> | null
+  is_active?: boolean | null
 }
 
 export interface PromptPreviewResponse {
@@ -933,7 +979,7 @@ export interface SecretCreateResponse {
 export interface StudentAssignmentItem {
   id: string
   title: string
-  case_name: string
+  practice_name: string
   start_time: string
   end_time: string
   status?: string
@@ -1027,11 +1073,12 @@ export interface TrainingRecordDetail {
   required_inquiries?: unknown[] | null
   patient_info?: Record<string, unknown> | null
   features?: Record<string, unknown>
+  from_assignment?: boolean
 }
 
 export interface TrainingStartRequest {
   case_id: number
-  config_id?: string | null
+  practice_id?: number | null
 }
 
 export interface TrainingStartResponse {

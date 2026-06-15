@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ChatBubble";
 import {
 	getEmotionBorder,
@@ -14,7 +14,11 @@ interface ChatDisplayProps {
 	bus: { on: (event: string, handler: (...args: any[]) => void) => () => void };
 }
 
-export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
+const ChatDisplayInner = memo(function ChatDisplayInner({
+	messages,
+	patient,
+	bus,
+}: ChatDisplayProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const [isNearBottom, setIsNearBottom] = useState(true);
@@ -22,6 +26,7 @@ export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
 	const prevCountRef = useRef(0);
 	const { portraitUrl } = usePortrait();
 	const { emotion } = useEmotion();
+	const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
 
 	const checkNearBottom = useCallback(() => {
 		const el = scrollRef.current;
@@ -65,7 +70,6 @@ export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
 		portraitUrl ||
 		getPatientAvatar({ name: patient.name, gender: patient.gender });
 	const nurseAvatar = getPatientAvatar({ name: "Nurse", gender: "female" });
-	const emotionBorder = getEmotionBorder(emotion);
 
 	return (
 		<div
@@ -119,4 +123,6 @@ export function ChatDisplay({ messages, patient, bus }: ChatDisplayProps) {
 			)}
 		</div>
 	);
-}
+});
+
+export const ChatDisplay = ChatDisplayInner;

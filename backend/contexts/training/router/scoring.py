@@ -167,6 +167,10 @@ async def end_training(
             initiative_cache=request.app.state.initiative_cache,
         )
         pm.run_hook_sync("on_training_end", ctx, features)
+        if features.get("patient_initiative"):
+            from contexts.patient.initiative import cleanup_initiative
+
+            cleanup_initiative(ctx.record.id, ctx.initiative_cache)
 
         message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
         log.info(

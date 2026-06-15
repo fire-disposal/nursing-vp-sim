@@ -99,12 +99,12 @@ class PluginManager:
 
         # --- assemble NoteCollector ---
         from contexts.patient.note_collector import NoteCollector
-        from contexts.patient.sources import (
-            EmotionNoteSource, ExamImpactSource, ExamResultsSource, IdentityGuardSource,
+        from contexts.patient.note_source import (
+            EmotionNoteSource, ExamImpactSource, ExamResultsSource, IdentityGuardSource, PluginAuthorNoteSource,
         )
 
         collector = NoteCollector()
-        for src_cls in [EmotionNoteSource, IdentityGuardSource, ExamResultsSource, ExamImpactSource]:
+        for src_cls in [EmotionNoteSource, IdentityGuardSource, ExamResultsSource, ExamImpactSource, PluginAuthorNoteSource]:
             collector.add(src_cls())
 
         for plugin in self.get_active(flags):

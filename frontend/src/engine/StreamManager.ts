@@ -26,6 +26,7 @@ export class StreamManager {
 	private abortController: AbortController | null = null;
 	private _loading = false;
 	private loadingListeners: Array<(l: boolean) => void> = [];
+	private _rafId: number | null = null;
 
 	constructor(recordId: number | null) {
 		this.recordId = recordId;
@@ -45,7 +46,7 @@ export class StreamManager {
 
 	setMessages(msgs: ChatMessage[]): void {
 		this.messages = msgs;
-		this.notify();
+		this.notifySync();
 	}
 
 	subscribe(fn: () => void): () => void {
@@ -62,8 +63,25 @@ export class StreamManager {
 		};
 	}
 
-	private notify(): void {
+	private notifySync(): void {
+		this._cancelRaf();
 		for (const fn of this.listeners) fn();
+	}
+
+	private scheduleNotify(): void {
+		if (this._rafId === null) {
+			this._rafId = requestAnimationFrame(() => {
+				this._rafId = null;
+				this.notifySync();
+			});
+		}
+	}
+
+	private _cancelRaf(): void {
+		if (this._rafId !== null) {
+			cancelAnimationFrame(this._rafId);
+			this._rafId = null;
+		}
 	}
 
 	private setLoading(v: boolean): void {
@@ -71,11 +89,19 @@ export class StreamManager {
 		for (const fn of this.loadingListeners) fn(v);
 	}
 
+	private findStreaming(): ChatMessage | undefined {
+		for (let i = this.messages.length - 1; i >= 0; i--) {
+			if (this.messages[i]?.streaming) return this.messages[i];
+		}
+		return undefined;
+	}
+
 	abort(): void {
 		this.abortController?.abort();
 		this.abortController = null;
 		this.messages = this.messages.filter((m) => !m.streaming);
 		this.setLoading(false);
+		this.notifySync();
 	}
 
 	async send(content: string, callbacks: StreamCallbacks = {}): Promise<void> {
@@ -87,14 +113,14 @@ export class StreamManager {
 			...this.messages,
 			{ id: studentId, role: "student", content },
 		];
-		this.notify();
+		this.notifySync();
 
 		const placeholderId = crypto.randomUUID();
 		this.messages = [
 			...this.messages,
 			{ id: placeholderId, role: "patient", content: "", streaming: true },
 		];
-		this.notify();
+		this.notifySync();
 
 		const controller = new AbortController();
 		this.abortController = controller;
@@ -104,31 +130,18 @@ export class StreamManager {
 				this.recordId,
 				content,
 				(chunk) => {
-					const msgs = [...this.messages];
-					for (let i = msgs.length - 1; i >= 0; i--) {
-						if (msgs[i]?.streaming) {
-							msgs[i] = { ...msgs[i], content: msgs[i].content + chunk };
-							this.messages = msgs;
-							this.notify();
-							break;
-						}
-					}
+					const msg = this.findStreaming();
+					if (msg) msg.content += chunk;
+					this.scheduleNotify();
 					callbacks.onPatientChunk?.(chunk);
 				},
 				(doneId) => {
-					const msgs = [...this.messages];
-					for (let i = msgs.length - 1; i >= 0; i--) {
-						if (msgs[i]?.streaming) {
-							msgs[i] = {
-								...msgs[i],
-								streaming: false,
-								id: doneId || msgs[i].id,
-							};
-							this.messages = msgs;
-							this.notify();
-							break;
-						}
+					const msg = this.findStreaming();
+					if (msg) {
+						msg.streaming = false;
+						if (doneId) msg.id = doneId;
 					}
+					this.notifySync();
 					callbacks.onPatientDone?.(doneId);
 					this.setLoading(false);
 					if (this.abortController === controller) this.abortController = null;
@@ -137,7 +150,7 @@ export class StreamManager {
 					this.messages = this.messages.filter(
 						(m) => !m.streaming && m.id !== placeholderId,
 					);
-					this.notify();
+					this.notifySync();
 					this.setLoading(false);
 					callbacks.onError?.(err);
 					if (this.abortController === controller) this.abortController = null;
@@ -147,29 +160,36 @@ export class StreamManager {
 						...this.messages,
 						{ id: crypto.randomUUID(), role: "system", content: sysMsg },
 					];
-					this.notify();
+					this.notifySync();
 					callbacks.onSystem?.(sysMsg);
 				},
 				controller.signal,
 				(examResult) => {
 					callbacks.onExamResult?.(examResult);
-					const msgs = [...this.messages];
-					for (let i = msgs.length - 1; i >= 0; i--) {
-						if (msgs[i]?.streaming) {
-							msgs[i] = { ...msgs[i], examResult };
-							this.messages = msgs;
-							break;
-						}
-					}
+					const msg = this.findStreaming();
+					if (msg) msg.examResult = examResult;
 				},
 				(emotionChange) => callbacks.onEmotionChange?.(emotionChange),
-				(initiative) => callbacks.onInitiative?.(initiative),
+				(initiative) => {
+					if (initiative?.content) {
+						this.messages = [
+							...this.messages,
+							{
+								id: crypto.randomUUID(),
+								role: "patient",
+								content: initiative.content,
+							},
+						];
+						this.notifySync();
+					}
+					callbacks.onInitiative?.(initiative);
+				},
 			);
 		} catch (err: unknown) {
 			this.messages = this.messages.filter(
 				(m) => !m.streaming && m.id !== placeholderId,
 			);
-			this.notify();
+			this.notifySync();
 			this.setLoading(false);
 			callbacks.onError?.((err as any)?.message || "发送失败");
 		} finally {

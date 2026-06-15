@@ -1661,23 +1661,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/{record_id}/exam/{op_type}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Perform Exam */
-        post: operations["perform_exam_api_training__record_id__exam__op_type__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/training/{record_id}/features": {
         parameters: {
             query?: never;
@@ -1947,6 +1930,40 @@ export interface paths {
         };
         /** List Student Assignments */
         get: operations["list_student_assignments_api_students_assignments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugins/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plugin Manifest */
+        get: operations["plugin_manifest_api_plugins_manifest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/plugins/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Training Plugin Manifest */
+        get: operations["training_plugin_manifest_api_training__record_id__plugins_manifest_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8552,38 +8569,6 @@ export interface operations {
             };
         };
     };
-    perform_exam_api_training__record_id__exam__op_type__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-                op_type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     update_training_features_api_training__record_id__features_put: {
         parameters: {
             query?: never;
@@ -9252,6 +9237,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentAssignmentItem"][];
+                };
+            };
+        };
+    };
+    plugin_manifest_api_plugins_manifest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    training_plugin_manifest_api_training__record_id__plugins_manifest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -6611,60 +6611,6 @@
         }
       }
     },
-    "/api/training/{record_id}/exam/{op_type}": {
-      "post": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Perform Exam",
-        "operationId": "perform_exam_api_training__record_id__exam__op_type__post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          },
-          {
-            "name": "op_type",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Op Type"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/training/{record_id}/features": {
       "put": {
         "tags": [
@@ -7757,6 +7703,75 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/plugins/manifest": {
+      "get": {
+        "tags": [
+          "plugins"
+        ],
+        "summary": "Plugin Manifest",
+        "operationId": "plugin_manifest_api_plugins_manifest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/training/{record_id}/plugins/manifest": {
+      "get": {
+        "tags": [
+          "plugins"
+        ],
+        "summary": "Training Plugin Manifest",
+        "operationId": "training_plugin_manifest_api_training__record_id__plugins_manifest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/health": {

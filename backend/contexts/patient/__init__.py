@@ -43,18 +43,17 @@ from .prompt import (
     format_case_for_prompt,
 )
 
-# 提示词组装策略
-from .sources import (
-    ContextSource,
+# NoteSource 实例（组合 author_note）
+from .note_source import (
     EmotionNoteSource,
     ExamImpactSource,
     ExamResultsSource,
     IdentityGuardSource,
+    NoteSource,
     PluginAuthorNoteSource,
 )
 
 __all__ = [
-    "ContextSource",
     "EmotionNoteSource",
     "EmotionState",
     "ExamImpactSource",
@@ -62,6 +61,7 @@ __all__ = [
     "GuardResult",
     "IdentityGuardSource",
     "NoGuard",
+    "NoteSource",
     "PatternGuard",
     "PluginAuthorNoteSource",
     "PostGuard",
