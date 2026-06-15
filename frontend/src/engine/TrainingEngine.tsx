@@ -3,12 +3,9 @@ import { ChatArea } from "@/components/training/ChatArea";
 import { PanelHost } from "@/components/training/PanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
-import { QuestionnaireOverlay } from "@/plugins/questionnaire/QuestionnaireOverlay";
-import { ScoreCard } from "@/plugins/scoring-display/ScoreCard";
-import { ScoringOverlay } from "@/plugins/scoring-display/ScoringOverlay";
 import { discoverPluginDefs } from "./discovery";
-import { useManifest } from "./manifest";
 import { createMessageBus } from "./MessageBus";
+import { useManifest } from "./manifest";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PluginContext";
 import {
@@ -126,23 +123,40 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		[features, pluginRegistry.version],
 	);
 
-	const sendMessage = useCallback((text: string) => {
-		const bus = busRef.current;
-		streamRef.current.send(text, {
-			onPatientChunk: () => bus.emit("stream:chunk"),
-			onPatientDone: () => bus.emit("stream:done"),
-			onError: (err) => bus.emit("stream:error", err),
-			onExamResult: (examResult) => bus.emit("exam:result", examResult),
-			onEmotionChange: (change) => bus.emit("emotion:changed", change),
-			onInitiative: (initiative) =>
-				bus.emit("initiative:triggered", { content: initiative }),
-		});
-	}, []);
+	const ctxRef = useRef<PluginContext>(undefined as unknown as PluginContext);
+	const prevActiveRef = useRef<PanelPlugin[]>([]);
+
+	const sendMessage = useCallback(
+		async (text: string) => {
+			let processed = text;
+			for (const plugin of activePlugins) {
+				if (plugin.hooks?.beforeSend) {
+					const result = plugin.hooks.beforeSend(processed, ctxRef.current);
+					processed =
+						result instanceof Promise ? await result : result;
+				}
+			}
+			const bus = busRef.current;
+			streamRef.current.send(processed, {
+				onPatientChunk: () => bus.emit("stream:chunk"),
+				onPatientDone: () => bus.emit("stream:done"),
+				onError: (err) => bus.emit("stream:error", err),
+				onExamResult: (examResult) => bus.emit("exam:result", examResult),
+				onEmotionChange: (change) => bus.emit("emotion:changed", change),
+				onInitiative: (initiative) =>
+					bus.emit("initiative:triggered", { content: initiative }),
+			});
+		},
+		[activePlugins],
+	);
 
 	const endTraining = useCallback(async () => {
+		for (const plugin of activePlugins) {
+			plugin.hooks?.onEnd?.("manual", ctxRef.current);
+		}
 		await scoreRef.current.end();
 		busRef.current.emit("training:ended");
-	}, []);
+	}, [activePlugins]);
 
 	const ctx: PluginContext = useMemo(
 		() => ({
@@ -166,9 +180,21 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		],
 	);
 
+	ctxRef.current = ctx;
+
 	useEffect(() => {
-		const cleanups = cleanupRefs.current;
+		const prevActive = prevActiveRef.current;
+		prevActiveRef.current = activePlugins;
+
 		const activeIds = new Set(activePlugins.map((p) => p.id));
+
+		for (const plugin of prevActive) {
+			if (!activeIds.has(plugin.id)) {
+				plugin.hooks?.onDestroy?.();
+			}
+		}
+
+		const cleanups = cleanupRefs.current;
 
 		for (const [id, cleanup] of cleanups) {
 			if (!activeIds.has(id)) {
@@ -238,6 +264,14 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			},
 		);
 	}, [setPortraitUrl]);
+
+	const overlayPluginDefs = useMemo(() => {
+		if (!manifest) return [];
+		const manifestIds = new Set(manifest.plugins.map((p) => p.id));
+		return localDefs.filter(
+			(d) => d.overlayComponent && manifestIds.has(d.id),
+		);
+	}, [manifest, localDefs]);
 
 	if (loading) {
 		return (
@@ -316,13 +350,21 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					/>
 				</div>
 			</div>
-			<QuestionnaireOverlay
-				recordId={recordId}
-				bus={busRef.current}
-				features={features}
-			/>
-			<ScoringOverlay bus={busRef.current} />
-			<ScoreCard bus={busRef.current} recordId={recordId} />
+			{overlayPluginDefs.map((def) => {
+				const Overlay = def.overlayComponent!;
+				return (
+					<PluginErrorBoundary
+						key={def.id}
+						pluginName={def.meta.name}
+					>
+						<Overlay
+							recordId={recordId}
+							bus={busRef.current}
+							features={features}
+						/>
+					</PluginErrorBoundary>
+				);
+			})}
 		</>
 	);
 }

@@ -13,7 +13,13 @@ export default definePlugin({
 		priority: 3,
 		badge: (ctx) => {
 			let count = 0;
+			const seen = new Set<string>();
 			for (const msg of ctx.messages) {
+				if (msg.examResult?.type && !seen.has(msg.examResult.type)) {
+					seen.add(msg.examResult.type);
+					count++;
+					continue;
+				}
 				if (msg.role === "system") {
 					const stripped = (msg.content ?? "").replace(
 						/[:\s]/g,
@@ -29,7 +35,11 @@ export default definePlugin({
 						stripped.includes("皮肤") ||
 						stripped.includes("疼痛")
 					) {
-						count++;
+						const key = stripped.slice(0, 6);
+						if (!seen.has(key)) {
+							seen.add(key);
+							count++;
+						}
 					}
 				}
 			}

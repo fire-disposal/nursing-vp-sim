@@ -4,16 +4,36 @@ import type { ManifestResponse } from "./types";
 
 let cachedManifest: ManifestResponse | null = null;
 
+async function fetchWithRetry(
+	url: string,
+	retries = 2,
+): Promise<ManifestResponse> {
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= retries; attempt++) {
+		try {
+			const res = await api.get<ManifestResponse>(url);
+			cachedManifest = res.data;
+			return res.data;
+		} catch (err) {
+			lastError = err;
+			if (attempt < retries) {
+				await new Promise((r) =>
+					setTimeout(r, Math.min(1000 * 2 ** attempt, 4000)),
+				);
+			}
+		}
+	}
+	if (cachedManifest) return cachedManifest;
+	throw lastError;
+}
+
 export async function fetchManifest(
 	recordId?: string,
 ): Promise<ManifestResponse> {
 	const url = recordId
 		? `/training/${recordId}/plugins/manifest`
 		: "/plugins/manifest";
-
-	const res = await api.get<ManifestResponse>(url);
-	cachedManifest = res.data;
-	return res.data;
+	return fetchWithRetry(url);
 }
 
 export function useManifest(recordId?: string) {
@@ -30,7 +50,11 @@ export function useManifest(recordId?: string) {
 				if (!cancelled) setManifest(m);
 			})
 			.catch(() => {
-				if (!cancelled) setManifest(null);
+				if (!cancelled && cachedManifest) {
+					setManifest(cachedManifest);
+				} else if (!cancelled) {
+					setManifest(null);
+				}
 			})
 			.finally(() => {
 				if (!cancelled) setLoading(false);

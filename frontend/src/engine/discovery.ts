@@ -5,7 +5,7 @@ interface PluginModule {
 }
 
 const pluginModules = import.meta.glob<PluginModule>(
-	"@/plugins/*/index.ts",
+	"@/plugins/*/index.{ts,tsx}",
 	{ eager: true },
 );
 
