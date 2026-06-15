@@ -101,7 +101,7 @@ if git diff --cached --name-only -- 'backend/migrations/versions/*.py' 2>/dev/nu
 fi
 
 pattern='^v([0-9]{4})\.([0-9]{2})\.([0-9]{2})-([1-9][0-9]*)$'
-today=$(date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d 2>/dev/null || echo "")
+today=$(TZ=Asia/Shanghai date +%Y.%m.%d 2>/dev/null || date -u +%Y.%m.%d 2>/dev/null || echo "")
 
 if [ -z "$today" ]; then
   echo "  WARNING: cannot determine today's date, date validation skipped"
