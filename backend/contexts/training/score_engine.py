@@ -35,9 +35,13 @@ async def _score_stage(
     log_meta: dict | None,
     llm_client: LLMClient,
     llm_cfg: dict | None = None,
+    tracker=None,  # ScoringProgressTracker | None
 ) -> dict:
     """第一阶段：逐项评分（total_score + detail_scores + evidence/reason）。"""
     cfg = llm_cfg or get_llm_config("scoring")
+
+    if tracker:
+        tracker.update(record_id, "scoring", 15, "正在逐项评分分析...")
 
     result = await llm_client.call_json(
         messages,
@@ -84,6 +88,8 @@ async def _score_stage(
         **cfg,
     )
     _validate_scoring_essentials(result2)
+    if tracker:
+        tracker.update(record_id, "scoring", 55, "评分维度分析完成")
     return result2
 
 
@@ -96,9 +102,13 @@ async def _feedback_stage(
     log_meta: dict | None,
     llm_client: LLMClient,
     llm_cfg: dict | None = None,
+    tracker=None,  # ScoringProgressTracker | None
 ) -> dict:
     """第二阶段：生成反馈（strengths/weaknesses/missed_content/suggestions）。"""
     cfg = llm_cfg or get_llm_config("scoring_feedback")
+
+    if tracker:
+        tracker.update(record_id, "feedback", 65, "正在生成反馈建议...")
 
     result = await llm_client.call_json(
         messages,
@@ -148,6 +158,8 @@ async def _feedback_stage(
     except ValueError:
         log.warning("Second feedback retry validation failed: record_id=%d", record_id)
 
+    if tracker:
+        tracker.update(record_id, "feedback", 90, "反馈建议生成完成")
     return _merge_feedback(result, result2, missing)
 
 
@@ -158,6 +170,7 @@ async def evaluate_training(
     *,
     pm,
     llm_client: LLMClient,
+    tracker=None,  # ScoringProgressTracker | None
 ) -> Score:
     """对训练对话进行评分并保存结果。
 
@@ -178,11 +191,16 @@ async def evaluate_training(
         conversation_lines.append(f"{role_label}：{msg.content}")
     conversation_text = "\n\n".join(conversation_lines)
 
+    if tracker:
+        tracker.start(record_id)
+        tracker.update(record_id, "loading", 5, "正在加载对话记录...")
+
     rubric = load_rubric_by_version(record.rubric_frozen or "nursing_history_v1@1.0")
     all_required = case_data.get("required_inquiries", [])
     raw_max = rubric.get("raw_max", 57)
 
     scoring_criteria_text = build_scoring_criteria(rubric)
+    scoring_criteria_text_brief = build_scoring_criteria(rubric, level="brief")
     scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
 
@@ -204,7 +222,7 @@ async def evaluate_training(
 
     tmpl_feedback = await pm.get("scoring_feedback")
     feedback_system, feedback_user = tmpl_feedback.render_pair(
-        scoring_criteria=scoring_criteria_text,
+        scoring_criteria=scoring_criteria_text_brief,
         required_inquiries=required_inquiries_text,
         conversation_text=conversation_text,
     )
@@ -212,6 +230,9 @@ async def evaluate_training(
         {"role": "system", "content": feedback_system},
         {"role": "user", "content": feedback_user},
     ]
+
+    if tracker:
+        tracker.update(record_id, "scoring", 10, "正在评分维度分析...")
 
     scoring_cfg = get_llm_config("scoring")
     feedback_cfg = get_llm_config("scoring_feedback")
@@ -225,6 +246,7 @@ async def evaluate_training(
         log_meta=log_meta,
         llm_client=llm_client,
         llm_cfg=scoring_cfg,
+        tracker=tracker,
     )
     feedback_task = _feedback_stage(
         feedback_messages,
@@ -234,9 +256,13 @@ async def evaluate_training(
         log_meta=log_meta,
         llm_client=llm_client,
         llm_cfg=feedback_cfg,
+        tracker=tracker,
     )
 
     scoring_result, feedback_result = await asyncio.gather(scoring_task, feedback_task)
+
+    if tracker:
+        tracker.update(record_id, "saving", 95, "正在保存评分结果...")
 
     result = {**scoring_result}
     for field in ("strengths", "weaknesses", "missed_content", "suggestions"):
