@@ -4,6 +4,7 @@ Revision ID: a1b2c3d4e5f8
 Revises: 3fb59738064c
 Create Date: 2026-06-15
 """
+import json
 from typing import Sequence, Union
 
 from alembic import op
@@ -47,9 +48,9 @@ def upgrade() -> None:
                 del snap[key]
         conn.execute(
             sa.text(
-                "UPDATE training_records SET practice_snapshot = :snap, runtime_state = :rt WHERE id = :id"
+                "UPDATE training_records SET practice_snapshot = :snap::jsonb, runtime_state = :rt::jsonb WHERE id = :id"
             ),
-            {"snap": snap, "rt": runtime, "id": row.id},
+            {"snap": json.dumps(snap), "rt": json.dumps(runtime), "id": row.id},
         )
 
 
@@ -77,8 +78,8 @@ def downgrade() -> None:
             if "exam_impact_note" in rt:
                 snap["_exam_impact_note"] = rt.pop("exam_impact_note")
             conn.execute(
-                sa.text("UPDATE training_records SET practice_snapshot = :snap WHERE id = :id"),
-                {"snap": snap, "id": row.id},
+                sa.text("UPDATE training_records SET practice_snapshot = :snap::jsonb WHERE id = :id"),
+                {"snap": json.dumps(snap), "id": row.id},
             )
 
         op.drop_column("training_records", "runtime_state")
