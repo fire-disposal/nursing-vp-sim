@@ -292,21 +292,21 @@ app.include_router(admin_plugins_router)
 app.include_router(admin_practices_router)
 app.include_router(admin_schools_router)
 app.include_router(admin_roles_router)
+from plugins.manager import get_plugin_manager
+
+pm = get_plugin_manager()
+
+from plugins.manifest import router as manifest_router
+
+pm.register_routes(nursing_router)
+
 app.include_router(training_router)
 app.include_router(chat_router)
 app.include_router(nursing_router)
 app.include_router(qa_router)
 app.include_router(assignments_router)
 app.include_router(student_assignments_router)
-
-from plugins.manifest import router as manifest_router
-
 app.include_router(manifest_router)
-
-from plugins.manager import get_plugin_manager
-
-pm = get_plugin_manager()
-pm.register_routes(nursing_router)
 
 
 @app.get("/api/health")

@@ -516,6 +516,7 @@ def get_record_detail(
         patient_info=patient_info,
         features=resolve_features(record.practice_snapshot),
         from_assignment=record.assignment_id is not None,
+        exam_anchors=case_data.get("exam_anchors", {}),
     )
 
 

@@ -11,6 +11,7 @@ from .emotion import (
 # 查体处理器
 from .exam import (
     detect_operation,
+    get_exam_config,
     handle_operation,
 )
 
@@ -73,6 +74,7 @@ __all__ = [
     "cleanup_initiative",
     "detect_operation",
     "format_case_for_prompt",
+    "get_exam_config",
     "generate_initiative",
     "get_emotion",
     "get_guard",

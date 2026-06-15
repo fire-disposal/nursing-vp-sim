@@ -18,6 +18,7 @@ export interface PatientData {
 	chiefComplaint?: string;
 	personality?: string;
 	requiredInquiries?: string[];
+	examAnchors?: Record<string, unknown>;
 }
 
 export interface ScoreDimension {

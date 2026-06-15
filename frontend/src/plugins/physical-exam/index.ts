@@ -2,7 +2,19 @@ import { Stethoscope } from "lucide-react";
 import { definePlugin } from "@/engine/types";
 import { ExamPanel } from "./ExamPanel";
 
-const TOTAL_EXAMS = 8;
+function countTotalOps(anchors: Record<string, unknown> | undefined): number {
+	if (!anchors) return 0;
+	const groups = (anchors as any).groups as Array<{ ops: unknown[] }> | undefined;
+	if (Array.isArray(groups)) {
+		return groups.reduce((sum, g) => sum + g.ops.length, 0);
+	}
+	let total = 0;
+	const vs = anchors.vital_signs as Record<string, unknown> | undefined;
+	if (vs) total += Object.keys(vs).length;
+	if (anchors.skin) total++;
+	if (anchors.pain_score !== undefined) total++;
+	return total;
+}
 
 export default definePlugin({
 	id: "physical-exam",
@@ -12,6 +24,9 @@ export default definePlugin({
 		label: "护理查体",
 		priority: 3,
 		badge: (ctx) => {
+			const totalOps = countTotalOps(ctx.patient?.examAnchors);
+			if (totalOps === 0) return null;
+
 			let count = 0;
 			const seen = new Set<string>();
 			for (const msg of ctx.messages) {
@@ -45,7 +60,7 @@ export default definePlugin({
 			}
 			if (count === 0) return null;
 			return {
-				text: `${count}/${TOTAL_EXAMS}`,
+				text: `${count}/${totalOps}`,
 				variant: "default" as const,
 			};
 		},

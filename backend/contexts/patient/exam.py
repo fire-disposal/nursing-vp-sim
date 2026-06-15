@@ -1,7 +1,8 @@
-"""操作处理器 — 查体/测量操作的关键词绑定与锚点数据查找
+"""操作处理器 — 配置驱动的查体/测量操作
 
-学生输入斜杆指令 (/bp, /vitals) 或触发关键词时，
-从病例 exam_anchors 返回系统数据。
+从 case_data.exam_anchors 读取配置，支持两种格式：
+1. 新格式：含 groups 结构（前端直接消费）
+2. 旧格式：自动从 vital_signs/skin/pain_score 推导
 """
 
 import logging
@@ -9,7 +10,22 @@ import random
 
 log = logging.getLogger(__name__)
 
-OPERATION_ALIASES = {
+# ── 旧格式兼容：默认操作定义 ──
+
+_LEGACY_OP_DEFS: dict[str, dict] = {
+    "temp": {"label": "体温", "unit": "°C", "source": ("vital_signs", "temperature")},
+    "hr": {"label": "心率", "unit": "次/分", "source": ("vital_signs", "heart_rate")},
+    "bp": {"label": "血压", "unit": "mmHg", "source": ("vital_signs", "blood_pressure")},
+    "rr": {"label": "呼吸频率", "unit": "次/分", "source": ("vital_signs", "respiratory_rate")},
+    "spo2": {"label": "血氧饱和度", "unit": "%", "source": ("vital_signs", "spo2")},
+    "skin": {"label": "皮肤", "unit": "", "source": ("skin",)},
+    "pain": {"label": "NRS疼痛评分", "unit": "/10", "source": ("pain_score",)},
+}
+
+_LEGACY_VITAL_OPS = ["temp", "hr", "bp", "rr", "spo2"]
+_LEGACY_INSPECT_OPS = ["skin", "pain"]
+
+_DEFAULT_ALIASES: dict[str, list[str]] = {
     "vitals": ["/vitals", "/生命体征", "/查体征", "测生命体征", "查生命体征", "测量生命体征"],
     "bp": ["/bp", "/血压", "测血压", "量血压", "测量血压"],
     "temp": ["/temp", "/体温", "测体温", "量体温", "测量体温"],
@@ -21,78 +37,173 @@ OPERATION_ALIASES = {
 }
 
 
+def get_exam_config(case_data: dict) -> dict | None:
+    """解析 case_data 返回前端用的 exam config."""
+    anchors = case_data.get("exam_anchors", {})
+    if not anchors:
+        return None
+    if "groups" in anchors:
+        return anchors
+    return _build_legacy_config(anchors)
+
+
+def handle_operation(op_type: str, case_data: dict) -> dict:
+    """执行操作，返回 {type, label, value, unit}"""
+    anchors = case_data.get("exam_anchors", {})
+    if not anchors:
+        return {"type": "info", "label": "查体", "value": "该病例未配置查体数据", "unit": ""}
+
+    op_defs = _collect_op_defs(anchors)
+    op_def = op_defs.get(op_type)
+    if not op_def:
+        return {"type": "error", "label": "未知操作", "value": f"不支持的操作: {op_type}", "unit": ""}
+
+    value = _resolve_value(op_type, op_def, anchors, case_data)
+    return {
+        "type": op_type if op_type == "vitals" else ("vitals" if op_type in _LEGACY_VITAL_OPS else "exam"),
+        "label": op_def["label"],
+        "value": value,
+        "unit": op_def["unit"],
+    }
+
+
 def detect_operation(content: str) -> str | None:
-    """检测学生输入是否触发了操作。返回操作类型或 None。"""
+    """检测学生输入是否触发操作。"""
     content_lower = content.lower()
-    for op_type, aliases in OPERATION_ALIASES.items():
+    for op_type, aliases in _DEFAULT_ALIASES.items():
         for alias in aliases:
             if alias in content_lower:
                 return op_type
     return None
 
 
-def handle_operation(op_type: str, case_data: dict) -> dict:
-    """执行操作，返回系统数据响应。
-
-    返回格式: {type, label, value, unit, note}
-    """
-    anchors = case_data.get("exam_anchors", {})
-    exam_mapping = {
-        "vitals": lambda a: _format_vitals(a.get("vital_signs", {})),
-        "bp": lambda a: _parse_range(a.get("vital_signs", {}), "blood_pressure", "mmHg", "血压"),
-        "temp": lambda a: _parse_range(a.get("vital_signs", {}), "temperature", "°C", "体温"),
-        "spo2": lambda a: _parse_range(a.get("vital_signs", {}), "spo2", "%", "血氧饱和度"),
-        "hr": lambda a: _parse_range(a.get("vital_signs", {}), "heart_rate", "次/分", "心率"),
-        "rr": lambda a: _parse_range(a.get("vital_signs", {}), "respiratory_rate", "次/分", "呼吸频率"),
-        "skin": lambda a: {"type": "exam", "label": "皮肤", "value": a.get("skin", "未见明显异常")},
-        "pain": lambda a: _parse_pain(case_data),
-    }
-
-    handler = exam_mapping.get(op_type)
-    if not handler:
-        return {"type": "error", "label": "未知操作", "value": f"不支持的操作类型: {op_type}"}
-
-    result = handler(anchors) if anchors else {"type": "info", "label": op_type, "value": "该病例未配置查体数据"}
-    result["type"] = result.get("type", "vitals")
-    return result
+# ── Config 构建 ──
 
 
-def _parse_range(data: dict, key: str, unit: str, label: str) -> dict:
-    """从锚点范围中随机取一个值。支持'92-95%'、'92-95'、血压'138/86-146/92'格式。"""
-    raw = data.get(key, "")
-    if not raw:
-        return {"type": "vitals", "label": label, "value": "—", "unit": unit}
+def _build_legacy_config(anchors: dict) -> dict:
+    op_ids = _detect_ops(anchors)
+    groups = []
+    vital_ids = [oid for oid in _LEGACY_VITAL_OPS if oid in op_ids]
+    if vital_ids:
+        groups.append({
+            "id": "vitals",
+            "label": "生命体征",
+            "icon": "Heart",
+            "ops": [
+                {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
+                for oid in vital_ids
+            ],
+        })
+    inspect_ids = [oid for oid in op_ids if oid in _LEGACY_INSPECT_OPS]
+    if inspect_ids:
+        groups.append({
+            "id": "inspection",
+            "label": "体格检查",
+            "icon": "Stethoscope",
+            "ops": [
+                {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
+                for oid in inspect_ids
+            ],
+        })
+    return {"groups": groups}
 
-    raw = str(raw).replace("%", "").strip()
+
+def _detect_ops(anchors: dict) -> list[str]:
+    ops = set()
+    vs = anchors.get("vital_signs", {})
+    if any(vs.get(k) for k in ("temperature", "heart_rate", "blood_pressure", "respiratory_rate", "spo2")):
+        ops.update(_LEGACY_VITAL_OPS)
+    if anchors.get("skin"):
+        ops.add("skin")
+    if anchors.get("pain_score") is not None:
+        ops.add("pain")
+    return list(ops)
+
+
+# ── 操作定义收集 ──
+
+
+def _collect_op_defs(anchors: dict) -> dict[str, dict]:
+    if "groups" in anchors:
+        defs: dict[str, dict] = {}
+        for group in anchors["groups"]:
+            for op in group.get("ops", []):
+                src = op.get("source", op["id"])
+                defs[op["id"]] = {
+                    "label": op["label"],
+                    "unit": op.get("unit", ""),
+                    "source": (src,),
+                }
+        return defs
+    op_ids = _detect_ops(anchors)
+    defs = {oid: _LEGACY_OP_DEFS[oid] for oid in op_ids if oid in _LEGACY_OP_DEFS}
+    has_vitals = any(oid in _LEGACY_VITAL_OPS for oid in op_ids)
+    if has_vitals:
+        defs["vitals"] = {"label": "生命体征(汇总)", "unit": "", "source": ("_vitals",)}
+    return defs
+
+
+# ── 值解析 ──
+
+
+def _resolve_value(op_type: str, op_def: dict, anchors: dict, case_data: dict) -> str:
+    path = op_def["source"]
+
+    if path[0] == "_vitals":
+        vs = anchors.get("vital_signs", {})
+        result = _format_vitals(vs)
+        return result["value"]
+
+    if path[0] == "vital_signs":
+        vs = anchors.get("vital_signs", {})
+        raw = vs.get(path[1], "") if len(path) > 1 else ""
+        if not raw:
+            return "—"
+        return _resolve_range(str(raw))
+
+    if path[0] == "skin":
+        return anchors.get("skin", "") or "未见明显异常"
+
+    if path[0] == "pain_score":
+        nrs = case_data.get("pain_score", anchors.get("pain_score"))
+        if nrs is not None:
+            return str(nrs)
+        return "患者可自主报告"
+
+    return "—"
+
+
+def _resolve_range(raw: str) -> str:
+    raw = raw.strip()
+    if "-" in raw and "/" in raw:
+        return _resolve_bp(raw)
     if "-" in raw:
-        parts = raw.split("-")
+        parts = raw.split("-", 1)
         try:
             lo, hi = float(parts[0]), float(parts[1])
-            val = round(random.uniform(lo, hi), 1)
+            val = random.uniform(lo, hi)
+            return f"{val:.1f}"
         except (ValueError, IndexError):
-            val = _try_parse_bp_range(raw)
-        return {"type": "vitals", "label": label, "value": str(val), "unit": unit}
-
-    return {"type": "vitals", "label": label, "value": raw, "unit": unit}
+            pass
+    return raw
 
 
-def _try_parse_bp_range(raw: str) -> str:
-    """解析血压区间格式 '138/86-146/92' → 随机取一个测量值如 '141/88'。"""
-    if "/" not in raw:
-        return raw
+def _resolve_bp(raw: str) -> str:
     try:
-        left, right = raw.split("-")
+        left, right = raw.split("-", 1)
         s_lo, d_lo = left.split("/")
         s_hi, d_hi = right.split("/")
-        s_val = round(random.uniform(float(s_lo), float(s_hi)))
-        d_val = round(random.uniform(float(d_lo), float(d_hi)))
-        return f"{int(s_val)}/{int(d_val)}"
+        s = round(random.uniform(float(s_lo), float(s_hi)))
+        d = round(random.uniform(float(d_lo), float(d_hi)))
+        return f"{int(s)}/{int(d)}"
     except (ValueError, IndexError):
         return raw
 
 
+# ── 旧版兼容导出（供其他地方引用） ──
+
+
 def _format_vitals(vs: dict) -> dict:
-    """汇总生命体征"""
     lines = []
     mappings = [
         ("体温", "temperature", "°C"),
@@ -106,11 +217,11 @@ def _format_vitals(vs: dict) -> dict:
         if not val:
             continue
         if key == "blood_pressure" and "-" in str(val):
-            parsed = _try_parse_bp_range(str(val))
+            parsed = _resolve_range(str(val))
             lines.append(f"{label}: {parsed}")
-        elif key in ("temperature", "heart_rate", "respiratory_rate", "spo2") and "-" in str(val):
-            result = _parse_range(vs, key, unit, label)
-            lines.append(f"{label}: {result['value']}")
+        elif "-" in str(val):
+            resolved = _resolve_range(str(val))
+            lines.append(f"{label}: {resolved}")
         else:
             lines.append(f"{label}: {val}")
     value = "\n".join(lines) if lines else "未配置"

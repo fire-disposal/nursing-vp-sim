@@ -64,6 +64,7 @@ export function PatientProvider({
 					chiefComplaint: d.chief_complaint ?? d.case?.chief_complaint ?? "",
 					personality: d.personality ?? d.case?.personality ?? "",
 					requiredInquiries: d.required_inquiries ?? [],
+					examAnchors: d.exam_anchors ?? {},
 				});
 				setFeatures(d.features ?? {});
 				setFromAssignment(d.from_assignment ?? false);
