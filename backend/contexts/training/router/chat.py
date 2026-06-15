@@ -94,12 +94,16 @@ async def send_message_stream(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    async with db_session() as db:
-        ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-        pipe, collector = get_pipeline(ctx.state["features"])
-        ctx.note_collector = collector
+    async def _stream_with_db():
+        async with db_session() as db:
+            ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
+            pipe, collector = get_pipeline(ctx.state["features"])
+            ctx.note_collector = collector
 
-        return StreamingResponse(
-            stream_pipeline(ctx, pipe),
-            media_type="text/event-stream",
-        )
+            async for chunk in stream_pipeline(ctx, pipe):
+                yield chunk
+
+    return StreamingResponse(
+        _stream_with_db(),
+        media_type="text/event-stream",
+    )

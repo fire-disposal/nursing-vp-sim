@@ -40,14 +40,20 @@ export function ScoringOverlay({
 
 	useEffect(() => {
 		if (!visible) return;
+		const hideTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
 		const id = setInterval(() => {
 			const p = getProgress();
 			setProgress(p);
 			if (p.phase === "completed" || p.phase === "failed") {
-				setTimeout(() => setVisible(false), 1500);
+				if (!hideTimerRef.current) {
+					hideTimerRef.current = setTimeout(() => setVisible(false), 1500);
+				}
 			}
 		}, 200);
-		return () => clearInterval(id);
+		return () => {
+			clearInterval(id);
+			if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+		};
 	}, [visible, getProgress]);
 
 	if (!visible) return null;

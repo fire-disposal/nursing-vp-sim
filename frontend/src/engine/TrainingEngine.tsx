@@ -113,10 +113,20 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	useEffect(() => {
 		pluginRegistry.setFeatureFlags(features);
 		if (manifest) pluginRegistry.setManifest(manifest);
+		const registered: string[] = [];
 		for (const def of localDefs) {
 			const plugin = buildPanelPlugin(def);
-			if (plugin) pluginRegistry.register(plugin);
+			if (plugin) {
+				pluginRegistry.register(plugin);
+				registered.push(plugin.id);
+			}
 		}
+		// 组件卸载时清理本会话注册的插件，避免跨会话污染
+		return () => {
+			for (const id of registered) {
+				pluginRegistry.unregister(id);
+			}
+		};
 	}, [features, manifest, localDefs]);
 
 	const activePlugins = useMemo(

@@ -22,6 +22,12 @@ export class PluginRegistry {
 		this._version++;
 	}
 
+	unregister(id: string): void {
+		if (this.plugins.delete(id)) {
+			this._version++;
+		}
+	}
+
 	setManifest(manifest: {
 		plugins: Array<{
 			id: string;

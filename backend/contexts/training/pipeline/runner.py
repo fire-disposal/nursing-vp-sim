@@ -42,6 +42,9 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
     """Execute pipeline in streaming mode, yielding SSE events."""
     try:
         await _make_next(ctx, middlewares)()
+    except GeneratorExit:
+        log.info("Stream pipeline cancelled (disconnect): record_id=%d", ctx.record.id)
+        raise
     except Exception as e:
         log.exception("Stream pipeline error: record_id=%d", ctx.record.id)
         ctx.error = str(e)

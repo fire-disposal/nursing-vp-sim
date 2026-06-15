@@ -60,7 +60,7 @@ async def _score_stage(
     try:
         _validate_scoring_essentials(result)
         return result
-    except ValueError:
+    except (ValueError, TypeError):
         log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
 
     partial_json = json.dumps(result, ensure_ascii=False, indent=2)
