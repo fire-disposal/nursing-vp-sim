@@ -14,6 +14,7 @@ from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
+from infrastructure.scoring_progress import ScoringProgressTracker
 from models import Case, Message, Score, ScoreReview, TrainingRecord, User
 from plugins.manager import get_plugin_manager
 from schemas import ScoringTriggerResponse
@@ -28,6 +29,7 @@ router = APIRouter()
 @router.get("/{record_id}/scoring-status")
 def get_scoring_status(
     record_id: int,
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -39,6 +41,18 @@ def get_scoring_status(
 
     score = db.query(Score).filter(Score.record_id == record_id).first()
     review_exists = score and db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first() is not None
+
+    progress = None
+    tracker: ScoringProgressTracker | None = getattr(request.app.state, "scoring_tracker", None)
+    if tracker:
+        p = tracker.get(record_id)
+        if p:
+            progress = {
+                "phase": p.phase,
+                "percentage": p.percentage,
+                "message": p.message,
+            }
+
     return {
         "scoring_status": record.scoring_status,
         "scoring_error": record.scoring_error,
@@ -48,6 +62,7 @@ def get_scoring_status(
         }
         if score
         else None,
+        "progress": progress,
     }
 
 
@@ -68,6 +83,7 @@ async def _run_scoring_background(
     *,
     llm_client: LLMClient,
     pm: PromptManager,
+    tracker: ScoringProgressTracker | None = None,
 ) -> None:
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
@@ -79,6 +95,9 @@ async def _run_scoring_background(
         record.scoring_status = "processing"
         db.commit()
 
+        if tracker:
+            tracker.start(record_id)
+
         await asyncio.wait_for(
             evaluate_training(
                 record_id,
@@ -86,15 +105,20 @@ async def _run_scoring_background(
                 db,
                 pm=pm,
                 llm_client=llm_client,
+                tracker=tracker,
             ),
             timeout=SCORING_GLOBAL_TIMEOUT,
         )
 
         record.scoring_status = "completed"
         record.scoring_error = None
+        if tracker:
+            tracker.update(record_id, "completed", 100, "评分完成")
         db.commit()
         log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
     except TimeoutError:
+        if tracker:
+            tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record:
@@ -105,6 +129,8 @@ async def _run_scoring_background(
             log.warning("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
         log.exception("评分超时", extra={"record_id": record_id})
     except Exception as e:
+        if tracker:
+            tracker.update(record_id, "failed", 0, str(e)[:100])
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record:
@@ -150,6 +176,7 @@ async def end_training(
                 case.case_data if case else {},
                 llm_client=request.app.state.llm_client,
                 pm=request.app.state.prompt_manager,
+                tracker=getattr(request.app.state, "scoring_tracker", None),
             ),
             priority=5,
         )
@@ -225,6 +252,7 @@ async def retry_scoring(
                 case.case_data if case else {},
                 llm_client=request.app.state.llm_client,
                 pm=request.app.state.prompt_manager,
+                tracker=getattr(request.app.state, "scoring_tracker", None),
             ),
             priority=5,
         )
