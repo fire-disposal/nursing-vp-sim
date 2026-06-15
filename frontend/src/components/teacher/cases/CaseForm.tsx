@@ -50,7 +50,7 @@ const PLUGIN_OPTIONS = [
 		label: "患者主动追问",
 		desc: "患者根据性格/情绪/等待时长主动发言（需同时启用情绪状态机）",
 	},
-	{ id: "portrait", label: "患者立绘", desc: "在训练界面显示患者人物立绘图片" },
+
 	{
 		id: "questionnaire",
 		label: "问卷评估",

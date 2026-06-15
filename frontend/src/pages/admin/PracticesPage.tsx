@@ -33,7 +33,7 @@ const FEATURE_FLAGS = [
 	{ key: "physical_exam", label: "护理查体" },
 	{ key: "emotion", label: "情绪状态机" },
 	{ key: "patient_initiative", label: "患者追问" },
-	{ key: "portrait", label: "患者立绘" },
+
 	{ key: "questionnaire", label: "问卷评估" },
 	{ key: "exam_emotion_bridge", label: "查体-情绪联动" },
 	{ key: "allow_pause", label: "允许暂停" },

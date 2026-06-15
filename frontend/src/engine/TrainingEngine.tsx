@@ -307,6 +307,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						recordId={recordId}
 						patient={patient}
 						features={features}
+						manifestFeatureFlags={manifest?.feature_flags}
 						onToggleFeature={(key: string, enabled: boolean) => {
 							setFeatures((prev) => {
 								const next = { ...prev, [key]: enabled };

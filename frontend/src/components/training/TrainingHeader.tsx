@@ -32,7 +32,7 @@ const FEATURE_META: Record<string, { label: string; desc: string }> = {
 		label: "患者主动追问",
 		desc: "患者根据性格/情绪/等待时长主动发言（依赖情绪状态机）",
 	},
-	portrait: { label: "患者立绘", desc: "在训练界面显示患者人物立绘图片" },
+
 	questionnaire: {
 		label: "问卷评估",
 		desc: "训练结束后弹出评估问卷供学生填写",
@@ -51,6 +51,7 @@ interface TrainingHeaderProps {
 	recordId: string;
 	patient: PatientData;
 	features: Record<string, boolean>;
+	manifestFeatureFlags?: Record<string, { key: string; label: string; description: string }>;
 	onToggleFeature: (key: string, enabled: boolean) => void;
 	ttsAutoPlay: boolean;
 	onTtsToggle: () => void;
@@ -66,6 +67,7 @@ export function TrainingHeader({
 	recordId,
 	patient,
 	features,
+	manifestFeatureFlags,
 	onToggleFeature,
 	ttsAutoPlay,
 	onTtsToggle,
@@ -323,42 +325,61 @@ export function TrainingHeader({
 					</p>
 				)}
 				<div className="flex flex-col gap-1">
-					{Object.entries(FEATURE_META).map(([key, meta]) => {
-						const enabled = features[key] ?? false;
-						return (
-							<label
-								key={key}
-								className={cn(
-									"flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors",
-									enabled ? "bg-primary/5" : "bg-muted/30",
-								)}
-							>
-								<div className="min-w-0">
-									<div className="text-sm font-medium">{meta.label}</div>
-									<div className="text-xs text-muted-foreground">
-										{meta.desc}
-									</div>
-								</div>
-								<button
-									type="button"
-									disabled={featuresLocked}
-									onClick={() => handleToggleFeature(key, !enabled)}
+					{(() => {
+						const manifestKeys = new Set(
+							Object.keys(manifestFeatureFlags ?? {}),
+						);
+						const allKeys = [
+							...Object.keys(manifestFeatureFlags ?? {}),
+							...Object.keys(FEATURE_META).filter(
+								(k) => !manifestKeys.has(k),
+							),
+						];
+						return allKeys.map((key) => {
+							const mf = manifestFeatureFlags?.[key];
+							const fallback = FEATURE_META[key];
+							if (!mf && !fallback) return null;
+							const label = mf?.label ?? fallback?.label ?? key;
+							const desc = mf?.description ?? fallback?.desc ?? "";
+							const enabled = features[key] ?? false;
+							return (
+								<label
+									key={key}
 									className={cn(
-										"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-										enabled ? "bg-primary" : "bg-gray-300",
-										featuresLocked && "opacity-50 cursor-not-allowed",
+										"flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors",
+										enabled ? "bg-primary/5" : "bg-muted/30",
 									)}
 								>
-									<span
+									<div className="min-w-0">
+										<div className="text-sm font-medium">{label}</div>
+										<div className="text-xs text-muted-foreground">
+											{desc}
+										</div>
+									</div>
+									<button
+										type="button"
+										disabled={featuresLocked}
+										onClick={() => handleToggleFeature(key, !enabled)}
 										className={cn(
-											"inline-block size-4 transform rounded-full bg-white transition-transform shadow-sm",
-											enabled ? "translate-x-[18px]" : "translate-x-0.5",
+											"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+											enabled ? "bg-primary" : "bg-gray-300",
+											featuresLocked &&
+												"opacity-50 cursor-not-allowed",
 										)}
-									/>
-								</button>
-							</label>
-						);
-					})}
+									>
+										<span
+											className={cn(
+												"inline-block size-4 transform rounded-full bg-white transition-transform shadow-sm",
+												enabled
+													? "translate-x-[18px]"
+													: "translate-x-0.5",
+											)}
+										/>
+									</button>
+								</label>
+							);
+						});
+					})()}
 				</div>
 				<div className="flex justify-end mt-5">
 					<Button

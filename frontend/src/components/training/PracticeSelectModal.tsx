@@ -23,7 +23,7 @@ const FEATURE_LABELS: Record<string, string> = {
 	physical_exam: "护理查体",
 	emotion: "情绪状态机",
 	patient_initiative: "患者追问",
-	portrait: "患者立绘",
+
 	questionnare: "问卷评估",
 	exam_emotion_bridge: "查体-情绪联动",
 	allow_pause: "允许暂停",
