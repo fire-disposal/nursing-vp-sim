@@ -43,8 +43,8 @@ if $HAS_ALEMBIC; then
   export PGUSER PGPASSWORD PGHOST PGPORT
 
   TEMP_DB="vptest_roundtrip_$$"
-  # Prefer GNU timeout if available, otherwise run without limit
-  if command -v timeout >/dev/null 2>&1; then
+  # GNU timeout has --help; Windows TIMEOUT does not. Use it only when GNU.
+  if command -v timeout >/dev/null 2>&1 && timeout --help 2>/dev/null | grep -q "timeout"; then
     TOCMD="timeout 30"
     TOCMD_LONG="timeout 120"
   else
