@@ -1,6 +1,6 @@
 # 07 — 交接记录
 
-> 适用版本: v2026.06.12 | 最后更新: 2026-06-12
+> 适用版本: current | 最后更新: 2026-06-15
 
 本文档用于记录当前版本状态，作为下次继续开发时的快速上下文。
 
@@ -8,7 +8,7 @@
 
 ## 当前版本概要
 
-**v2026.06.12** — 数据模型全面升级 (Practice/ScoreReview) + 训练引擎插件化 + 迁移安全体系 + 前端 API 层重构。
+**current** — 数据模型全面升级 (Practice/ScoreReview) + AI Core 重构 (ContextSource→NoteCollector) + Case Data 架构重构 (Phase 1-5) + 插件体系对齐。
 
 系统已进入稳定化阶段：核心业务模型完成重设计，训练页完成引擎化架构改造，前后端分离的 API 层已组织为按领域的文件结构。当前重点是数据迁移的完整性和生产部署准备。
 
@@ -73,7 +73,7 @@
 - `scores` — 评分结果
 - `score_reviews` — 评分复核 (教师审阅)
 - `nursing_records` — 护理记录 (结构化表单)
-- `api_providers` / `api_keys` — 多 LLM Provider 管理
+- `api_secrets` / `llm_configs` — 多 LLM Provider 管理
 - `prompt_templates` — Prompt 模板 (版本化)
 - `qa_records` — 问答历史
 - `questionnaires` / `questionnaire_attempts` — 问卷系统
@@ -88,10 +88,10 @@
 
 **前端架构:**
 - **引擎系统**: TrainingEngine + MessageBus + PluginRegistry + StreamManager + ScoreManager + TTS
-- **插件 (9 个)**: emotion, initiative, inquiry, nursing-record, patient-info, physical-exam, portrait, questionnaire, scoring-display
+- **插件 (8 个)**: emotion, initiative, inquiry, nursing-record, patient-info, physical-exam, questionnaire, scoring-display
 - **API 层**: 按领域拆分 18 文件 + admin/ 子目录
-- **Hooks (6 个)**: useNetworkStatus, useQuestionnaire, useScorePolling, useScoreProgress, useTrainingTimer, useVoice
-- **Stores (3 个)**: authStore, gradesClassesStore, schoolStore
+- **Hooks (7 个)**: useNetworkStatus, useQuestionnaire, useScoreProgress, useTrainingTimer, useVoice, useChartTheme, useMediaQuery
+- **Stores (2 个)**: authStore, gradesClassesStore
 - **路由**: 26 条路由，包括 12 个 admin 子页
 
 **LLM 服务**: 多 Provider 优先级加权路由 (熔断+健康检查) + 流式 SSE + 评分并行化 (asyncio.gather) + API Keys Fernet 加密 + Prompt 模板版本化

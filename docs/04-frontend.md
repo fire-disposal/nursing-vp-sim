@@ -1,6 +1,6 @@
 # 04 — 前端设计
 
-> 适用版本: v2026.06.12 | 最后更新: 2026-06-12
+> 适用版本: current | 最后更新: 2026-06-15
 
 ## 技术栈
 
@@ -35,7 +35,9 @@ frontend/src/
 ├── api/
 │   ├── api-client.ts          # 后端 API 封装函数
 │   ├── api-types.gen.ts       # OpenAPI 自动生成类型
+│   ├── api-path.ts            # ApiPath 联合类型 (编译时路径校验)
 │   ├── axios-instance.ts      # axios 实例 + 拦截器 (envelope 解包)
+│   ├── sse.ts                 # SSE 流式请求封装
 │   ├── auth.ts                # 认证
 │   ├── training.ts            # 训练记录
 │   ├── training-state.ts      # 训练状态
@@ -107,33 +109,35 @@ frontend/src/
 │   ├── TrainingEngine.tsx     # 训练循环编排
 │   ├── MessageBus.ts          # 插件间消息总线 (发布/订阅)
 │   ├── PluginRegistry.ts      # 插件注册中心
-│   ├── PluginContext.tsx      # 共享上下文 (Emotion/Portrait Provider)
+│   ├── PluginContext.tsx      # 共享上下文 (Emotion Provider)
 │   ├── PatientProvider.tsx    # 患者数据上下文
 │   ├── StreamManager.ts       # SSE 流式响应管理
 │   ├── ScoreManager.ts        # 评分流程管理
+│   ├── discovery.ts           # 动态插件发现
+│   ├── manifest.ts            # 插件清单注册
 │   ├── types.ts               # 引擎类型定义
 │   └── tts/                   # 语音合成模块
 │       ├── index.ts
 │       ├── types.ts
 │       ├── TTSManager.ts      # TTS 总控
 │       └── browser-tts.ts     # Web Speech API 实现
-├── plugins/                   # 训练页插件 (9 个)
+├── plugins/                   # 训练页插件 (8 个)
 │   ├── emotion/               # 情绪状态面板
 │   ├── initiative/            # 主动提问面板
 │   ├── inquiry/               # 采集进度追踪
 │   ├── nursing-record/        # 护理记录表单
 │   ├── patient-info/          # 患者信息卡片
 │   ├── physical-exam/         # 体格检查结果
-│   ├── portrait/              # 患者画像面板
 │   ├── questionnaire/         # 训练后问卷
 │   └── scoring-display/       # 评分结果展示
-├── hooks/                     # 自定义 Hooks (6 个)
+├── hooks/                     # 自定义 Hooks (7 个)
 │   ├── useNetworkStatus.ts    # 网络连接状态检测
 │   ├── useQuestionnaire.ts    # 问卷数据管理
-│   ├── useScorePolling.ts     # 评分状态轮询
 │   ├── useScoreProgress.ts    # 评分进度指示
 │   ├── useTrainingTimer.ts    # 训练倒计时
-│   └── useVoice.ts            # 语音识别 + TTS 朗读
+│   ├── useVoice.ts            # 语音识别 + TTS 朗读
+│   ├── useChartTheme.ts       # 图表主题适配
+│   └── useMediaQuery.ts       # 响应式断点查询
 ├── lib/
 │   └── utils.ts               # cn() — clsx + tailwind-merge
 ├── pages/                     # 路由页面 (14 个)
@@ -163,10 +167,9 @@ frontend/src/
 │       ├── PracticesPage.tsx
 │       ├── RolesPage.tsx
 │       └── SchoolsPage.tsx
-├── stores/                    # Zustand 状态 (3 个)
+├── stores/                    # Zustand 状态 (2 个)
 │   ├── authStore.ts
-│   ├── gradesClassesStore.ts
-│   └── schoolStore.ts
+│   └── gradesClassesStore.ts
 ├── styles/
 │   └── tailwind.css           # Tailwind 入口 + shadcn 主题变量 + 自定义 tokens
 ├── types/                     # 全局类型定义
@@ -316,7 +319,7 @@ frontend/src/
 | `TrainingEngine.tsx` | 训练循环编排 — 初始化、暂停、结束、评分触发 |
 | `MessageBus.ts` | 发布/订阅消息总线，插件间解耦通信 |
 | `PluginRegistry.ts` | 插件注册中心，管理插件生命周期 |
-| `PluginContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态), PortraitProvider (患者画像描述) |
+| `PluginContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) |
 | `PatientProvider.tsx` | 患者数据上下文，提供患者信息给所有插件 |
 | `StreamManager.ts` | SSE 流式响应管理，处理 LLM 消息流 |
 | `ScoreManager.ts` | 评分流程管理 — 触发评分、轮询状态、获取结果 |
@@ -333,7 +336,6 @@ TrainingEngine
 │   ├── initiative       — 主动提问面板
 │   ├── inquiry          — 采集进度追踪
 │   ├── nursing-record   — 护理记录表单
-│   ├── portrait         — 患者画像面板
 │   ├── physical-exam    — 体格检查结果
 │   ├── questionnaire    — 训练后问卷
 │   └── scoring-display  — 评分结果展示

@@ -1,6 +1,6 @@
 # 03 — 数据库设计
 
-> 适用版本: v2026.06.12 | 最后更新: 2026-06-12
+> 适用版本: current | 最后更新: 2026-06-15
 
 数据库：PostgreSQL 15，通过 SQLAlchemy 2.0 ORM + Alembic 管理迁移。
 
@@ -214,11 +214,13 @@ CheckConstraint: `mode IN ('training', 'assessment', 'free_play')`
 | case_id | INTEGER | FK→cases.id | 病例ID |
 | practice_id | INTEGER | FK→practices.id, NULLABLE | 练习ID |
 | practice_snapshot | JSONB | NULLABLE | 练习配置快照（记录开始时的配置） |
+| runtime_state | JSONB | DEFAULT '{}' | 运行时状态 (exam_results, phase_op_count, exam_impact_note)，跨请求持久化 |
 | status | VARCHAR(20) | DEFAULT "in_progress" | in_progress / completed / abandoned |
 | scoring_status | VARCHAR(20) | NULLABLE | pending / processing / completed / failed |
 | scoring_error | TEXT | NULLABLE | 评分失败原因 |
 | time_limit | INTEGER | DEFAULT 20 | 时间限制（分钟） |
 | current_phase | VARCHAR(50) | NULLABLE | 当前阶段: history_taking / physical_exam / ending |
+| rubric_frozen | VARCHAR(80) | NULLABLE | 训练开始时冻结的评分标准版本ID ({name}@{version}) |
 | assignment_id | VARCHAR(36) | FK→assignments.id, SET NULL, NULLABLE | 关联作业 |
 | is_overdue | BOOLEAN | DEFAULT FALSE | 是否超时 |
 | start_time | DATETIME (UTC) | DEFAULT NOW | 开始时间 |
@@ -563,6 +565,19 @@ detail_scores 结构（100分制）：
 索引: `ix_feedback_user_id`, `ix_feedback_tag`, `ix_feedback_created_at`
 关联: `user`
 > **DEPRECATED**: `api_providers` 表已被 `api_secrets` + `llm_configs` 替代，保留仅用于迁移兼容。
+
+### system_notifications — 系统通知表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INTEGER | PK, 自增 | 通知ID |
+| title | VARCHAR(200) | NOT NULL | 通知标题 |
+| content | TEXT | NOT NULL | 通知内容 |
+| level | VARCHAR(10) | DEFAULT "info" | info / warning / error |
+| is_read | BOOLEAN | DEFAULT FALSE | 是否已读 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | |
+
+索引: `ix_system_notifications_created_at`
 
 ## 种子数据
 

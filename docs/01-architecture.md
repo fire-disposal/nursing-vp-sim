@@ -1,6 +1,6 @@
 # 01 — 系统架构
 
-> 适用版本: v2026.06.12 | 最后更新: 2026-06-12
+> 适用版本: current | 最后更新: 2026-06-15
 
 ## 技术栈
 
@@ -9,7 +9,7 @@
 | 后端框架 | Python FastAPI | 异步高性能Web框架，lifespan 生命周期 |
 | 前端框架 | React 19 + TypeScript + Vite | SPA单页应用 |
 | 前端路由 | react-router-dom v7 | 客户端路由 |
-| 状态管理 | Zustand | 轻量状态管理 (authStore, gradesClassesStore, schoolStore) |
+| 状态管理 | Zustand | 轻量状态管理 (authStore, gradesClassesStore) |
 | 数据请求 | TanStack Query | 服务端状态缓存 + 自动刷新 |
 | UI组件 | shadcn/ui 风格 + Tailwind CSS v4 | 设计系统组件库 |
 | HTTP客户端 | axios (前端) / httpx (后端) | 前端120s超时+自动重试；后端共享连接池 |
@@ -24,7 +24,7 @@
 | 图标 | lucide-react | 统一 SVG 图标库 |
 | 评分标准 | rubrics/ JSON 文件 + DB Rubric 模型 | 19项条目动态生成 Prompt，evidence+reason 证据化，100分制显示 |
 | 教师复核 | ScoreReview 独立表 + ReviewEditor | 教师逐项修改分数 + 备注，复核记录可追溯 |
-| 患者保护 | patient/guard.py | 角色泄露/诊断泄露检测，隐藏信息规则引擎，fallback 回复 |
+| 患者保护 | patient/guards.py | 角色泄露/诊断泄露检测，隐藏信息规则引擎，fallback 回复 |
 | Prompt 管理 | infrastructure/prompt/ + DB 模板 | 多模板版本化、变量渲染、激活/停用、热重载 |
 | API Key 管理 | infrastructure/llm/crypto_utils.py + Fernet 加密 | 加密存储、连通性测试、per-key 用量统计 |
 | 配置管理 | python-dotenv | .env 文件自动加载 |
@@ -50,22 +50,19 @@ nursing-vp-sim/
 │   ├── contexts/                               # 有界上下文 — 业务逻辑层
 │   │   ├── training/                           # 训练上下文（核心）
 │   │   │   ├── config_loader.py                # 会话配置加载 (session_configs)
-│   │   │   ├── plugins.py                      # 训练插件系统
 │   │   │   ├── score_engine.py                 # 评分引擎
 │   │   │   ├── pipeline/                       # 训练管道架构
 │   │   │   │   ├── context.py                  # 管道上下文数据类
 │   │   │   │   ├── phase.py                    # 训练阶段定义
-│   │   │   │   ├── plugin.py                   # 管道插件基类
 │   │   │   │   ├── registry.py                 # 管道注册表
 │   │   │   │   ├── runner.py                   # 管道执行器
 │   │   │   │   └── middleware/                 # 中间件链
-│   │   │   │       ├── emotion_tracker.py       # 情绪追踪
+│   │   │   │       ├── phase_guard.py           # 阶段守卫
 │   │   │   │       ├── prompt_builder.py        # Prompt构建
 │   │   │   │       ├── llm_caller.py            # LLM调用
 │   │   │   │       ├── persister.py             # 消息持久化
-│   │   │   │       ├── side_effects.py          # 副作用处理
-│   │   │   │       ├── phase_guard.py           # 阶段守卫
-│   │   │   │       └── phase_transition.py      # 阶段转换
+│   │   │   │       ├── phase_transition.py      # 阶段转换
+│   │   │   │       └── side_effects.py          # 副作用处理
 │   │   │   └── router/                         # 训练路由
 │   │   │       ├── chat.py                     # LLM对话 (流式SSE)
 │   │   │       ├── session.py                  # 训练会话管理
@@ -74,10 +71,12 @@ nursing-vp-sim/
 │   │   │       ├── progress.py                 # 采集进度
 │   │   │       └── _config.py                  # 会话配置端点
 │   │   ├── patient/                            # 患者上下文
-│   │   │   ├── guard.py                        # 患者角色边界保护
+│   │   │   ├── guards.py                       # 患者角色边界保护
 │   │   │   ├── emotion.py                      # 患者情绪管理
 │   │   │   ├── exam.py                         # 体格检查
 │   │   │   ├── initiative.py                   # 患者主动发起
+│   │   │   ├── note_source.py                  # NoteSource 抽象基类
+│   │   │   ├── note_collector.py               # NoteCollector 管道收集器
 │   │   │   └── prompt.py                       # 患者相关Prompt
 │   │   └── qa/                                 # 问答上下文
 │   │       ├── api.py                          # QA路由
@@ -186,17 +185,16 @@ nursing-vp-sim/
 │   │   │   ├── nursing-record/                 # 护理记录插件
 │   │   │   ├── patient-info/                   # 患者信息插件
 │   │   │   ├── physical-exam/                  # 体格检查插件
-│   │   │   ├── portrait/                       # 患者画像插件
 │   │   │   ├── questionnaire/                  # 问卷插件
 │   │   │   └── scoring-display/                # 评分展示插件
 │   │   ├── stores/                             # 状态管理 (Zustand)
 │   │   │   ├── authStore.ts                    # 认证状态
-│   │   │   ├── gradesClassesStore.ts           # 年级班级状态
-│   │   │   └── schoolStore.ts                  # 学校状态
+│   │   │   └── gradesClassesStore.ts           # 年级班级状态
 │   │   ├── hooks/                              # 自定义 Hooks
 │   │   │   ├── useVoice.ts                     # 语音输入/输出
+│   │   │   ├── useChartTheme.ts                # 图表主题
+│   │   │   ├── useMediaQuery.ts                # 响应式断点
 │   │   │   ├── useQuestionnaire.ts             # 问卷流程
-│   │   │   ├── useScorePolling.ts              # 评分轮询
 │   │   │   ├── useScoreProgress.ts             # 评分进度
 │   │   │   ├── useTrainingTimer.ts             # 训练计时器
 │   │   │   └── useNetworkStatus.ts             # 网络状态检测
@@ -260,7 +258,7 @@ TrainingEngine 采用插件化架构，通过 PluginRegistry 动态加载功能�
 1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，axios拦截器自动解包 envelope (`{code, data, message}`)
 2. **有界上下文 (Bounded Contexts)**：业务逻辑按领域划分为 `contexts/training`、`contexts/patient`、`contexts/qa`，每个上下文独立拥有自己的路由、业务逻辑和数据访问
 3. **插件化架构**：前端 TrainingEngine 和后端 training/pipeline 均采用插件/中间件模式，功能模块可独立开发、注册、启用/停用
-4. **管道架构 (Pipeline)**：训练流程采用中间件链：emotion_tracker → prompt_builder → llm_caller → persister → side_effects，每轮对话经过完整管道处理
+4. **管道架构 (Pipeline)**：训练流程采用中间件链：phase_guard → prompt_builder → llm_caller → persister → phase_transition → side_effects，每轮对话经过完整管道处理
 5. **JWT无状态认证**：登录颁发Token，前端存储到localStorage，每次请求携带。支持 token_version 强制过期
 6. **角色权限控制 (RBAC)**：Role → RolePermission 模型，API层和前端路由层双重守卫
 7. **多租户数据隔离**：School 模型实现学校级数据隔离，Grade/Class 层级管理学生
@@ -275,9 +273,9 @@ TrainingEngine 采用插件化架构，通过 PluginRegistry 动态加载功能�
 插件面板 ← MessageBus ← StreamManager ← FastAPI后端
     ↓                                       ↓
 管道中间件链                              PostgreSQL
-(emotion_tracker → prompt_builder        (训练记录/消息/评分/护理记录)
+(phase_guard → prompt_builder            (训练记录/消息/评分/护理记录)
  → llm_caller → persister
- → side_effects)
+ → phase_transition → side_effects)
     ↓
 多 Provider LLM API (DeepSeek / OpenAI 兼容 / 自定义)
 ```
@@ -286,13 +284,12 @@ TrainingEngine 采用插件化架构，通过 PluginRegistry 动态加载功能�
 
 ```
 用户输入消息
-  → SSE 请求到 /training/chat
-  → emotion_tracker: 分析患者情绪状态
+   → SSE 请求到 /training/chat
   → phase_guard: 检查训练阶段权限
   → prompt_builder: 构建完整 Prompt（系统提示 + 患者信息 + 对话历史 + 评分标准）
   → llm_caller: 调用 LLM API（流式响应）
-  → phase_transition: 检测阶段切换条件
   → persister: 保存消息到数据库
+  → phase_transition: 检测阶段切换条件
   → side_effects: 触发护理记录更新、体检发现等
   → 流式返回给前端 StreamManager → MessageBus → UI 更新
 ```
