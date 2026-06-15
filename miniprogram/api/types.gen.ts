@@ -876,6 +876,14 @@ export interface RegisterRequest {
   gender?: string | null
 }
 
+export interface RegisterResponse {
+  id: number
+  username: string
+  role: string
+  display_name: string
+  student_id?: string | null
+}
+
 export interface RoleCreateRequest {
   name: string
   display_name: string

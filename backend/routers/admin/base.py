@@ -99,7 +99,14 @@ def update_user(
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = (
+        db.query(User)
+        .options(
+            joinedload(User.role), joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade)
+        )
+        .filter(User.id == user_id)
+        .first()
+    )
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
     if current_user.school_id is not None and user.school_id != current_user.school_id:
@@ -141,21 +148,9 @@ def update_user(
     db.commit()
     db.refresh(user)
 
-    user = (
-        db.query(User)
-        .options(
-            joinedload(User.role), joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade)
-        )
-        .filter(User.id == user_id)
-        .first()
-    )
-
     ucs = user.user_classes if user else []
     uc = ucs[0] if ucs else None
     cls = uc.class_ if uc else None
-
-    if user is None:
-        raise HTTPException(status_code=404, detail="用户不存在")
 
     log.info(
         f"用户更新: target_id={user_id} target_name={user.username}",

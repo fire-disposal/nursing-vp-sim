@@ -448,6 +448,14 @@ class BatchUserItem(BaseModel):
     class_id: int | None = None
 
 
+class RegisterResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+    display_name: str
+    student_id: str | None = None
+
+
 class BatchCreateResult(BaseModel):
     created: int
     skipped: int

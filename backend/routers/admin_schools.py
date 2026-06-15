@@ -28,11 +28,15 @@ router = APIRouter(prefix="/api/admin/schools", tags=["学校管理"])
 def list_schools(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    search: Annotated[str | None, Query(description="搜索学校名称")] = None,
     current_user: User = Depends(require_permission("school_manage")),
     db: Session = Depends(get_db),
 ):
-    total = db.query(func.count(School.id)).scalar() or 0
-    schools = db.query(School).order_by(School.created_at.desc()).offset(offset).limit(limit).all()
+    q = db.query(School)
+    if search:
+        q = q.filter(School.name.ilike(f"%{search}%"))
+    total = q.count()
+    schools = q.order_by(School.created_at.desc()).offset(offset).limit(limit).all()
 
     items = []
     for s in schools:
@@ -126,6 +130,13 @@ def delete_school(
     school = db.query(School).filter(School.id == school_id).first()
     if not school:
         raise HTTPException(status_code=404, detail="学校不存在")
+
+    user_count = db.query(func.count(User.id)).filter(User.school_id == school_id).scalar() or 0
+    if user_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"该校还有 {user_count} 名用户，无法删除",
+        )
 
     name = school.name
     db.delete(school)

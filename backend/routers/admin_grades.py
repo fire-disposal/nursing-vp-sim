@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
-from models import Class, Grade, User, UserClass
+from models import Assignment, Class, Grade, User, UserClass
 from schemas import DeleteResponse, GradeCreate, GradeResponse, GradeUpdate
 
 router = APIRouter(prefix="/api/admin/grades", tags=["年级管理"])
@@ -104,6 +104,17 @@ def delete_grade(
     if not grade:
         raise HTTPException(status_code=404, detail="年级不存在")
     class_count = db.query(func.count(Class.id)).filter(Class.grade_id == grade_id).scalar() or 0
+    class_ids = [row[0] for row in db.query(Class.id).filter(Class.grade_id == grade_id).all()]
+
+    assignment_count = (
+        db.query(func.count(Assignment.id)).filter(Assignment.class_id.in_(class_ids)).scalar() if class_ids else 0
+    )
+    if assignment_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"该年级下有 {assignment_count} 个作业引用，无法删除。请先删除相关作业。",
+        )
+
     from sqlalchemy import update as sa_update
 
     db.execute(

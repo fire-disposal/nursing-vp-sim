@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
-from models import Class, Grade, User, UserClass
+from models import Assignment, Class, Grade, User, UserClass
 from schemas import ClassCreate, ClassResponse, ClassUpdate, DeleteResponse
 
 router = APIRouter(prefix="/api/admin/classes", tags=["班级管理"])
@@ -74,7 +74,7 @@ def update_class(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    cls = db.query(Class).filter(Class.id == class_id).first()
+    cls = db.query(Class).join(Grade).filter(Class.id == class_id, Grade.school_id == current_user.school_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
     if body.grade_id is not None:
@@ -118,6 +118,14 @@ def delete_class(
     cls = db.query(Class).join(Grade).filter(Class.id == class_id, Grade.school_id == current_user.school_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
+
+    assignment_count = db.query(func.count(Assignment.id)).filter(Assignment.class_id == class_id).scalar() or 0
+    if assignment_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"该班级下有 {assignment_count} 个作业引用，无法删除",
+        )
+
     from sqlalchemy import update as sa_update
 
     db.execute(sa_update(UserClass).where(UserClass.class_id == class_id).values(class_id=None))

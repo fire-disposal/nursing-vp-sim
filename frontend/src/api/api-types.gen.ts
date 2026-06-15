@@ -4020,6 +4020,19 @@ export interface components {
             /** Gender */
             gender?: string | null;
         };
+        /** RegisterResponse */
+        RegisterResponse: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Role */
+            role: string;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+        };
         /** RoleCreateRequest */
         RoleCreateRequest: {
             /** Name */
@@ -4711,7 +4724,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenResponse"];
+                    "application/json": components["schemas"]["RegisterResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7843,6 +7856,8 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description 搜索学校名称 */
+                search?: string | null;
             };
             header?: never;
             path?: never;

@@ -11,7 +11,7 @@ export const login = (username: string, password: string) =>
 	);
 
 export const register = (data: Schemas["RegisterRequest"]) =>
-	api.post<Schemas["TokenResponse"]>(
+	api.post<Schemas["RegisterResponse"]>(
 		"/auth/register" satisfies ApiPath as string,
 		data,
 	);

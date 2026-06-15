@@ -107,8 +107,9 @@ def get_trends(
     ]
     total_sessions = sum(r.sessions for r in rows)
     total_minutes = round(sum(r.minutes or 0 for r in rows))
-    all_scores = [float(r.avg_score) for r in rows if r.avg_score is not None]
-    overall_avg = round(sum(all_scores) / len(all_scores), 1) if all_scores else None
+    score_sum = sum(float(r.avg_score) * r.sessions for r in rows if r.avg_score is not None)
+    score_weight = sum(r.sessions for r in rows if r.avg_score is not None)
+    overall_avg = round(score_sum / score_weight, 1) if score_weight > 0 else None
 
     return TrendStats(daily=daily, total_sessions=total_sessions, total_minutes=total_minutes, avg_score=overall_avg)
 
@@ -122,7 +123,9 @@ def teacher_summary(
     db: Session = Depends(get_db),
 ):
     student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
-    student_role_id = student_role.id if student_role else -1
+    if not student_role:
+        return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
+    student_role_id = student_role.id
     base = (
         db.query(
             User.id.label("user_id"),
@@ -165,7 +168,9 @@ def student_ranking(
     db: Session = Depends(get_db),
 ):
     student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
-    student_role_id = student_role.id if student_role else -1
+    if not student_role:
+        return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
+    student_role_id = student_role.id
     sub = (
         db.query(
             User.id.label("user_id"),

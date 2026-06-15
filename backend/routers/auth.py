@@ -24,6 +24,7 @@ from schemas import (
     LoginRequest,
     OkResponse,
     RegisterRequest,
+    RegisterResponse,
     TokenResponse,
     UserBrief,
     UserProfileUpdateRequest,
@@ -85,7 +86,7 @@ async def login(
     return _build_token_response(user, db)
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=RegisterResponse)
 def register(
     req: RegisterRequest,
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
@@ -136,21 +137,12 @@ def register(
             "action": "register",
         },
     )
-    return TokenResponse(
-        access_token=create_access_token(
-            {
-                "user_id": user.id,
-                "role_id": user.role_id,
-                "school_id": user.school_id,
-                "role": user.role.name if user.role else "",
-                "tv": user.token_version,
-            }
-        ),
+    return RegisterResponse(
+        id=user.id,
+        username=user.username,
         role=user.role.name if user.role else "",
         display_name=user.display_name,
-        user_id=user.id,
-        school_id=user.school_id,
-        school_name=user.school.name if user.school else None,
+        student_id=user.student_id,
     )
 
 
