@@ -3,6 +3,12 @@ name: Build & Deploy to Staging
 on:
   push:
     tags: ["v[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g. 2026.06.16-1)'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -66,6 +72,15 @@ jobs:
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
+      - name: Resolve version
+        id: resolve_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -89,8 +104,8 @@ jobs:
           context: .
           file: Dockerfile.backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.meta.outputs.version }}
-          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:${{ steps.resolve_version.outputs.version }}
+          build-args: APP_VERSION=${{ steps.resolve_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -101,8 +116,8 @@ jobs:
           context: .
           file: Dockerfile.frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.meta.outputs.version }}
-          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.resolve_version.outputs.version }}
+          build-args: APP_VERSION=${{ steps.resolve_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -116,7 +131,7 @@ jobs:
         run: |
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
-          VER="${{ steps.meta.outputs.version }}"
+          VER="${{ steps.resolve_version.outputs.version }}"
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
           scp deploy/docker-compose.staging.yml "$USER@$HOST":/opt/nursing-vp-sim/docker-compose.staging.yml
@@ -178,4 +193,4 @@ jobs:
           DEPLOY
 
       - name: "✅ Staging"
-        run: echo "v${{ steps.meta.outputs.version }} → test.205716.xyz 🧪"
+        run: echo "v${{ steps.resolve_version.outputs.version }} → test.205716.xyz 🧪"

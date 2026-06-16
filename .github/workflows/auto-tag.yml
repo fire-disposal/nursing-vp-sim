@@ -1,0 +1,44 @@
+name: Auto Tag & Deploy to Staging
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push tag
+        run: node .husky/_/auto-tag.mjs --push
+
+      - name: Extract tag
+        id: tag
+        run: |
+          TAG=$(git describe --tags --abbrev=0)
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Created tag: $TAG"
+
+      - name: Trigger staging deploy
+        run: |
+          gh workflow run "Build & Deploy to Staging" \
+            --ref master \
+            -f version="${{ steps.tag.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
