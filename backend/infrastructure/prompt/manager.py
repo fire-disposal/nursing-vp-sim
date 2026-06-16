@@ -108,6 +108,8 @@ class PromptManager:
         db = SessionLocal()
         try:
             self._seed_all_builtin(db)
+            self._sync_builtin_patient_chat(db)
+            self._sync_builtin_patient_dynamic(db)
             self._sync_builtin_scoring_feedback(db)
             rows = db.query(PT).filter(PT.is_active).all()
 
