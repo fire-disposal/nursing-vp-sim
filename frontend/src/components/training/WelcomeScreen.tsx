@@ -36,27 +36,27 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 					<div className="space-y-2 text-left">
 						{patient.chiefComplaint && (
 							<div className="rounded-lg border bg-muted/30 p-3">
-								<div className="text-[0.65rem] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+								<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
 									主诉
 								</div>
-								<p className="text-xs leading-relaxed">
+								<p className="text-sm leading-relaxed">
 									{patient.chiefComplaint}
 								</p>
 							</div>
 						)}
 						{patient.personality && (
 							<div className="rounded-lg border bg-muted/30 p-3">
-								<div className="text-[0.65rem] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+								<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
 									性格特征
 								</div>
-								<p className="text-xs leading-relaxed">{patient.personality}</p>
+								<p className="text-sm leading-relaxed">{patient.personality}</p>
 							</div>
 						)}
 						<div className="rounded-lg border bg-muted/30 p-3">
-							<div className="text-[0.65rem] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+							<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
 								病案
 							</div>
-							<p className="text-xs leading-relaxed">
+							<p className="text-sm leading-relaxed">
 								{patient.caseTitle || "未提供"}
 							</p>
 						</div>
