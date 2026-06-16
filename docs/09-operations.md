@@ -455,7 +455,31 @@ sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s 
 
 ## 监控要点
 
-### 关键指标
+#
+
+### 诊断端点
+
+生产/测试服部署后可通过 `/api/diagnose` 端点查询系统实时状态：
+
+```bash
+curl "https://test.205716.xyz/api/diagnose?token=***"
+```
+
+返回信息包括：
+
+| 字段 | 说明 |
+|------|------|
+| `server.version` | 当前部署版本 |
+| `server.uptime_seconds` | 后端进程已运行时间 |
+| `database` | DB 连接池状态（pool_size / checked_out / connected） |
+| `llm` | LLM Provider 降级状态 |
+| `errors.last_5min` | 过去 5 分钟错误数 |
+| `errors.last_hour` | 过去 1 小时错误数 |
+| `errors.recent` | 最近 20 条 ERROR+ 日志（含时间/日志名/消息） |
+| `active_sessions` | 当前活跃训练会话数 |
+
+**安全配置：** 在 `.env` 中设置 `DIAGNOSE_TOKEN` 为随机字符串。未设置时端点自动隐藏（返回 404）。
+## 关键指标
 
 | 指标 | 检查方式 | 正常阈值 |
 |------|----------|----------|

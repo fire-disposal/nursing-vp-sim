@@ -89,6 +89,16 @@ pnpm run dev
 
 后端运行时访问 `http://localhost:8000/docs`（Swagger UI）。前端类型定义由 OpenAPI spec 自动生成到 `frontend/src/api/api-types.gen.ts`，API 客户端函数按领域拆分在 `frontend/src/api/*.ts`。
 
+### 关键端点
+
+| 端点 | 用途 | 认证 |
+|------|------|------|
+| `GET /api/health` | 存活检查 + DB 连通性 | 无 |
+| `GET /api/metrics` | 请求/LLM/费用统计（用于日报） | 无 |
+| `GET /api/diagnose?token=<token>` | 系统诊断 + 错误日志（运维用） | `DIAGNOSE_TOKEN`（环境变量） |
+
+> `/api/diagnose` 需要设置 `DIAGNOSE_TOKEN` 环境变量才可用。详见 [docs/09-operations.md](docs/09-operations.md)。
+
 ## 提交规范
 
 Husky + commitlint 强制校验格式：`<emoji> <type>: <描述>`
