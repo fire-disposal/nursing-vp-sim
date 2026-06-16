@@ -34,6 +34,7 @@ from core.seed import seed_all
 from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
+from core.diagnose import get_diagnose_service
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
@@ -168,6 +169,11 @@ async def lifespan(app: FastAPI):
     metrics.degraded_providers_supplier = lambda: app.state.llm_router.degraded_count() if app.state.llm_router else 0
     metrics.global_degraded_supplier = lambda: app.state.llm_router.global_degraded if app.state.llm_router else False
 
+    # Diagnose service — install error capture handler
+    diagnose_svc = get_diagnose_service()
+    diagnose_svc.install_handler()
+    diagnose_svc.set_app(app)
+
     app.state.llm_client = LLMClient(
         http=app.state.httpx_client,
         router=app.state.llm_router,
@@ -259,7 +265,7 @@ async def _log_requests(request: Request, call_next):
     elif response.status_code >= 400:
         log.warning("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
     metrics = getattr(request.app.state, "metrics", None)
-    if metrics and request.url.path not in ("/api/metrics", "/api/health"):
+    if metrics and request.url.path not in ("/api/metrics", "/api/health", "/api/diagnose"):
         metrics.record_request(response.status_code, ms)
     return response
 
@@ -326,6 +332,7 @@ from routers.admin_roles import router as admin_roles_router
 from routers.admin_schools import router as admin_schools_router
 from routers.assignments import router as assignments_router
 from routers.assignments import student_router as student_assignments_router
+from routers.diagnose import router as diagnose_router
 
 for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, questionnaires, stats]:
     app.include_router(mod.router)
@@ -348,6 +355,7 @@ app.include_router(chat_router)
 app.include_router(nursing_router)
 app.include_router(qa_router)
 app.include_router(assignments_router)
+app.include_router(diagnose_router)
 app.include_router(student_assignments_router)
 app.include_router(manifest_router)
 
