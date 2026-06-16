@@ -198,6 +198,7 @@ pnpm run dev:frontend
 ```bash
 # 后端健康检查
 curl http://localhost:8000/api/health        # → {"status":"ok"}
+curl "http://localhost:8000/api/diagnose?token=***"  # → 系统诊断+错误日志（需设置 DIAGNOSE_TOKEN）
 
 # 后端 API 文档
 start http://localhost:8000/docs             # FastAPI 自动生成的 Swagger
