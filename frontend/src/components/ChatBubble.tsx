@@ -37,7 +37,7 @@ export const ChatBubble = memo(function ChatBubble({
 	if (message.role === "system") {
 		return (
 			<div className="flex justify-center" data-role="system">
-				<div className="flex items-start gap-2 max-w-[85%] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
+				<div className="flex items-start gap-2 max-w-[85%] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs sm:text-sm">
 					<Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
 					<div className="whitespace-pre-wrap leading-relaxed text-blue-800">
 						{message.content}
@@ -75,7 +75,7 @@ export const ChatBubble = memo(function ChatBubble({
 			<div
 				className={cn(
 					"max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed break-words",
-					"bg-primary text-primary-foreground",
+					"bg-primary text-primary-foreground text-sm sm:text-base",
 				)}
 			>
 				{message.content}

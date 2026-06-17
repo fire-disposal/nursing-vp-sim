@@ -189,7 +189,7 @@ export function TrainingHeader({
 							<div className="text-xs sm:text-sm font-semibold text-foreground truncate">
 								{patient.name}
 							</div>
-							<div className="text-[0.65rem] sm:text-xs text-muted-foreground truncate">
+							<div className="text-xs sm:text-sm text-muted-foreground truncate">
 								{patient.caseTitle}
 							</div>
 						</div>

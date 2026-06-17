@@ -74,7 +74,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	return (
 		<div
 			ref={scrollRef}
-			className="h-full overflow-y-auto scroll-smooth px-2 py-4 space-y-3"
+			className="h-full overflow-y-auto scroll-smooth px-4 py-4 space-y-4"
 			onScroll={handleScroll}
 		>
 			{messages.map((msg, i) => (
