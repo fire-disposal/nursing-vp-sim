@@ -32,7 +32,7 @@ export function PatientPortrait({
 
 	const [prevSrc, setPrevSrc] = useState(avatarSrc);
 	const [fading, setFading] = useState(false);
-	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		if (avatarSrc !== prevSrc) {
@@ -47,6 +47,7 @@ export function PatientPortrait({
 			};
 		}
 	}, [avatarSrc, prevSrc]);
+
 
 	return (
 		<div className="text-center space-y-2">
