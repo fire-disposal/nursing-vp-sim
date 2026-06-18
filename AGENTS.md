@@ -28,11 +28,24 @@ If `--autogenerate` produces an empty migration, do not commit it.
 
 Pre-commit hook (`check-migration-autogen.js`) enforces the DDL/data separation rules by checking the target directory and file markers.
 
+## Python Environment (uv)
+
+This project uses **uv** for Python dependency and virtual environment management.
+
+```bash
+cd backend
+uv run ruff check          # lint
+uv run python -m pytest    # tests
+uv run alembic upgrade head  # migrations
+```
+
+**Never** call `.venv/Scripts/python.exe` directly — always use `uv run` from the backend directory. The pre-commit/pre-push hooks already run via `uv run` internally.
+
 ## Testing
 
 ```bash
-cd backend && pytest -m pg          # full suite (needs PostgreSQL)
-cd backend && pytest -m "not pg"    # unit tests only
+cd backend && uv run python -m pytest -m pg          # full suite (needs PostgreSQL)
+cd backend && uv run python -m pytest -m "not pg"    # unit tests only
 ```
 
 Test DB via `TEST_DB_URL` (defaults to `nursing_test`), app DB via `DATABASE_URL` (defaults to `vptest`). See `.env.example`.
