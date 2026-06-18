@@ -34,5 +34,4 @@ async def diagnose(
         raise HTTPException(status_code=403, detail="invalid token")
 
     service = get_diagnose_service()
-    data = await service.get_diagnose()
-    return data
+    return await service.get_diagnose()

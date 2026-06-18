@@ -59,3 +59,6 @@ class TestFeatureFlagsRegistry:
         for flag in FEATURE_FLAGS.values():
             assert flag.label
             assert flag.description
+
+    def test_questionnaire_flag_exists(self):
+        assert "questionnaire" in FEATURE_FLAGS
