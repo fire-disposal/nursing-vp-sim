@@ -33,9 +33,9 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
 import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { ScoreCardInner } from "@/plugins/scoring-display/ScoreCard";
 import useAuthStore from "@/stores/authStore";
 import type {
 	DetailScoreCategory,

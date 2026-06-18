@@ -1,4 +1,4 @@
-import { BUILTIN_PLUGIN_DEFS } from "@/plugins/registry";
+import { BUILTIN_PLUGIN_DEFS } from "@/components/training/panels/registry";
 import type { FrontendPluginDef } from "./types";
 
 let discovered: FrontendPluginDef[] | null = null;
