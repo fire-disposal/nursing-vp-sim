@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+# prepare-commit-msg: auto-format merge commit messages with emoji
+# $1 = .git/COMMIT_EDITMSG, $2 = source (merge/message/template/commit/squash)
+
+MSG_FILE="$1"
+SOURCE="$2"
+
+if [ "$SOURCE" = "merge" ]; then
+  # Read the auto-generated merge message
+  MSG=$(cat "$MSG_FILE")
+  FIRST_LINE=$(echo "$MSG" | head -1)
+
+  # Already formatted with emoji?
+  case "$FIRST_LINE" in
+    *"🔀"*|*"✨"*|*"🐛"*) exit 0 ;;
+  esac
+
+  # Extract branch name from "Merge branch 'xxx' into yyy" or "Merge branch 'xxx'"
+  BRANCH=$(echo "$FIRST_LINE" | sed -n "s/^Merge branch '\([^']*\)'.*/\1/p")
+
+  # Extract from "Merge pull request #N from user/repo"
+  PR_BRANCH=$(echo "$FIRST_LINE" | sed -n "s/^Merge pull request #[0-9]* from .*\/\(.*\)/\1/p")
+
+  TARGET="${PR_BRANCH:-$BRANCH}"
+
+  if [ -n "$TARGET" ]; then
+    # Extract type from branch name (e.g. fix/login-bug -> fix, feat/rbac -> feat)
+    TYPE=$(echo "$TARGET" | sed "s/\/.*//")
+    REST=$(echo "$TARGET" | sed "s/[^/]*\/\(.*\)/\1/")
+
+    NEW_MSG="🔀 merge: $FIRST_LINE"
+    TAIL=$(echo "$MSG" | tail -n +2)
+    if [ -n "$TAIL" ]; then
+      printf "%s\n%s" "$NEW_MSG" "$TAIL" > "$MSG_FILE"
+    else
+      printf "%s\n" "$NEW_MSG" > "$MSG_FILE"
+    fi
+  fi
+fi
