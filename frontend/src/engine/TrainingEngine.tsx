@@ -5,6 +5,7 @@ import { PanelHost } from "@/components/training/PanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { discoverPluginDefs } from "./discovery";
 import { createMessageBus } from "./MessageBus";
 import { useManifest } from "./manifest";
@@ -20,7 +21,6 @@ import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import type {
 	ChatMessage,
 	FrontendPluginDef,

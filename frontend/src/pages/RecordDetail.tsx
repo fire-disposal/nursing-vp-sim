@@ -32,8 +32,8 @@ import { CollapsibleSection, ReviewEditor, ScoreItem } from "@/components/Record
 import { useToast } from "@/components/Toast";
 import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
 import Badge from "@/components/ui/Badge";
-import type { ScoreData as EngineScoreData } from "@/engine/types";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
+import type { ScoreData as EngineScoreData } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";

@@ -16,9 +16,9 @@ import PracticeSelectModal from "@/components/training/PracticeSelectModal";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
