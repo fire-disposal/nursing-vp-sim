@@ -88,6 +88,8 @@ _TYPE_ALIAS = {
 
 _FALLBACK_RE = re.compile(r"^(?P<type>\w+)(?:\([^)]*\))?\s*:\s*")
 _REVERT_RE = re.compile(r'^Revert\s+"')
+_MERGE_PR_RE = re.compile(r"^Merge pull request #(?P<pr>\d+) from (?P<branch>\S+)")
+_MERGE_BRANCH_RE = re.compile(r"^Merge branch '(?P<branch>[^']+)'(?: into (?P<into>\S+))?")
 
 
 def _strip_emoji(subject: str) -> str:
@@ -126,7 +128,6 @@ def git_log() -> list[dict]:
         "log",
         "--format=%H%x00%ai%x00%s",
         "--date-order",
-        "--no-merges",
     ]
     raw = subprocess.check_output(
         cmd, cwd=str(ROOT), text=True, encoding="utf-8", errors="replace"
@@ -149,7 +150,15 @@ def git_log() -> list[dict]:
 
         subject = subject.lstrip("\ufeff")
 
-        if _REVERT_RE.match(subject):
+        merge_pr = _MERGE_PR_RE.match(subject)
+        merge_branch = _MERGE_BRANCH_RE.match(subject)
+        if merge_pr or merge_branch:
+            ctype = "merge"
+            if merge_pr:
+                subject = f"{subject}  [{merge_pr.group('branch')}]"
+            else:
+                subject = f"Merge: {merge_branch.group('branch')} → {merge_branch.group('into') or 'current'}"
+        elif _REVERT_RE.match(subject):
             ctype = "revert"
         else:
             subject = _strip_emoji(subject)
@@ -161,7 +170,6 @@ def git_log() -> list[dict]:
                     ctype = "other"
             else:
                 ctype = "other"
-
         commits.append(
             {
                 "sha": sha[:7],
