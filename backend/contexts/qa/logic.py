@@ -7,6 +7,7 @@ build_qa_history: 从 DB 构建对话历史 messages
 import asyncio
 import hashlib
 import logging
+import re
 import time
 
 from sqlalchemy.orm import Session
@@ -63,8 +64,14 @@ def get_qa_cache() -> QACache:
 MAX_HISTORY_TOKENS = 2000
 
 
+_CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]")
+
+
 def _estimate_tokens(text: str) -> int:
-    return len(text)
+    """粗略估算 token 数：中文 ~2 token/字，英文 ~0.25 token/字，保守偏向高估避免上下文超限。"""
+    cjk = len(_CJK_RE.findall(text))
+    other = len(text) - cjk
+    return int(cjk * 2 + other * 0.25)
 
 
 def build_qa_history(session_id: int, db: Session) -> list[dict]:

@@ -216,9 +216,17 @@ class LLMClient:
                 latency_ms = int((time.perf_counter() - t0) * 1000)
                 total_text = "".join(full_reply)
                 usage = state.usage or {}
-                prompt_tokens = usage.get("prompt_tokens", 0) or 0
-                completion_tokens = usage.get("completion_tokens", 0) or 0
-                total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
+                prompt_tokens = usage.get("prompt_tokens")
+                completion_tokens = usage.get("completion_tokens")
+                if prompt_tokens is None or completion_tokens is None:
+                    from infrastructure.llm.logging import _estimate_tokens
+
+                    prompt_tokens = _estimate_tokens(state.request_text or "")
+                    completion_tokens = _estimate_tokens(state.response_text or "")
+                else:
+                    prompt_tokens = prompt_tokens or 0
+                    completion_tokens = completion_tokens or 0
+                total_tokens = usage.get("total_tokens") or (prompt_tokens + completion_tokens)
 
                 await self._router.report_result(
                     state._config,

@@ -225,23 +225,25 @@ class ProfileRouter:
             self._persist_stats(profile)
 
     def _update_stats(self, profile, prompt_tokens: int, completion_tokens: int):
-        today = datetime.now(UTC).date()
+        today = datetime.now(UTC)
+        today_date = today.date()
         total_tokens = prompt_tokens + completion_tokens
-        if profile.stats_date is None or profile.stats_date.date() < today:
+        if profile.stats_date is None or profile.stats_date.date() < today_date:
             profile.call_count_today = 0
             profile.total_tokens_today = 0
             profile.total_cost_today = float(0)
             profile.stats_date = today
 
-        now_month = (today.year, today.month)
+        current_month = today.strftime("%Y-%m")
         cached_month = None
         if profile.stats_month:
             parts = profile.stats_month.split("-")
             if len(parts) == 2:
                 cached_month = (int(parts[0]), int(parts[1]))
+        now_month = (today.year, today.month)
         if cached_month is None or cached_month < now_month:
             profile.monthly_cost_used = float(0)
-            profile.stats_month = today.strftime("%Y-%m")
+            profile.stats_month = current_month
 
         profile.call_count_today = (profile.call_count_today or 0) + 1
         profile.total_tokens_today = (profile.total_tokens_today or 0) + total_tokens
