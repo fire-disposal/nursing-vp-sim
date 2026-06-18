@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { EmotionState } from "@/engine/PluginContext";
-import type { MessageBus } from "@/engine/types";
 import {
 	EMOTION_LABELS,
 	getEmotionColor,
 	useEmotion,
 } from "@/engine/PluginContext";
+import type { MessageBus } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
 interface EmotionIndicatorProps {
