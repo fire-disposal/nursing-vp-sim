@@ -88,6 +88,9 @@ LLM_LOG_OVERFLOW_DIR = os.getenv("LLM_LOG_OVERFLOW_DIR", "/app/data/llm_logs")
 LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10"))
 LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
 
+# QA RAG 开关 —— 启用后从教材库检索相关内容注入问答 prompt
+QA_RAG_ENABLED = os.getenv("QA_RAG_ENABLED", "false").lower() in ("true", "1", "yes")
+
 # LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
     "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.6, "max_retries": 2},

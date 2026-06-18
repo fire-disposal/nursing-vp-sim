@@ -23,6 +23,7 @@ from core.config import (
     LLM_LOG_OVERFLOW_DIR,
     LLM_LOG_OVERFLOW_MAX_FILES,
     LLM_LOG_OVERFLOW_MAX_SIZE_MB,
+    QA_RAG_ENABLED,
     REQUEST_TIMEOUT_SECONDS,
     log_config,
     validate_config,
@@ -128,6 +129,20 @@ async def lifespan(app: FastAPI):
     _recover_stuck_scoring_records()
 
     log.info("Scoring recovery: done")
+
+    if QA_RAG_ENABLED:
+        try:
+            from infrastructure.rag.indexer import check_indexed, index_all
+
+            count = check_indexed()
+            if count == 0:
+                log.info("Knowledge base empty, indexing textbooks...")
+                n = index_all()
+                log.info("Knowledge base indexed: %d chunks", n)
+            else:
+                log.info("Knowledge base ready: %d chunks", count)
+        except Exception:
+            log.exception("Knowledge base indexing failed (non-fatal)")
 
     app.state.rate_limiter = RateLimiter()
 

@@ -665,3 +665,14 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     user: Mapped["User"] = relationship()
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(100), index=True)
+    section: Mapped[str] = mapped_column(String(50))
+    chunk_text: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
