@@ -34,6 +34,12 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="查体操作影响患者心态：缺乏解释或不相关检查会降低信任/舒适度",
     ),
+    "physical_exam": FeatureFlag(
+        key="physical_exam",
+        label="护理查体",
+        default=False,
+        description="允许学生触发护理操作（测血压/体温/听诊等），操作结果通过 Author's Note 注入 LLM",
+    ),
 }
 
 

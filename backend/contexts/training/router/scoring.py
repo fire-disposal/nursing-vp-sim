@@ -200,6 +200,10 @@ async def end_training(
             from contexts.patient.initiative import cleanup_initiative
 
             cleanup_initiative(ctx.record.id, ctx.initiative_cache)
+        if features.get("emotion"):
+            from contexts.patient.emotion import cleanup_emotion
+
+            cleanup_emotion(ctx.record.id, ctx.emotion_cache)
 
         message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
         log.info(
@@ -233,10 +237,7 @@ async def retry_scoring(
             raise HTTPException(status_code=400, detail="训练尚未结束")
 
         now = datetime.now(UTC)
-        if record.scoring_status == "pending":
-            if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
-                raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
-        elif record.scoring_status == "processing":
+        if record.scoring_status in ("pending", "processing"):
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
