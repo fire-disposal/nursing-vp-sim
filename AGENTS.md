@@ -44,8 +44,7 @@ uv run alembic upgrade head  # migrations
 ## Testing
 
 ```bash
-cd backend && uv run python -m pytest -m pg          # full suite (needs PostgreSQL)
-cd backend && uv run python -m pytest -m "not pg"    # unit tests only
+cd backend && uv run python -m pytest          # full suite (includes all tests)
 ```
 
 Test DB via `TEST_DB_URL` (defaults to `nursing_test`), app DB via `DATABASE_URL` (defaults to `vptest`). See `.env.example`.
