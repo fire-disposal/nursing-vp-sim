@@ -50,8 +50,8 @@ async def ops_dashboard(
         llm_stats = (
             db.query(
                 func.count(LLMCallLog.id).label("total"),
-                func.sum(case((LLMCallLog.status == "success"), 1, else_=0)).label("success"),
-                func.sum(case((LLMCallLog.status == "error"), 1, else_=0)).label("error"),
+                func.sum(case((LLMCallLog.status == "success", 1), else_=0)).label("success"),
+                func.sum(case((LLMCallLog.status == "error", 1), else_=0)).label("error"),
                 func.avg(LLMCallLog.latency_ms).label("avg_latency_ms"),
             )
             .filter(LLMCallLog.created_at >= day_ago)
