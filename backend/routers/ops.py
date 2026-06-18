@@ -92,7 +92,7 @@ async def ops_dashboard(
         # ── 后端诊断快照 ──
         try:
             service = get_diagnose_service()
-            diagnostic = service.get_diagnose()
+            diagnostic = await service.get_diagnose()
             system_errors = diagnostic.get("errors", {}) if isinstance(diagnostic, dict) else {}
         except Exception:
             diagnostic = {"error": "diagnose service unavailable"}
@@ -151,7 +151,7 @@ async def ops_errors(
     _check_token(token)
     try:
         service = get_diagnose_service()
-        diagnostic = service.get_diagnose()
+        diagnostic = await service.get_diagnose()
         errors = diagnostic.get("errors", {})
         return {
             "count": {
