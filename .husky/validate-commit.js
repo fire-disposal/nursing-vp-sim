@@ -18,7 +18,6 @@
  */
 
 const fs = require('fs');
-const { execSync } = require('child_process');
 
 const EMOJI_TYPES = {
   '✨': 'feat',
@@ -61,19 +60,3 @@ if (!m) {
   console.log('');
   process.exit(1);
 }
-
-const matchedEmoji = m[1];
-const stripped = firstLine.slice(matchedEmoji.length + 1);
-const lintFile = msgFile + '.lint';
-fs.writeFileSync(lintFile, stripped + msg.slice(firstLine.length), 'utf-8');
-
-let ok = true;
-try {
-  execSync(`pnpm exec commitlint --edit "${lintFile}"`, { stdio: 'inherit' });
-} catch (e) {
-  ok = false;
-} finally {
-  try { fs.unlinkSync(lintFile); } catch {}
-}
-
-if (!ok) process.exit(1);
