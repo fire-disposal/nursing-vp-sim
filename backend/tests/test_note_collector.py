@@ -1,5 +1,7 @@
 """Tests for NoteSource ABC and NoteCollector."""
 
+import pytest
+
 from contexts.patient.note_collector import (
     MAX_AUTHOR_NOTE_TOKENS,
     NoteCollector,
@@ -38,17 +40,20 @@ class TestTokenEstimation:
 
 
 class TestNoteCollector:
+    @pytest.mark.asyncio
     async def test_empty(self):
         collector = NoteCollector()
         result = await collector.collect(FakeContext())
         assert result == ""
 
+    @pytest.mark.asyncio
     async def test_single_note(self):
         collector = NoteCollector()
         collector.add(FakeSource("exam", 0, "\u4f53\u6e29 38.5"))
         result = await collector.collect(FakeContext())
         assert "\u4f53\u6e29" in result
 
+    @pytest.mark.asyncio
     async def test_priority_order(self):
         collector = NoteCollector()
         collector.add(FakeSource("low", 10, "low"))
@@ -56,6 +61,7 @@ class TestNoteCollector:
         result = await collector.collect(FakeContext())
         assert result.index("high") < result.index("low")
 
+    @pytest.mark.asyncio
     async def test_budget_truncation(self):
         collector = NoteCollector()
         long_text = "\u60a3\u8005" * MAX_AUTHOR_NOTE_TOKENS
@@ -64,6 +70,7 @@ class TestNoteCollector:
         assert len(result) < len(long_text)
         assert "\u2026" in result
 
+    @pytest.mark.asyncio
     async def test_source_exception_survives(self):
         class BrokenSource(NoteSource):
             @property

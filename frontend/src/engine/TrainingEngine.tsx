@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
 import { PanelHost } from "@/components/training/PanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
-import { useToast } from "@/components/Toast";
 import { ScoreCard, ScoringOverlay } from "@/plugins/scoring-display";
 import { discoverPluginDefs } from "./discovery";
 import { createMessageBus } from "./MessageBus";
