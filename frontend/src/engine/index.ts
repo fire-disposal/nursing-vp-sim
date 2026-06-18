@@ -10,7 +10,6 @@ export {
 	useEmotion,
 	usePortrait,
 } from "./PluginContext";
-export { pluginRegistry } from "./PluginRegistry";
 export { ScoreManager } from "./ScoreManager";
 export { StreamManager } from "./StreamManager";
 export { TrainingEngine } from "./TrainingEngine";
