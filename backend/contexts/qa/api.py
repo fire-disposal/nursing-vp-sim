@@ -24,11 +24,11 @@ from .logic import build_qa_history, get_qa_cache
 log = logging.getLogger(__name__)
 
 
-def _inject_rag(llm_messages: list[dict], question: str) -> None:
+async def _inject_rag(llm_messages: list[dict], question: str) -> None:
     """If RAG enabled, retrieve relevant knowledge and inject as system context."""
     if not QA_RAG_ENABLED:
         return
-    context = format_context(retrieve(question))
+    context = format_context(await retrieve(question))
     if context:
         llm_messages.insert(1, {"role": "system", "content": context})
 
@@ -97,7 +97,7 @@ async def create_session(
             {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
-        _inject_rag(llm_messages, req.question)
+        await _inject_rag(llm_messages, req.question)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
@@ -168,7 +168,7 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
-    _inject_rag(llm_messages, req.question.strip())
+    await _inject_rag(llm_messages, req.question.strip())
 
     user_msg = QARecord(
         session_id=session.id,
@@ -241,7 +241,7 @@ async def ask_stream(
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
-        _inject_rag(llm_messages, req.question)
+        await _inject_rag(llm_messages, req.question)
 
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)
