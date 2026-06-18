@@ -193,7 +193,6 @@ def _create_record(
     db.commit()
     db.refresh(record)
 
-    from core.feature_flags import resolve_features
     from repositories.rubric import load_active_rubric, load_rubric_by_version
 
     def _resolve_rubric_ref(rubric_ref: str) -> str:

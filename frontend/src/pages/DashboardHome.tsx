@@ -222,8 +222,8 @@ function StudentDashboard({
 		try {
 			const res = await startAssignment(assignmentId);
 			navigate(`/training/${res.data.record_id}`);
-		} catch (e: any) {
-			toast.error(e.message || "开始练习失败");
+		} catch (e: unknown) {
+			toast.error(e instanceof Error ? e.message : "开始练习失败");
 		}
 	};
 
@@ -337,7 +337,7 @@ function StudentDashboard({
 						<h2 className="text-lg font-semibold">待完成练习</h2>
 					</div>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-						{studentAssignments.map((a: any) => {
+						{studentAssignments.map((a: components["schemas"]["StudentAssignmentItem"]) => {
 							const isOverdue = a.status === "overdue";
 							const isCompleted = a.status === "completed";
 							const hoursLeft = Math.max(
@@ -362,7 +362,7 @@ function StudentDashboard({
 													{a.title}
 												</div>
 												<div className="text-xs text-muted-foreground">
-													{a.practice_name || a.case_name}
+													{a.practice_name}
 												</div>
 											</div>
 											{isCompleted ? (

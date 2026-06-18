@@ -28,10 +28,10 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
 	useEffect(() => {
 		if (isMobile && !isCollapsed) {
 			document.body.style.overflow = "hidden";
-			return () => {
-				document.body.style.overflow = "";
-			};
 		}
+		return () => {
+			document.body.style.overflow = "";
+		};
 	}, [isMobile, isCollapsed]);
 
 	const handleTabClick = (pluginId: string) => {

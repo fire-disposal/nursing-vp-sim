@@ -41,7 +41,7 @@ export default function Login() {
 			await login(values.username, values.password);
 			navigate("/home");
 		} catch (err: unknown) {
-			console.error("[Login] failed:", err);
+			if (import.meta.env.DEV) console.error("[Login] failed:", err);
 			const axiosErr = err as {
 				response?: { data?: { message?: string } };
 				message?: string;

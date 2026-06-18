@@ -1,3 +1,4 @@
+import { api } from "@/api/axios-instance";
 import { useCallback, useState } from "react";
 import type { CheckResponse } from "@/components/QuestionnaireModal";
 
@@ -38,7 +39,6 @@ export function useQuestionnaire(
 			if (recordId) params.set("record_id", String(recordId));
 			params.set("trigger", trigger);
 
-			const { api } = await import("@/api/axios-instance");
 			const resp = await api.get<CheckResponse>(
 				`/questionnaires/check?${params}`,
 			);
@@ -55,7 +55,6 @@ export function useQuestionnaire(
 	const submit = useCallback(
 		async (answers: { question_id: number; answer_value: string | null }[]) => {
 			if (!checkResponse?.template_id) return;
-			const { api } = await import("@/api/axios-instance");
 			await api.post("/questionnaires/responses", {
 				template_id: checkResponse.template_id,
 				case_id: caseId,

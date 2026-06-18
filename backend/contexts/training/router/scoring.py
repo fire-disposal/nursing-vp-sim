@@ -68,7 +68,6 @@ def get_scoring_status(
 def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
     if not record.assignment_id or record.is_overdue:
         return
-    from core.datetime_utils import ensure_utc
     from models import Assignment
 
     assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
