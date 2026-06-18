@@ -3,10 +3,10 @@ import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
 import { PanelHost } from "@/components/training/PanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
+import { getActivePanels } from "@/components/training/panels";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
-import { discoverPluginDefs } from "./discovery";
 import { createMessageBus } from "./MessageBus";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PluginContext";
@@ -16,35 +16,16 @@ import {
 	useEmotion,
 	usePortrait,
 } from "./PluginContext";
-import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
-	FrontendPluginDef,
-	PanelPlugin,
 	PluginContext,
 } from "./types";
 
 interface TrainingEngineProps {
 	recordId: string;
-}
-
-function buildPanelPlugin(def: FrontendPluginDef): PanelPlugin | null {
-	if (!def.component || !def.tab) return null;
-	return {
-		id: def.id,
-		meta: def.meta,
-		tab: {
-			icon: def.tab.icon,
-			label: def.tab.label,
-			badge: def.tab.badge,
-			priority: def.tab.priority,
-		},
-		component: def.component,
-		hooks: def.hooks,
-	};
 }
 
 function TrainingEngineContent({ recordId }: TrainingEngineProps) {
@@ -64,7 +45,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
 	const ttsRef = useRef(new TTSManager({ autoPlay: true }));
-	const cleanupRefs = useRef(new Map<string, (() => void) | undefined>());
 	const seededRef = useRef(false);
 
 	const { setEmotion } = useEmotion();
@@ -80,8 +60,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
 	const [features, setFeatures] =
 		useState<Record<string, boolean>>(initialFeatures);
-
-	const localDefs = useMemo(() => discoverPluginDefs(), []);
 
 	useEffect(() => {
 		setFeatures(initialFeatures);
@@ -111,44 +89,15 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		return () => scoreRef.current.dispose();
 	}, [recordNum]);
 
-	useEffect(() => {
-		pluginRegistry.setFeatureFlags(features);
-		const registered: string[] = [];
-		for (const def of localDefs) {
-			const plugin = buildPanelPlugin(def);
-			if (plugin) {
-				pluginRegistry.register(plugin);
-				registered.push(plugin.id);
-			}
-		}
-		// 组件卸载时清理本会话注册的插件，避免跨会话污染
-		return () => {
-			for (const id of registered) {
-				pluginRegistry.unregister(id);
-			}
-		};
-	}, [features, localDefs]);
-
-	const activePlugins = useMemo(
-		() => pluginRegistry.getActive(features),
-		[features, pluginRegistry.version],
+	const activePanels = useMemo(
+		() => getActivePanels(features),
+		[features],
 	);
-
-	const ctxRef = useRef<PluginContext>(undefined as unknown as PluginContext);
-	const prevActiveRef = useRef<PanelPlugin[]>([]);
 
 	const sendMessage = useCallback(
 		async (text: string) => {
-			let processed = text;
-			for (const plugin of activePlugins) {
-				if (plugin.hooks?.beforeSend) {
-					const result = plugin.hooks.beforeSend(processed, ctxRef.current);
-					processed =
-						result instanceof Promise ? await result : result;
-				}
-			}
 			const bus = busRef.current;
-			streamRef.current.send(processed, {
+			streamRef.current.send(text, {
 				onPatientChunk: () => bus.emit("stream:chunk"),
 				onPatientDone: () => bus.emit("stream:done"),
 				onError: (err) => bus.emit("stream:error", err),
@@ -159,20 +108,17 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
-		[activePlugins],
+		[],
 	);
 
 	const endTraining = useCallback(async () => {
-		for (const plugin of activePlugins) {
-			plugin.hooks?.onEnd?.("manual", ctxRef.current);
-		}
 		try {
 			await scoreRef.current.end();
 		} catch {
 			// end() 已更新 UI 为失败状态，继续发出事件以允许 overlay 显示
 		}
 		busRef.current.emit("training:ended");
-	}, [activePlugins]);
+	}, []);
 
 	const ctx: PluginContext = useMemo(
 		() => ({
@@ -195,73 +141,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			endTraining,
 		],
 	);
-
-	ctxRef.current = ctx;
-
-	useEffect(() => {
-		const prevActive = prevActiveRef.current;
-		prevActiveRef.current = activePlugins;
-
-		const activeIds = new Set(activePlugins.map((p) => p.id));
-
-		for (const plugin of prevActive) {
-			if (!activeIds.has(plugin.id)) {
-				plugin.hooks?.onDestroy?.();
-			}
-		}
-
-		const cleanups = cleanupRefs.current;
-
-		for (const [id, cleanup] of cleanups) {
-			if (!activeIds.has(id)) {
-				if (typeof cleanup === "function") cleanup();
-				cleanups.delete(id);
-			}
-		}
-
-		for (const plugin of activePlugins) {
-			if (cleanups.has(plugin.id)) continue;
-			if (plugin.hooks?.onInit) {
-				const cleanup = plugin.hooks.onInit(ctx);
-				cleanups.set(plugin.id, cleanup);
-			}
-		}
-	}, [activePlugins, ctx]);
-
-	const [processedMessages, setProcessedMessages] = useState<ChatMessage[]>(
-		[],
-	);
-
-	useEffect(() => {
-		let cancelled = false;
-		(async () => {
-			let msgs = [...messages];
-			for (const plugin of activePlugins) {
-				if (plugin.hooks?.afterReceive) {
-					const next: ChatMessage[] = [];
-					for (const msg of msgs) {
-						const result = plugin.hooks.afterReceive(msg, ctx);
-						if (result instanceof Promise) {
-							try {
-								const resolved = await result;
-								if (cancelled) return;
-								if (resolved !== null) next.push(resolved);
-							} catch {
-								next.push(msg);
-							}
-						} else if (result !== null) {
-							next.push(result);
-						}
-					}
-					msgs = next;
-				}
-			}
-			if (!cancelled) setProcessedMessages(msgs);
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, [messages, activePlugins, ctx]);
 
 	useEffect(() => {
 		return busRef.current.on(
@@ -318,10 +197,12 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		);
 	}
 
-	const panelPluginsWrapped = activePlugins.map((p) => ({
-		...p,
+	const panelPluginsWrapped = activePanels.map((p) => ({
+		id: p.id,
+		meta: { name: p.label },
+		tab: { icon: p.icon, label: p.label, badge: p.badge },
 		component: (props: unknown) => (
-			<PluginErrorBoundary pluginName={p.meta.name}>
+			<PluginErrorBoundary pluginName={p.label}>
 				<p.component {...(props as any)} />
 			</PluginErrorBoundary>
 		),
@@ -364,7 +245,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 				</div>
 				<div style={{ gridArea: "content", overflow: "hidden" }}>
 					<ChatArea
-						messages={processedMessages}
+						messages={messages}
 						patient={patient}
 						sending={sending}
 						onSend={sendMessage}

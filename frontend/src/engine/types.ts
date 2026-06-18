@@ -73,14 +73,6 @@ export interface PluginContext {
 	endTraining: () => Promise<void>;
 }
 
-export interface SlotProps {
-	ctx: PluginContext;
-	features: Record<string, boolean>;
-	currentPhase: string;
-	phaseCount: number;
-	advancePhase: () => void;
-}
-
 export interface BadgeInfo {
 	text: string;
 	variant: "default" | "destructive";
