@@ -48,8 +48,9 @@ export class PluginRegistry {
 		const manifestMap = new Map(this.manifestPlugins.map((p) => [p.id, p]));
 		return Array.from(this.plugins.values())
 			.filter((p) => {
-			const mp = manifestMap.get(p.id);
-			if (!mp) return true;
+				if (manifestMap.size === 0) return true;
+				const mp = manifestMap.get(p.id);
+				if (!mp) return true;
 				return this._isActiveInManifest(mp, manifestMap, flags);
 			})
 			.sort(
