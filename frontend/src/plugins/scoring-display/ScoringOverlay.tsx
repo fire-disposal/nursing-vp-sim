@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
+import { cn } from "@/lib/utils";
 
 const phaseLabels: Record<string, string> = {
 	loading: "正在加载对话记录...",
@@ -25,6 +26,7 @@ export function ScoringOverlay({
 	getProgress: () => Progress;
 }) {
 	const [visible, setVisible] = useState(false);
+	const [closing, setClosing] = useState(false);
 	const [progress, setProgress] = useState<Progress>({
 		phase: null,
 		percentage: 0,
@@ -46,7 +48,10 @@ export function ScoringOverlay({
 			setProgress(p);
 			if (p.phase === "completed" || p.phase === "failed") {
 				if (!hideTimerRef.current) {
-					hideTimerRef.current = setTimeout(() => setVisible(false), 1500);
+					hideTimerRef.current = setTimeout(() => {
+						setClosing(true);
+						setTimeout(() => setVisible(false), 200);
+					}, 1500);
 				}
 			}
 		}, 200);
@@ -63,7 +68,14 @@ export function ScoringOverlay({
 		: "";
 
 	return (
-		<div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-background/90">
+		<div
+			className={cn(
+				"fixed inset-0 z-40 flex flex-col items-center justify-center bg-background/90",
+				!closing && "animate-in fade-in-0",
+				closing && "animate-out fade-out-0",
+				"duration-300",
+			)}
+		>
 			<p className="mb-4 text-lg font-medium">正在评估训练表现...</p>
 			<div className="h-2 w-64 rounded-full bg-muted">
 				<div
