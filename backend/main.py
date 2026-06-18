@@ -361,6 +361,7 @@ from routers.admin_schools import router as admin_schools_router
 from routers.assignments import router as assignments_router
 from routers.assignments import student_router as student_assignments_router
 from routers.diagnose import router as diagnose_router
+from routers.ops import router as ops_router
 
 for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, questionnaires, stats]:
     app.include_router(mod.router)
@@ -376,6 +377,7 @@ app.include_router(qa_router)
 app.include_router(assignments_router)
 app.include_router(diagnose_router)
 app.include_router(student_assignments_router)
+app.include_router(ops_router)
 
 
 @app.get("/api/health")
