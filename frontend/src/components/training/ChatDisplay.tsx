@@ -5,13 +5,13 @@ import {
 	useEmotion,
 	usePortrait,
 } from "@/engine/PluginContext";
-import type { ChatMessage, PatientData } from "@/engine/types";
+import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import { getPatientAvatar } from "@/utils/avatar";
 
 interface ChatDisplayProps {
 	messages: ChatMessage[];
 	patient: PatientData;
-	bus: { on: (event: string, handler: (...args: any[]) => void) => () => void };
+	bus: MessageBus;
 	initiativeMsgs?: Set<string>;
 }
 

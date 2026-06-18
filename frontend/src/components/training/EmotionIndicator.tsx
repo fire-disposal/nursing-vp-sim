@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { EmotionState } from "@/engine/PluginContext";
+import type { MessageBus } from "@/engine/types";
 import {
 	EMOTION_LABELS,
 	getEmotionColor,
@@ -8,12 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface EmotionIndicatorProps {
-	bus: {
-		on: (
-			event: string,
-			handler: (...args: any[]) => void,
-		) => () => void;
-	};
+	bus: MessageBus;
 	features: Record<string, boolean>;
 }
 

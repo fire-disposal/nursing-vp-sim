@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ChatMessage, PatientData } from "@/engine/types";
+import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
@@ -11,12 +11,7 @@ interface ChatAreaProps {
 	patient: PatientData;
 	sending: boolean;
 	onSend: (text: string) => void;
-	bus: {
-		on: (
-			event: string,
-			handler: (...args: any[]) => void,
-		) => () => void;
-	};
+	bus: MessageBus;
 	features: Record<string, boolean>;
 }
 

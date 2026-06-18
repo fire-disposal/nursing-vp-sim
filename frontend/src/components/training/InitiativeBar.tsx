@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
+import type { MessageBus } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
 interface InitiativeBarProps {
-	bus: {
-		on: (
-			event: string,
-			handler: (...args: any[]) => void,
-		) => () => void;
-	};
+	bus: MessageBus;
 	features: Record<string, boolean>;
 }
 
