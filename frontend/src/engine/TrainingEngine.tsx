@@ -8,7 +8,6 @@ import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { discoverPluginDefs } from "./discovery";
 import { createMessageBus } from "./MessageBus";
-import { useManifest } from "./manifest";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PluginContext";
 import {
@@ -82,7 +81,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [features, setFeatures] =
 		useState<Record<string, boolean>>(initialFeatures);
 
-	const { manifest } = useManifest(recordId);
 	const localDefs = useMemo(() => discoverPluginDefs(), []);
 
 	useEffect(() => {
@@ -115,7 +113,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 
 	useEffect(() => {
 		pluginRegistry.setFeatureFlags(features);
-		if (manifest) pluginRegistry.setManifest(manifest);
 		const registered: string[] = [];
 		for (const def of localDefs) {
 			const plugin = buildPanelPlugin(def);
@@ -130,7 +127,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 				pluginRegistry.unregister(id);
 			}
 		};
-	}, [features, manifest, localDefs]);
+	}, [features, localDefs]);
 
 	const activePlugins = useMemo(
 		() => pluginRegistry.getActive(features),
@@ -346,7 +343,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						recordId={recordId}
 						patient={patient}
 						features={features}
-						manifestFeatureFlags={manifest?.feature_flags}
 						onToggleFeature={(key: string, enabled: boolean) => {
 							setFeatures((prev) => {
 								const next = { ...prev, [key]: enabled };

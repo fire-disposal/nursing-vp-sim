@@ -62,6 +62,9 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
         async for chunk in _emit_chunks(ctx):
             yield chunk
 
+    for event in ctx.state.get("_post_stream_events", []):
+        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
     done_id: int | None = None
     for msg in ctx.state.get("_saved_messages", []):
         if msg.role == "patient":
@@ -69,9 +72,6 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
             break
 
     yield f"data: {json.dumps({'done': True, 'id': done_id}, ensure_ascii=False)}\n\n"
-
-    for event in ctx.state.get("_post_stream_events", []):
-        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
 async def _emit_chunks(ctx: PipelineContext):

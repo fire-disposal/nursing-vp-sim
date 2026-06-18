@@ -91,6 +91,15 @@ export class ScoreManager {
 				if (data.scoring_status === "completed") {
 					this._progress = { phase: "completed", percentage: 100, message: "评分完成" };
 					this.stopPolling();
+					try {
+						const detail = await api.get(`/training/records/${this.recordId}`);
+						const record = detail.data as { score?: ScoreData | null };
+						if (record.score?.detail_scores) {
+							this._score = record.score;
+						}
+					} catch {
+						// If detail fetch fails, emit anyway with progress completed
+					}
 					this.notify();
 					return;
 				}

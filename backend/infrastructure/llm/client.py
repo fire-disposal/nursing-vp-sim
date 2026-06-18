@@ -254,11 +254,13 @@ class LLMClient:
                 actual_cost = (prompt_tokens / 1_000_000 * pi) + (completion_tokens / 1_000_000 * po)
                 self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
                 return
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError) as e:
+                await self._router.report_result(state._config, success=False, error=str(e))
                 if attempt >= max_retries:
                     break
                 await asyncio.sleep(backoff_delay(attempt))
             except httpx.HTTPStatusError as e:
+                await self._router.report_result(state._config, success=False, error=str(e))
                 if e.response.status_code not in (429, 500, 502, 503, 504):
                     raise
                 if attempt >= max_retries:
@@ -380,37 +382,45 @@ class LLMClient:
             payload["response_format"] = response_format
 
         t0 = time.perf_counter()
-        async with asyncio.timeout(timeout + 10):
-            async with self._sem_for(purpose):
-                resp = await self._http.post(
-                    f"{state.base_url}/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {state.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                    timeout=httpx.Timeout(timeout, connect=15.0),
-                )
-        resp.raise_for_status()
-        data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        latency_ms = int((time.perf_counter() - t0) * 1000)
+        try:
+            async with asyncio.timeout(timeout + 10):
+                async with self._sem_for(purpose):
+                    resp = await self._http.post(
+                        f"{state.base_url}/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {state.api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                        timeout=httpx.Timeout(timeout, connect=15.0),
+                    )
+            resp.raise_for_status()
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"]
+            latency_ms = int((time.perf_counter() - t0) * 1000)
 
-        usage = data.get("usage", {})
-        state.usage = usage
-        prompt_tokens = usage.get("prompt_tokens", 0) or 0
-        completion_tokens = usage.get("completion_tokens", 0) or 0
-        total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
-        await self._router.report_result(
-            state._config,
-            success=True,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
-            latency_ms=latency_ms,
-            error=None,
-        )
-        return content
+            usage = data.get("usage", {})
+            state.usage = usage
+            prompt_tokens = usage.get("prompt_tokens", 0) or 0
+            completion_tokens = usage.get("completion_tokens", 0) or 0
+            total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
+            await self._router.report_result(
+                state._config,
+                success=True,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                latency_ms=latency_ms,
+                error=None,
+            )
+            return content
+        except Exception as e:
+            await self._router.report_result(
+                state._config,
+                success=False,
+                error=str(e),
+            )
+            raise
 
     async def _do_stream(
         self,
@@ -433,37 +443,45 @@ class LLMClient:
             "stream": True,
         }
 
-        async with asyncio.timeout(timeout + 10):
-            async with self._sem_for(purpose):
-                async with self._http.stream(
-                    "POST",
-                    f"{state.base_url}/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {state.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                    timeout=httpx.Timeout(timeout, connect=15.0),
-                ) as resp:
-                    resp.raise_for_status()
-                    last_obj = None
-                    async for line in resp.aiter_lines():
-                        if line.startswith("data: "):
-                            raw = line[6:]
-                            if raw == "[DONE]":
-                                break
-                            try:
-                                obj = json.loads(raw)
-                                last_obj = obj
-                                delta = obj["choices"][0].get("delta", {})
-                                content = delta.get("content", "")
-                                if content:
-                                    yield content
-                            except (json.JSONDecodeError, KeyError, IndexError):
-                                pass
-                    # Extract usage from last SSE chunk (some providers include it)
-                    if last_obj and "usage" in last_obj:
-                        state.usage = last_obj["usage"]
+        try:
+            async with asyncio.timeout(timeout + 10):
+                async with self._sem_for(purpose):
+                    async with self._http.stream(
+                        "POST",
+                        f"{state.base_url}/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {state.api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                        timeout=httpx.Timeout(timeout, connect=15.0),
+                    ) as resp:
+                        resp.raise_for_status()
+                        last_obj = None
+                        async for line in resp.aiter_lines():
+                            if line.startswith("data: "):
+                                raw = line[6:]
+                                if raw == "[DONE]":
+                                    break
+                                try:
+                                    obj = json.loads(raw)
+                                    last_obj = obj
+                                    delta = obj["choices"][0].get("delta", {})
+                                    content = delta.get("content", "")
+                                    if content:
+                                        yield content
+                                except (json.JSONDecodeError, KeyError, IndexError):
+                                    pass
+                        # Extract usage from last SSE chunk (some providers include it)
+                        if last_obj and "usage" in last_obj:
+                            state.usage = last_obj["usage"]
+        except Exception as e:
+            await self._router.report_result(
+                state._config,
+                success=False,
+                error=str(e),
+            )
+            raise
 
     @staticmethod
     def _copy_state(src: _CallState, dst: _CallState) -> None:

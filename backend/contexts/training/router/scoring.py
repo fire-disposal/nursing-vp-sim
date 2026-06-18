@@ -308,3 +308,17 @@ def get_notifications(
     return [
         {"id": n.id, "type": n.type, "title": n.title, "body": n.body, "created_at": str(n.created_at)} for n in notifs
     ]
+
+
+@router.patch("/notifications/{notif_id}")
+def mark_notification_read(
+    notif_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    notif = db.query(Notification).filter(Notification.id == notif_id, Notification.user_id == current_user.id).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    notif.is_read = True
+    db.commit()
+    return {"message": "ok"}

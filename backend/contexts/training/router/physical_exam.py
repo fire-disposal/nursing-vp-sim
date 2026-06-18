@@ -214,6 +214,10 @@ def perform_exam(
                 rs[key] = v
             record.runtime_state = rs
 
+    rs = dict(record.runtime_state or {})
+    rs["phase_op_count"] = rs.get("phase_op_count", 0) + 1
+    record.runtime_state = rs
+
     db.commit()
     return {"type": op_type, "data": result, "all_results": exam_results}
 
