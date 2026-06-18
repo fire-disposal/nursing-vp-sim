@@ -37,7 +37,7 @@ _ENV = {
 
 _TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
 if not _TOKEN:
-    _env_file = SCRIPT_DIR.parent.parent / ".env"
+    _env_file = Path("/opt/nursing-vp-sim/.env")
     if _env_file.exists():
         for line in _env_file.read_text().splitlines():
             if line.startswith("DIAGNOSE_TOKEN="):
