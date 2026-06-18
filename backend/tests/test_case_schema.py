@@ -61,18 +61,13 @@ class TestCaseDataSchema:
         assert "emotion" in result.supported_plugins
 
 
-class TestPluginContract:
-    def test_strict_with_unknown_plugin_raises(self):
+class TestSupportedPlugins:
+    def test_any_plugin_id_passes(self):
         data = {"name": "病例", "supported_plugins": ["nonexistent-plugin"]}
-        with pytest.raises(ValidationError):
-            assert_valid_case_data(data)
-
-    def test_strict_with_absorbed_plugin_passes(self):
-        data = {"name": "病例", "supported_plugins": ["physical-exam"]}
         result = assert_valid_case_data(data)
         assert result["name"] == "病例"
 
-    def test_warn_unknown_plugin_returns_raw(self):
-        data = {"name": "病例", "supported_plugins": ["nonexistent-plugin"]}
-        result = validate_case_data(data, strict=False)
-        assert result == data
+    def test_absorbed_plugin_id_passes(self):
+        data = {"name": "病例", "supported_plugins": ["physical-exam"]}
+        result = assert_valid_case_data(data)
+        assert result["name"] == "病例"

@@ -16,7 +16,6 @@ from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
 from infrastructure.scoring_progress import ScoringProgressTracker
 from models import Case, Message, Score, ScoreReview, TrainingRecord, User
-from plugins.manager import get_plugin_manager
 from schemas import ScoringTriggerResponse
 
 from .session import _try_acquire_scoring
@@ -186,24 +185,16 @@ async def end_training(
         db.commit()
 
         from core.feature_flags import resolve_features
-        from plugins.base import EndContext
 
         features = resolve_features(record.practice_snapshot)
-        pm = get_plugin_manager()
-        ctx = EndContext(
-            record=record,
-            emotion_cache=request.app.state.emotion_cache,
-            initiative_cache=request.app.state.initiative_cache,
-        )
-        pm.run_hook_sync("on_training_end", ctx, features)
         if features.get("patient_initiative"):
             from contexts.patient.initiative import cleanup_initiative
 
-            cleanup_initiative(ctx.record.id, ctx.initiative_cache)
+            cleanup_initiative(record.id, request.app.state.initiative_cache)
         if features.get("emotion"):
             from contexts.patient.emotion import cleanup_emotion
 
-            cleanup_emotion(ctx.record.id, ctx.emotion_cache)
+            cleanup_emotion(record.id, request.app.state.emotion_cache)
 
         message_count = db.query(func.count(Message.id)).filter(Message.record_id == record_id).scalar() or 0
         log.info(

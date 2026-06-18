@@ -37,14 +37,13 @@ from .initiative import (
     update_initiative_timer,
 )
 
-# NoteSource 实例（组合 author_note）
+# NoteSource 实例
 from .note_source import (
     EmotionNoteSource,
     ExamImpactSource,
     ExamResultsSource,
     IdentityGuardSource,
     NoteSource,
-    PluginAuthorNoteSource,
 )
 
 # 提示词构建
@@ -64,7 +63,6 @@ __all__ = [
     "NoGuard",
     "NoteSource",
     "PatternGuard",
-    "PluginAuthorNoteSource",
     "PostGuard",
     "build_patient_chat_messages",
     "build_patient_context_kwargs",
@@ -74,9 +72,9 @@ __all__ = [
     "cleanup_initiative",
     "detect_operation",
     "format_case_for_prompt",
-    "get_exam_config",
     "generate_initiative",
     "get_emotion",
+    "get_exam_config",
     "get_guard",
     "get_identity_correction_note",
     "get_initiative_seconds",

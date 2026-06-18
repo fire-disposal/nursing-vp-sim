@@ -147,11 +147,6 @@ def client(engine, db_session):
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
 
-    from plugins.manager import get_plugin_manager
-
-    pm = get_plugin_manager()
-    pm.discover()
-
     from contexts.training.router.session import set_training_infra
 
     set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker)

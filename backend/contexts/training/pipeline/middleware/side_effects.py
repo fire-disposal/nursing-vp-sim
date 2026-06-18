@@ -61,13 +61,15 @@ def _apply_action_emotion(emotion: EmotionState, reply: str) -> bool:
     if old_t == emotion.trust and old_c == emotion.comfort:
         return False
 
-    emotion.history.append({
-        "trust": emotion.trust,
-        "comfort": emotion.comfort,
-        "state": emotion.state,
-        "intent": f"动作:{matched or '未知'}",
-        "timestamp": datetime.now(UTC).isoformat(),
-    })
+    emotion.history.append(
+        {
+            "trust": emotion.trust,
+            "comfort": emotion.comfort,
+            "state": emotion.state,
+            "intent": f"动作:{matched or '未知'}",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    )
     return True
 
 
@@ -83,13 +85,15 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     if features.get("emotion") and ctx.llm_reply:
         emotion = get_emotion(ctx.record.id, app.emotion_cache)
         if _apply_action_emotion(emotion, ctx.llm_reply):
-            ctx.system_events.append({
-                "emotion_change": {
-                    "state": emotion.state,
-                    "trust": emotion.trust,
-                    "comfort": emotion.comfort,
+            ctx.system_events.append(
+                {
+                    "emotion_change": {
+                        "state": emotion.state,
+                        "trust": emotion.trust,
+                        "comfort": emotion.comfort,
+                    }
                 }
-            })
+            )
 
     if not features.get("patient_initiative") or not ctx.llm_reply:
         return

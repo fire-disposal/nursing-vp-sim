@@ -218,9 +218,7 @@ def assign_cases(
     for cid in req.case_ids:
         case_query = db.query(Case).filter(Case.id == cid)
         if effective_school is not None:
-            case_query = case_query.filter(
-                (Case.school_id == effective_school) | (Case.school_id.is_(None))
-            )
+            case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
         c = case_query.first()
         if not c:
             raise HTTPException(status_code=400, detail=f"病例 {cid} 不存在")

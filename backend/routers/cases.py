@@ -65,14 +65,14 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
         description=case.description,
         patient_name=info.get("name", ""),
         patient_age=info.get("age"),
-		patient_gender=normalize_gender(info.get("gender", "")),
-		chief_complaint=cd.get("chief_complaint", ""),
-		time_limit=cd.get("time_limit", 20),
-		difficulty=cd.get("difficulty", 1),
-		patient_personality=_personality_label(personality),
-		created_at=case.created_at,
-		training_count=training_count,
-	)
+        patient_gender=normalize_gender(info.get("gender", "")),
+        chief_complaint=cd.get("chief_complaint", ""),
+        time_limit=cd.get("time_limit", 20),
+        difficulty=cd.get("difficulty", 1),
+        patient_personality=_personality_label(personality),
+        created_at=case.created_at,
+        training_count=training_count,
+    )
 
 
 @router.get("", response_model=PaginatedResponse[CaseBrief])

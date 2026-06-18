@@ -79,30 +79,3 @@ class ExamImpactSource(NoteSource):
         if note and isinstance(note, str) and note.strip():
             return note
         return None
-
-
-class PluginAuthorNoteSource(NoteSource):
-    name = "plugin_author_notes"
-    priority = 50
-    max_tokens = 300
-
-    async def collect(self, ctx: PipelineContext) -> str | None:
-        try:
-            from plugins.manager import get_plugin_manager
-        except ImportError:
-            log.debug("PluginManager not available")
-            return None
-
-        pm = get_plugin_manager()
-        features = ctx.state.get("features") or {}
-        plugins = pm.get_active(features)
-
-        notes = []
-        for plugin in plugins:
-            try:
-                note = plugin.author_note(ctx)
-                if note and note.strip():
-                    notes.append(note)
-            except Exception:
-                log.exception("Plugin %s author_note() failed", plugin.id)
-        return " | ".join(notes) if notes else None

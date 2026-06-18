@@ -1,21 +1,7 @@
-"""Plugin system — declarative protocol for training functionality."""
+"""Pipeline infrastructure types."""
 
-from .base import (
-    EndContext,
-    ExamContext,
-    ExamEffect,
-    PipelineStage,
-    Plugin,
-    RecordCreateContext,
-    RouteDef,
-)
+from .base import PipelineStage
 
 __all__ = [
-    "EndContext",
-    "ExamContext",
-    "ExamEffect",
     "PipelineStage",
-    "Plugin",
-    "RecordCreateContext",
-    "RouteDef",
 ]

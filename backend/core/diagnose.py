@@ -6,14 +6,12 @@
 """
 
 import logging
-import os
 import time
 from collections import deque
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 
-from core.config import APP_VERSION, SECRET_KEY
+from core.config import APP_VERSION
 
 log = logging.getLogger(__name__)
 
@@ -44,9 +42,7 @@ class ErrorCaptureHandler(logging.Handler):
     def __init__(self, max_errors: int = _MAX_ERRORS):
         super().__init__(level=logging.ERROR)
         self.buffer: deque[ErrorEntry] = deque(maxlen=max_errors)
-        self.setFormatter(
-            logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-8s %(name)s %(message)s")
-        )
+        self.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)-8s %(name)s %(message)s"))
 
     def emit(self, record: logging.LogRecord):
         try:
@@ -58,7 +54,7 @@ class ErrorCaptureHandler(logging.Handler):
                 level=record.levelname,
                 logger=record.name,
                 message=msg[:800],
-                time=datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+                time=datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
                 timestamp=record.created,
             )
         )
@@ -92,10 +88,12 @@ def _strip_diagnose_entry(e: ErrorEntry) -> dict:
 class DiagnoseSnapshot:
     """一次性诊断快照"""
 
-    server: dict = field(default_factory=lambda: {
-        "version": APP_VERSION,
-        "uptime_seconds": int(time.time() - _PROCESS_START),
-    })
+    server: dict = field(
+        default_factory=lambda: {
+            "version": APP_VERSION,
+            "uptime_seconds": int(time.time() - _PROCESS_START),
+        }
+    )
     database: dict | None = None
     llm: dict | None = None
     errors: dict | None = None
@@ -140,8 +138,9 @@ class DiagnoseService:
     @property
     def _db_status(self) -> dict:
         try:
-            from core.database import engine
             from sqlalchemy import text
+
+            from core.database import engine
 
             pool = getattr(engine, "pool", None)
             info: dict = {"connected": False, "pool_size": 0, "checked_out": 0}
@@ -172,7 +171,7 @@ class DiagnoseService:
 
     def build_snapshot(self) -> dict:
         """构建一次完整的诊断快照（不走缓存）"""
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         err = None
         if self._handler:
             err = {

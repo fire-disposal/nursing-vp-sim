@@ -194,8 +194,6 @@ def _create_record(
     db.refresh(record)
 
     from core.feature_flags import resolve_features
-    from plugins.base import RecordCreateContext
-    from plugins.manager import get_plugin_manager
     from repositories.rubric import load_active_rubric, load_rubric_by_version
 
     def _resolve_rubric_ref(rubric_ref: str) -> str:
@@ -210,18 +208,10 @@ def _create_record(
     record.rubric_frozen = _resolve_rubric_ref(case_data.get("rubric_ref", "active"))
 
     features = resolve_features(record.practice_snapshot)
-    if app_state is not None:
-        pm = get_plugin_manager()
-        ctx = RecordCreateContext(
-            record=record,
-            emotion_cache=app_state.emotion_cache,
-            initiative_cache=app_state.initiative_cache,
-        )
-        pm.run_hook_sync("on_record_create", ctx, features)
-        if features.get("patient_initiative"):
-            from contexts.patient.initiative import update_initiative_timer
+    if app_state is not None and features.get("patient_initiative"):
+        from contexts.patient.initiative import update_initiative_timer
 
-            update_initiative_timer(ctx.record.id, ctx.initiative_cache)
+        update_initiative_timer(record.id, app_state.initiative_cache)
 
     return record, greeting
 

@@ -85,26 +85,30 @@ def _build_legacy_config(anchors: dict) -> dict:
     groups = []
     vital_ids = [oid for oid in _LEGACY_VITAL_OPS if oid in op_ids]
     if vital_ids:
-        groups.append({
-            "id": "vitals",
-            "label": "生命体征",
-            "icon": "Heart",
-            "ops": [
-                {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
-                for oid in vital_ids
-            ],
-        })
+        groups.append(
+            {
+                "id": "vitals",
+                "label": "生命体征",
+                "icon": "Heart",
+                "ops": [
+                    {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
+                    for oid in vital_ids
+                ],
+            }
+        )
     inspect_ids = [oid for oid in op_ids if oid in _LEGACY_INSPECT_OPS]
     if inspect_ids:
-        groups.append({
-            "id": "inspection",
-            "label": "体格检查",
-            "icon": "Stethoscope",
-            "ops": [
-                {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
-                for oid in inspect_ids
-            ],
-        })
+        groups.append(
+            {
+                "id": "inspection",
+                "label": "体格检查",
+                "icon": "Stethoscope",
+                "ops": [
+                    {"id": oid, "label": _LEGACY_OP_DEFS[oid]["label"], "unit": _LEGACY_OP_DEFS[oid]["unit"]}
+                    for oid in inspect_ids
+                ],
+            }
+        )
     return {"groups": groups}
 
 

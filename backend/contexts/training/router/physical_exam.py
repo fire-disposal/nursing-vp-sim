@@ -1,17 +1,38 @@
 """Physical exam routes — exam operation endpoint (absorbed from plugins/physical_exam)."""
 
+from __future__ import annotations
+
 import logging
-from typing import Annotated
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 
 from contexts.patient import handle_operation
 from core.database import get_db
 from core.feature_flags import resolve_features
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
-from plugins.base import ExamContext, ExamEffect
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+
+@dataclass
+class ExamContext:
+    record: Any  # TrainingRecord
+    emotion_cache: Any  # EmotionCache
+    op_type: str
+    explanation_given: bool
+    exam_count: int
+
+
+@dataclass
+class ExamEffect:
+    snapshot_updates: dict = field(default_factory=dict)
+    emotion_delta: tuple[int, int] | None = None
+    history_event: dict | None = None
+
 
 log = logging.getLogger(__name__)
 

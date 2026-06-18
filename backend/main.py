@@ -28,13 +28,13 @@ from core.config import (
     validate_config,
 )
 from core.database import engine, init_db
+from core.diagnose import get_diagnose_service
 from core.envelope import EnvelopeMiddleware
 from core.logging_setup import setup_logging
 from core.seed import seed_all
 from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
-from core.diagnose import get_diagnose_service
 from infrastructure.metrics import MetricsSnapshot
 from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
@@ -64,7 +64,6 @@ BANNER = textwrap.dedent(r"""\
 
 def _recover_stuck_scoring_records():
     """Recover scoring records stuck in 'pending'/'processing' from a previous instance crash."""
-    from datetime import UTC, datetime
 
     from core.database import SessionLocal
     from models import TrainingRecord
@@ -151,12 +150,6 @@ async def lifespan(app: FastAPI):
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
     app.state.scoring_tracker = ScoringProgressTracker()
-
-    from plugins.manager import get_plugin_manager
-
-    pm = get_plugin_manager()
-    pm.discover()
-    log.info("Plugins: registered (%d discovered)", len(pm._plugins))
 
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
@@ -324,7 +317,6 @@ from routers import (
     questionnaires,
     stats,
 )
-from routers.admin.plugins import router as admin_plugins_router
 from routers.admin.practices import router as admin_practices_router
 from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
@@ -338,18 +330,9 @@ for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, n
     app.include_router(mod.router)
 app.include_router(admin_api_router)
 app.include_router(admin_prompts_router)
-app.include_router(admin_plugins_router)
 app.include_router(admin_practices_router)
 app.include_router(admin_schools_router)
 app.include_router(admin_roles_router)
-from plugins.manager import get_plugin_manager
-
-pm = get_plugin_manager()
-
-from plugins.manifest import router as manifest_router
-
-pm.register_routes(nursing_router)
-
 app.include_router(training_router)
 app.include_router(chat_router)
 app.include_router(nursing_router)
@@ -357,7 +340,6 @@ app.include_router(qa_router)
 app.include_router(assignments_router)
 app.include_router(diagnose_router)
 app.include_router(student_assignments_router)
-app.include_router(manifest_router)
 
 
 @app.get("/api/health")
