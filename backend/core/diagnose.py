@@ -8,7 +8,7 @@
 import logging
 import time
 from collections import deque
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from core.config import APP_VERSION
