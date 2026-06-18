@@ -72,6 +72,13 @@ jobs:
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
+          tags: type=match,pattern=v(.*),group=1
+
       - name: Resolve version
         id: resolve_version
         run: |
@@ -80,13 +87,6 @@ jobs:
           else
             echo "version=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim
-          tags: type=match,pattern=v(.*),group=1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
