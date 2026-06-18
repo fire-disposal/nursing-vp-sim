@@ -261,20 +261,21 @@ async def retry_scoring(
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
-        # 清理上次评分结果（Score + ScoreReview），避免唯一约束冲突
+        record.scoring_status = None
+        record.scoring_error = None
+        db.flush()
+
+        if not await _try_acquire_scoring(record_id, db):
+            raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
+
         old_score = db.query(Score).filter(Score.record_id == record_id).first()
         if old_score:
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
 
-        record.scoring_status = None
-        record.scoring_error = None
         db.commit()
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
-
-        if not await _try_acquire_scoring(record_id, db):
-            raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
         await request.app.state.task_queue.enqueue(
             lambda: _run_scoring_background(

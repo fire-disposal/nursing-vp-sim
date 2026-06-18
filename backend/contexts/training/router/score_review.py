@@ -2,7 +2,6 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -84,20 +83,24 @@ def submit_score_review(
                 else:
                     new_total += raw_score
         score.total_score = round(new_total, 1)
-    review = ScoreReview(
-        score_id=score.id,
-        reviewed_by=current_user.id,
-        detail_scores=req.detail_scores,
-        comment=req.comment,
-    )
-    db.add(review)
-    try:
-        db.flush()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="该分数已被复核")
-    db.commit()
-    db.refresh(review)
+    existing = db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first()
+    if existing:
+        existing.detail_scores = req.detail_scores
+        existing.comment = req.comment
+        existing.reviewed_by = current_user.id
+        db.commit()
+        db.refresh(existing)
+        review = existing
+    else:
+        review = ScoreReview(
+            score_id=score.id,
+            reviewed_by=current_user.id,
+            detail_scores=req.detail_scores,
+            comment=req.comment,
+        )
+        db.add(review)
+        db.commit()
+        db.refresh(review)
 
     log.info(
         f"评分复核: score_id={score.id} reviewer_id={current_user.id}",

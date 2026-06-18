@@ -9,6 +9,8 @@ from pathlib import Path
 from core.database import SessionLocal
 from models import KnowledgeChunk
 
+from .embedding import get_embedding
+
 log = logging.getLogger(__name__)
 
 TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "textbooks"
@@ -62,33 +64,6 @@ def _split_by_headings(content: str) -> list[tuple[str, str]]:
     return [(h, b) for h, b in sections if len(b.strip()) > 20]
 
 
-def _get_embedding(text: str) -> list[float] | None:
-    """Get embedding vector via LLM provider's embedding API."""
-    api_key = os.getenv("DEEPSEEK_API_KEY", "")
-    if not api_key:
-        log.warning("DEEPSEEK_API_KEY not set, skipping embedding")
-        return None
-
-    import httpx
-
-    try:
-        resp = httpx.post(
-            "https://api.deepseek.com/v1/embeddings",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={"model": "text-embedding-v2", "input": text[:8000]},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["data"][0]["embedding"]
-    except Exception:
-        log.exception("Embedding failed for text starting with: %s", text[:50])
-        return None
-
-
 def _content_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
@@ -114,7 +89,9 @@ def index_all(force: bool = False) -> int:
             if exists and not force:
                 continue
 
-            embedding = _get_embedding(chunk["chunk_text"])
+            embedding = get_embedding(chunk["chunk_text"])
+            if embedding is None:
+                continue
             record = KnowledgeChunk(
                 source=chunk["source"],
                 section=chunk["section"],

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
 from core.security import require_permission
-from infrastructure.export import Column, buffered_response
+from infrastructure.export import Column, _sanitize_csv, buffered_response
 from models import ApiProvider, LLMCallLog, TrainingRecord, User
 from models import Case as CaseModel
 from schemas import (
@@ -366,13 +366,13 @@ def export_records_excel(
 
     for row_idx, record in enumerate(query, 2):
         ws.cell(row=row_idx, column=1, value=record.id)
-        ws.cell(row=row_idx, column=2, value=record.user.display_name if record.user else "")
-        ws.cell(row=row_idx, column=3, value=record.case.name if record.case else "")
-        ws.cell(row=row_idx, column=4, value=record.status)
-        ws.cell(row=row_idx, column=5, value=record.scoring_status or "")
+        ws.cell(row=row_idx, column=2, value=_sanitize_csv(record.user.display_name if record.user else ""))
+        ws.cell(row=row_idx, column=3, value=_sanitize_csv(record.case.name if record.case else ""))
+        ws.cell(row=row_idx, column=4, value=_sanitize_csv(record.status))
+        ws.cell(row=row_idx, column=5, value=_sanitize_csv(record.scoring_status or ""))
         ws.cell(row=row_idx, column=6, value=record.score.total_score if record.score else "")
-        ws.cell(row=row_idx, column=7, value=str(record.start_time))
-        ws.cell(row=row_idx, column=8, value=str(record.end_time) if record.end_time else "")
+        ws.cell(row=row_idx, column=7, value=_sanitize_csv(str(record.start_time)))
+        ws.cell(row=row_idx, column=8, value=_sanitize_csv(str(record.end_time)) if record.end_time else "")
 
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(col)].width = 18

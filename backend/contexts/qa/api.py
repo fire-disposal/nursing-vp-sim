@@ -234,6 +234,8 @@ async def ask_stream(
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
 
+        await check_qa_limit(current_user.id, request)
+
         pm = request.app.state.prompt_manager
         tmpl = await pm.get("qa")
         llm_messages = build_qa_history(session_id, db)

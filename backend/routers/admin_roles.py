@@ -113,6 +113,9 @@ def update_role(
     if not role:
         raise HTTPException(status_code=404, detail="角色不存在")
 
+    if role.is_system:
+        raise HTTPException(status_code=403, detail="系统角色不可修改")
+
     if req.display_name is not None:
         role.display_name = req.display_name
 

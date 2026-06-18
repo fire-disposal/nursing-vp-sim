@@ -152,7 +152,7 @@ def perform_exam(
     db: Annotated[Session, Depends(get_db)],
     request: Request,
 ):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).with_for_update().first()
     if not record:
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id:

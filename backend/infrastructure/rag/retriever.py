@@ -1,37 +1,13 @@
 """RAG retriever — similarity search over knowledge chunks."""
 
 import logging
-import os
 
 from core.database import SessionLocal
 from models import KnowledgeChunk
 
+from .embedding import get_embedding
+
 log = logging.getLogger(__name__)
-
-
-def _get_embedding(text: str) -> list[float] | None:
-    """Same embedding function as indexer."""
-    import httpx
-
-    api_key = os.getenv("DEEPSEEK_API_KEY", "")
-    if not api_key:
-        return None
-    try:
-        resp = httpx.post(
-            "https://api.deepseek.com/v1/embeddings",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={"model": "text-embedding-v2", "input": text[:8000]},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["data"][0]["embedding"]
-    except Exception:
-        log.exception("Embedding failed")
-        return None
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -46,14 +22,14 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 def retrieve(query: str, top_k: int = 3) -> list[dict]:
     """Retrieve top-k relevant knowledge chunks for a query."""
-    query_emb = _get_embedding(query)
+    query_emb = get_embedding(query)
     if query_emb is None:
         log.warning("Cannot retrieve: embedding failed")
         return []
 
     db = SessionLocal()
     try:
-        chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.embedding.isnot(None)).all()
+        chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.embedding.isnot(None)).limit(1000).all()
 
         scored = []
         for c in chunks:

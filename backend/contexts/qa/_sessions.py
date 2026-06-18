@@ -27,8 +27,17 @@ router = APIRouter()
 def list_sessions(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ):
-    return db.query(QASession).filter(QASession.user_id == current_user.id).order_by(QASession.updated_at.desc()).all()
+    return (
+        db.query(QASession)
+        .filter(QASession.user_id == current_user.id)
+        .order_by(QASession.updated_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.delete("/sessions/{session_id}", response_model=DeleteResponse)

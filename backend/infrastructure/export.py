@@ -26,11 +26,20 @@ def _make_writer(buf: io.StringIO):  # type: ignore[invalid-type-form]
     return csv.writer(buf)
 
 
+def _sanitize_csv(val):
+    if val is None:
+        return ""
+    s = str(val)
+    if s and s[0] in ("=", "+", "-", "@"):
+        return "'" + s
+    return s
+
+
 def _build_rows(items: list[Any], columns: list[Column]) -> Generator[list[str]]:
     """Yield header row then data rows."""
     yield [col.header for col in columns]
     for item in items:
-        yield [col.value(item) or "" for col in columns]
+        yield [_sanitize_csv(col.value(item)) for col in columns]
 
 
 def buffer_to_stringio(items: list[Any], columns: list[Column]) -> io.StringIO:
