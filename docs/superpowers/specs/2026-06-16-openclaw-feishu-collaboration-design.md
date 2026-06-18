@@ -273,8 +273,8 @@ networks:
 1. git clone <repo> /workspace
 2. git checkout -b <type>/<slug>
 3. 修改代码
-4. npm run check (ruff + biome + tsc)
-5. 本地跑测试: cd backend && pytest -m "not pg"
+4. pnpm run check (ruff + biome + tsc + ty)
+5. 本地跑测试: cd backend && python -m pytest -m "not pg"
 6. git add + git commit (emoji 格式)
 7. git push origin <branch>
 8. gh pr create --base master --title "emoji type: desc" --body "..."
@@ -319,7 +319,7 @@ GitHub PR 通知
 
 - 所有代码修改在 sandbox 内完成
 - 每次修改前 git clone 最新 master
-- 修改完成后必须跑 `npm run check`（ruff + biome + tsc）
+- 修改完成后必须跑 `pnpm run check`（ruff + biome + tsc + ty）
 - 必须本地跑 `pytest -m "not pg"` 通过
 - 绝不直接 push master，始终 push 到 feature branch
 - 绝不执行 git merge，合入由人类通过 GitHub 完成
