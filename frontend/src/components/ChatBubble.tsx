@@ -43,7 +43,7 @@ export const ChatBubble = memo(function ChatBubble({
 				<div className="flex items-start gap-2 max-w-[85%] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs sm:text-sm">
 					<Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
 					<div className="whitespace-pre-wrap leading-relaxed text-blue-800">
-						{message.content}
+				<p className="whitespace-pre-wrap">{message.content}</p>
 					</div>
 				</div>
 			</div>
@@ -86,7 +86,7 @@ export const ChatBubble = memo(function ChatBubble({
 					"bg-primary text-primary-foreground text-sm sm:text-base",
 				)}
 			>
-				{message.content}
+				<p className="whitespace-pre-wrap">{message.content}</p>
 			</div>
 			<img
 				className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted"

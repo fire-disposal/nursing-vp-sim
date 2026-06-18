@@ -13,6 +13,7 @@ interface ChatDisplayProps {
 	patient: PatientData;
 	bus: MessageBus;
 	initiativeMsgs?: Set<string>;
+	hasStreaming?: boolean;
 }
 
 const ChatDisplayInner = memo(function ChatDisplayInner({
@@ -20,6 +21,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	patient,
 	bus,
 	initiativeMsgs,
+	hasStreaming,
 }: ChatDisplayProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
@@ -29,6 +31,9 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	const { portraitUrl } = usePortrait();
 	const { emotion } = useEmotion();
 	const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
+
+	const hasStream = messages.some((m) => m.streaming);
+	const showFab = (!isNearBottom || hasStream || hasStreaming) && messages.length > 3;
 
 	const checkNearBottom = useCallback(() => {
 		const el = scrollRef.current;
@@ -93,16 +98,29 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					}
 				/>
 			))}
+			{/* Typing indicator */}
+			{hasStreaming && messages.length > 0 && messages[messages.length - 1]?.role === "student" && (
+				<div className="flex justify-start px-4">
+					<div className="flex items-center gap-2 px-4 py-3 rounded-2xl rounded-bl-sm bg-muted animate-in fade-in-0 duration-300">
+						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:0ms]" />
+						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:150ms]" />
+						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:300ms]" />
+					</div>
+				</div>
+			)}
 			<div ref={bottomRef} className="h-1" />
 
-			{!isNearBottom && (
+			{showFab && (
 				<button
 					type="button"
 					onClick={() => scrollToBottom(true)}
 					className="fixed bottom-24 right-4 z-30 flex size-9 items-center justify-center rounded-full border bg-background shadow-md hover:bg-muted transition-colors"
 					aria-label="滚动到最新消息"
 				>
-					<svg
+					{hasStreaming || hasStream ? (
+						<span className="text-xs text-muted-foreground">患者正在回复...</span>
+					) : (
+						<svg
 						width="16"
 						height="16"
 						viewBox="0 0 16 16"
@@ -125,6 +143,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 							strokeLinecap="round"
 						/>
 					</svg>
+					)}
 				</button>
 			)}
 		</div>
