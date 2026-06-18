@@ -667,6 +667,16 @@ class Notification(Base):
     user: Mapped["User"] = relationship()
 
 
+class SystemConfig(Base):
+    __tablename__ = "system_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
+
+
 class KnowledgeChunk(Base):
     __tablename__ = "knowledge_chunks"
 

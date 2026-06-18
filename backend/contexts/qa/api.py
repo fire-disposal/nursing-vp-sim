@@ -32,6 +32,7 @@ def _inject_rag(llm_messages: list[dict], question: str) -> None:
     if context:
         llm_messages.insert(1, {"role": "system", "content": context})
 
+
 router = APIRouter()
 
 

@@ -31,11 +31,13 @@ def _read_textbooks() -> list[dict]:
             chunk_text = f"## {heading}\n\n{body}" if heading else body
             if len(chunk_text.strip()) < 20:
                 continue
-            chunks.append({
-                "source": f"textbook:{textbook}",
-                "section": f"{chapter}/{heading or f'seg_{i}'}",
-                "chunk_text": chunk_text.strip(),
-            })
+            chunks.append(
+                {
+                    "source": f"textbook:{textbook}",
+                    "section": f"{chapter}/{heading or f'seg_{i}'}",
+                    "chunk_text": chunk_text.strip(),
+                }
+            )
     log.info("Read %d chunks from textbooks", len(chunks))
     return chunks
 
@@ -68,6 +70,7 @@ def _get_embedding(text: str) -> list[float] | None:
         return None
 
     import httpx
+
     try:
         resp = httpx.post(
             "https://api.deepseek.com/v1/embeddings",
@@ -100,10 +103,14 @@ def index_all(force: bool = False) -> int:
 
         indexed = 0
         for chunk in chunks:
-            exists = db.query(KnowledgeChunk).filter(
-                KnowledgeChunk.source == chunk["source"],
-                KnowledgeChunk.section == chunk["section"],
-            ).first()
+            exists = (
+                db.query(KnowledgeChunk)
+                .filter(
+                    KnowledgeChunk.source == chunk["source"],
+                    KnowledgeChunk.section == chunk["section"],
+                )
+                .first()
+            )
             if exists and not force:
                 continue
 

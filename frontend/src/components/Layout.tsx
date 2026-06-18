@@ -13,6 +13,7 @@
 	MessageSquare,
 	Server,
 	Settings,
+	Settings2,
 	Shield,
 	Stethoscope,
 	UserSearch,
@@ -123,6 +124,12 @@ const allLinks: NavLinkItem[] = [
 		icon: Bug,
 		label: "调试工坊",
 		permission: "score_review",
+	},
+	{
+		to: "/admin/system-configs",
+		icon: Settings2,
+		label: "系统配置",
+		permission: "api_manage",
 	},
 ];
 

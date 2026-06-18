@@ -50,6 +50,7 @@ const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
 const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
 const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
+const SystemConfigsPage = lazy(() => import("@/pages/admin/SystemConfigsPage"));
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
 );
@@ -116,6 +117,14 @@ export default function App() {
 												<Route
 													path="/admin/plugins"
 													element={<PluginDashboard />}
+												/>
+											</Route>
+											<Route
+												element={<ProtectedRoute permission="api_manage" />}
+											>
+												<Route
+													path="/admin/system-configs"
+													element={<SystemConfigsPage />}
 												/>
 											</Route>
 											<Route

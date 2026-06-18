@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 def _get_embedding(text: str) -> list[float] | None:
     """Same embedding function as indexer."""
     import httpx
+
     api_key = os.getenv("DEEPSEEK_API_KEY", "")
     if not api_key:
         return None
@@ -52,9 +53,7 @@ def retrieve(query: str, top_k: int = 3) -> list[dict]:
 
     db = SessionLocal()
     try:
-        chunks = db.query(KnowledgeChunk).filter(
-            KnowledgeChunk.embedding.isnot(None)
-        ).all()
+        chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.embedding.isnot(None)).all()
 
         scored = []
         for c in chunks:
@@ -68,12 +67,14 @@ def retrieve(query: str, top_k: int = 3) -> list[dict]:
 
         results = []
         for sim, c in top:
-            results.append({
-                "source": c.source,
-                "section": c.section,
-                "chunk_text": c.chunk_text,
-                "score": round(sim, 4),
-            })
+            results.append(
+                {
+                    "source": c.source,
+                    "section": c.section,
+                    "chunk_text": c.chunk_text,
+                    "score": round(sim, 4),
+                }
+            )
             log.debug("RAG hit: %s/%s (score=%.3f)", c.source, c.section, sim)
 
         return results
