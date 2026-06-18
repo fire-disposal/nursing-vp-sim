@@ -93,8 +93,10 @@ async def ops_dashboard(
         try:
             service = get_diagnose_service()
             diagnostic = service.get_diagnose()
+            system_errors = diagnostic.get("errors", {}) if isinstance(diagnostic, dict) else {}
         except Exception:
             diagnostic = {"error": "diagnose service unavailable"}
+            system_errors = {}
 
         # ── 指标快照 ──
         metrics_snapshot = {}
@@ -132,9 +134,35 @@ async def ops_dashboard(
             },
             "metrics": metrics_snapshot,
             "diagnostic": diagnostic,
+            "system_errors": system_errors,
         }
     finally:
         db.close()
+
+
+
+
+@router.get("/api/ops/errors")
+async def ops_errors(
+    token: str = Query("", description="诊断令牌"),
+    n: int = Query(20, description="返回条数"),
+):
+    """系统错误日志 —— ErrorCaptureHandler 环缓冲内容。"""
+    _check_token(token)
+    try:
+        service = get_diagnose_service()
+        diagnostic = service.get_diagnose()
+        errors = diagnostic.get("errors", {})
+        return {
+            "count": {
+                "last_5min": errors.get("last_5min", 0),
+                "last_hour": errors.get("last_hour", 0),
+                "total_captured": errors.get("total_captured", 0),
+            },
+            "recent": (errors.get("recent") or [])[:n],
+        }
+    except Exception:
+        return {"count": {}, "recent": []}
 
 
 @router.get("/api/ops/report")

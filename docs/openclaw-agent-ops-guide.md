@@ -2,9 +2,9 @@
 
 ## 诊断入口
 
-```
-GET /api/ops/dashboard?token=<DIAGNOSE_TOKEN>
-```
+`GET /api/ops/dashboard?token=<TOKEN>` — 完整系统快照  
+`GET /api/ops/report?token=<TOKEN>` — 日报摘要 + alerts  
+`GET /api/ops/errors?token=<TOKEN>` — 系统错误日志（最近 N 条）
 
 返回完整系统快照。Diagnose token 在 `.env` 的 `DIAGNOSE_TOKEN` 中。
 
