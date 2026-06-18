@@ -9,9 +9,9 @@ log = logging.getLogger(__name__)
 
 
 def get_embedding(text: str) -> list[float] | None:
+    """同步嵌入调用 —— 用于启动索引场景。"""
     api_key = os.getenv("DEEPSEEK_API_KEY", "")
     if not api_key:
-        log.warning("DEEPSEEK_API_KEY not set, skipping embedding")
         return None
     try:
         resp = httpx.post(
@@ -25,3 +25,10 @@ def get_embedding(text: str) -> list[float] | None:
     except Exception:
         log.exception("Embedding failed")
         return None
+
+
+async def get_embedding_async(text: str) -> list[float] | None:
+    """异步嵌入调用 —— 用于请求处理场景，不阻塞事件循环。"""
+    import asyncio
+
+    return await asyncio.to_thread(get_embedding, text)

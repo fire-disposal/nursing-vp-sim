@@ -72,30 +72,35 @@ async def _call_batch(ctx: PipelineContext) -> None:
     if guard is not None:
         result = await guard.check(reply)
         if not result.passed:
-            log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
-            corrected = result.correction_note
-            if ctx.llm_messages is None:
-                ctx.llm_reply = reply
-                return
-            msgs = list(ctx.llm_messages)
-            msgs.insert(-1, {"role": "system", "content": corrected})
-            try:
-                retry = await llm_client.call(
-                    msgs,
-                    purpose="patient_chat",
-                    ctx=CallContext(
+            correction_count = ctx.state.get("_identity_correction_count", 0)
+            if correction_count >= 2:
+                log.warning("Identity leak correction limit reached: record_id=%d", ctx.record.id)
+            else:
+                log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
+                corrected = result.correction_note
+                ctx.state["_identity_correction_count"] = correction_count + 1
+                if ctx.llm_messages is None:
+                    ctx.llm_reply = reply
+                    return
+                msgs = list(ctx.llm_messages)
+                msgs.insert(-1, {"role": "system", "content": corrected})
+                try:
+                    retry = await llm_client.call(
+                        msgs,
                         purpose="patient_chat",
-                        user_id=ctx.current_user.id,
-                        record_id=ctx.record.id,
-                        case_id=ctx.record.case_id,
-                        log_meta=log_meta,
-                    ),
-                    **llm_cfg,
-                )
-                if retry.strip():
-                    ctx.llm_reply = retry
-            except Exception:
-                log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
+                        ctx=CallContext(
+                            purpose="patient_chat",
+                            user_id=ctx.current_user.id,
+                            record_id=ctx.record.id,
+                            case_id=ctx.record.case_id,
+                            log_meta=log_meta,
+                        ),
+                        **llm_cfg,
+                    )
+                    if retry.strip():
+                        ctx.llm_reply = retry
+                except Exception:
+                    log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
         ctx.llm_reply = "嗯……（患者似乎在犹豫）"
@@ -140,8 +145,13 @@ async def _call_stream(ctx: PipelineContext) -> None:
     if guard is not None:
         result = await guard.check(full_reply)
         if not result.passed:
-            log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
-            corrected = result.correction_note
+            correction_count = ctx.state.get("_identity_correction_count", 0)
+            if correction_count >= 2:
+                log.warning("Identity leak correction limit reached (stream): record_id=%d", ctx.record.id)
+            else:
+                log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
+                ctx.state["_identity_correction_count"] = correction_count + 1
+                corrected = result.correction_note
             if ctx.llm_messages is None:
                 ctx.llm_reply = full_reply
                 return
