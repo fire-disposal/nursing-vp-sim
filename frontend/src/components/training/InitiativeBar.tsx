@@ -20,8 +20,6 @@ export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 		return unsub;
 	}, [bus]);
 
-	if (!features.patient_initiative) return null;
-
 	const barColor =
 		percent > 80
 			? "bg-destructive"
@@ -30,7 +28,12 @@ export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 				: "bg-green-500";
 
 	return (
-		<div className="shrink-0 h-1 bg-muted/30">
+		<div
+			className={cn(
+				"shrink-0 bg-muted/30 transition-all duration-300 overflow-hidden",
+				features.patient_initiative ? "h-1" : "h-0",
+			)}
+		>
 			<div
 				className={cn(
 					"h-full rounded-full transition-all duration-1000",

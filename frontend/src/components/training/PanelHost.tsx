@@ -26,11 +26,15 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
 	}, [plugins, activeTabId]);
 
 	useEffect(() => {
+		const style = document.body.style;
 		if (isMobile && !isCollapsed) {
-			document.body.style.overflow = "hidden";
+			const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+			style.overflow = "hidden";
+			style.paddingRight = `${scrollbarWidth}px`;
 		}
 		return () => {
-			document.body.style.overflow = "";
+			style.overflow = "";
+			style.paddingRight = "";
 		};
 	}, [isMobile, isCollapsed]);
 

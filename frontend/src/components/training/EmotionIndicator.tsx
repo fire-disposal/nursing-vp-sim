@@ -35,7 +35,7 @@ export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
 	const [values, setValues] = useState({ trust: 50, comfort: 50 });
 	const [pulse, setPulse] = useState(false);
-	const pulseTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		const unsub = bus.on(
@@ -50,13 +50,12 @@ export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
 		return unsub;
 	}, [bus]);
 
-	if (!features.emotion) return null;
-
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-3 px-4 py-1.5 border-b border-border transition-colors duration-300 shrink-0",
-				pulse && "bg-primary/5",
+				"flex items-center gap-3 px-4 py-1.5 border-b border-border transition-all duration-300 overflow-hidden shrink-0",
+				!features.emotion && "max-h-0 py-0 border-transparent",
+				features.emotion && pulse && "bg-primary/5",
 			)}
 		>
 			<div className="flex items-center gap-1.5">
