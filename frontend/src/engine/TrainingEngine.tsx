@@ -20,6 +20,7 @@ import { pluginRegistry } from "./PluginRegistry";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import type {
 	ChatMessage,
 	FrontendPluginDef,
@@ -291,8 +292,23 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 
 	if (loading) {
 		return (
-			<div className="flex h-screen items-center justify-center">
-				<div className="size-8 animate-spin rounded-full border-[3px] border-primary/30 border-t-primary" />
+			<div
+				className="grid h-screen"
+				style={{
+					gridTemplateAreas: '"header header" "content panel"',
+					gridTemplateColumns: "1fr auto",
+					gridTemplateRows: "auto 1fr",
+				}}
+			>
+				<div className="p-4 border-b" style={{ gridArea: "header" }}>
+					<LoadingSkeleton variant="stats" />
+				</div>
+				<div className="p-4" style={{ gridArea: "content" }}>
+					<LoadingSkeleton variant="card" />
+				</div>
+				<div className="w-[420px] p-4 border-l" style={{ gridArea: "panel" }}>
+					<LoadingSkeleton variant="card" />
+				</div>
 			</div>
 		);
 	}

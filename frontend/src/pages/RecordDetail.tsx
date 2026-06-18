@@ -33,6 +33,7 @@ import { useToast } from "@/components/Toast";
 import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
 import Badge from "@/components/ui/Badge";
 import type { ScoreData as EngineScoreData } from "@/engine/types";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
@@ -166,11 +167,13 @@ export default function RecordDetail() {
 
 	if (!record) {
 		return (
-			<div className="flex items-center justify-center py-24 text-muted-foreground">
-				<div className="flex flex-col items-center gap-3">
-					<div className="w-8 h-8 border-2 border-muted border-t-primary rounded-full animate-spin" />
-					<span className="text-sm">加载中...</span>
+			<div className="space-y-6 p-4">
+				<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+					{Array.from({ length: 4 }).map((_, i) => (
+						<LoadingSkeleton key={i} variant="stats" />
+					))}
 				</div>
+				<LoadingSkeleton variant="card" />
 			</div>
 		);
 	}

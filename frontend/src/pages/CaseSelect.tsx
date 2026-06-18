@@ -18,6 +18,7 @@ import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
@@ -163,8 +164,10 @@ export default function CaseSelect() {
 				</div>
 
 				{isLoading ? (
-					<div className="flex items-center justify-center py-20">
-						<span className="text-sm text-muted-foreground">加载中...</span>
+					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						{Array.from({ length: 6 }).map((_, i) => (
+							<LoadingSkeleton key={i} variant="card" />
+						))}
 					</div>
 				) : filteredCases.length === 0 ? (
 					<div className="rounded-xl border bg-card">
