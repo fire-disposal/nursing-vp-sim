@@ -16,8 +16,19 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 		if (!trimmed || disabled || loading) return;
 		onSend(trimmed);
 		setText("");
+		setTimeout(() => {
+			const el = inputRef.current;
+			if (el) el.style.height = "auto";
+		}, 0);
 		inputRef.current?.focus();
 	}, [text, onSend, disabled, loading]);
+
+	const handleInput = useCallback(() => {
+		const el = inputRef.current;
+		if (!el) return;
+		el.style.height = "auto";
+		el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+	}, []);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -42,6 +53,7 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 				placeholder="输入消息与患者对话..."
 				disabled={disabled}
 				rows={1}
+				onInput={handleInput}
 				className="flex-1 resize-none rounded-lg border border-border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 placeholder:text-muted-foreground"
 			/>
 			<button

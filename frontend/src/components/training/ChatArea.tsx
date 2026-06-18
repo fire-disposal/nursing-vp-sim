@@ -41,12 +41,15 @@ export function ChatArea({
 			<EmotionIndicator bus={bus} features={features} />
 			<div className="flex-1 overflow-hidden">
 				{hasMessages ? (
-					<ChatDisplay
-						messages={messages}
-						patient={patient}
-						bus={bus}
-						initiativeMsgs={initiativeMsgs}
-					/>
+					<div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300 flex-1 min-h-0">
+						<ChatDisplay
+							messages={messages}
+							patient={patient}
+							bus={bus}
+							initiativeMsgs={initiativeMsgs}
+							hasStreaming={sending}
+						/>
+					</div>
 				) : (
 					<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
 				)}

@@ -51,7 +51,7 @@ export function PanelHost({ ctx, features, plugins }: PanelHostProps) {
 
 	if (isMobile && activePlugin && !isCollapsed) {
 		return (
-			<div className="fixed inset-0 z-50 flex flex-col bg-background">
+			<div className="fixed inset-0 z-50 flex flex-col bg-background animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
 				<div className="flex items-center gap-2 border-b px-4 py-3 overflow-x-auto">
 					{plugins.map((p) => (
 						<button
