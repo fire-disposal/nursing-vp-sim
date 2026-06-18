@@ -54,7 +54,6 @@ interface TrainingHeaderProps {
 	recordId: string;
 	patient: PatientData;
 	features: Record<string, boolean>;
-	manifestFeatureFlags?: Record<string, { key: string; label: string; description: string }>;
 	onToggleFeature: (key: string, enabled: boolean) => void;
 	ttsAutoPlay: boolean;
 	onTtsToggle: () => void;
@@ -70,7 +69,6 @@ export function TrainingHeader({
 	recordId,
 	patient,
 	features,
-	manifestFeatureFlags,
 	onToggleFeature,
 	ttsAutoPlay,
 	onTtsToggle,
@@ -347,24 +345,12 @@ export function TrainingHeader({
 					</p>
 				)}
 				<div className="flex flex-col gap-1">
-					{(() => {
-						const manifestKeys = new Set(
-							Object.keys(manifestFeatureFlags ?? {}),
-						);
-						const allKeys = [
-							...Object.keys(manifestFeatureFlags ?? {}),
-							...Object.keys(FEATURE_META).filter(
-								(k) => !manifestKeys.has(k),
-							),
-						];
-						return allKeys.map((key) => {
-							const mf = manifestFeatureFlags?.[key];
-							const fallback = FEATURE_META[key];
-							if (!mf && !fallback) return null;
-							const label = mf?.label ?? fallback?.label ?? key;
-							const desc = mf?.description ?? fallback?.desc ?? "";
-							const enabled = features[key] ?? false;
-							return (
+					{Object.keys(FEATURE_META).map((key) => {
+						const fallback = FEATURE_META[key];
+						const label = fallback?.label ?? key;
+						const desc = fallback?.desc ?? "";
+						const enabled = features[key] ?? false;
+					return (
 								<label
 									key={key}
 									className={cn(
@@ -400,8 +386,7 @@ export function TrainingHeader({
 									</button>
 								</label>
 							);
-						});
-					})()}
+					})}
 				</div>
 				<div className="flex justify-end mt-5">
 					<Button
