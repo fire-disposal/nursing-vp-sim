@@ -194,7 +194,14 @@ class DiagnoseService:
             active_sessions=self._active_sessions,
             cached_at=now_iso,
         )
-        return asdict(ss)
+        return {
+            "server": ss.server,
+            "database": ss.database,
+            "llm": ss.llm,
+            "errors": ss.errors,
+            "active_sessions": ss.active_sessions,
+            "cached_at": ss.cached_at,
+        }
 
     async def get_diagnose(self) -> dict:
         """获取诊断数据（带 TTL 缓存）"""
