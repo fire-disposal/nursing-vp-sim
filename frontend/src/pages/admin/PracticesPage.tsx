@@ -8,10 +8,12 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import Modal from "@/components/ui/Modal";
+import { getApiErrorMessage } from "@/lib/error-utils";
 import PageHeader from "@/components/ui/PageHeader";
 import {
 	Table,
@@ -63,8 +65,8 @@ export default function PracticesPage() {
 	const queryClient = useQueryClient();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
-	const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
+	const { confirm } = useConfirm();
 	const [form, setForm] = useState<PracticeForm>(emptyForm);
 	const resetForm = () => setForm(emptyForm);
 	const updateForm = (patch: Partial<PracticeForm>) =>
@@ -106,8 +108,8 @@ export default function PracticesPage() {
 					(d.behavior as { max_rounds?: number })?.max_rounds ?? 30,
 			});
 			setModalOpen(true);
-		} catch (e: any) {
-			toast.error(e.response?.data?.detail || e.message || "加载失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "加载失败"));
 		}
 	};
 
@@ -136,23 +138,25 @@ export default function PracticesPage() {
 			}
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 			setModalOpen(false);
-		} catch (e: any) {
-			toast.error(e.response?.data?.detail || e.message || "操作失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "操作失败"));
 		} finally {
 			setSaving(false);
 		}
 	};
 
-	const handleDelete = async () => {
-		if (!deleteTarget) return;
+	const handleDelete = async (id: number) => {
+		const ok = await confirm({
+			title: "确认删除",
+			message: "确定要删除这个练习模板吗？此操作不可逆。",
+		});
+		if (!ok) return;
 		try {
-			await deletePractice(deleteTarget);
+			await deletePractice(id);
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
-		} catch (e: any) {
-			toast.error(e.response?.data?.detail || e.message || "删除失败");
-		} finally {
-			setDeleteTarget(null);
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "删除失败"));
 		}
 	};
 
@@ -239,7 +243,7 @@ export default function PracticesPage() {
 											<Button
 												variant="ghost"
 												size="icon"
-												onClick={() => setDeleteTarget(p.id)}
+												onClick={() => handleDelete(p.id)}
 												title="删除"
 											>
 												<Trash2 size={15} className="text-destructive" />
@@ -365,25 +369,6 @@ export default function PracticesPage() {
 							{editingId ? "保存" : "创建"}
 						</Button>
 					</div>
-				</div>
-			</Modal>
-
-			<Modal
-				open={!!deleteTarget}
-				onClose={() => setDeleteTarget(null)}
-				title="确认删除"
-				maxWidth={400}
-			>
-				<p className="text-sm text-muted-foreground mb-4">
-					确定要删除这个练习模板吗？此操作不可逆。
-				</p>
-				<div className="flex justify-end gap-2">
-					<Button variant="outline" onClick={() => setDeleteTarget(null)}>
-						取消
-					</Button>
-					<Button variant="destructive" onClick={handleDelete}>
-						删除
-					</Button>
 				</div>
 			</Modal>
 		</div>

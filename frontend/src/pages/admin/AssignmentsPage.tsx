@@ -16,10 +16,12 @@ import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import Modal from "@/components/ui/Modal";
+import { getApiErrorMessage } from "@/lib/error-utils";
 import PageHeader from "@/components/ui/PageHeader";
 import {
 	Table,
@@ -59,8 +61,8 @@ export default function AssignmentsPage() {
 
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
-	const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
+	const { confirm } = useConfirm();
 
 	const emptyForm = useMemo(
 		() => ({
@@ -123,8 +125,8 @@ export default function AssignmentsPage() {
 				endTime: toLocalDatetime(d.end_time),
 			});
 			setModalOpen(true);
-		} catch (e: any) {
-			toast.error(e.response?.data?.detail || e.message || "加载失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "加载失败"));
 		}
 	};
 
@@ -153,23 +155,25 @@ export default function AssignmentsPage() {
 			}
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 			setModalOpen(false);
-		} catch (e: any) {
-			toast.error(e.response?.data?.detail || e.message || "操作失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "操作失败"));
 		} finally {
 			setSaving(false);
 		}
 	};
 
-	const handleDelete = async () => {
-		if (!deleteTarget) return;
+	const handleDelete = async (id: string) => {
+		const ok = await confirm({
+			title: "确认删除",
+			message: "确定要删除这个练习发布吗？此操作不可逆。",
+		});
+		if (!ok) return;
 		try {
-			await deleteAssignment(deleteTarget);
+			await deleteAssignment(id);
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
-		} catch (e: any) {
-			toast.error(e.response?.data?.detail || e.message || "删除失败");
-		} finally {
-			setDeleteTarget(null);
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "删除失败"));
 		}
 	};
 
@@ -249,7 +253,7 @@ export default function AssignmentsPage() {
 											<Button
 												variant="ghost"
 												size="icon"
-												onClick={() => setDeleteTarget(a.id)}
+												onClick={() => handleDelete(a.id)}
 												title="删除"
 											>
 												<Trash2 size={15} className="text-destructive" />
@@ -345,25 +349,6 @@ export default function AssignmentsPage() {
 							{editingId ? "保存" : "发布"}
 						</Button>
 					</div>
-				</div>
-			</Modal>
-
-			<Modal
-				open={!!deleteTarget}
-				onClose={() => setDeleteTarget(null)}
-				title="确认删除"
-				maxWidth={400}
-			>
-				<p className="text-sm text-muted-foreground mb-4">
-					确定要删除这个练习发布吗？此操作不可逆。
-				</p>
-				<div className="flex justify-end gap-2">
-					<Button variant="outline" onClick={() => setDeleteTarget(null)}>
-						取消
-					</Button>
-					<Button variant="destructive" onClick={handleDelete}>
-						删除
-					</Button>
 				</div>
 			</Modal>
 		</div>

@@ -1,12 +1,15 @@
-import { GraduationCap, Loader2, Search } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/ui/FormField";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/lib/utils";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem, Grade } from "@/types/store";
@@ -39,8 +42,8 @@ const selectClass =
 export default function GradesClassesPage() {
 	const [tab, setTab] = useState<"grades" | "classes">("grades");
 	const [gradeFilter, setGradeFilter] = useState("");
-	const [gradeSearch, setGradeSearch] = useState("");
-	const [classSearch, setClassSearch] = useState("");
+	const { searchInput: gradeSearchInput, debouncedValue: gradeSearch, handleSearchChange: handleGradeSearchChange } = useDebouncedSearch();
+	const { searchInput: classSearchInput, debouncedValue: classSearch, handleSearchChange: handleClassSearchChange } = useDebouncedSearch();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editId, setEditId] = useState<number | null>(null);
 	const [formName, setFormName] = useState("");
@@ -203,17 +206,11 @@ export default function GradesClassesPage() {
 
 				{tab === "classes" && (
 					<div className="mb-4 flex items-center gap-3">
-						<div className="relative flex-1 max-w-xs">
-							<Search
-								size={16}
-								className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-							/>
-							<input
-								type="text"
+						<div className="flex-1 max-w-xs">
+							<SearchInput
+								value={classSearchInput}
+								onChange={handleClassSearchChange}
 								placeholder="搜索班级..."
-								value={classSearch}
-								onChange={(e) => setClassSearch(e.target.value)}
-								className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
 							/>
 						</div>
 						<select
@@ -233,17 +230,11 @@ export default function GradesClassesPage() {
 
 				{tab === "grades" && (
 					<div className="mb-4">
-						<div className="relative flex-1 max-w-xs">
-							<Search
-								size={16}
-								className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-							/>
-							<input
-								type="text"
+						<div className="flex-1 max-w-xs">
+							<SearchInput
+								value={gradeSearchInput}
+								onChange={handleGradeSearchChange}
 								placeholder="搜索年级..."
-								value={gradeSearch}
-								onChange={(e) => setGradeSearch(e.target.value)}
-								className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
 							/>
 						</div>
 					</div>
@@ -251,12 +242,7 @@ export default function GradesClassesPage() {
 
 				<div className="bg-card rounded-xl shadow-sm p-6 border border-border overflow-x-auto">
 					{loading && items.length === 0 ? (
-						<div className="flex justify-center py-12">
-							<Loader2
-								size={24}
-								className="animate-spin text-muted-foreground"
-							/>
-						</div>
+						<LoadingSkeleton variant="table" />
 					) : items.length === 0 ? (
 						<EmptyState
 							icon={GraduationCap}

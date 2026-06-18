@@ -2,12 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Building2,
 	ExternalLink,
-	Loader2,
 	Plus,
-	Search,
 	Trash2,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createSchool, deleteSchool, getSchools } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
@@ -17,8 +15,13 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import Modal from "@/components/ui/Modal";
+import PageHeader from "@/components/ui/PageHeader";
 import Pagination from "@/components/ui/Pagination";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { getApiErrorMessage } from "@/lib/error-utils";
 
 export default function SchoolsPage() {
 	const toast = useToast();
@@ -29,21 +32,14 @@ export default function SchoolsPage() {
 	const [adminUsername, setAdminUsername] = useState("");
 	const [adminPassword, setAdminPassword] = useState("");
 	const [adminDisplayName, setAdminDisplayName] = useState("");
-	const [search, setSearch] = useState("");
-	const [searchInput, setSearchInput] = useState("");
-	const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
+	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
 	const [offset, setOffset] = useState(0);
 	const LIMIT = 50;
 	const { confirm } = useConfirm();
 
-	const handleSearchChange = (value: string) => {
-		setSearchInput(value);
-		if (searchTimer.current) clearTimeout(searchTimer.current);
-		searchTimer.current = setTimeout(() => {
-			setSearch(value);
-			setOffset(0);
-		}, 200);
-	};
+	useEffect(() => {
+		setOffset(0);
+	}, [search]);
 
 	const { data, isLoading } = useQuery({
 		queryKey: queryKeys.admin.schools.list(search, offset),
@@ -81,8 +77,7 @@ export default function SchoolsPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.schools.all });
 		},
 		onError: (e: unknown) => {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "创建失败");
+			toast.error(getApiErrorMessage(e, "创建失败"));
 		},
 	});
 
@@ -93,8 +88,7 @@ export default function SchoolsPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.schools.all });
 		},
 		onError: (e: unknown) => {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "删除失败");
+			toast.error(getApiErrorMessage(e, "删除失败"));
 		},
 	});
 
@@ -107,35 +101,39 @@ export default function SchoolsPage() {
 		deleteMutation.mutate(id);
 	};
 
+	const handleCreate = () => {
+		if (!name.trim() || !adminUsername.trim() || !adminPassword.trim()) {
+			toast.error("请填写所有必填项");
+			return;
+		}
+		createMutation.mutate();
+	};
+
 	return (
 		<div className="space-y-6">
-			<div className="flex items-center gap-3 mb-4">
-				<div className="relative flex-1 max-w-xs">
-					<Search
-						size={16}
-						className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-					/>
-					<input
-						type="text"
-						placeholder="搜索学校名称..."
+			<PageHeader
+				title="学校管理"
+				subtitle="管理所有入驻学校及其管理员"
+				actions={
+					<Button onClick={() => setShowCreate(true)}>
+						<Plus size={16} /> 新建学校
+					</Button>
+				}
+			/>
+
+			<div className="flex items-center gap-3">
+				<div className="flex-1 max-w-xs">
+					<SearchInput
 						value={searchInput}
-						onChange={(e) => handleSearchChange(e.target.value)}
-						className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+						onChange={handleSearchChange}
+						placeholder="搜索学校名称..."
 					/>
 				</div>
-				<Button onClick={() => setShowCreate(true)}>
-					<Plus size={16} /> 新建学校
-				</Button>
 			</div>
 
 			<div className="rounded-xl border bg-card">
 				{isLoading ? (
-					<div className="flex justify-center py-12">
-						<Loader2
-							size={24}
-							className="animate-spin text-muted-foreground"
-						/>
-					</div>
+					<LoadingSkeleton variant="table" />
 				) : schools.length === 0 ? (
 					<EmptyState
 						icon={Building2}
@@ -248,7 +246,7 @@ export default function SchoolsPage() {
 					</div>
 					<Button
 						className="w-full"
-						onClick={() => createMutation.mutate()}
+						onClick={handleCreate}
 						disabled={createMutation.isPending}
 					>
 						{createMutation.isPending ? "创建中..." : "创建学校"}

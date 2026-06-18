@@ -1,5 +1,5 @@
-import { Loader2, Plus, Save, Search, Shield, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Plus, Save, Shield, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
@@ -7,7 +7,12 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import Modal from "@/components/ui/Modal";
+import PageHeader from "@/components/ui/PageHeader";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { getApiErrorMessage } from "@/lib/error-utils";
 
 interface RoleItem {
 	id: number;
@@ -45,16 +50,8 @@ export default function RolesPage() {
 	const [showCreate, setShowCreate] = useState(false);
 	const [newName, setNewName] = useState("");
 	const [newDisplayName, setNewDisplayName] = useState("");
-	const [search, setSearch] = useState("");
-	const [searchInput, setSearchInput] = useState("");
-	const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
+	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
 	const { confirm } = useConfirm();
-
-	const handleSearchChange = (value: string) => {
-		setSearchInput(value);
-		if (searchTimer.current) clearTimeout(searchTimer.current);
-		searchTimer.current = setTimeout(() => setSearch(value), 200);
-	};
 
 	const loadRoles = useCallback(async () => {
 		setLoading(true);
@@ -92,8 +89,8 @@ export default function RolesPage() {
 			toast.success("权限已保存");
 			setEditId(null);
 			loadRoles();
-		} catch (e: any) {
-			toast.error(e?.response?.data?.detail || "保存失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "保存失败"));
 		}
 	};
 
@@ -109,8 +106,8 @@ export default function RolesPage() {
 			setNewDisplayName("");
 			setShowCreate(false);
 			loadRoles();
-		} catch (e: any) {
-			toast.error(e?.response?.data?.detail || "创建失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "创建失败"));
 		}
 	};
 
@@ -124,40 +121,36 @@ export default function RolesPage() {
 			await deleteRole(id);
 			toast.success("角色已删除");
 			loadRoles();
-		} catch (e: any) {
-			toast.error(e?.response?.data?.detail || "删除失败");
+		} catch (e: unknown) {
+			toast.error(getApiErrorMessage(e, "删除失败"));
 		}
 	};
 
 	return (
 		<div className="space-y-6">
+				<PageHeader
+					title="角色管理"
+					subtitle="管理用户角色与权限"
+					actions={
+						<Button onClick={() => setShowCreate(true)}>
+							<Plus size={16} /> 新建角色
+						</Button>
+					}
+				/>
+
 				<div className="flex items-center gap-3 mb-4">
-					<div className="relative flex-1 max-w-xs">
-						<Search
-							size={16}
-							className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-						/>
-						<input
-							type="text"
-							placeholder="搜索角色..."
+					<div className="flex-1 max-w-xs">
+						<SearchInput
 							value={searchInput}
-							onChange={(e) => handleSearchChange(e.target.value)}
-							className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+							onChange={handleSearchChange}
+							placeholder="搜索角色..."
 						/>
 					</div>
-					<Button onClick={() => setShowCreate(true)}>
-						<Plus size={16} /> 新建角色
-					</Button>
 				</div>
 
 				<div className="space-y-3">
 					{loading && roles.length === 0 ? (
-						<div className="flex justify-center py-12">
-							<Loader2
-								size={24}
-								className="animate-spin text-muted-foreground"
-							/>
-						</div>
+						<LoadingSkeleton variant="table" />
 					) : roles.length === 0 ? (
 						<EmptyState
 							icon={Shield}

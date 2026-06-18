@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { EmotionState } from "@/engine/PluginContext";
 import { EMOTION_LABELS, getEmotionBorder } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";
@@ -29,6 +30,24 @@ export function PatientPortrait({
 			? getEmotionBorder(emotion as EmotionState)
 			: "border-border";
 
+	const [prevSrc, setPrevSrc] = useState(avatarSrc);
+	const [fading, setFading] = useState(false);
+	const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+	useEffect(() => {
+		if (avatarSrc !== prevSrc) {
+			setFading(true);
+			if (timerRef.current) clearTimeout(timerRef.current);
+			timerRef.current = setTimeout(() => {
+				setPrevSrc(avatarSrc);
+				setFading(false);
+			}, 350);
+			return () => {
+				if (timerRef.current) clearTimeout(timerRef.current);
+			};
+		}
+	}, [avatarSrc, prevSrc]);
+
 	return (
 		<div className="text-center space-y-2">
 			<div
@@ -38,10 +57,20 @@ export function PatientPortrait({
 				)}
 			>
 				<img
-					src={avatarSrc}
+					src={fading ? prevSrc : avatarSrc}
 					alt={patient.name}
-					className="w-full h-full object-cover"
+					className={cn(
+						"w-full h-full object-cover transition-opacity duration-300",
+						fading ? "opacity-0" : "opacity-100",
+					)}
 				/>
+				{fading && (
+					<img
+						src={avatarSrc}
+						alt={patient.name}
+						className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 opacity-100"
+					/>
+				)}
 			</div>
 			{showEmotionLabel && (
 				<div className="text-xs text-muted-foreground space-y-0.5">
