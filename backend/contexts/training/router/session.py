@@ -6,6 +6,7 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
@@ -27,6 +28,7 @@ from models import (
     NursingRecord,
     Practice,
     QuestionnaireResponse,
+    Rubric,
     Score,
     ScoreReview,
     TrainingRecord,
@@ -61,6 +63,10 @@ async def _try_acquire_scoring(record_id: int, db) -> bool:
         text("UPDATE training_records SET scoring_status = 'pending' WHERE id = :id AND scoring_status IS NULL"),
         {"id": record_id},
     )
+    if result.rowcount > 0:
+        from .scoring import _increment_scoring_generation
+
+        _increment_scoring_generation(record_id)
     return result.rowcount > 0
 
 
@@ -235,7 +241,7 @@ def start_training(
         if not practice:
             raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
         config = {
-            "id": practice.name,
+            "id": practice.id,
             "name": practice.name,
             "mode": practice.mode,
             "features": practice.features or {},
@@ -246,7 +252,7 @@ def start_training(
         practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
         if practice:
             config = {
-                "id": practice.name,
+                "id": practice.id,
                 "name": practice.name,
                 "mode": practice.mode,
                 "features": practice.features or {},
@@ -341,7 +347,7 @@ def start_training_from_assignment(
     case = practice.case
 
     config = {
-        "id": practice.mode,
+        "id": practice.id,
         "name": practice.name,
         "mode": practice.mode,
         "features": practice.features or {},
@@ -591,11 +597,17 @@ def submit_score_review(
     if not score:
         raise HTTPException(status_code=404, detail="该记录暂无评分")
 
-    already_reviewed = db.query(ScoreReview).filter(ScoreReview.score_id == score.id).first()
-    if already_reviewed:
-        raise HTTPException(status_code=409, detail="该评分已被复核，不可重复提交")
-
     if req.detail_scores is not None:
+        raw_scale = 3
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if record and record.rubric_frozen:
+            try:
+                name, ver = record.rubric_frozen.split("@", 1)
+                rubric_ref = db.query(Rubric).filter(Rubric.name == name, Rubric.version == ver).first()
+                if rubric_ref:
+                    raw_scale = rubric_ref.raw_scale
+            except (ValueError, AttributeError):
+                pass
         new_total = 0.0
         for dim_data in req.detail_scores.values():
             if isinstance(dim_data, dict):
@@ -603,7 +615,7 @@ def submit_score_review(
                 dim_max_100 = dim_data.get("max", 0)
                 items = dim_data.get("items", [])
                 if isinstance(items, list) and len(items) > 0 and dim_max_100 > 0:
-                    raw_max_dim = len(items) * 3
+                    raw_max_dim = len(items) * raw_scale
                     new_total += round(raw_score * dim_max_100 / raw_max_dim, 1)
                 else:
                     new_total += raw_score
@@ -615,6 +627,11 @@ def submit_score_review(
         comment=req.comment,
     )
     db.add(review)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="该分数已被复核")
     db.commit()
     db.refresh(review)
 

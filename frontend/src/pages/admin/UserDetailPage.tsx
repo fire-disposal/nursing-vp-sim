@@ -58,15 +58,21 @@ export default function UserDetailPage() {
 	const chartTheme = useChartTheme();
 	const barColors = useBarColors();
 
-	const { data: student, isLoading } = useQuery({
+	const { data: student, isLoading, isError, error } = useQuery({
 		queryKey: ["studentDetail", userId],
 		queryFn: () => getStudentDetail(Number(userId)).then((r) => r.data),
 		enabled: !!userId,
 		staleTime: 2 * 60_000,
 	});
 
-	if (isLoading || !student) {
+	if (isLoading) {
 		return <div className="text-center py-12 text-muted-foreground">加载中...</div>;
+	}
+	if (isError) {
+		return <div className="text-center py-12 text-destructive">加载失败：{(error as Error)?.message}</div>;
+	}
+	if (!student) {
+		return <div className="text-center py-12 text-muted-foreground">未找到用户</div>;
 	}
 
 	const daily = (student.daily || []) as unknown as DailyItem[];

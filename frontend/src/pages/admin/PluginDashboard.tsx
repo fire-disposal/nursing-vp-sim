@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/axios-instance";
+import { useToast } from "@/components/Toast";
 
 interface BackendPlugin {
 	id: string;
@@ -12,6 +13,7 @@ interface BackendPlugin {
 }
 
 export default function PluginDashboard() {
+	const toast = useToast();
 	const [plugins, setPlugins] = useState<BackendPlugin[]>([]);
 	const [loading, setLoading] = useState(true);
 
@@ -22,7 +24,10 @@ export default function PluginDashboard() {
 				setPlugins(res.data as BackendPlugin[]);
 				setLoading(false);
 			})
-			.catch(() => setLoading(false));
+			.catch((e) => {
+				setLoading(false);
+				toast.error(e?.response?.data?.detail || "加载插件列表失败");
+			});
 	}, []);
 
 	if (loading) return <div className="p-6">加载中...</div>;

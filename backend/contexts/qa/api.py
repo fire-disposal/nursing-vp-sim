@@ -150,6 +150,13 @@ async def ask_in_session(
 
     await check_qa_limit(current_user.id, request)
 
+    llm_messages = build_qa_history(session_id, db)
+
+    pm = request.app.state.prompt_manager
+    tmpl = await pm.get("qa")
+    llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
+    llm_messages.append({"role": "user", "content": req.question.strip()})
+
     user_msg = QARecord(
         session_id=session.id,
         user_id=current_user.id,
@@ -158,12 +165,6 @@ async def ask_in_session(
     )
     db.add(user_msg)
     db.commit()
-
-    llm_messages = build_qa_history(session_id, db)
-
-    pm = request.app.state.prompt_manager
-    tmpl = await pm.get("qa")
-    llm_messages.insert(0, {"role": "system", "content": tmpl.render()})
 
     rid = getattr(request.state, "request_id", None)
     llm_client = request.app.state.llm_client
@@ -209,22 +210,23 @@ async def ask_stream(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     async with db_session() as db:
-        session = db.query(QASession).filter(QASession.id == session_id).first()
+        session = db.query(QASession).filter(
+            QASession.id == session_id,
+            QASession.user_id == current_user.id,
+        ).first()
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
-        if session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="只能操作自己的对话")
-
-        user_record = QARecord(session_id=session_id, role="user", content=req.question)
-        db.add(user_record)
-        db.commit()
-        db.refresh(user_record)
 
         pm = request.app.state.prompt_manager
         tmpl = await pm.get("qa")
         llm_messages = build_qa_history(session_id, db)
-        llm_messages.insert(0, {"role": "system", "content": tmpl.render()})
+        llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
+
+        user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
+        db.add(user_record)
+        db.commit()
+        db.refresh(user_record)
 
         async def generate():
             import json as _json
@@ -244,7 +246,7 @@ async def ask_stream(
                     full_reply += chunk
                     yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-                assistant_record = QARecord(session_id=session_id, role="assistant", content=full_reply)
+                assistant_record = QARecord(session_id=session_id, user_id=current_user.id, role="assistant", content=full_reply)
                 db.add(assistant_record)
                 db.commit()
                 db.refresh(assistant_record)

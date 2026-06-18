@@ -301,7 +301,7 @@ class Score(Base):
 
 class ScoreReview(Base):
     __tablename__ = "score_reviews"
-    __table_args__ = (Index("ix_score_reviews_score_id", "score_id"),)
+    __table_args__ = (UniqueConstraint("score_id", name="uq_score_reviews_score_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     score_id: Mapped[int] = mapped_column(Integer, ForeignKey("scores.id", ondelete="CASCADE"))

@@ -327,6 +327,10 @@ def delete_case(
     case = query.first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
+    existing_practice = db.query(Practice).filter(Practice.case_id == case_id).first()
+    if existing_practice:
+        raise HTTPException(status_code=400, detail="该病例存在关联的练习，无法删除")
+
     count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar() or 0
     if count > 0:
         raise HTTPException(

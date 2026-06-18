@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
 	login as apiLogin,
+	logout as apiLogout,
 	refreshToken as apiRefreshToken,
 	getMe,
 } from "@/api/api-client";
@@ -103,6 +104,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 
 			logout: (): void => {
 				stopRefreshTimer();
+				apiLogout().catch(() => {});
 				set({ user: null, token: null, permissions: [] });
 				dispatchForceLogout();
 			},
@@ -122,6 +124,13 @@ const useAuthStore = create<ExtendedAuthState>()(
 					delete p.user.id;
 				}
 				return p as PersistedState;
+			},
+			onRehydrateStorage: () => {
+				return (state) => {
+					if (state?.token) {
+						startRefreshTimer();
+					}
+				};
 			},
 		},
 	),

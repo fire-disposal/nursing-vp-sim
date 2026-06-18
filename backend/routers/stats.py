@@ -49,6 +49,8 @@ def get_duration_stats(
 
     if not current_user.has_permission("stats_view"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
+    elif effective_school is not None:
+        base = base.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
 
     rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
 

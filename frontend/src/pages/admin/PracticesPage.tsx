@@ -114,7 +114,7 @@ export default function PracticesPage() {
 			});
 			setModalOpen(true);
 		} catch (e: any) {
-			toast.error(e.message || "加载失败");
+			toast.error(e.response?.data?.detail || e.message || "加载失败");
 		}
 	};
 
@@ -144,7 +144,7 @@ export default function PracticesPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 			setModalOpen(false);
 		} catch (e: any) {
-			toast.error(e.message || "操作失败");
+			toast.error(e.response?.data?.detail || e.message || "操作失败");
 		} finally {
 			setSaving(false);
 		}
@@ -157,7 +157,7 @@ export default function PracticesPage() {
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 		} catch (e: any) {
-			toast.error(e.message || "删除失败");
+			toast.error(e.response?.data?.detail || e.message || "删除失败");
 		} finally {
 			setDeleteTarget(null);
 		}

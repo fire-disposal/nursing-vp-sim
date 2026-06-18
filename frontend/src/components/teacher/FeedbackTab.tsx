@@ -21,6 +21,7 @@ import {
 } from "recharts";
 import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -113,7 +114,7 @@ function FeedbackChart() {
 	}
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["feedbackStats", "weekly", weekOffset],
+		queryKey: queryKeys.admin.feedback.stats({ week: weekOffset }),
 		queryFn: () =>
 			getFeedbackStats({ date_from: dateKeys[0] }).then(({ data: stats }) => {
 				const map: Record<string, FeedbackDailyItem> = {};
@@ -259,7 +260,7 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 	if (dateTo) params.date_to = dateTo;
 
 	const { data } = useQuery({
-		queryKey: ["feedbackStats", "pie", tag, dateFrom, dateTo],
+		queryKey: queryKeys.admin.feedback.stats({ tag, dateFrom, dateTo }),
 		queryFn: () =>
 			getFeedbackStats(params).then(({ data: stats }) => {
 				const totals: Record<string, number> = {
@@ -348,7 +349,7 @@ export default function FeedbackTab() {
 	if (dateTo) params.date_to = dateTo;
 
 	const { data: feedbacksData, isLoading } = useQuery({
-		queryKey: ["feedbacks", tag, dateFrom, dateTo, offset],
+		queryKey: queryKeys.admin.feedback.list(params),
 		queryFn: () => getFeedbacks(params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 2 * 60_000,

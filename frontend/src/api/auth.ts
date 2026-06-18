@@ -37,3 +37,8 @@ export const updateMyProfile = (data: Schemas["UserProfileUpdateRequest"]) =>
 		"/auth/me" satisfies ApiPath as string,
 		data,
 	);
+
+export const logout = () =>
+	api.post<Schemas["OkResponse"]>(
+		"/auth/logout" satisfies ApiPath as string,
+	);

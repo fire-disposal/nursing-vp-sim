@@ -31,6 +31,6 @@ export const getStudentAssignments = () =>
 	api.get<Schemas["StudentAssignmentItem"][]>("/students/assignments" satisfies ApiPath as string);
 
 export const startAssignment = (assignmentId: string) =>
-	api.post<{ record_id: number; greeting: string; case_name: string }>(
+	api.post<Schemas["TrainingStartResponse"]>(
 		`/training/start-from-assignment?assignment_id=${assignmentId}` as ApiPath,
 	);

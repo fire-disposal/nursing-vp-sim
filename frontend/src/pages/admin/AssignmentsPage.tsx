@@ -124,7 +124,7 @@ export default function AssignmentsPage() {
 			});
 			setModalOpen(true);
 		} catch (e: any) {
-			toast.error(e.message || "加载失败");
+			toast.error(e.response?.data?.detail || e.message || "加载失败");
 		}
 	};
 
@@ -154,7 +154,7 @@ export default function AssignmentsPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 			setModalOpen(false);
 		} catch (e: any) {
-			toast.error(e.message || "操作失败");
+			toast.error(e.response?.data?.detail || e.message || "操作失败");
 		} finally {
 			setSaving(false);
 		}
@@ -167,7 +167,7 @@ export default function AssignmentsPage() {
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 		} catch (e: any) {
-			toast.error(e.message || "删除失败");
+			toast.error(e.response?.data?.detail || e.message || "删除失败");
 		} finally {
 			setDeleteTarget(null);
 		}

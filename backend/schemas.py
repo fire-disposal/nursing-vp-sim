@@ -174,6 +174,8 @@ class AssignmentCreateRequest(BaseModel):
 
 class AssignmentUpdateRequest(BaseModel):
     model_config = _REQ_CFG
+    practice_id: int | None = None
+    class_id: int | None = None
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     start_time: datetime | None = None
@@ -876,6 +878,17 @@ class RubricDimensionItem(BaseModel):
     name: str = ""
     weight: int = 0
     criteria: str = ""
+
+
+class RubricCreateRequest(BaseModel):
+    model_config = _REQ_CFG
+    name: str = Field(min_length=1, max_length=200)
+    dimensions: list[dict[str, Any]] = Field(default=[], min_length=1)
+    version: str = "1.0"
+    description: str | None = Field(default=None, max_length=2000)
+    total_max: int = 100
+    raw_max: int = 57
+    raw_scale: int = 3
 
 
 class RubricResponse(BaseModel):

@@ -34,6 +34,7 @@ from schemas import (
     ModelPresetItem,
     OkResponse,
     ProviderPresetResponse,
+    RubricCreateRequest,
     RubricResponse,
     SecretCreateResponse,
     TestAllResultsResponse,
@@ -486,26 +487,23 @@ def get_active_rubric(current_user: Annotated[User, Depends(require_permission("
 
 @router.post("/rubrics", status_code=201, response_model=RubricResponse)
 def create_rubric(
-    data: dict,
+    data: RubricCreateRequest,
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     from repositories.rubric import validate_dimensions
 
-    dims = data.get("dimensions")
-    if not dims:
-        raise HTTPException(status_code=400, detail="dimensions 不能为空")
-    errors = validate_dimensions(dims)
+    errors = validate_dimensions(data.dimensions)
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
     rubric = Rubric(
-        name=data.get("name", ""),
-        version=data.get("version", "1.0"),
-        description=data.get("description"),
-        total_max=data.get("total_max", 100),
-        raw_max=data.get("raw_max", 57),
-        raw_scale=data.get("raw_scale", 3),
-        dimensions=dims,
+        name=data.name,
+        version=data.version,
+        description=data.description,
+        total_max=data.total_max,
+        raw_max=data.raw_max,
+        raw_scale=data.raw_scale,
+        dimensions=data.dimensions,
     )
     db.add(rubric)
     db.commit()
@@ -516,7 +514,7 @@ def create_rubric(
 @router.put("/rubrics/{rubric_id}", response_model=RubricResponse)
 def update_rubric(
     rubric_id: int,
-    data: dict,
+    data: RubricCreateRequest,
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -525,14 +523,16 @@ def update_rubric(
     rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
     if not rubric:
         raise HTTPException(status_code=404, detail="评分标准不存在")
-    if "dimensions" in data:
-        errors = validate_dimensions(data["dimensions"])
-        if errors:
-            raise HTTPException(status_code=400, detail="; ".join(errors))
-        rubric.dimensions = data["dimensions"]
-    for field in ("name", "version", "description", "total_max", "raw_max", "raw_scale"):
-        if field in data:
-            setattr(rubric, field, data[field])
+    errors = validate_dimensions(data.dimensions)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    rubric.dimensions = data.dimensions
+    rubric.name = data.name
+    rubric.version = data.version
+    rubric.description = data.description
+    rubric.total_max = data.total_max
+    rubric.raw_max = data.raw_max
+    rubric.raw_scale = data.raw_scale
     db.commit()
     return rubric
 

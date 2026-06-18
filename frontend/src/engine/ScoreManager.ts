@@ -52,17 +52,24 @@ export class ScoreManager {
 	private startPolling(): void {
 		if (this._polling || !this.recordId) return;
 		this._polling = true;
+		const POLL_INTERVAL = 1500;
 		let retries = 0;
 		const maxRetries = 200;
 
 		const poll = async () => {
-			if (!this._polling || document.hidden) return;
+			if (!this._polling) return;
+			// Don't count retries when the tab is hidden — reschedule instead
+			if (document.hidden) {
+				setTimeout(() => poll(), POLL_INTERVAL);
+				return;
+			}
 			if (retries >= maxRetries) {
 				this._progress = { phase: "failed", percentage: 0, message: "评分超时" };
 				this.stopPolling();
 				this.notify();
 				return;
 			}
+			retries++;
 			try {
 				const res = await api.get(`/training/${this.recordId}/scoring-status`);
 				const data = res.data as {
@@ -81,8 +88,7 @@ export class ScoreManager {
 					this.notify();
 					return;
 				}
-				if (data.score && data.score.total_score !== undefined) {
-					this._score = data.score as ScoreData;
+				if (data.scoring_status === "completed") {
 					this._progress = { phase: "completed", percentage: 100, message: "评分完成" };
 					this.stopPolling();
 					this.notify();
@@ -115,10 +121,9 @@ export class ScoreManager {
 				this._progress = { phase: "processing", percentage: pct, message: "评分处理中..." };
 				this.notify();
 			}
-			retries++;
 		};
 
-		this.pollTimer = setInterval(poll, 1500);
+		this.pollTimer = setInterval(poll, POLL_INTERVAL);
 		this._visibilityHandler = () => { if (!document.hidden) poll(); };
 		document.addEventListener("visibilitychange", this._visibilityHandler);
 		poll();

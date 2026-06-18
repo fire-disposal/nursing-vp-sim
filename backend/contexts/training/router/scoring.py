@@ -24,6 +24,18 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Generation counter to detect stale background scoring tasks.
+# Incremented in _try_acquire_scoring whenever a new scoring session starts.
+_scoring_generation: dict[int, int] = {}
+
+
+def _increment_scoring_generation(record_id: int) -> None:
+    _scoring_generation[record_id] = _scoring_generation.get(record_id, 0) + 1
+
+
+def _get_current_generation(record_id: int) -> int:
+    return _scoring_generation.get(record_id, 0)
+
 
 @router.get("/{record_id}/scoring-status")
 def get_scoring_status(
@@ -86,6 +98,7 @@ async def _run_scoring_background(
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
     db = SessionLocal()
+    gen = _get_current_generation(record_id)
     try:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
@@ -110,6 +123,10 @@ async def _run_scoring_background(
             timeout=SCORING_GLOBAL_TIMEOUT,
         )
 
+        if _get_current_generation(record_id) != gen:
+            log.info("评分被新任务取代，跳过完成状态更新", extra={"record_id": record_id})
+            return
+
         record.scoring_status = "completed"
         record.scoring_error = None
         if tracker:
@@ -121,7 +138,7 @@ async def _run_scoring_background(
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record:
+            if record and _get_current_generation(record_id) == gen:
                 record.scoring_status = "failed"
                 record.scoring_error = "评分超时（超过5分钟）"
                 db.commit()
@@ -133,7 +150,7 @@ async def _run_scoring_background(
             tracker.update(record_id, "failed", 0, str(e)[:100])
         try:
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record:
+            if record and _get_current_generation(record_id) == gen:
                 record.scoring_status = "failed"
                 record.scoring_error = str(e)[:2000] or f"{type(e).__name__}"
                 db.commit()

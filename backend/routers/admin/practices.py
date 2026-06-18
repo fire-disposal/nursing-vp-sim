@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
 from core.pagination import paginate
 from core.security import require_permission
-from models import Case, Practice, TrainingRecord, User
+from models import Assignment, Case, Practice, TrainingRecord, User
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
@@ -155,6 +155,10 @@ def delete_practice(
     p = db.query(Practice).filter(Practice.id == practice_id, Practice.school_id == current_user.school_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
+
+    existing_assignment = db.query(Assignment).filter(Assignment.practice_id == practice_id).first()
+    if existing_assignment:
+        raise HTTPException(status_code=400, detail="该练习存在关联的作业，无法删除")
 
     count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.practice_id == practice_id).scalar() or 0
     if count > 0:
