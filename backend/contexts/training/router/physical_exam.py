@@ -1,9 +1,9 @@
-"""Physical exam routes — exam operation endpoint."""
+"""Physical exam routes — exam operation endpoint (absorbed from plugins/physical_exam)."""
 
 import logging
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from contexts.patient import handle_operation
@@ -14,6 +14,8 @@ from models import Case, Message, TrainingRecord, User
 from plugins.base import ExamContext, ExamEffect
 
 log = logging.getLogger(__name__)
+
+router = APIRouter()
 
 EXAM_EMOTION_IMPACT: dict[str, dict] = {
     "temp": {"category": "routine", "trust_no": 0, "comfort_no": -1, "trust_yes": 0, "comfort_yes": 0},
@@ -121,6 +123,7 @@ def _build_impact_note(op_type: str, impact: dict, dt: int, dc: int, exam_count:
     return " | ".join(parts)
 
 
+@router.post("/{record_id}/exam/{op_type}")
 def perform_exam(
     record_id: int,
     op_type: str,

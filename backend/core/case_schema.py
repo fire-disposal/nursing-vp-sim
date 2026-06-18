@@ -79,6 +79,10 @@ class CaseDataSchema(BaseModel):
     example_dialogues: list[dict] = []
 
 
+# Plugins absorbed into core — their IDs are still valid in supported_plugins
+# for backward compatibility with existing case_data.
+_ABSORBED_PLUGIN_IDS: set[str] = {"physical-exam"}
+
 GENDER_MAP = {"男": "male", "女": "female"}
 
 
@@ -106,6 +110,8 @@ def validate_case_data(data: dict, *, strict: bool = False) -> dict:
             if not pm._plugins:
                 pm.discover()
             for plugin_id in supported:
+                if plugin_id in _ABSORBED_PLUGIN_IDS:
+                    continue
                 plugin = pm._plugins.get(plugin_id)
                 if plugin is None:
                     msg = f"未知插件: {plugin_id}"
