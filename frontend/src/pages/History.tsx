@@ -281,23 +281,28 @@ export default function History() {
 												</TableCell>
 												<TableCell>
 													<div className="flex items-center gap-2">
-														<Button
-															variant="link"
-															size="xs"
-															onClick={() => navigate(`/record/${r.id}`)}
-														>
-															查看详情
-														</Button>
 														{r.status === "in_progress" &&
-															user?.role !== "teacher" && (
-																<Button
-																	variant="link"
-																	size="xs"
-																	onClick={() => navigate(`/training/${r.id}`)}
-																>
-																	继续训练
-																</Button>
-															)}
+														user?.role !== "teacher" ? (
+															<Button
+																variant="link"
+																size="xs"
+																onClick={() =>
+																	navigate(`/training/${r.id}`)
+																}
+															>
+																继续训练
+															</Button>
+														) : (
+															<Button
+																variant="link"
+																size="xs"
+																onClick={() =>
+																	navigate(`/record/${r.id}`)
+																}
+															>
+																查看详情
+															</Button>
+														)}
 														<Button
 															variant="ghost"
 															size="icon-xs"

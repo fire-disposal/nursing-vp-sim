@@ -15,7 +15,7 @@ from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
 from infrastructure.scoring_progress import ScoringProgressTracker
-from models import Case, Message, Score, ScoreReview, TrainingRecord, User
+from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 
 from .session import _try_acquire_scoring
@@ -59,9 +59,9 @@ def get_scoring_status(
         p = tracker.get(record_id)
         if p:
             progress = {
-                "phase": p.phase,
-                "percentage": p.percentage,
-                "message": p.message,
+                "phase": p["stage"],
+                "percentage": p["percent"],
+                "message": p["message"],
             }
 
     return {
@@ -133,6 +133,19 @@ async def _run_scoring_background(
             tracker.update(record_id, "completed", 100, "评分完成")
         db.commit()
         log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
+
+        try:
+            notif = Notification(
+                user_id=record.user_id,
+                record_id=record.id,
+                type="scoring_complete",
+                title="评分已完成",
+                body="训练评分已完成，请查看详情",
+            )
+            db.add(notif)
+            db.commit()
+        except Exception:
+            log.warning("Failed to create scoring notification", exc_info=True)
     except TimeoutError:
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
@@ -275,3 +288,23 @@ async def retry_scoring(
         )
 
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
+
+
+@router.get("/notifications")
+def get_notifications(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    notifs = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False,
+        )
+        .order_by(Notification.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return [
+        {"id": n.id, "type": n.type, "title": n.title, "body": n.body, "created_at": str(n.created_at)} for n in notifs
+    ]

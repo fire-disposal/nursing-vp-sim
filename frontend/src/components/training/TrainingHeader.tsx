@@ -7,10 +7,13 @@ import {
 	Pause,
 	Phone,
 	Play,
+	Save,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { saveCheckpoint } from "@/api/training";
 import { updateTrainingFeatures } from "@/api/training-state";
+import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { usePortrait } from "@/engine/PluginContext";
@@ -157,6 +160,17 @@ export function TrainingHeader({
 		}
 	}, [timerActive, stopTimer, setTimerActive]);
 
+	const toast = useToast();
+
+	const handleSaveCheckpoint = useCallback(async () => {
+		try {
+			await saveCheckpoint(Number(recordId));
+			toast.success("存档点已创建");
+		} catch {
+			toast.error("创建存档点失败");
+		}
+	}, [recordId, toast]);
+
 	const allowPause = features.allow_pause ?? false;
 
 	const avatarSrc =
@@ -253,6 +267,14 @@ export function TrainingHeader({
 						title="插件特性"
 					>
 						<MonitorCog size={14} className="sm:size-[16px]" />
+					</button>
+
+					<button
+						onClick={handleSaveCheckpoint}
+						className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
+						title="保存存档点"
+					>
+						<Save size={14} className="sm:size-[16px]" />
 					</button>
 
 					<button

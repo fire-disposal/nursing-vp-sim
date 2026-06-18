@@ -1,3 +1,4 @@
+import io
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -5,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
@@ -329,3 +330,62 @@ def get_llm_log_detail(
     if not entry:
         raise HTTPException(status_code=404, detail="日志不存在")
     return entry
+
+
+@router.post("/records/excel")
+def export_records_excel(
+    current_user: Annotated[User, Depends(require_permission("export_data"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """导出训练记录为 Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "训练记录"
+
+    headers = ["记录ID", "学生", "病例", "状态", "评分状态", "总分", "开始时间", "结束时间"]
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    query = (
+        db.query(TrainingRecord)
+        .options(
+            selectinload(TrainingRecord.user), selectinload(TrainingRecord.case), selectinload(TrainingRecord.score)
+        )
+        .order_by(TrainingRecord.start_time.desc())
+    )
+
+    for row_idx, record in enumerate(query, 2):
+        ws.cell(row=row_idx, column=1, value=record.id)
+        ws.cell(row=row_idx, column=2, value=record.user.display_name if record.user else "")
+        ws.cell(row=row_idx, column=3, value=record.case.name if record.case else "")
+        ws.cell(row=row_idx, column=4, value=record.status)
+        ws.cell(row=row_idx, column=5, value=record.scoring_status or "")
+        ws.cell(row=row_idx, column=6, value=record.score.total_score if record.score else "")
+        ws.cell(row=row_idx, column=7, value=str(record.start_time))
+        ws.cell(row=row_idx, column=8, value=str(record.end_time) if record.end_time else "")
+
+    for col in range(1, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(col)].width = 18
+
+    filename = f"训练记录导出_{datetime.now(UTC).strftime('%Y%m%d_%H%M')}.xlsx"
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    from fastapi.responses import StreamingResponse
+
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

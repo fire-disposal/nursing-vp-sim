@@ -9,6 +9,7 @@ dependencies = [
     "bcrypt>=5.0.0",
     "fastapi>=0.136.3",
     "httpx>=0.28.1",
+    "openpyxl>=3.1",
     "pydantic>=2.13.4",
     "psycopg[binary]>=3.2",
     "pyjwt[crypto]>=2.10",

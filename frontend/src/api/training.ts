@@ -44,3 +44,17 @@ export const submitScoreReview = (
 
 export const getSessionConfigs = () =>
 	api.get<Record<string, unknown>[]>("/training/configs" satisfies ApiPath as string);
+
+type ResumeResponse = {
+	record_id: number;
+	current_phase: string | null;
+	checkpoint_saved_at: string | null;
+};
+
+export const saveCheckpoint = (recordId: number) =>
+	api.post<Schemas["OkResponse"]>(
+		`/training/${recordId}/checkpoint` as ApiPath,
+	);
+
+export const resumeTraining = (recordId: number) =>
+	api.post<ResumeResponse>(`/training/${recordId}/resume` as ApiPath);
