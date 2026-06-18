@@ -135,24 +135,28 @@ class DiagnoseService:
             pass
         return 0
 
-    @property
-    def _db_status(self) -> dict:
-        try:
-            from sqlalchemy import text
+    async def _db_status(self) -> dict:
+        import asyncio
 
-            from core.database import engine
+        def _check():
+            try:
+                from sqlalchemy import text
 
-            pool = getattr(engine, "pool", None)
-            info: dict = {"connected": False, "pool_size": 0, "checked_out": 0}
-            if pool:
-                info["pool_size"] = getattr(pool, "size", 0)
-                info["checked_out"] = getattr(pool, "checkedin", 0)  # approximate
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            info["connected"] = True
-            return info
-        except Exception as e:
-            return {"connected": False, "error": str(e)[:200]}
+                from core.database import engine
+
+                pool = getattr(engine, "pool", None)
+                info: dict = {"connected": False, "pool_size": 0, "checked_out": 0}
+                if pool:
+                    info["pool_size"] = getattr(pool, "size", 0)
+                    info["checked_out"] = getattr(pool, "checkedin", 0)  # approximate
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                info["connected"] = True
+                return info
+            except Exception as e:
+                return {"connected": False, "error": str(e)[:200]}
+
+        return await asyncio.to_thread(_check)
 
     @property
     def _llm_status(self) -> dict:
@@ -169,7 +173,7 @@ class DiagnoseService:
         except Exception as e:
             return {"status": "error", "detail": str(e)[:200]}
 
-    def build_snapshot(self) -> dict:
+    async def build_snapshot(self) -> dict:
         """构建一次完整的诊断快照（不走缓存）"""
         now_iso = datetime.now(UTC).isoformat()
         err = None
@@ -182,7 +186,7 @@ class DiagnoseService:
             }
 
         ss = DiagnoseSnapshot(
-            database=self._db_status,
+            database=await self._db_status(),
             llm=self._llm_status,
             errors=err,
             active_sessions=self._active_sessions,
@@ -190,12 +194,12 @@ class DiagnoseService:
         )
         return asdict(ss)
 
-    def get_diagnose(self) -> dict:
+    async def get_diagnose(self) -> dict:
         """获取诊断数据（带 TTL 缓存）"""
         now = time.time()
         if self._cache and (now - self._cache_time) < _CACHE_TTL:
             return self._cache
-        self._cache = self.build_snapshot()
+        self._cache = await self.build_snapshot()
         self._cache_time = now
         return self._cache
 
