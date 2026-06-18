@@ -93,7 +93,7 @@ async def ops_dashboard(
         try:
             service = get_diagnose_service()
             diagnostic = await service.get_diagnose()
-            system_errors = diagnostic.get("errors", {}) if isinstance(diagnostic, dict) else {}
+            system_errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
         except Exception:
             diagnostic = {"error": "diagnose service unavailable"}
             system_errors = {}
@@ -152,7 +152,7 @@ async def ops_errors(
     try:
         service = get_diagnose_service()
         diagnostic = await service.get_diagnose()
-        errors = diagnostic.get("errors", {})
+        errors = diagnostic.get("errors") or {}
         return {
             "count": {
                 "last_5min": errors.get("last_5min", 0),
