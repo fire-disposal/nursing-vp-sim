@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from core.config import BATCH_USER_LIMIT
 from core.database import get_db
 from core.security import hash_password, require_permission
 from models import Class, Role, Score, TrainingRecord, User, UserClass
@@ -328,6 +329,10 @@ def batch_create_users(
     created = 0
     skipped = 0
     errors = []
+
+    if len(users) > BATCH_USER_LIMIT:
+        raise HTTPException(status_code=400, detail=f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users)} 个")
+
     class_ids = {u.class_id for u in users if u.class_id}
     valid_class_ids = {c.id for c in db.query(Class).filter(Class.id.in_(class_ids)).all()} if class_ids else set()
 
@@ -367,6 +372,8 @@ def batch_create_users(
         if u.class_id:
             db.add(UserClass(user_id=user.id, class_id=u.class_id))
         created += 1
+        if created % 50 == 0:
+            db.commit()
     db.commit()
     log.info(
         f"批量导入: created={created} skipped={skipped}",
