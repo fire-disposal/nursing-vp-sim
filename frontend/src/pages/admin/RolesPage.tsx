@@ -1,6 +1,6 @@
 import { Loader2, Plus, Save, Search, Shield, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/api/axios-instance";
+import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -59,9 +59,7 @@ export default function RolesPage() {
 	const loadRoles = useCallback(async () => {
 		setLoading(true);
 		try {
-			const { data } = await api.get("/admin/roles", {
-				params: { search: search || undefined },
-			});
+			const { data } = await getRoles(search);
 			setRoles(data || []);
 		} catch {
 			toast.error("加载角色列表失败");
@@ -90,7 +88,7 @@ export default function RolesPage() {
 
 	const saveEdit = async (roleId: number) => {
 		try {
-			await api.put(`/admin/roles/${roleId}`, { permissions: editPerms });
+			await updateRole(roleId, { permissions: editPerms });
 			toast.success("权限已保存");
 			setEditId(null);
 			loadRoles();
@@ -105,11 +103,7 @@ export default function RolesPage() {
 			return;
 		}
 		try {
-			await api.post("/admin/roles", {
-				name: newName,
-				display_name: newDisplayName,
-				permissions: [],
-			});
+			await createRole({ name: newName, display_name: newDisplayName, permissions: [] });
 			toast.success("角色已创建，请编辑权限");
 			setNewName("");
 			setNewDisplayName("");
@@ -127,7 +121,7 @@ export default function RolesPage() {
 		});
 		if (!ok) return;
 		try {
-			await api.delete(`/admin/roles/${id}`);
+			await deleteRole(id);
 			toast.success("角色已删除");
 			loadRoles();
 		} catch (e: any) {

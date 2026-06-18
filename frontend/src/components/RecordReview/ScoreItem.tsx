@@ -1,0 +1,74 @@
+import { useState } from "react";
+import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { ScoreItemData } from "@/types/score";
+
+export default function ScoreItem({ item }: { item: ScoreItemData }) {
+	const [expanded, setExpanded] = useState(item.score < 2);
+	const hasEvidence = item.evidence || item.reason;
+
+	return (
+		<div className="mb-1">
+			<div
+				onClick={() => hasEvidence && setExpanded(!expanded)}
+				className={cn(
+					"flex justify-between items-center px-3 py-2 rounded-lg transition-colors",
+					hasEvidence ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
+					item.score >= 3
+						? "bg-green-50 dark:bg-green-950/20"
+						: item.score >= 2
+							? "bg-amber-50 dark:bg-amber-950/20"
+							: "bg-red-50 dark:bg-red-950/20",
+				)}
+			>
+				<div className="flex items-center gap-1.5 flex-1 min-w-0">
+					{hasEvidence && (
+						<span className="text-muted-foreground shrink-0">
+							{expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+						</span>
+					)}
+					<span className="text-sm truncate">{item.name}</span>
+				</div>
+				<span
+					className={cn(
+						"text-sm font-bold ml-2 shrink-0",
+						item.score >= 3
+							? "text-green-600"
+							: item.score >= 2
+								? "text-amber-600"
+								: "text-red-600",
+					)}
+				>
+					{item.score}/3
+				</span>
+			</div>
+			<div
+				className={cn(
+					"overflow-hidden transition-all duration-300",
+					expanded && hasEvidence
+						? "max-h-[300px] opacity-100 mt-1 ml-4"
+						: "max-h-0 opacity-0",
+				)}
+			>
+				<div className="p-3 rounded-lg bg-muted/30 border border-border text-sm leading-relaxed">
+					{item.evidence && (
+						<div className={item.reason ? "mb-2" : ""}>
+							<span className="font-semibold text-muted-foreground flex items-center gap-1 mb-0.5">
+								<MessageSquare size={11} /> 证据
+							</span>
+							<span className="text-foreground/80">{item.evidence}</span>
+						</div>
+					)}
+					{item.reason && (
+						<div>
+							<span className="font-semibold text-muted-foreground">
+								理由：
+							</span>
+							<span className="text-foreground/80">{item.reason}</span>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}

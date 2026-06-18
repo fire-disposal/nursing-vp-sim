@@ -4,16 +4,13 @@ import {
 	ArrowLeft,
 	BarChart3,
 	CheckCircle,
-	ChevronDown,
 	ChevronRight,
-	ChevronUp,
 	Clock,
 	Download,
 	Edit3,
 	FileText,
 	Lightbulb,
 	MessageCircle,
-	MessageSquare,
 	RefreshCw,
 	ShieldCheck,
 	ThumbsDown,
@@ -33,15 +30,13 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import { CollapsibleSection, ReviewEditor, ScoreItem } from "@/components/RecordReview";
 import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
 import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
-import type {
-	DetailScoreCategory,
-	ScoreData,
-	ScoreItemData,
-} from "@/types/score";
+import type { DetailScoreCategory, ScoreData } from "@/types/score";
+import type { ScoreData as EngineScoreData } from "@/engine/types";
 
 type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];
 
@@ -49,305 +44,6 @@ interface MessageData {
 	id: number;
 	role: string;
 	content: string;
-}
-
-interface ReviewItemProps {
-	item: ScoreItemData;
-	editedScore?: number;
-	onChange: (itemId: number, newScore: number) => void;
-}
-
-function ReviewItem({ item, editedScore, onChange }: ReviewItemProps) {
-	const [expanded, setExpanded] = useState(false);
-	const hasEvidence = item.evidence || item.reason;
-	const currentScore = editedScore !== undefined ? editedScore : item.score;
-
-	return (
-		<div className="mb-2">
-			<div className="flex justify-between items-center px-3 py-2.5 rounded-lg bg-muted/50 border border-border flex-wrap gap-2">
-				<div className="flex-1 min-w-0">
-					<div className="flex items-center gap-1.5">
-						<span className="text-sm font-medium">{item.name}</span>
-						{hasEvidence && (
-							<button
-								onClick={() => setExpanded(!expanded)}
-								className="border-0 bg-transparent p-0 text-muted-foreground flex hover:text-foreground transition-colors"
-							>
-								{expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-							</button>
-						)}
-					</div>
-					<div className="flex items-center gap-1.5 mt-0.5">
-						<span className="text-xs text-muted-foreground">AI 评分: </span>
-						<span
-							className={cn(
-								"text-xs font-bold",
-								item.score >= 3
-									? "text-green-600"
-									: item.score >= 2
-										? "text-amber-600"
-										: "text-red-600",
-							)}
-						>
-							{item.score}/3
-						</span>
-					</div>
-				</div>
-				<div className="flex items-center gap-1.5">
-					{[1, 2, 3].map((s) => (
-						<button
-							key={s}
-							onClick={() => onChange(item.id!, s)}
-							className={cn(
-								"w-8 h-8 rounded-lg text-sm font-medium transition-all",
-								currentScore === s
-									? "border-2 border-primary bg-primary/10 text-primary"
-									: "border border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground",
-							)}
-						>
-							{s}
-						</button>
-					))}
-				</div>
-			</div>
-			{expanded && hasEvidence && (
-				<div className="ml-3 mt-2 px-3 py-2.5 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed">
-					{item.evidence && (
-						<div className={cn(item.reason && "mb-2")}>
-							<span className="font-semibold text-muted-foreground flex items-center gap-1 mb-0.5">
-								<MessageSquare size={11} /> 证据
-							</span>
-							<span className="text-foreground/80">{item.evidence}</span>
-						</div>
-					)}
-					{item.reason && (
-						<div>
-							<span className="font-semibold text-muted-foreground">
-								理由：
-							</span>
-							<span className="text-foreground/80">{item.reason}</span>
-						</div>
-					)}
-				</div>
-			)}
-		</div>
-	);
-}
-
-interface ReviewEditorProps {
-	score: ScoreData;
-	review: ScoreReviewResponse | null;
-	onSubmit: (
-		modifiedScores: Record<string, DetailScoreCategory>,
-		comment: string,
-	) => void;
-	onClose: () => void;
-	submitting: boolean;
-}
-
-function ReviewEditor({
-	score,
-	review,
-	onSubmit,
-	onClose,
-	submitting,
-}: ReviewEditorProps) {
-	const detailScores = score?.detail_scores || {};
-	const [comment, setComment] = useState(review?.review_comment || "");
-	const [editedScores, setEditedScores] = useState<Record<number, number>>(
-		() => {
-			const initial: Record<number, number> = {};
-			for (const [, catData] of Object.entries(detailScores)) {
-				if (catData && typeof catData === "object" && "items" in catData) {
-					for (const item of catData.items || []) {
-						initial[item.id!] = item.score;
-					}
-				}
-			}
-			return initial;
-		},
-	);
-
-	const categories = Object.entries(detailScores);
-	const isNewFormat =
-		categories.length > 0 &&
-		categories[0][1] &&
-		typeof categories[0][1] === "object" &&
-		"items" in categories[0][1];
-
-	const handleScoreChange = (itemId: number, newScore: number) => {
-		setEditedScores((prev) => ({ ...prev, [itemId]: newScore }));
-	};
-
-	const handleSubmit = () => {
-		const modified = JSON.parse(JSON.stringify(detailScores)) as Record<
-			string,
-			DetailScoreCategory
-		>;
-		for (const [, catData] of Object.entries(modified)) {
-			if (catData && typeof catData === "object" && "items" in catData) {
-				let catTotal = 0;
-				for (const item of catData.items || []) {
-					if (editedScores[item.id!] !== undefined) {
-						item.score = editedScores[item.id!];
-					}
-					catTotal += item.score;
-				}
-				catData.score = catTotal;
-			}
-		}
-		onSubmit(modified, comment);
-	};
-
-	return (
-		<div
-			className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[200]"
-			onClick={onClose}
-		>
-			<div
-				className="bg-card rounded-2xl p-6 sm:p-8 max-w-[640px] w-[94vw] max-h-[90vh] overflow-auto shadow-xl border border-border"
-				onClick={(e) => e.stopPropagation()}
-			>
-				<div className="flex justify-between items-center mb-5">
-					<div>
-						<h2 className="text-lg font-semibold">教师复核评分</h2>
-						<span className="text-xs text-muted-foreground">
-							逐项审核 AI 评分，可修改每项分值
-						</span>
-					</div>
-					<button
-						onClick={onClose}
-						className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center hover:bg-muted transition-colors"
-					>
-						<X size={16} />
-					</button>
-				</div>
-
-				{isNewFormat ? (
-					categories.map(([catName, catData]) => (
-						<div key={catName} className="mb-5">
-							<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
-								<span>{catName}</span>
-								<Badge variant="neutral">
-									{catData.score}/{catData.max}
-								</Badge>
-							</div>
-							{(catData.items || []).map((item) => (
-								<ReviewItem
-									key={item.id!}
-									item={item}
-									editedScore={editedScores[item.id!]}
-									onChange={handleScoreChange}
-								/>
-							))}
-						</div>
-					))
-				) : (
-					<div className="text-sm text-muted-foreground py-8 text-center border border-dashed border-border rounded-xl">
-						此评分为旧版格式，不支持逐项修改。如需复核，请重新触发评分。
-					</div>
-				)}
-
-				<div className="mt-4">
-					<label className="text-sm font-semibold block mb-1.5">复核备注</label>
-					<textarea
-						value={comment}
-						onChange={(e) => setComment(e.target.value)}
-						placeholder="可选：对评分调整的说明..."
-						rows={3}
-						className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-y placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary"
-					/>
-				</div>
-
-				<div className="flex justify-end gap-2 mt-5">
-					<button
-						className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-						onClick={onClose}
-						disabled={submitting}
-					>
-						取消
-					</button>
-					<button
-						className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-						onClick={handleSubmit}
-						disabled={submitting}
-					>
-						{submitting ? "提交中..." : "提交复核"}
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-}
-
-function ScoreItem({ item }: { item: ScoreItemData }) {
-	const [expanded, setExpanded] = useState(item.score < 2);
-	const hasEvidence = item.evidence || item.reason;
-
-	return (
-		<div className="mb-1">
-			<div
-				onClick={() => hasEvidence && setExpanded(!expanded)}
-				className={cn(
-					"flex justify-between items-center px-3 py-2 rounded-lg transition-colors",
-					hasEvidence ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
-					item.score >= 3
-						? "bg-green-50 dark:bg-green-950/20"
-						: item.score >= 2
-							? "bg-amber-50 dark:bg-amber-950/20"
-							: "bg-red-50 dark:bg-red-950/20",
-				)}
-			>
-				<div className="flex items-center gap-1.5 flex-1 min-w-0">
-					{hasEvidence && (
-						<span className="text-muted-foreground shrink-0">
-							{expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-						</span>
-					)}
-					<span className="text-sm truncate">{item.name}</span>
-				</div>
-				<span
-					className={cn(
-						"text-sm font-bold ml-2 shrink-0",
-						item.score >= 3
-							? "text-green-600"
-							: item.score >= 2
-								? "text-amber-600"
-								: "text-red-600",
-					)}
-				>
-					{item.score}/3
-				</span>
-			</div>
-			<div
-				className={cn(
-					"overflow-hidden transition-all duration-300",
-					expanded && hasEvidence
-						? "max-h-[300px] opacity-100 mt-1 ml-4"
-						: "max-h-0 opacity-0",
-				)}
-			>
-				<div className="p-3 rounded-lg bg-muted/30 border border-border text-sm leading-relaxed">
-					{item.evidence && (
-						<div className={item.reason ? "mb-2" : ""}>
-							<span className="font-semibold text-muted-foreground flex items-center gap-1 mb-0.5">
-								<MessageSquare size={11} /> 证据
-							</span>
-							<span className="text-foreground/80">{item.evidence}</span>
-						</div>
-					)}
-					{item.reason && (
-						<div>
-							<span className="font-semibold text-muted-foreground">
-								理由：
-							</span>
-							<span className="text-foreground/80">{item.reason}</span>
-						</div>
-					)}
-				</div>
-			</div>
-		</div>
-	);
 }
 
 export default function RecordDetail() {
@@ -733,176 +429,123 @@ export default function RecordDetail() {
 							</div>
 						)}
 
-						<div className="pt-2 border-t border-border">
-							<button
-								onClick={() =>
-									setExpanded((prev) => ({
-										...prev,
-										strengths: !prev.strengths,
-									}))
-								}
-								className="flex items-center justify-between w-full py-2"
-							>
-								<h4 className="flex items-center gap-2 text-sm font-semibold">
-									<ThumbsUp size={16} className="text-green-500" />
-									表现较好
-								</h4>
-								<ChevronDown
-									size={16}
-									className={cn(
-										"transition-transform",
-										expanded.strengths && "rotate-180",
-									)}
-								/>
-							</button>
-							{expanded.strengths &&
-								(recordScore.strengths && recordScore.strengths.length > 0 ? (
-										<ul className="space-y-1.5">
-											{recordScore.strengths.map((s, i) => (
-												<li
-													key={i}
-													className="flex items-start gap-2 text-sm text-muted-foreground"
-												>
-													<CheckCircle
-														size={14}
-														className="text-green-500 shrink-0 mt-0.5"
-													/>
-													<span>{s}</span>
-												</li>
-											))}
-										</ul>
-									) : (
-										<p className="text-sm text-muted-foreground/50 italic">
-											AI 未生成此部分内容，可重新评分获取完整报告
-										</p>
-									)
+						<CollapsibleSection
+							icon={<ThumbsUp size={16} className="text-green-500" />}
+							title="表现较好"
+							expanded={expanded.strengths}
+							onToggle={() =>
+								setExpanded((prev) => ({
+									...prev,
+									strengths: !prev.strengths,
+								}))
+							}
+						>
+							{recordScore.strengths && recordScore.strengths.length > 0 ? (
+								<ul className="space-y-1.5">
+									{recordScore.strengths.map((s, i) => (
+										<li
+											key={i}
+											className="flex items-start gap-2 text-sm text-muted-foreground"
+										>
+											<CheckCircle
+												size={14}
+												className="text-green-500 shrink-0 mt-0.5"
+											/>
+											<span>{s}</span>
+										</li>
+									))}
+								</ul>
+							) : (
+								<p className="text-sm text-muted-foreground/50 italic">
+									AI 未生成此部分内容，可重新评分获取完整报告
+								</p>
 							)}
-						</div>
+						</CollapsibleSection>
 
-						<div className="pt-2 border-t border-border">
-							<button
-								onClick={() =>
-									setExpanded((prev) => ({
-										...prev,
-										weaknesses: !prev.weaknesses,
-									}))
-								}
-								className="flex items-center justify-between w-full py-2"
-							>
-								<h4 className="flex items-center gap-2 text-sm font-semibold">
-									<ThumbsDown size={16} className="text-amber-500" />
-									需要改善
-								</h4>
-								<ChevronDown
-									size={16}
-									className={cn(
-										"transition-transform",
-										expanded.weaknesses && "rotate-180",
-									)}
-								/>
-							</button>
-							{expanded.weaknesses &&
-								(recordScore.weaknesses &&
-									recordScore.weaknesses.length > 0 ? (
-										<ul className="space-y-1.5">
-											{recordScore.weaknesses.map((w, i) => (
-												<li
-													key={i}
-													className="flex items-start gap-2 text-sm text-muted-foreground"
-												>
-													<span className="size-3.5 rounded-full border-2 border-amber-400 shrink-0 mt-0.5" />
-													<span>{w}</span>
-												</li>
-											))}
-										</ul>
-									) : (
-										<p className="text-sm text-muted-foreground/50 italic">
-											AI 未生成此部分内容，可重新评分获取完整报告
-										</p>
-									)
+						<CollapsibleSection
+							icon={<ThumbsDown size={16} className="text-amber-500" />}
+							title="需要改善"
+							expanded={expanded.weaknesses}
+							onToggle={() =>
+								setExpanded((prev) => ({
+									...prev,
+									weaknesses: !prev.weaknesses,
+								}))
+							}
+						>
+							{recordScore.weaknesses && recordScore.weaknesses.length > 0 ? (
+								<ul className="space-y-1.5">
+									{recordScore.weaknesses.map((w, i) => (
+										<li
+											key={i}
+											className="flex items-start gap-2 text-sm text-muted-foreground"
+										>
+											<span className="size-3.5 rounded-full border-2 border-amber-400 shrink-0 mt-0.5" />
+											<span>{w}</span>
+										</li>
+									))}
+								</ul>
+							) : (
+								<p className="text-sm text-muted-foreground/50 italic">
+									AI 未生成此部分内容，可重新评分获取完整报告
+								</p>
 							)}
-						</div>
+						</CollapsibleSection>
 
-						<div className="pt-2 border-t border-border">
-							<button
-								onClick={() =>
-									setExpanded((prev) => ({
-										...prev,
-										missed_content: !prev.missed_content,
-									}))
-								}
-								className="flex items-center justify-between w-full py-2"
-							>
-								<h4 className="flex items-center gap-2 text-sm font-semibold">
-									<AlertTriangle size={16} className="text-red-500" />
-									漏问内容
-								</h4>
-								<ChevronDown
-									size={16}
-									className={cn(
-										"transition-transform",
-										expanded.missed_content && "rotate-180",
-									)}
-								/>
-							</button>
-							{expanded.missed_content &&
-								(recordScore.missed_content &&
-									recordScore.missed_content.length > 0 ? (
-										<ul className="space-y-1.5">
-											{recordScore.missed_content.map((m, i) => (
-												<li
-													key={i}
-													className="flex items-start gap-2 text-sm text-muted-foreground"
-												>
-													<X
-														size={14}
-														className="text-red-400 shrink-0 mt-0.5"
-													/>
-													<span>{m}</span>
-												</li>
-											))}
-										</ul>
-									) : (
-										<p className="text-sm text-muted-foreground/50 italic">
-											AI 未生成此部分内容，可重新评分获取完整报告
-										</p>
-									)
+						<CollapsibleSection
+							icon={<AlertTriangle size={16} className="text-red-500" />}
+							title="漏问内容"
+							expanded={expanded.missed_content}
+							onToggle={() =>
+								setExpanded((prev) => ({
+									...prev,
+									missed_content: !prev.missed_content,
+								}))
+							}
+						>
+							{recordScore.missed_content && recordScore.missed_content.length > 0 ? (
+								<ul className="space-y-1.5">
+									{recordScore.missed_content.map((m, i) => (
+										<li
+											key={i}
+											className="flex items-start gap-2 text-sm text-muted-foreground"
+										>
+											<X
+												size={14}
+												className="text-red-400 shrink-0 mt-0.5"
+											/>
+											<span>{m}</span>
+										</li>
+									))}
+								</ul>
+							) : (
+								<p className="text-sm text-muted-foreground/50 italic">
+									AI 未生成此部分内容，可重新评分获取完整报告
+								</p>
 							)}
-						</div>
+						</CollapsibleSection>
 
-						<div className="pt-2 border-t border-border">
-							<button
-								onClick={() =>
-									setExpanded((prev) => ({
-										...prev,
-										suggestions: !prev.suggestions,
-									}))
-								}
-								className="flex items-center justify-between w-full py-2"
-							>
-								<h4 className="flex items-center gap-2 text-sm font-semibold">
-									<Lightbulb size={16} className="text-blue-500" />
-									改进建议
-								</h4>
-								<ChevronDown
-									size={16}
-									className={cn(
-										"transition-transform",
-										expanded.suggestions && "rotate-180",
-									)}
-								/>
-							</button>
-							{expanded.suggestions &&
-								(recordScore.suggestions ? (
-									<p className="text-sm text-muted-foreground leading-relaxed">
-										{recordScore.suggestions}
-									</p>
-								) : (
-									<p className="text-sm text-muted-foreground/50 italic">
-										AI 未生成改进建议，可重新评分获取完整报告
-									</p>
-								))}
-						</div>
+						<CollapsibleSection
+							icon={<Lightbulb size={16} className="text-blue-500" />}
+							title="改进建议"
+							expanded={expanded.suggestions}
+							onToggle={() =>
+								setExpanded((prev) => ({
+									...prev,
+									suggestions: !prev.suggestions,
+								}))
+							}
+						>
+							{recordScore.suggestions ? (
+								<p className="text-sm text-muted-foreground leading-relaxed">
+									{recordScore.suggestions}
+								</p>
+							) : (
+								<p className="text-sm text-muted-foreground/50 italic">
+									AI 未生成改进建议，可重新评分获取完整报告
+								</p>
+							)}
+						</CollapsibleSection>
 					</div>
 				)}
 
@@ -933,7 +576,7 @@ export default function RecordDetail() {
 
 			{showScore && record.score && (
 				<ScoreCardInner
-					score={record.score as any}
+					score={record.score as EngineScoreData}
 					onClose={() => setShowScore(false)}
 				/>
 			)}

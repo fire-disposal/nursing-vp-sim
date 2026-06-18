@@ -109,7 +109,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 
 // ── Inner Component ──
 
-interface ScoreCardInnerProps {
+export interface ScoreCardInnerProps {
 	score: ScoreData;
 	onClose: () => void;
 	onRestart?: () => void;

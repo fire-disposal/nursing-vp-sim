@@ -1,9 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { api } from "@/api/axios-instance";
 import { getCases } from "@/api/cases";
-import { getPractices } from "@/api/practices";
+import { createPractice, deletePractice, getPractice, getPractices, updatePractice } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
@@ -91,17 +90,9 @@ export default function PracticesPage() {
 		setModalOpen(true);
 	};
 
-	const 	openEdit = async (id: number) => {
+	const openEdit = async (id: number) => {
 		try {
-			const res = await api.get(`/admin/practices/${id}`);
-			const d = res.data as {
-				name?: string;
-				description?: string;
-				case_id?: number;
-				mode?: string;
-				features?: Record<string, boolean>;
-				behavior?: { time_limit_minutes?: number; max_rounds?: number };
-			};
+			const { data: d } = await getPractice(id);
 			setEditingId(id);
 			setForm({
 				name: d.name || "",
@@ -109,8 +100,10 @@ export default function PracticesPage() {
 				case_id: d.case_id || 0,
 				mode: d.mode || "training",
 				features: d.features || {},
-				time_limit: d.behavior?.time_limit_minutes ?? 20,
-				max_rounds: d.behavior?.max_rounds ?? 30,
+				time_limit:
+					(d.behavior as { time_limit_minutes?: number })?.time_limit_minutes ?? 20,
+				max_rounds:
+					(d.behavior as { max_rounds?: number })?.max_rounds ?? 30,
 			});
 			setModalOpen(true);
 		} catch (e: any) {
@@ -135,10 +128,10 @@ export default function PracticesPage() {
 		setSaving(true);
 		try {
 			if (editingId) {
-				await api.put(`/admin/practices/${editingId}`, payload);
+				await updatePractice(editingId, payload);
 				toast.success("更新成功");
 			} else {
-				await api.post("/admin/practices", payload);
+				await createPractice(payload);
 				toast.success("创建成功");
 			}
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
@@ -153,7 +146,7 @@ export default function PracticesPage() {
 	const handleDelete = async () => {
 		if (!deleteTarget) return;
 		try {
-			await api.delete(`/admin/practices/${deleteTarget}`);
+			await deletePractice(deleteTarget);
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 		} catch (e: any) {
