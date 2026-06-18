@@ -33,7 +33,7 @@ class TestBuildPatientContextKwargs:
     def test_patient_info_partial(self):
         case = {"patient_info": {"name": "李四"}}
         kwargs = build_patient_context_kwargs(case)
-        assert kwargs["patient_info"] == "李四，岁，"
+        assert kwargs["patient_info"] == "李四"
 
     def test_defaults_for_missing_fields(self):
         kwargs = build_patient_context_kwargs({})
