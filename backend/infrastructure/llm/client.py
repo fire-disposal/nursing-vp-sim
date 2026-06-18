@@ -153,9 +153,9 @@ class LLMClient:
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
             )
-            pi = state.price_input or 1.0
-            po = state.price_output or 2.0
-            actual_cost = (prompt_tokens / 1_000_000 * pi) + (completion_tokens / 1_000_000 * po)
+            from infrastructure.llm.logging import _estimate_cost
+
+            actual_cost = _estimate_cost(prompt_tokens or 0, completion_tokens or 0, state.price_input, state.price_output)
             self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
             return content
         except Exception:

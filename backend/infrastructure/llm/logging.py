@@ -35,10 +35,12 @@ def _estimate_tokens(text: str) -> int:
 def _estimate_cost(
     prompt_tokens: int, completion_tokens: int, price_input: float | None = None, price_output: float | None = None
 ) -> float:
+    """统一成本计算 —— 三处调用均以此为准。
+
+    price 优先级: DB 配置值 → 环境变量 LLM_PRICE_*_PER_1M → 默认值 0。
+    """
     pi = price_input if price_input is not None else LLM_PRICE_INPUT_PER_1M
     po = price_output if price_output is not None else LLM_PRICE_OUTPUT_PER_1M
-    if not pi and not po:
-        return 0.0
     return prompt_tokens / 1_000_000 * pi + completion_tokens / 1_000_000 * po
 
 
