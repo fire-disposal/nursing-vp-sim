@@ -39,7 +39,7 @@ class TestManageCases:
             f"/api/cases/{test_case.id}",
             headers={"Authorization": f"Bearer {teacher_token}"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 409
 
     def test_manage_list_route_ordering(self, client, teacher):
         _, token = teacher

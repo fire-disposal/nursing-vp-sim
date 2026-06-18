@@ -7,7 +7,6 @@ import {
 	getRecords,
 	getStats,
 } from "@/api/api-client";
-import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
@@ -16,10 +15,6 @@ import useAuthStore from "@/stores/authStore";
 import type { ScoreData } from "@/types/score";
 import StudentDashboard from "./StudentDashboard";
 import TeacherDashboard from "./TeacherDashboard";
-
-type CaseBrief = components["schemas"]["CaseBrief"];
-type DurationStats = components["schemas"]["DurationStats"];
-type AdminStats = components["schemas"]["AdminStats"];
 
 interface RecordExtended {
 	id: number;

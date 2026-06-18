@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.case_schema import normalize_gender
 from core.database import get_db
+from core.exceptions import ConflictError, NotFoundError
 from core.security import get_current_user, require_permission
 from middleware.dependencies import resolve_school_filter
 from models import Case, Practice, TrainingRecord, User
@@ -181,7 +182,7 @@ async def generate_case(
             found_ids = {c.id for c in ref_cases}
             missing = [cid for cid in data.reference_case_ids if cid not in found_ids]
             if missing:
-                raise HTTPException(status_code=404, detail=f"参考病例不存在: {missing}")
+                raise NotFoundError(detail=f"参考病例不存在: {missing}")
             for c in ref_cases:
                 parts.append(f"--- 参考病例: {c.name} ---\n{format_case_for_prompt(c.case_data)}")
         if data.reference_text:
@@ -254,7 +255,7 @@ def get_case(
         query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
+        raise NotFoundError(detail="病例不存在")
     return case
 
 
@@ -297,7 +298,7 @@ def update_case(
         query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
+        raise NotFoundError(detail="病例不存在")
     cd = req.case_data
     cd = assert_valid_case_data(cd)
     case.name = cd["name"]
@@ -326,17 +327,14 @@ def delete_case(
         query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
+        raise NotFoundError(detail="病例不存在")
     existing_practice = db.query(Practice).filter(Practice.case_id == case_id).first()
     if existing_practice:
-        raise HTTPException(status_code=400, detail="该病例存在关联的练习，无法删除")
+        raise ConflictError(detail="该病例存在关联的练习，无法删除")
 
     count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar() or 0
     if count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"该病例已有 {count} 条训练记录，无法删除。请先删除相关训练记录。",
-        )
+        raise ConflictError(detail=f"该病例已有 {count} 条训练记录，无法删除。请先删除相关训练记录。")
     case_name = case.name
     db.delete(case)
     db.commit()

@@ -40,6 +40,12 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
         default=False,
         description="允许学生触发护理操作（测血压/体温/听诊等），操作结果通过 Author's Note 注入 LLM",
     ),
+    "questionnaire": FeatureFlag(
+        key="questionnaire",
+        label="问卷评估",
+        default=False,
+        description="训练结束后向学生推送问卷调查",
+    ),
 }
 
 

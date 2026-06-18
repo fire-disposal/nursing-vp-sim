@@ -1,3 +1,9 @@
+export interface InitiativeStateData {
+	elapsed_seconds: number;
+	threshold_seconds: number;
+	percent: number;
+}
+
 export interface SSEHandlers {
 	onChunk?: (text: string) => void;
 	onDone?: (id?: number) => void;
@@ -5,6 +11,7 @@ export interface SSEHandlers {
 	onSystem?: (text: string) => void;
 	onEmotionChange?: (data: { state: string; trust: number; comfort: number }) => void;
 	onInitiative?: (data: { content: string }) => void;
+	onInitiativeState?: (data: InitiativeStateData) => void;
 	onExamResult?: (data: { type: string; data: Record<string, unknown> }) => void;
 }
 
@@ -60,9 +67,10 @@ export async function readSSEStream(
 						try { reader.cancel(); } catch { /* ignore */ }
 						return;
 					}
-					if (data.system) { handlers.onSystem?.(data.system); continue; }
+				if (data.system) { handlers.onSystem?.(data.system); continue; }
 					if (data.exam_result) { handlers.onExamResult?.(data.exam_result); continue; }
 					if (data.emotion_change) { handlers.onEmotionChange?.(data.emotion_change); continue; }
+					if (data.initiative_state) { handlers.onInitiativeState?.(data.initiative_state); continue; }
 					if (data.initiative) { handlers.onInitiative?.(data.initiative); continue; }
 					if (data.done) {
 						clearIdleTimer();

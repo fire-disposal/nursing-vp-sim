@@ -15,10 +15,12 @@ class FakeContext:
         self.state = kwargs.get("state", {})
         self.messages = kwargs.get("messages", [])
         self.record = kwargs.get("record")
+        self.app_state = kwargs.get("app_state")
 
     class Record:
-        def __init__(self, runtime_state=None):
+        def __init__(self, runtime_state=None, id_=1):
             self.runtime_state = runtime_state
+            self.id = id_
 
     class Message:
         def __init__(self, role, content):
@@ -28,14 +30,22 @@ class FakeContext:
 
 class TestEmotionNoteSource:
     async def test_returns_note_when_present(self):
-        src = EmotionNoteSource()
-        ctx = FakeContext(state={"emotion_note": "患者感到放松"})
-        result = await src.collect(ctx)
-        assert result == "患者感到放松"
+        from infrastructure.cache import EmotionCache
 
-    async def test_returns_none_when_absent(self):
+        cache = EmotionCache()
+        from contexts.patient.emotion import EmotionState
+
+        cache.set(1, EmotionState(trust=70, comfort=80))
+        ctx = FakeContext(app_state=type("AppState", (), {"emotion_cache": cache})(), record=FakeContext.Record(id_=1))
         src = EmotionNoteSource()
-        ctx = FakeContext(state={})
+        result = await src.collect(ctx)
+        assert result is not None
+        assert "信赖" in result
+        assert "舒适" in result
+
+    async def test_returns_none_when_no_cache(self):
+        src = EmotionNoteSource()
+        ctx = FakeContext(app_state=type("AppState", (), {"emotion_cache": None})())
         result = await src.collect(ctx)
         assert result is None
 

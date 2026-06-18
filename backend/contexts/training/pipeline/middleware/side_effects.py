@@ -1,11 +1,15 @@
-"""side_effects — post-reply effects including initiative generation and action monitoring."""
+"""side_effects — post-reply effects including emotion analysis, initiative generation and action monitoring."""
 
 import logging
 import re
-from datetime import UTC, datetime
 
-from contexts.patient.emotion import EmotionState, get_emotion
-from contexts.patient.initiative import generate_initiative, should_initiate, update_initiative_timer
+from contexts.patient.emotion import get_emotion
+from contexts.patient.initiative import (
+    generate_initiative,
+    get_initiative_seconds,
+    should_initiate,
+    update_initiative_timer,
+)
 from models import Message
 
 from ..context import PipelineContext
@@ -14,7 +18,6 @@ log = logging.getLogger(__name__)
 
 # ── 患者动作关键词 → 情绪衰减映射 ──
 # AI 在对话中可能输出括号动作描述，如（无奈地摇头）（皱着眉叹气）
-# 优先级越靠前越优先匹配
 ACTION_EMOTION_DELTAS: list[tuple[str, int, int]] = [
     ("痛苦", -5, -8),
     ("难受", -4, -6),
@@ -32,45 +35,50 @@ ACTION_EMOTION_DELTAS: list[tuple[str, int, int]] = [
     ("点头", 1, 2),
 ]
 
+
+def _analyze_response_emotion(reply: str) -> tuple[int, int, str]:
+    """Analyze LLM patient response for emotional cues. Returns (trust_delta, comfort_delta, label)."""
+    positive = ["谢谢", "好多了", "舒服", "放心", "明白", "好的", "可以", "没事"]
+    negative = ["痛", "难受", "担心", "害怕", "紧张", "不安", "不舒服", "不好"]
+    resistant = ["不想", "不要", "不愿", "随便", "算了", "不知道", "别问了"]
+
+    pos = sum(1 for s in positive if s in reply)
+    neg = sum(1 for s in negative if s in reply)
+    res = sum(1 for s in resistant if s in reply)
+
+    if res > 0 and neg > 0:
+        return (-6, -10, "response:抗拒")
+    if neg > pos:
+        return (-4, -6, "response:消极")
+    if pos > neg:
+        return (4, 6, "response:积极")
+    return (0, 0, "")
+
+
 _ACTION_RE = re.compile(r"[（(][^）)]*[）)]")
 
 
-def _apply_action_emotion(emotion: EmotionState, reply: str) -> bool:
-    """从患者回复中提取动作描述并匹配情绪衰减。返回 True 表示有变更。"""
+def _apply_action_emotion(reply: str) -> tuple[int, int, str]:
+    """Extract action-based emotion deltas from reply. Returns (trust_delta, comfort_delta, label)."""
     matches = _ACTION_RE.findall(reply)
     if not matches:
-        return False
+        return (0, 0, "")
 
-    dt, dc = 0, 0
-    matched = None
-    for action_text in " ".join(matches):
+    best_dt = 0
+    best_dc = 0
+    best_keyword = None
+    for action_text in matches:
         for keyword, t_delta, c_delta in ACTION_EMOTION_DELTAS:
             if keyword in action_text:
-                if t_delta < dt or (t_delta == dt and c_delta < dc):
-                    dt = t_delta
-                    dc = c_delta
-                    matched = keyword
+                if t_delta < best_dt or (t_delta == best_dt and c_delta < best_dc):
+                    best_dt = t_delta
+                    best_dc = c_delta
+                    best_keyword = keyword
                 break
 
-    if dt == 0 and dc == 0:
-        return False
-
-    old_t, old_c = emotion.trust, emotion.comfort
-    emotion.trust = max(0, min(100, emotion.trust + dt))
-    emotion.comfort = max(0, min(100, emotion.comfort + dc))
-    if old_t == emotion.trust and old_c == emotion.comfort:
-        return False
-
-    emotion.history.append(
-        {
-            "trust": emotion.trust,
-            "comfort": emotion.comfort,
-            "state": emotion.state,
-            "intent": f"动作:{matched or '未知'}",
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-    )
-    return True
+    if best_dt == 0 and best_dc == 0:
+        return (0, 0, "")
+    return (best_dt, best_dc, f"动作:{best_keyword or '未知'}")
 
 
 async def side_effects(ctx: PipelineContext, next_mw) -> None:
@@ -84,7 +92,22 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
 
     if features.get("emotion") and ctx.llm_reply:
         emotion = get_emotion(ctx.record.id, app.emotion_cache)
-        if _apply_action_emotion(emotion, ctx.llm_reply):
+        emotion.decay()
+
+        action_dt, action_dc, action_label = _apply_action_emotion(ctx.llm_reply)
+        resp_dt, resp_dc, resp_label = _analyze_response_emotion(ctx.llm_reply)
+
+        dt_total = action_dt + resp_dt
+        dc_total = action_dc + resp_dc
+        label_parts = []
+        if action_label:
+            label_parts.append(action_label)
+        if resp_label:
+            label_parts.append(resp_label)
+
+        if dt_total != 0 or dc_total != 0:
+            label = "+".join(label_parts) if label_parts else ""
+            emotion.update(dt_total, dc_total, label)
             ctx.system_events.append(
                 {
                     "emotion_change": {
@@ -106,6 +129,20 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         emotion_state = get_emotion(ctx.record.id, app.emotion_cache)
         case_data = ctx.case_data or {}
         personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
+
+        # Emit initiative state for frontend polling
+        elapsed, threshold = get_initiative_seconds(
+            ctx.record.id, initiative_cache, personality, emotion_state.trust, emotion_state.comfort
+        )
+        ctx.system_events.append(
+            {
+                "initiative_state": {
+                    "elapsed_seconds": round(elapsed, 1),
+                    "threshold_seconds": round(threshold, 1),
+                    "percent": min(100, round(elapsed / max(1, threshold) * 100, 1)),
+                }
+            }
+        )
 
         if not should_initiate(
             ctx.record.id, initiative_cache, personality, emotion_state.trust, emotion_state.comfort

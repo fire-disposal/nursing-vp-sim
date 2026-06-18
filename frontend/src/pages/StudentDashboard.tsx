@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import type { components } from "@/api/api-types.gen";
+import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";

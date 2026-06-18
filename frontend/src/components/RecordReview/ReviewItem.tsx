@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ScoreItemData } from "@/types/score";
 

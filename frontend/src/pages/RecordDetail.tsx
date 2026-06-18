@@ -27,18 +27,15 @@ import {
 	retryScoring,
 	submitScoreReview,
 } from "@/api/api-client";
-import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import { useToast } from "@/components/Toast";
 import { CollapsibleSection, ReviewEditor, ScoreItem } from "@/components/RecordReview";
+import { useToast } from "@/components/Toast";
 import { ScoreCardInner } from "@/components/training/panels/scoring-display/ScoreCard";
 import Badge from "@/components/ui/Badge";
+import type { ScoreData as EngineScoreData } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
-import type { ScoreData as EngineScoreData } from "@/engine/types";
-
-type ScoreReviewResponse = components["schemas"]["ScoreReviewResponse"];
 
 interface MessageData {
 	id: number;

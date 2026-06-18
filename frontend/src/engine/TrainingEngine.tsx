@@ -158,6 +158,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
 				onInitiative: (initiative) =>
 					bus.emit("initiative:triggered", { content: initiative }),
+				onInitiativeState: (data) => bus.emit("initiative:state", data),
 			});
 		},
 		[activePlugins],

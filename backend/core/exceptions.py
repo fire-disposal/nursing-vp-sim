@@ -1,20 +1,35 @@
 """Unified application exception hierarchy."""
 
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
+
 
 class AppError(Exception):
     """Base for all application-level exceptions."""
 
 
-class AuthError(AppError):
-    """Authentication or authorization failure."""
+# ── HTTP-aware custom exceptions ──
 
 
-class NotFoundError(AppError):
+class AuthError(HTTPException):
+    """Authentication (401) or authorization (403) failure."""
+
+    def __init__(self, detail: str = "认证失败", status_code: int = 401):
+        super().__init__(status_code=status_code, detail=detail)
+
+
+class NotFoundError(HTTPException):
     """Requested resource does not exist."""
 
+    def __init__(self, detail: str = "资源不存在"):
+        super().__init__(status_code=404, detail=detail)
 
-class ConflictError(AppError):
+
+class ConflictError(HTTPException):
     """Resource state conflict (e.g., duplicate, already processed)."""
+
+    def __init__(self, detail: str = "资源冲突"):
+        super().__init__(status_code=409, detail=detail)
 
 
 # ── LLM ──
@@ -53,3 +68,26 @@ class ScoringValidationError(ScoringError):
 
 class ScoringFeedbackError(ScoringError):
     """Feedback generation returned empty or invalid result."""
+
+
+# ── Exception handlers (for FastAPI add_exception_handler) ──
+
+
+async def auth_error_handler(request: Request, exc: AuthError):
+    return JSONResponse(status_code=exc.status_code, content={"code": -1, "data": None, "message": exc.detail})
+
+
+async def not_found_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"code": -1, "data": None, "message": exc.detail})
+
+
+async def conflict_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"code": -1, "data": None, "message": exc.detail})
+
+
+async def llm_error_handler(request: Request, exc: LLMError):
+    return JSONResponse(status_code=500, content={"code": -1, "data": None, "message": str(exc)})
+
+
+async def scoring_error_handler(request: Request, exc: ScoringError):
+    return JSONResponse(status_code=500, content={"code": -1, "data": None, "message": str(exc)})

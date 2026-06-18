@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from contexts.patient import (
     generate_initiative,
     get_emotion,
+    get_initiative_seconds,
     should_initiate,
     update_initiative_timer,
 )
@@ -113,10 +114,14 @@ def get_training_state(
 
     initiative_data = None
     if features.get("patient_initiative"):
-        total_elapsed = (datetime.now(UTC) - record.start_time).total_seconds()
+        emotion = get_emotion(record_id, app_state.emotion_cache)
+        elapsed, threshold = get_initiative_seconds(
+            record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort
+        )
         initiative_data = {
-            "elapsed_seconds": round(total_elapsed, 1),
-            "percent": 0,
+            "elapsed_seconds": round(elapsed, 1),
+            "threshold_seconds": round(threshold, 1),
+            "percent": min(100, round(elapsed / max(1, threshold) * 100, 1)),
         }
 
     return {

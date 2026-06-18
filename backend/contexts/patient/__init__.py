@@ -3,7 +3,6 @@
 # 情绪引擎
 from .emotion import (
     EmotionState,
-    classify_intent,
     cleanup_emotion,
     get_emotion,
 )
@@ -67,7 +66,6 @@ __all__ = [
     "build_patient_chat_messages",
     "build_patient_context_kwargs",
     "check_initiate_ready",
-    "classify_intent",
     "cleanup_emotion",
     "cleanup_initiative",
     "detect_operation",

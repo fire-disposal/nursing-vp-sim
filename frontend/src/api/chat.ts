@@ -36,6 +36,7 @@ export async function sendMessageStream(
 		comfort: number;
 	}) => void,
 	onInitiative?: (data: { content: string }) => void,
+	onInitiativeState?: (data: { elapsed_seconds: number; threshold_seconds: number; percent: number }) => void,
 ) {
 	const MAX_RETRIES = 3;
 	const FETCH_TIMEOUT = 30_000;
@@ -92,7 +93,7 @@ export async function sendMessageStream(
 			}
 
 			const reader = resp.body.getReader();
-			await readSSEStream(reader, {
+		await readSSEStream(reader, {
 				onChunk,
 				onDone,
 				onError,
@@ -100,6 +101,7 @@ export async function sendMessageStream(
 				onExamResult,
 				onEmotionChange,
 				onInitiative,
+				onInitiativeState,
 			});
 			return;
 		} catch (e: unknown) {

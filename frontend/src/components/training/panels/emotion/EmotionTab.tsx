@@ -146,6 +146,7 @@ export function EmotionTab({ ctx }: PanelTabProps) {
 const EMOTION_BG: Record<EmotionState, string> = {
 	withdrawn: "border-red-400 bg-red-50",
 	defensive: "border-orange-400 bg-orange-50",
+	anxious: "border-purple-400 bg-purple-50",
 	neutral: "border-border bg-muted/30",
 	relaxed: "border-blue-400 bg-blue-50",
 	open: "border-green-400 bg-green-50",
@@ -154,6 +155,7 @@ const EMOTION_BG: Record<EmotionState, string> = {
 const EMOTION_DOT: Record<EmotionState, string> = {
 	withdrawn: "bg-red-400",
 	defensive: "bg-orange-400",
+	anxious: "bg-purple-400",
 	neutral: "bg-muted",
 	relaxed: "bg-blue-400",
 	open: "bg-green-400",

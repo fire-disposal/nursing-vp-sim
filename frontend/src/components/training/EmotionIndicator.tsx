@@ -16,6 +16,7 @@ interface EmotionIndicatorProps {
 const EMOTION_ICONS: Record<EmotionState, string> = {
 	withdrawn: "😐",
 	defensive: "😟",
+	anxious: "😰",
 	neutral: "🙂",
 	relaxed: "😊",
 	open: "😄",
@@ -24,6 +25,7 @@ const EMOTION_ICONS: Record<EmotionState, string> = {
 const EMOTION_DOT: Record<EmotionState, string> = {
 	withdrawn: "bg-red-500",
 	defensive: "bg-orange-500",
+	anxious: "bg-purple-500",
 	neutral: "bg-muted-foreground",
 	relaxed: "bg-blue-500",
 	open: "bg-green-500",

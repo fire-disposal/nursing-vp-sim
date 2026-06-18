@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.exceptions import AuthError, ConflictError
 from core.login_strategies import get_strategy_registry
 from core.security import (
     _decode_token_allow_expired,
@@ -75,7 +76,7 @@ async def login(
     user = await strategy.authenticate({"username": req.username, "password": req.password})
     if user is None:
         log.warning("登录失败: username=%s", req.username, extra={"action": "login_failed"})
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
+        raise AuthError(detail="用户名或密码错误")
 
     await reset_login_limit(request)
     log.info(
@@ -95,7 +96,7 @@ def register(
 ):
     existing = db.query(User).filter(User.username == req.username).first()
     if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
+        raise ConflictError(detail="用户名已存在")
 
     if req.role not in ("student", "teacher"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="角色必须为 student 或 teacher")
@@ -196,7 +197,7 @@ async def wechat_bind(
     db: Annotated[Session, Depends(get_db)],
 ):
     if current_user.wechat_openid:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="已绑定微信，不可重复绑定")
+        raise ConflictError(detail="已绑定微信，不可重复绑定")
 
     try:
         session = await code2session(req.code)
@@ -209,7 +210,7 @@ async def wechat_bind(
 
     existing = db.query(User).filter(User.wechat_openid == openid).first()
     if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此微信已绑定其他账号")
+        raise ConflictError(detail="此微信已绑定其他账号")
 
     current_user.wechat_openid = openid
     db.commit()
@@ -234,7 +235,7 @@ async def wechat_register(
 
     existing = db.query(User).filter(User.wechat_openid == openid).first()
     if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此微信已注册，请直接登录")
+        raise ConflictError(detail="此微信已注册，请直接登录")
 
     suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
     username = f"wx_{suffix}"
@@ -360,7 +361,7 @@ def change_password(
     db: Annotated[Session, Depends(get_db)],
 ):
     if not verify_password(req.old_password, current_user.password_hash):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误")
+        raise AuthError(detail="原密码错误")
     current_user.password_hash = hash_password(req.new_password)
     current_user.token_version += 1
     db.commit()

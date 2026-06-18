@@ -3,6 +3,7 @@ import { createContext, type ReactNode, useContext, useState } from "react";
 export type EmotionState =
 	| "withdrawn"
 	| "defensive"
+	| "anxious"
 	| "neutral"
 	| "relaxed"
 	| "open";
@@ -10,6 +11,7 @@ export type EmotionState =
 const EMOTION_BORDER: Record<EmotionState, string> = {
 	withdrawn: "border-red-400",
 	defensive: "border-orange-400",
+	anxious: "border-purple-400",
 	neutral: "border-border",
 	relaxed: "border-blue-400",
 	open: "border-green-400",
@@ -18,6 +20,7 @@ const EMOTION_BORDER: Record<EmotionState, string> = {
 const EMOTION_COLOR: Record<EmotionState, string> = {
 	withdrawn: "text-red-600",
 	defensive: "text-orange-600",
+	anxious: "text-purple-600",
 	neutral: "text-muted-foreground",
 	relaxed: "text-blue-600",
 	open: "text-green-600",
@@ -34,6 +37,7 @@ export function getEmotionColor(emotion: EmotionState): string {
 export const EMOTION_LABELS: Record<EmotionState, string> = {
 	withdrawn: "沉默回避",
 	defensive: "防御抵触",
+	anxious: "焦虑不安",
 	neutral: "正常配合",
 	relaxed: "放松友好",
 	open: "开放信任",

@@ -1,5 +1,5 @@
-// frontend/src/engine/StreamManager.ts
 import { sendMessageStream } from "@/api/api-client";
+import type { InitiativeStateData } from "@/api/sse";
 import type { ChatMessage } from "./types";
 
 export interface StreamCallbacks {
@@ -17,6 +17,7 @@ export interface StreamCallbacks {
 		comfort: number;
 	}) => void;
 	onInitiative?: (data: { content: string }) => void;
+	onInitiativeState?: (data: InitiativeStateData) => void;
 }
 
 export class StreamManager {
@@ -190,6 +191,7 @@ export class StreamManager {
 					}
 					callbacks.onInitiative?.(initiative);
 				},
+				(initiativeState) => callbacks.onInitiativeState?.(initiativeState),
 			);
 		} catch (err: unknown) {
 			const partial = this.findStreaming();

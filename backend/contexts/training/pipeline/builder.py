@@ -15,7 +15,6 @@ _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 def build_pipeline(feature_flags: dict[str, bool] | None = None) -> tuple[list[Any], Any]:
     if not _CORE_MIDDLEWARE:
         from .middleware import (
-            emotion_tracker,
             llm_caller,
             persister,
             phase_guard,
@@ -30,13 +29,9 @@ def build_pipeline(feature_flags: dict[str, bool] | None = None) -> tuple[list[A
         _CORE_MIDDLEWARE[PipelineStage.LLM] = [llm_caller]
         _CORE_MIDDLEWARE[PipelineStage.PERSIST] = [persister]
         _CORE_MIDDLEWARE[PipelineStage.SIDE_EFFECTS] = [side_effects]
-        _CORE_MIDDLEWARE[PipelineStage.PLUGIN_EARLY] = [emotion_tracker]
 
     flags = feature_flags or {}
     stage_buckets: dict[PipelineStage, list[Any]] = {s: list(_CORE_MIDDLEWARE.get(s, [])) for s in PipelineStage}
-
-    if not flags.get("emotion", False):
-        stage_buckets[PipelineStage.PLUGIN_EARLY] = []
 
     result: list[Any] = []
     for stage in sorted(PipelineStage, key=stage_order):

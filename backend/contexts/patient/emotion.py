@@ -3,7 +3,7 @@
 信赖 (trust):    0-100  对护士专业能力的信任度
 舒适 (comfort):  0-100  情感上的安全感和放松度
 
-每轮学生输入通过关键词匹配产生 (trust_delta, comfort_delta) 双通道调整，
+每轮 LLM 答复后通过情感分析产生 (trust_delta, comfort_delta) 双通道调整，
 结果映射为 5 个显示标签（向后兼容 UI），并生成 Author's Note 注入 LLM prompt。
 """
 
@@ -17,14 +17,16 @@ from infrastructure.cache import EmotionCache
 
 log = logging.getLogger(__name__)
 
-# ── 显示标签映射（向后兼容） ──
-# (信赖, 舒适) → 标签
+# ── 显示标签映射 ──
+# (信赖下限, 舒适下限) → 标签 → 描述
+# FIRST match wins — order matters!
 STATE_LABELS: list[tuple[tuple[int, int], str, str]] = [
     ((70, 70), "open", "开放信任，愿意详述"),
     ((30, 60), "relaxed", "放松配合，语气友好"),
-    ((30, 30), "neutral", "正常配合，有所保留"),
-    ((30, 0), "defensive", "防御抵触，需要安抚"),
-    ((0, 0), "withdrawn", "沉默敷衍，回答极其简短"),
+    ((30, 35), "neutral", "正常配合"),
+    ((30, 0), "anxious", "焦虑不安"),  # comfort low but trust maintained
+    ((0, 30), "defensive", "防御抵触"),  # trust low
+    ((0, 0), "withdrawn", "沉默回避"),  # both low
 ]
 
 
@@ -34,71 +36,6 @@ def _lookup_state(trust: int, comfort: int) -> tuple[str, str]:
         if trust >= t_min and comfort >= c_min:
             return label, desc  # first match with highest priority
     return best
-
-
-# ── 意图 → (trust_delta, comfort_delta) ──
-INTENT_TRANSITIONS: dict[str, tuple[int, int]] = {
-    "关心/共情": (5, 15),  # 共情主要提升舒适，轻微提升信赖
-    "解释原因": (15, 5),  # 解释原因主要提升信赖
-    "道歉/安抚": (3, 12),  # 道歉主要恢复舒适
-    "粗鲁/指责": (-10, -15),  # 粗鲁同时打击两个维度
-    "追问隐私": (-5, -12),  # 隐私追问主要打击舒适
-    "催促": (0, -10),  # 催促降低舒适
-    "不明确": (-3, -3),  # 模糊回应轻微双降
-    "普通提问": (0, 0),  # 普通提问不变
-}
-
-INTENT_KEYWORDS: dict[str, list[str]] = {
-    "关心/共情": ["别担心", "没关系", "慢慢说", "理解", "辛苦", "不容易", "放心", "会好的", "别着急", "别怕"],
-    "解释原因": ["因为", "原因是", "为了评估", "需要了解", "方便", "以便", "这样才能", "给你检查"],
-    "道歉/安抚": ["抱歉", "对不起", "不好意思", "不是故意", "打扰", "原谅"],
-    "粗鲁/指责": [
-        "必须",
-        "快点",
-        "你怎么",
-        "认真点",
-        "赶紧",
-        "别废话",
-        "烦",
-        "太慢",
-        "去死吧",
-        "滚",
-        "闭嘴",
-        "傻子",
-        "废物",
-        "没用的",
-        "滚开",
-        "滚蛋",
-        "懒得理",
-        "不想说",
-        "关你什么事",
-        "少管",
-        "去你的",
-        "你有病",
-        "你疯了",
-        "你有毛病",
-        "听不懂人话",
-        "我不管",
-        "别废话",
-        "少啰嗦",
-        "叫你们领导",
-        "投诉你",
-        "你什么态度",
-    ],
-    "追问隐私": ["抽烟", "喝酒", "工资", "结婚", "家庭", "经济", "收入", "男朋友", "女朋友"],
-    "催促": ["快点", "速度", "等不及", "着急", "还要多久"],
-    "不明确": ["嗯", "哦", "好", "行", "知道了", "随便"],
-}
-
-
-def classify_intent(msg: str) -> str:
-    if not msg:
-        return "普通提问"
-    msg_lower = msg.lower()
-    for intent, keywords in INTENT_KEYWORDS.items():
-        if any(kw in msg_lower for kw in keywords):
-            return intent
-    return "普通提问"
 
 
 # ── 状态对象 ──
@@ -119,37 +56,45 @@ class EmotionState:
     def note(self) -> str:
         return _build_author_note(self.trust, self.comfort)
 
-    def update(self, intent: str) -> None:
-        dt, dc = INTENT_TRANSITIONS.get(intent, (0, 0))
-        if dt == 0 and dc == 0 and intent != "普通提问":
-            return  # 未知意图，不更新
+    def decay(self, elapsed_seconds: float = 60.0) -> None:
+        """Drift trust and comfort toward 50 over time, capped at max 5 points per minute."""
+        drift = min(5, max(0, int(elapsed_seconds / 60)))
+        if drift == 0:
+            return
+        for attr in ("trust", "comfort"):
+            current = getattr(self, attr)
+            if current > 50:
+                setattr(self, attr, max(50, current - drift))
+            elif current < 50:
+                setattr(self, attr, min(50, current + drift))
 
+    def update(self, dt: int, dc: int, intent_label: str = "") -> None:
+        if dt == 0 and dc == 0:
+            return
         old_trust, old_comfort = self.trust, self.comfort
         self.trust = max(0, min(100, self.trust + dt))
         self.comfort = max(0, min(100, self.comfort + dc))
-
         old_state = _lookup_state(old_trust, old_comfort)[0]
         new_state = _lookup_state(self.trust, self.comfort)[0]
-
         if old_state != new_state or dt != 0 or dc != 0:
             self.history.append(
                 {
                     "trust": self.trust,
                     "comfort": self.comfort,
                     "state": new_state,
-                    "intent": intent,
+                    "intent": intent_label,
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
             log.debug(
-                "情绪变化: %s(t=%d,c=%d) → %s(t=%d,c=%d) [意图: %s]",
+                "情绪变化: %s(t=%d,c=%d) → %s(t=%d,c=%d) [%s]",
                 old_state,
                 old_trust,
                 old_comfort,
                 new_state,
                 self.trust,
                 self.comfort,
-                intent,
+                intent_label,
             )
 
 
@@ -174,6 +119,7 @@ def _build_author_note(trust: int, comfort: int) -> str:
     extra = {
         "withdrawn": "需要解释操作目的并表达真诚关心才能缓和",
         "defensive": "如果继续追问隐私而不解释原因，可能恶化",
+        "anxious": "患者情绪焦虑，需要 reassurance 和耐心解释",
         "neutral": "患者保持一定距离，按真实感受回答",
         "relaxed": "患者心情放松，可能多聊一两句个人感受",
         "open": "患者对护士建立了信任，可能主动透露额外信息",

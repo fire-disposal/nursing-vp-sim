@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { X } from "lucide-react";
+import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/Badge";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";

@@ -90,7 +90,7 @@ class TestRegister:
             json={"username": "dup", "password": "123456", "role": "student", "display_name": "Dup2"},
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 409
 
     def test_register_requires_teacher(self, client, student):
         """Student cannot register users."""

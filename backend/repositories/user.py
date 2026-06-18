@@ -16,13 +16,7 @@ class UserRepository:
         return self.db.query(User).filter(User.username == username).first()
 
     def list_by_school(self, school_id: int, offset: int = 0, limit: int = 50):
-        return (
-            self.db.query(User)
-            .filter(User.school_id == school_id)
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        return self.db.query(User).filter(User.school_id == school_id).offset(offset).limit(limit).all()
 
     def count_by_school(self, school_id: int) -> int:
         return self.db.query(User).filter(User.school_id == school_id).count()

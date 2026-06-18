@@ -210,10 +210,14 @@ async def ask_stream(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     async with db_session() as db:
-        session = db.query(QASession).filter(
-            QASession.id == session_id,
-            QASession.user_id == current_user.id,
-        ).first()
+        session = (
+            db.query(QASession)
+            .filter(
+                QASession.id == session_id,
+                QASession.user_id == current_user.id,
+            )
+            .first()
+        )
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
 
@@ -246,7 +250,9 @@ async def ask_stream(
                     full_reply += chunk
                     yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-                assistant_record = QARecord(session_id=session_id, user_id=current_user.id, role="assistant", content=full_reply)
+                assistant_record = QARecord(
+                    session_id=session_id, user_id=current_user.id, role="assistant", content=full_reply
+                )
                 db.add(assistant_record)
                 db.commit()
                 db.refresh(assistant_record)

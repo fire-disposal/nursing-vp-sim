@@ -15,6 +15,7 @@ for (const [filePath, mod] of Object.entries(variantModules)) {
 const EMOTION_SUFFIX: Record<string, string> = {
 	withdrawn: "-s",
 	defensive: "-a",
+	anxious: "-n",
 	neutral: "",
 	relaxed: "-h",
 	open: "-h",

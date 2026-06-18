@@ -12,6 +12,7 @@ from contexts.training.config_loader import get_config, list_configs
 from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
+from core.exceptions import AuthError, NotFoundError
 from core.feature_flags import FEATURE_FLAGS, resolve_features
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
@@ -229,7 +230,7 @@ def start_training(
         case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = case_query.first()
     if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
+        raise NotFoundError(detail="病例不存在")
 
     if req.practice_id:
         practice = db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
@@ -292,7 +293,7 @@ def start_training_from_assignment(
         .first()
     )
     if not assignment:
-        raise HTTPException(status_code=404, detail="练习发布不存在")
+        raise NotFoundError(detail="练习发布不存在")
 
     user_class = (
         db.query(UserClass)
@@ -303,7 +304,7 @@ def start_training_from_assignment(
         .first()
     )
     if not user_class:
-        raise HTTPException(status_code=403, detail="你不在该练习的目标班级中")
+        raise AuthError(detail="你不在该练习的目标班级中", status_code=403)
 
     existing = (
         db.query(TrainingRecord)
@@ -338,7 +339,7 @@ def start_training_from_assignment(
 
     practice = assignment.practice
     if not practice or not practice.case:
-        raise HTTPException(status_code=404, detail="练习模板或病例不存在")
+        raise NotFoundError(detail="练习模板或病例不存在")
     case = practice.case
 
     config = {
@@ -465,14 +466,14 @@ def get_record_detail(
         .first()
     )
     if not record:
-        raise HTTPException(status_code=404, detail="记录不存在")
+        raise NotFoundError(detail="记录不存在")
 
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权查看此记录")
+        raise AuthError(detail="无权查看此记录", status_code=403)
 
     effective_school = resolve_school_filter(current_user)
     if effective_school is not None and (not record.user or record.user.school_id != effective_school):
-        raise HTTPException(status_code=404, detail="记录不存在")
+        raise NotFoundError(detail="记录不存在")
 
     case = record.case
     user = record.user
@@ -518,15 +519,15 @@ def delete_record(
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
+        raise NotFoundError(detail="训练记录不存在")
 
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权删除此记录")
+        raise AuthError(detail="无权删除此记录", status_code=403)
 
     record_user = db.query(User).filter(User.id == record.user_id).first()
     effective_school = resolve_school_filter(current_user)
     if effective_school is not None and (not record_user or record_user.school_id != effective_school):
-        raise HTTPException(status_code=404, detail="训练记录不存在")
+        raise NotFoundError(detail="训练记录不存在")
 
     db.query(Message).filter(Message.record_id == record_id).delete()
     db.query(Score).filter(Score.record_id == record_id).delete()
@@ -544,4 +545,3 @@ def delete_record(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "训练记录已删除"}
-

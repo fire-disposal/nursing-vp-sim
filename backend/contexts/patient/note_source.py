@@ -29,8 +29,13 @@ class EmotionNoteSource(NoteSource):
     max_tokens = 100
 
     async def collect(self, ctx: PipelineContext) -> str | None:
-        note = ctx.state.get("emotion_note")
-        return note or None
+        from contexts.patient.emotion import get_emotion
+
+        cache = getattr(ctx.app_state, "emotion_cache", None)
+        if cache is None:
+            return None
+        emotion = get_emotion(ctx.record.id, cache)
+        return emotion.note
 
 
 class IdentityGuardSource(NoteSource):

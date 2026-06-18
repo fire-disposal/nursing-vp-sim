@@ -30,6 +30,18 @@ from core.config import (
 from core.database import engine, init_db
 from core.diagnose import get_diagnose_service
 from core.envelope import EnvelopeMiddleware
+from core.exceptions import (
+    AuthError,
+    ConflictError,
+    LLMError,
+    NotFoundError,
+    ScoringError,
+    auth_error_handler,
+    conflict_handler,
+    llm_error_handler,
+    not_found_handler,
+    scoring_error_handler,
+)
 from core.logging_setup import setup_logging
 from core.seed import seed_all
 from infrastructure.cache import EmotionCache, InitiativeCache
@@ -238,6 +250,15 @@ def _handle_task_exception(loop, ctx):
 # ── Application ──
 
 app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
+
+
+# ── Custom exception handlers (registered before the generic handler) ──
+
+app.add_exception_handler(AuthError, auth_error_handler)
+app.add_exception_handler(NotFoundError, not_found_handler)
+app.add_exception_handler(ConflictError, conflict_handler)
+app.add_exception_handler(LLMError, llm_error_handler)
+app.add_exception_handler(ScoringError, scoring_error_handler)
 
 
 @app.exception_handler(Exception)

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { PatientPortrait } from "@/components/training/PatientPortrait";
 import { useEmotion } from "@/engine/PluginContext";
 import type { PanelTabProps } from "@/engine/types";
@@ -5,6 +6,20 @@ import type { PanelTabProps } from "@/engine/types";
 export function PatientInfoTab({ ctx, features }: PanelTabProps) {
 	const p = ctx.patient;
 	const { emotion } = useEmotion();
+	const [trust, setTrust] = useState(50);
+	const [comfort, setComfort] = useState(50);
+
+	useEffect(() => {
+		const unsub = ctx.bus.on(
+			"emotion:changed",
+			(data: { trust: number; comfort: number }) => {
+				setTrust(data.trust);
+				setComfort(data.comfort);
+			},
+		);
+		return unsub;
+	}, [ctx.bus]);
+
 	if (!p) return null;
 
 	return (
@@ -13,6 +28,8 @@ export function PatientInfoTab({ ctx, features }: PanelTabProps) {
 				patient={p}
 				emotion={emotion}
 				emotionEnabled={features?.emotion}
+				trust={trust}
+				comfort={comfort}
 			/>
 			<div className="text-center">
 				<div className="text-sm font-semibold">{p.name}</div>
