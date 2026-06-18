@@ -184,6 +184,8 @@ class DiagnoseService:
                 "total_captured": len(self._handler.buffer),
                 "recent": self._handler.get_recent(_RECENT_ERRORS_N),
             }
+        else:
+            err = {"last_5min": 0, "last_hour": 0, "total_captured": 0, "recent": []}
 
         ss = DiagnoseSnapshot(
             database=await self._db_status(),
