@@ -70,6 +70,7 @@ class PluginManager:
     def build_pipeline(self, feature_flags: dict[str, bool] | None = None) -> tuple[list[Any], Any]:
         if not CORE_MIDDLEWARE:
             from contexts.training.pipeline.middleware import (
+                emotion_tracker,
                 llm_caller,
                 persister,
                 phase_guard,
@@ -84,10 +85,15 @@ class PluginManager:
             CORE_MIDDLEWARE[PipelineStage.LLM] = [llm_caller]
             CORE_MIDDLEWARE[PipelineStage.PERSIST] = [persister]
             CORE_MIDDLEWARE[PipelineStage.SIDE_EFFECTS] = [side_effects]
-            CORE_MIDDLEWARE[PipelineStage.PLUGIN_EARLY] = []
+            CORE_MIDDLEWARE[PipelineStage.PLUGIN_EARLY] = [emotion_tracker]
 
         flags = feature_flags or {}
         stage_buckets: dict[PipelineStage, list[Any]] = {s: list(CORE_MIDDLEWARE.get(s, [])) for s in PipelineStage}
+
+        if not flags.get("emotion", False):
+            stage_buckets[PipelineStage.PLUGIN_EARLY] = [
+                mw for mw in stage_buckets[PipelineStage.PLUGIN_EARLY] if mw is not emotion_tracker
+            ]
 
         for plugin in self.get_active(flags):
             for stage, mw in plugin.get_middleware():
