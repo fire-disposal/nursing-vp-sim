@@ -110,32 +110,28 @@ async def ops_dashboard(
         ).scalar() or 0
 
         return {
-            "code": 0,
-            "data": {
-                "health": health_data,
-                "time": now.isoformat(),
-                "uptime_hours": metrics_snapshot.get("uptime_seconds", 0) / 3600 if metrics_snapshot else 0,
-                "llm": {
-                    "total_calls_24h": llm_total,
-                    "success_rate": round(llm_success / max(llm_total, 1) * 100, 1),
-                    "error_count_24h": llm_error,
-                    "avg_latency_ms": round(llm_stats.avg_latency_ms or 0, 0),
-                    "recent_errors": [{"type": r.error_type, "count": r.cnt} for r in recent_errors],
-                },
-                "scoring": {
-                    "pending": scoring_pending,
-                    "stuck": scoring_stuck,
-                },
-                "sessions": {
-                    "active": active_sessions,
-                },
-                "notifications": {
-                    "unread": unread_notifications,
-                },
-                "metrics": metrics_snapshot,
-                "diagnostic": diagnostic,
+            "health": health_data,
+            "time": now.isoformat(),
+            "uptime_hours": metrics_snapshot.get("uptime_seconds", 0) / 3600 if metrics_snapshot else 0,
+            "llm": {
+                "total_calls_24h": llm_total,
+                "success_rate": round(llm_success / max(llm_total, 1) * 100, 1),
+                "error_count_24h": llm_error,
+                "avg_latency_ms": round(llm_stats.avg_latency_ms or 0, 0),
+                "recent_errors": [{"type": r.error_type, "count": r.cnt} for r in recent_errors],
             },
-            "message": "success",
+            "scoring": {
+                "pending": scoring_pending,
+                "stuck": scoring_stuck,
+            },
+            "sessions": {
+                "active": active_sessions,
+            },
+            "notifications": {
+                "unread": unread_notifications,
+            },
+            "metrics": metrics_snapshot,
+            "diagnostic": diagnostic,
         }
     finally:
         db.close()
@@ -150,7 +146,7 @@ async def ops_report(
     _check_token(token)
 
     dashboard = await ops_dashboard(token, request)
-    data = dashboard.get("data", {})
+    data = dashboard  # 不再自包装，EnvelopeMiddleware 统一处理
 
     # 提取关键指标，生成日报摘要
     llm = data.get("llm", {})
@@ -168,33 +164,29 @@ async def ops_report(
         alerts.append(f"活跃会话 {sessions['active']} 个")
 
     return {
-        "code": 0,
-        "data": {
-            "summary": {
-                "time": data.get("time"),
-                "uptime_hours": data.get("uptime_hours", 0),
-                "status": "degraded" if alerts else "healthy",
-            },
-            "llm": {
-                "total_calls_24h": llm.get("total_calls_24h", 0),
-                "success_rate": llm.get("success_rate", 100),
-                "error_count_24h": llm.get("error_count_24h", 0),
-                "avg_latency_ms": llm.get("avg_latency_ms", 0),
-                "top_errors": llm.get("recent_errors", []),
-            },
-            "scoring": {
-                "pending": scoring.get("pending", 0),
-                "stuck": scoring.get("stuck", 0),
-            },
-            "sessions": {
-                "active": sessions.get("active", 0),
-            },
-            "notifications": {
-                "unread": data.get("notifications", {}).get("unread", 0),
-            },
-            "alerts": alerts,
+        "summary": {
+            "time": data.get("time"),
+            "uptime_hours": data.get("uptime_hours", 0),
+            "status": "degraded" if alerts else "healthy",
         },
-        "message": "success",
+        "llm": {
+            "total_calls_24h": llm.get("total_calls_24h", 0),
+            "success_rate": llm.get("success_rate", 100),
+            "error_count_24h": llm.get("error_count_24h", 0),
+            "avg_latency_ms": llm.get("avg_latency_ms", 0),
+            "top_errors": llm.get("recent_errors", []),
+        },
+        "scoring": {
+            "pending": scoring.get("pending", 0),
+            "stuck": scoring.get("stuck", 0),
+        },
+        "sessions": {
+            "active": sessions.get("active", 0),
+        },
+        "notifications": {
+            "unread": data.get("notifications", {}).get("unread", 0),
+        },
+        "alerts": alerts,
     }
 
 

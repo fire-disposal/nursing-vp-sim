@@ -35,4 +35,4 @@ async def diagnose(
 
     service = get_diagnose_service()
     data = service.get_diagnose()
-    return {"code": 0, "data": data, "message": "success"}
+    return data
