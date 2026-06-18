@@ -3,6 +3,7 @@ import { ChatArea } from "@/components/training/ChatArea";
 import { PanelHost } from "@/components/training/PanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
+import { useToast } from "@/components/Toast";
 import { ScoreCard, ScoringOverlay } from "@/plugins/scoring-display";
 import { discoverPluginDefs } from "./discovery";
 import { createMessageBus } from "./MessageBus";
@@ -57,6 +58,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		remainingSeconds,
 	} = usePatient();
 	const recordNum = Number(recordId);
+	const { error: toastError } = useToast();
 
 	const busRef = useRef(createMessageBus());
 	const streamRef = useRef(new StreamManager(recordNum));
@@ -280,6 +282,12 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		);
 	}, [setPortraitUrl]);
 
+	useEffect(() => {
+		return busRef.current.on("stream:error", (err: string) => {
+			toastError(err || "发送消息失败，请重试");
+		});
+	}, [toastError]);
+
 	if (loading) {
 		return (
 			<div className="flex h-screen items-center justify-center">
@@ -348,6 +356,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						sending={sending}
 						onSend={sendMessage}
 						bus={busRef.current}
+						features={features}
 					/>
 				</div>
 				<div style={{ gridArea: "panel", overflow: "hidden" }}>

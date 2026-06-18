@@ -1,4 +1,4 @@
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Home } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 
@@ -50,6 +50,10 @@ export default class ErrorBoundary extends Component<Props, State> {
 							重试
 						</Button>
 						<Button onClick={() => window.location.reload()}>刷新页面</Button>
+						<Button variant="ghost" onClick={() => (window.location.href = "/home")}>
+							<Home className="mr-1 size-4" />
+							返回首页
+						</Button>
 					</div>
 					<button
 						type="button"

@@ -12,12 +12,14 @@ interface ChatDisplayProps {
 	messages: ChatMessage[];
 	patient: PatientData;
 	bus: { on: (event: string, handler: (...args: any[]) => void) => () => void };
+	initiativeMsgs?: Set<string>;
 }
 
 const ChatDisplayInner = memo(function ChatDisplayInner({
 	messages,
 	patient,
 	bus,
+	initiativeMsgs,
 }: ChatDisplayProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
@@ -85,6 +87,10 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					nurseAvatar={nurseAvatar}
 					emotionBorder={emotionBorder}
 					portraitUrl={portraitUrl}
+					initiative={
+						msg.role === "patient" &&
+						initiativeMsgs?.has(msg.content)
+					}
 				/>
 			))}
 			<div ref={bottomRef} className="h-1" />

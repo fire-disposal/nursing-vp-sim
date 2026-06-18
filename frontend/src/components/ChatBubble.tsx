@@ -9,6 +9,7 @@ interface ChatBubbleProps {
 	nurseAvatar: string;
 	emotionBorder: string;
 	portraitUrl: string | null;
+	initiative?: boolean;
 }
 
 function areBubblePropsEqual(
@@ -21,7 +22,8 @@ function areBubblePropsEqual(
 		oldProps.message.streaming === newProps.message.streaming &&
 		oldProps.message.role === newProps.message.role &&
 		oldProps.emotionBorder === newProps.emotionBorder &&
-		oldProps.portraitUrl === newProps.portraitUrl
+		oldProps.portraitUrl === newProps.portraitUrl &&
+		oldProps.initiative === newProps.initiative
 	);
 }
 
@@ -31,6 +33,7 @@ export const ChatBubble = memo(function ChatBubble({
 	nurseAvatar,
 	emotionBorder,
 	portraitUrl,
+	initiative,
 }: ChatBubbleProps) {
 	const displayAvatar = portraitUrl || patientAvatar;
 
@@ -64,6 +67,11 @@ export const ChatBubble = memo(function ChatBubble({
 							"after:content-['▎'] after:animate-pulse after:text-primary after:font-bold",
 					)}
 				>
+					{initiative && (
+						<span className="inline-block text-[10px] text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded-sm mb-1">
+							患者主动询问
+						</span>
+					)}
 					<p className="whitespace-pre-wrap">{message.content}</p>
 				</div>
 			</div>
