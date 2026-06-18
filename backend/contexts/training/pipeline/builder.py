@@ -1,14 +1,11 @@
-"""Pipeline assembly — middleware chain and NoteCollector builder."""
+"""Pipeline builder — middleware chain and NoteCollector assembly."""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from .base import (
-    PipelineStage,
-    stage_order,
-)
+from .stages import PipelineStage, stage_order
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +14,7 @@ _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 
 def build_pipeline(feature_flags: dict[str, bool] | None = None) -> tuple[list[Any], Any]:
     if not _CORE_MIDDLEWARE:
-        from contexts.training.pipeline.middleware import (
+        from .middleware import (
             emotion_tracker,
             llm_caller,
             persister,

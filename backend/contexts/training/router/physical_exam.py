@@ -1,4 +1,4 @@
-"""Physical exam routes — exam operation endpoint (absorbed from plugins/physical_exam)."""
+"""Physical exam routes — exam operation endpoint (absorbed from former plugin)."""
 
 from __future__ import annotations
 

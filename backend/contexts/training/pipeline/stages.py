@@ -1,12 +1,14 @@
-"""Pipeline infrastructure types — stages, middleware type, and ordering."""
+"""Pipeline stages — stage enum, ordering, and middleware type alias."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
 
+from .context import PipelineContext
+
 PipelineMiddleware = Callable[
-    [object, Callable[[], Awaitable[None]]],  # (PipelineContext, next)
+    [PipelineContext, Callable[[], Awaitable[None]]],
     Awaitable[None],
 ]
 
