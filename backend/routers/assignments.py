@@ -239,6 +239,16 @@ def update_assignment(
     if assignment.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权修改")
 
+    if req.practice_id is not None:
+        practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
+        if not practice:
+            raise HTTPException(status_code=404, detail="练习不存在")
+        if practice.case.school_id is not None and practice.case.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="无权使用该校病例")
+        assignment.practice_id = req.practice_id
+    if req.class_id is not None:
+        _check_teacher_school(db, current_user, req.class_id)
+        assignment.class_id = req.class_id
     if req.title is not None:
         assignment.title = req.title
     if req.description is not None:

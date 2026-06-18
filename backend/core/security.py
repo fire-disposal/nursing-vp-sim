@@ -49,8 +49,10 @@ def get_current_user(
     if token_tv != user.token_version:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌已失效，请重新登录")
 
-    rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
-    user.set_permissions_cache({r.permission for r in rows})
+    # Preload permissions cache for endpoints that call has_permission() directly
+    if getattr(user, "_permissions_cache", None) is None:
+        rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
+        user.set_permissions_cache({r.permission for r in rows})
 
     return user
 
@@ -85,7 +87,9 @@ def _decode_token_allow_expired(
 
 
 def require_permission(permission: str):
-    def checker(current_user: User = Depends(get_current_user)) -> User:
+    def checker(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
         if not current_user.has_permission(permission):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="权限不足")
         return current_user
