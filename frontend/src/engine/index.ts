@@ -21,6 +21,5 @@ export type {
 	PanelTabProps,
 	PatientData,
 	PluginContext,
-	PluginHooks,
 	ScoreData,
 } from "./types";
