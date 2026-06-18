@@ -2,6 +2,15 @@
 
 > 审查日期: 2026-06-17
 > 审查范围: backend/plugins/ + frontend/src/plugins/ + 相关联核心模块
+>
+> **实施状态: ✅ 全部完成 — 2026-06-18**
+>
+> 所有演化步骤均已落地，详见变更日志:
+> - `backend/plugins/` 目录已完全删除
+> - `frontend/src/plugins/` 目录已完全删除
+> - emotion/physical-exam 已吸收为核心 middleware/router
+> - 前端面板组件统一在 `components/training/panels/` 下
+> - PluginManager 已替换为 `pipeline.builder.build_pipeline()`
 
 ---
 
