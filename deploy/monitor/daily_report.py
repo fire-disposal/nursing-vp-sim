@@ -26,6 +26,8 @@ logging.basicConfig(
 )
 log = logging.getLogger("daily_report")
 
+sys.path.insert(0, str(SCRIPT_DIR))
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 _ENV = {
@@ -34,6 +36,12 @@ _ENV = {
 }
 
 _TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
+if not _TOKEN:
+    _env_file = SCRIPT_DIR.parent.parent / ".env"
+    if _env_file.exists():
+        for line in _env_file.read_text().splitlines():
+            if line.startswith("DIAGNOSE_TOKEN="):
+                _TOKEN = line.split("=", 1)[1].strip()
 try:
     import config as _cfg_file
     SMTP_HOST = getattr(_cfg_file, "SMTP_HOST", "")
