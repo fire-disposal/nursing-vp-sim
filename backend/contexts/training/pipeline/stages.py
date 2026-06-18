@@ -15,7 +15,6 @@ PipelineMiddleware = Callable[
 
 class PipelineStage(StrEnum):
     GUARD = "guard"
-    PLUGIN_EARLY = "plugin_early"
     TRANSITION = "transition"
     PROMPT = "prompt"
     LLM = "llm"
@@ -25,12 +24,11 @@ class PipelineStage(StrEnum):
 
 _STAGE_ORDER: dict[PipelineStage, int] = {
     PipelineStage.GUARD: 0,
-    PipelineStage.PLUGIN_EARLY: 100,
-    PipelineStage.TRANSITION: 200,
-    PipelineStage.PROMPT: 300,
-    PipelineStage.LLM: 400,
-    PipelineStage.PERSIST: 500,
-    PipelineStage.SIDE_EFFECTS: 600,
+    PipelineStage.TRANSITION: 100,
+    PipelineStage.PROMPT: 200,
+    PipelineStage.LLM: 300,
+    PipelineStage.PERSIST: 400,
+    PipelineStage.SIDE_EFFECTS: 500,
 }
 
 

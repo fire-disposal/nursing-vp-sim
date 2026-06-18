@@ -16,14 +16,8 @@ from .exam import (
 
 # 患者守卫
 from .guards import (
-    GuardResult,
-    NoGuard,
-    PatternGuard,
-    PostGuard,
-    get_guard,
     get_identity_correction_note,
     has_identity_leak,
-    register_guard,
 )
 
 # 主动行为引擎
@@ -57,12 +51,8 @@ __all__ = [
     "EmotionState",
     "ExamImpactSource",
     "ExamResultsSource",
-    "GuardResult",
     "IdentityGuardSource",
-    "NoGuard",
     "NoteSource",
-    "PatternGuard",
-    "PostGuard",
     "build_patient_chat_messages",
     "build_patient_context_kwargs",
     "check_initiate_ready",
@@ -73,12 +63,10 @@ __all__ = [
     "generate_initiative",
     "get_emotion",
     "get_exam_config",
-    "get_guard",
     "get_identity_correction_note",
     "get_initiative_seconds",
     "handle_operation",
     "has_identity_leak",
-    "register_guard",
     "should_initiate",
     "update_initiative_timer",
 ]

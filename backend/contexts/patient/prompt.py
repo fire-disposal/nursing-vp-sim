@@ -68,7 +68,12 @@ def build_patient_context_kwargs(
     patient_name = pi.get("name", "患者")
     patient_age = pi.get("age", "")
     patient_gender = pi.get("gender", "")
-    patient_info_str = f"{patient_name}，{patient_age}岁，{patient_gender}"
+    parts = [patient_name]
+    if patient_age:
+        parts.append(f"{patient_age}岁")
+    if patient_gender:
+        parts.append(patient_gender)
+    patient_info_str = "，".join(parts) if len(parts) > 1 else patient_name
     scenario = f"你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。{_get('opening_line', '你今天来医院是因为身体不舒服。')}"
 
     return {
