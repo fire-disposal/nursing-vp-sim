@@ -1,3 +1,4 @@
+import type { ApiPath } from "./api-path";
 import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
 import type { components } from "./api-types.gen";
@@ -7,29 +8,29 @@ import { readSSEStream } from "./sse";
 type Schemas = components["schemas"];
 
 export const createQASession = (question: string) =>
-	api.post<Schemas["QAAskResponse"]>("/qa/sessions", { question });
+	api.post<Schemas["QAAskResponse"]>("/qa/sessions" satisfies ApiPath as string, { question });
 
 export const getQASessions = () =>
-	api.get<Schemas["QASessionItem"][]>("/qa/sessions");
+	api.get<Schemas["QASessionItem"][]>("/qa/sessions" satisfies ApiPath as string);
 
 export const deleteQASession = (id: number | string) =>
-	api.delete<Schemas["DeleteResponse"]>(`/qa/sessions/${id}`);
+	api.delete<Schemas["DeleteResponse"]>(`/qa/sessions/${id}` as ApiPath);
 
 export const getQASessionMessages = (sessionId: number | string) =>
-	api.get<Schemas["QAMessageItem"][]>(`/qa/sessions/${sessionId}/messages`);
+	api.get<Schemas["QAMessageItem"][]>(`/qa/sessions/${sessionId}/messages` as ApiPath);
 
 export const askInQASession = (sessionId: number | string, question: string) =>
-	api.post<Schemas["QAAskResponse"]>(`/qa/sessions/${sessionId}/ask`, {
+	api.post<Schemas["QAAskResponse"]>(`/qa/sessions/${sessionId}/ask` as ApiPath, {
 		question,
 	});
 
 export const getQAHistoryAll = (params: Record<string, unknown> = {}) =>
-	api.get<Schemas["PaginatedResponse_QASessionAdminItem_"]>("/qa/history/all", {
+	api.get<Schemas["PaginatedResponse_QASessionAdminItem_"]>("/qa/history/all" satisfies ApiPath as string, {
 		params,
 	});
 
 export const getQASessionMessagesAdmin = (sessionId: number | string) =>
-	api.get<Schemas["QAMessageItem"][]>(`/qa/history/all/${sessionId}/messages`);
+	api.get<Schemas["QAMessageItem"][]>(`/qa/history/all/${sessionId}/messages` as ApiPath);
 
 export async function askInQASessionStream(
 	sessionId: number | string,

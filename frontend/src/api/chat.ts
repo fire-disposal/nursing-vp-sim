@@ -1,3 +1,4 @@
+import type { ApiPath } from "./api-path";
 import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
 import type { components } from "./api-types.gen";
@@ -12,7 +13,7 @@ export const sendMessage = (
 	signal?: AbortSignal,
 ) =>
 	api.post<Schemas["ChatMessageResponse"]>(
-		`/chat/${recordId}/message`,
+		`/chat/${recordId}/message` as ApiPath,
 		{ content },
 		{ signal },
 	);

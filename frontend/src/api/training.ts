@@ -6,14 +6,14 @@ type Schemas = components["schemas"];
 
 export const endTraining = (recordId: number | string, signal?: AbortSignal) =>
 	api.post<Schemas["ScoringTriggerResponse"]>(
-		`/training/${recordId}/end`,
+		`/training/${recordId}/end` as ApiPath,
 		null,
 		{ signal },
 	);
 
 export const retryScoring = (recordId: number | string) =>
 	api.post<Schemas["ScoringTriggerResponse"]>(
-		`/training/${recordId}/retry-scoring`,
+		`/training/${recordId}/retry-scoring` as ApiPath,
 	);
 
 export const getRecords = (params: Record<string, unknown> = {}) =>
@@ -23,14 +23,14 @@ export const getRecords = (params: Record<string, unknown> = {}) =>
 	);
 
 export const deleteRecord = (id: number | string) =>
-	api.delete<Schemas["DeleteResponse"]>(`/training/records/${id}`);
+	api.delete<Schemas["DeleteResponse"]>(`/training/records/${id}` as ApiPath);
 
 export const getRecordDetail = (id: number | string) =>
-	api.get<Schemas["TrainingRecordDetail"]>(`/training/records/${id}`);
+	api.get<Schemas["TrainingRecordDetail"]>(`/training/records/${id}` as ApiPath);
 
 export const getScoreReview = (recordId: number | string) =>
 	api.get<Schemas["ScoreReviewResponse"]>(
-		`/training/records/${recordId}/review`,
+		`/training/records/${recordId}/review` as ApiPath,
 	);
 
 export const submitScoreReview = (
@@ -38,9 +38,9 @@ export const submitScoreReview = (
 	data: Schemas["ScoreReviewRequest"],
 ) =>
 	api.post<Schemas["ScoreReviewResponse"]>(
-		`/training/records/${recordId}/review`,
+		`/training/records/${recordId}/review` as ApiPath,
 		data,
 	);
 
 export const getSessionConfigs = () =>
-	api.get<Record<string, unknown>[]>("/training/configs");
+	api.get<Record<string, unknown>[]>("/training/configs" satisfies ApiPath as string);

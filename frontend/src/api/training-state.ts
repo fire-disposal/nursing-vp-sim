@@ -1,14 +1,15 @@
+import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
 
 type Schemas = components["schemas"];
 
 export const getTrainingState = (recordId: number) =>
-	api.get<Schemas["TrainingStateResponse"]>(`/training/${recordId}/state`);
+	api.get<Schemas["TrainingStateResponse"]>(`/training/${recordId}/state` as ApiPath);
 
 export const triggerInitiative = (recordId: number) =>
 	api.post<Schemas["InitiativeTriggerResponse"]>(
-		`/training/${recordId}/initiative/trigger`,
+		`/training/${recordId}/initiative/trigger` as ApiPath,
 	);
 
 export const updateTrainingFeatures = (
@@ -16,6 +17,6 @@ export const updateTrainingFeatures = (
 	features: Record<string, boolean>,
 ) =>
 	api.put<{ ok: boolean; features: Record<string, boolean> }>(
-		`/training/${recordId}/features`,
+		`/training/${recordId}/features` as ApiPath,
 		features,
 	);
