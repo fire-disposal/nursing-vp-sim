@@ -3,41 +3,33 @@
 ## Supported Versions
 
 Only the latest tagged version (`vYYYY.MM.DD-N`) receives security updates.
-Previous versions should be upgraded promptly.
 
 ## Reporting a Vulnerability
 
-Report vulnerabilities privately by contacting the repository maintainer.
-Do NOT file a public issue for security vulnerabilities.
+Report vulnerabilities privately — do NOT file a public issue.
+Open a GitHub issue with label `security` for non-critical items.
 
-Contact: Open a GitHub issue with label `security` for non-critical items,
-or reach out directly if you have the maintainer's contact.
-
-We aim to acknowledge receipt within 48 hours and provide a fix timeline
-within 5 business days.
+We aim to acknowledge receipt within 48 hours and provide a fix timeline within 5 business days.
 
 ## 安全最佳实践
 
-### 对于贡献者
+### 贡献者
 
-- 不要在代码、commit message、PR 描述中硬编码密钥
-- 所有密钥通过环境变量获取，使用 `.env` 文件（已被 gitignore）
-- PR 必须通过 CI 检查（ruff + biome + tsc + pytest）
-- 涉及数据库迁移的 PR 必须通过 alembic roundtrip 检查
+- 不在代码、commit、PR 中硬编码密钥
+- 所有密钥通过 `.env`（已 gitignore）环境变量获取
+- PR 必须通过 CI 检查（ruff + biome + tsc + pytest + alembic roundtrip）
+- 涉迁移的 PR 须通过 DDL/data 分离检查
 
-### 对于部署
+### 部署
 
-- 生产环境必须使用独立的 SECRET_KEY（至少 32 字符）
-- 数据库密码必须通过环境变量传入，不硬编码
-- 禁止将 `.env` 文件提交到仓库或公开分享
+- 生产环境使用独立 SECRET_KEY（≥32 字符）
+- 数据库密码通过环境变量传入，不硬编码
+- 禁止提交 `.env` 或公开分享
 - 定期轮换 API Key
 
 ## 依赖审计
 
 ```bash
-# 后端
-cd backend && uv pip list --outdated
-
-# 前端
-pnpm audit
+cd backend && uv sync                     # 同步 lockfile 并检查过时
+cd frontend && pnpm audit                 # 前端安全审计
 ```
