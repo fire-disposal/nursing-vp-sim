@@ -1,23 +1,13 @@
-"""llm_caller — call LLM for patient reply (batch or streaming)."""
+"""LLM caller middleware — invokes the LLM to generate patient replies."""
 
 import logging
-import random
 
 from infrastructure.llm.client import CallContext
-
 from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 
-FALLBACK_REPLIES = [
-    "嗯……这个我也不太清楚，平时没太注意。",
-    "你说这个我得想想……好像不是特别明显。",
-    "这个我说不太准，平时也没太留意。",
-    "哎呀，你突然这么问，我一下子想不起来了。",
-    "让我想想啊……嗯，好像没什么特别的。",
-    "这个医生倒是提过，但我没记住。",
-    "我平时不太在意这些，说不太上来。",
-]
+FALLBACK_EMPTY = "嗯……（患者似乎在犹豫）"
 
 
 async def llm_caller(ctx: PipelineContext, next_mw) -> None:
@@ -64,7 +54,9 @@ async def _call_batch(ctx: PipelineContext) -> None:
         )
     except (httpx.HTTPError, OSError, RuntimeError, ValueError):
         log.exception("LLM batch call failed: record_id=%d", ctx.record.id)
-        reply = random.choice(FALLBACK_REPLIES)
+        ctx.error = "LLM 服务暂时不可用，请稍后重试"
+        ctx.should_shortcut = True
+        return
 
     ctx.llm_reply = reply
 
@@ -97,7 +89,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
-        ctx.llm_reply = "嗯……（患者似乎在犹豫）"
+        ctx.llm_reply = FALLBACK_EMPTY
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
@@ -132,8 +124,9 @@ async def _call_stream(ctx: PipelineContext) -> None:
             chunks.append(chunk)
     except Exception:
         log.exception("LLM stream failed: record_id=%d", ctx.record.id)
-        full_reply = random.choice(FALLBACK_REPLIES)
-        chunks = [full_reply]
+        ctx.error = "LLM 服务暂时不可用，请稍后重试"
+        ctx.should_shortcut = True
+        return
 
     if has_identity_leak(full_reply):
         correction_count = ctx.state.get("_identity_correction_count", 0)
@@ -148,9 +141,8 @@ async def _call_stream(ctx: PipelineContext) -> None:
                 return
             msgs = list(ctx.llm_messages)
             msgs.insert(-1, {"role": "system", "content": corrected})
-            full_retry = ""
-            retry_chunks = []
             try:
+                retry = ""
                 async for chunk in llm_client.stream(
                     msgs,
                     purpose="patient_chat",
@@ -163,16 +155,15 @@ async def _call_stream(ctx: PipelineContext) -> None:
                     ),
                     **llm_cfg,
                 ):
-                    full_retry += chunk
-                    retry_chunks.append(chunk)
-                if full_retry.strip():
-                    full_reply = full_retry
-                    chunks = retry_chunks
+                    retry += chunk
+                if retry.strip():
+                    full_reply = retry
+                    chunks = [retry]
             except Exception:
                 log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id)
 
     if not full_reply.strip():
-        full_reply = "嗯……（患者似乎在犹豫）"
+        full_reply = FALLBACK_EMPTY
         chunks = [full_reply]
 
     ctx.llm_reply = full_reply
