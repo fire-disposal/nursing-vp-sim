@@ -140,6 +140,21 @@ async function publishToFeishu(items, targetTag) {
     return true;
   }
 
+  // Filter out items with empty title — prevents blank rows in Bitable
+  const validItems = items.filter(item => {
+    const p = parseItem(item);
+    return p.title && p.title.length > 0;
+  });
+
+  if (validItems.length === 0) {
+    console.error("⚠ No valid items with content, skipping Feishu write");
+    return true;
+  }
+
+  if (validItems.length < items.length) {
+    console.error(`⚠ Skipping ${items.length - validItems.length} item(s) with empty title`);
+  }
+
   console.error(">> Feishu auth...");
   const auth = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -151,33 +166,72 @@ async function publishToFeishu(items, targetTag) {
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}`;
 
-  console.error(`>> Writing ${items.length} items...`);
-  for (const item of items) {
+  // Dedup: fetch existing records for the same version to avoid duplicate rows
+  console.error(">> Checking existing records for dedup...");
+  const existingKeys = new Set();
+  try {
+    let pageToken = "";
+    do {
+      const url = `${base}/records?page_size=500${pageToken ? `&page_token=${pageToken}` : ""}`;
+      const res = await fetch(url, { headers });
+      if (res.ok) {
+        const body = await res.json();
+        for (const rec of (body.data?.items || [])) {
+          const f = rec.fields || {};
+          existingKeys.add(`${f["版本"]}::${f["功能"]}`);
+        }
+        pageToken = body.data?.page_token || "";
+      } else {
+        break;
+      }
+    } while (pageToken);
+    console.error(`  ${existingKeys.size} existing records found`);
+  } catch (e) {
+    console.error("⚠ Dedup check failed, will write items anyway:", e.message);
+  }
+
+  // Write new items only
+  let written = 0;
+  let skipped = 0;
+  console.error(`>> Writing items...`);
+  for (const item of validItems) {
     const p = parseItem(item);
+    const key = `${targetTag}::${p.title}`;
+    if (existingKeys.has(key)) {
+      skipped++;
+      continue;
+    }
+    existingKeys.add(key);
+
     const record = {
       fields: {
-        版本: targetTag,
-        功能: p.title,
-        操作步骤: p.op,
-        预期结果: p.ex,
-        来源: "自动生成",
+        "版本": targetTag,
+        "功能": p.title,
+        "操作步骤": p.op,
+        "预期结果": p.ex,
+        "来源": "自动生成",
       },
     };
     const res = await fetch(`${base}/records`, { method: "POST", headers, body: JSON.stringify(record) });
     if (!res.ok) { console.error(`Write failed: ${res.status}`); return false; }
+    written++;
   }
-  console.error(`  ${items.length} items appended`);
+  console.error(`  ${written} new items written${skipped > 0 ? `, ${skipped} duplicates skipped` : ""}`);
 
-  // Notify chat if configured
+  // Notify chat if configured (use actual written count)
+  const totalNew = written;
   const chatId = process.env.FEISHU_CHAT_ID;
   if (chatId && process.env.FEISHU_BITABLE_URL) {
     const url = process.env.FEISHU_BITABLE_URL;
+    const summary = totalNew > 0
+      ? `共 ${totalNew} 项新增。`
+      : `无新项目(${skipped} 项已存在)。`;
     const msg = JSON.stringify({
       receive_id: chatId,
       msg_type: "interactive",
       content: JSON.stringify({
         header: { title: { tag: "plain_text", content: `📋 ${targetTag} 待测试` } },
-        elements: [{ tag: "markdown", content: `共 ${items.length} 项核对。\n[打开表格](${url})` }],
+        elements: [{ tag: "markdown", content: `${summary}\n[打开表格](${url})` }],
       }),
     });
     await fetch("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id", {
@@ -192,9 +246,11 @@ async function publishToFeishu(items, targetTag) {
 function parseItem(item) {
   let title = item.replace(/^###\s+\d+\.\s*/, "").split("\n")[0].trim();
   title = title.replace(/^###\s*/, "").trim();
+  title = title.replace(/^\*\*/g, "").replace(/\*\*$/g, "").trim();
   const body = item.replace(/^###\s+.*\n/, "");
-  const opMatch = body.match(/\*\*操作\*\*:\s*(.+)/);
-  const exMatch = body.match(/\*\*预期\*\*:\s*(.+)/);
+  // Use [\s\S] instead of . to match across lines (multi-line op/ex content)
+  const opMatch = body.match(/\*\*操作\*\*:\s*([\s\S]*?)(?=\n\*\*预期|$)/);
+  const exMatch = body.match(/\*\*预期\*\*:\s*([\s\S]*?)(?=\n\*\*|$)/);
   return {
     title,
     op: opMatch ? opMatch[1].trim() : "",
