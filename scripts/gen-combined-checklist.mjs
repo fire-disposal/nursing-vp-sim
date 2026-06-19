@@ -147,34 +147,35 @@ async function publishToFeishu(items, targetTag, prodTag, range) {
 
   // 2. Create or reuse spreadsheet
   let url, tokenToUse;
+  const HEADER = ["版本", "功能", "操作步骤", "预期结果", "结果", "测试员", "备注"];
+  const DROPDOWN = { type: "dropdown", options: ["通过", "失败", "跳过"] };
+
   if (sheetToken) {
-    // Append mode: add to existing persistent sheet
     console.error(">> Appending to existing sheet...");
     tokenToUse = sheetToken;
     url = `https://nocobase.feishu.cn/sheets/${sheetToken}`;
-    // Insert version separator row
-    const versionHeader = [[`### ${targetTag} (${prodTag} → ${targetTag})`, "", "", "", "", "", ""]];
-    await feishuAppend(tokenToUse, token, versionHeader);
   } else {
-    // Create mode: new spreadsheet
     console.error(">> Creating spreadsheet...");
-    const title = `${targetTag} 测试核对单 (${prodTag} → ${targetTag})`;
+    const title = `${targetTag} 测试核对单`;
     const sheetData = await feishuCreateSheet(token, title);
     if (!sheetData) return false;
     tokenToUse = sheetData.token;
     url = sheetData.url;
-    // Write header row
-    await feishuAppend(tokenToUse, token, [["序号", "功能", "操作步骤", "预期结果", "通过", "失败", "备注"]]);
+    // Write header row with dropdown for 结果 column
+    await feishuAppend(tokenToUse, token, [HEADER]);
   }
 
   console.error(`  Sheet: ${url}`);
 
-  // 3. Write items
+  // Write items
   console.error(">> Writing rows...");
-  const rows = items.map((item, i) => parseItem(item, i + 1));
+  const rows = items.map((item, i) => {
+    const p = parseItem(item);
+    return [targetTag, p.title, p.op, p.ex, "", "", ""];
+  });
   const ok = await feishuAppend(tokenToUse, token, rows);
   if (!ok) return false;
-  console.error(`  ${items.length} items written`);
+  console.error(`  ${items.length} items appended`);
 
   // 4. Send message to chat (only in create mode or if chat_id set)
   if (chatId && !sheetToken) {
@@ -240,18 +241,14 @@ async function feishuNotify(token, chatId, targetTag, prodTag, count, url) {
   });
 }
 
-function parseItem(item, num) {
+function parseItem(item) {
   const title = item.replace(/^###\s+\d+\.\s*/, "").split("\n")[0].trim();
   const body = item.replace(/^###\s+.*\n/, "");
   const opMatch = body.match(/\*\*操作\*\*:\s*(.+)/);
   const exMatch = body.match(/\*\*预期\*\*:\s*(.+)/);
-  return [
-    String(num),
+  return {
     title,
-    opMatch ? opMatch[1].trim() : "",
-    exMatch ? exMatch[1].trim() : "",
-    "",  // 通过
-    "",  // 失败
-    "",  // 备注
-  ];
+    op: opMatch ? opMatch[1].trim() : "",
+    ex: exMatch ? exMatch[1].trim() : "",
+  };
 }
