@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { api } from "@/api/axios-instance";
+import { checkQuestionnaire, submitQuestionnaire } from "@/api/questionnaires";
 import type { CheckResponse } from "@/components/QuestionnaireModal";
 
 interface UseQuestionnaireOptions {
@@ -34,17 +34,14 @@ export function useQuestionnaire(
 		if (!caseId && !recordId) return null;
 		setIsLoading(true);
 		try {
-			const params = new URLSearchParams();
-			if (caseId) params.set("case_id", String(caseId));
-			if (recordId) params.set("record_id", String(recordId));
-			params.set("trigger", trigger);
-
-			const resp = await api.get<CheckResponse>(
-				`/questionnaires/check?${params}`,
-			);
-			setCheckResponse(resp.data);
+			const resp = await checkQuestionnaire({
+				case_id: caseId ?? undefined,
+				record_id: recordId ?? undefined,
+				trigger,
+			});
+			setCheckResponse(resp.data as CheckResponse);
 			setDismissed(false);
-			return resp.data;
+			return resp.data as CheckResponse;
 		} catch {
 			return null;
 		} finally {
@@ -55,10 +52,10 @@ export function useQuestionnaire(
 	const submit = useCallback(
 		async (answers: { question_id: number; answer_value: string | null }[]) => {
 			if (!checkResponse?.template_id) return;
-			await api.post("/questionnaires/responses", {
+			await submitQuestionnaire({
 				template_id: checkResponse.template_id,
-				case_id: caseId,
-				record_id: recordId,
+				case_id: caseId ?? undefined,
+				record_id: recordId ?? undefined,
 				answers,
 			});
 			onComplete?.();

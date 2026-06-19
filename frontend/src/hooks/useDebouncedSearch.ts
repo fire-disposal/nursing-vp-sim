@@ -1,9 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useDebouncedSearch(defaultValue = "", delay = 200) {
 	const [searchInput, setSearchInput] = useState(defaultValue);
 	const [debouncedValue, setDebouncedValue] = useState(defaultValue);
 	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+	useEffect(() => {
+		return () => {
+			if (timerRef.current) clearTimeout(timerRef.current);
+		};
+	}, []);
 
 	const handleSearchChange = (value: string) => {
 		setSearchInput(value);

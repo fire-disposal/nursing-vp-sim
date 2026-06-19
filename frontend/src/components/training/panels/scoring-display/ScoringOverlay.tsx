@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -40,11 +40,14 @@ export function ScoringOverlay({
 		return unsub;
 	}, [bus]);
 
+	const getProgressRef = useRef(getProgress);
+	getProgressRef.current = getProgress;
+
 	useEffect(() => {
 		if (!visible) return;
 		const hideTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
 		const id = setInterval(() => {
-			const p = getProgress();
+			const p = getProgressRef.current();
 			setProgress(p);
 			if (p.phase === "completed" || p.phase === "failed") {
 				if (!hideTimerRef.current) {
@@ -59,7 +62,7 @@ export function ScoringOverlay({
 			clearInterval(id);
 			if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
 		};
-	}, [visible, getProgress]);
+	}, [visible]);
 
 	if (!visible) return null;
 

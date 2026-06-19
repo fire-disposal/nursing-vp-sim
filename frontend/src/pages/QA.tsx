@@ -79,6 +79,12 @@ export default function QA() {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages, streamingAnswer]);
 
+	useEffect(() => {
+		return () => {
+			abortRef.current?.abort();
+		};
+	}, []);
+
 	const switchSession = useCallback(
 		async (sessionId: number) => {
 			try {

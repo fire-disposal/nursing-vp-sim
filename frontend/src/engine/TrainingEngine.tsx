@@ -95,6 +95,21 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		[features],
 	);
 
+	const panelPluginsWrapped = useMemo(
+		() =>
+			activePanels.map((p) => ({
+				id: p.id,
+				meta: { name: p.label },
+				tab: { icon: p.icon, label: p.label, badge: p.badge },
+				component: (props: PanelTabProps) => (
+					<PluginErrorBoundary pluginName={p.label}>
+						<p.component {...props} />
+					</PluginErrorBoundary>
+				),
+			})),
+		[activePanels],
+	);
+
 	const sendMessage = useCallback(
 		async (text: string) => {
 			const bus = busRef.current;
@@ -112,11 +127,15 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		[],
 	);
 
+	const getProgress = useCallback(
+		() => scoreRef.current?.progress ?? { phase: null, percentage: 0, message: "" },
+		[],
+	);
+
 	const endTraining = useCallback(async () => {
 		try {
 			await scoreRef.current.end();
 		} catch {
-			// end() 已更新 UI 为失败状态，继续发出事件以允许 overlay 显示
 		}
 		busRef.current.emit("training:ended");
 	}, []);
@@ -198,17 +217,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		);
 	}
 
-	const panelPluginsWrapped = activePanels.map((p) => ({
-		id: p.id,
-		meta: { name: p.label },
-		tab: { icon: p.icon, label: p.label, badge: p.badge },
-		component: (props: PanelTabProps) => (
-			<PluginErrorBoundary pluginName={p.label}>
-				<p.component {...props} />
-			</PluginErrorBoundary>
-		),
-	}));
-
 	return (
 		<>
 			<div
@@ -264,7 +272,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			</div>
 			<ScoringOverlay
 				bus={busRef.current}
-				getProgress={() => scoreRef.current?.progress ?? { phase: null, percentage: 0, message: "" }}
+				getProgress={getProgress}
 			/>
 			<ScoreCard bus={busRef.current} recordId={recordId} />
 		</>
