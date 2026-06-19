@@ -20,12 +20,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 STATE_FILE = SCRIPT_DIR / "state.json"
 
 sys.path.insert(0, str(SCRIPT_DIR))
-try:
-    from config import *  # noqa: F403
-except ImportError:
-    pass
+from _env import *  # noqa: F403, E402
 
-HOSTNAME = "yeacoyun"
 NOW = datetime.now()
 WEEK_AGO = NOW - timedelta(days=7)
 
@@ -498,34 +494,29 @@ def build_html(sys_info, res, containers, stats, alerts):
 
 
 def send_email(subject, body_html):
+    if not SMTP_USER or not SMTP_PASS:
+        print("SMTP not configured, writing to stdout instead")
+        print(body_html)
+        return
     try:
-        config = sys.modules.get("config", None)
-        smtp_host = getattr(config, "SMTP_HOST", "")
-        smtp_port = getattr(config, "SMTP_PORT", 587)
-        smtp_user = getattr(config, "SMTP_USER", "")
-        smtp_pass = getattr(config, "SMTP_PASS", "")
-        mail_from = getattr(config, "MAIL_FROM", smtp_user)
-        mail_to_raw = getattr(config, "MAIL_TO", smtp_user)
-        mail_to = mail_to_raw if isinstance(mail_to_raw, list) else [mail_to_raw]
-
-        if not smtp_host:
+        if not SMTP_HOST:
             print("SMTP not configured, writing to stdout instead")
             print(body_html)
             return
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = mail_from
-        msg["To"] = ", ".join(mail_to)
+        msg["From"] = MAIL_FROM
+        msg["To"] = ", ".join(MAIL_TO)
         msg.attach(MIMEText(body_html, "html", "utf-8"))
 
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as s:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
             s.ehlo()
             s.starttls()
             s.ehlo()
-            s.login(smtp_user, smtp_pass)
-            s.sendmail(mail_from, mail_to, msg.as_string())
-        print(f"Weekly report sent to {', '.join(mail_to)}")
+            s.login(SMTP_USER, SMTP_PASS)
+            s.sendmail(MAIL_FROM, MAIL_TO, msg.as_string())
+        print(f"Weekly report sent to {', '.join(MAIL_TO)}")
     except Exception as e:
         print(f"Send failed: {e}")
         # Fallback: write to file so it's not lost

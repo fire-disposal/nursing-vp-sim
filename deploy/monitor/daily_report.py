@@ -29,37 +29,20 @@ log = logging.getLogger("daily_report")
 sys.path.insert(0, str(SCRIPT_DIR))
 
 # ── Config ────────────────────────────────────────────────────────────────────
+sys.path.insert(0, str(SCRIPT_DIR))
+from _env import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_TO, DIAGNOSE_TOKEN, HOSTNAME  # noqa: E402
+from _env import _REPORT_PORTS as _ENV  # noqa: E402
 
-_ENV = {
-    "prod": {"label": "正式服", "port": 9001},
-    "staging": {"label": "测试服", "port": 9081},
-}
+_ENV_LABELS = {"prod": "正式服", "staging": "测试服"}
 
-_TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
-if not _TOKEN:
-    _env_file = Path("/opt/nursing-vp-sim/.env")
-    if _env_file.exists():
-        for line in _env_file.read_text().splitlines():
-            if line.startswith("DIAGNOSE_TOKEN="):
-                _TOKEN = line.split("=", 1)[1].strip()
-try:
-    import config as _cfg_file
-    SMTP_HOST = getattr(_cfg_file, "SMTP_HOST", "")
-    SMTP_PORT = getattr(_cfg_file, "SMTP_PORT", 587)
-    SMTP_USER = getattr(_cfg_file, "SMTP_USER", "")
-    SMTP_PASS = getattr(_cfg_file, "SMTP_PASS", "")
-    MAIL_FROM = getattr(_cfg_file, "MAIL_FROM", SMTP_USER)
-    MAIL_TO_RAW = getattr(_cfg_file, "MAIL_TO", SMTP_USER)
-    MAIL_TO = MAIL_TO_RAW if isinstance(MAIL_TO_RAW, list) else [MAIL_TO_RAW]
-except ImportError:
-    log.warning("config.py not found, email disabled")
-    SMTP_HOST = ""
+if not SMTP_HOST:
+    log.warning("SMTP_HOST not configured, email disabled")
 
 
 def fetch_report(port: int) -> dict | None:
     url = f"http://127.0.0.1:{port}/api/ops/report"
-    if _TOKEN:
-        url += f"?token={_TOKEN}"
+    if DIAGNOSE_TOKEN:
+        url += f"?token={DIAGNOSE_TOKEN}"
     try:
         r = subprocess.run(
             ["curl", "-sS", "-m", "10", url],
@@ -98,8 +81,8 @@ def build_report() -> str:
 
     data = {}
     online = {}
-    for key, cfg in _ENV.items():
-        rpt = fetch_report(cfg["port"])
+    for key, port in _ENV.items():
+        rpt = fetch_report(port)
         data[key] = rpt
         online[key] = rpt is not None
 
@@ -108,7 +91,7 @@ def build_report() -> str:
     # ── Header ──
     header = f"""<div class="header">
   <h1>Nursing VP Sim <span>每日运维报告</span></h1>
-  <div class="sub">{date_str} &middot; {time_str} &middot; yecaoyun</div>
+  <div class="sub">{date_str} &middot; {time_str} &middot; {HOSTNAME}</div>
 </div>"""
 
     # ── Overview ──

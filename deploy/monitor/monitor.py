@@ -21,11 +21,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 STATE_FILE = SCRIPT_DIR / "state.json"
 LOG_FILE = SCRIPT_DIR / "monitor.log"
 
-# ── Thresholds ────────────────────────────────────────────────────────────────
-DISK_THRESHOLD_PCT = 85
-CPU_LOAD_MULTIPLIER = 1.5  # load avg ÷ cpu cores → alert if above
-MEM_MIN_MB = 500  # available memory below this → alert
-
 # ── Cooldown tiers (by alert count for same key) ──────────────────────────────
 # Format: (up_to_count, cooldown_minutes)
 COOLDOWN_TIERS = [
@@ -35,12 +30,9 @@ COOLDOWN_TIERS = [
 ]
 MAX_EMAILS_PER_DAY = 20
 
-# ── Load user config ──────────────────────────────────────────────────────────
+# ── Load shared env config ────────────────────────────────────────────────────
 sys.path.insert(0, str(SCRIPT_DIR))
-try:
-    from config import *  # noqa: F403  — overrides thresholds / SMTP / ENDPOINTS
-except ImportError:
-    pass
+from _env import *  # noqa: F403, E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -261,12 +253,11 @@ def check_memory():
 
 
 def check_health_endpoints():
-    """Check HTTP health endpoints listed in config.ENDPOINTS."""
-    endpoints = getattr(sys.modules.get("config", None), "ENDPOINTS", [])
-    if not endpoints:
+    """Check HTTP health endpoints listed in ENDPOINTS env var."""
+    if not ENDPOINTS:
         return []
     failures = []
-    for ep in endpoints:
+    for ep in ENDPOINTS:
         url = ep["url"]
         name = ep.get("name", url)
         rc, out = run(["curl", "-sS", "-m", "10", "-w", "\n%{http_code}", url])
@@ -340,10 +331,9 @@ def _delta(prev: dict, key: str) -> int:
 def check_metrics_anomalies(state: dict):
     """Fetch metrics from each endpoint and detect anomalies via delta comparison.
     Receives state dict from caller to avoid overwrite race with main()."""
-    endpoints = getattr(sys.modules.get("config", None), "ENDPOINTS", [])
     anomalies = []
 
-    for ep in endpoints:
+    for ep in ENDPOINTS:
         name = ep.get("name", ep["url"])
         key = f"metrics:{name}"
         prev = state.get(key, {})
@@ -531,33 +521,27 @@ def build_recovery_body(recovered_keys, hostname):
 
 
 def send_email(subject, body_html):
-    """Send email via SMTP from config."""
+    """Send email via SMTP from env vars."""
     try:
-        config = sys.modules.get("config", None)
-        smtp_host = getattr(config, "SMTP_HOST", "")
-        smtp_port = getattr(config, "SMTP_PORT", 587)
-        smtp_user = getattr(config, "SMTP_USER", "")
-        smtp_pass = getattr(config, "SMTP_PASS", "")
-        mail_from = getattr(config, "MAIL_FROM", smtp_user)
-        mail_to_raw = getattr(config, "MAIL_TO", smtp_user)
-        mail_to = mail_to_raw if isinstance(mail_to_raw, list) else [mail_to_raw]
-
-        if not smtp_host:
+        if not SMTP_USER or not SMTP_PASS:
+            log.warning("SMTP not configured, skipping email")
+            return
+        if not SMTP_HOST:
             log.error("SMTP not configured — skipping email")
             return False
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = mail_from
-        msg["To"] = ", ".join(mail_to)
+        msg["From"] = MAIL_FROM
+        msg["To"] = ", ".join(MAIL_TO)
         msg.attach(MIMEText(body_html, "html", "utf-8"))
 
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as s:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
             s.ehlo()
             s.starttls()
             s.ehlo()
-            s.login(smtp_user, smtp_pass)
-            s.sendmail(mail_from, mail_to, msg.as_string())
+            s.login(SMTP_USER, SMTP_PASS)
+            s.sendmail(MAIL_FROM, MAIL_TO, msg.as_string())
 
         log.info("Email sent: %s", subject)
         return True
