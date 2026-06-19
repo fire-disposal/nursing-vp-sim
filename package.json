@@ -25,7 +25,9 @@
     "api:generate:miniapp": "node scripts/generate-miniapp-api.mjs",
     "api:update": "pnpm run api:spec && pnpm run api:generate",
     "api:update:all": "pnpm run api:spec && pnpm run api:generate && pnpm run api:generate:miniapp",
-    "check:api": "pnpm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts miniprogram/api/types.gen.ts"
+    "check:api": "pnpm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts miniprogram/api/types.gen.ts",
+    "gen:checklist": "node scripts/gen-combined-checklist.mjs",
+    "gen:checklist:target": "node scripts/gen-combined-checklist.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19",

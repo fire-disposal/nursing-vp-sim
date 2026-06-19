@@ -55,6 +55,7 @@ All from monorepo root.
 | `pnpm run api:generate:miniapp` | Generate `miniprogram/api/types.gen.ts` |
 | `pnpm run api:update:all` | spec + generate web + generate miniapp |
 | `pnpm run tag` | Auto-generate date-based tag + push (→ staging deploy) |
+| `pnpm run gen:checklist` | Combine all checklists between prod and latest staging |
 
 ## Python Environment
 
