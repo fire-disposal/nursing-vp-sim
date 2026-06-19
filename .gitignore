@@ -60,3 +60,6 @@ deploy/monitor/config.py
 
 # dev-report 产物
 dev-report*.html
+
+# PowerShell 误解析 --version 产生的目录
+--version/
