@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -69,7 +70,7 @@ _EXAM_EMOTION_IMPACT_LABELS: dict[str, str] = {
 
 
 def _apply_exam_emotion_effect(ctx: ExamContext) -> ExamEffect | None:
-    from contexts.patient.emotion import get_emotion
+    from contexts.patient.emotion import _lookup_state, get_emotion
 
     emotion = get_emotion(ctx.record.id, ctx.emotion_cache, ctx.db)
     impact = EXAM_EMOTION_IMPACT.get(ctx.op_type)
@@ -91,21 +92,30 @@ def _apply_exam_emotion_effect(ctx: ExamContext) -> ExamEffect | None:
         dc += 1
 
     if dt != 0 or dc != 0:
+        old_trust, old_comfort = emotion.trust, emotion.comfort
         emotion.trust = max(0, min(100, emotion.trust + dt))
         emotion.comfort = max(0, min(100, emotion.comfort + dc))
+        old_state = _lookup_state(old_trust, old_comfort)[0]
+        new_state = emotion.state
         emotion.history.append(
             {
                 "trust": emotion.trust,
                 "comfort": emotion.comfort,
-                "state": emotion.state,
+                "state": new_state,
                 "intent": f"查体:{ctx.op_type}",
-                "timestamp": "",
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
         ctx.emotion_cache.set(ctx.record.id, emotion, ctx.db)
 
     impact_note = _build_impact_note(ctx.op_type, impact, dt, dc, ctx.exam_count, ctx.explanation_given)
     effect = ExamEffect(emotion_delta=(dt, dc))
+    if dt != 0 or dc != 0:
+        emo_line = f"信赖{emotion.trust}/舒适{emotion.comfort}, 状态:{emotion.state}"
+        if impact_note:
+            impact_note = f"{impact_note} | {emo_line}"
+        else:
+            impact_note = emo_line
     if impact_note:
         effect.snapshot_updates["_exam_impact_note"] = impact_note
     return effect
