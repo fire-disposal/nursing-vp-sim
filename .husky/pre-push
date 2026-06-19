@@ -151,7 +151,19 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       # 4. Testing checklist must exist
       checklist="docs/testing/checklist-${tag}.md"
       if [ -f "$ROOT/$checklist" ]; then
-        ok "testing checklist for $tag"
+        content=$(cat "$ROOT/$checklist" 2>/dev/null | tr -d '[:space:]')
+        if [ "$content" = "无需测试" ]; then
+          ok "testing checklist for $tag (no user-facing changes)"
+        elif [ ${#content} -lt 30 ]; then
+          echo ""
+          echo "PUSH BLOCKED: $checklist is too short (${#content} chars)"
+          echo "If no user-facing changes, the file must contain exactly: 无需测试"
+          echo "Otherwise run opencode to generate a real checklist."
+          echo ""
+          fail "checklist too short — use '无需测试' or generate real content"
+        else
+          ok "testing checklist for $tag"
+        fi
       else
         echo ""
         echo "PUSH BLOCKED: missing $checklist"
