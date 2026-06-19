@@ -441,7 +441,7 @@ def build_html(sys_info, res, containers, stats, alerts):
   <div class="row">
     {metric(disk_pct + "%", "磁盘", pct=disk_pct, sub=f"{disk_used} / {disk_total}")}
     {metric(mem_pct + "%", "内存", pct=mem_pct, sub=f"{mem_avail} MB / {mem_total} MB")}
-    {metric(load1, "Load", sub=f"{res["cpu_cores"]} 核")}
+    {metric(load1, "Load", sub=f"{res['cpu_cores']} 核")}
   </div>
 </div>
 
