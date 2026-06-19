@@ -7,6 +7,7 @@ import textwrap
 import threading
 import time
 from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -224,6 +225,12 @@ async def lifespan(app: FastAPI):
     app.state._settlement_task = settlement_task
     log.info("Settlement: started (interval=%ds)", CLEANUP_INTERVAL_SECONDS)
 
+    notif_task = asyncio.create_task(
+        _notification_publisher(interval=60)
+    )
+    app.state._notification_task = notif_task
+    log.info("Notification publisher: started (interval=60s)")
+
     _loop = asyncio.get_running_loop()
     _loop.set_exception_handler(_handle_task_exception)
 
@@ -241,12 +248,52 @@ async def lifespan(app: FastAPI):
     settlement_task.cancel()
     with suppress(asyncio.CancelledError):
         await settlement_task
+    notif_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await notif_task
     await app.state.task_queue.stop()
     await app.state.log_worker.stop()
     if app.state.httpx_client:
         await app.state.httpx_client.aclose()
     await asyncio.to_thread(engine.dispose)
     await asyncio.to_thread(stop_background_loop)
+
+
+async def _notification_publisher(interval: int = 60):
+    """后台任务：定时检查 SystemNotification 是否到达发布时间，到达后推送到用户通知。"""
+    from core.database import SessionLocal
+    from models import Notification, SystemNotification, User
+
+    while True:
+        await asyncio.sleep(interval)
+        db = SessionLocal()
+        try:
+            now = datetime.now(UTC)
+            pending = db.query(SystemNotification).filter(
+                SystemNotification.is_active == True,
+                SystemNotification.published_at.isnot(None),
+                SystemNotification.published_at <= now,
+            ).all()
+            if not pending:
+                continue
+            # Get all active users to push to
+            user_ids = [r[0] for r in db.query(User.id).filter(User.is_active == True).all()]
+            for sn in pending:
+                for uid in user_ids:
+                    db.add(Notification(
+                        user_id=uid,
+                        type="system",
+                        title=sn.title,
+                        body=sn.content,
+                    ))
+                sn.is_active = False
+                log.info("Notification published: %s → %d users", sn.title, len(user_ids))
+            db.commit()
+        except Exception:
+            log.exception("Notification publisher error")
+            db.rollback()
+        finally:
+            db.close()
 
 
 async def _rate_limiter_cleanup(rate_limiter: RateLimiter):
