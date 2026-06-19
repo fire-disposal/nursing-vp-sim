@@ -5,6 +5,10 @@ on:
     types: [closed]
     branches: [master]
 
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+
 permissions:
   actions: write
   contents: write

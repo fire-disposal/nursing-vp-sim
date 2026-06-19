@@ -3,6 +3,8 @@
 // Usage: node .husky/_/auto-tag.mjs [--push]
 
 import { execSync } from "child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
 const prefix = `v${today}`;
@@ -17,12 +19,33 @@ const nums = todayTags
 const next = nums.length ? Math.max(...nums) + 1 : 1;
 const tag = `${prefix}-${next}`;
 
+const isCI = !!process.env.CI || !!process.env.GITHUB_ACTIONS;
+
+const checklistDir = path.resolve(process.cwd(), "docs/testing");
+const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
+
+if (!fs.existsSync(checklistDir)) {
+  fs.mkdirSync(checklistDir, { recursive: true });
+}
+
+if (!fs.existsSync(checklistFile)) {
+  fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
+  if (isCI) {
+    execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
+    execSync(`git commit -m "📝 docs: add testing checklist placeholder for ${tag}"`, { stdio: "inherit" });
+  }
+  console.log(`Created: ${checklistFile}`);
+}
+
 const doPush = process.argv.includes("--push");
 const msg = doPush ? `Creating and pushing: ${tag}` : `Creating: ${tag}`;
 console.log(msg);
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
 
 if (doPush) {
+  if (isCI) {
+    execSync(`git push origin HEAD`, { stdio: "inherit" });
+  }
   execSync(`git push origin "${tag}"`, { stdio: "inherit" });
   console.log(`Pushed: ${tag}`);
 } else {

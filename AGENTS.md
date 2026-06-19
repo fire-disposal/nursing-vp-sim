@@ -17,6 +17,7 @@ git add → git commit → git push
                             ▼
                         pre-push
                         ├─ tag format check (if pushing a tag)
+                        ├─ checklist-{tag}.md existence (if pushing a tag)
                         ├─ alembic upgrade → downgrade → upgrade roundtrip
                         └─ biome lint --max-diagnostics 50 (frontend)
 ```
@@ -123,6 +124,44 @@ git push origin v2026.06.19-3
 ```
 
 Tag push triggers staging deploy. Never push directly to master for deploy.
+
+## Testing Checklist
+
+Every tag push requires `docs/testing/checklist-{tag}.md` to exist (pre-push hook enforces).
+
+**Auto-tag (PR merge):** auto-tag.mjs creates a placeholder `checklist-{tag}.md` with content "无需测试". Replace it with a real checklist if user-facing changes exist.
+
+**Manual tag:** the hook will reject if the file is missing.
+
+### Generating a checklist
+
+Ask opencode in this repo — it will:
+
+1. `ssh yecaoyun` fetch current prod version from `.version-history`
+2. `git log prod_ver..staging_ver` extract user-visible commits (feat, fix)
+3. Analyze the diff and write a scene-level checklist to `docs/testing/checklist-{tag}.md`
+4. The file includes: operation steps per change, expected results, test account credentials, Pass/Fail checkboxes
+
+### No user-facing changes
+
+If the version contains only refactoring, CI changes, docs, or internal cleanup:
+
+```
+echo "无" > docs/testing/checklist-vYYYY.MM.DD-N.md
+```
+
+### Checklist format
+
+```markdown
+# {stag_ver} 测试清单
+
+**版本**: v{prod_ver} → {stag_ver}
+**环境**: https://test.205716.xyz
+
+### 1. 功能名称
+**操作**: 步骤简述用 → 连接
+**预期**: 可见的预期结果
+```
 
 ## API Client Generation
 

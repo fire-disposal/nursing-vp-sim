@@ -148,6 +148,27 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         continue
       fi
 
+      # 4. Testing checklist must exist
+      checklist="docs/testing/checklist-${tag}.md"
+      if [ -f "$ROOT/$checklist" ]; then
+        ok "testing checklist for $tag"
+      else
+        echo ""
+        echo "PUSH BLOCKED: missing $checklist"
+        echo ""
+        echo "This file is required for every tag push. Based on the changes in ${tag}:"
+        echo ""
+        echo "  If this version includes user-facing changes (feat, fix):"
+        echo "    → tell opencode: 'generate the testing checklist for ${tag}'"
+        echo "    → after opencode writes the file, git add + commit + push again"
+        echo ""
+        echo "  If this version has NO user-facing changes (only refactor, docs, ci, etc.):"
+        echo "    → echo '无需测试' > $checklist"
+        echo "    → git add $checklist && git commit -m 'docs: no testing needed for ${tag}' && git push"
+        echo ""
+        fail "testing checklist missing"
+      fi
+
       ok "tag $tag"
       ;;
   esac

@@ -20,6 +20,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Assemble testing checklist
+        run: |
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          VER="${{ inputs.version }}"
+          PROD_VER=""
+
+          if [ -n "$HOST" ] && [ -n "$USER" ]; then
+            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$PROD_VER" ]; then
+            echo "::warning::Cannot determine production version, skipping checklist assembly"
+            exit 0
+          fi
+
+          echo "  production: v$PROD_VER"
+          echo "  target:     v$VER"
+
+          TAGS=$(git tag --sort=version:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' \
+            | awk "/^v$PROD_VER\$/{found=1; next} /^v$VER\$/{exit} found")
+
+          echo ""
+          echo "=== COMBINED CHECKLIST ==="
+          echo ""
+          echo "# $VER 合并测试清单"
+          echo ""
+          echo "**版本**: v$PROD_VER → v$VER"
+          echo "**环境**: https://test.205716.xyz"
+          echo ""
+          echo "---"
+          echo ""
+
+          for TAG in v$PROD_VER $TAGS v$VER; do
+            FILE="docs/testing/checklist-${TAG}.md"
+            if [ -f "$FILE" ]; then
+              echo "<!-- from $FILE -->"
+              grep -v '^#' "$FILE" | grep -v '^\*\*版本\*\*' | grep -v '^\*\*环境\*\*' || true
+              echo ""
+            fi
+          done
+
+          echo "=== END CHECKLIST ==="
+
       - name: Normalize owner
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
