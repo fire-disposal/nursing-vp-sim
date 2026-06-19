@@ -4,6 +4,7 @@ from uuid import uuid4
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -252,6 +253,7 @@ class TrainingRecord(Base):
     assignment: Mapped["Assignment | None"] = relationship(back_populates="training_records")
     messages: Mapped[list["Message"]] = relationship(back_populates="record", order_by="Message.created_at")
     score: Mapped["Score | None"] = relationship(back_populates="record", uselist=False)
+    session_state: Mapped["TrainingSessionState | None"] = relationship(back_populates="record", uselist=False)
 
 
 class Message(Base):
@@ -686,3 +688,28 @@ class KnowledgeChunk(Base):
     chunk_text: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+
+
+class TrainingSessionState(Base):
+    __tablename__ = "training_session_state"
+
+    record_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), primary_key=True
+    )
+    emotion_state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    initiative_timer: Mapped[float | None] = mapped_column(Float, nullable=True)
+    initiative_last_trigger: Mapped[float | None] = mapped_column(Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
+
+    record: Mapped["TrainingRecord"] = relationship(back_populates="session_state")
+
+
+class RateLimitEntry(Base):
+    __tablename__ = "rate_limit_entries"
+    __table_args__ = (Index("idx_rate_limit_key_ts", "key", "created_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now_utc, server_default=text("NOW()")
+    )
