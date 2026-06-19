@@ -39,5 +39,5 @@ within 5 business days.
 cd backend && uv pip list --outdated
 
 # 前端
-npm audit
+pnpm audit
 ```

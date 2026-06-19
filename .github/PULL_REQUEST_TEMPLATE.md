@@ -4,8 +4,8 @@
 
 ## 测试
 
-- [ ] `npm run check` 通过
-- [ ] `cd backend && pytest -m "not pg"` 通过
+- [ ] `pnpm run check` 通过
+- [ ] `cd backend && uv run python -m pytest` 通过
 
 ## 变更类型
 

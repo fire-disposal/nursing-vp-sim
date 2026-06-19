@@ -82,7 +82,7 @@ pnpm run dev
 ├── .github/workflows/        # CI/CD 流水线
 ├── docker-compose.yml
 ├── Dockerfile.backend / Dockerfile.frontend
-└── package.json              # 根 npm scripts
+└── package.json              # 根 pnpm scripts
 ```
 
 ## API 文档

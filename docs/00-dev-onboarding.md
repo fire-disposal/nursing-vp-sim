@@ -11,7 +11,7 @@
 | 工具 | 版本要求 | 用途 | 安装方式 |
 |------|---------|------|----------|
 | uv | 最新 | Python 运行环境 + 包管理（自动管理 Python 版本） | [Install uv](https://docs.astral.sh/uv/getting-started/installation/) |
-| Node.js | ≥ 18 LTS | 前端 + 根 npm scripts | [nodejs.org](https://nodejs.org/) |
+| Node.js | ≥ 18 LTS | 前端 + 根 pnpm scripts | [nodejs.org](https://nodejs.org/) |
 | PostgreSQL | 15 | 数据库 | [EDB Installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads)（Windows） |
 | Git | ≥ 2.40 | 版本控制 | [git-scm.com](https://git-scm.com/) |
 | DBeaver | 最新 | 数据库 GUI 管理（推荐） | [dbeaver.io](https://dbeaver.io/download/) |
@@ -20,7 +20,7 @@
 
 > **为什么不用 Docker？** Docker 在 Windows 上通过 WSL2/Hyper-V 运行，会额外占用 2-4 GB 内存和磁盘 I/O 开销，且文件系统跨层性能损耗明显。本地安装 PostgreSQL 更轻量、启动更快、调试更直接。Docker 保留给生产部署场景使用。
 
-> **Windows 用户注意**：确保 Git Bash 可用（安装 Git 时勾选 "Git Bash Here"），npm scripts 中部分 shell 脚本依赖它。
+> **Windows 用户注意**：确保 Git Bash 可用（安装 Git 时勾选 "Git Bash Here"），pnpm scripts 中部分 shell 脚本依赖它。
 
 ### 1.2 克隆与安装
 
@@ -395,7 +395,7 @@ OpenCode 在本项目中会自动遵循以下约定：
   master                    ← 稳定分支，只通过 PR 合并
 
 功能分支:
-  feature/<描述>             ← 新功能，如 feature/rbac-classes-management
+  feat/<slug>                ← 新功能，如 feat/patient-interaction-v2
   fix/<描述>                 ← 修 bug，如 fix/score-nan
   refactor/<描述>            ← 重构，如 refactor/llm-service-chain
 
@@ -652,8 +652,7 @@ pnpm vitest run
 |------|------|
 | [README.md](../README.md) | 项目总览 |
 | [01-系统架构](01-architecture.md) | 技术栈与架构设计 |
-| [02-API 接口文档](02-api-reference.md) | 完整 API 端点 |
 | [09-运维安全指南](09-operations.md) | 生产运维、应急预案 |
-| [.github/DEPLOYMENT.md](../.github/DEPLOYMENT.md) | 部署流水线详解 |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | 团队协作流程与分支模型 |
 
 > **记住三件事就够了：** `git commit -m "✨ feat: 描述"` → `pnpm run tag` → GitHub Actions 手动触发 Production。

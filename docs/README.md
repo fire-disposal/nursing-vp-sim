@@ -15,12 +15,14 @@
 | [08-概念设计与创新方向](08-conceptual-design.md) | 系统未来演进方向的概念探索：生理模拟引擎、护理记录书写训练、情感模型等 |
 | [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固、应急预案 |
 | [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) 两周变更记录 |
+| [变更日志](changelog/CHANGELOG-2026-W24-W25.md) | W24-W25 (06.13~06.19) 两周变更记录 |
+| [变更日志](changelog/CHANGELOG-2026-W26.md) | W26 (06.20~06.26) 待记录 |
 | [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理、协作流程 |
 
 ## 当前版本
 
-- **版本**: v2026.06.12
-- **最后更新**: 2026-06-12
+- **版本**: v2026.06.19-2
+- **最后更新**: 2026-06-19
 - **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
 - **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过，Husky 提交规范已启用。
 
@@ -157,7 +159,6 @@ frontend/src/
 │   └── tts/                       # TTS 语音
 ├── plugins/                       # 训练插件
 │   ├── inquiry/                   # 问诊对话
-│   ├── portrait/                  # 患者画像
 │   ├── nursing-record/            # 护理记录 (6 种记录项)
 │   ├── physical-exam/             # 体格检查
 │   ├── emotion/                   # 情感追踪
@@ -168,7 +169,7 @@ frontend/src/
 ├── components/
 │   ├── Layout.tsx                 # 响应式侧边栏
 │   ├── Toast.tsx                  # sonner 封装
-│   ├── PatientPortrait.tsx        # 患者信息 + 护理记录
+│   ├── training/PatientPortrait.tsx  # 患者信息 + 护理记录
 │   ├── ScoreCard.tsx              # 评分报告
 │   ├── TrainingDurationChart.tsx  # 趋势图
 │   ├── ErrorBoundary.tsx          # 异常边界
