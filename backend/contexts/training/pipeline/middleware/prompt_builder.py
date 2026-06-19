@@ -23,7 +23,12 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     if ctx.note_collector:
         author_note = await ctx.note_collector.collect(ctx)
 
-    kwargs = build_patient_context_kwargs(ctx.case_data, author_note=author_note)
+    # 病例静态数据缓存 — 性格/背景/示例对话整个会话不变，仅 author_note 每轮更新
+    cached = ctx.state.get("_patient_context_kwargs")
+    if cached is None:
+        cached = build_patient_context_kwargs(ctx.case_data)
+        ctx.state["_patient_context_kwargs"] = cached
+    kwargs = {**cached, "author_note": author_note if author_note.strip() else ""}
     pm = ctx.app_state.prompt_manager
     tmpl = await pm.get(ctx.current_phase.prompt_profile if ctx.current_phase else "patient_chat")
 

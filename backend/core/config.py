@@ -61,6 +61,18 @@ def validate_config():
     if "*" in origins:
         log.warning("CORS_ORIGINS 包含通配符 *, 这可能会导致安全问题")
 
+    if not DEEPSEEK_API_KEY:
+        raise RuntimeError(
+            "DEEPSEEK_API_KEY 未配置。请在 .env 中设置 DeepSeek API 密钥。\n"
+            "如不需要 LLM 功能，请设置 DEEPSEEK_API_KEY=skip 以跳过验证。"
+        )
+    if DEEPSEEK_API_KEY == "skip":
+        log.warning("DEEPSEEK_API_KEY=skip — LLM 调用将全部失败，仅用于纯前端开发")
+    elif not DEEPSEEK_API_KEY.startswith("sk-"):
+        raise RuntimeError(
+            f"DEEPSEEK_API_KEY 格式无效: 应以 sk- 开头（当前首字符: {DEEPSEEK_API_KEY[:3]}...）"
+        )
+
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
 LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
@@ -153,11 +165,4 @@ def log_config(logger):
     logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)
-    logger.info(
-        "  自动结算:   每 %d 秒 (门槛: 采集点>=%d 学生>=%d字 AI>=%d字)",
-        CLEANUP_INTERVAL_SECONDS,
-        AUTO_SCORE_COVERED_INQUIRIES_MIN,
-        AUTO_SCORE_STUDENT_CHARS_MIN,
-        AUTO_SCORE_AI_CHARS_MIN,
-    )
     logger.info("──────────────────────────────────────")
