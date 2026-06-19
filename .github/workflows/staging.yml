@@ -3,6 +3,8 @@ name: Build & Deploy to Staging
 on:
   push:
     tags: ["v[0-9]*"]
+  schedule:
+    - cron: "0 3 * * *"  # 每天北京时间 11:00 自动部署最新 master
   workflow_dispatch:
     inputs:
       version:
@@ -84,6 +86,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "version=latest" >> "$GITHUB_OUTPUT"
           else
             echo "version=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
