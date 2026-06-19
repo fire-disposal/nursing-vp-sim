@@ -16,6 +16,7 @@ class FakeContext:
         self.messages = kwargs.get("messages", [])
         self.record = kwargs.get("record")
         self.app_state = kwargs.get("app_state")
+        self.db = kwargs.get("db")
 
     class Record:
         def __init__(self, runtime_state=None, id_=1):
@@ -29,14 +30,30 @@ class FakeContext:
 
 
 class TestEmotionNoteSource:
-    async def test_returns_note_when_present(self):
+    async def test_returns_note_when_present(self, db_session):
+        from contexts.patient.emotion import EmotionState
         from infrastructure.cache import EmotionCache
+        from models import Case, TrainingRecord, User
+
+        user = db_session.query(User).filter(User.is_active == True).first()
+        case = db_session.query(Case).first()
+        if not user or not case:
+            import pytest
+
+            pytest.skip("No user or case in test DB")
+        record = TrainingRecord(user_id=user.id, case_id=case.id, status="in_progress", time_limit=20)
+        db_session.add(record)
+        db_session.flush()
 
         cache = EmotionCache()
-        from contexts.patient.emotion import EmotionState
+        cache.set(record.id, EmotionState(trust=70, comfort=80), db_session)
+        db_session.commit()
 
-        cache.set(1, EmotionState(trust=70, comfort=80))
-        ctx = FakeContext(app_state=type("AppState", (), {"emotion_cache": cache})(), record=FakeContext.Record(id_=1))
+        ctx = FakeContext(
+            app_state=type("AppState", (), {"emotion_cache": cache})(),
+            record=FakeContext.Record(id_=record.id),
+            db=db_session,
+        )
         src = EmotionNoteSource()
         result = await src.collect(ctx)
         assert result is not None
