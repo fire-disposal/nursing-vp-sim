@@ -427,7 +427,7 @@ sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s 
 | # | 薄弱点 | 风险 | 分类 | 应对 |
 |---|--------|------|------|------|
 | 2 | **Docker 容器无资源限制** | 任一容器可耗尽宿主机资源 | 🔧 可修复 | 添加 `deploy.resources.limits` |
-| 3 | **无 Nginx 级速率限制** | 仅 Python 层 rate limit（内存型），大流量可消耗 FastAPI 资源 | 🔧 可修复 | nginx snippets 中添加 rate limit |
+| 3 | **无 Nginx 级速率限制** | 仅 Python 层 `rate_limits.py`（按 user_id），大流量 DDoS 可消耗 FastAPI 资源 | 🏛️ 已充分 | Python 层覆盖高危端点；当前流量低无需 nginx 层 |
 | 4 | **JWT Token 无主动撤销机制** | 角色变更后旧 token 仍有效（最长 8h） | 🏛️ 固有约束 | 紧急改 SECRET_KEY 全局失效 |
 | 5 | **Token 存储在 localStorage** | XSS 可窃取 | 🏛️ 固有约束 | CSP + React XSS 防护；长期向 HttpOnly Cookie |
 | 7 | **LLM 环境变量兜底无限额** | 所有 DB 密钥失效后回退 `.env` key | ⚠️ 已缓解 | DeepSeek 控制台已设硬限额 |
