@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockLogin = vi.fn();
 const mockGetMe = vi.fn();
+const mockLogout = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/api/api-client", () => ({
 	login: mockLogin,
 	getMe: mockGetMe,
+	logout: mockLogout,
 	api: {
 		interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } },
 	},
@@ -31,8 +33,13 @@ describe("authStore", () => {
 			role: "student" as const,
 			display_name: "Test",
 		};
-		localStorage.setItem("user", JSON.stringify(mockUser));
-		localStorage.setItem("token", "stored-token");
+		localStorage.setItem(
+			"nursing-auth",
+			JSON.stringify({
+				state: { user: mockUser, token: "stored-token", permissions: [] },
+				version: 1,
+			}),
+		);
 
 		const { default: useAuthStore } = await import("@/stores/authStore");
 		const state = useAuthStore.getState();
@@ -41,7 +48,7 @@ describe("authStore", () => {
 	});
 
 	it("handles corrupted localStorage user data gracefully", async () => {
-		localStorage.setItem("user", "not-json");
+		localStorage.setItem("nursing-auth", "not-json");
 
 		const { default: useAuthStore } = await import("@/stores/authStore");
 		const state = useAuthStore.getState();
@@ -63,15 +70,20 @@ describe("authStore", () => {
 
 		expect(user).toEqual({
 			user_id: 2,
+			username: "Student1",
 			role: "student",
 			display_name: "Student1",
 			role_display_name: "student",
+			gender: null,
+			avatar: null,
 			school_id: undefined,
 			school_name: undefined,
 		});
-		expect(localStorage.getItem("token")).toBe("new-token");
-		const stored = JSON.parse(localStorage.getItem("user") || "{}");
-		expect(stored.role).toBe("student");
+		const persisted = JSON.parse(
+			localStorage.getItem("nursing-auth") || "{}",
+		);
+		expect(persisted.state?.token).toBe("new-token");
+		expect(persisted.state?.user?.role).toBe("student");
 	});
 
 	it("refreshUser updates user from getMe response", async () => {
@@ -93,10 +105,16 @@ describe("authStore", () => {
 	});
 
 	it("logout clears state and localStorage", async () => {
-		localStorage.setItem("token", "t");
 		localStorage.setItem(
-			"user",
-			JSON.stringify({ user_id: 1, role: "student", display_name: "X" }),
+			"nursing-auth",
+			JSON.stringify({
+				state: {
+					user: { user_id: 1, role: "student", display_name: "X" },
+					token: "t",
+					permissions: [],
+				},
+				version: 1,
+			}),
 		);
 
 		const { default: useAuthStore } = await import("@/stores/authStore");
@@ -105,7 +123,10 @@ describe("authStore", () => {
 		const state = useAuthStore.getState();
 		expect(state.user).toBeNull();
 		expect(state.token).toBeNull();
-		expect(localStorage.getItem("token")).toBeNull();
+		const persisted = JSON.parse(
+			localStorage.getItem("nursing-auth") || "{}",
+		);
+		expect(persisted.state?.token).toBeNull();
 	});
 
 	it("refreshUser calls logout on failure", async () => {

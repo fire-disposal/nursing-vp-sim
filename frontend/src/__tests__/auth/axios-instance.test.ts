@@ -15,11 +15,19 @@ vi.mock("axios", () => ({
 	default: { create: mockAxiosCreate },
 }));
 
+const mockAuthState = { token: null as string | null };
+vi.mock("@/stores/authStore", () => ({
+	default: {
+		getState: () => ({ token: mockAuthState.token }),
+	},
+}));
+
 describe("API axios instance", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.resetModules();
 		localStorage.clear();
+		mockAuthState.token = null;
 	});
 
 	it("creates axios instance with /api baseURL and 120s timeout", async () => {
@@ -33,7 +41,7 @@ describe("API axios instance", () => {
 	});
 
 	it("request interceptor adds Bearer token from localStorage", async () => {
-		localStorage.setItem("token", "test-token-abc");
+		mockAuthState.token = "test-token-abc";
 
 		let capturedConfig: Record<string, unknown> | null = null;
 		mockAxiosCreate.mockReturnValue({
