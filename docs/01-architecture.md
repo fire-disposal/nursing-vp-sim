@@ -167,7 +167,6 @@ nursing-vp-sim/
 │   │   │   ├── index.ts                        # 引擎导出
 │   │   │   ├── TrainingEngine.tsx              # 训练引擎主组件
 │   │   │   ├── MessageBus.ts                   # 消息总线（组件通信）
-│   │   │   ├── PluginRegistry.ts               # 插件注册表
 │   │   │   ├── PluginContext.tsx               # 插件上下文Provider
 │   │   │   ├── PatientProvider.tsx             # 患者数据Provider
 │   │   │   ├── StreamManager.ts                # SSE流管理器
@@ -178,15 +177,16 @@ nursing-vp-sim/
 │   │   │       ├── TTSManager.ts               # TTS管理器
 │   │   │       ├── browser-tts.ts              # 浏览器TTS实现
 │   │   │       └── types.ts
-│   │   ├── plugins/                            # 训练插件系统
-│   │   │   ├── emotion/                        # 情绪追踪插件
-│   │   │   ├── initiative/                     # 患者主动发起插件
-│   │   │   ├── inquiry/                        # 问诊采集进度插件
-│   │   │   ├── nursing-record/                 # 护理记录插件
-│   │   │   ├── patient-info/                   # 患者信息插件
-│   │   │   ├── physical-exam/                  # 体格检查插件
-│   │   │   ├── questionnaire/                  # 问卷插件
-│   │   │   └── scoring-display/                # 评分展示插件
+│   │   ├── components/training/                # 训练子组件 + 插件面板
+│   │   │   ├── panels/                         # 面板组件
+│   │   │   │   ├── emotion/                    # 情绪追踪面板
+│   │   │   │   ├── initiative/                 # 患者主动发起面板
+│   │   │   │   ├── inquiry/                    # 问诊采集进度面板
+│   │   │   │   ├── nursing-record/             # 护理记录面板
+│   │   │   │   ├── patient-info/               # 患者信息面板
+│   │   │   │   ├── physical-exam/              # 体格检查面板
+│   │   │   │   ├── questionnaire/              # 问卷面板
+│   │   │   │   └── scoring-display/            # 评分展示面板
 │   │   ├── stores/                             # 状态管理 (Zustand)
 │   │   │   ├── authStore.ts                    # 认证状态
 │   │   │   └── gradesClassesStore.ts           # 年级班级状态
@@ -233,7 +233,6 @@ nursing-vp-sim/
 ├── .github/workflows/                          # CI/CD
 │   ├── staging.yml                             # Staging部署 (v* tag 触发)
 │   ├── cd.yml                                  # Production 部署 (手动触发)
-│   ├── auto-diagnose.yml                       # 诊断脚本
 │   ├── maintenance.yml                         # 维护模式
 │   └── rollback.yml                            # 紧急回滚
 │
@@ -251,7 +250,7 @@ nursing-vp-sim/
 | **Sidebar (AppShell/Layout)** | Dashboard、Practice选择、QA、统计、历史、管理后台 | 响应式侧边栏 + 主内容区 |
 | **TrainingEngine 全屏** | 训练对话页 | 全屏训练界面 + 插件面板 (患者信息、问诊进度、体格检查、护理记录等) |
 
-TrainingEngine 采用插件化架构，通过 PluginRegistry 动态加载功能面板，支持 emotion、inquiry、physical-exam、nursing-record 等插件并行运行。
+TrainingEngine 采用插件化架构，通过 PluginContext 动态注册功能面板，支持 emotion、inquiry、physical-exam、nursing-record 等面板并行运行。
 
 ## 架构设计原则
 

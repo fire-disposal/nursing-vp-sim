@@ -108,20 +108,17 @@ frontend/src/
 │   ├── index.ts               # 统一导出
 │   ├── TrainingEngine.tsx     # 训练循环编排
 │   ├── MessageBus.ts          # 插件间消息总线 (发布/订阅)
-│   ├── PluginRegistry.ts      # 插件注册中心
 │   ├── PluginContext.tsx      # 共享上下文 (Emotion Provider)
 │   ├── PatientProvider.tsx    # 患者数据上下文
 │   ├── StreamManager.ts       # SSE 流式响应管理
 │   ├── ScoreManager.ts        # 评分流程管理
-│   ├── discovery.ts           # 动态插件发现
-│   ├── manifest.ts            # 插件清单注册
 │   ├── types.ts               # 引擎类型定义
 │   └── tts/                   # 语音合成模块
 │       ├── index.ts
 │       ├── types.ts
 │       ├── TTSManager.ts      # TTS 总控
 │       └── browser-tts.ts     # Web Speech API 实现
-├── plugins/                   # 训练页插件 (8 个)
+├── components/training/panels/ # 训练页插件面板
 │   ├── emotion/               # 情绪状态面板
 │   ├── initiative/            # 主动提问面板
 │   ├── inquiry/               # 采集进度追踪
@@ -307,7 +304,7 @@ frontend/src/
 | 工具 | 用途 |
 |------|------|
 | `@tanstack/react-query` | 服务端数据获取 + 缓存 + 自动刷新 (staleTime: 30s, gcTime: 10min) |
-| `zustand` | 客户端状态 — authStore (登录/用户), gradesClassesStore (年级班级 CRUD), schoolStore (学校) |
+| `zustand` | 客户端状态 — authStore (登录/用户), gradesClassesStore (年级班级 CRUD) |
 | `sonner` | 全局 Toast 通知 |
 
 ## 训练引擎 (Engine System)
@@ -318,8 +315,7 @@ frontend/src/
 |------|------|
 | `TrainingEngine.tsx` | 训练循环编排 — 初始化、暂停、结束、评分触发 |
 | `MessageBus.ts` | 发布/订阅消息总线，插件间解耦通信 |
-| `PluginRegistry.ts` | 插件注册中心，管理插件生命周期 |
-| `PluginContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) |
+| `PluginContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) + 插件注册 |
 | `PatientProvider.tsx` | 患者数据上下文，提供患者信息给所有插件 |
 | `StreamManager.ts` | SSE 流式响应管理，处理 LLM 消息流 |
 | `ScoreManager.ts` | 评分流程管理 — 触发评分、轮询状态、获取结果 |
@@ -330,7 +326,7 @@ frontend/src/
 ```
 TrainingEngine
 ├── PatientProvider (患者数据上下文)
-├── PluginRegistry (插件注册中心)
+├── PluginContext (插件上下文 + 注册)
 │   ├── patient-info     — 患者信息面板
 │   ├── emotion          — 情绪状态面板
 │   ├── initiative       — 主动提问面板

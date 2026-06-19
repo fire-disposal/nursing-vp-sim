@@ -15,8 +15,8 @@ auth/ ─────── auth.py ────────   ────     
                                                           api/auth.ts
                                                           api/axios-instance.ts
 
-training/ ── chat.py ─────────   training/                 engine/
-            physical_exam.py     pipeline/                 components/training/
+training/ ── contexts/training/router/chat.py ── training/                 engine/
+            contexts/patient/exam.py  pipeline/                 components/training/
                                                            api/training.ts
                                                            api/chat.ts
 
@@ -145,14 +145,14 @@ domains:
   training:
     backend:
       - contexts/training/router/chat.py
-      - contexts/training/router/physical_exam.py
+      - contexts/patient/exam.py
       - contexts/training/pipeline/**/*.py
       - contexts/training/router/session.py (training 部分)
     frontend:
       - engine/TrainingEngine.tsx
       - engine/StreamManager.ts
       - engine/PatientProvider.tsx
-      - engine/PluginRegistry.ts
+      - engine/PluginContext.tsx
       - components/training/ChatArea.tsx
       - components/training/ChatDisplay.tsx
       - components/training/ChatInput.tsx

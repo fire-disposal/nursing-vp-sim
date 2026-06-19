@@ -8,23 +8,25 @@
 |------|------|
 | **[👉 从这里开始](00-dev-onboarding.md)** | **零基础入口**：工具安装、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
 | [01-系统架构](01-architecture.md) | 技术栈、项目结构、架构设计 |
-| [API 文档](../README.md#api-文档) | Swagger UI（`/docs`）或 OpenAPI 自动生成的前端类型 || [03-数据库设计](03-database.md) | 表结构、字段说明、关系映射 |
+| [API 文档](../README.md#api-文档) | Swagger UI（`/docs`）或 OpenAPI 自动生成的前端类型 |
+| [03-数据库设计](03-database.md) | 表结构、字段说明、关系映射 |
 | [04-前端设计](04-frontend.md) | 页面组件、路由设计、两种布局系统 |
 | [05-LLM与评分设计](05-llm-design.md) | 虚拟患者Prompt、评分Prompt、病例结构 |
-| [07-交接记录](07-polish-handoff.md) | 当前版本状态、待完善问题、压缩上下文摘要 |
-| [08-概念设计与创新方向](08-conceptual-design.md) | 系统未来演进方向的概念探索：生理模拟引擎、护理记录书写训练、情感模型等 |
-| [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、紧急回滚、备份、监控、安全加固、应急预案 |
-| [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) 两周变更记录 |
-| [变更日志](changelog/CHANGELOG-2026-W24-W25.md) | W24-W25 (06.13~06.19) 两周变更记录 |
-| [变更日志](changelog/CHANGELOG-2026-W26.md) | W26 (06.20~06.26) 待记录 |
-| [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理、协作流程 |
+| [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、回滚、备份、监控、应急预案 |
+| [10-功能审计与项目状态](10-functional-audit.md) | 功能完整性矩阵、已知问题与缺口、未来探索方向 |
+| [UX 交互分析](ux-interaction-analysis.md) | 前端 UI 过渡动画与交互改进清单 |
+| [领域划分指南](domain-division-guide.md) | 按域并行开发的 AI 辅助参考 |
+| [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) |
+| [变更日志](changelog/CHANGELOG-2026-W24-W25.md) | W24-W25 (06.13~06.19) |
+| [功能计划](plans/) | 待完成功能的设计与缺口分析 |
+| [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理 |
 
 ## 当前版本
 
 - **版本**: v2026.06.19-2
 - **最后更新**: 2026-06-19
 - **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
-- **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过，Husky 提交规范已启用。
+- **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过。
 
 ## 快速了解
 
@@ -151,22 +153,22 @@ frontend/src/
 │       └── ...
 ├── engine/                        # 训练引擎
 │   ├── TrainingEngine.tsx         # 编排器
-│   ├── PluginRegistry.ts          # 插件注册
 │   ├── MessageBus.ts              # 消息总线
 │   ├── StreamManager.ts           # SSE 流管理
 │   ├── ScoreManager.ts            # 评分管理
 │   ├── PatientProvider.tsx        # 患者数据提供
 │   └── tts/                       # TTS 语音
-├── plugins/                       # 训练插件
-│   ├── inquiry/                   # 问诊对话
-│   ├── nursing-record/            # 护理记录 (6 种记录项)
-│   ├── physical-exam/             # 体格检查
-│   ├── emotion/                   # 情感追踪
-│   ├── initiative/                # 主动提问
-│   ├── patient-info/              # 患者信息
-│   ├── scoring-display/           # 评分展示
-│   └── questionnaire/             # 问卷
 ├── components/
+│   ├── training/                # 训练子组件
+│   │   └── panels/              # 训练插件面板
+│   │       ├── inquiry/                   # 问诊对话
+│   │       ├── nursing-record/            # 护理记录 (6 种记录项)
+│   │       ├── physical-exam/             # 体格检查
+│   │       ├── emotion/                   # 情感追踪
+│   │       ├── initiative/                # 主动提问
+│   │       ├── patient-info/              # 患者信息
+│   │       ├── scoring-display/           # 评分展示
+│   │       └── questionnaire/             # 问卷
 │   ├── Layout.tsx                 # 响应式侧边栏
 │   ├── Toast.tsx                  # sonner 封装
 │   ├── training/PatientPortrait.tsx  # 患者信息 + 护理记录
@@ -183,7 +185,7 @@ frontend/src/
 │   ├── useScorePolling.ts         # 评分轮询
 │   ├── useQuestionnaire.ts        # 问卷
 │   └── useNetworkStatus.ts        # 网络状态检测
-├── stores/                        # Zustand (auth, gradesClasses, llm)
+├── stores/                        # Zustand (auth, gradesClasses)
 ├── lib/utils.ts                   # cn() 工具
 └── styles/tailwind.css            # Tailwind + shadcn 主题
 ```
@@ -192,9 +194,9 @@ frontend/src/
 
 | 优先级 | 事项 | 预估工作量 |
 |--------|------|-----------|
-| Phase 5 | 暗色模式切换开关 | 1-2h |
+| Phase 5 | 暗色模式切换开关 | **已完成** — next-themes 实现 |
 | P1 | 移动端响应式布局 | 4h |
-| P1 | 断网检测 + 消息重试 + Token刷新 | 3-4h |
+| P1 | 断网检测 + 消息重试 + Token刷新 | 2-3h (断网检测已完成，消息重试待完善) |
 | P2 | 补齐导出/统计/问答/批量导入/LLM失败路径测试覆盖 | 4-6h |
 
 ### 快速启动

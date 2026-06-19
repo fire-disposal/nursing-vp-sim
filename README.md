@@ -64,11 +64,10 @@ pnpm run dev
 | [03-数据库设计](docs/03-database.md) | 表结构与字段 |
 | [04-前端设计](docs/04-frontend.md) | 组件与路由 |
 | [05-LLM与评分](docs/05-llm-design.md) | Prompt 与评分 |
-| [07-交接记录](docs/07-polish-handoff.md) | 待完善问题 |
 | [09-运维指南](docs/09-operations.md) | 部署、备份、应急预案 |
+| [10-功能审计](docs/10-functional-audit.md) | 功能矩阵、缺口、未来方向 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 分支模型、PR 规范 |
-| [API 文档](http://localhost:8000/docs) | Swagger UI（后端运行时） |
-| [specs/](docs/superpowers/specs/) · [plans/](docs/superpowers/plans/) | 功能设计文档与实施计划 |
+| [plans/](docs/plans/) | 待完成功能计划 |
 
 ## 提交规范
 

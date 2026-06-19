@@ -28,13 +28,13 @@ TrainingEngine
 
 | # | Severity | Component | Issue | Fix |
 |---|----------|-----------|-------|-----|
-| 1 | HIGH | ChatArea — WelcomeScreen vs ChatDisplay | Instant switch, no fade/slide transition between states; content height may differ causing abrupt layout change | Add `animate-fadeIn` or CSS transition on mount; wrap transition group around conditional render |
-| 2 | HIGH | EmotionIndicator | Returns `null` when `features.emotion` is toggled off — no reserved space, content below snaps up instantly | Reserve a zero-height placeholder or animate `max-h` / `opacity` to 0 |
-| 3 | HIGH | InitiativeBar | Returns `null` when `features.patient_initiative` is toggled off — similar snap reflow (4px, but noticeable under cursor) | Same as #2: animate height to 0 instead of unmount |
+| 1 | HIGH | ChatArea — WelcomeScreen vs ChatDisplay | ~~Instant switch, no fade/slide transition~~ **FIXED** — transition animation added | **Resolved** |
+| 2 | HIGH | EmotionIndicator (components/training/) | ~~Returns `null` when toggled off — snap reflow~~ **FIXED** — height animation added | **Resolved** |
+| 3 | HIGH | InitiativeBar (components/training/) | ~~Returns `null` when toggled off — snap reflow~~ **FIXED** — height animation added | **Resolved** |
 | 4 | MEDIUM | CaseSelect | Loading state shows "加载中..." centered text, not a skeleton matching the card grid (3-col layout) | Use `LoadingSkeleton variant="card"` in a matching grid layout |
 | 5 | MEDIUM | TrainingEngine | Loading state shows spinner, not a skeleton matching the full training layout (header + chat + panel) | Render skeleton matching grid structure |
 | 6 | MEDIUM | RecordDetail | Loading state shows spinner + "加载中..." text, not a skeleton matching the 4 stat cards + content | Use `LoadingSkeleton variant="stats"` + card skeleton |
-| 7 | MEDIUM | PracticeSelectModal | Loading state shows `LoadingState` (spinner + text), but content switches to list instantly with no transition | Add fade-in transition on list mount |
+| 7 | MEDIUM | PracticeSelectModal | ~~Loading state switches to list instantly~~ **FIXED** — fade-in added | **Resolved** |
 | 8 | LOW | PanelHost (mobile) | Sets `document.body.style.overflow = "hidden"` — removes scrollbar, causes viewport width reflow | Use `overflow: clip` or account for scrollbar width |
 | 9 | LOW | PanelHost collapse | CSS `transition-all duration-200` exists for width change; grid content reflows smoothly | Already adequate; no fix needed |
 | 10 | LOW | ScoringOverlay | Has `animate-in fade-in-0` / `animate-out fade-out-0` with `duration-300` — adequate | No fix needed |
@@ -55,9 +55,9 @@ The conditional switch between `WelcomeScreen` and `ChatDisplay` is a React tern
 
 **Suggestion**: Wrap with a `<Transition>` or use CSS `@starting-style` / `animation: fadeIn` on mount. Alternatively, keep `WelcomeScreen` rendered and hidden behind the message list when messages arrive.
 
-### Issue 2: EmotionIndicator unmounts on feature toggle
+### Issue 2: EmotionIndicator unmounts on feature toggle [RESOLVED]
 
-**File**: `EmotionIndicator.tsx:53`
+**File**: `components/training/EmotionIndicator.tsx`
 
 ```typescript
 if (!features.emotion) return null;
@@ -67,9 +67,9 @@ When the user toggles off the emotion feature, the component fully unmounts. Sin
 
 **Suggestion**: Replace `return null` with `return <div className="h-0 overflow-hidden transition-all duration-300" />` or animate `max-h` to 0.
 
-### Issue 3: InitiativeBar unmounts on feature toggle
+### Issue 3: InitiativeBar unmounts on feature toggle [RESOLVED]
 
-**File**: `InitiativeBar.tsx:23`
+**File**: `components/training/InitiativeBar.tsx`
 
 Same pattern as Issue 2 — returns `null` when `features.patient_initiative` is false. The bar is only 4px (`h-1`) but the cumulative shift with EmotionIndicator (38px total) is noticeable.
 
@@ -131,8 +131,8 @@ When the panel opens on mobile, the body scrollbar disappears, causing the viewp
 ## Summary Checklist
 
 - [ ] All loading states have skeleton or spinner — **Partially**: CaseSelect, TrainingEngine, RecordDetail only have text/spinner, no skeleton
-- [ ] No sudden layout shifts on data load — **No**: CaseSelect cards pop in; Welcome → Chat switches abruptly
+- [ ] No sudden layout shifts on data load — **Partially**: Welcome → Chat + PracticeSelectModal transitions fixed; CaseSelect cards still pop in
 - [ ] Panel transitions are animated — **Yes**: `transition-all duration-200` on PanelHost width
-- [ ] Chat area transitions are smooth — **No**: No animation on Welcome ↔ ChatDisplay switch
-- [ ] Emotion/Initiative bars animate in/out — **No**: They `return null` on disable, causing snap reflow
+- [x] Chat area transitions are smooth — **Yes**: Transition animation added to WelcomeScreen ↔ ChatDisplay switch
+- [x] Emotion/Initiative bars animate in/out — **Yes**: Height animation added; no longer snap reflow on disable
 - [ ] Error boundaries show friendly fallbacks — **Yes**: PluginErrorBoundary shows icon + plugin name
