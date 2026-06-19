@@ -122,123 +122,70 @@ if (outputFile) {
 }
 console.error(`${items.length} items across ${range.length} versions`);
 
-// ── Feishu integration ──
+// ── Feishu Bitable integration ──
 const useFeishu = process.argv.includes("--feishu");
 if (useFeishu) {
-  const ok = await publishToFeishu(items, targetTag, prodTag, range);
+  const ok = await publishToFeishu(items, targetTag);
   if (!ok) process.exit(1);
 }
 
-async function publishToFeishu(items, targetTag, prodTag, range) {
+async function publishToFeishu(items, targetTag) {
   const appId = process.env.FEISHU_APP_ID;
   const appSecret = process.env.FEISHU_APP_SECRET;
-  const sheetToken = process.env.FEISHU_SHEET_TOKEN;
-  const chatId = process.env.FEISHU_CHAT_ID;
+  const appToken = process.env.FEISHU_BITABLE_TOKEN;
+  const tableId = process.env.FEISHU_TABLE_ID;
 
-  if (!appId || !appSecret) {
-    console.error("⚠ FEISHU_APP_ID / FEISHU_APP_SECRET not set, skipping feishu");
+  if (!appId || !appSecret || !appToken || !tableId) {
+    console.error("⚠ Feishu env vars missing, skipping");
     return true;
   }
 
-  // 1. Get tenant_access_token
   console.error(">> Feishu auth...");
-  const token = await feishuToken(appId, appSecret);
-  if (!token) return false;
-
-  // 2. Create or reuse spreadsheet
-  let url, tokenToUse;
-  const HEADER = ["版本", "功能", "操作步骤", "预期结果", "结果", "截图", "测试员", "备注"];
-  const DROPDOWN = { type: "dropdown", options: ["通过", "失败", "跳过"] };
-
-  if (sheetToken) {
-    console.error(">> Appending to existing sheet...");
-    tokenToUse = sheetToken;
-    url = `https://nocobase.feishu.cn/sheets/${sheetToken}`;
-  } else {
-    console.error(">> Creating spreadsheet...");
-    const title = `${targetTag} 测试核对单`;
-    const sheetData = await feishuCreateSheet(token, title);
-    if (!sheetData) return false;
-    tokenToUse = sheetData.token;
-    url = sheetData.url;
-    // Write header row with dropdown for 结果 column
-    await feishuAppend(tokenToUse, token, [HEADER]);
-  }
-
-  console.error(`  Sheet: ${url}`);
-
-  // Write items
-  console.error(">> Writing rows...");
-  const rows = items.map((item, i) => {
-    const p = parseItem(item);
-    return [targetTag, p.title, p.op, p.ex, "", "", "", ""];
-  });
-  const ok = await feishuAppend(tokenToUse, token, rows);
-  if (!ok) return false;
-  console.error(`  ${items.length} items appended`);
-
-  // 4. Send message to chat (only in create mode or if chat_id set)
-  if (chatId && !sheetToken) {
-    console.error(">> Sending notification...");
-    await feishuNotify(token, chatId, targetTag, prodTag, items.length, url);
-  }
-
-  console.error(">> Done");
-  return true;
-}
-
-async function feishuToken(appId, appSecret) {
-  const res = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const auth = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+    method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
   });
-  if (!res.ok) { console.error("Feishu auth failed:", res.status); return ""; }
-  const data = await res.json();
-  return data.tenant_access_token || "";
-}
+  const token = (await auth.json())?.tenant_access_token;
+  if (!token) { console.error("Auth failed"); return false; }
 
-async function feishuCreateSheet(token, title) {
-  const res = await fetch("https://open.feishu.cn/open-apis/sheets/v3/spreadsheets", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ title, folder_token: process.env.FEISHU_FOLDER_TOKEN || "" }),
-  });
-  if (!res.ok) { console.error("Feishu create sheet failed:", res.status, await res.text()); return null; }
-  const data = await res.json();
-  return { token: data?.data?.spreadsheet?.spreadsheet_token, url: data?.data?.spreadsheet?.url };
-}
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}`;
 
-async function feishuAppend(sheetToken, accessToken, rows) {
-  const res = await fetch(
-    `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${sheetToken}/values_append`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ valueRange: { range: "A1", values: rows } }),
-    }
-  );
-  if (!res.ok) { console.error("Feishu append failed:", res.status, await res.text()); return false; }
+  console.error(`>> Writing ${items.length} items...`);
+  for (const item of items) {
+    const p = parseItem(item);
+    const record = {
+      fields: {
+        版本: targetTag,
+        功能: p.title,
+        操作步骤: p.op,
+        预期结果: p.ex,
+      },
+    };
+    const res = await fetch(`${base}/records`, { method: "POST", headers, body: JSON.stringify(record) });
+    if (!res.ok) { console.error(`Write failed: ${res.status}`); return false; }
+  }
+  console.error(`  ${items.length} items appended`);
+
+  // Notify chat if configured
+  const chatId = process.env.FEISHU_CHAT_ID;
+  if (chatId && process.env.FEISHU_BITABLE_URL) {
+    const url = process.env.FEISHU_BITABLE_URL;
+    const msg = JSON.stringify({
+      receive_id: chatId,
+      msg_type: "interactive",
+      content: JSON.stringify({
+        header: { title: { tag: "plain_text", content: `📋 ${targetTag} 待测试` } },
+        elements: [{ tag: "markdown", content: `共 ${items.length} 项核对。\n[打开表格](${url})` }],
+      }),
+    });
+    await fetch("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id", {
+      method: "POST", headers, body: msg,
+    });
+    console.error("  Notification sent");
+  }
+
   return true;
-}
-
-async function feishuNotify(token, chatId, targetTag, prodTag, count, url) {
-  const msg = JSON.stringify({
-    receive_id: chatId,
-    msg_type: "interactive",
-    content: JSON.stringify({
-      header: { title: { tag: "plain_text", content: `📋 ${targetTag} 待测试` } },
-      elements: [{
-        tag: "markdown",
-        content: `**${prodTag} → ${targetTag}** 共 ${count} 项核对，请在表格中勾选通过/失败。\n[打开表格](${url})`,
-      }],
-    }),
-  });
-  await fetch("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: msg,
-  });
 }
 
 function parseItem(item) {
