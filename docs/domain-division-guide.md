@@ -103,9 +103,9 @@ DOMAINS="auth training scoring qa admin cases"
 ## 约束:
 - 不修改共享文件（只读列表）
 - 不修改其他域的文件
-- 修改后运行:
-  - 后端: ruff check + ruff format
-  - 前端: tsc --noEmit + biome check
+- 修改后运行域级验证:
+  - `pnpm run check:full`（ruff + ty + biome + tsc + pytest）
+  - 或分步: `pnpm run check:backend` + `pnpm run check:frontend`
 ```
 
 ### 2.4 集成验证
@@ -116,11 +116,9 @@ DOMAINS="auth training scoring qa admin cases"
 ## 全域集成检查
 
 ## 检查项:
-1. 所有域的测试通过: pytest -m "not pg" -q
-2. 前端编译: tsc --noEmit
-3. 前端 lint: biome check
-4. 无未提交文件: git status --short
-5. 提交信息符合 emoji 格式: ✨ feat: / 🐛 fix: / ♻️ refactor: / 🔥 remove:
+1. 全量检查通过: `pnpm run check:full`
+2. 无未提交文件: `git status --short`
+3. 提交信息符合 emoji 格式
 ```
 
 ---
