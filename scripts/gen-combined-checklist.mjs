@@ -160,6 +160,7 @@ async function publishToFeishu(items, targetTag) {
         功能: p.title,
         操作步骤: p.op,
         预期结果: p.ex,
+        来源: "自动生成",
       },
     };
     const res = await fetch(`${base}/records`, { method: "POST", headers, body: JSON.stringify(record) });
@@ -189,7 +190,8 @@ async function publishToFeishu(items, targetTag) {
 }
 
 function parseItem(item) {
-  const title = item.replace(/^###\s+\d+\.\s*/, "").split("\n")[0].trim();
+  let title = item.replace(/^###\s+\d+\.\s*/, "").split("\n")[0].trim();
+  title = title.replace(/^###\s*/, "").trim();
   const body = item.replace(/^###\s+.*\n/, "");
   const opMatch = body.match(/\*\*操作\*\*:\s*(.+)/);
   const exMatch = body.match(/\*\*预期\*\*:\s*(.+)/);
