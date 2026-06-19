@@ -344,8 +344,13 @@ class LLMClient:
 
     async def _select_config(self, purpose: str) -> _CallState:
         """Select a profile from the router and build call state."""
+        from cryptography.fernet import InvalidToken as FernetInvalidToken
+
         config = self._router.select(purpose)
-        api_key = self._router.get_decrypted_key(config)
+        try:
+            api_key = self._router.get_decrypted_key(config)
+        except FernetInvalidToken:
+            raise NoProviderAvailable(f"密钥解密失败：SECRET_KEY 与数据库不匹配，请重建种子或回滚 SECRET_KEY。purpose={purpose}")
 
         state = _CallState()
         state._config = config
