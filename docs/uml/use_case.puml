@@ -82,7 +82,7 @@ package "管理员功能" #E3F2FD {
   usecase (评分量表管理) as UC_Rubric
   usecase (LLM调用日志审计) as UC_Audit
   usecase (用户反馈管理) as UC_Feedback
-  usecase (插件功能开关) as UC_FeatureFlags
+  usecase (功能开关) as UC_FeatureFlags
   usecase (系统健康检查) as UC_Health
 }
 

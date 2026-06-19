@@ -100,6 +100,7 @@ package "病例与训练" #E3F2FD {
     + id: int (PK)
     + user_id: int (FK)
     + case_id: int (FK)
+    + practice_id: int? (FK)
     + assignment_id: str? (FK)
     + status: str
     + scoring_status: str?
@@ -107,6 +108,8 @@ package "病例与训练" #E3F2FD {
     + time_limit: int
     + config_id: str?
     + config_snapshot: JSONB?
+    + practice_snapshot: JSONB?
+    + runtime_state: JSONB?
     + current_phase: str?
     + is_overdue: bool
     + start_time: datetime
@@ -132,11 +135,32 @@ package "病例与训练" #E3F2FD {
     + suggestions: Text?
     + rubric_version: str?
     + model_name: str?
-    + review_status: str?
-    + reviewed_by: int?
-    + reviewed_at: datetime?
-    + review_detail_scores: JSONB?
-    + review_comment: Text?
+    + prompt_version: int?
+    + score_scale: int?
+  }
+
+  class ScoreReview {
+    + id: int (PK)
+    + score_id: int (FK, UNIQUE)
+    + reviewed_by: int? (FK)
+    + detail_scores: JSONB?
+    + comment: Text?
+    + created_at: datetime
+  }
+
+  class Practice {
+    + id: int (PK)
+    + name: str
+    + description: Text?
+    + case_id: int (FK)
+    + school_id: int? (FK)
+    + mode: str
+    + features: JSONB
+    + behavior: JSONB
+    + assessment: JSONB?
+    + is_active: bool
+    + created_at: datetime
+    + updated_at: datetime
   }
 
   class Note {
@@ -152,7 +176,7 @@ package "病例与训练" #E3F2FD {
 ' ============================================================
 ' 插件域 (Plugin Domain)
 ' ============================================================
-package "护理插件" #FFF3E0 {
+package "护理评估" #FFF3E0 {
   class NursingRecord {
     + id: int (PK)
     + record_id: int (FK, UNIQUE)
@@ -359,10 +383,14 @@ Case    "1" -- "*" Assignment : assignments
 Case    "1" -- "*" TrainingRecord : training_sessions
 Class   "1" -- "*" Assignment : assignments
 User    "1" -- "*" Assignment : (teacher)
-Assignment "1" -- "*" TrainingRecord : records
 TrainingRecord "1" -- "*" Message : messages
 TrainingRecord "1" -- "0..1" Score : score
-TrainingRecord "1" -- "0..1" NursingRecord : nursing
+TrainingRecord "1" -- "*" NursingRecord : nursing
+Score           "1" -- "0..1" ScoreReview : review
+
+Case    "1" -- "*" Practice : practices
+Practice "1" -- "*" Assignment : assignments
+Practice "1" -- "*" TrainingRecord : training_sessions
 
 ' -- 问卷 --
 QuestionnaireTemplate "1" -- "*" QuestionnaireQuestion : questions
