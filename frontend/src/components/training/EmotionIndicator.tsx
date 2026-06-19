@@ -52,22 +52,26 @@ export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
 
 	return (
 		<div
-			className={cn(
-				"flex items-center gap-3 px-4 py-1.5 border-b border-border transition-all duration-300 overflow-hidden shrink-0",
-				!features.emotion && "max-h-0 py-0 border-transparent",
-				features.emotion && pulse && "bg-primary/5",
-			)}
+			className="overflow-hidden transition-all duration-300 shrink-0"
+			style={{ maxHeight: features.emotion ? "200px" : "0" }}
 		>
-			<div className="flex items-center gap-1.5">
-				<span className="text-sm">{EMOTION_ICONS[emotion]}</span>
-				<span className={cn("text-xs font-medium", getEmotionColor(emotion))}>
-					{EMOTION_LABELS[emotion]}
-				</span>
-				<span className={cn("size-2 rounded-full", EMOTION_DOT[emotion])} />
-			</div>
-			<div className="flex items-center gap-3 ml-auto text-[10px] text-muted-foreground tabular-nums">
-				<span>信任 {Math.round(values.trust)}</span>
-				<span>舒适 {Math.round(values.comfort)}</span>
+			<div
+				className={cn(
+					"flex items-center gap-3 px-4 py-1.5 border-b border-border",
+					features.emotion && pulse && "bg-primary/5",
+				)}
+			>
+				<div className="flex items-center gap-1.5">
+					<span className="text-sm">{EMOTION_ICONS[emotion]}</span>
+					<span className={cn("text-xs font-medium", getEmotionColor(emotion))}>
+						{EMOTION_LABELS[emotion]}
+					</span>
+					<span className={cn("size-2 rounded-full", EMOTION_DOT[emotion])} />
+				</div>
+				<div className="flex items-center gap-3 ml-auto text-[10px] text-muted-foreground tabular-nums">
+					<span>信任 {Math.round(values.trust)}</span>
+					<span>舒适 {Math.round(values.comfort)}</span>
+				</div>
 			</div>
 		</div>
 	);

@@ -29,18 +29,18 @@ export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 
 	return (
 		<div
-			className={cn(
-				"shrink-0 bg-muted/30 transition-all duration-300 overflow-hidden",
-				features.patient_initiative ? "h-1" : "h-0",
-			)}
+			className="shrink-0 bg-muted/30 overflow-hidden transition-all duration-300"
+			style={{ maxHeight: features.patient_initiative ? "4px" : "0" }}
 		>
-			<div
-				className={cn(
-					"h-full rounded-full transition-all duration-1000",
-					barColor,
-				)}
-				style={{ width: `${Math.min(100, percent)}%` }}
-			/>
+			<div className="h-1 w-full">
+				<div
+					className={cn(
+						"h-full rounded-full transition-all duration-1000",
+						barColor,
+					)}
+					style={{ width: `${Math.min(100, percent)}%` }}
+				/>
+			</div>
 		</div>
 	);
 }

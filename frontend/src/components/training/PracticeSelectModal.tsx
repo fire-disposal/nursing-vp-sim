@@ -69,7 +69,7 @@ export default function PracticeSelectModal({
 			{isLoading ? (
 				<LoadingState />
 			) : (
-				<div className="flex flex-col gap-2 pb-2">
+				<div className="flex flex-col gap-2 pb-2 animate-in fade-in-0 duration-300">
 					{practices && practices.length > 0 ? (
 						practices.map((p) => {
 							const features = activeFeatures(p.features);

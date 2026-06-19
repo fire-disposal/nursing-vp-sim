@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
+import { cn } from "@/lib/utils";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
@@ -39,20 +40,29 @@ export function ChatArea({
 	return (
 		<div className="flex flex-col h-full">
 			<EmotionIndicator bus={bus} features={features} />
-			<div className="flex-1 overflow-hidden">
-				{hasMessages ? (
-					<div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300 flex-1 min-h-0">
-						<ChatDisplay
-							messages={messages}
-							patient={patient}
-							bus={bus}
-							initiativeMsgs={initiativeMsgs}
-							hasStreaming={sending}
-						/>
-					</div>
-				) : (
+			<div className="flex-1 overflow-hidden relative">
+				<div
+					className={cn(
+						"absolute inset-0 transition-opacity duration-300",
+						hasMessages ? "opacity-100" : "opacity-0 pointer-events-none",
+					)}
+				>
+					<ChatDisplay
+						messages={messages}
+						patient={patient}
+						bus={bus}
+						initiativeMsgs={initiativeMsgs}
+						hasStreaming={sending}
+					/>
+				</div>
+				<div
+					className={cn(
+						"absolute inset-0 transition-opacity duration-300",
+						hasMessages ? "opacity-0 pointer-events-none" : "opacity-100",
+					)}
+				>
 					<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
-				)}
+				</div>
 			</div>
 			<InitiativeBar bus={bus} features={features} />
 			<ChatInput onSend={onSend} disabled={sending} loading={sending} />
