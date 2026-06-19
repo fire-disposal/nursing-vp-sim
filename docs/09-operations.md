@@ -64,7 +64,7 @@ pnpm run tag → v2026.06.02-N
 
 | 项目 | 生产 | Staging |
 |------|------|---------|
-| 目录 | `/opt/nursing-vp-sim/` | `/opt/nursing-vp-staging/` |
+| 目录 | `/opt/nursing-vp-sim/` | `/opt/nursing-vp-sim/`（共目录，compose 文件用 `-f docker-compose.staging.yml -p nursing-vp-staging` 隔离） |
 | Compose (来源) | `deploy/docker-compose.prod.yml` | `deploy/docker-compose.staging.yml` |
 | 前端端口 | 9000 | 9080 |
 | 后端端口 | 9001 | 9081 |
@@ -73,7 +73,7 @@ pnpm run tag → v2026.06.02-N
 
 手动部署（当 CD 不可用时）：
 ```bash
-cd /opt/nursing-vp-staging
+cd /opt/nursing-vp-sim
 IMAGE_VERSION=2026.06.02-4 docker compose -f docker-compose.staging.yml --env-file .env up -d
 ```
 
@@ -144,7 +144,7 @@ bash rollback.sh --list
 2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:v1.2.3|ghcr.io/owner/nursing-vp-sim-frontend:v1.2.3
 ```
 
-每次成功部署追加一行，保留最近 5 次记录。手动维护：
+每次成功部署追加一行，保留最近 10 次记录。
 
 ```bash
 # 查看历史
@@ -162,7 +162,7 @@ rm /opt/nursing-vp-sim/.version-history
 
 | 项目 | 生产 (iomt) | Staging (test) |
 |------|-------------|----------------|
-| 工作目录 | `/opt/nursing-vp-sim` | `/opt/nursing-vp-staging` |
+| 工作目录 | `/opt/nursing-vp-sim` | `/opt/nursing-vp-sim`（compose `-p nursing-vp-staging` 隔离） |
 | Compose 文件 | `docker-compose.prod.yml` | `docker-compose.staging.yml` |
 | 后端端口 | 9001 | 9081 |
 | 前端端口 | 9000 | 9080 |
@@ -192,27 +192,13 @@ docker compose up -d
 # 数据库: 进入 psql / 备份 / 恢复
 docker exec -it nursing-db psql -U nursing -d nursing_vp
 
-# 推荐使用封装脚本（自动存档 + 清理 + 完整性校验）
-# 位于仓库 deploy/ 目录，已复制到服务器 /opt/nursing-vp-sim/deploy/
+# 封装脚本（位于仓库 deploy/，手动部署到服务器或从 checkout 执行）
+ssh yecaoyun "cd /opt/nursing-vp-sim && bash deploy/db-backup.sh staging"
+ssh yecaoyun "cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod"
+ssh yecaoyun "cd /opt/nursing-vp-sim && bash deploy/db-restore.sh backups/prod/prod_*.sql.gz --yes"
 
-## 创建备份
-ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh staging"
-ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh prod"
-
-## 查看可用备份
-ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-backup.sh staging list"
-
-## 交互恢复
-ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-restore.sh /opt/nursing-vp-sim/backups/prod/prod_20260615_120000.sql.gz"
-
-## AI 非交互恢复
-ssh yecaoyun "bash /opt/nursing-vp-sim/deploy/db-restore.sh /path/to/backup.gz --yes"
-
-## 自动备份
-# 已通过 crontab 配置: staging 每 3 天 03:00, prod 每 3 天 04:00
-# 备份文件存放: backups/{staging,prod}/
-# 保留策略: 30 天自动清理
-# 版本追踪: .backup-history (AI 可解析)
+# 自动备份: crontab 每 3 天 (staging 03:00 / prod 04:00)
+# 备份路径: backups/{staging,prod}/，保留 30 天
 
 # 迁移版本
 docker exec nursing-vp-sim-backend-1 bash -c "cd /app && alembic current"
@@ -313,8 +299,8 @@ cd /opt/nursing-vp-sim
 docker compose -f docker-compose.yml up -d --force-recreate
 
 # Staging
-cd /opt/nursing-vp-staging
-docker compose -f docker-compose.staging.yml up -d --force-recreate
+cd /opt/nursing-vp-sim
+docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-staging up -d --force-recreate
 
 # 方案 B: 仅重启后端
 docker restart nursing-vp-sim-backend-1
@@ -361,8 +347,8 @@ sleep 10 && docker restart nursing-vp-sim-backend-1
 
 **数据恢复** (如重启无效):
 ```bash
-ls -la /tmp/nursing_db_backup_*.sql.gz
-gunzip -c /tmp/nursing_db_backup_<date>.sql.gz | \
+ls /opt/nursing-vp-sim/backups/prod/
+gunzip -c /opt/nursing-vp-sim/backups/prod/prod_<date>.sql.gz | \
   docker exec -i nursing-db psql -U nursing -d nursing_vp
 ```
 
@@ -453,9 +439,40 @@ sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s 
 
 ---
 
-## 监控要点
+## 监控体系
 
-#
+### 监控脚本
+
+位于仓库 `deploy/monitor/`，部署到 `/opt/monitor/`，由 crontab 驱动。
+
+| 脚本 | 频率 | 用途 |
+|------|------|------|
+| `monitor.py` | `*/15 * * * *` | 系统监控：Docker 容器状态、磁盘/CPU/内存、HTTP 端点健康、异常告警邮件 |
+| `daily_report.py` | `0 9 * * *` | 每日运维报告：调用 `/api/ops/report` 汇总两环境数据，HTML 邮件 |
+| `weekly_report.py` | `0 9 * * 1` | 周报：赛博朋克主题 HTML 邮件，含容器/资源/告警汇总 |
+
+**配置方式：** 所有 SMTP 和端口配置通过环境变量读取（不再使用 `config.py`），从 `/opt/nursing-vp-sim/.env` 中读取：
+
+```bash
+SMTP_HOST=smtp.qq.com
+SMTP_PORT=587
+SMTP_USER=your-email@qq.com
+SMTP_PASS=your-authorization-code
+MAIL_FROM=your-email@qq.com
+MAIL_TO=your-email@qq.com
+# 可选：DISK_THRESHOLD_PCT=85 CPU_LOAD_MULTIPLIER=1.5 MEM_MIN_MB=500
+```
+
+**Crontab 参考：**
+```
+*/15 * * * * cd /opt/monitor && /usr/bin/python3 monitor.py >> /opt/monitor/cron.log 2>&1
+0 9 * * 1 cd /opt/monitor && /usr/bin/python3 weekly_report.py >> /opt/monitor/cron.log 2>&1
+0 9 * * * cd /opt/monitor && /usr/bin/python3 daily_report.py >> /opt/monitor/cron.log 2>&1
+0 3 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh staging >> /var/log/db-backup.log 2>&1
+0 4 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod >> /var/log/db-backup.log 2>&1
+```
+
+### 诊断端点
 
 ### 诊断端点
 
