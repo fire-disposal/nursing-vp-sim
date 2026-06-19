@@ -9,6 +9,12 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
+function arg(short, long) {
+  const a = process.argv.find(x => x.startsWith(`-${short}=`) || x.startsWith(`--${long}=`));
+  return a ? a.split("=").slice(1).join("=") : "";
+}
+const outputFile = arg("o", "output");
+
 function git(cmd) {
   try { return execSync(`git ${cmd}`, { encoding: "utf-8", stdio: "pipe" }).trim(); }
   catch { return ""; }
@@ -17,12 +23,6 @@ function git(cmd) {
 function ssh(cmd) {
   try { return execSync(`ssh yecaoyun "${cmd}"`, { encoding: "utf-8", stdio: "pipe", timeout: 5000 }).trim(); }
   catch { return ""; }
-}
-
-// Parse args: support both --key=value and -k=value
-function arg(short, long) {
-  const a = process.argv.find(x => x.startsWith(`-${short}=`) || x.startsWith(`--${long}=`));
-  return a ? a.split("=").slice(1).join("=") : "";
 }
 
 // Get all version tags sorted
@@ -67,9 +67,8 @@ const prodIdx = allTags.indexOf(prodTag);
 const targetIdx = allTags.indexOf(targetTag);
 const range = allTags.slice(Math.max(0, prodIdx), targetIdx + 1);
 
-// Read and combine non-empty checklists
-let combined = "";
-let count = 0;
+// Read and combine non-empty checklists — extract items and renumber
+const items = [];
 
 for (const tag of range) {
   const file = path.join(ROOT, "docs", "testing", `checklist-${tag}.md`);
@@ -79,33 +78,27 @@ for (const tag of range) {
   const stripped = content.replace(/\s/g, "");
   if (stripped === "无需测试" || stripped === "") continue;
 
-  // Extract body: skip title and version/env headers
-  const body = content.split("\n")
-    .filter(l => {
-      const t = l.trim();
-      if (t.startsWith("# ")) return false;
-      if (t.startsWith("**版本**") || t.startsWith("**环境**")) return false;
-      return true;
-    })
-    .join("\n")
-    .trim();
-
-  if (!body) continue;
-
-  combined += body + "\n\n";
-  count++;
+  // Split by "###" sections, keep each item block
+  const sections = content.split(/\n(?=###\s)/);
+  for (const section of sections) {
+    const s = section.trim();
+    if (!s.startsWith("### ")) continue;
+    // Strip original number, keep the rest
+    const cleaned = s.replace(/^###\s+\d+\.\s*/, "### ");
+    if (cleaned.trim()) items.push(cleaned);
+  }
 }
 
-// Output
-const outFile = arg("o", "output");
-
-if (!combined.trim()) {
+if (items.length === 0) {
   const msg = "无需测试\n";
-  if (outFile) fs.writeFileSync(path.resolve(outFile), msg, "utf-8");
+  if (outputFile) fs.writeFileSync(path.resolve(outputFile), msg, "utf-8");
   else console.log(msg);
   console.error("No user-facing changes found");
   process.exit(0);
 }
+
+// Renumber items sequentially
+const numbered = items.map((item, i) => item.replace(/^###\s+/, `### ${i + 1}. `));
 
 const output = [
   `# ${targetTag} 合并测试清单`,
@@ -115,16 +108,16 @@ const output = [
   "",
   "---",
   "",
-  combined.trim(),
+  numbered.join("\n\n"),
   "",
 ].join("\n");
 
-if (outFile) {
-  const outPath = path.resolve(outFile);
+if (outputFile) {
+  const outPath = path.resolve(outputFile);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, output, "utf-8");
   console.error(`Written: ${outPath}`);
 } else {
   console.log(output);
 }
-console.error(`${count} versions with user-facing changes`);
+console.error(`${items.length} items across ${range.length} versions`);
