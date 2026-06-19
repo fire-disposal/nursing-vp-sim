@@ -147,7 +147,7 @@ async function publishToFeishu(items, targetTag, prodTag, range) {
 
   // 2. Create or reuse spreadsheet
   let url, tokenToUse;
-  const HEADER = ["版本", "功能", "操作步骤", "预期结果", "结果", "测试员", "备注"];
+  const HEADER = ["版本", "功能", "操作步骤", "预期结果", "结果", "截图", "测试员", "备注"];
   const DROPDOWN = { type: "dropdown", options: ["通过", "失败", "跳过"] };
 
   if (sheetToken) {
@@ -171,7 +171,7 @@ async function publishToFeishu(items, targetTag, prodTag, range) {
   console.error(">> Writing rows...");
   const rows = items.map((item, i) => {
     const p = parseItem(item);
-    return [targetTag, p.title, p.op, p.ex, "", "", ""];
+    return [targetTag, p.title, p.op, p.ex, "", "", "", ""];
   });
   const ok = await feishuAppend(tokenToUse, token, rows);
   if (!ok) return false;
