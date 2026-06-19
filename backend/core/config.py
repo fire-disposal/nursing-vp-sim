@@ -100,6 +100,8 @@ LLM_LOG_OVERFLOW_DIR = os.getenv("LLM_LOG_OVERFLOW_DIR", "/app/data/llm_logs")
 LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10"))
 LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
 
+LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "1"))
+
 # QA RAG 开关 —— 启用后从教材库检索相关内容注入问答 prompt
 QA_RAG_ENABLED = os.getenv("QA_RAG_ENABLED", "false").lower() in ("true", "1", "yes")
 
@@ -165,4 +167,5 @@ def log_config(logger):
     logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)
+    logger.info("  LLM Workers: %d (semaphore divisor)", LLM_WORKER_COUNT)
     logger.info("──────────────────────────────────────")

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 class ExamContext:
     record: Any  # TrainingRecord
     emotion_cache: Any  # EmotionCache
+    db: Any  # Session
     op_type: str
     explanation_given: bool
     exam_count: int
@@ -70,7 +71,7 @@ _EXAM_EMOTION_IMPACT_LABELS: dict[str, str] = {
 def _apply_exam_emotion_effect(ctx: ExamContext) -> ExamEffect | None:
     from contexts.patient.emotion import get_emotion
 
-    emotion = get_emotion(ctx.record.id, ctx.emotion_cache)
+    emotion = get_emotion(ctx.record.id, ctx.emotion_cache, ctx.db)
     impact = EXAM_EMOTION_IMPACT.get(ctx.op_type)
     if not impact:
         return None
@@ -101,6 +102,7 @@ def _apply_exam_emotion_effect(ctx: ExamContext) -> ExamEffect | None:
                 "timestamp": "",
             }
         )
+        ctx.emotion_cache.set(ctx.record.id, emotion, ctx.db)
 
     impact_note = _build_impact_note(ctx.op_type, impact, dt, dc, ctx.exam_count, ctx.explanation_given)
     effect = ExamEffect(emotion_delta=(dt, dc))
@@ -202,6 +204,7 @@ def perform_exam(
         ctx = ExamContext(
             record=record,
             emotion_cache=request.app.state.emotion_cache,
+            db=db,
             op_type=op_type,
             explanation_given=explained,
             exam_count=exam_count,

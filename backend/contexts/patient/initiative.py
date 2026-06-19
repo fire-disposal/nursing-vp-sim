@@ -9,6 +9,10 @@ from __future__ import annotations
 import logging
 import random
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 from infrastructure.cache import InitiativeCache
 
@@ -119,20 +123,21 @@ def generate_initiative(
 # ── Cache-based API ──
 
 
-def update_initiative_timer(record_id: int, cache: InitiativeCache, last_reply_length: int = 0) -> None:
+def update_initiative_timer(record_id: int, cache: InitiativeCache, db: Session, last_reply_length: int = 0) -> None:
     now = datetime.now(UTC).timestamp()
-    cache.update_timer(record_id, now)
+    cache.update_timer(record_id, now, db)
 
 
 def get_initiative_seconds(
     record_id: int,
     cache: InitiativeCache,
+    db: Session,
     personality: dict,
     trust: int,
     comfort: int,
 ) -> tuple[float, float]:
     now = datetime.now(UTC).timestamp()
-    last_reply = cache.get_timer(record_id, now)
+    last_reply = cache.get_timer(record_id, now, db)
     elapsed = now - last_reply
 
     patience = personality.get("patience", "normal")
@@ -149,30 +154,32 @@ def get_initiative_seconds(
 def check_initiate_ready(
     record_id: int,
     cache: InitiativeCache,
+    db: Session,
     personality: dict,
     trust: int,
     comfort: int,
 ) -> bool:
-    elapsed, threshold = get_initiative_seconds(record_id, cache, personality, trust, comfort)
+    elapsed, threshold = get_initiative_seconds(record_id, cache, db, personality, trust, comfort)
     return elapsed >= threshold
 
 
 def should_initiate(
     record_id: int,
     cache: InitiativeCache,
+    db: Session,
     personality: dict,
     trust: int,
     comfort: int,
 ) -> bool:
-    if not check_initiate_ready(record_id, cache, personality, trust, comfort):
+    if not check_initiate_ready(record_id, cache, db, personality, trust, comfort):
         return False
     now = datetime.now(UTC).timestamp()
-    last_trigger = cache.get_last_trigger(record_id)
+    last_trigger = cache.get_last_trigger(record_id, db)
     if now - last_trigger < 8:
         return False
-    cache.set_last_trigger(record_id, now)
+    cache.set_last_trigger(record_id, now, db)
     return True
 
 
-def cleanup_initiative(record_id: int, cache: InitiativeCache) -> None:
-    cache.cleanup(record_id)
+def cleanup_initiative(record_id: int, cache: InitiativeCache, db: Session) -> None:
+    cache.cleanup(record_id, db)

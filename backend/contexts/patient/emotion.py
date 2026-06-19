@@ -12,6 +12,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 from infrastructure.cache import EmotionCache
 
@@ -97,6 +101,17 @@ class EmotionState:
                 intent_label,
             )
 
+    def to_dict(self) -> dict:
+        return {"trust": self.trust, "comfort": self.comfort, "history": self.history}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EmotionState:
+        return cls(
+            trust=data.get("trust", 50),
+            comfort=data.get("comfort", 50),
+            history=data.get("history", []),
+        )
+
 
 def _build_author_note(trust: int, comfort: int) -> str:
     label, desc = _lookup_state(trust, comfort)
@@ -129,16 +144,17 @@ def _build_author_note(trust: int, comfort: int) -> str:
     return "【" + " | ".join(parts) + "】"
 
 
-# ── 缓存 API（使用 EmotionCache 实例） ──
+# ── 缓存 API（使用 EmotionCache + DB session） ──
 
 
-def get_emotion(record_id: int, cache: EmotionCache) -> EmotionState:
-    state = cache.get(record_id)
+def get_emotion(record_id: int, cache: EmotionCache, db: Session) -> EmotionState:
+    state = cache.get(record_id, db)
     if state is None or not isinstance(state, EmotionState):
         state = EmotionState()
-        cache.set(record_id, state)
+        cache.set(record_id, state, db)
+        db.flush()
     return state
 
 
-def cleanup_emotion(record_id: int, cache: EmotionCache) -> None:
-    cache.cleanup(record_id)
+def cleanup_emotion(record_id: int, cache: EmotionCache, db: Session) -> None:
+    cache.cleanup(record_id, db)

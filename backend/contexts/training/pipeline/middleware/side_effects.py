@@ -91,7 +91,10 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     features = ctx.state.get("features") or {}
 
     if features.get("emotion") and ctx.llm_reply:
-        emotion = get_emotion(ctx.record.id, app.emotion_cache)
+        emotion_cache = getattr(app, "emotion_cache", None)
+        if emotion_cache is None:
+            return
+        emotion = get_emotion(ctx.record.id, emotion_cache, ctx.db)
         emotion.decay()
 
         action_dt, action_dc, action_label = _apply_action_emotion(ctx.llm_reply)
@@ -126,13 +129,13 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         return
 
     try:
-        emotion_state = get_emotion(ctx.record.id, app.emotion_cache)
+        emotion_state = get_emotion(ctx.record.id, app.emotion_cache, ctx.db)
         case_data = ctx.case_data or {}
         personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
 
         # Emit initiative state for frontend polling
         elapsed, threshold = get_initiative_seconds(
-            ctx.record.id, initiative_cache, personality, emotion_state.trust, emotion_state.comfort
+            ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         )
         ctx.system_events.append(
             {
@@ -145,9 +148,9 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         )
 
         if not should_initiate(
-            ctx.record.id, initiative_cache, personality, emotion_state.trust, emotion_state.comfort
+            ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         ):
-            update_initiative_timer(ctx.record.id, initiative_cache, len(ctx.llm_reply))
+            update_initiative_timer(ctx.record.id, initiative_cache, ctx.db, len(ctx.llm_reply))
             return
 
         msg_text = generate_initiative(personality, emotion_state.trust, emotion_state.comfort, 999.0)
@@ -156,12 +159,13 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
 
         msg = Message(record_id=ctx.record.id, role="patient", content=msg_text)
         ctx.db.add(msg)
-        ctx.db.commit()
-        ctx.db.refresh(msg)
+        ctx.db.flush()
 
         ctx.state.setdefault("_saved_messages", []).append(msg)
         ctx.state.setdefault("_post_stream_events", []).append({"initiative": {"content": msg_text, "id": msg.id}})
     except Exception:
         log.warning("Initiative generation failed: record_id=%d", ctx.record.id, exc_info=True)
     finally:
-        update_initiative_timer(ctx.record.id, initiative_cache, len(ctx.llm_reply or ""))
+        update_initiative_timer(ctx.record.id, initiative_cache, ctx.db, len(ctx.llm_reply or ""))
+
+    ctx.db.commit()

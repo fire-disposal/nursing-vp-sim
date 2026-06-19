@@ -8,6 +8,7 @@ retry, rate-limiting, and logging logic.
 import asyncio
 import json
 import logging
+import os
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -81,10 +82,12 @@ class LLMClient:
         self._log_worker = log_worker
         self._metrics = metrics
         # Per-purpose semaphores — scoring doesn't block chat
+        _divisor = max(1, int(os.getenv("LLM_WORKER_COUNT", "1")))
         self._semaphores: dict[str, asyncio.Semaphore] = {
-            p: asyncio.Semaphore(limit) for p, limit in _PURPOSE_SEMAPHORE_LIMITS.items()
+            p: asyncio.Semaphore(max(1, limit // _divisor))
+            for p, limit in _PURPOSE_SEMAPHORE_LIMITS.items()
         }
-        self._default_sem = asyncio.Semaphore(50)
+        self._default_sem = asyncio.Semaphore(max(1, 50 // _divisor))
 
     def _sem_for(self, purpose: str) -> asyncio.Semaphore:
         for prefix in _PURPOSE_SEMAPHORE_LIMITS:

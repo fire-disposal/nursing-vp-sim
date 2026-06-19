@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import threading
+import time as _time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -140,6 +141,14 @@ class ProfileRouter:
             if not binding and purpose != "*":
                 binding = self._bindings.get("*")
 
+            if binding and not isinstance(binding, _SyntheticConfig):
+                profile = self._profiles.get(binding.secret_id)
+                if profile and not isinstance(profile, _SyntheticConfig):
+                    last_check = getattr(profile, "_last_db_check", 0.0)
+                    if _time.monotonic() - last_check > 5.0:
+                        self._refresh_profile_from_db(profile)
+                        profile._last_db_check = _time.monotonic()
+
             if binding and binding.status == "active":
                 profile = self._profiles.get(binding.secret_id)
                 if profile and profile.status == "active":
@@ -265,6 +274,23 @@ class ProfileRouter:
                 else:
                     next_month = next_month.replace(month=today.month + 1)
                 profile.degraded_until = next_month
+
+    def _refresh_profile_from_db(self, profile) -> None:
+        from core.database import SessionLocal
+        from models import ApiSecret
+
+        db = SessionLocal()
+        try:
+            row = db.query(ApiSecret).filter(ApiSecret.id == profile.id).first()
+            if row:
+                profile.status = row.status
+                profile.degraded_reason = row.degraded_reason
+                profile.degraded_until = row.degraded_until
+                profile.consecutive_failures = row.consecutive_failures
+        except Exception:
+            log.debug("Failed to refresh profile %d from DB", profile.id, exc_info=True)
+        finally:
+            db.close()
 
     @staticmethod
     def _persist_stats(profile):

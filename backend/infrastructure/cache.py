@@ -1,142 +1,132 @@
-"""In-memory caches — EmotionCache, InitiativeCache.
-
-Replaces module-level dicts that were accessed across modules.
-Stores rich state objects from emotion.py and initiative.py.
-"""
+"""Session state caches — DB-backed for multi-worker safety."""
 
 from __future__ import annotations
 
 import logging
-import time
-from collections import OrderedDict
 from collections.abc import Set as AbstractSet
-from typing import Set  # noqa: UP035 — name collision with self.set() method
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from contexts.patient.emotion import EmotionState
+    from models import TrainingSessionState
 
 log = logging.getLogger(__name__)
 
 
-class _TTLOrderedDict:
-    """Ordered dict with maxsize eviction and TTL expiry."""
-
-    def __init__(self, maxsize: int = 200, ttl: float = 3600):
-        self._maxsize = maxsize
-        self._ttl = ttl
-        self._store: OrderedDict[int, tuple[float, object]] = OrderedDict()
-
-    def _prune(self) -> None:
-        now = time.monotonic()
-        stale = [k for k, (ts, _) in self._store.items() if now - ts > self._ttl]
-        for k in stale:
-            del self._store[k]
-
-    def get(self, key: int) -> object | None:
-        self._prune()
-        item = self._store.get(key)
-        if item is None:
-            return None
-        ts, val = item
-        if time.monotonic() - ts > self._ttl:
-            del self._store[key]
-            return None
-        self._store.move_to_end(key)
-        return val
-
-    def set(self, key: int, value: object) -> None:
-        self._prune()
-        self._store[key] = (time.monotonic(), value)
-        self._store.move_to_end(key)
-        while len(self._store) > self._maxsize:
-            self._store.popitem(last=False)
-
-    def pop(self, key: int, default=None) -> object | None:
-        item = self._store.pop(key, default)
-        if isinstance(item, tuple):
-            return item[1]
-        return item
-
-    def __contains__(self, key: int) -> bool:
-        self._prune()
-        return key in self._store
-
-    def __len__(self) -> int:
-        self._prune()
-        return len(self._store)
-
-    def keys(self) -> Set[int]:  # noqa: UP006 — `set` collides with self.set() method
-        self._prune()
-        return set(self._store.keys())
-
-
 class EmotionCache:
-    """Per-record emotion state cache. Lives in app.state."""
+    """DB-backed emotion state cache."""
 
-    def __init__(self, maxsize: int = 200, ttl: float = 3600) -> None:
-        self._store = _TTLOrderedDict(maxsize=maxsize, ttl=ttl)
+    def __init__(self) -> None:
+        pass
 
-    def get(self, record_id: int) -> object | None:
-        return self._store.get(record_id)
+    def get(self, record_id: int, db: Session) -> object | None:
+        from models import TrainingSessionState
 
-    def set(self, record_id: int, state: object) -> None:
-        self._store.set(record_id, state)
+        row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
+        if row is None or not isinstance(row.emotion_state, dict) or not row.emotion_state.get("trust"):
+            return None
+        from contexts.patient.emotion import EmotionState
 
-    def cleanup(self, record_id: int) -> None:
-        self._store.pop(record_id, None)
+        return EmotionState.from_dict(row.emotion_state)
 
-    def cleanup_completed(self, completed_ids: AbstractSet[int]) -> int:
-        count = 0
-        for rid in completed_ids:
-            if self._store.pop(rid, None) is not None:
-                count += 1
-        if count:
-            log.info("Cleaned %d completed emotion cache entries", count)
-        return count
+    def set(self, record_id: int, state: EmotionState, db: Session) -> None:
+        from contexts.patient.emotion import EmotionState
+        from models import TrainingSessionState
+
+        if isinstance(state, EmotionState):
+            row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
+            if row:
+                row.emotion_state = state.to_dict()
+            else:
+                row = TrainingSessionState(record_id=record_id, emotion_state=state.to_dict())
+                db.add(row)
+
+    def cleanup(self, record_id: int, db: Session) -> None:
+        from models import TrainingSessionState
+
+        row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
+        if row:
+            db.delete(row)
+
+    def cleanup_completed(self, completed_ids: AbstractSet[int], db: Session) -> int:
+        from models import TrainingSessionState
+
+        if not completed_ids:
+            return 0
+        return (
+            db.query(TrainingSessionState)
+            .filter(TrainingSessionState.record_id.in_(list(completed_ids)))
+            .delete(synchronize_session=False)
+        )
 
     @property
     def all_ids(self) -> AbstractSet[int]:
-        return self._store.keys()
+        return set()
 
 
 class InitiativeCache:
-    """Per-record initiative timer cache. Lives in app.state."""
+    """DB-backed initiative timer cache."""
 
-    def __init__(self, maxsize: int = 200, ttl: float = 3600) -> None:
-        self._timers = _TTLOrderedDict(maxsize=maxsize, ttl=ttl)
-        self._last_triggers = _TTLOrderedDict(maxsize=maxsize, ttl=ttl)
+    def __init__(self) -> None:
+        pass
 
-    def update_timer(self, record_id: int, timestamp: float) -> None:
-        self._timers.set(record_id, timestamp)
-        self._last_triggers.pop(record_id, None)
+    def _get_row(self, record_id: int, db: Session) -> TrainingSessionState | None:
+        from models import TrainingSessionState
 
-    def get_timer(self, record_id: int, default: float) -> float:
-        val = self._timers.get(record_id)
-        if isinstance(val, (int, float)):
-            return float(val)
+        return db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
+
+    def update_timer(self, record_id: int, timestamp: float, db: Session) -> None:
+        row = self._get_row(record_id, db)
+        if row:
+            row.initiative_timer = timestamp
+            row.initiative_last_trigger = None
+        else:
+            from models import TrainingSessionState
+
+            db.add(TrainingSessionState(record_id=record_id, initiative_timer=timestamp))
+            db.flush()
+
+    def get_timer(self, record_id: int, default: float, db: Session) -> float:
+        row = self._get_row(record_id, db)
+        if row and row.initiative_timer is not None:
+            return row.initiative_timer
         return default
 
-    def get_last_trigger(self, record_id: int) -> float:
-        val = self._last_triggers.get(record_id)
-        if isinstance(val, (int, float)):
-            return float(val)
+    def get_last_trigger(self, record_id: int, db: Session) -> float:
+        row = self._get_row(record_id, db)
+        if row and row.initiative_last_trigger is not None:
+            return row.initiative_last_trigger
         return 0.0
 
-    def set_last_trigger(self, record_id: int, timestamp: float) -> None:
-        self._last_triggers.set(record_id, timestamp)
+    def set_last_trigger(self, record_id: int, timestamp: float, db: Session) -> None:
+        row = self._get_row(record_id, db)
+        if row:
+            row.initiative_last_trigger = timestamp
+        else:
+            from models import TrainingSessionState
 
-    def cleanup(self, record_id: int) -> None:
-        self._timers.pop(record_id, None)
-        self._last_triggers.pop(record_id, None)
+            db.add(TrainingSessionState(record_id=record_id, initiative_last_trigger=timestamp))
+            db.flush()
 
-    def cleanup_completed(self, completed_ids: AbstractSet[int]) -> int:
-        count = 0
-        for rid in completed_ids:
-            t1 = self._timers.pop(rid, None)
-            t2 = self._last_triggers.pop(rid, None)
-            if t1 is not None or t2 is not None:
-                count += 1
-        if count:
-            log.info("Cleaned %d completed initiative cache entries", count)
-        return count
+    def cleanup(self, record_id: int, db: Session) -> None:
+        row = self._get_row(record_id, db)
+        if row:
+            row.initiative_timer = None
+            row.initiative_last_trigger = None
+
+    def cleanup_completed(self, completed_ids: AbstractSet[int], db: Session) -> int:
+        from models import TrainingSessionState
+
+        if not completed_ids:
+            return 0
+        return (
+            db.query(TrainingSessionState)
+            .filter(TrainingSessionState.record_id.in_(list(completed_ids)))
+            .delete(synchronize_session=False)
+        )
 
     @property
-    def all_ids(self) -> set[int]:
-        return set(self._timers.keys()) | set(self._last_triggers.keys())
+    def all_ids(self) -> AbstractSet[int]:
+        return set()

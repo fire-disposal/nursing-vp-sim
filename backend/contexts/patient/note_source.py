@@ -34,7 +34,7 @@ class EmotionNoteSource(NoteSource):
         cache = getattr(ctx.app_state, "emotion_cache", None)
         if cache is None:
             return None
-        emotion = get_emotion(ctx.record.id, cache)
+        emotion = get_emotion(ctx.record.id, cache, ctx.db)
         return emotion.note
 
 

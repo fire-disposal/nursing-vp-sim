@@ -1,14 +1,11 @@
 """QA 问答系统 —— 缓存 + 历史构建
 
-QACache: 同问题避免重复 LLM 调用（仅对新会话首问生效）
+QA Cache: 查询 qa_records 表去重，避免重复 LLM 调用
 build_qa_history: 从 DB 构建对话历史 messages
 """
 
-import asyncio
-import hashlib
 import logging
 import re
-import time
 
 from sqlalchemy.orm import Session
 
@@ -16,67 +13,53 @@ from models import QARecord
 
 log = logging.getLogger(__name__)
 
-_MAX_ENTRIES = 200
-_TTL_SECONDS = 3600
 
-
-class QACache:
-    def __init__(self):
-        self._store: dict[str, tuple[str, float]] = {}
-        self._lock = asyncio.Lock()
-
-    @staticmethod
-    def _key(question: str) -> str:
-        return hashlib.sha256(question.strip().encode()).hexdigest()
-
-    async def get(self, question: str) -> str | None:
-        key = self._key(question)
-        async with self._lock:
-            if key in self._store:
-                answer, ts = self._store[key]
-                if time.monotonic() - ts < _TTL_SECONDS:
-                    return answer
-                del self._store[key]
+def get_cached_answer(question: str, db: Session) -> str | None:
+    """检查同一问题是否已有回答（不限会话，跨会话缓存）。"""
+    normalized = question.strip()
+    user_record = (
+        db.query(QARecord)
+        .filter(QARecord.role == "user", QARecord.content == normalized)
+        .order_by(QARecord.created_at.desc())
+        .first()
+    )
+    if not user_record:
         return None
-
-    async def set(self, question: str, answer: str):
-        key = self._key(question)
-        async with self._lock:
-            if len(self._store) >= _MAX_ENTRIES:
-                cutoff = time.monotonic() - _TTL_SECONDS
-                expired = [k for k, (_, ts) in self._store.items() if ts < cutoff]
-                for k in expired:
-                    del self._store[k]
-            if len(self._store) < _MAX_ENTRIES:
-                self._store[key] = (answer, time.monotonic())
-
-    def size(self) -> int:
-        return len(self._store)
-
-
-_cache = QACache()
-
-
-def get_qa_cache() -> QACache:
-    return _cache
+    row = (
+        db.query(QARecord)
+        .filter(
+            QARecord.session_id == user_record.session_id,
+            QARecord.role == "assistant",
+            QARecord.id > user_record.id,
+        )
+        .order_by(QARecord.id.asc())
+        .first()
+    )
+    if row:
+        return row.content
+    return None
 
 
 MAX_HISTORY_TOKENS = 2000
-
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]")
 
 
 def _estimate_tokens(text: str) -> int:
-    """粗略估算 token 数：中文 ~2 token/字，英文 ~0.25 token/字，保守偏向高估避免上下文超限。"""
+    """粗略估算 token 数：中文 ~2 token/字，英文 ~0.25 token/字"""
     cjk = len(_CJK_RE.findall(text))
     other = len(text) - cjk
     return int(cjk * 2 + other * 0.25)
 
 
 def build_qa_history(session_id: int, db: Session) -> list[dict]:
-    """从 DB 查询 QA 会话历史，构建 role-mapped messages 列表（token 感知截断，最多 2000 tokens）"""
-    records = db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.desc()).all()
+    """从 DB 查询 QA 会话历史，构建 role-mapped messages 列表（token 感知截断）"""
+    records = (
+        db.query(QARecord)
+        .filter(QARecord.session_id == session_id)
+        .order_by(QARecord.created_at.desc())
+        .all()
+    )
     total_tokens = 0
     kept = []
     for r in records:

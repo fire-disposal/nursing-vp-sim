@@ -42,7 +42,7 @@ def _reset_initiative_timer(ctx: PipelineContext) -> None:
     try:
         app_state = ctx.app_state
         if hasattr(app_state, "initiative_cache") and app_state.initiative_cache is not None:
-            update_initiative_timer(ctx.record.id, app_state.initiative_cache, len(ctx.student_input or ""))
+            update_initiative_timer(ctx.record.id, app_state.initiative_cache, ctx.db, len(ctx.student_input or ""))
     except Exception:
         log.warning("Failed to reset initiative timer: record_id=%d", ctx.record.id, exc_info=True)
 

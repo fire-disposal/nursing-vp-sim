@@ -100,7 +100,7 @@ def get_training_state(
 
     emotion_data = None
     if features.get("emotion"):
-        emotion = get_emotion(record_id, app_state.emotion_cache)
+        emotion = get_emotion(record_id, app_state.emotion_cache, db)
         emotion_history = getattr(emotion, "history", [])
         emotion_data = {
             "trust": emotion.trust,
@@ -114,9 +114,9 @@ def get_training_state(
 
     initiative_data = None
     if features.get("patient_initiative"):
-        emotion = get_emotion(record_id, app_state.emotion_cache)
+        emotion = get_emotion(record_id, app_state.emotion_cache, db)
         elapsed, threshold = get_initiative_seconds(
-            record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort
+            record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort
         )
         initiative_data = {
             "elapsed_seconds": round(elapsed, 1),
@@ -164,9 +164,9 @@ def trigger_initiative(
     case_data = case.case_data or {}
     personality = case_data.get("personality", {})
     app_state = request.app.state
-    emotion = get_emotion(record_id, app_state.emotion_cache)
+    emotion = get_emotion(record_id, app_state.emotion_cache, db)
 
-    if not should_initiate(record_id, app_state.initiative_cache, personality, emotion.trust, emotion.comfort):
+    if not should_initiate(record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort):
         return {"triggered": False, "message": None}
 
     msg = generate_initiative(personality, emotion.trust, emotion.comfort, wait_seconds=60)
@@ -177,7 +177,7 @@ def trigger_initiative(
         db.add(patient_msg)
         db.commit()
         db.refresh(patient_msg)
-        update_initiative_timer(record_id, request.app.state.initiative_cache, len(msg))
+        update_initiative_timer(record_id, request.app.state.initiative_cache, db, len(msg))
         return {"triggered": True, "message": msg, "id": patient_msg.id}
 
     return {"triggered": False, "message": None}
@@ -195,7 +195,7 @@ def get_emotion_history(
         raise HTTPException(status_code=404, detail="训练记录不存在")
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
-    emotion = get_emotion(record_id, request.app.state.emotion_cache)
+    emotion = get_emotion(record_id, request.app.state.emotion_cache, db)
     return {"history": getattr(emotion, "history", [])}
 
 

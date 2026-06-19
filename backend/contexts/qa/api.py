@@ -19,7 +19,7 @@ from schemas import (
     QASessionCreate,
 )
 
-from .logic import build_qa_history, get_qa_cache
+from .logic import build_qa_history, get_cached_answer
 
 log = logging.getLogger(__name__)
 
@@ -72,8 +72,7 @@ async def create_session(
     db.add(user_msg)
     db.commit()
 
-    qa_cache = get_qa_cache()
-    cached = await qa_cache.get(req.question)
+    cached = get_cached_answer(req.question, db)
     if cached is not None:
         assistant_msg = QARecord(
             session_id=session.id,
@@ -128,8 +127,6 @@ async def create_session(
     db.add(assistant_msg)
     session.updated_at = func.now()
     db.commit()
-
-    await qa_cache.set(req.question, answer)
 
     log.info(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",

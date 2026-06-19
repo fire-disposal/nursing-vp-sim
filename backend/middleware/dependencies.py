@@ -4,7 +4,7 @@ from typing import Annotated
 import httpx
 from fastapi import Depends, Request
 
-from middleware.rate_limits import RateLimiter
+from middleware.rate_limits import PgRateLimiter
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def resolve_school_filter(source_user, school_id_param: int | None = None) -> in
     return source_user.school_id
 
 
-def get_rate_limiter(request: Request) -> RateLimiter:
+def get_rate_limiter(request: Request) -> PgRateLimiter:
     return request.app.state.rate_limiter
 
 

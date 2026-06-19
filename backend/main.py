@@ -54,10 +54,12 @@ from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
-from middleware.rate_limits import RateLimiter
+from middleware.rate_limits import PgRateLimiter
 from repositories.training import TrainingRepository
 
 log = logging.getLogger(__name__)
+
+NOTIFICATION_LOCK_KEY = 987654322
 
 _MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 
@@ -145,7 +147,7 @@ async def lifespan(app: FastAPI):
         except Exception:
             log.exception("Knowledge base indexing failed (non-fatal)")
 
-    app.state.rate_limiter = RateLimiter()
+    app.state.rate_limiter = PgRateLimiter()
 
     app.state.httpx_client = httpx.AsyncClient(
         timeout=httpx.Timeout(120, connect=15.0),
@@ -211,23 +213,16 @@ async def lifespan(app: FastAPI):
         app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop
     )
 
-    cleanup_task = asyncio.create_task(_rate_limiter_cleanup(app.state.rate_limiter))
-    app.state._cleanup_task = cleanup_task
-
     settlement_task = asyncio.create_task(
         settlement_loop(
             repo=TrainingRepository(),
             interval=CLEANUP_INTERVAL_SECONDS,
-            emotion_cache=app.state.emotion_cache,
-            initiative_cache=app.state.initiative_cache,
         )
     )
     app.state._settlement_task = settlement_task
     log.info("Settlement: started (interval=%ds)", CLEANUP_INTERVAL_SECONDS)
 
-    notif_task = asyncio.create_task(
-        _notification_publisher(interval=60)
-    )
+    notif_task = asyncio.create_task(_notification_publisher(interval=60))
     app.state._notification_task = notif_task
     log.info("Notification publisher: started (interval=60s)")
 
@@ -242,9 +237,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    cleanup_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await cleanup_task
     settlement_task.cancel()
     with suppress(asyncio.CancelledError):
         await settlement_task
@@ -261,6 +253,8 @@ async def lifespan(app: FastAPI):
 
 async def _notification_publisher(interval: int = 60):
     """后台任务：定时检查 SystemNotification 是否到达发布时间，到达后推送到用户通知。"""
+    from sqlalchemy import insert, text
+
     from core.database import SessionLocal
     from models import Notification, SystemNotification, User
 
@@ -268,38 +262,40 @@ async def _notification_publisher(interval: int = 60):
         await asyncio.sleep(interval)
         db = SessionLocal()
         try:
-            now = datetime.now(UTC)
-            pending = db.query(SystemNotification).filter(
-                SystemNotification.is_active == True,
-                SystemNotification.published_at.isnot(None),
-                SystemNotification.published_at <= now,
-            ).all()
-            if not pending:
+            locked = db.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": NOTIFICATION_LOCK_KEY}).scalar()
+            if not locked:
                 continue
-            # Get all active users to push to
-            user_ids = [r[0] for r in db.query(User.id).filter(User.is_active == True).all()]
-            for sn in pending:
-                for uid in user_ids:
-                    db.add(Notification(
-                        user_id=uid,
-                        type="system",
-                        title=sn.title,
-                        body=sn.content,
-                    ))
-                sn.is_active = False
-                log.info("Notification published: %s → %d users", sn.title, len(user_ids))
-            db.commit()
+            try:
+                now = datetime.now(UTC)
+                pending = (
+                    db.query(SystemNotification)
+                    .filter(
+                        SystemNotification.is_active == True,
+                        SystemNotification.published_at.isnot(None),
+                        SystemNotification.published_at <= now,
+                    )
+                    .all()
+                )
+                if not pending:
+                    continue
+                user_ids = [r[0] for r in db.query(User.id).filter(User.is_active == True).all()]
+                for sn in pending:
+                    if user_ids:
+                        db.execute(
+                            insert(Notification).values(
+                                [dict(user_id=uid, type="system", title=sn.title, body=sn.content) for uid in user_ids]
+                            )
+                        )
+                    sn.is_active = False
+                    log.info("Notification published: %s -> %d users", sn.title, len(user_ids))
+                db.commit()
+            finally:
+                db.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": NOTIFICATION_LOCK_KEY})
         except Exception:
             log.exception("Notification publisher error")
             db.rollback()
         finally:
             db.close()
-
-
-async def _rate_limiter_cleanup(rate_limiter: RateLimiter):
-    while True:
-        await asyncio.sleep(600)
-        await rate_limiter.cleanup()
 
 
 def _handle_task_exception(loop, ctx):

@@ -51,6 +51,19 @@ class TrainingRepository(SyncRepository):
 
         return await self._run_in_session(_do)
 
+    def find_timeout_records_sync(self, db: Session) -> list[TrainingRecord]:
+        now = datetime.now(UTC)
+        return (
+            db.query(TrainingRecord)
+            .filter(TrainingRecord.status == "in_progress")
+            .filter(
+                text(
+                    "training_records.start_time + (training_records.time_limit * interval '1 minute') < :now"
+                ).bindparams(now=now)
+            )
+            .all()
+        )
+
     async def mark_completed(self, record_id: int) -> None:
         def _do(session: Session) -> None:
             record = session.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
@@ -64,6 +77,16 @@ class TrainingRepository(SyncRepository):
                 session.commit()
 
         await self._run_in_session(_do)
+
+    def mark_completed_sync(self, db: Session, record_id: int) -> None:
+        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+        if record:
+            record.status = "completed"
+            record.end_time = datetime.now(UTC)
+            if record.assignment_id and not record.is_overdue:
+                assignment = db.query(Assignment).filter(Assignment.id == record.assignment_id).first()
+                if assignment and record.end_time and ensure_utc(record.end_time) > ensure_utc(assignment.end_time):
+                    record.is_overdue = True
 
     async def update_scoring_status(self, record_id: int, status: str, error: str | None = None) -> None:
         def _do(session: Session) -> None:

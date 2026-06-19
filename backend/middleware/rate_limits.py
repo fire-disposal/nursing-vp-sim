@@ -1,54 +1,68 @@
+"""PostgreSQL-backed sliding-window rate limiter for multi-worker safety."""
+
 import asyncio
 import logging
-import time
-from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy import text
+
+from core.database import SessionLocal
 
 log = logging.getLogger(__name__)
 
 
-# ── RateLimiter 类 ──
+class PgRateLimiter:
+    """PostgreSQL-backed sliding-window rate limiter.
+    Each is_allowed() call runs: DELETE expired + INSERT new + COUNT remaining in one transaction.
+    """
 
-
-class RateLimiter:
-    def __init__(self):
-        self._lock = asyncio.Lock()
-        self._store: dict[str, list[float]] = defaultdict(list)
+    def _check_sync(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        db = SessionLocal()
+        try:
+            cutoff = datetime.now(UTC) - timedelta(seconds=window_seconds)
+            db.execute(
+                text("DELETE FROM rate_limit_entries WHERE key = :key AND created_at < :cutoff"),
+                {"key": key, "cutoff": cutoff},
+            )
+            db.execute(
+                text("INSERT INTO rate_limit_entries (key, created_at) VALUES (:key, :now)"),
+                {"key": key, "now": datetime.now(UTC)},
+            )
+            result = db.execute(
+                text("SELECT COUNT(*) FROM rate_limit_entries WHERE key = :key"),
+                {"key": key},
+            )
+            count = result.scalar()
+            if count > max_requests:
+                db.rollback()
+                return False
+            db.commit()
+            return True
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     async def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
-        now = time.time()
-        cutoff = now - window_seconds
-        async with self._lock:
-            bucket = self._store[key]
-            self._store[key] = [t for t in bucket if t > cutoff]
-            if len(self._store[key]) >= max_requests:
-                return False
-            self._store[key].append(now)
-            return True
+        return await asyncio.to_thread(self._check_sync, key, max_requests, window_seconds)
 
-    async def reset_key(self, key: str):
-        async with self._lock:
-            self._store.pop(key, None)
+    async def reset_key(self, key: str) -> None:
+        def _reset():
+            db = SessionLocal()
+            try:
+                db.execute(text("DELETE FROM rate_limit_entries WHERE key = :key"), {"key": key})
+                db.commit()
+            finally:
+                db.close()
 
-    async def cleanup(self, max_age_seconds: int = 600):
-        now = time.time()
-        cutoff = now - max_age_seconds
-        async with self._lock:
-            stale = [k for k, v in self._store.items() if not any(t > cutoff for t in v)]
-            for k in stale:
-                del self._store[k]
+        await asyncio.to_thread(_reset)
 
 
-# ── DI 工厂 ──
-
-
-def get_rate_limiter(request: Request) -> RateLimiter:
+def get_rate_limiter(request: Request) -> "PgRateLimiter":
     return request.app.state.rate_limiter
-
-
-# ── 限流 Depends ──
 
 
 def _get_client_ip(request: Request) -> str:
@@ -61,7 +75,7 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def login_rate_limit(request: Request, limiter: Annotated[RateLimiter, Depends(get_rate_limiter)]):
+async def login_rate_limit(request: Request, limiter: Annotated["PgRateLimiter", Depends(get_rate_limiter)]):
     key = f"login:{_get_client_ip(request)}"
     if not await limiter.is_allowed(key, max_requests=10, window_seconds=300):
         ip = _get_client_ip(request)
@@ -72,7 +86,7 @@ async def login_rate_limit(request: Request, limiter: Annotated[RateLimiter, Dep
         )
 
 
-async def register_rate_limit(request: Request, limiter: Annotated[RateLimiter, Depends(get_rate_limiter)]):
+async def register_rate_limit(request: Request, limiter: Annotated["PgRateLimiter", Depends(get_rate_limiter)]):
     key = f"register:{_get_client_ip(request)}"
     if not await limiter.is_allowed(key, max_requests=5, window_seconds=60):
         ip = _get_client_ip(request)
@@ -84,7 +98,7 @@ async def register_rate_limit(request: Request, limiter: Annotated[RateLimiter, 
 
 
 async def check_chat_limit(user_id: int, request: Request):
-    limiter: RateLimiter = request.app.state.rate_limiter
+    limiter: PgRateLimiter = request.app.state.rate_limiter
     key = f"chat:{user_id}"
     if not await limiter.is_allowed(key, max_requests=6, window_seconds=60):
         log.warning("chat rate limit: user_id=%s", user_id)
@@ -95,7 +109,7 @@ async def check_chat_limit(user_id: int, request: Request):
 
 
 async def check_qa_limit(user_id: int, request: Request):
-    limiter: RateLimiter = request.app.state.rate_limiter
+    limiter: PgRateLimiter = request.app.state.rate_limiter
     key = f"qa:{user_id}"
     if not await limiter.is_allowed(key, max_requests=5, window_seconds=60):
         log.warning("qa rate limit: user_id=%s", user_id)
@@ -106,6 +120,6 @@ async def check_qa_limit(user_id: int, request: Request):
 
 
 async def reset_login_limit(request: Request):
-    limiter: RateLimiter = request.app.state.rate_limiter
+    limiter: PgRateLimiter = request.app.state.rate_limiter
     key = f"login:{_get_client_ip(request)}"
     await limiter.reset_key(key)

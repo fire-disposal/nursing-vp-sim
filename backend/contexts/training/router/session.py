@@ -213,7 +213,7 @@ def _create_record(
     if app_state is not None and features.get("patient_initiative"):
         from contexts.patient.initiative import update_initiative_timer
 
-        update_initiative_timer(record.id, app_state.initiative_cache)
+        update_initiative_timer(record.id, app_state.initiative_cache, db)
 
     return record, greeting
 
