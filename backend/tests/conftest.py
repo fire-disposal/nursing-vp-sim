@@ -1,5 +1,7 @@
 import os
+import warnings
 
+warnings.filterwarnings("ignore", message=".*httpx.*starlette.*deprecated.*")
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 os.environ["SKIP_SEED"] = "1"
@@ -79,6 +81,31 @@ def db_session(engine):
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = SessionLocal()
     try:
+        user = session.query(User).filter(User.username == "__seed_test_user__").first()
+        if not user:
+            from core.security import hash_password
+
+            user = User(
+                username="__seed_test_user__",
+                display_name="Seed Test User",
+                password_hash=hash_password("testpass"),
+                role_id=1,
+                school_id=1,
+            )
+            session.add(user)
+            session.flush()
+
+        case = session.query(Case).filter(Case.name == "__seed_test_case__").first()
+        if not case:
+            case = Case(
+                name="__seed_test_case__",
+                description="Seed test case for unit tests",
+                school_id=1,
+                case_data={},
+            )
+            session.add(case)
+            session.flush()
+
         yield session
     finally:
         session.rollback()

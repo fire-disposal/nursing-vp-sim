@@ -68,7 +68,7 @@ class TestCreateAccessToken:
     def test_different_secret_key_fails(self):
         token = create_access_token({"user_id": 1})
         with pytest.raises(jwt.PyJWTError):
-            jwt.decode(token, "wrong-secret-key", algorithms=["HS256"])
+            jwt.decode(token, "wrong-secret-key-long-enough-for-hmac", algorithms=["HS256"])
 
     def test_empty_data(self):
         token = create_access_token({})
