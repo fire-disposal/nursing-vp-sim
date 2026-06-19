@@ -228,7 +228,7 @@ SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname
 
 ### 迁移规范
 
-后端启动时自动执行 Alembic 迁移。Husky pre-commit hook（`check-migration-autogen.js`）强制：
+后端启动时自动执行 Alembic 迁移。pre-commit hook（`check-migration-autogen.js`）强制：
 - autogenerate 文件不含 `op.execute()`
 - 数据迁移须标注 `# Manual override reason: data_only`
 - 空迁移不允许提交
@@ -424,18 +424,13 @@ sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s 
 
 ## 已知薄弱点
 
-以下模块存在已知不完善或功能缺失，值班期间重点关注。
-
-| # | 薄弱点 | 风险 | 应对 |
-|---|--------|------|------|
-| 1 | **患者角色守卫直通模式** (`backend/contexts/patient/guard.py`): 整个守卫系统硬编码直通 | 虚拟患者可能泄露是 AI、直接给出诊断 | 抽查对话记录，关注敏感词 |
-| 2 | **Docker 容器无资源限制**: 任一容器可耗尽宿主机资源 | 拖垮整个系统 | 建议添加 `deploy.resources.limits`；监控 `docker stats` |
-| 3 | **无 Nginx 级速率限制**: 仅 Python 层 rate limit（内存型） | 大流量攻击仍能消耗 FastAPI 资源 | 在 nginx snippets 中添加 rate limit |
-| 4 | **JWT Token 无主动撤销机制** (`backend/core/security.py`): 角色变更后旧 token 仍有效（最长 8h） | 权限变更不立即生效 | 紧急情况改 `SECRET_KEY` 使所有 token 失效 |
-| 5 | **Token 存储在 localStorage** (`frontend/src/api/axios-instance.ts`): XSS 可窃取 | 身份凭证泄露 | 依赖 React XSS 防护 + CSP；长期方案迁移 HttpOnly Cookie |
-| 6 | **DB 备份失败静默忽略** (`.github/workflows/cd.yml`): 部署前备份使用 `|| echo " (skip)"` | 备份失败不会被感知 | 部署前手动确认备份有效 |
-| 7 | **LLM 环境变量兜底无限额** (`backend/infrastructure/llm/router.py`): 所有 DB 密钥失效后回退 `.env` key，无费用上限 | 可能产生高额费用 | 在 DeepSeek 控制台设置硬限额 |
-| 8 | **自动结算线程生命周期不可控** (`backend/infrastructure/settlement.py`): daemon 线程进程终止时被强制 kill | 评分半途而废，DB 事务悬空 | 重启前确保无活跃评分 |
+| # | 薄弱点 | 风险 | 分类 | 应对 |
+|---|--------|------|------|------|
+| 2 | **Docker 容器无资源限制** | 任一容器可耗尽宿主机资源 | 🔧 可修复 | 添加 `deploy.resources.limits` |
+| 3 | **无 Nginx 级速率限制** | 仅 Python 层 rate limit（内存型），大流量可消耗 FastAPI 资源 | 🔧 可修复 | nginx snippets 中添加 rate limit |
+| 4 | **JWT Token 无主动撤销机制** | 角色变更后旧 token 仍有效（最长 8h） | 🏛️ 固有约束 | 紧急改 SECRET_KEY 全局失效 |
+| 5 | **Token 存储在 localStorage** | XSS 可窃取 | 🏛️ 固有约束 | CSP + React XSS 防护；长期向 HttpOnly Cookie |
+| 7 | **LLM 环境变量兜底无限额** | 所有 DB 密钥失效后回退 `.env` key | ⚠️ 已缓解 | DeepSeek 控制台已设硬限额 |
 
 ---
 
@@ -471,8 +466,6 @@ MAIL_TO=your-email@qq.com
 0 3 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh staging >> /var/log/db-backup.log 2>&1
 0 4 */3 * * cd /opt/nursing-vp-sim && bash deploy/db-backup.sh prod >> /var/log/db-backup.log 2>&1
 ```
-
-### 诊断端点
 
 ### 诊断端点
 
