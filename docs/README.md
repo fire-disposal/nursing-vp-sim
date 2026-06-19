@@ -14,7 +14,6 @@
 | [05-LLM与评分设计](05-llm-design.md) | 虚拟患者Prompt、评分Prompt、病例结构 |
 | [09-运维安全指南](09-operations.md) | 生产环境运维：CD流程、回滚、备份、监控、应急预案 |
 | [10-功能审计与项目状态](10-functional-audit.md) | 功能完整性矩阵、已知问题与缺口、未来探索方向 |
-| [UX 交互分析](ux-interaction-analysis.md) | 前端 UI 过渡动画与交互改进清单 |
 | [领域划分指南](domain-division-guide.md) | 按域并行开发的 AI 辅助参考 |
 | [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) |
 | [变更日志](changelog/CHANGELOG-2026-W24-W25.md) | W24-W25 (06.13~06.19) |
