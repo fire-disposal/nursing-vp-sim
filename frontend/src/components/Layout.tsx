@@ -9,6 +9,7 @@
 	Home,
 	Info,
 	LogOut,
+	Megaphone,
 	Menu,
 	MessageSquare,
 	Server,
@@ -130,6 +131,12 @@ const allLinks: NavLinkItem[] = [
 		to: "/admin/system-configs",
 		icon: Settings2,
 		label: "系统配置",
+		permission: "api_manage",
+	},
+	{
+		to: "/admin/system-notifications",
+		icon: Megaphone,
+		label: "系统通知",
 		permission: "api_manage",
 	},
 ];

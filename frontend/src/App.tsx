@@ -51,6 +51,7 @@ const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
 const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
 const SystemConfigsPage = lazy(() => import("@/pages/admin/SystemConfigsPage"));
+const SystemNotificationsPage = lazy(() => import("@/pages/admin/SystemNotificationsPage"));
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
 );
@@ -125,6 +126,10 @@ export default function App() {
 												<Route
 													path="/admin/system-configs"
 													element={<SystemConfigsPage />}
+												/>
+												<Route
+													path="/admin/system-notifications"
+													element={<SystemNotificationsPage />}
 												/>
 											</Route>
 											<Route
