@@ -21,6 +21,7 @@ import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
+	PanelTabProps,
 	PluginContext,
 } from "./types";
 
@@ -201,9 +202,9 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		id: p.id,
 		meta: { name: p.label },
 		tab: { icon: p.icon, label: p.label, badge: p.badge },
-		component: (props: unknown) => (
+		component: (props: PanelTabProps) => (
 			<PluginErrorBoundary pluginName={p.label}>
-				<p.component {...(props as any)} />
+				<p.component {...props} />
 			</PluginErrorBoundary>
 		),
 	}));

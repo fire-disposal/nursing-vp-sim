@@ -1,7 +1,5 @@
-﻿import { useQuery } from "@tanstack/react-query";
-import {
+﻿import {
 	BarChart3,
-	Bell,
 	Bug,
 	Building2,
 	ClipboardCheck,
@@ -24,9 +22,9 @@ import {
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { api } from "@/api/axios-instance";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
+import NotificationBell from "@/components/NotificationBell";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { ModeToggle } from "@/components/ui/ModeToggle";
@@ -157,17 +155,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const isFullPage = isTrainingPage || isQAPage;
 	const isOnline = useNetworkStatus();
 
-	const { data: notifData } = useQuery({
-		queryKey: ["notifications"],
-		queryFn: () => api.get("/training/notifications"),
-		refetchInterval: 60_000,
-	});
-	const unreadCount = notifData?.data?.length || 0;
-
-	const handleMarkRead = async (id: number) => {
-		await api.patch(`/training/notifications/${id}`);
-	};
-
 	const userAvatar = getUserAvatar(user?.gender);
 
 	const close = () => setMobileOpen(false);
@@ -286,24 +273,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 					</NavLink>
 					<div className="flex gap-1 flex-wrap items-center">
 						<ModeToggle />
-						<Button
-							variant="ghost"
-							size="sm"
-							className="relative h-8"
-							onClick={() => {
-								if (unreadCount > 0 && notifData?.data?.[0]?.id) {
-									handleMarkRead(notifData.data[0].id);
-								}
-							}}
-							aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
-						>
-							<Bell size={16} />
-							{unreadCount > 0 && (
-								<span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground leading-none">
-									{unreadCount > 9 ? "9+" : unreadCount}
-								</span>
-							)}
-						</Button>
+						<NotificationBell />
 						<Button
 							variant="ghost"
 							size="sm"

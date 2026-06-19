@@ -1,6 +1,6 @@
 import { ClipboardList, ListChecks, MessageCircle, Smile, Stethoscope, User } from "lucide-react";
 import type { ComponentType } from "react";
-import type { BadgeInfo, PluginContext } from "@/engine/types";
+import type { BadgeInfo, PanelTabProps, PluginContext } from "@/engine/types";
 import { EmotionTab } from "./emotion/EmotionTab";
 import { InitiativeTab } from "./initiative/InitiativeTab";
 import { InquiryTab } from "./inquiry/InquiryTab";
@@ -14,7 +14,7 @@ export interface PanelConfig {
   icon: ComponentType<{ size?: number }>;
   label: string;
   priority: number;
-  component: ComponentType<any>;
+  component: ComponentType<PanelTabProps>;
   badge?: (ctx: PluginContext) => BadgeInfo | null;
   featureFlag?: string;
 }
