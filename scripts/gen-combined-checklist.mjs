@@ -121,3 +121,127 @@ if (outputFile) {
   console.log(output);
 }
 console.error(`${items.length} items across ${range.length} versions`);
+
+// ── Feishu integration ──
+const useFeishu = process.argv.includes("--feishu");
+if (useFeishu) {
+  const ok = await publishToFeishu(items, targetTag, prodTag);
+  if (!ok) process.exit(1);
+}
+
+async function publishToFeishu(items, targetTag, prodTag) {
+  const appId = process.env.FEISHU_APP_ID;
+  const appSecret = process.env.FEISHU_APP_SECRET;
+  const chatId = process.env.FEISHU_CHAT_ID;
+
+  if (!appId || !appSecret) {
+    console.error("⚠ FEISHU_APP_ID / FEISHU_APP_SECRET not set, skipping feishu");
+    return true;
+  }
+
+  // 1. Get tenant_access_token
+  console.error(">> Feishu auth...");
+  const tokenRes = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  if (!tokenRes.ok) {
+    console.error("Feishu auth failed:", tokenRes.status);
+    return false;
+  }
+  const tokenData = await tokenRes.json();
+  const token = tokenData.tenant_access_token;
+  if (!token) {
+    console.error("Feishu auth: no token returned");
+    return false;
+  }
+
+  // 2. Create spreadsheet
+  console.error(">> Creating spreadsheet...");
+  const title = `${targetTag} 测试核对单 (${prodTag} → ${targetTag})`;
+  const sheetRes = await fetch("https://open.feishu.cn/open-apis/sheets/v3/spreadsheets", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ title, folder_token: process.env.FEISHU_FOLDER_TOKEN || "" }),
+  });
+  if (!sheetRes.ok) {
+    const err = await sheetRes.text();
+    console.error("Feishu create sheet failed:", sheetRes.status, err);
+    return false;
+  }
+  const sheetData = await sheetRes.json();
+  const sheetToken = sheetData?.data?.spreadsheet?.spreadsheet_token;
+  const sheetUrl = sheetData?.data?.spreadsheet?.url;
+  if (!sheetToken) {
+    console.error("Feishu: no spreadsheet_token in response");
+    return false;
+  }
+  console.error(`  Sheet: ${sheetUrl}`);
+
+  // 3. Write header + rows
+  console.error(">> Writing rows...");
+  const rows = [
+    ["序号", "功能", "操作步骤", "预期结果", "通过", "失败", "备注"],
+    ...items.map((item, i) => parseItem(item, i + 1)),
+  ];
+  const writeRes = await fetch(
+    `https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${sheetToken}/values`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ valueRange: { range: "A1", values: rows } }),
+    }
+  );
+  if (!writeRes.ok) {
+    const err = await writeRes.text();
+    console.error("Feishu write failed:", writeRes.status, err);
+    return false;
+  }
+  console.error(`  ${items.length} items written`);
+
+  // 4. Send message to chat
+  if (chatId) {
+    console.error(">> Sending notification...");
+    const msg = JSON.stringify({
+      receive_id: chatId,
+      msg_type: "interactive",
+      content: JSON.stringify({
+        header: { title: { tag: "plain_text", content: `📋 ${targetTag} 待测试` } },
+        elements: [{
+          tag: "markdown",
+          content: `**${prodTag} → ${targetTag}** 共 ${items.length} 项核对，请在表格中勾选通过/失败。\n[打开表格](${sheetUrl})`,
+        }],
+      }),
+    });
+    const msgRes = await fetch("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: msg,
+    });
+    if (!msgRes.ok) {
+      console.error("Feishu message failed:", msgRes.status, await msgRes.text());
+    } else {
+      console.error("  Notification sent");
+    }
+  }
+
+  console.error(">> Done");
+  return true;
+}
+
+function parseItem(item, num) {
+  const title = item.replace(/^###\s+\d+\.\s*/, "").split("\n")[0].trim();
+  const body = item.replace(/^###\s+.*\n/, "");
+  const opMatch = body.match(/\*\*操作\*\*:\s*(.+)/);
+  const exMatch = body.match(/\*\*预期\*\*:\s*(.+)/);
+  return [
+    String(num),
+    title,
+    opMatch ? opMatch[1].trim() : "",
+    exMatch ? exMatch[1].trim() : "",
+    "",  // 通过
+    "",  // 失败
+    "",  // 备注
+  ];
+}
