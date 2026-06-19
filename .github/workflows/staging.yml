@@ -192,5 +192,16 @@ jobs:
             docker image prune -f
           DEPLOY
 
+      - name: Publish checklist to Feishu
+        if: vars.FEISHU_APP_ID != ''
+        env:
+          FEISHU_APP_ID: ${{ vars.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_SHEET_TOKEN: ${{ vars.FEISHU_SHEET_TOKEN }}
+          FEISHU_CHAT_ID: ${{ vars.FEISHU_CHAT_ID }}
+        run: |
+          VER="${{ steps.resolve_version.outputs.version }}"
+          node scripts/gen-combined-checklist.mjs --feishu -t="v${VER}" 2>&1 || echo "⚠ feishu publish failed (non-blocking)"
+
       - name: "✅ Staging"
         run: echo "v${{ steps.resolve_version.outputs.version }} → test.205716.xyz 🧪"
