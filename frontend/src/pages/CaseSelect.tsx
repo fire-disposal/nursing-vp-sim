@@ -121,6 +121,7 @@ export default function CaseSelect() {
 								setHintDismissed(true);
 							}}
 							className="absolute top-2 right-2 size-8 flex items-center justify-center rounded-lg hover:bg-amber-200/50"
+							aria-label="关闭提示"
 						>
 							<X size={14} />
 						</button>
