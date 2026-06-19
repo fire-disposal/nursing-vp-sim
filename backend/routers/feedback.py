@@ -1,7 +1,7 @@
-from collections import defaultdict
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -122,24 +122,28 @@ def feedback_stats(
         except ValueError:
             raise HTTPException(status_code=400, detail=f"无效日期格式: {date_to}")
 
-    rows = base.order_by(Feedback.created_at).all()
-
-    daily = defaultdict(lambda: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0})
-    for fb in rows:
-        day = fb.created_at.strftime("%Y-%m-%d")
-        daily[day][fb.rating] += 1
-
-    result = []
-    for day in sorted(daily.keys()):
-        d = daily[day]
-        result.append(
-            {
-                "date": day,
-                "rating_1": d[1],
-                "rating_2": d[2],
-                "rating_3": d[3],
-                "rating_4": d[4],
-                "rating_5": d[5],
-            }
+    rows = (
+        base.with_entities(
+            func.date(Feedback.created_at).label("date"),
+            func.count(case((Feedback.rating == 1, 1))).label("rating_1"),
+            func.count(case((Feedback.rating == 2, 1))).label("rating_2"),
+            func.count(case((Feedback.rating == 3, 1))).label("rating_3"),
+            func.count(case((Feedback.rating == 4, 1))).label("rating_4"),
+            func.count(case((Feedback.rating == 5, 1))).label("rating_5"),
         )
-    return result
+        .group_by(func.date(Feedback.created_at))
+        .order_by(func.date(Feedback.created_at))
+        .all()
+    )
+
+    return [
+        {
+            "date": str(r.date),
+            "rating_1": r.rating_1,
+            "rating_2": r.rating_2,
+            "rating_3": r.rating_3,
+            "rating_4": r.rating_4,
+            "rating_5": r.rating_5,
+        }
+        for r in rows
+    ]

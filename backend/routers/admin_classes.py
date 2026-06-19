@@ -25,16 +25,24 @@ def list_classes(
         q = q.filter(Class.grade_id == grade_id)
     rows = q.order_by(Grade.name, Class.name).all()
 
+    class_ids = [c.id for c, _ in rows]
+    student_counts = (
+        db.query(UserClass.class_id, func.count(UserClass.user_id))
+        .filter(UserClass.class_id.in_(class_ids))
+        .group_by(UserClass.class_id)
+        .all()
+    )
+    count_lookup = dict(student_counts) if student_counts else {}
+
     result = []
     for cls, grade_name in rows:
-        student_count = db.query(func.count(UserClass.user_id)).filter(UserClass.class_id == cls.id).scalar() or 0
         result.append(
             ClassResponse(
                 id=cls.id,
                 grade_id=cls.grade_id,
                 grade_name=grade_name,
                 name=cls.name,
-                student_count=student_count,
+                student_count=count_lookup.get(cls.id, 0),
                 created_at=cls.created_at,
             )
         )

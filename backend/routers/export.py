@@ -3,13 +3,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from infrastructure.export import Column, stream_response
 from middleware.dependencies import resolve_school_filter
-from models import TrainingRecord, User
+from models import Message, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
 
@@ -27,11 +28,20 @@ def export_records(
         selectinload(TrainingRecord.user),
         selectinload(TrainingRecord.case),
         selectinload(TrainingRecord.score),
-        selectinload(TrainingRecord.messages),
     )
     if effective_school is not None:
         query = query.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
-    records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100)
+    records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100).all()
+
+    record_ids = [r.id for r in records]
+    msg_counts = {}
+    if record_ids:
+        msg_counts = dict(
+            db.query(Message.record_id, func.count(Message.id))
+            .filter(Message.record_id.in_(record_ids))
+            .group_by(Message.record_id)
+            .all()
+        )
 
     columns = [
         Column("记录ID", lambda r: str(r.id)),
@@ -46,9 +56,9 @@ def export_records(
         Column("不足", lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
         Column("漏问内容", lambda r: "；".join(r.score.missed_content) if r.score and r.score.missed_content else ""),
         Column("改进建议", lambda r: r.score.suggestions if r.score else ""),
-        Column("对话轮数", lambda r: str(len(r.messages)) if r.messages else "0"),
+        Column("对话轮数", lambda r: str(msg_counts.get(r.id, 0))),
     ]
-    return stream_response(list(records), columns, "training_records.csv")
+    return stream_response(records, columns, "training_records.csv")
 
 
 @router.get("/record/{record_id}")

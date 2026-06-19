@@ -38,20 +38,28 @@ def list_schools(
     total = q.count()
     schools = q.order_by(School.created_at.desc()).offset(offset).limit(limit).all()
 
+    school_ids = [s.id for s in schools]
+    roles = db.query(Role).filter(Role.school_id.in_(school_ids), Role.name.in_(["teacher", "student"])).all()
+    role_lookup = {}
+    for r in roles:
+        role_lookup.setdefault(r.school_id, {})[r.name] = r.id
+
+    user_counts = (
+        db.query(User.school_id, User.role_id, func.count(User.id))
+        .filter(User.school_id.in_(school_ids))
+        .group_by(User.school_id, User.role_id)
+        .all()
+    )
+    count_lookup = {}
+    for sid, rid, cnt in user_counts:
+        count_lookup[(sid, rid)] = cnt
+
     items = []
     for s in schools:
-        teacher_role = db.query(Role).filter(Role.name == "teacher", Role.school_id == s.id).first()
-        student_role = db.query(Role).filter(Role.name == "student", Role.school_id == s.id).first()
-        teacher_count = (
-            db.query(func.count(User.id)).filter(User.school_id == s.id, User.role_id == teacher_role.id).scalar()
-            if teacher_role
-            else 0
-        )
-        student_count = (
-            db.query(func.count(User.id)).filter(User.school_id == s.id, User.role_id == student_role.id).scalar()
-            if student_role
-            else 0
-        )
+        teacher_role_id = role_lookup.get(s.id, {}).get("teacher")
+        student_role_id = role_lookup.get(s.id, {}).get("student")
+        teacher_count = count_lookup.get((s.id, teacher_role_id), 0)
+        student_count = count_lookup.get((s.id, student_role_id), 0)
         items.append(
             SchoolResponse(
                 id=s.id,

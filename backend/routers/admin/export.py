@@ -332,12 +332,14 @@ def get_llm_log_detail(
     return entry
 
 
+EXCEL_EXPORT_ROW_LIMIT = 10000
+
+
 @router.post("/records/excel")
 def export_records_excel(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """导出训练记录为 Excel"""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -362,6 +364,8 @@ def export_records_excel(
             selectinload(TrainingRecord.user), selectinload(TrainingRecord.case), selectinload(TrainingRecord.score)
         )
         .order_by(TrainingRecord.start_time.desc())
+        .limit(EXCEL_EXPORT_ROW_LIMIT)
+        .yield_per(100)
     )
 
     for row_idx, record in enumerate(query, 2):

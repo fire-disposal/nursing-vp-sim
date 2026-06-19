@@ -18,21 +18,33 @@ def list_grades(
     db: Annotated[Session, Depends(get_db)],
 ):
     grades = db.query(Grade).filter(Grade.school_id == current_user.school_id).order_by(Grade.name).all()
+    grade_ids = [g.id for g in grades]
+
+    class_counts = (
+        db.query(Class.grade_id, func.count(Class.id))
+        .filter(Class.grade_id.in_(grade_ids))
+        .group_by(Class.grade_id)
+        .all()
+    )
+    class_count_lookup = dict(class_counts) if class_counts else {}
+
+    student_counts = (
+        db.query(Class.grade_id, func.count(UserClass.user_id))
+        .join(UserClass, Class.id == UserClass.class_id)
+        .filter(Class.grade_id.in_(grade_ids))
+        .group_by(Class.grade_id)
+        .all()
+    )
+    student_count_lookup = dict(student_counts) if student_counts else {}
+
     result = []
     for g in grades:
-        class_count = db.query(func.count(Class.id)).filter(Class.grade_id == g.id).scalar() or 0
-        student_count = (
-            db.query(func.count(UserClass.user_id))
-            .join(Class, Class.id == UserClass.class_id)
-            .filter(Class.grade_id == g.id)
-            .scalar()
-        ) or 0
         result.append(
             GradeResponse(
                 id=g.id,
                 name=g.name,
-                class_count=class_count,
-                student_count=student_count,
+                class_count=class_count_lookup.get(g.id, 0),
+                student_count=student_count_lookup.get(g.id, 0),
                 created_at=g.created_at,
             )
         )
