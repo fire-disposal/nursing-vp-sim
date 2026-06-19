@@ -55,11 +55,16 @@ log = logging.getLogger("monitor")
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def run(cmd, timeout=15):
-    """Run a shell command, return (rc, stdout)."""
+def run(cmd, timeout=15, capture_stderr=True):
+    """Run a command as an argument list, return (rc, stdout)."""
     try:
         r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            cmd,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE if capture_stderr else subprocess.DEVNULL,
+            text=True,
+            timeout=timeout,
         )
         return r.returncode, r.stdout.strip()
     except subprocess.TimeoutExpired:
@@ -133,7 +138,7 @@ def should_send(state, alert_key):
 def check_containers():
     """Check all Docker containers are running and healthy."""
     failures = []
-    rc, out = run("docker ps -a --format json 2>/dev/null")
+    rc, out = run(["docker", "ps", "-a", "--format", "json"], capture_stderr=False)
     if rc != 0:
         failures.append(
             {
@@ -177,10 +182,13 @@ def check_containers():
 
 def check_disk():
     """Check disk usage on root partition."""
-    rc, out = run("df -h / | tail -1")
+    rc, out = run(["df", "-h", "/"])
     if rc != 0:
         return []
-    parts = out.split()
+    lines = [l for l in out.splitlines() if l.strip()]
+    if not lines:
+        return []
+    parts = lines[-1].split()
     if len(parts) < 5:
         return []
     use_pct = parts[4].replace("%", "")
@@ -261,7 +269,7 @@ def check_health_endpoints():
     for ep in endpoints:
         url = ep["url"]
         name = ep.get("name", url)
-        rc, out = run(f"curl -sS -m 10 -w '\\n%{{http_code}}' {url}")
+        rc, out = run(["curl", "-sS", "-m", "10", "-w", "\n%{http_code}", url])
         if rc != 0:
             failures.append(
                 {"type": "health", "name": name, "detail": f"不可达: {out[:200]}"}
@@ -308,7 +316,7 @@ def check_health_endpoints():
 def fetch_metrics(endpoint_url: str) -> dict | None:
     """Fetch /api/metrics from an endpoint. Returns None if unavailable."""
     metrics_url = endpoint_url.replace("/api/health", "/api/metrics")
-    rc, out = run(f"curl -sS -m 10 '{metrics_url}'")
+    rc, out = run(["curl", "-sS", "-m", "10", metrics_url])
     if rc != 0:
         return None
     try:
