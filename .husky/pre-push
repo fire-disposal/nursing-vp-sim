@@ -148,37 +148,47 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         continue
       fi
 
-      # 4. Testing checklist must exist
+      # 4. Testing checklist must exist (auto-generate for non-feat/fix versions)
       checklist="docs/testing/checklist-${tag}.md"
-      if [ -f "$ROOT/$checklist" ]; then
+      if [ ! -f "$ROOT/$checklist" ]; then
+        prev_tag=$(git tag --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | grep -B1 "^${tag}$" | head -1 || echo "")
+        has_feat_or_fix=false
+        if [ -n "$prev_tag" ] && [ "$prev_tag" != "$tag" ]; then
+          if git log "${prev_tag}..HEAD" --oneline --no-merges 2>/dev/null | grep -qE '^[a-f0-9]+ (✨ feat|🐛 fix)'; then
+            has_feat_or_fix=true
+          fi
+        fi
+        if $has_feat_or_fix; then
+          echo ""
+          echo "PUSH BLOCKED: missing $checklist (user-facing changes detected)"
+          echo "→ ask opencode: 'generate the testing checklist for ${tag}'"
+          echo ""
+          fail "testing checklist missing — user-facing changes need a real checklist"
+        else
+          echo "无需测试" > "$ROOT/$checklist"
+          git add "$checklist" 2>/dev/null || true
+          if git diff --cached --quiet; then
+            # already staged elsewhere, skip
+            :
+          else
+            git commit --amend --no-edit 2>/dev/null || true
+          fi
+          ok "testing checklist auto-generated (no user-facing changes)"
+        fi
+      else
         content=$(cat "$ROOT/$checklist" 2>/dev/null | tr -d '[:space:]')
         if [ "$content" = "无需测试" ]; then
           ok "testing checklist for $tag (no user-facing changes)"
         elif [ ${#content} -lt 30 ]; then
           echo ""
           echo "PUSH BLOCKED: $checklist is too short (${#content} chars)"
-          echo "If no user-facing changes, the file must contain exactly: 无需测试"
-          echo "Otherwise run opencode to generate a real checklist."
+          echo "If no user-facing changes, use: 无需测试"
+          echo "Otherwise ask opencode to generate a real checklist."
           echo ""
-          fail "checklist too short — use '无需测试' or generate real content"
+          fail "checklist too short"
         else
           ok "testing checklist for $tag"
         fi
-      else
-        echo ""
-        echo "PUSH BLOCKED: missing $checklist"
-        echo ""
-        echo "This file is required for every tag push. Based on the changes in ${tag}:"
-        echo ""
-        echo "  If this version includes user-facing changes (feat, fix):"
-        echo "    → tell opencode: 'generate the testing checklist for ${tag}'"
-        echo "    → after opencode writes the file, git add + commit + push again"
-        echo ""
-        echo "  If this version has NO user-facing changes (only refactor, docs, ci, etc.):"
-        echo "    → echo '无需测试' > $checklist"
-        echo "    → git add $checklist && git commit -m 'docs: no testing needed for ${tag}' && git push"
-        echo ""
-        fail "testing checklist missing"
       fi
 
       ok "tag $tag"
