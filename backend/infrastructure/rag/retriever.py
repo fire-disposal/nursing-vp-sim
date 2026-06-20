@@ -29,9 +29,7 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
     def _query() -> list[dict]:
         db = SessionLocal()
         try:
-            chunks = db.query(KnowledgeChunk).filter(
-                KnowledgeChunk.embedding.isnot(None)
-            ).limit(1000).all()
+            chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.embedding.isnot(None)).limit(1000).all()
             scored = []
             for c in chunks:
                 if not c.embedding:
@@ -41,12 +39,14 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
             scored.sort(key=lambda x: x[0], reverse=True)
             results = []
             for sim, c in scored[:top_k]:
-                results.append({
-                    "source": c.source,
-                    "section": c.section,
-                    "chunk_text": c.chunk_text,
-                    "score": round(sim, 4),
-                })
+                results.append(
+                    {
+                        "source": c.source,
+                        "section": c.section,
+                        "chunk_text": c.chunk_text,
+                        "score": round(sim, 4),
+                    }
+                )
             return results
         finally:
             db.close()
@@ -54,13 +54,19 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
     return await asyncio.to_thread(_query)
 
 
-def format_context(results: list[dict]) -> str:
+def format_context(results: list[dict]) -> tuple[str, list[dict[str, str]]]:
     if not results:
-        return ""
+        return "", []
     parts = ["【参考教材信息】"]
+    citations: list[dict[str, str]] = []
+    instruction = (
+        "请仅引用与问题直接相关的教材内容，不要强行添加无关引用。如需引用，请使用格式 [来源: 教材名 > 章节名]。"
+    )
+    parts.append(instruction)
     for i, r in enumerate(results, 1):
         src = r["source"].replace("textbook:", "")
-        parts.append(f"[{i}] 来源: {src} | {r['section']}")
+        parts.append(f"[{i}] [来源: {src} > {r['section']}]")
         parts.append(r["chunk_text"][:500])
         parts.append("")
-    return "\n".join(parts)
+        citations.append({"source": src, "section": r["section"]})
+    return "\n".join(parts), citations

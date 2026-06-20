@@ -3662,6 +3662,13 @@ export interface components {
             session_id: number;
             /** Answer */
             answer: string;
+            /** Citations */
+            citations?: {
+                /** Source */
+                source: string;
+                /** Section */
+                section: string;
+            }[] | null;
         };
         /** QAMessageItem */
         QAMessageItem: {
@@ -3715,6 +3722,8 @@ export interface components {
         QASessionCreate: {
             /** Question */
             question: string;
+            /** Rag Enabled */
+            rag_enabled?: boolean;
         };
         /** QASessionItem */
         QASessionItem: {

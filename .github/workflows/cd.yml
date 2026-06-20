@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Deploy version (copy from Staging — same version already verified there)'
+        description: 'Deploy version, e.g. v2026.06.20-4 or 2026.06.20-4'
         required: true
         type: string
 
@@ -29,7 +29,7 @@ jobs:
         run: |
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
-          VER="${{ inputs.version }}"
+          VER="${{ steps.version.outputs.value }}"
           PROD_VER=""
 
           if [ -n "$HOST" ] && [ -n "$USER" ]; then
@@ -79,11 +79,19 @@ jobs:
         id: owner
         run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
+      - name: Normalize version
+        id: version
+        run: |
+          RAW="${{ inputs.version }}"
+          CLEAN="${RAW#v}"
+          echo "value=$CLEAN" >> $GITHUB_OUTPUT
+          echo ">> version: $CLEAN"
+
       - name: Deploy to Production
         run: |
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
-          VER="${{ inputs.version }}"
+          VER="${{ steps.version.outputs.value }}"
           DEPLOY_DIR="/opt/nursing-vp-sim"
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
@@ -170,4 +178,4 @@ jobs:
           DEPLOY
 
       - name: "✅ Production"
-        run: echo "v${{ inputs.version }} → iomt.205716.xyz 🚀"
+        run: echo "v${{ steps.version.outputs.value }} → iomt.205716.xyz 🚀"

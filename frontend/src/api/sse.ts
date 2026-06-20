@@ -6,7 +6,7 @@ export interface InitiativeStateData {
 
 export interface SSEHandlers {
 	onChunk?: (text: string) => void;
-	onDone?: (id?: number) => void;
+	onDone?: (id?: number, citations?: Array<{ source: string; section: string }>) => void;
 	onError?: (msg: string) => void;
 	onSystem?: (text: string) => void;
 	onEmotionChange?: (data: { state: string; trust: number; comfort: number }) => void;
@@ -74,7 +74,7 @@ export async function readSSEStream(
 					if (data.initiative) { handlers.onInitiative?.(data.initiative); continue; }
 					if (data.done) {
 						clearIdleTimer();
-						handlers.onDone?.(data.id);
+						handlers.onDone?.(data.id, data.citations);
 						try { reader.cancel(); } catch { /* ignore */ }
 						return;
 					}

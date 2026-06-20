@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from core.config import QA_RAG_ENABLED, get_llm_config
+from core.config import get_llm_config
 from core.database import db_session, get_db
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
@@ -24,13 +24,22 @@ from .logic import build_qa_history, get_cached_answer
 log = logging.getLogger(__name__)
 
 
-async def _inject_rag(llm_messages: list[dict], question: str) -> None:
-    """If RAG enabled, retrieve relevant knowledge and inject as system context."""
-    if not QA_RAG_ENABLED:
-        return
-    context = format_context(await retrieve(question))
-    if context:
-        llm_messages.insert(1, {"role": "system", "content": context})
+async def _inject_rag(llm_messages: list[dict], question: str, rag_enabled: bool = False) -> list[dict[str, str]]:
+    """If RAG enabled, retrieve relevant knowledge and inject as system context.
+
+    Never raises — RAG failure silently degrades to non-RAG response.
+    """
+    if not rag_enabled:
+        return []
+    try:
+        results = await retrieve(question)
+        context, citations = format_context(results)
+        if context and citations:
+            llm_messages.insert(1, {"role": "system", "content": context})
+        return citations
+    except Exception:
+        log.warning("RAG retrieval failed, continuing without knowledge context", exc_info=True)
+        return []
 
 
 router = APIRouter()
@@ -72,7 +81,7 @@ async def create_session(
     db.add(user_msg)
     db.commit()
 
-    cached = get_cached_answer(req.question, db)
+    cached = None if req.rag_enabled else get_cached_answer(req.question, db)
     if cached is not None:
         assistant_msg = QARecord(
             session_id=session.id,
@@ -89,6 +98,7 @@ async def create_session(
         )
         return QAAskResponse(session_id=session.id, answer=cached)
 
+    citations = []
     try:
         pm = request.app.state.prompt_manager
         tmpl = await pm.get("qa")
@@ -96,7 +106,7 @@ async def create_session(
             {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
-        await _inject_rag(llm_messages, req.question)
+        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
@@ -132,7 +142,7 @@ async def create_session(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer)
+    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
 
 
 @router.post("/sessions/{session_id}/ask", response_model=QAAskResponse)
@@ -165,7 +175,7 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
-    await _inject_rag(llm_messages, req.question.strip())
+    citations = await _inject_rag(llm_messages, req.question.strip(), req.rag_enabled)
 
     user_msg = QARecord(
         session_id=session.id,
@@ -209,7 +219,7 @@ async def ask_in_session(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer)
+    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
 
 
 @router.post("/sessions/{session_id}/ask/stream")
@@ -238,7 +248,7 @@ async def ask_stream(
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
-        await _inject_rag(llm_messages, req.question)
+        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled)
 
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)
@@ -270,7 +280,7 @@ async def ask_stream(
                 db.commit()
                 db.refresh(assistant_record)
 
-                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id}, ensure_ascii=False)}\n\n"
+                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
             except Exception as e:
                 log.exception("QA stream error: session_id=%d", session_id)
                 yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
