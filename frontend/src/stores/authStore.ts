@@ -16,6 +16,7 @@ interface ExtendedAuthState extends AuthState {
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let isRefreshing = false;
+let isLoggingOut = false;
 
 export function startRefreshTimer(): void {
 	const token = useAuthStore.getState().token;
@@ -103,8 +104,10 @@ const useAuthStore = create<ExtendedAuthState>()(
 			},
 
 			logout: (): void => {
+				if (isLoggingOut) return;
+				isLoggingOut = true;
 				stopRefreshTimer();
-				apiLogout().catch(() => {});
+				apiLogout().catch(() => {}).finally(() => { isLoggingOut = false; });
 				set({ user: null, token: null, permissions: [] });
 				dispatchForceLogout();
 			},

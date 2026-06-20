@@ -74,7 +74,6 @@ export default function ConfigModal({
 }: ConfigModalProps) {
 	const [secrets, setSecrets] = useState<ApiSecretResponse[]>([]);
 	const [secretId, setSecretId] = useState("");
-	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const { success, error } = useToast();
 	const isEdit = configData != null;
@@ -82,11 +81,6 @@ export default function ConfigModal({
 	const [label, setLabel] = useState("");
 	const [model, setModel] = useState("");
 	const [purpose, setPurpose] = useState("qa");
-	const [priority, setPriority] = useState(10);
-	const [weight, setWeight] = useState(10);
-	const [priceIn, setPriceIn] = useState(1);
-	const [priceOut, setPriceOut] = useState(2);
-	const [monthlyLimit, setMonthlyLimit] = useState("");
 
 	const selectedSecret = secrets.find((s) => String(s.id) === secretId);
 	const initializedRef = useRef(false);
@@ -102,37 +96,15 @@ export default function ConfigModal({
 					setLabel(configData.label || "");
 					setModel(configData.model || "");
 					setPurpose(configData.purpose || "qa");
-					setPriority(configData.priority || 10);
-					setWeight(configData.weight || 10);
-					setPriceIn(configData.price_input_per_1m ?? 1);
-					setPriceOut(configData.price_output_per_1m ?? 2);
-					setMonthlyLimit(
-						configData.monthly_cost_limit != null
-							? String(configData.monthly_cost_limit)
-							: "",
-					);
-					setShowAdvanced(true);
 				} else if (prefilled) {
 					setSecretId(String(prefilled.secret_id || ak || ""));
 					setModel(prefilled.model || "");
 					setPurpose(prefilled.purpose || "qa");
-					setPriority(10);
-					setWeight(10);
-					setPriceIn(1);
-					setPriceOut(2);
-					setMonthlyLimit("");
-					setShowAdvanced(false);
 				} else {
 					setSecretId(ak);
 					setLabel("");
 					setModel("");
 					setPurpose("qa");
-					setPriority(10);
-					setWeight(10);
-					setPriceIn(1);
-					setPriceOut(2);
-					setMonthlyLimit("");
-					setShowAdvanced(false);
 				}
 			};
 			fetchSecrets()
@@ -162,20 +134,13 @@ export default function ConfigModal({
 				label: `${selectedSecret?.label || "key"}-${purposeVal}`,
 				model: modelVal,
 				purpose: purposeVal,
-				priority: 10,
-				weight: 10,
-				price_input_per_1m: modelVal.includes("pro") ? 1 : 0.5,
-				price_output_per_1m: modelVal.includes("pro") ? 2 : 0.5,
 			});
 			success("已创建");
 			onSaved();
 			onClose();
-		} catch (e: any) {
-			error(
-				typeof e?.response?.data?.detail === "string"
-					? e.response.data.detail
-					: "创建失败",
-			);
+		} catch (e: unknown) {
+			const err = e as { response?: { data?: { detail?: string } } };
+			error(err.response?.data?.detail || "创建失败");
 		} finally {
 			setSaving(false);
 		}
@@ -187,11 +152,6 @@ export default function ConfigModal({
 			label: label || `${selectedSecret?.label || ""}-${purpose}`,
 			model,
 			purpose,
-			priority,
-			weight,
-			price_input_per_1m: priceIn,
-			price_output_per_1m: priceOut,
-			monthly_cost_limit: monthlyLimit ? Number(monthlyLimit) : undefined,
 		};
 		if (!payload.secret_id) {
 			error("请选择密钥");
@@ -212,12 +172,9 @@ export default function ConfigModal({
 			}
 			onSaved();
 			onClose();
-		} catch (e: any) {
-			error(
-				typeof e?.response?.data?.detail === "string"
-					? e.response.data.detail
-					: "保存失败",
-			);
+		} catch (e: unknown) {
+			const err = e as { response?: { data?: { detail?: string } } };
+			error(err.response?.data?.detail || "保存失败");
 		} finally {
 			setSaving(false);
 		}
@@ -245,13 +202,12 @@ export default function ConfigModal({
 				</select>
 				{selectedSecret && (
 					<div className="text-[0.72rem] text-muted-foreground/70 mt-0.5">
-						{selectedSecret.provider || "custom"} ·{" "}
-						{selectedSecret.base_url || ""}
+						{selectedSecret.base_url || "https://api.deepseek.com"}
 					</div>
 				)}
 			</div>
 
-			{!isEdit && !showAdvanced ? (
+			{!isEdit ? (
 				<div>
 					<div className="mb-2 text-sm font-semibold text-muted-foreground">
 						快速创建 — 点击卡片一键配置
@@ -272,23 +228,9 @@ export default function ConfigModal({
 							</button>
 						))}
 					</div>
-					<button
-						onClick={() => setShowAdvanced(true)}
-						className="bg-transparent border-none text-muted-foreground/70 cursor-pointer text-xs p-0 hover:underline"
-					>
-						高级模式 → 自定义优先级/权重/定价
-					</button>
 				</div>
 			) : (
 				<div className="flex flex-col gap-3">
-					{!isEdit && (
-						<button
-							onClick={() => setShowAdvanced(false)}
-							className="bg-transparent border-none text-muted-foreground/70 cursor-pointer text-xs p-0 text-left hover:underline"
-						>
-							← 返回快速创建
-						</button>
-					)}
 					<label>
 						<div className="mb-1 font-semibold text-sm">配置标签</div>
 						<input
@@ -307,90 +249,24 @@ export default function ConfigModal({
 							className={inputClass}
 						/>
 					</div>
-					<div className="flex gap-3">
-						<label className="flex-1">
-							<div className="mb-1 font-semibold text-sm">用途</div>
-							<select
-								value={purpose}
-								onChange={(e) => setPurpose(e.target.value)}
-								className={inputClass}
-							>
-								{ALL_PURPOSES.map((p) => (
-									<option key={p.value} value={p.value}>
-										{p.label}
-									</option>
-								))}
-							</select>
-						</label>
-						<label className="flex-1">
-							<div className="mb-1 font-semibold text-sm">优先级</div>
-							<input
-								type="number"
-								value={priority}
-								onChange={(e) =>
-									setPriority(parseInt(e.target.value, 10) || 10)
-								}
-								className={inputClass}
-							/>
-						</label>
-					</div>
-					<div className="flex gap-3">
-						<label className="flex-1">
-							<div className="mb-1 font-semibold text-sm">权重</div>
-							<input
-								type="number"
-								min={1}
-								max={100}
-								value={weight}
-								onChange={(e) =>
-									setWeight(
-										Math.min(
-											100,
-											Math.max(1, parseInt(e.target.value, 10) || 10),
-										),
-									)
-								}
-								className={inputClass}
-							/>
-						</label>
-						<label className="flex-1">
-							<div className="mb-1 font-semibold text-sm">月度上限 (¥)</div>
-							<input
-								type="number"
-								step="0.01"
-								value={monthlyLimit}
-								onChange={(e) => setMonthlyLimit(e.target.value)}
-								placeholder="不限"
-								className={inputClass}
-							/>
-						</label>
-					</div>
-					<div className="flex gap-3">
-						<label className="flex-1">
-							<div className="mb-1 font-semibold text-sm">入价/百万token</div>
-							<input
-								type="number"
-								step="0.01"
-								value={priceIn}
-								onChange={(e) => setPriceIn(parseFloat(e.target.value) || 0)}
-								className={inputClass}
-							/>
-						</label>
-						<label className="flex-1">
-							<div className="mb-1 font-semibold text-sm">出价/百万token</div>
-							<input
-								type="number"
-								step="0.01"
-								value={priceOut}
-								onChange={(e) => setPriceOut(parseFloat(e.target.value) || 0)}
-								className={inputClass}
-							/>
-						</label>
+					<div>
+						<div className="mb-1 font-semibold text-sm">用途</div>
+						<select
+							value={purpose}
+							onChange={(e) => setPurpose(e.target.value)}
+							className={inputClass}
+						>
+							{ALL_PURPOSES.map((p) => (
+								<option key={p.value} value={p.value}>
+									{p.label}
+								</option>
+							))}
+						</select>
 					</div>
 				</div>
 			)}
 
-			{(isEdit || showAdvanced) && (
+			{isEdit && (
 				<div className="flex justify-end gap-2 mt-3">
 					<Button variant="outline" onClick={onClose}>
 						取消

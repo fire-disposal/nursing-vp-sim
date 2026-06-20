@@ -58,19 +58,3 @@ export const fetchEnvFallback = () => api.get("/admin/api/fallback");
 
 export const testEnvFallback = () =>
 	api.post<Schemas["TestResultItem"]>("/admin/api/fallback/test");
-
-export interface ModelPresetItem {
-	name: string;
-	price_input: number;
-	price_output: number;
-}
-
-export interface ProviderPreset {
-	provider: string;
-	display_name: string;
-	base_url: string;
-	models: ModelPresetItem[];
-}
-
-export const fetchModelPresets = () =>
-	api.get<{ providers: ProviderPreset[] }>("/admin/api/model-presets");

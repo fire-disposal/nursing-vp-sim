@@ -241,10 +241,10 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 			<div className="flex items-center justify-between pt-2 gap-2">
 				<p className="text-[0.6rem] text-muted-foreground">
 					{submitStatus === "submitted"
-						? "\u5df2\u63d0\u4ea4"
+						? "已提交"
 						: submitStatus === "saving"
-							? "\u63d0\u4ea4\u4e2d..."
-							: "\u8349\u7a3f"}
+							? "提交中..."
+							: "草稿"}
 				</p>
 				{submitStatus !== "submitted" && (
 					<button
@@ -258,7 +258,7 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 						) : (
 							<Send size={11} />
 						)}
-						\u63d0\u4ea4\u62a4\u7406\u8bb0\u5f55
+						提交护理记录
 					</button>
 				)}
 				{submitError && (

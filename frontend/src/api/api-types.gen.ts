@@ -299,6 +299,163 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/records/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Records Excel */
+        post: operations["export_records_excel_api_admin_records_excel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api/rubrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rubrics */
+        get: operations["list_rubrics_api_admin_api_rubrics_get"];
+        put?: never;
+        /** Create Rubric */
+        post: operations["create_rubric_api_admin_api_rubrics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api/rubrics/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Active Rubric */
+        get: operations["get_active_rubric_api_admin_api_rubrics_active_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api/rubrics/{rubric_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Rubric */
+        put: operations["update_rubric_api_admin_api_rubrics__rubric_id__put"];
+        post?: never;
+        /** Delete Rubric */
+        delete: operations["delete_rubric_api_admin_api_rubrics__rubric_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api/rubrics/{rubric_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate Rubric */
+        post: operations["activate_rubric_api_admin_api_rubrics__rubric_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Configs */
+        get: operations["list_configs_api_admin_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/config/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Config */
+        put: operations["update_config_api_admin_config__key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api/admin/system-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notifications */
+        get: operations["list_notifications_api_admin_api_admin_system_notifications_get"];
+        put?: never;
+        /** Create Notification */
+        post: operations["create_notification_api_admin_api_admin_system_notifications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api/admin/system-notifications/{notif_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Notification */
+        put: operations["update_notification_api_admin_api_admin_system_notifications__notif_id__put"];
+        post?: never;
+        /** Delete Notification */
+        delete: operations["delete_notification_api_admin_api_admin_system_notifications__notif_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/classes": {
         parameters: {
             query?: never;
@@ -1034,23 +1191,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/model-presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Model Presets */
-        get: operations["list_model_presets_api_admin_api_model_presets_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/api/health": {
         parameters: {
             query?: never;
@@ -1096,76 +1236,6 @@ export interface paths {
         put?: never;
         /** Test Env Fallback */
         post: operations["test_env_fallback_api_admin_api_fallback_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/api/rubrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Rubrics */
-        get: operations["list_rubrics_api_admin_api_rubrics_get"];
-        put?: never;
-        /** Create Rubric */
-        post: operations["create_rubric_api_admin_api_rubrics_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/api/rubrics/active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Active Rubric */
-        get: operations["get_active_rubric_api_admin_api_rubrics_active_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/api/rubrics/{rubric_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Rubric */
-        put: operations["update_rubric_api_admin_api_rubrics__rubric_id__put"];
-        post?: never;
-        /** Delete Rubric */
-        delete: operations["delete_rubric_api_admin_api_rubrics__rubric_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/api/rubrics/{rubric_id}/activate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Activate Rubric */
-        post: operations["activate_rubric_api_admin_api_rubrics__rubric_id__activate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1288,23 +1358,6 @@ export interface paths {
         };
         /** Preview Active Prompt */
         get: operations["preview_active_prompt_api_admin_prompts_active_preview_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/plugins": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Plugins */
-        get: operations["list_plugins_api_admin_plugins_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1507,18 +1560,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/records/{record_id}/review": {
+    "/api/training/{record_id}/checkpoint": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Score Review */
-        get: operations["get_score_review_api_training_records__record_id__review_get"];
+        get?: never;
         put?: never;
-        /** Submit Score Review */
-        post: operations["submit_score_review_api_training_records__record_id__review_post"];
+        /** Save Checkpoint */
+        post: operations["save_checkpoint_api_training__record_id__checkpoint_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Training */
+        post: operations["resume_training_api_training__record_id__resume_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1574,6 +1643,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/training/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notifications */
+        get: operations["get_notifications_api_training_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/notifications/{notif_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark Notification Read */
+        patch: operations["mark_notification_read_api_training_notifications__notif_id__patch"];
         trace?: never;
     };
     "/api/training/{record_id}/advance-phase": {
@@ -1672,6 +1775,41 @@ export interface paths {
         /** Update Training Features */
         put: operations["update_training_features_api_training__record_id__features_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/{record_id}/exam/{op_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Perform Exam */
+        post: operations["perform_exam_api_training__record_id__exam__op_type__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/records/{record_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Score Review */
+        get: operations["get_score_review_api_training_records__record_id__review_get"];
+        put?: never;
+        /** Submit Score Review */
+        post: operations["submit_score_review_api_training_records__record_id__review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1921,6 +2059,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/diagnose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Diagnose */
+        get: operations["diagnose_api_diagnose_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/students/assignments": {
         parameters: {
             query?: never;
@@ -1938,15 +2093,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins/manifest": {
+    "/api/ops/dashboard": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Plugin Manifest */
-        get: operations["plugin_manifest_api_plugins_manifest_get"];
+        /**
+         * Ops Dashboard
+         * @description 统一运维面板 —— OpenClaw Agent 专用入口，一次调用获取全部状态。
+         */
+        get: operations["ops_dashboard_api_ops_dashboard_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1955,15 +2113,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/{record_id}/plugins/manifest": {
+    "/api/ops/errors": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Training Plugin Manifest */
-        get: operations["training_plugin_manifest_api_training__record_id__plugins_manifest_get"];
+        /**
+         * Ops Errors
+         * @description 系统错误日志 —— ErrorCaptureHandler 环缓冲内容。
+         */
+        get: operations["ops_errors_api_ops_errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ops/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ops Report
+         * @description 运维日报 —— 返回纯数据的日报摘要，OpenClaw Agent 或外部 cron 可消费。
+         */
+        get: operations["ops_report_api_ops_report_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2062,11 +2243,6 @@ export interface components {
              * @default
              */
             base_url: string;
-            /**
-             * Provider
-             * @default
-             */
-            provider: string;
             /**
              * Status
              * @default active
@@ -2293,6 +2469,10 @@ export interface components {
         };
         /** AssignmentUpdateRequest */
         AssignmentUpdateRequest: {
+            /** Practice Id */
+            practice_id?: number | null;
+            /** Class Id */
+            class_id?: number | null;
             /** Title */
             title?: string | null;
             /** Description */
@@ -2470,14 +2650,6 @@ export interface components {
             case_data: {
                 [key: string]: unknown;
             };
-        };
-        /** CatalogResponse */
-        CatalogResponse: {
-            /**
-             * Providers
-             * @default []
-             */
-            providers: components["schemas"]["ProviderPresetResponse"][];
         };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
@@ -2887,28 +3059,6 @@ export interface components {
              * @default
              */
             label: string;
-            /**
-             * Priority
-             * @default 10
-             */
-            priority: number;
-            /**
-             * Weight
-             * @default 10
-             */
-            weight: number;
-            /**
-             * Price Input Per 1M
-             * @default 0
-             */
-            price_input_per_1m: number;
-            /**
-             * Price Output Per 1M
-             * @default 0
-             */
-            price_output_per_1m: number;
-            /** Monthly Cost Limit */
-            monthly_cost_limit?: number | null;
         };
         /** LLMConfigResponse */
         LLMConfigResponse: {
@@ -2932,11 +3082,6 @@ export interface components {
              */
             base_url: string;
             /**
-             * Provider
-             * @default
-             */
-            provider: string;
-            /**
              * Label
              * @default
              */
@@ -2946,32 +3091,10 @@ export interface components {
             /** Purpose */
             purpose: string;
             /**
-             * Priority
-             * @default 10
-             */
-            priority: number;
-            /**
-             * Weight
-             * @default 10
-             */
-            weight: number;
-            /**
              * Status
              * @default active
              */
             status: string;
-            /**
-             * Price Input Per 1M
-             * @default 0
-             */
-            price_input_per_1m: number;
-            /**
-             * Price Output Per 1M
-             * @default 0
-             */
-            price_output_per_1m: number;
-            /** Monthly Cost Limit */
-            monthly_cost_limit?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -2993,16 +3116,6 @@ export interface components {
             purpose?: string | null;
             /** Label */
             label?: string | null;
-            /** Priority */
-            priority?: number | null;
-            /** Weight */
-            weight?: number | null;
-            /** Price Input Per 1M */
-            price_input_per_1m?: number | null;
-            /** Price Output Per 1M */
-            price_output_per_1m?: number | null;
-            /** Monthly Cost Limit */
-            monthly_cost_limit?: number | null;
             /** Status */
             status?: string | null;
         };
@@ -3059,21 +3172,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-        };
-        /** ModelPresetItem */
-        ModelPresetItem: {
-            /** Name */
-            name: string;
-            /**
-             * Price Input
-             * @default 0
-             */
-            price_input: number;
-            /**
-             * Price Output
-             * @default 0
-             */
-            price_output: number;
         };
         /** NoteCreateRequest */
         NoteCreateRequest: {
@@ -3557,29 +3655,6 @@ export interface components {
              * @default []
              */
             warnings: string[];
-        };
-        /** ProviderPresetResponse */
-        ProviderPresetResponse: {
-            /**
-             * Provider
-             * @default
-             */
-            provider: string;
-            /**
-             * Display Name
-             * @default
-             */
-            display_name: string;
-            /**
-             * Base Url
-             * @default
-             */
-            base_url: string;
-            /**
-             * Models
-             * @default []
-             */
-            models: components["schemas"]["ModelPresetItem"][];
         };
         /** QAAskResponse */
         QAAskResponse: {
@@ -4075,6 +4150,40 @@ export interface components {
             /** Permissions */
             permissions?: string[] | null;
         };
+        /** RubricCreateRequest */
+        RubricCreateRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Dimensions
+             * @default []
+             */
+            dimensions: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Version
+             * @default 1.0
+             */
+            version: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Total Max
+             * @default 100
+             */
+            total_max: number;
+            /**
+             * Raw Max
+             * @default 57
+             */
+            raw_max: number;
+            /**
+             * Raw Scale
+             * @default 3
+             */
+            raw_scale: number;
+        };
         /** RubricResponse */
         RubricResponse: {
             /** Id */
@@ -4321,6 +4430,65 @@ export interface components {
              * @default []
              */
             daily: unknown[];
+        };
+        /** SystemNotificationCreateRequest */
+        SystemNotificationCreateRequest: {
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /**
+             * Level
+             * @default info
+             */
+            level: string;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Published At */
+            published_at?: string | null;
+        };
+        /** SystemNotificationResponse */
+        SystemNotificationResponse: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /** Level */
+            level: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Created By */
+            created_by?: number | null;
+            /** Published At */
+            published_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SystemNotificationUpdateRequest */
+        SystemNotificationUpdateRequest: {
+            /** Title */
+            title?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Published At */
+            published_at?: string | null;
         };
         /** TeacherSummaryItem */
         TeacherSummaryItem: {
@@ -5268,6 +5436,372 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LLMCallLogItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_records_excel_api_admin_records_excel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_rubrics_api_admin_api_rubrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricResponse"][];
+                };
+            };
+        };
+    };
+    create_rubric_api_admin_api_rubrics_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RubricCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_active_rubric_api_admin_api_rubrics_active_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricResponse"];
+                };
+            };
+        };
+    };
+    update_rubric_api_admin_api_rubrics__rubric_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rubric_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RubricCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rubric_api_admin_api_rubrics__rubric_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rubric_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activate_rubric_api_admin_api_rubrics__rubric_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rubric_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_configs_api_admin_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    update_config_api_admin_config__key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_api_admin_api_admin_system_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemNotificationResponse"][];
+                };
+            };
+        };
+    };
+    create_notification_api_admin_api_admin_system_notifications_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemNotificationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemNotificationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_notification_api_admin_api_admin_system_notifications__notif_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notif_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemNotificationUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemNotificationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_notification_api_admin_api_admin_system_notifications__notif_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notif_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -7146,26 +7680,6 @@ export interface operations {
             };
         };
     };
-    list_model_presets_api_admin_api_model_presets_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogResponse"];
-                };
-            };
-        };
-    };
     health_check_api_admin_api_health_get: {
         parameters: {
             query?: never;
@@ -7222,180 +7736,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestResultItem"];
-                };
-            };
-        };
-    };
-    list_rubrics_api_admin_api_rubrics_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RubricResponse"][];
-                };
-            };
-        };
-    };
-    create_rubric_api_admin_api_rubrics_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RubricResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_active_rubric_api_admin_api_rubrics_active_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RubricResponse"];
-                };
-            };
-        };
-    };
-    update_rubric_api_admin_api_rubrics__rubric_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rubric_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RubricResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_rubric_api_admin_api_rubrics__rubric_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rubric_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    activate_rubric_api_admin_api_rubrics__rubric_id__activate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rubric_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7674,26 +8014,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_plugins_api_admin_plugins_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };
@@ -8279,7 +8599,7 @@ export interface operations {
             };
         };
     };
-    get_score_review_api_training_records__record_id__review_get: {
+    save_checkpoint_api_training__record_id__checkpoint_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8296,7 +8616,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScoreReviewResponse"];
+                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8310,7 +8630,7 @@ export interface operations {
             };
         };
     };
-    submit_score_review_api_training_records__record_id__review_post: {
+    resume_training_api_training__record_id__resume_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8319,11 +8639,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScoreReviewRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -8331,7 +8647,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScoreReviewResponse"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -8425,6 +8741,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScoringTriggerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notifications_api_training_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    mark_notification_read_api_training_notifications__notif_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notif_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -8630,6 +8997,104 @@ export interface operations {
             };
         };
     };
+    perform_exam_api_training__record_id__exam__op_type__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+                op_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_score_review_api_training_records__record_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_score_review_api_training_records__record_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     send_message_api_chat__record_id__message_post: {
         parameters: {
             query?: never;
@@ -8768,7 +9233,10 @@ export interface operations {
     };
     list_sessions_api_qa_sessions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8782,6 +9250,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QASessionItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9245,6 +9722,38 @@ export interface operations {
             };
         };
     };
+    diagnose_api_diagnose_get: {
+        parameters: {
+            query?: {
+                /** @description 诊断接口访问令牌 */
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_student_assignments_api_students_assignments_get: {
         parameters: {
             query?: never;
@@ -9265,9 +9774,12 @@ export interface operations {
             };
         };
     };
-    plugin_manifest_api_plugins_manifest_get: {
+    ops_dashboard_api_ops_dashboard_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 诊断令牌 */
+                token?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9283,15 +9795,59 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    training_plugin_manifest_api_training__record_id__plugins_manifest_get: {
+    ops_errors_api_ops_errors_get: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
+            query?: {
+                /** @description 诊断令牌 */
+                token?: string;
+                /** @description 返回条数 */
+                n?: number;
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ops_report_api_ops_report_get: {
+        parameters: {
+            query?: {
+                /** @description 诊断令牌 */
+                token?: string;
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;

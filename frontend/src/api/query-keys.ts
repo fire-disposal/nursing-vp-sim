@@ -92,7 +92,6 @@ export const queryKeys = {
 		secrets: ["admin", "api", "secrets"] as const,
 		configs: (purpose?: string) =>
 			["admin", "api", "configs", purpose] as const,
-		modelPresets: ["admin", "api", "modelPresets"] as const,
 		health: ["admin", "api", "health"] as const,
 		fallback: ["admin", "api", "fallback"] as const,
 	},
