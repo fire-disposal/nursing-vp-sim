@@ -1,4 +1,6 @@
 """Tests for notification endpoints."""
+
+
 def test_mark_notification_read_requires_auth(client):
     resp = client.patch("/api/training/notifications/1")
     assert resp.status_code == 401

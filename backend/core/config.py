@@ -43,6 +43,7 @@ def validate_config():
         )
     try:
         from cryptography.fernet import Fernet
+
         Fernet(FERNET_KEY.encode())
     except Exception:
         raise RuntimeError(f"FERNET_KEY 格式无效: {FERNET_KEY[:8]}... 应为 32 字节的 base64-urlsafe 编码（44 字符）。")
@@ -70,9 +71,7 @@ def validate_config():
     if DEEPSEEK_API_KEY == "skip":
         log.warning("DEEPSEEK_API_KEY=skip — LLM 调用将全部失败，仅用于纯前端开发")
     elif not DEEPSEEK_API_KEY.startswith("sk-"):
-        raise RuntimeError(
-            f"DEEPSEEK_API_KEY 格式无效: 应以 sk- 开头（当前首字符: {DEEPSEEK_API_KEY[:3]}...）"
-        )
+        raise RuntimeError(f"DEEPSEEK_API_KEY 格式无效: 应以 sk- 开头（当前首字符: {DEEPSEEK_API_KEY[:3]}...）")
 
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）

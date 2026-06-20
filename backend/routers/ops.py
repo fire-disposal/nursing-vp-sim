@@ -62,19 +62,34 @@ async def ops_dashboard(
         llm_error = llm_stats.error or 0
 
         # ── 评分队列 ──
-        scoring_pending = db.query(func.count(TrainingRecord.id)).filter(
-            TrainingRecord.scoring_status == "pending",
-            TrainingRecord.end_time >= day_ago,
-        ).scalar() or 0
-        scoring_stuck = db.query(func.count(TrainingRecord.id)).filter(
-            TrainingRecord.scoring_status.in_(["pending", "processing"]),
-            TrainingRecord.end_time < day_ago,
-        ).scalar() or 0
+        scoring_pending = (
+            db.query(func.count(TrainingRecord.id))
+            .filter(
+                TrainingRecord.scoring_status == "pending",
+                TrainingRecord.end_time >= day_ago,
+            )
+            .scalar()
+            or 0
+        )
+        scoring_stuck = (
+            db.query(func.count(TrainingRecord.id))
+            .filter(
+                TrainingRecord.scoring_status.in_(["pending", "processing"]),
+                TrainingRecord.end_time < day_ago,
+            )
+            .scalar()
+            or 0
+        )
 
         # ── 活跃会话 ──
-        active_sessions = db.query(func.count(TrainingRecord.id)).filter(
-            TrainingRecord.status == "in_progress",
-        ).scalar() or 0
+        active_sessions = (
+            db.query(func.count(TrainingRecord.id))
+            .filter(
+                TrainingRecord.status == "in_progress",
+            )
+            .scalar()
+            or 0
+        )
 
         # ── 近期异常 ──
         recent_errors = (
@@ -107,9 +122,14 @@ async def ops_dashboard(
                 pass
 
         # ── 通知统计 ──
-        unread_notifications = db.query(func.count(Notification.id)).filter(
-            Notification.is_read == False,
-        ).scalar() or 0
+        unread_notifications = (
+            db.query(func.count(Notification.id))
+            .filter(
+                Notification.is_read == False,
+            )
+            .scalar()
+            or 0
+        )
 
         return {
             "health": health_data,
@@ -138,8 +158,6 @@ async def ops_dashboard(
         }
     finally:
         db.close()
-
-
 
 
 @router.get("/api/ops/errors")
@@ -216,6 +234,3 @@ async def ops_report(
         },
         "alerts": alerts,
     }
-
-
-

@@ -1,4 +1,5 @@
 """Tests for Ops API dashboard and errors endpoints."""
+
 from unittest.mock import patch
 
 

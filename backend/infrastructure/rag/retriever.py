@@ -29,9 +29,7 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
     def _query() -> list[dict]:
         db = SessionLocal()
         try:
-            chunks = db.query(KnowledgeChunk).filter(
-                KnowledgeChunk.embedding.isnot(None)
-            ).limit(1000).all()
+            chunks = db.query(KnowledgeChunk).filter(KnowledgeChunk.embedding.isnot(None)).limit(1000).all()
             scored = []
             for c in chunks:
                 if not c.embedding:
@@ -41,12 +39,14 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
             scored.sort(key=lambda x: x[0], reverse=True)
             results = []
             for sim, c in scored[:top_k]:
-                results.append({
-                    "source": c.source,
-                    "section": c.section,
-                    "chunk_text": c.chunk_text,
-                    "score": round(sim, 4),
-                })
+                results.append(
+                    {
+                        "source": c.source,
+                        "section": c.section,
+                        "chunk_text": c.chunk_text,
+                        "score": round(sim, 4),
+                    }
+                )
             return results
         finally:
             db.close()
