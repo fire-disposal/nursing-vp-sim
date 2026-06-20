@@ -7,8 +7,8 @@ import { readSSEStream } from "./sse";
 
 type Schemas = components["schemas"];
 
-export const createQASession = (question: string) =>
-	api.post<Schemas["QAAskResponse"]>("/qa/sessions" satisfies ApiPath as string, { question });
+export const createQASession = (question: string, ragEnabled?: boolean) =>
+	api.post<Schemas["QAAskResponse"]>("/qa/sessions" satisfies ApiPath as string, { question, rag_enabled: ragEnabled });
 
 export const getQASessions = () =>
 	api.get<Schemas["QASessionItem"][]>("/qa/sessions" satisfies ApiPath as string);
@@ -19,9 +19,10 @@ export const deleteQASession = (id: number | string) =>
 export const getQASessionMessages = (sessionId: number | string) =>
 	api.get<Schemas["QAMessageItem"][]>(`/qa/sessions/${sessionId}/messages` as ApiPath);
 
-export const askInQASession = (sessionId: number | string, question: string) =>
+export const askInQASession = (sessionId: number | string, question: string, ragEnabled?: boolean) =>
 	api.post<Schemas["QAAskResponse"]>(`/qa/sessions/${sessionId}/ask` as ApiPath, {
 		question,
+		rag_enabled: ragEnabled,
 	});
 
 export const getQAHistoryAll = (params: Record<string, unknown> = {}) =>
@@ -35,8 +36,9 @@ export const getQASessionMessagesAdmin = (sessionId: number | string) =>
 export async function askInQASessionStream(
 	sessionId: number | string,
 	question: string,
+	ragEnabled: boolean,
 	onChunk: (text: string) => void,
-	onDone: (id?: number) => void,
+	onDone: (id?: number, citations?: Array<{ source: string; section: string }>) => void,
 	onError: (msg: string) => void,
 	signal?: AbortSignal,
 ) {
@@ -51,7 +53,7 @@ export async function askInQASessionStream(
 				"Content-Type": "application/json",
 				Authorization: `Bearer ${token}`,
 			},
-			body: JSON.stringify({ question }),
+			body: JSON.stringify({ question, rag_enabled: ragEnabled }),
 			signal: timeoutSignal || signal,
 		});
 	};

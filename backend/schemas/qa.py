@@ -8,6 +8,7 @@ from schemas.common import _REQ_CFG, _RESP_CFG
 class QASessionCreate(BaseModel):
     model_config = _REQ_CFG
     question: str = Field(min_length=1, max_length=4096)
+    rag_enabled: bool = False
 
 
 QAAskRequest = QASessionCreate
@@ -29,9 +30,16 @@ class QAMessageItem(BaseModel):
     created_at: datetime
 
 
+class Citation(BaseModel):
+    model_config = _RESP_CFG
+    source: str
+    section: str
+
+
 class QAAskResponse(BaseModel):
     session_id: int
     answer: str
+    citations: list[Citation] | None = None
 
 
 class QASessionAdminItem(BaseModel):

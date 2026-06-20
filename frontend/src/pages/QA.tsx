@@ -1,5 +1,5 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
+import { BookOpen, Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,6 +12,7 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import CitationCard from "@/components/qa/CitationCard";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -20,6 +21,15 @@ import { cn } from "@/lib/utils";
 import { getNurseAvatar } from "@/utils/avatar";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
+
+interface Citation {
+	source: string;
+	section: string;
+}
+
+interface MessageWithCitations extends QAMessageItem {
+	citations?: Citation[] | null;
+}
 
 const SUGGESTIONS = [
 	"病史采集技巧",
@@ -54,11 +64,12 @@ const BUBBLE_CONTENT_USER = [
 export default function QA() {
 	const queryClient = useQueryClient();
 	const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
-	const [messages, setMessages] = useState<QAMessageItem[]>([]);
+	const [messages, setMessages] = useState<MessageWithCitations[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [streamingAnswer, setStreamingAnswer] = useState("");
 	const [showSidebar, setShowSidebar] = useState(false);
+	const [ragEnabled, setRagEnabled] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -109,19 +120,20 @@ export default function QA() {
 			if (!activeSessionId) {
 				setLoading(true);
 				setMessages([
-					{ id: optimisticId, role: "user", content: q } as QAMessageItem,
+					{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
 				]);
 				try {
-					const res = await createQASession(q);
-					const { session_id, answer: ans } = res.data;
+					const res = await createQASession(q, ragEnabled);
+					const { session_id, answer: ans, citations: cit } = res.data;
 					setActiveSessionId(session_id);
 					setMessages([
-						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
+						{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
 						{
 							id: optimisticId + 1,
 							role: "assistant",
 							content: ans,
-						} as QAMessageItem,
+							citations: cit,
+						} as MessageWithCitations,
 					]);
 					await loadSessions();
 				} catch (err: unknown) {
@@ -130,12 +142,12 @@ export default function QA() {
 						message?: string;
 					};
 					setMessages([
-						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
+						{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
 						{
 							id: -1,
 							role: "assistant",
 							content: `抱歉，AI导师暂时无法回复：${axiosErr.response?.data?.detail || axiosErr.message || "网络错误"}`,
-						} as QAMessageItem,
+						} as MessageWithCitations,
 					]);
 				} finally {
 					setLoading(false);
@@ -145,7 +157,7 @@ export default function QA() {
 
 			setMessages((prev) => [
 				...prev,
-				{ id: optimisticId, role: "user", content: q } as QAMessageItem,
+				{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
 			]);
 			setLoading(true);
 			setStreamingAnswer("");
@@ -156,19 +168,21 @@ export default function QA() {
 			askInQASessionStream(
 				activeSessionId,
 				q,
+				ragEnabled,
 				(chunk) => {
 					setStreamingAnswer((prev) => prev + chunk);
 				},
-				(id) => {
+				(id, cit) => {
 					setStreamingAnswer((finalAnswer) => {
 						setMessages((prev) => [
 							...prev.filter((m) => m.id !== optimisticId),
-							{ id: optimisticId, role: "user", content: q } as QAMessageItem,
+							{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
 							{
 								id: id || optimisticId + 1,
 								role: "assistant",
 								content: finalAnswer,
-							} as QAMessageItem,
+								citations: cit ?? undefined,
+							} as MessageWithCitations,
 						]);
 						return "";
 					});
@@ -178,19 +192,19 @@ export default function QA() {
 				(msg) => {
 					setMessages((prev) => [
 						...prev.filter((m) => m.id !== optimisticId),
-						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
+						{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
 						{
 							id: -1,
 							role: "assistant",
 							content: `抱歉，AI导师暂时无法回复：${msg}`,
-						} as QAMessageItem,
+						} as MessageWithCitations,
 					]);
 					setLoading(false);
 				},
 				abort.signal,
 			);
 		},
-		[input, loading, activeSessionId, loadSessions],
+		[input, loading, activeSessionId, ragEnabled, loadSessions],
 	);
 
 	const handleDeleteSession = useCallback(
@@ -349,6 +363,9 @@ export default function QA() {
 													{m.content}
 												</ReactMarkdown>
 											</div>
+											{!isUser && "citations" in m && m.citations && m.citations.length > 0 && (
+												<CitationCard citations={m.citations} />
+											)}
 										</div>
 										{isUser && (
 											<img
@@ -408,11 +425,25 @@ export default function QA() {
 						</div>
 					)}
 
-					<div
-						className="flex gap-2 items-center border-t p-4"
-						style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+				<div
+					className="flex gap-2 items-center border-t p-4"
+					style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+				>
+					<button
+						type="button"
+						className={cn(
+							"flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer",
+							ragEnabled
+								? "bg-primary/10 text-primary border-primary/30"
+								: "bg-muted text-muted-foreground border-border hover:border-primary/30",
+						)}
+						onClick={() => setRagEnabled(!ragEnabled)}
+						title={ragEnabled ? "关闭教材参考" : "开启教材参考"}
 					>
-						<input
+						<BookOpen size={12} />
+						{ragEnabled ? "教材" : "教材"}
+					</button>
+					<input
 							ref={inputRef}
 							className="flex-1 rounded-lg border border-input bg-background px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
 							value={input}
