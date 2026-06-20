@@ -1,7 +1,7 @@
 """QA 问答系统 —— 缓存 + 历史构建
 
 QA Cache: 查询 qa_records 表去重，避免重复 LLM 调用
-build_qa_history: 从 DB 构建对话历史 messages
+build_qa_history: 从 DB 构建对话历史 messages（剔除 citations 标记）
 """
 
 import logging
@@ -9,6 +9,8 @@ import logging
 from sqlalchemy.orm import Session
 
 from models import QARecord
+
+from ._citations import clean_content, extract_citations
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +37,8 @@ def get_cached_answer(question: str, db: Session) -> str | None:
         .first()
     )
     if row:
-        return row.content
+        clean, _ = extract_citations(row.content)
+        return clean
     return None
 
 
@@ -50,10 +53,10 @@ def build_qa_history(session_id: int, db: Session) -> list[dict]:
     total_tokens = 0
     kept = []
     for r in records:
-        tokens = estimate_tokens(r.content)
+        tokens = estimate_tokens(clean_content(r.content))
         if total_tokens + tokens > MAX_HISTORY_TOKENS:
             break
         total_tokens += tokens
         kept.append(r)
     kept.reverse()
-    return [{"role": "user" if r.role == "user" else "assistant", "content": r.content} for r in kept]
+    return [{"role": "user" if r.role == "user" else "assistant", "content": clean_content(r.content)} for r in kept]

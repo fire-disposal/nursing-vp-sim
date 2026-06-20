@@ -22,15 +22,6 @@ import { getNurseAvatar } from "@/utils/avatar";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 
-interface Citation {
-	source: string;
-	section: string;
-}
-
-interface MessageWithCitations extends QAMessageItem {
-	citations?: Citation[] | null;
-}
-
 const SUGGESTIONS = [
 	"病史采集技巧",
 	"护理评估方法",
@@ -64,7 +55,7 @@ const BUBBLE_CONTENT_USER = [
 export default function QA() {
 	const queryClient = useQueryClient();
 	const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
-	const [messages, setMessages] = useState<MessageWithCitations[]>([]);
+	const [messages, setMessages] = useState<QAMessageItem[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [streamingAnswer, setStreamingAnswer] = useState("");
@@ -120,20 +111,20 @@ export default function QA() {
 			if (!activeSessionId) {
 				setLoading(true);
 				setMessages([
-					{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
+					{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 				]);
 				try {
 					const res = await createQASession(q, ragEnabled);
 					const { session_id, answer: ans, citations: cit } = res.data;
 					setActiveSessionId(session_id);
 					setMessages([
-						{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
+						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 						{
 							id: optimisticId + 1,
 							role: "assistant",
 							content: ans,
 							citations: cit,
-						} as MessageWithCitations,
+						} as QAMessageItem,
 					]);
 					await loadSessions();
 				} catch (err: unknown) {
@@ -142,12 +133,12 @@ export default function QA() {
 						message?: string;
 					};
 					setMessages([
-						{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
+						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 						{
 							id: -1,
 							role: "assistant",
 							content: `抱歉，AI导师暂时无法回复：${axiosErr.response?.data?.detail || axiosErr.message || "网络错误"}`,
-						} as MessageWithCitations,
+						} as QAMessageItem,
 					]);
 				} finally {
 					setLoading(false);
@@ -157,7 +148,7 @@ export default function QA() {
 
 			setMessages((prev) => [
 				...prev,
-				{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
+				{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 			]);
 			setLoading(true);
 			setStreamingAnswer("");
@@ -176,13 +167,13 @@ export default function QA() {
 					setStreamingAnswer((finalAnswer) => {
 						setMessages((prev) => [
 							...prev.filter((m) => m.id !== optimisticId),
-							{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
+							{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 							{
 								id: id || optimisticId + 1,
 								role: "assistant",
 								content: finalAnswer,
 								citations: cit ?? undefined,
-							} as MessageWithCitations,
+							} as QAMessageItem,
 						]);
 						return "";
 					});
@@ -192,12 +183,12 @@ export default function QA() {
 				(msg) => {
 					setMessages((prev) => [
 						...prev.filter((m) => m.id !== optimisticId),
-						{ id: optimisticId, role: "user", content: q } as MessageWithCitations,
+						{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 						{
 							id: -1,
 							role: "assistant",
 							content: `抱歉，AI导师暂时无法回复：${msg}`,
-						} as MessageWithCitations,
+						} as QAMessageItem,
 					]);
 					setLoading(false);
 				},

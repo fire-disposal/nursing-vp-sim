@@ -18,6 +18,8 @@ from schemas import (
     QASessionItem,
 )
 
+from ._citations import extract_citations
+
 log = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -68,6 +70,19 @@ def delete_session(
     return {"message": "删除成功"}
 
 
+def _enrich_message(record) -> dict:
+    clean, citations = extract_citations(record.content)
+    msg = {
+        "id": record.id,
+        "role": record.role,
+        "content": clean,
+        "created_at": record.created_at,
+    }
+    if citations:
+        msg["citations"] = citations
+    return msg
+
+
 @router.get("/sessions/{session_id}/messages", response_model=list[QAMessageItem])
 def get_session_messages(
     session_id: int,
@@ -85,7 +100,8 @@ def get_session_messages(
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    return db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
+    records = db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
+    return [_enrich_message(r) for r in records]
 
 
 @router.get("/history/all", response_model=PaginatedResponse[QASessionAdminItem])
@@ -138,4 +154,5 @@ def get_session_messages_admin(
     current_user: Annotated[User, Depends(require_permission("stats_view"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    return db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
+    records = db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
+    return [_enrich_message(r) for r in records]
