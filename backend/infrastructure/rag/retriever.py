@@ -1,6 +1,7 @@
-"""RAG retriever — keyword-based search over knowledge chunks with full-section inclusion."""
+"""RAG retriever — keyword-based search over knowledge chunks with IDF weighting."""
 
 import logging
+from math import log as _log
 
 from core.database import SessionLocal
 from models import KnowledgeChunk
@@ -19,50 +20,39 @@ def _load_chunks() -> list:
         db.close()
 
 
-def _keyword_score(chunk_text: str, query_tokens: set, medical_keywords: set) -> int:
-    """Score chunk by keyword overlap. Medical terms weighted higher."""
-    score = 0
+def _build_idf(chunks: list, query_tokens: set, medical_keywords: set) -> dict[str, float]:
+    """Compute IDF weights: tokens appearing in many chunks -> low weight."""
+    df: dict[str, int] = {}
+    for c in chunks:
+        lower = c.chunk_text.lower()
+        seen = set()
+        for kw in medical_keywords:
+            if kw in lower and kw not in seen:
+                df[kw] = df.get(kw, 0) + 1
+                seen.add(kw)
+        for token in query_tokens:
+            if len(token) >= 2 and token in lower and token not in seen:
+                df[token] = df.get(token, 0) + 1
+                seen.add(token)
+    total = max(len(chunks), 1)
+    return {term: _log(2 + total / max(df[term], 1)) for term in df}
+
+
+def _keyword_score(chunk_text: str, query_tokens: set, medical_keywords: set, idf: dict[str, float]) -> float:
+    """Score chunk by IDF-weighted keyword overlap."""
+    score = 0.0
     lower = chunk_text.lower()
     for kw in medical_keywords:
         if kw in lower:
-            score += 6
+            score += 6 * idf.get(kw, 1.0)
     for token in query_tokens:
         if len(token) >= 2 and token in lower:
-            score += 1
+            score += 1 * idf.get(token, 1.0)
     return score
 
 
-def _build_full_section(chunk) -> str:
-    """For a matched chunk, retrieve the full section (all chunks sharing source+chapter)."""
-    section_prefix = "/".join(chunk.section.split("/")[:2]) if "/" in chunk.section else chunk.section
-    db = SessionLocal()
-    try:
-        siblings = (
-            db.query(KnowledgeChunk)
-            .filter(
-                KnowledgeChunk.source == chunk.source,
-                KnowledgeChunk.section.like(f"{section_prefix}%"),
-            )
-            .order_by(KnowledgeChunk.section)
-            .all()
-        )
-        if not siblings:
-            return chunk.chunk_text
-        parts = []
-        for s in siblings:
-            if s.chunk_text not in parts:
-                parts.append(s.chunk_text)
-        return "\n\n".join(parts)
-    finally:
-        db.close()
-
-
 async def retrieve(query: str, top_k: int = 3) -> list[dict]:
-    """Keyword-based retrieval. Returns top-k chunks (each chunk = one markdown section).
-
-    Does NOT require embeddings — uses jieba tokenisation + medical term matching.
-    Deduplicates by source+chapter so each textbook chapter contributes at most 1 result.
-    """
+    """Keyword-based retrieval with IDF weighting. Deduplicates by textbook+chapter."""
     import asyncio
 
     def _search() -> list[dict]:
@@ -76,9 +66,10 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
         for cat_list in categories.values():
             all_keywords.update(cat_list)
 
+        idf = _build_idf(chunks, query_tokens, all_keywords)
         scored = []
         for c in chunks:
-            score = _keyword_score(c.chunk_text, query_tokens, all_keywords)
+            score = _keyword_score(c.chunk_text, query_tokens, all_keywords, idf)
             if score > 0:
                 scored.append((score, c))
 
@@ -98,7 +89,7 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
                     "source": c.source,
                     "section": c.section,
                     "chunk_text": c.chunk_text,
-                    "score": score,
+                    "score": round(score, 2),
                 }
             )
             if len(results) >= top_k:
