@@ -43,6 +43,7 @@ def validate_config():
         )
     try:
         from cryptography.fernet import Fernet
+
         Fernet(FERNET_KEY.encode())
     except Exception:
         raise RuntimeError(f"FERNET_KEY 格式无效: {FERNET_KEY[:8]}... 应为 32 字节的 base64-urlsafe 编码（44 字符）。")
@@ -70,9 +71,7 @@ def validate_config():
     if DEEPSEEK_API_KEY == "skip":
         log.warning("DEEPSEEK_API_KEY=skip — LLM 调用将全部失败，仅用于纯前端开发")
     elif not DEEPSEEK_API_KEY.startswith("sk-"):
-        raise RuntimeError(
-            f"DEEPSEEK_API_KEY 格式无效: 应以 sk- 开头（当前首字符: {DEEPSEEK_API_KEY[:3]}...）"
-        )
+        raise RuntimeError(f"DEEPSEEK_API_KEY 格式无效: 应以 sk- 开头（当前首字符: {DEEPSEEK_API_KEY[:3]}...）")
 
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
@@ -103,9 +102,6 @@ LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10
 LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))
 
 LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "1"))
-
-# QA RAG 开关 —— 启用后从教材库检索相关内容注入问答 prompt
-QA_RAG_ENABLED = os.getenv("QA_RAG_ENABLED", "false").lower() in ("true", "1", "yes")
 
 # 批量建用户上限 —— 防止单次请求过大导致系统卡死
 BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))

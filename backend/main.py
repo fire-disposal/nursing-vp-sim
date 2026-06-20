@@ -24,7 +24,6 @@ from core.config import (
     LLM_LOG_OVERFLOW_DIR,
     LLM_LOG_OVERFLOW_MAX_FILES,
     LLM_LOG_OVERFLOW_MAX_SIZE_MB,
-    QA_RAG_ENABLED,
     REQUEST_TIMEOUT_SECONDS,
     log_config,
     validate_config,
@@ -133,7 +132,7 @@ async def lifespan(app: FastAPI):
 
     log.info("Scoring recovery: done")
 
-    if QA_RAG_ENABLED:
+    if True:  # Always ensure knowledge base is indexed, RAG availability is per-request
         try:
             from infrastructure.rag.indexer import check_indexed, index_all
 
