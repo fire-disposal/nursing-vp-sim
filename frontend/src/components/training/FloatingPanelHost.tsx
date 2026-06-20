@@ -21,7 +21,7 @@ interface FloatingPanelHostProps {
 /* ── Auto-hide idle timer — bar fades after 8s idle ── */
 function useBarAutoHide() {
 	const [visible, setVisible] = useState(true);
-	const timer = useRef<ReturnType<typeof setTimeout>>();
+	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
 	const poke = useCallback(() => {
 		setVisible(true);
@@ -183,7 +183,8 @@ function PanelOverlay({ children, label, isMobile, onClose }: PanelOverlayProps)
 						className="size-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
 						aria-label="关闭面板"
 					>
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+							<title>关闭面板</title>
 							<path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
 						</svg>
 					</button>

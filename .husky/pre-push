@@ -68,14 +68,14 @@ if $HAS_ALEMBIC; then
   cd "$MIGRATION_DIR" || exit 1
 
   if $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
-    if $TOCMD_LONG "$ALEMBIC" downgrade -1 2>&1; then
+    if $TOCMD_LONG "$ALEMBIC" downgrade base 2>&1; then
       if $TOCMD_LONG "$ALEMBIC" upgrade head 2>&1; then
-        ok "alembic upgrade/downgrade roundtrip"
+        ok "alembic full upgrade/downgrade roundtrip (base → head → base → head)"
       else
-        fail "alembic re-upgrade failed after downgrade"
+        fail "alembic re-upgrade failed after full downgrade"
       fi
     else
-      fail "alembic downgrade -1 failed — irreversible migration?"
+      fail "alembic downgrade base failed — irreversible migration?"
     fi
   else
     fail "alembic upgrade head failed — migration cannot be applied"
