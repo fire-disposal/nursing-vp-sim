@@ -237,7 +237,7 @@ export default function ApiManagementTab() {
 							return (
 								<div
 									key={s.id}
-									className="flex-1 min-w-[240px] max-w-[320px] rounded-lg border border-border bg-card p-3"
+									className="flex-1 min-w-[240px] max-w-[320px] rounded-lg border border-border bg-card p-3 transition-shadow duration-200 hover:shadow-md"
 								>
 									<div className="flex items-center gap-1.5 mb-0.5">
 										<span className="font-semibold text-sm">{s.label}</span>
@@ -320,14 +320,14 @@ export default function ApiManagementTab() {
 							<div
 								key={p.key}
 								className={cn(
-									"flex items-center py-2 px-3 gap-2",
+									"flex items-center py-2 px-3 gap-2 transition-colors duration-150 hover:bg-muted/50",
 									!isLast && "border-b border-border",
 								)}
 							>
 								<div className="w-[90px] shrink-0 flex items-center gap-1">
 									<span className="font-semibold text-sm">{p.label}</span>
 									<Tooltip content={p.desc}>
-										<button className="bg-transparent border-none cursor-pointer p-0 text-muted-foreground/30 hover:text-muted-foreground/60">
+										<button className="bg-transparent border-none cursor-pointer p-0 text-muted-foreground/30 hover:text-muted-foreground/60 transition-all duration-200 hover:scale-110">
 											<Info size={12} />
 										</button>
 									</Tooltip>
