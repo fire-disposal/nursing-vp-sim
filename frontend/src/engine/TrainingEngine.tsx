@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
-import { PanelHost } from "@/components/training/PanelHost";
+import { FloatingPanelHost } from "@/components/training/FloatingPanelHost";
 import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { getActivePanels } from "@/components/training/panels";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
@@ -188,21 +188,11 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 
 	if (loading) {
 		return (
-			<div
-				className="grid h-screen"
-				style={{
-					gridTemplateAreas: '"header header" "content panel"',
-					gridTemplateColumns: "1fr auto",
-					gridTemplateRows: "auto 1fr",
-				}}
-			>
-				<div className="p-4 border-b" style={{ gridArea: "header" }}>
+			<div className="flex flex-col h-screen">
+				<div className="p-3 border-b shrink-0">
 					<LoadingSkeleton variant="stats" />
 				</div>
-				<div className="p-4" style={{ gridArea: "content" }}>
-					<LoadingSkeleton variant="card" />
-				</div>
-				<div className="w-[420px] p-4 border-l" style={{ gridArea: "panel" }}>
+				<div className="flex-1 p-4 overflow-hidden">
 					<LoadingSkeleton variant="card" />
 				</div>
 			</div>
@@ -219,40 +209,30 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 
 	return (
 		<>
-			<div
-				className="h-screen"
-				style={{
-					display: "grid",
-					gridTemplateAreas: '"header header" "content panel"',
-					gridTemplateColumns: "1fr auto",
-					gridTemplateRows: "auto 1fr",
-				}}
-			>
-				<div style={{ gridArea: "header" }}>
-					<TrainingHeader
-						recordId={recordId}
-						patient={patient}
-						features={features}
-						onToggleFeature={(key: string, enabled: boolean) => {
-							setFeatures((prev) => {
-								const next = { ...prev, [key]: enabled };
-								if (!enabled && key === "emotion") {
-									next.patient_initiative = false;
-								}
-								return next;
-							});
-						}}
-						ttsAutoPlay={ttsAutoPlay}
-						onTtsToggle={() => setTtsAutoPlay((v) => !v)}
-						onEnd={endTraining}
-						sending={sending}
-						featuresLocked={fromAssignment}
-						fromAssignment={fromAssignment}
-						timeLimitMinutes={timeLimit}
-						remainingSeconds={remainingSeconds}
-					/>
-				</div>
-				<div style={{ gridArea: "content", overflow: "hidden" }}>
+			<div className="flex flex-col h-screen">
+				<TrainingHeader
+					recordId={recordId}
+					patient={patient}
+					features={features}
+					onToggleFeature={(key: string, enabled: boolean) => {
+						setFeatures((prev) => {
+							const next = { ...prev, [key]: enabled };
+							if (!enabled && key === "emotion") {
+								next.patient_initiative = false;
+							}
+							return next;
+						});
+					}}
+					ttsAutoPlay={ttsAutoPlay}
+					onTtsToggle={() => setTtsAutoPlay((v) => !v)}
+					onEnd={endTraining}
+					sending={sending}
+					featuresLocked={fromAssignment}
+					fromAssignment={fromAssignment}
+					timeLimitMinutes={timeLimit}
+					remainingSeconds={remainingSeconds}
+				/>
+				<div className="flex-1 overflow-hidden relative">
 					<ChatArea
 						messages={messages}
 						patient={patient}
@@ -262,13 +242,11 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						features={features}
 					/>
 				</div>
-				<div style={{ gridArea: "panel", overflow: "hidden" }}>
-					<PanelHost
-						ctx={ctx}
-						features={features}
-						plugins={panelPluginsWrapped}
-					/>
-				</div>
+				<FloatingPanelHost
+					ctx={ctx}
+					features={features}
+					plugins={panelPluginsWrapped}
+				/>
 			</div>
 			<ScoringOverlay
 				bus={busRef.current}

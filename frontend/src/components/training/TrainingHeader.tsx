@@ -18,6 +18,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { usePortrait } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";
+import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -158,6 +159,9 @@ export function TrainingHeader({
 		}
 	}, [timerActive, stopTimer, setTimerActive]);
 
+	const layout = useLayoutMode();
+	const isCompact = layout === "phone";
+
 	const toast = useToast();
 
 	const handleSaveCheckpoint = useCallback(async () => {
@@ -243,6 +247,7 @@ export function TrainingHeader({
 						)}
 					</div>
 
+					{!isCompact && (
 					<button
 						onClick={onTtsToggle}
 						className={cn(
@@ -258,7 +263,9 @@ export function TrainingHeader({
 							<EarOff size={14} className="sm:size-[16px]" />
 						)}
 					</button>
+					)}
 
+					{!isCompact && (
 					<button
 						onClick={() => setFeaturesOpen(true)}
 						className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
@@ -266,7 +273,9 @@ export function TrainingHeader({
 					>
 						<MonitorCog size={14} className="sm:size-[16px]" />
 					</button>
+					)}
 
+					{!isCompact && (
 					<button
 						onClick={handleSaveCheckpoint}
 						className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
@@ -274,6 +283,7 @@ export function TrainingHeader({
 					>
 						<Save size={14} className="sm:size-[16px]" />
 					</button>
+					)}
 
 					<button
 						onClick={handleEndClick}
