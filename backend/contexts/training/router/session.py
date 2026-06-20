@@ -35,7 +35,6 @@ from models import (
 )
 from schemas import (
     DeleteResponse,
-    OkResponse,
     PaginatedResponse,
     TrainingRecordBrief,
     TrainingRecordDetail,
@@ -547,45 +546,3 @@ def delete_record(
     )
     return {"message": "训练记录已删除"}
 
-
-@router.post("/{record_id}/checkpoint", response_model=OkResponse)
-def save_checkpoint(
-    record_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
-):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
-    if record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权操作")
-    if record.status != "in_progress":
-        raise HTTPException(status_code=400, detail="训练已结束，无法创建存档点")
-
-    rs = dict(record.runtime_state or {})
-    rs["_checkpoint_saved_at"] = datetime.now(UTC).isoformat()
-    record.runtime_state = rs
-    db.commit()
-    return OkResponse(message="存档点已创建")
-
-
-@router.post("/{record_id}/resume")
-def resume_training(
-    record_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
-):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
-    if record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权操作")
-    if record.status != "in_progress":
-        raise HTTPException(status_code=400, detail="训练已结束")
-
-    rs = record.runtime_state or {}
-    return {
-        "record_id": record.id,
-        "current_phase": record.current_phase,
-        "checkpoint_saved_at": rs.get("_checkpoint_saved_at"),
-    }
