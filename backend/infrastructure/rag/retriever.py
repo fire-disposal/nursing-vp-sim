@@ -21,7 +21,29 @@ def _split_terms(query: str) -> list[str]:
     """Split comma/space-separated search terms, filter noise."""
     import re
 
-    STOP = {"的", "了", "是", "在", "和", "与", "或", "及", "如何", "怎么", "什么", "步骤", "方法", "注意", "要点", "护理", "病人", "患者", "进行", "处理", "使用"}
+    STOP = {
+        "的",
+        "了",
+        "是",
+        "在",
+        "和",
+        "与",
+        "或",
+        "及",
+        "如何",
+        "怎么",
+        "什么",
+        "步骤",
+        "方法",
+        "注意",
+        "要点",
+        "护理",
+        "病人",
+        "患者",
+        "进行",
+        "处理",
+        "使用",
+    }
     terms = []
     for t in re.split(r"[，,、\s\n]+", query):
         t = t.strip()
@@ -73,7 +95,9 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
             if key in seen:
                 continue
             seen.add(key)
-            results.append({"source": c.source, "section": c.section, "chunk_text": c.chunk_text, "score": round(score, 2)})
+            results.append(
+                {"source": c.source, "section": c.section, "chunk_text": c.chunk_text, "score": round(score, 2)}
+            )
             if len(results) >= top_k:
                 break
         return results

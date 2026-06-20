@@ -40,16 +40,61 @@ async def _inject_rag(
         if llm_client is not None:
             try:
                 search_query = await _extract_search_terms(llm_client, question)
+                log.info("RAG LLM keywords: %s", search_query[:120])
             except Exception:
-                pass  # fall back to raw question
+                log.info("RAG LLM keyword extraction failed, using fallback")
+                search_query = _fallback_keywords(question)
         results = await retrieve(search_query)
         context, citations = format_context(results)
         if context and citations:
             llm_messages.insert(1, {"role": "system", "content": context})
+            log.info("RAG injected: %d citations", len(citations))
+        else:
+            log.info("RAG no results: query=%s", search_query[:80])
         return citations
     except Exception:
         log.warning("RAG retrieval failed, continuing without knowledge context", exc_info=True)
         return []
+
+
+def _fallback_keywords(question: str) -> str:
+    """Produce a simple keyword string from the question as fallback (no LLM)."""
+    stop = {
+        "的",
+        "了",
+        "是",
+        "在",
+        "和",
+        "与",
+        "或",
+        "及",
+        "如何",
+        "怎么",
+        "什么",
+        "步骤",
+        "方法",
+        "注意",
+        "要点",
+        "护理",
+        "病人",
+        "患者",
+        "进行",
+        "处理",
+        "使用",
+        "前",
+        "后",
+        "不",
+        "要",
+        "应该",
+        "可以",
+        "需要",
+    }
+    import re
+
+    terms = [t for t in re.split(r"[，,、\s\n。；！？?]+", question) if len(t) >= 2 and t not in stop]
+    if not terms:
+        return question
+    return " ".join(terms)
 
 
 async def _extract_search_terms(llm_client, question: str) -> str:
