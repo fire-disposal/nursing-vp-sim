@@ -199,7 +199,7 @@ def downgrade() -> None:
     op.add_column('assignments', sa.Column('case_id', sa.INTEGER(), autoincrement=False, nullable=False))
     op.add_column('assignments', sa.Column('config_id', sa.VARCHAR(length=50), autoincrement=False, nullable=False))
     op.add_column('assignments', sa.Column('feature_overrides', postgresql.JSONB(astext_type=sa.Text()), autoincrement=False, nullable=False))
-    op.drop_constraint(None, 'assignments', type_='foreignkey')
+    op.drop_constraint('assignments_practice_id_fkey', 'assignments', type_='foreignkey')
     op.create_foreign_key(op.f('assignments_case_id_fkey'), 'assignments', 'cases', ['case_id'], ['id'], ondelete='RESTRICT')
     op.drop_index('ix_assignments_practice', table_name='assignments')
     op.create_index(op.f('ix_assignments_case'), 'assignments', ['case_id'], unique=False)
