@@ -73,7 +73,8 @@ export async function sendMessageStream(
 				try {
 					const refreshed = await useAuthStore.getState().refreshAuth();
 					if (refreshed) {
-						resp = await doFetch();
+						const retryTimeout = AbortSignal.timeout(FETCH_TIMEOUT);
+						resp = await doFetch(retryTimeout);
 					}
 				} catch {
 					useAuthStore.getState().logout();

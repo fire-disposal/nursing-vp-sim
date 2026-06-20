@@ -41,8 +41,9 @@ export async function askInQASessionStream(
 	signal?: AbortSignal,
 ) {
 	const MAX_RETRIES = 3;
+	const FETCH_TIMEOUT = 30_000;
 
-	const doFetch = async (): Promise<Response> => {
+	const doFetch = async (timeoutSignal?: AbortSignal): Promise<Response> => {
 		const token = useAuthStore.getState().token;
 		return fetch(`/api/qa/sessions/${sessionId}/ask/stream`, {
 			method: "POST",
@@ -51,7 +52,7 @@ export async function askInQASessionStream(
 				Authorization: `Bearer ${token}`,
 			},
 			body: JSON.stringify({ question }),
-			signal,
+			signal: timeoutSignal || signal,
 		});
 	};
 
@@ -63,7 +64,8 @@ export async function askInQASessionStream(
 				try {
 					const refreshed = await useAuthStore.getState().refreshAuth();
 					if (refreshed) {
-						resp = await doFetch();
+						const retryTimeout = AbortSignal.timeout(FETCH_TIMEOUT);
+						resp = await doFetch(retryTimeout);
 					}
 				} catch {
 					useAuthStore.getState().logout();

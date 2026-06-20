@@ -38,7 +38,7 @@ async def _update_synthetic_stats(success: bool, prompt_tokens: int, completion_
         async with _env_fallback_lock:
             _env_fallback_stats["call_count"] += 1
             _env_fallback_stats["total_tokens"] += total
-            _env_fallback_stats["total_cost"] += (prompt_tokens * 1.01 + completion_tokens * 2.02) / 1_000_000
+            _env_fallback_stats["total_cost"] += (prompt_tokens * 1.0 + completion_tokens * 2.0) / 1_000_000
 
 
 async def get_env_fallback_state() -> dict:
@@ -215,7 +215,7 @@ class ProfileRouter:
                     profile.status = "active"
                     profile.degraded_reason = None
                     profile.degraded_until = None
-                self._update_stats(profile, prompt_tokens, completion_tokens)
+                self._update_stats(profile, prompt_tokens, completion_tokens, config.model)
             elif error and "429" in error:
                 profile.status = "degraded"
                 profile.degraded_reason = "rate_limited"
@@ -233,7 +233,7 @@ class ProfileRouter:
         if should_persist:
             self._persist_stats(profile)
 
-    def _update_stats(self, profile, prompt_tokens: int, completion_tokens: int):
+    def _update_stats(self, profile, prompt_tokens: int, completion_tokens: int, model: str = ""):
         today = datetime.now(UTC)
         today_date = today.date()
         total_tokens = prompt_tokens + completion_tokens
@@ -258,7 +258,7 @@ class ProfileRouter:
         profile.total_tokens_today = (profile.total_tokens_today or 0) + total_tokens
         from .token_counter import estimate_cost_cny
 
-        cost = estimate_cost_cny(prompt_tokens, completion_tokens, price_input=profile.price_input_per_1m, price_output=profile.price_output_per_1m)
+        cost = estimate_cost_cny(prompt_tokens, completion_tokens, price_input=profile.price_input_per_1m, price_output=profile.price_output_per_1m, model=model)
         profile.total_cost_today = float(profile.total_cost_today or 0) + cost
         profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + cost
         profile.last_used_at = datetime.now(UTC)
