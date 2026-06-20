@@ -445,32 +445,11 @@ class LLMConfig(Base):
     label: Mapped[str] = mapped_column(String(80), default="")
     model: Mapped[str] = mapped_column(String(80))
     purpose: Mapped[str] = mapped_column(String(40))
-    priority: Mapped[int] = mapped_column(Integer, default=10)
-    weight: Mapped[int] = mapped_column(Integer, default=10)
     status: Mapped[str] = mapped_column(String(20), default="active")
-    price_input_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
-    price_output_per_1m: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
-    monthly_cost_limit: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     secret: Mapped["ApiSecret"] = relationship(back_populates="configs")
-
-
-# DEPRECATED — kept for migration compatibility, will be dropped in a future cleanup
-class ApiProvider(Base):
-    __tablename__ = "api_providers"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(40), unique=True)
-    display_name: Mapped[str] = mapped_column(String(80))
-    base_url: Mapped[str] = mapped_column(String(200))
-    api_type: Mapped[str] = mapped_column(String(20), default="openai_compatible")
-    default_model: Mapped[str] = mapped_column(String(80))
-    is_enabled: Mapped[bool] = mapped_column(default=True)
-    priority: Mapped[int] = mapped_column(Integer, default=100)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class Feedback(Base):

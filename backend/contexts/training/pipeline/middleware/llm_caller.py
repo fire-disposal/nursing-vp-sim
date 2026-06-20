@@ -3,6 +3,7 @@
 import logging
 
 from infrastructure.llm.client import CallContext
+
 from ..context import PipelineContext
 
 log = logging.getLogger(__name__)

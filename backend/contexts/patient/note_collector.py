@@ -12,16 +12,14 @@ from .note_source import NoteSource
 
 log = logging.getLogger(__name__)
 
+from infrastructure.llm.token_counter import estimate_tokens
+
 MAX_AUTHOR_NOTE_TOKENS = 300
 
 
-def _estimate_tokens(text: str) -> int:
-    cjk = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
-    return cjk * 2 + (len(text) - cjk) // 2
-
-
 def _truncate_tokens(text: str, max_tokens: int) -> str:
-    max_chars = max_tokens // 2
+    # CJK ~0.6 token/char → ~1.67 char/token，用 1.5 保守估算
+    max_chars = int(max_tokens * 1.5)
     return text[:max_chars] + "\u2026" if len(text) > max_chars else text
 
 
@@ -48,7 +46,7 @@ class NoteCollector:
         budget = MAX_AUTHOR_NOTE_TOKENS
         selected: list[str] = []
         for _, _name, text in notes:
-            cost = _estimate_tokens(text)
+            cost = estimate_tokens(text)
             if cost > budget:
                 if not selected:
                     selected.append(_truncate_tokens(text, budget))

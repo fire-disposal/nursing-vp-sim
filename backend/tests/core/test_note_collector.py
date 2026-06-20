@@ -5,9 +5,9 @@ import pytest
 from contexts.patient.note_collector import (
     MAX_AUTHOR_NOTE_TOKENS,
     NoteCollector,
-    _estimate_tokens,
 )
 from contexts.patient.note_source import NoteSource
+from infrastructure.llm.token_counter import estimate_tokens
 
 
 class FakeSource(NoteSource):
@@ -30,13 +30,13 @@ class FakeContext:
 
 class TestTokenEstimation:
     def test_english(self):
-        assert _estimate_tokens("hello world") == 5
+        assert estimate_tokens("hello world") == 3
 
     def test_chinese(self):
-        assert _estimate_tokens("\u60a3\u8005\u4f53\u6e2938.5") == 10
+        assert estimate_tokens("\u60a3\u8005\u4f53\u6e2938.5") == 4
 
     def test_mixed(self):
-        assert _estimate_tokens("\u4f53\u6e29 38.5 \u00b0C") == 8
+        assert estimate_tokens("\u4f53\u6e29 38.5 \u00b0C") == 4
 
 
 class TestNoteCollector:

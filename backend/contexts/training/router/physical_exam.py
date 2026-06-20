@@ -3,20 +3,18 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Annotated, Any
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session  # noqa: TC002  # needed at runtime for OpenAPI schema generation
 
 from contexts.patient import handle_operation
 from core.database import get_db
 from core.feature_flags import resolve_features
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -112,10 +110,7 @@ def _apply_exam_emotion_effect(ctx: ExamContext) -> ExamEffect | None:
     effect = ExamEffect(emotion_delta=(dt, dc))
     if dt != 0 or dc != 0:
         emo_line = f"信赖{emotion.trust}/舒适{emotion.comfort}, 状态:{emotion.state}"
-        if impact_note:
-            impact_note = f"{impact_note} | {emo_line}"
-        else:
-            impact_note = emo_line
+        impact_note = f"{impact_note} | {emo_line}" if impact_note else emo_line
     if impact_note:
         effect.snapshot_updates["_exam_impact_note"] = impact_note
     return effect

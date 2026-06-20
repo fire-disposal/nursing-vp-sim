@@ -12,8 +12,8 @@ from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
 from core.security import require_permission
 from infrastructure.export import Column, _sanitize_csv, buffered_response
-from models import ApiProvider, LLMCallLog, TrainingRecord, User
 from models import Case as CaseModel
+from models import LLMCallLog, TrainingRecord, User
 from schemas import (
     LLMCallLogItem,
     LLMStatsResponse,
@@ -170,12 +170,11 @@ def get_llm_logs(
                 func.max(LLMCallLog.created_at).label("created_at"),
                 User.display_name.label("student_name"),
                 CaseModel.name.label("case_name"),
-                ApiProvider.display_name.label("provider_display_name"),
+                LLMCallLog.provider_name.label("provider_display_name"),
             )
             .join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id, isouter=True)
             .join(User, TrainingRecord.user_id == User.id, isouter=True)
             .join(CaseModel, TrainingRecord.case_id == CaseModel.id, isouter=True)
-            .join(ApiProvider, LLMCallLog.provider_name == ApiProvider.name, isouter=True)
             .filter(
                 LLMCallLog.purpose == "patient_chat",
                 LLMCallLog.record_id.isnot(None),
@@ -189,7 +188,7 @@ def get_llm_logs(
         if date_to:
             agg_q = agg_q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
 
-        agg_q = agg_q.group_by(LLMCallLog.record_id, User.display_name, CaseModel.name, ApiProvider.display_name)
+        agg_q = agg_q.group_by(LLMCallLog.record_id, User.display_name, CaseModel.name, LLMCallLog.provider_name)
 
         if status == "success":
             agg_q = agg_q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) == 0)

@@ -7,41 +7,13 @@ import logging
 import time
 from pathlib import Path
 
-from core.config import (
-    LLM_COST_CURRENCY,
-    LLM_PRICE_INPUT_PER_1M,
-    LLM_PRICE_OUTPUT_PER_1M,
-)
+from core.config import LLM_COST_CURRENCY
 from core.database import SessionLocal
 from models import LLMCallLog
 
+from .token_counter import estimate_cost_cny, estimate_tokens
+
 log = logging.getLogger(__name__)
-
-
-import re
-
-_CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]")
-
-
-def _estimate_tokens(text: str) -> int:
-    """估算 token 数：中文 ~2 token/字，英文 ~0.25 token/字。"""
-    if not text:
-        return 0
-    cjk = len(_CJK_RE.findall(text))
-    other = len(text) - cjk
-    return max(1, int(cjk * 2 + other * 0.25))
-
-
-def _estimate_cost(
-    prompt_tokens: int, completion_tokens: int, price_input: float | None = None, price_output: float | None = None
-) -> float:
-    """统一成本计算 —— 三处调用均以此为准。
-
-    price 优先级: DB 配置值 → 环境变量 LLM_PRICE_*_PER_1M → 默认值 0。
-    """
-    pi = price_input if price_input is not None else LLM_PRICE_INPUT_PER_1M
-    po = price_output if price_output is not None else LLM_PRICE_OUTPUT_PER_1M
-    return prompt_tokens / 1_000_000 * pi + completion_tokens / 1_000_000 * po
 
 
 def _build_entry(
@@ -73,12 +45,18 @@ def _build_entry(
         total_tokens = usage.get("total_tokens") or ((prompt_tokens or 0) + (completion_tokens or 0))
         token_estimated = 0 if total_tokens else 1
     else:
-        prompt_tokens = _estimate_tokens(request_text)
-        completion_tokens = _estimate_tokens(response_text)
+        prompt_tokens = estimate_tokens(request_text)
+        completion_tokens = estimate_tokens(response_text)
         total_tokens = prompt_tokens + completion_tokens
         token_estimated = 1
 
-    estimated_cost = _estimate_cost(prompt_tokens or 0, completion_tokens or 0, key_price_input, key_price_output)
+    estimated_cost = estimate_cost_cny(
+        prompt_tokens or 0,
+        completion_tokens or 0,
+        price_input=key_price_input,
+        price_output=key_price_output,
+        model=model,
+    )
 
     return {
         "user_id": user_id,

@@ -30,7 +30,6 @@ class ApiSecretResponse(BaseModel):
     label: str
     key_suffix: str
     base_url: str = ""
-    provider: str = ""
     status: str = "active"
     degraded_reason: str | None = None
     degraded_until: datetime | None = None
@@ -58,11 +57,6 @@ class LLMConfigCreate(BaseModel):
     model: str = Field(min_length=1, max_length=80)
     purpose: str = Field(min_length=1, max_length=40)
     label: str = Field(default="", max_length=80)
-    priority: int = Field(default=10, ge=0)
-    weight: int = Field(default=10, ge=0, le=100)
-    price_input_per_1m: float = Field(default=0, ge=0)
-    price_output_per_1m: float = Field(default=0, ge=0)
-    monthly_cost_limit: float | None = Field(default=None, ge=0)
 
 
 class LLMConfigUpdate(BaseModel):
@@ -71,11 +65,6 @@ class LLMConfigUpdate(BaseModel):
     model: str | None = Field(default=None, max_length=80)
     purpose: str | None = Field(default=None, max_length=40)
     label: str | None = Field(default=None, max_length=80)
-    priority: int | None = Field(default=None, ge=0)
-    weight: int | None = Field(default=None, ge=0, le=100)
-    price_input_per_1m: float | None = Field(default=None, ge=0)
-    price_output_per_1m: float | None = Field(default=None, ge=0)
-    monthly_cost_limit: float | None = Field(default=None, ge=0)
     status: str | None = Field(default=None, pattern="^(active|disabled)$")
 
 
@@ -86,19 +75,32 @@ class LLMConfigResponse(BaseModel):
     secret_label: str = ""
     secret_suffix: str = ""
     base_url: str = ""
-    provider: str = ""
     label: str = ""
     model: str
     purpose: str
-    priority: int = 10
-    weight: int = 10
     status: str = "active"
-    price_input_per_1m: float = 0
-    price_output_per_1m: float = 0
-    monthly_cost_limit: float | None = None
     created_at: datetime
     updated_at: datetime
 
 
 class ConfigCreateResponse(BaseModel):
     id: int
+
+
+class HealthCheckItem(BaseModel):
+    base_url: str
+    status: str
+    latency_ms: int | None = None
+    error: str | None = None
+
+
+class TestResultItem(BaseModel):
+    base_url: str
+    ok: bool
+    status_code: int | None = None
+    latency_ms: int | None = None
+    error: str | None = None
+
+
+class TestAllResultsResponse(BaseModel):
+    results: list[TestResultItem]

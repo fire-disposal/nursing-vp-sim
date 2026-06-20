@@ -38,7 +38,7 @@ async def _update_synthetic_stats(success: bool, prompt_tokens: int, completion_
         async with _env_fallback_lock:
             _env_fallback_stats["call_count"] += 1
             _env_fallback_stats["total_tokens"] += total
-            _env_fallback_stats["total_cost"] += (prompt_tokens * 1.0 + completion_tokens * 2.0) / 1_000_000
+            _env_fallback_stats["total_cost"] += (prompt_tokens * 1.01 + completion_tokens * 2.02) / 1_000_000
 
 
 async def get_env_fallback_state() -> dict:
@@ -256,9 +256,9 @@ class ProfileRouter:
 
         profile.call_count_today = (profile.call_count_today or 0) + 1
         profile.total_tokens_today = (profile.total_tokens_today or 0) + total_tokens
-        from .logging import _estimate_cost
+        from .token_counter import estimate_cost_cny
 
-        cost = _estimate_cost(prompt_tokens, completion_tokens, profile.price_input_per_1m, profile.price_output_per_1m)
+        cost = estimate_cost_cny(prompt_tokens, completion_tokens, price_input=profile.price_input_per_1m, price_output=profile.price_output_per_1m)
         profile.total_cost_today = float(profile.total_cost_today or 0) + cost
         profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + cost
         profile.last_used_at = datetime.now(UTC)

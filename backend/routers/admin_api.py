@@ -15,25 +15,20 @@ from core.security import require_permission
 from infrastructure.llm import (
     decrypt_api_key,
     encrypt_api_key,
-    get_catalog,
     get_env_fallback_state,
-    infer_provider_name,
 )
 from models import ApiSecret, LLMConfig, User
 from schemas import (
     ApiSecretCreate,
     ApiSecretResponse,
     ApiSecretUpdate,
-    CatalogResponse,
     ConfigCreateResponse,
     DeleteResponse,
     HealthCheckItem,
     LLMConfigCreate,
     LLMConfigResponse,
     LLMConfigUpdate,
-    ModelPresetItem,
     OkResponse,
-    ProviderPresetResponse,
     SecretCreateResponse,
     TestAllResultsResponse,
     TestResultItem,
@@ -60,7 +55,6 @@ def list_secrets(
                 label=s.label,
                 key_suffix=s.key_suffix,
                 base_url=s.base_url or "",
-                provider=infer_provider_name(s.base_url) if s.base_url else "",
                 status=s.status,
                 degraded_reason=s.degraded_reason,
                 degraded_until=s.degraded_until,
@@ -170,16 +164,10 @@ def list_configs(
                 secret_label=s.label if s else "",
                 secret_suffix=s.key_suffix if s else "",
                 base_url=s.base_url or "" if s else "",
-                provider=infer_provider_name(s.base_url) if s and s.base_url else "",
                 label=c.label or "",
                 model=c.model,
                 purpose=c.purpose,
-                priority=c.priority or 10,
-                weight=c.weight or 10,
                 status=c.status,
-                price_input_per_1m=float(c.price_input_per_1m or 0),
-                price_output_per_1m=float(c.price_output_per_1m or 0),
-                monthly_cost_limit=float(c.monthly_cost_limit) if c.monthly_cost_limit is not None else None,
                 created_at=c.created_at,
                 updated_at=c.updated_at,
             )
@@ -209,11 +197,6 @@ async def create_config(
     if existing:
         existing.model = data.model
         existing.label = data.label or ""
-        existing.priority = data.priority
-        existing.weight = data.weight
-        existing.price_input_per_1m = data.price_input_per_1m
-        existing.price_output_per_1m = data.price_output_per_1m
-        existing.monthly_cost_limit = data.monthly_cost_limit
         existing.status = "active"
         db.commit()
         await request.app.state.llm_router.load_from_db()
@@ -224,11 +207,6 @@ async def create_config(
         model=data.model,
         purpose=data.purpose,
         label=data.label or "",
-        priority=data.priority,
-        weight=data.weight,
-        price_input_per_1m=data.price_input_per_1m,
-        price_output_per_1m=data.price_output_per_1m,
-        monthly_cost_limit=data.monthly_cost_limit,
     )
     db.add(cfg)
     db.commit()
@@ -254,11 +232,6 @@ async def update_config(
         "purpose",
         "status",
         "label",
-        "priority",
-        "weight",
-        "price_input_per_1m",
-        "price_output_per_1m",
-        "monthly_cost_limit",
     ):
         val = getattr(data, f, None)
         if val is not None:
@@ -373,33 +346,13 @@ async def test_all_configs(
     return {"results": results}
 
 
-# ── Reload & Catalog ──
+# ── Reload ──
 
 
 @router.post("/reload", response_model=OkResponse)
 async def reload_router(request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))]):
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
-
-
-@router.get("/model-presets", response_model=CatalogResponse)
-def list_model_presets(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
-    catalog = get_catalog()
-    providers = []
-    for p in catalog["providers"]:
-        models = [
-            ModelPresetItem(name=m["name"], price_input=m.get("price_input", 0), price_output=m.get("price_output", 0))
-            for m in p.get("models", [])
-        ]
-        providers.append(
-            ProviderPresetResponse(
-                provider=p["id"],
-                display_name=p.get("display_name", p["id"]),
-                base_url=p.get("base_url", ""),
-                models=models,
-            )
-        )
-    return CatalogResponse(providers=providers)
 
 
 # ── Health ──

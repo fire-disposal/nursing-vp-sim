@@ -10,7 +10,6 @@ from schemas.llm import *  # noqa: F403
 from schemas.notification import *  # noqa: F403
 from schemas.practice import *  # noqa: F403
 from schemas.prompt import *  # noqa: F403
-from schemas.provider import *  # noqa: F403
 from schemas.qa import *  # noqa: F403
 from schemas.questionnaire import *  # noqa: F403
 from schemas.rubric import *  # noqa: F403
