@@ -663,7 +663,7 @@ class KnowledgeChunk(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     source: Mapped[str] = mapped_column(String(100), index=True)
-    section: Mapped[str] = mapped_column(String(50))
+    section: Mapped[str] = mapped_column(String(200))
     chunk_text: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)

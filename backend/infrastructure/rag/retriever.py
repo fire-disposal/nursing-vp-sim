@@ -1,4 +1,4 @@
-"""RAG retriever — keyword-based search over knowledge chunks with IDF weighting."""
+"""RAG retriever — LLM-driven keyword search with IDF weighting."""
 
 import logging
 from math import log as _log
@@ -6,13 +6,10 @@ from math import log as _log
 from core.database import SessionLocal
 from models import KnowledgeChunk
 
-from .medical_terms import extract_keywords, tokenize
-
 log = logging.getLogger(__name__)
 
 
 def _load_chunks() -> list:
-    """Load all indexed chunks from DB."""
     db = SessionLocal()
     try:
         return db.query(KnowledgeChunk).order_by(KnowledgeChunk.source, KnowledgeChunk.section).all()
@@ -20,39 +17,39 @@ def _load_chunks() -> list:
         db.close()
 
 
-def _build_idf(chunks: list, query_tokens: set, medical_keywords: set) -> dict[str, float]:
-    """Compute IDF weights: tokens appearing in many chunks -> low weight."""
+def _split_terms(query: str) -> list[str]:
+    """Split comma/space-separated search terms, filter noise."""
+    import re
+
+    STOP = {"的", "了", "是", "在", "和", "与", "或", "及", "如何", "怎么", "什么", "步骤", "方法", "注意", "要点", "护理", "病人", "患者", "进行", "处理", "使用"}
+    terms = []
+    for t in re.split(r"[，,、\s\n]+", query):
+        t = t.strip()
+        if len(t) >= 2 and t not in STOP:
+            terms.append(t)
+    return terms
+
+
+def _build_idf(chunks: list, terms: list[str]) -> dict[str, float]:
     df: dict[str, int] = {}
     for c in chunks:
         lower = c.chunk_text.lower()
         seen = set()
-        for kw in medical_keywords:
-            if kw in lower and kw not in seen:
-                df[kw] = df.get(kw, 0) + 1
-                seen.add(kw)
-        for token in query_tokens:
-            if len(token) >= 2 and token in lower and token not in seen:
-                df[token] = df.get(token, 0) + 1
-                seen.add(token)
+        for term in terms:
+            if term in lower and term not in seen:
+                df[term] = df.get(term, 0) + 1
+                seen.add(term)
     total = max(len(chunks), 1)
     return {term: _log(2 + total / max(df[term], 1)) for term in df}
 
 
-def _keyword_score(chunk_text: str, query_tokens: set, medical_keywords: set, idf: dict[str, float]) -> float:
-    """Score chunk by IDF-weighted keyword overlap."""
-    score = 0.0
+def _score(chunk_text: str, terms: list[str], idf: dict[str, float]) -> float:
     lower = chunk_text.lower()
-    for kw in medical_keywords:
-        if kw in lower:
-            score += 6 * idf.get(kw, 1.0)
-    for token in query_tokens:
-        if len(token) >= 2 and token in lower:
-            score += 1 * idf.get(token, 1.0)
-    return score
+    return sum(idf.get(t, 1.0) for t in terms if t in lower)
 
 
 async def retrieve(query: str, top_k: int = 3) -> list[dict]:
-    """Keyword-based retrieval with IDF weighting. Deduplicates by textbook+chapter."""
+    """Keyword-based retrieval with IDF weighting."""
     import asyncio
 
     def _search() -> list[dict]:
@@ -60,41 +57,25 @@ async def retrieve(query: str, top_k: int = 3) -> list[dict]:
         if not chunks:
             return []
 
-        query_tokens = set(tokenize(query))
-        categories = extract_keywords(query)
-        all_keywords = set()
-        for cat_list in categories.values():
-            all_keywords.update(cat_list)
+        terms = _split_terms(query)
+        if not terms:
+            return []
 
-        idf = _build_idf(chunks, query_tokens, all_keywords)
-        scored = []
-        for c in chunks:
-            score = _keyword_score(c.chunk_text, query_tokens, all_keywords, idf)
-            if score > 0:
-                scored.append((score, c))
-
+        idf = _build_idf(chunks, terms)
+        scored = [(s, c) for c in chunks if (s := _score(c.chunk_text, terms, idf)) > 0]
         scored.sort(key=lambda x: x[0], reverse=True)
 
         results = []
-        seen_chapters: set[tuple[str, str]] = set()
+        seen: set[tuple[str, str]] = set()
         for score, c in scored:
-            chapter_key = "/".join(c.section.split("/")[:2]) if "/" in c.section else c.section
-            chapter_id = (c.source, chapter_key)
-            if chapter_id in seen_chapters:
+            ch = "/".join(c.section.split("/")[:2]) if "/" in c.section else c.section
+            key = (c.source, ch)
+            if key in seen:
                 continue
-            seen_chapters.add(chapter_id)
-
-            results.append(
-                {
-                    "source": c.source,
-                    "section": c.section,
-                    "chunk_text": c.chunk_text,
-                    "score": round(score, 2),
-                }
-            )
+            seen.add(key)
+            results.append({"source": c.source, "section": c.section, "chunk_text": c.chunk_text, "score": round(score, 2)})
             if len(results) >= top_k:
                 break
-
         return results
 
     return await asyncio.to_thread(_search)
