@@ -17,7 +17,7 @@ git add → git commit → git push
                             ▼
                         pre-push
                         ├─ tag format check (if pushing a tag)
-                        ├─ checklist-{tag}.md existence (if pushing a tag)
+                        ├─ checklist-{tag}.md existence + content validation (if pushing a tag)
                         ├─ alembic upgrade → downgrade → upgrade roundtrip
                         └─ biome lint --max-diagnostics 50 (frontend)
 ```
@@ -25,6 +25,7 @@ git add → git commit → git push
 - `tsc` + `biome lint` run ONLY on staged frontend files (lint-staged)
 - Migration check runs ONLY on staged files under `backend/migrations/versions/`
 - Pre-push alembic roundtrip: temp DB → upgrade → downgrade → upgrade → drop
+- Checklist content: "无需测试" only for pure refactor/docs/ci/test versions (no feat/fix)
 - Rejected commits show the emoji format table
 
 **Full verification before push:**
@@ -76,7 +77,7 @@ App DB via `DATABASE_URL` (default `vptest`). Both `.env.example` values.
 **Do NOT run full pytest on every edit.** Target only the affected file or domain. Full suite is for pre-push verification.
 
 ```bash
-uv run python -m pytest -x -q                        # full suite (~115s)
+uv run python -m pytest -x -q                        # full suite (~140s)
 uv run python -m pytest tests/<domain>/ -x -q        # single domain (~5-15s)
 ```
 
@@ -84,11 +85,13 @@ uv run python -m pytest tests/<domain>/ -x -q        # single domain (~5-15s)
 |-------|---------|------|
 | One file | `pytest tests/auth/test_security.py -x -q` | ~2s |
 | One domain | `pytest tests/training/ -x -q` | ~10s |
-| Full suite | `pytest -x -q` or `pnpm run check:full` | ~115s |
+| Full suite | `pytest -x -q` or `pnpm run check:full` | ~140s |
 
 Test DB via `TEST_DB_URL`.
 
 ## Migration Rules
+
+Migration chain was squashed to a single `0001_initial.py` (all tables created from current models). No incremental DDL migrations exist.
 
 | Directory | Source | Contains | Required marker |
 |-----------|--------|----------|-----------------|
@@ -101,6 +104,20 @@ Test DB via `TEST_DB_URL`.
 - **`0001_initial` is the base** — do not hand-edit it
 - **Idempotency required**: downstream migrations adding objects already in `0001` must use `insp.get_columns()` / `insp.get_indexes()` / `insp.get_table_names()` guards. No bare `try/except` (PostgreSQL aborts the transaction on first DDL error)
 - Pre-commit hook `check-migration-autogen.js` enforces these rules
+
+## Keys & Secrets
+
+Three independent environment variables, no mutual derivation:
+
+| Variable | Purpose | Generate |
+|----------|---------|----------|
+| `JWT_SECRET_KEY` | JWT token signing (HS256) | `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+| `FERNET_KEY` | API key encryption at rest | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `DEEPSEEK_API_KEY` | DeepSeek API calls | From DeepSeek Platform |
+
+`SECRET_KEY` is **removed**. Both keys must be set independently or `validate_config()` blocks startup.
+
+API key management uses the `ApiSecret` table (encrypted by `FERNET_KEY`). On startup, `seed.py` re-encrypts `DEEPSEEK_API_KEY` into the DB with the current `FERNET_KEY`. If DB key decryption fails, the system falls back to env `DEEPSEEK_API_KEY`.
 
 ## Commit Format
 
@@ -131,9 +148,7 @@ Tag push triggers staging deploy. Never push directly to master for deploy.
 
 Every tag push requires `docs/testing/checklist-{tag}.md` to exist (pre-push hook enforces).
 
-**Auto-tag (PR merge):** auto-tag.mjs creates a placeholder `checklist-{tag}.md` with content "无需测试". Replace it with a real checklist if user-facing changes exist.
-
-**Manual tag:** the hook will reject if the file is missing.
+**"无需测试" is ONLY for versions with ZERO user-facing changes** — pure `♻️ refactor / 🚀 ci / 📝 docs / ✅ test / 🔧 chore / 📦 build` commits. If the version contains ANY `✨ feat` or `🐛 fix` commit, write a real checklist. Otherwise the Feishu notification won't trigger and the version won't be properly tracked.
 
 ### Generating a checklist
 
@@ -143,14 +158,6 @@ Ask opencode in this repo — it will:
 2. `git log prod_ver..staging_ver` extract user-visible commits (feat, fix)
 3. Analyze the diff and write a scene-level checklist to `docs/testing/checklist-{tag}.md`
 4. The file includes: operation steps per change, expected results, test account credentials, Pass/Fail checkboxes
-
-### No user-facing changes
-
-If the version contains only refactoring, CI changes, docs, or internal cleanup:
-
-```
-echo "无" > docs/testing/checklist-vYYYY.MM.DD-N.md
-```
 
 ### Checklist format
 
@@ -163,6 +170,38 @@ echo "无" > docs/testing/checklist-vYYYY.MM.DD-N.md
 ### 1. 功能名称
 **操作**: 步骤简述用 → 连接
 **预期**: 可见的预期结果
+```
+
+## Deployment
+
+### Staging (`test.205716.xyz`)
+
+Triggered automatically on tag push. Workflow: `.github/workflows/staging.yml`.
+- Ports: backend 9081, frontend 9080, db 5434
+- Env injected via `.env` file on server (read by `docker-compose.staging.yml` → `env_file`)
+
+### Production (`iomt.205716.xyz`)
+
+Manual `workflow_dispatch` via `.github/workflows/cd.yml`:
+```bash
+gh workflow run cd.yml -f version=2026.06.20-2
+```
+- Ports: backend 9001, frontend 9000, db 5433
+- Requires staging version to match exactly (version gate)
+- Auto-backup DB before deploy, rolls back on health check failure
+- Checklist assembly step fetches range from prod → target version
+
+### Pre-deploy checklist
+
+1. Verify staging deployment healthy: `ssh yecaoyun "curl -sf http://127.0.0.1:9081/api/health"`
+2. Drop production DB if schema changed: `ssh yecaoyun "docker stop nursing-vp-sim-backend-1; docker exec nursing-db psql -U nursing -d postgres -c 'DROP DATABASE IF EXISTS nursing_vp; CREATE DATABASE nursing_vp;'"`
+3. Trigger CD: `gh workflow run cd.yml -f version=v2026.06.20-X`
+4. Verify: `curl -sf https://iomt.205716.xyz/api/health`
+
+### Rollback
+
+```bash
+ssh yecaoyun "cd /opt/nursing-vp-sim && sudo ./rollback.sh"
 ```
 
 ## API Client Generation
@@ -179,6 +218,11 @@ Never hand-edit `.gen.ts` files — they're auto-generated.
 pnpm run api:spec            # dump openapi.json (backend must be running)
 pnpm run api:update:all      # regenerate both clients
 ```
+
+> **Note**: The envelope middleware wraps `/openapi.json` responses. Run after spec dump:
+> ```bash
+> cd backend && uv run python -c "import json; d=json.load(open('../openapi.json')); schema=d['data']; schema['openapi']='3.0.3'; json.dump(schema, open('../openapi.json','w'), ensure_ascii=False)"
+> ```
 
 ### Path Type Safety
 
@@ -203,8 +247,9 @@ Backend route changes cause `tsc --noEmit` errors if frontend paths aren't updat
 ENV=development
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 TEST_DB_URL=postgresql://postgres:postgres@localhost:5432/nursing_test
-SECRET_KEY=...
-DEEPSEEK_API_KEY=...
+JWT_SECRET_KEY=...          # JWT signing key, min 32 chars
+FERNET_KEY=...              # Fernet encryption key (44-char base64)
+DEEPSEEK_API_KEY=...        # DeepSeek API key
 ```
 
 Pre-push hook reads `.env` for DB credentials.
