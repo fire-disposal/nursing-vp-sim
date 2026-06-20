@@ -545,4 +545,3 @@ def delete_record(
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "训练记录已删除"}
-
