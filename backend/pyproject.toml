@@ -17,6 +17,7 @@ dependencies = [
     "python-multipart>=0.0.29",
     "sqlalchemy>=2.0.50",
     "uvicorn>=0.48.0",
+    "jieba>=0.42.1",
 ]
 
 [[tool.uv.index]]

@@ -1,4 +1,4 @@
-"""Knowledge base indexer — reads textbooks, chunks, embeds, stores."""
+"""Knowledge base indexer — reads textbooks, chunks by heading, stores to DB."""
 
 import hashlib
 import logging
@@ -9,15 +9,13 @@ from pathlib import Path
 from core.database import SessionLocal
 from models import KnowledgeChunk
 
-from .embedding import get_embedding
-
 log = logging.getLogger(__name__)
 
 TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "textbooks"
 
 
 def _read_textbooks() -> list[dict]:
-    """Read all markdown textbook files and split into chapters."""
+    """Read all markdown textbook files and split by headings."""
     chunks = []
     for filepath in sorted(TEXTBOOKS_DIR.rglob("*.md")):
         rel_path = os.path.relpath(str(filepath), str(TEXTBOOKS_DIR))
@@ -45,23 +43,27 @@ def _read_textbooks() -> list[dict]:
 
 
 def _split_by_headings(content: str) -> list[tuple[str, str]]:
-    """Split markdown content by ## or ### headings."""
+    """Split markdown content by ## headings only. ### headings stay as body content."""
     lines = content.split("\n")
     sections = []
     current_heading = ""
     current_body = []
     for line in lines:
-        m = re.match(r"^(#{2,3})\s+(.+)$", line)
+        m = re.match(r"^##\s+(.+)$", line)
         if m:
             if current_heading or current_body:
-                sections.append((current_heading, "\n".join(current_body).strip()))
-            current_heading = m.group(2).strip()
+                body = "\n".join(current_body).strip()
+                if len(body) > 20:
+                    sections.append((current_heading, body))
+            current_heading = m.group(1).strip()
             current_body = []
         else:
             current_body.append(line)
     if current_heading or current_body:
-        sections.append((current_heading, "\n".join(current_body).strip()))
-    return [(h, b) for h, b in sections if len(b.strip()) > 20]
+        body = "\n".join(current_body).strip()
+        if len(body) > 20:
+            sections.append((current_heading, body))
+    return sections
 
 
 def _content_hash(text: str) -> str:
@@ -69,13 +71,10 @@ def _content_hash(text: str) -> str:
 
 
 def index_all(force: bool = False) -> int:
-    """Index all textbooks. Returns count of new chunks indexed."""
+    """Index all textbooks into knowledge_chunks. Returns count of chunks stored."""
     chunks = _read_textbooks()
     db = SessionLocal()
     try:
-        existing = set(r[0] for r in db.query(KnowledgeChunk.id).all())
-        _ = existing
-
         indexed = 0
         for chunk in chunks:
             exists = (
@@ -89,19 +88,15 @@ def index_all(force: bool = False) -> int:
             if exists and not force:
                 continue
 
-            embedding = get_embedding(chunk["chunk_text"])
-            if embedding is None:
-                continue
             record = KnowledgeChunk(
                 source=chunk["source"],
                 section=chunk["section"],
                 chunk_text=chunk["chunk_text"],
-                embedding=embedding,
             )
             db.add(record)
             indexed += 1
 
-            if indexed % 10 == 0:
+            if indexed % 20 == 0:
                 db.commit()
 
         db.commit()
