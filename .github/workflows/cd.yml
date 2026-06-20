@@ -28,7 +28,8 @@ jobs:
           PROD_VER=""
 
           if [ -n "$HOST" ] && [ -n "$USER" ]; then
-            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+            mkdir -p ~/.ssh
+            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
             PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
           fi
 
