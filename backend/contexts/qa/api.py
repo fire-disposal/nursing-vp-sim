@@ -19,6 +19,7 @@ from schemas import (
     QASessionCreate,
 )
 
+from ._citations import embed_citations
 from .logic import build_qa_history, get_cached_answer
 
 log = logging.getLogger(__name__)
@@ -128,11 +129,12 @@ async def create_session(
         log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
 
+    stored_content = embed_citations(answer, citations)
     assistant_msg = QARecord(
         session_id=session.id,
         user_id=current_user.id,
         role="assistant",
-        content=answer,
+        content=stored_content,
     )
     db.add(assistant_msg)
     session.updated_at = func.now()
@@ -205,11 +207,12 @@ async def ask_in_session(
         )
         raise HTTPException(status_code=500, detail=f"AI调用失败: {e!s}")
 
+    stored_content = embed_citations(answer, citations)
     assistant_msg = QARecord(
         session_id=session.id,
         user_id=current_user.id,
         role="assistant",
-        content=answer,
+        content=stored_content,
     )
     db.add(assistant_msg)
     session.updated_at = func.now()
@@ -273,8 +276,9 @@ async def ask_stream(
                     full_reply += chunk
                     yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
+                stored_content = embed_citations(full_reply, citations)
                 assistant_record = QARecord(
-                    session_id=session_id, user_id=current_user.id, role="assistant", content=full_reply
+                    session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
                 )
                 db.add(assistant_record)
                 db.commit()

@@ -22,18 +22,19 @@ class QASessionItem(BaseModel):
     updated_at: datetime
 
 
+class Citation(BaseModel):
+    model_config = _RESP_CFG
+    source: str
+    section: str
+
+
 class QAMessageItem(BaseModel):
     model_config = _RESP_CFG
     id: int
     role: str
     content: str
     created_at: datetime
-
-
-class Citation(BaseModel):
-    model_config = _RESP_CFG
-    source: str
-    section: str
+    citations: list[Citation] | None = None
 
 
 class QAAskResponse(BaseModel):

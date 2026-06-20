@@ -3683,6 +3683,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Citations */
+            citations?: {
+                /** Source */
+                source: string;
+                /** Section */
+                section: string;
+            }[] | null;
         };
         /** QASessionAdminItem */
         QASessionAdminItem: {
