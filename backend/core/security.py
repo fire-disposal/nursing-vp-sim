@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, joinedload
 
-from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
+from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY
 from core.database import get_db
 from models import RolePermission, User
 
@@ -25,7 +25,7 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
 
 
 def get_current_user(
@@ -34,7 +34,7 @@ def get_current_user(
 ) -> User:
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("user_id")
         if not isinstance(user_id, int):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
@@ -65,7 +65,7 @@ def _decode_token_allow_expired(
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
+            JWT_SECRET_KEY,
             algorithms=[ALGORITHM],
             options={"verify_exp": False},
         )

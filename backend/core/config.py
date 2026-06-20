@@ -20,31 +20,32 @@ APP_VERSION = os.getenv("APP_VERSION", "dev")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/vptest")
 
-_raw_secret = os.getenv("SECRET_KEY", "")
-SECRET_KEY = _raw_secret
+# JWT 签名密钥 —— 独立环境变量
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+
+# Fernet 加密密钥 —— 独立环境变量
+FERNET_KEY = os.getenv("FERNET_KEY", "")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
 
 def validate_config():
-    _SECRET_MIN_LENGTH = 32
-    _SECRET_PLACEHOLDERS = {
-        "",
-        "change-me-to-a-random-secret-key",
-        "virtual-patient-secret-key-change-in-production",
-        "test-secret-key-for-dev-only",
-    }
-    if _raw_secret in _SECRET_PLACEHOLDERS:
+    if not JWT_SECRET_KEY:
         raise RuntimeError(
-            "SECRET_KEY 未配置或仍为默认值。请在项目根目录的 .env 文件中设置一个随机字符串作为 SECRET_KEY。\n"
+            "JWT_SECRET_KEY 未配置。请在项目根目录的 .env 文件中设置 JWT 签名密钥。\n"
             '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
         )
-    if len(_raw_secret) < _SECRET_MIN_LENGTH:
+    if not FERNET_KEY:
         raise RuntimeError(
-            f"SECRET_KEY 长度不足（当前 {len(_raw_secret)} 字符，要求至少 {_SECRET_MIN_LENGTH} 字符）。\n"
-            "过短的密钥会导致 JWT 签名可被暴力破解。\n"
-            '可使用 python -c "import secrets; print(secrets.token_urlsafe(32))" 生成安全密钥。'
+            "FERNET_KEY 未配置。请在项目根目录的 .env 文件中设置 Fernet 加密密钥。\n"
+            '可使用 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 生成。'
         )
+    try:
+        from cryptography.fernet import Fernet
+        Fernet(FERNET_KEY.encode())
+    except Exception:
+        raise RuntimeError(f"FERNET_KEY 格式无效: {FERNET_KEY[:8]}... 应为 32 字节的 base64-urlsafe 编码（44 字符）。")
 
     db = urlparse(DATABASE_URL)
     if not db.scheme or not db.hostname:
@@ -75,6 +76,7 @@ def validate_config():
 
 
 # LLM 成本估算（全局回退值，优先使用数据库中每 key 定价）
+# DeepSeek-V4 Flash 官方 CNY 定价（缓存未命中）
 LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
 LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "2"))
 LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
@@ -155,7 +157,6 @@ def log_config(logger):
     db = urlparse(DATABASE_URL)
     db_safe = f"{db.scheme}://{db.username}:***@{db.hostname}:{db.port}{db.path}"
 
-    secret_tail = SECRET_KEY[-4:] if len(SECRET_KEY) >= 4 else "****"
     api_tail = DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****"
 
     logger.info("── 环境配置 ──────────────────────────")
@@ -163,7 +164,10 @@ def log_config(logger):
     logger.info("  版本:       %s", APP_VERSION)
     logger.info("  数据库:     %s", db_safe)
     logger.info("  CORS:       %s", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000"))
-    logger.info("  SECRET_KEY: ***%s (%d 位)", secret_tail, len(SECRET_KEY))
+    jwt_tail = JWT_SECRET_KEY[-4:] if len(JWT_SECRET_KEY) >= 4 else "****"
+    logger.info("  JWT 密钥:   ***%s (%d 位)", jwt_tail, len(JWT_SECRET_KEY))
+    fernet_tail = FERNET_KEY[-4:] if len(FERNET_KEY) >= 4 else "****"
+    logger.info("  Fernet 密钥: ***%s", fernet_tail)
     logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)

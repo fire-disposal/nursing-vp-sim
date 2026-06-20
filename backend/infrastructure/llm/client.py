@@ -20,7 +20,7 @@ from infrastructure.llm.circuit import async_retry, backoff_delay
 
 from .logging import LogWorker
 from .parsing import _safe_parse_json
-from .router import ProfileRouter
+from .router import ProfileRouter, _SyntheticConfig
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class _CallState:
     """Internal state built per-call from config + context."""
 
     _config: object = field(default=None, repr=False)
-    provider_name: str = "unknown"
+    provider_name: str = "deepseek"
     model: str = "unknown"
     config_id: int | None = None
     api_key: str = ""
@@ -156,9 +156,15 @@ class LLMClient:
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
             )
-            from infrastructure.llm.logging import _estimate_cost
+            from infrastructure.llm.token_counter import estimate_cost_cny
 
-            actual_cost = _estimate_cost(prompt_tokens or 0, completion_tokens or 0, state.price_input, state.price_output)
+            actual_cost = estimate_cost_cny(
+                prompt_tokens or 0,
+                completion_tokens or 0,
+                price_input=state.price_input,
+                price_output=state.price_output,
+                model=state.model,
+            )
             self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
             return content
         except Exception:
@@ -179,6 +185,8 @@ class LLMClient:
                 meta=ctx.log_meta,
                 config_id=state.config_id,
                 provider_name=state.provider_name,
+                key_price_input=state.price_input,
+                key_price_output=state.price_output,
             )
             self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=latency_ms)
             raise
@@ -222,10 +230,10 @@ class LLMClient:
                 prompt_tokens = usage.get("prompt_tokens")
                 completion_tokens = usage.get("completion_tokens")
                 if prompt_tokens is None or completion_tokens is None:
-                    from infrastructure.llm.logging import _estimate_tokens
+                    from infrastructure.llm.token_counter import estimate_tokens
 
-                    prompt_tokens = _estimate_tokens(state.request_text or "")
-                    completion_tokens = _estimate_tokens(state.response_text or "")
+                    prompt_tokens = estimate_tokens(request_text or "")
+                    completion_tokens = estimate_tokens(total_text or "")
                 else:
                     prompt_tokens = prompt_tokens or 0
                     completion_tokens = completion_tokens or 0
@@ -260,9 +268,15 @@ class LLMClient:
                     key_price_input=state.price_input,
                     key_price_output=state.price_output,
                 )
-                pi = state.price_input or 1.0
-                po = state.price_output or 2.0
-                actual_cost = (prompt_tokens / 1_000_000 * pi) + (completion_tokens / 1_000_000 * po)
+                from infrastructure.llm.token_counter import estimate_cost_cny
+
+                actual_cost = estimate_cost_cny(
+                    prompt_tokens or 0,
+                    completion_tokens or 0,
+                    price_input=state.price_input,
+                    price_output=state.price_output,
+                    model=state.model,
+                )
                 self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
                 return
             except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError) as e:
@@ -311,6 +325,8 @@ class LLMClient:
             meta=ctx.log_meta,
             config_id=state.config_id,
             provider_name=state.provider_name,
+            key_price_input=state.price_input,
+            key_price_output=state.price_output,
         )
         self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=latency_ms)
         raise NoProviderAvailable(f"purpose={purpose}")
@@ -353,7 +369,19 @@ class LLMClient:
         try:
             api_key = self._router.get_decrypted_key(config)
         except FernetInvalidToken:
-            raise NoProviderAvailable(f"密钥解密失败：SECRET_KEY 与数据库不匹配，请重建种子或回滚 SECRET_KEY。purpose={purpose}")
+            from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+
+            if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+                log.warning("DB 密钥解密失败（FERNET_KEY 不匹配），回退到 env DEEPSEEK_API_KEY")
+                config = _SyntheticConfig(
+                    label="DeepSeek (env)",
+                    base_url=DEEPSEEK_BASE_URL,
+                    model=DEEPSEEK_MODEL,
+                    raw_key=DEEPSEEK_API_KEY,
+                )
+                api_key = DEEPSEEK_API_KEY
+            else:
+                raise NoProviderAvailable(f"密钥解密失败：FERNET_KEY 与数据库不匹配，且未配置 DEEPSEEK_API_KEY。purpose={purpose}")
 
         state = _CallState()
         state._config = config
@@ -362,12 +390,12 @@ class LLMClient:
         state.config_id = config.id
 
         if hasattr(config, "secret") and config.secret is not None:
-            state.provider_name = self._infer_provider(config.secret.base_url)
+            state.provider_name = "deepseek"
             state.base_url = config.secret.base_url
             state.price_input = float(config.secret.price_input_per_1m or 0)
             state.price_output = float(config.secret.price_output_per_1m or 0)
         else:
-            state.provider_name = self._infer_provider(getattr(config, "base_url", ""))
+            state.provider_name = "deepseek"
             state.base_url = getattr(config, "base_url", "")
             state.price_input = float(getattr(config, "price_input_per_1m", 0) or 0)
             state.price_output = float(getattr(config, "price_output_per_1m", 0) or 0)
@@ -510,13 +538,3 @@ class LLMClient:
         dst.price_input = src.price_input
         dst.price_output = src.price_output
         dst.usage = src.usage
-
-    @staticmethod
-    def _infer_provider(base_url: str) -> str:
-        if not base_url:
-            return "unknown"
-        if "deepseek" in base_url:
-            return "deepseek"
-        if "openai" in base_url:
-            return "openai"
-        return base_url.rsplit("//", 1)[-1].split("/", 1)[0].split(".", 1)[0]

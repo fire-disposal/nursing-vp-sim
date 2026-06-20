@@ -9,7 +9,7 @@ import logging
 import os
 from pathlib import Path
 
-from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
 from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
@@ -216,20 +216,20 @@ def _seed_llm() -> None:
 
         matched = dupes[0] if dupes else None
         if matched:
-            changed = any(
-                [
-                    matched.base_url != DEEPSEEK_BASE_URL,
-                    float(matched.price_input_per_1m or 0) == 0,
-                    float(matched.price_output_per_1m or 0) == 0,
-                ]
-            )
+            needs_sync = False
+            if matched.encrypted_key != env_encrypted:
+                matched.encrypted_key = env_encrypted
+                needs_sync = True
             if matched.base_url != DEEPSEEK_BASE_URL:
                 matched.base_url = DEEPSEEK_BASE_URL
+                needs_sync = True
             if float(matched.price_input_per_1m or 0) == 0:
                 matched.price_input_per_1m = 1.0
+                needs_sync = True
             if float(matched.price_output_per_1m or 0) == 0:
                 matched.price_output_per_1m = 2.0
-            if changed:
+                needs_sync = True
+            if needs_sync:
                 db.commit()
                 log.debug("种子密钥已同步 (ID=%d)", matched.id)
             secret = matched
@@ -247,7 +247,7 @@ def _seed_llm() -> None:
             log.debug("种子密钥已创建")
 
         purposes = [
-            ("scoring", DEEPSEEK_MODEL),
+            ("scoring", DEEPSEEK_MODEL_PRO),
             ("patient_chat", DEEPSEEK_MODEL),
             ("qa", DEEPSEEK_MODEL),
             ("case_generation", DEEPSEEK_MODEL),

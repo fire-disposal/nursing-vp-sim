@@ -1,13 +1,13 @@
 import os
 
-os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
+os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
 
 from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
 
-from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
+from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY
 from core.security import create_access_token, hash_password, verify_password
 
 
@@ -52,13 +52,13 @@ class TestCreateAccessToken:
 
     def test_decodes_with_same_secret_key(self):
         token = create_access_token({"user_id": 42, "role": "student"})
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         assert payload["user_id"] == 42
         assert payload["role"] == "student"
 
     def test_includes_exp_claim(self):
         token = create_access_token({"user_id": 1})
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         assert "exp" in payload
         exp = datetime.fromtimestamp(payload["exp"], tz=UTC)
         expected = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -72,7 +72,7 @@ class TestCreateAccessToken:
 
     def test_empty_data(self):
         token = create_access_token({})
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         assert "exp" in payload
 
 
@@ -86,7 +86,7 @@ class TestEndToEnd:
     def test_create_token_and_verify_claims(self):
         data = {"user_id": 99, "scope": "admin"}
         token = create_access_token(data)
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         assert payload["user_id"] == 99
         assert payload["scope"] == "admin"
         assert "exp" in payload
