@@ -16,7 +16,7 @@ _CJK_TOKENS_PER_CHAR = 0.6
 _EN_TOKENS_PER_CHAR = 0.3
 
 # ── 官方 CNY 定价 (元/百万 tokens, 缓存未命中) ──
-_PRICE_FLASH = (1.0, 2.0)   # (input, output)
+_PRICE_FLASH = (1.0, 2.0)  # (input, output)
 _PRICE_PRO = (3.0, 6.0)
 
 # ── 模型识别 —— 含 "pro" 则按 pro 计费 ──
@@ -71,4 +71,4 @@ def estimate_cost_cny(
             if po is None:
                 po = LLM_PRICE_OUTPUT_PER_1M
 
-    return round(prompt_tokens / 1_000_000 * pi + completion_tokens / 1_000_000 * po, 6)
+    return round(prompt_tokens / 1_000_000 * float(pi) + completion_tokens / 1_000_000 * float(po), 6)

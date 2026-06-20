@@ -78,7 +78,8 @@ def init_db() -> None:
     if len(heads) > 1:
         log.error(
             "Alembic 存在 %d 个 head: %s。请先执行 alembic merge heads 合并。",
-            len(heads), heads,
+            len(heads),
+            heads,
         )
         sys.exit(1)
 
@@ -100,7 +101,8 @@ def init_db() -> None:
                 "  2. 切回本分支，执行: alembic stamp <祖先版本>; alembic upgrade head\n"
                 "  3. 或直接在 psql 中手动修改 alembic_version 表对齐版本号\n"
                 "原始错误: %s",
-                db_rev, e,
+                db_rev,
+                e,
             )
             sys.exit(1)
         raise

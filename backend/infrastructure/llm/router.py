@@ -258,7 +258,13 @@ class ProfileRouter:
         profile.total_tokens_today = (profile.total_tokens_today or 0) + total_tokens
         from .token_counter import estimate_cost_cny
 
-        cost = estimate_cost_cny(prompt_tokens, completion_tokens, price_input=profile.price_input_per_1m, price_output=profile.price_output_per_1m, model=model)
+        cost = estimate_cost_cny(
+            prompt_tokens,
+            completion_tokens,
+            price_input=float(profile.price_input_per_1m or 0),
+            price_output=float(profile.price_output_per_1m or 0),
+            model=model,
+        )
         profile.total_cost_today = float(profile.total_cost_today or 0) + cost
         profile.monthly_cost_used = float(profile.monthly_cost_used or 0) + cost
         profile.last_used_at = datetime.now(UTC)

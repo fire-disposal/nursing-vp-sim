@@ -84,8 +84,7 @@ class LLMClient:
         # Per-purpose semaphores — scoring doesn't block chat
         _divisor = max(1, int(os.getenv("LLM_WORKER_COUNT", "1")))
         self._semaphores: dict[str, asyncio.Semaphore] = {
-            p: asyncio.Semaphore(max(1, limit // _divisor))
-            for p, limit in _PURPOSE_SEMAPHORE_LIMITS.items()
+            p: asyncio.Semaphore(max(1, limit // _divisor)) for p, limit in _PURPOSE_SEMAPHORE_LIMITS.items()
         }
         self._default_sem = asyncio.Semaphore(max(1, 50 // _divisor))
 
@@ -381,7 +380,9 @@ class LLMClient:
                 )
                 api_key = DEEPSEEK_API_KEY
             else:
-                raise NoProviderAvailable(f"密钥解密失败：FERNET_KEY 与数据库不匹配，且未配置 DEEPSEEK_API_KEY。purpose={purpose}")
+                raise NoProviderAvailable(
+                    f"密钥解密失败：FERNET_KEY 与数据库不匹配，且未配置 DEEPSEEK_API_KEY。purpose={purpose}"
+                )
 
         state = _CallState()
         state._config = config
