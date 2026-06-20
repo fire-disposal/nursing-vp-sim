@@ -33,6 +33,12 @@ export const getQAHistoryAll = (params: Record<string, unknown> = {}) =>
 export const getQASessionMessagesAdmin = (sessionId: number | string) =>
 	api.get<Schemas["QAMessageItem"][]>(`/qa/history/all/${sessionId}/messages` as ApiPath);
 
+export const getSectionText = (source: string, section: string) =>
+	api.get<{ source: string; section: string; text: string }>(
+		"/qa/section-text" as string,
+		{ params: { source, section } },
+	);
+
 export async function askInQASessionStream(
 	sessionId: number | string,
 	question: string,

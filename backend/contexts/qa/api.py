@@ -288,6 +288,34 @@ async def ask_stream(
         return StreamingResponse(generate(), media_type="text/event-stream")
 
 
+@router.get("/section-text")
+def get_section_text(source: str, section: str):
+    """Return the full textbook section text for a citation (no LLM)."""
+    from core.database import SessionLocal
+    from models import KnowledgeChunk
+
+    db = SessionLocal()
+    try:
+        source_key = f"textbook:{source}" if not source.startswith("textbook:") else source
+        chunks = (
+            db.query(KnowledgeChunk)
+            .filter(
+                KnowledgeChunk.source == source_key,
+                KnowledgeChunk.section.like(f"{section}%"),
+            )
+            .order_by(KnowledgeChunk.section)
+            .all()
+        )
+        if not chunks:
+            raise HTTPException(status_code=404, detail="教材章节不存在")
+        parts = []
+        for c in chunks:
+            parts.append(c.chunk_text)
+        return {"source": source, "section": section, "text": "\n\n".join(parts)}
+    finally:
+        db.close()
+
+
 @router.post("/ask", response_model=QAAskResponse)
 async def ask_question_legacy(
     req: QASessionCreate,
