@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
 import { Activity, Stethoscope } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
 import LoginIllustration from "@/components/login/LoginIllustration";
@@ -17,9 +17,19 @@ import { Input } from "@/components/ui/input";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
 
+function isTokenExpired(token: string): boolean {
+	try {
+		const payload = JSON.parse(atob(token.split(".")[1]));
+		return payload.exp * 1000 < Date.now();
+	} catch {
+		return true;
+	}
+}
+
 export default function Login() {
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
+	const isSubmitting = useRef(false);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
 	const user = useAuthStore((s) => s.user);
@@ -30,11 +40,13 @@ export default function Login() {
 		defaultValues: { username: "", password: "" },
 	});
 
-	if (token && user) {
+	if (token && user && !isTokenExpired(token)) {
 		return <Navigate to="/home" replace />;
 	}
 
 	const onSubmit = async (values: LoginFormValues) => {
+		if (isSubmitting.current) return;
+		isSubmitting.current = true;
 		setError("");
 		setLoading(true);
 		try {
@@ -51,6 +63,7 @@ export default function Login() {
 			);
 		} finally {
 			setLoading(false);
+			isSubmitting.current = false;
 		}
 	};
 

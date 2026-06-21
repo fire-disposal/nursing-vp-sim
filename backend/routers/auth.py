@@ -4,6 +4,7 @@ import string
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -151,6 +152,7 @@ def register(
 async def wechat_login(
     req: WechatLoginRequest,
     db: Annotated[Session, Depends(get_db)],
+    _: Annotated[None, Depends(login_rate_limit)],
 ):
     """微信小程序 code 登录。code → openid → 策略匹配 → JWT"""
     try:
@@ -262,24 +264,8 @@ async def wechat_register(
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(
-        {
-            "user_id": user.id,
-            "role_id": user.role_id,
-            "school_id": user.school_id,
-            "role": user.role.name if user.role else "",
-            "tv": user.token_version,
-        }
-    )
     log.info("微信注册成功: openid=%s username=%s", openid[:4] + "***", username)
-    return TokenResponse(
-        access_token=token,
-        role=user.role.name if user.role else "",
-        display_name=user.display_name,
-        user_id=user.id,
-        school_id=user.school_id,
-        school_name=user.school.name if user.school else None,
-    )
+    return _build_token_response(user, db)
 
 
 @router.get("/me", response_model=UserBrief)
@@ -363,9 +349,13 @@ def change_password(
     if not verify_password(req.old_password, current_user.password_hash):
         raise AuthError(detail="原密码错误")
     current_user.password_hash = hash_password(req.new_password)
-    current_user.token_version += 1
+    result = db.execute(
+        text("UPDATE users SET token_version = token_version + 1 WHERE id = :id RETURNING token_version"),
+        {"id": current_user.id},
+    )
+    new_tv = result.scalar()
     db.commit()
-    log.info("密码修改: user_id=%d (tv=%d)", current_user.id, current_user.token_version)
+    log.info("密码修改: user_id=%d (tv=%d)", current_user.id, new_tv)
     return OkResponse(message="密码修改成功")
 
 
@@ -374,7 +364,11 @@ def logout(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    current_user.token_version += 1
+    result = db.execute(
+        text("UPDATE users SET token_version = token_version + 1 WHERE id = :id RETURNING token_version"),
+        {"id": current_user.id},
+    )
+    new_tv = result.scalar()
     db.commit()
-    log.info("登出: user_id=%d (tv=%d)", current_user.id, current_user.token_version)
+    log.info("登出: user_id=%d (tv=%d)", current_user.id, new_tv)
     return OkResponse(message="已登出")

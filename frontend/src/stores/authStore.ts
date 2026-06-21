@@ -65,7 +65,24 @@ const useAuthStore = create<ExtendedAuthState>()(
 
 				startRefreshTimer();
 
-				return user;
+				try {
+					const { data: me } = await getMe();
+					const current = get().user;
+					if (current) {
+						set({
+							user: {
+								...current,
+								role_display_name: me.role_display_name || data.role,
+								grade: me.grade_name ?? current.grade ?? "",
+								className: me.class_name ?? current.className ?? "",
+							},
+						});
+					}
+				} catch {
+					// ignore — role_display_name stays as fallback
+				}
+
+				return get().user!;
 			},
 
 			refreshAuth: async (): Promise<boolean> => {
@@ -74,8 +91,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 					set({ token: data.access_token, permissions: data.permissions });
 					return true;
 				} catch {
-					console.warn("[authStore] refreshAuth 失败");
-					get().logout();
+					console.warn("[authStore] refreshAuth 失败 — 另一标签页可能已刷新令牌");
+					stopRefreshTimer();
+					set({ user: null, token: null, permissions: [] });
 					return false;
 				}
 			},
