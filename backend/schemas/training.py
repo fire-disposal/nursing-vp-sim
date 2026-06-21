@@ -10,6 +10,8 @@ class TrainingStartRequest(BaseModel):
     model_config = _REQ_CFG
     case_id: int
     practice_id: int | None = None
+    features: dict[str, bool] | None = None
+    time_limit_minutes: int | None = None
 
 
 class TrainingStartResponse(BaseModel):
@@ -136,7 +138,6 @@ class EmotionStateResponse(BaseModel):
 
 class FeatureConfigResponse(BaseModel):
     id: str | None = None
-    mode: str | None = None
     features: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -157,7 +158,6 @@ class TrainingStateResponse(BaseModel):
     config: "FeatureConfigResponse"
     initiative: "InitiativeStateResponse"
     current_phase: str = "history_taking"
-    feature_flags: dict[str, bool] = Field(default_factory=dict)
 
 
 class InitiativeTriggerResponse(BaseModel):

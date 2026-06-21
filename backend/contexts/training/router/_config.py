@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from core.capabilities import ALL_CAPABILITIES, resolve_features
 from core.database import get_db
-from core.feature_flags import FEATURE_FLAGS, resolve_features
 from core.security import get_current_user
 from models import TrainingRecord, User
 from schemas import OkResponse
@@ -29,7 +29,7 @@ def update_training_features(
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权限")
 
-    valid_keys = set(FEATURE_FLAGS.keys())
+    valid_keys = set(ALL_CAPABILITIES.keys())
     for k in features:
         if k not in valid_keys:
             raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")

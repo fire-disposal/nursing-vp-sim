@@ -11,8 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session  # noqa: TC002  # needed at runtime for OpenAPI schema generation
 
 from contexts.patient import handle_operation
+from core.capabilities import resolve_features
 from core.database import get_db
-from core.feature_flags import resolve_features
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
 

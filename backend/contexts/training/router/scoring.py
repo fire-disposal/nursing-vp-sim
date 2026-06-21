@@ -231,7 +231,7 @@ async def end_training(
 
         db.commit()
 
-        from core.feature_flags import resolve_features
+        from core.capabilities import resolve_features
 
         features = resolve_features(record.practice_snapshot)
         if features.get("patient_initiative"):

@@ -18,12 +18,16 @@ export const getCaseDetail = (id: number | string) =>
 export const startTraining = (
 	caseId: number | string,
 	practiceId?: number | null,
+	features?: Record<string, boolean> | null,
+	timeLimitMinutes?: number | null,
 ) =>
 	api.post<Schemas["TrainingStartResponse"]>(
 		"/training/start" satisfies ApiPath as string,
 		{
 			case_id: caseId,
 			...(practiceId ? { practice_id: practiceId } : {}),
+			...(features ? { features } : {}),
+			...(timeLimitMinutes != null ? { time_limit_minutes: timeLimitMinutes } : {}),
 		},
 	);
 

@@ -11,10 +11,8 @@ class PracticeCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
     case_id: int
-    mode: str = Field(default="training", pattern="^(training|assessment|free_play)$")
     features: dict[str, bool] = Field(default_factory=dict)
     behavior: dict[str, Any] = Field(default_factory=dict)
-    assessment: dict[str, Any] | None = None
 
 
 class PracticeUpdate(BaseModel):
@@ -22,10 +20,8 @@ class PracticeUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=2000)
     case_id: int | None = None
-    mode: str | None = Field(default=None, pattern="^(training|assessment|free_play)$")
     features: dict[str, bool] | None = None
     behavior: dict[str, Any] | None = None
-    assessment: dict[str, Any] | None = None
     is_active: bool | None = None
 
 
@@ -36,10 +32,8 @@ class PracticeItem(BaseModel):
     description: str | None = None
     case_id: int
     case_name: str = ""
-    mode: str
     features: dict[str, bool] = Field(default_factory=dict)
     behavior: dict[str, Any] = Field(default_factory=dict)
-    assessment: dict[str, Any] | None = None
     is_active: bool = True
     training_count: int = 0
     created_at: datetime
@@ -53,6 +47,5 @@ class PracticeBrief(BaseModel):
     model_config = _RESP_CFG
     id: int
     name: str
-    mode: str
     features: dict[str, bool] = Field(default_factory=dict)
     behavior: dict[str, Any] = Field(default_factory=dict)

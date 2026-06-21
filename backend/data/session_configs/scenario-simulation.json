@@ -1,8 +1,0 @@
-{
-  "id": "scenario-simulation",
-  "name": "情境模拟",
-  "mode": "training",
-  "features": { "physical_exam": true, "patient_initiative": true },
-  "behavior": { "emotion_model": true, "time_limit_minutes": 30, "max_rounds": 45 },
-  "assessment": { "rubric_id": 1, "auto_settlement": true, "settlement_timeout_min": 30 }
-}

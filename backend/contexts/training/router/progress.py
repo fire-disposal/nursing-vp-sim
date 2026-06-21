@@ -12,8 +12,8 @@ from contexts.patient import (
     should_initiate,
     update_initiative_timer,
 )
+from core.capabilities import is_enabled, resolve_features
 from core.database import get_db
-from core.feature_flags import is_enabled, resolve_features
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
 from schemas import (
@@ -132,12 +132,10 @@ def get_training_state(
         "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
         "exam_anchors": case_data.get("exam_anchors", {}),
         "config": {
-            "mode": config.get("mode"),
             "features": features,
         },
         "initiative": initiative_data,
         "current_phase": record.current_phase or "history_taking",
-        "feature_flags": features,
     }
 
 

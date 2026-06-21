@@ -8,12 +8,11 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
-from contexts.training.config_loader import get_config, list_configs
+from core.capabilities import ALL_CAPABILITIES, resolve_features
 from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
-from core.feature_flags import FEATURE_FLAGS, resolve_features
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
@@ -138,6 +137,22 @@ def _schedule_background(coro):
         return asyncio.run_coroutine_threadsafe(coro, loop)
 
 
+def _build_config(practice=None, features: dict | None = None, time_limit_minutes: int | None = None) -> dict:
+    if practice:
+        return {
+            "id": practice.id,
+            "name": practice.name,
+            "features": practice.features or {},
+            "behavior": practice.behavior or {},
+        }
+    return {
+        "id": 0,
+        "name": "自定义配置",
+        "features": features or {},
+        "behavior": {"time_limit_minutes": time_limit_minutes or 20},
+    }
+
+
 def _resolve_features(case_data: dict, config: dict) -> dict:
     supported = case_data.get("supported_plugins", [])
     if not supported:
@@ -146,7 +161,7 @@ def _resolve_features(case_data: dict, config: dict) -> dict:
         return config
     features = config["features"]
     for pid in supported:
-        if pid in FEATURE_FLAGS:
+        if pid in ALL_CAPABILITIES:
             features.setdefault(pid, True)
     if "patient_initiative" in features and "emotion" not in features:
         features.setdefault("emotion", True)
@@ -232,31 +247,15 @@ def start_training(
     if not case:
         raise NotFoundError(detail="病例不存在")
 
+    practice = None
     if req.practice_id:
         practice = db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
         if not practice:
             raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
-        config = {
-            "id": practice.id,
-            "name": practice.name,
-            "mode": practice.mode,
-            "features": practice.features or {},
-            "behavior": practice.behavior or {},
-            "assessment": practice.assessment or {},
-        }
-    else:
+    elif req.features is None:
         practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
-        if practice:
-            config = {
-                "id": practice.id,
-                "name": practice.name,
-                "mode": practice.mode,
-                "features": practice.features or {},
-                "behavior": practice.behavior or {},
-                "assessment": practice.assessment or {},
-            }
-        else:
-            config = get_config("standard-assessment") or {}
+
+    config = _build_config(practice, req.features, req.time_limit_minutes)
 
     record, greeting = _create_record(
         db,
@@ -345,10 +344,8 @@ def start_training_from_assignment(
     config = {
         "id": practice.id,
         "name": practice.name,
-        "mode": practice.mode,
         "features": practice.features or {},
         "behavior": practice.behavior or {},
-        "assessment": practice.assessment or {},
     }
 
     now = datetime.now(UTC)
@@ -369,11 +366,6 @@ def start_training_from_assignment(
         extra={"user_id": current_user.id, "action": "assignment_start"},
     )
     return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
-
-
-@router.get("/configs")
-def get_session_configs():
-    return list_configs()
 
 
 @router.get("/records", response_model=PaginatedResponse[TrainingRecordBrief])

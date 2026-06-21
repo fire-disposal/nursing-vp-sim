@@ -5,7 +5,6 @@ import { getCases } from "@/api/cases";
 import { createPractice, deletePractice, getPractice, getPractices, updatePractice } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -24,27 +23,10 @@ import {
 } from "@/components/ui/table";
 import { getApiErrorMessage } from "@/lib/error-utils";
 
-const MODES: Record<string, string> = {
-	training: "训练",
-	assessment: "考核",
-	free_play: "自由探索",
-};
-
-const FEATURE_FLAGS = [
-	{ key: "physical_exam", label: "护理查体" },
-	{ key: "emotion", label: "情绪状态机" },
-	{ key: "patient_initiative", label: "患者追问" },
-
-	{ key: "questionnaire", label: "问卷评估" },
-	{ key: "exam_emotion_bridge", label: "查体-情绪联动" },
-	{ key: "allow_pause", label: "允许暂停" },
-];
-
 interface PracticeForm {
 	name: string;
 	description: string;
 	case_id: number;
-	mode: string;
 	features: Record<string, boolean>;
 	time_limit: number;
 	max_rounds: number;
@@ -54,7 +36,6 @@ const emptyForm: PracticeForm = {
 	name: "",
 	description: "",
 	case_id: 0,
-	mode: "training",
 	features: {},
 	time_limit: 20,
 	max_rounds: 30,
@@ -100,7 +81,6 @@ export default function PracticesPage() {
 				name: d.name || "",
 				description: d.description || "",
 				case_id: d.case_id || 0,
-				mode: d.mode || "training",
 				features: d.features || {},
 				time_limit:
 					(d.behavior as { time_limit_minutes?: number })?.time_limit_minutes ?? 20,
@@ -114,7 +94,7 @@ export default function PracticesPage() {
 	};
 
 	const handleSave = async () => {
-		const { name, case_id, mode, features, time_limit, max_rounds } = form;
+		const { name, case_id, features, time_limit, max_rounds } = form;
 		if (!name.trim() || !case_id) {
 			toast.warning("请填写名称和病例");
 			return;
@@ -123,7 +103,6 @@ export default function PracticesPage() {
 			name: name.trim(),
 			description: form.description.trim() || null,
 			case_id,
-			mode,
 			features,
 			behavior: { time_limit_minutes: time_limit, max_rounds },
 		};
@@ -187,9 +166,8 @@ export default function PracticesPage() {
 						<TableHeader>
 							<TableRow>
 								<TableHead>名称</TableHead>
-								<TableHead>病例</TableHead>
-								<TableHead>模式</TableHead>
-								<TableHead>功能</TableHead>
+							<TableHead>病例</TableHead>
+							<TableHead>功能</TableHead>
 								<TableHead>时长</TableHead>
 								<TableHead>训练次数</TableHead>
 								<TableHead>操作</TableHead>
@@ -201,30 +179,17 @@ export default function PracticesPage() {
 									<TableCell className="font-medium max-w-[180px] truncate">
 										{p.name}
 									</TableCell>
-									<TableCell className="text-sm text-muted-foreground">
-										{p.case_name}
-									</TableCell>
-									<TableCell>
-										<Badge
-											variant={
-												p.mode === "assessment"
-													? "destructive"
-													: p.mode === "free_play"
-														? "secondary"
-														: "default"
-											}
-										>
-											{MODES[p.mode] || p.mode}
-										</Badge>
-									</TableCell>
-									<TableCell className="text-xs text-muted-foreground">
-										{Object.entries(p.features || {})
-											.filter(([, v]) => v)
-											.map(
-												([k]) =>
-													FEATURE_FLAGS.find((f) => f.key === k)?.label || k,
-											)
-											.join("、") || "—"}
+								<TableCell className="text-sm text-muted-foreground">
+									{p.case_name}
+								</TableCell>
+								<TableCell className="text-xs text-muted-foreground">
+									{Object.entries(p.features || {})
+										.filter(([, v]) => v)
+										.map(
+											([k]) =>
+												k,
+										)
+										.join("、") || "—"}
 									</TableCell>
 									<TableCell className="text-sm">
 										{p.behavior?.time_limit_minutes ?? 20} 分钟
@@ -293,23 +258,9 @@ export default function PracticesPage() {
 									{c.name}
 								</option>
 							))}
-						</select>
-					</div>
-					<div>
-						<label className="text-sm font-medium">模式</label>
-						<select
-							className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-							value={form.mode}
-							onChange={(e) => updateForm({ mode: e.target.value })}
-						>
-							{Object.entries(MODES).map(([k, v]) => (
-								<option key={k} value={k}>
-									{v}
-								</option>
-							))}
-						</select>
-					</div>
-					<div className="grid grid-cols-2 gap-3">
+					</select>
+				</div>
+				<div className="grid grid-cols-2 gap-3">
 						<div>
 							<label className="text-sm font-medium">时长限制（分钟）</label>
 							<Input
@@ -338,7 +289,14 @@ export default function PracticesPage() {
 					<div>
 						<label className="text-sm font-medium mb-1 block">功能开关</label>
 						<div className="grid grid-cols-2 gap-1.5">
-							{FEATURE_FLAGS.map((f) => (
+							{[
+								{ key: "physical_exam", label: "护理查体" },
+								{ key: "emotion", label: "情绪状态机" },
+								{ key: "patient_initiative", label: "患者追问" },
+								{ key: "questionnaire", label: "问卷评估" },
+								{ key: "exam_emotion_bridge", label: "查体-情绪联动" },
+								{ key: "allow_pause", label: "允许暂停" },
+							].map((f) => (
 								<label
 									key={f.key}
 									className="flex items-center gap-1.5 text-sm py-0.5"
