@@ -1,199 +1,200 @@
-"""Chapter index — embedding-based chapter search for QA knowledge retrieval.
+"""Knowledge base accessor — hierarchical textbook navigation for LLM Tool Calls.
 
-Replaces the broken rag-kw + IDF pipeline with:
-  1. Chapter title + summary embedding via DeepSeek embedding API
-  2. Cosine similarity matching at query time
-  3. Full chapter content loading for context injection
+Design:
+  1. list_textbooks() → browse top-level textbooks
+  2. list_chapters(textbook) → browse chapters in a textbook (titles only)
+  3. search(query, textbook=None) → full-text keyword search, returns snippets with location
+  4. read_section(textbook, chapter, heading) → read one specific section (## heading block)
+
+All data loaded from filesystem. No API calls. LLM-safe: snippets capped at ~500 chars,
+never dumps entire chapters.
 """
 
-import asyncio
 import logging
-import math
+import re
+from pathlib import Path
 from typing import Any
-
-import httpx
-
-from core.database import SessionLocal
-from models import KnowledgeChunk
 
 log = logging.getLogger(__name__)
 
-# Cache embeddings in memory (small: ~70 chapters × 1536 dims)
-_embedding_cache: dict[str, list[float]] | None = None
-_chapter_entries: list[dict[str, Any]] | None = None
+TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "textbooks"
+
+# ── In-memory index ──
+_index: dict[str, Any] | None = None  # textbook → chapter → [section chunks]
 
 
-async def _get_embedding(text: str, api_key: str, base_url: str) -> list[float]:
-    """Get embedding vector for text via DeepSeek embedding API."""
-    url = f"{base_url}/v1/embeddings"
+def _read_file(filepath: Path) -> str:
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30, connect=15)) as client:
-            resp = await client.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={"model": "text-embedding-v2", "input": text[:8000]},
-            )
-            resp.raise_for_status()
-            return resp.json()["data"][0]["embedding"]
+        return filepath.read_text(encoding="utf-8")
     except Exception:
-        log.exception("Chapter embedding failed, text preview: %s", text[:80])
-        return []
+        log.warning("Failed to read: %s", filepath)
+        return ""
 
 
-async def _build_chapter_index() -> tuple[list[dict], dict[str, list[float]]]:
-    """Build chapter-level index from knowledge_chunks.
-
-    Groups chunks by (source, top-level section), creates a summary from
-    the first 500 chars of each chapter's content, and computes embeddings.
-    """
-    db = SessionLocal()
-    try:
-        chunks = db.query(KnowledgeChunk).order_by(KnowledgeChunk.source, KnowledgeChunk.section).all()
-    finally:
-        db.close()
-
-    # Group chunks by chapter (source + top-level section)
-    chapters: dict[str, dict] = {}
-    for c in chunks:
-        chapter_key = "/".join(c.section.split("/")[:2]) if "/" in c.section else c.section
-        key = f"{c.source}::{chapter_key}"
-        if key not in chapters:
-            chapters[key] = {
-                "key": key,
-                "source": c.source.replace("textbook:", ""),
-                "chapter": chapter_key,
-                "title": chapter_key.split("/")[-1] if "/" in chapter_key else chapter_key,
-                "chunks": [],
-            }
-        chapters[key]["chunks"].append(c.chunk_text)
-
-    # Build summaries (first 500 chars of each chapter)
-    entries = []
-    for chapter in chapters.values():
-        full_text = "\n\n".join(chapter["chunks"])
-        summary = full_text[:500]
-        entries.append(
-            {
-                "key": chapter["key"],
-                "source": chapter["source"],
-                "chapter": chapter["chapter"],
-                "title": chapter["title"],
-                "full_text": full_text,
-                "summary": summary,
-            }
-        )
-
-    log.info("Chapter index: %d chapters from knowledge_chunks", len(entries))
-    return entries
+def _split_sections(content: str) -> list[tuple[str, str]]:
+    """Split markdown by ## headings. Returns [(heading, body), ...]."""
+    sections = []
+    current_heading = ""
+    current_lines = []
+    for line in content.split("\n"):
+        m = re.match(r"^##\s+(.+)$", line)
+        if m:
+            if current_heading or current_lines:
+                body = "\n".join(current_lines).strip()
+                if len(body) > 20:
+                    sections.append((current_heading, body))
+            current_heading = m.group(1).strip()
+            current_lines = []
+        else:
+            current_lines.append(line)
+    if current_heading or current_lines:
+        body = "\n".join(current_lines).strip()
+        if len(body) > 20:
+            sections.append((current_heading, body))
+    return sections
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Compute cosine similarity between two vectors."""
-    if not a or not b:
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b, strict=False))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(x * x for x in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
+def _parse_filename(filepath: Path) -> dict | None:
+    """'内科护理学_02_第二章_呼吸系统疾病病人的护理.md' → {textbook, chapter_title}."""
+    stem = filepath.stem
+    parts = stem.split("_", 2)
+    if len(parts) < 3:
+        return None
+    return {"textbook": parts[0], "chapter_num": parts[1], "chapter_title": parts[2]}
 
 
-async def ensure_index(api_key: str, base_url: str) -> None:
-    """Build chapter embedding index. Call once at startup or first query."""
-    global _embedding_cache, _chapter_entries
-    if _embedding_cache is not None:
-        return
-
-    entries = await _build_chapter_index()
-    _chapter_entries = entries
-
-    embeddings: dict[str, list[float]] = {}
-    for i, entry in enumerate(entries):
-        text = f"{entry['source']} - {entry['title']}\n{entry['summary']}"
-        vec = await _get_embedding(text, api_key, base_url)
-        if vec:
-            embeddings[entry["key"]] = vec
-        if (i + 1) % 10 == 0:
-            log.info("Chapter embedding progress: %d/%d", i + 1, len(entries))
-        await asyncio.sleep(0.3)  # Rate limit: be gentle to embedding API
-
-    _embedding_cache = embeddings
-    log.info("Chapter embedding index ready: %d vectors", len(embeddings))
-
-
-async def search_chapter(
-    query: str,
-    api_key: str,
-    base_url: str,
-    top_k: int = 1,
-) -> list[dict[str, Any]]:
-    """Search for the most relevant chapter given a query.
-
-    Returns list of {source, chapter, title, text} dicts.
-    """
-    if _embedding_cache is None or _chapter_entries is None:
-        await ensure_index(api_key, base_url)
-
-    if not _embedding_cache or not _chapter_entries:
-        return []
-
-    query_vec = await _get_embedding(query, api_key, base_url)
-    if not query_vec:
-        return []
-
-    scored = []
-    for entry in _chapter_entries:
-        entry_vec = _embedding_cache.get(entry["key"])
-        if not entry_vec:
+def _build() -> dict[str, Any]:
+    """Build hierarchical index: textbook → chapter → sections."""
+    index: dict[str, dict] = {}
+    for filepath in sorted(TEXTBOOKS_DIR.rglob("*.md")):
+        meta = _parse_filename(filepath)
+        if not meta:
             continue
-        sim = _cosine_similarity(query_vec, entry_vec)
-        scored.append((sim, entry))
+        content = _read_file(filepath)
+        sections = _split_sections(content)
+
+        tb = meta["textbook"]
+        if tb not in index:
+            index[tb] = {"name": tb, "chapters": {}}
+
+        chapter_key = meta["chapter_title"]
+        index[tb]["chapters"][chapter_key] = {
+            "title": meta["chapter_title"],
+            "num": meta["chapter_num"],
+            "sections": [{"heading": h, "body": b} for h, b in sections],
+        }
+
+    total = sum(len(tb["chapters"]) for tb in index.values())
+    log.info("Knowledge index built: %d textbooks, %d chapters", len(index), total)
+    return index
+
+
+def _ensure_index() -> dict[str, Any]:
+    global _index
+    if _index is None:
+        _index = _build()
+    return _index
+
+
+def _try_jieba():
+    try:
+        import jieba  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+# ── Tools exposed to LLM ──
+
+
+def list_textbooks() -> list[dict]:
+    """Return all textbooks. Tool: list_textbooks()."""
+    idx = _ensure_index()
+    return [{"textbook": name, "chapters": len(tb["chapters"])} for name, tb in idx.items()]
+
+
+def list_chapters(textbook: str) -> list[dict]:
+    """Return chapters in a textbook (titles + section counts). Tool: list_chapters()."""
+    idx = _ensure_index()
+    tb = idx.get(textbook)
+    if not tb:
+        return []
+    return [
+        {
+            "textbook": textbook,
+            "chapter": ch["title"],
+            "sections": len(ch["sections"]),
+        }
+        for ch in tb["chapters"].values()
+    ]
+
+
+def search(query: str, textbook: str | None = None, top_k: int = 5) -> list[dict]:
+    """Full-text keyword search across sections. Returns snippets with location.
+
+    Each result: {textbook, chapter, heading, snippet (≤500 chars), match_count}
+    """
+    idx = _ensure_index()
+    has_jieba = _try_jieba()
+    if has_jieba:
+        import jieba
+
+        terms = [w.strip() for w in jieba.lcut(query) if len(w.strip()) >= 2]
+    else:
+        terms = [w.strip() for w in re.split(r"[,，\s]+", query) if len(w.strip()) >= 2]
+
+    if not terms:
+        terms = [query]
+
+    scored: list[tuple[int, dict]] = []
+    textbooks = [textbook] if textbook else list(idx.keys())
+
+    for tb_name in textbooks:
+        tb = idx.get(tb_name)
+        if not tb:
+            continue
+        for ch_title, ch in tb["chapters"].items():
+            for sec in ch["sections"]:
+                body_lower = sec["body"].lower()
+                matches = 0
+                for t in terms:
+                    count = body_lower.count(t.lower())
+                    if t.lower() in ch_title.lower():
+                        count += 1  # bonus for chapter title match
+                    matches += count
+                if matches > 0:
+                    snippet = sec["body"][:500]
+                    scored.append(
+                        (
+                            matches,
+                            {
+                                "textbook": tb_name,
+                                "chapter": ch_title,
+                                "heading": sec["heading"],
+                                "snippet": snippet,
+                                "match_count": matches,
+                            },
+                        )
+                    )
 
     scored.sort(key=lambda x: x[0], reverse=True)
-
-    results = []
-    seen_sources: set[str] = set()
-    for sim, entry in scored[: top_k * 3]:  # Allow dedup across sources
-        if entry["source"] in seen_sources:
-            continue
-        seen_sources.add(entry["source"])
-        results.append(
-            {
-                "source": entry["source"],
-                "chapter": entry["chapter"],
-                "title": entry["title"],
-                "text": entry["full_text"],
-                "score": round(sim, 4),
-            }
-        )
-        if len(results) >= top_k:
-            break
-
-    return results
+    return [r for _, r in scored[:top_k]]
 
 
-def format_chapter_context(results: list[dict]) -> tuple[str, list[dict[str, str]]]:
-    """Format retrieved chapter as LLM context with citation metadata."""
-    if not results:
-        return "", []
+def read_section(textbook: str, chapter: str, heading: str) -> str:
+    """Return the full body of a specific section. Tool: read_section().
 
-    parts = ["【参考教材信息】"]
-    instruction = (
-        "以下是从护理学教材中检索到的相关章节内容。请仅引用与问题直接相关的部分，"
-        "不要强行添加无关引用。如需引用，请使用格式 [来源: 教材名 > 章节名]。"
-    )
-    parts.append(instruction)
-    citations: list[dict[str, str]] = []
-
-    for i, r in enumerate(results, 1):
-        section_key = "/".join(r["chapter"].split("/")[:2]) if "/" in r["chapter"] else r["chapter"]
-        parts.append(f"[{i}] [来源: {r['source']} > {section_key}]")
-        parts.append(r["text"])
-        parts.append("")
-        citations.append({"source": r["source"], "section": section_key})
-
-    return "\n".join(parts), citations
+    Returns full section text (may be longer than snippet from search).
+    """
+    idx = _ensure_index()
+    tb = idx.get(textbook)
+    if not tb:
+        return f"教材 '{textbook}' 不存在。"
+    ch = tb["chapters"].get(chapter)
+    if not ch:
+        return f"章节 '{chapter}' 不存在于 {textbook} 中。"
+    for sec in ch["sections"]:
+        if sec["heading"] == heading:
+            return sec["body"]
+    return f"小节 '{heading}' 不存在于 {textbook} > {chapter} 中。"

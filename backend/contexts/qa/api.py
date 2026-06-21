@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from typing import Annotated
 
@@ -23,50 +25,96 @@ from .logic import build_qa_history, get_cached_answer
 
 log = logging.getLogger(__name__)
 
+# ── Tool definitions exposed to the QA LLM ──
 
-async def _inject_rag(
-    llm_messages: list[dict], question: str, rag_enabled: bool = False, *, llm_client=None, request=None
-) -> list[dict[str, str]]:
-    """If RAG enabled, retrieve relevant chapter via embedding search and inject as context.
+QA_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_textbooks",
+            "description": "列出所有可用的护理学教材（仅书名和章节数）",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_chapters",
+            "description": "列出指定教材的所有章节标题（不含正文内容）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "textbook": {
+                        "type": "string",
+                        "description": "教材名称，如'内科护理学'、'外科护理学'、'新编护理学基础'",
+                    }
+                },
+                "required": ["textbook"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "description": "在护理学教材中全文关键词搜索，返回匹配的章节片段（≤500字）及其位置信息。可用于快速定位相关知识点。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词或短语，如'肺炎护理措施'、'术后并发症'"},
+                    "textbook": {
+                        "type": "string",
+                        "description": "限定在指定教材中搜索（可选，不填则搜索全部教材）",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_section",
+            "description": "读取指定教材某章节下某小节的完整正文内容。先用 search() 定位到具体小节后，再用此工具读取完整内容。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "textbook": {"type": "string", "description": "教材名称"},
+                    "chapter": {"type": "string", "description": "章节标题"},
+                    "heading": {"type": "string", "description": "小节标题（## 标题）"},
+                },
+                "required": ["textbook", "chapter", "heading"],
+            },
+        },
+    },
+]
 
-    Replaces the old rag-kw + IDF pipeline with chapter-level embedding similarity.
-    Never raises — RAG failure silently degrades.
-    """
-    if not rag_enabled:
-        return []
-    try:
-        from infrastructure.rag.chapter_index import format_chapter_context, search_chapter
 
-        app = request.app.state if request else None
-        if not app:
-            return []
+def _build_tool_handlers() -> dict:
+    """Build synchronous tool handlers backed by chapter_index."""
+    from infrastructure.rag.chapter_index import list_chapters, list_textbooks, read_section, search
 
-        llm_router = app.llm_router
-        try:
-            config = llm_router.select("qa")
-            api_key = llm_router.get_decrypted_key(config)
-            base_url = config.secret.base_url if hasattr(config, "secret") and config.secret else ""
-        except Exception:
-            from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-
-            api_key = DEEPSEEK_API_KEY
-            base_url = DEEPSEEK_BASE_URL
-
-        if not api_key:
-            log.warning("RAG chapter search: no API key available")
-            return []
-
-        results = await search_chapter(question, api_key, base_url, top_k=1)
-        context, citations = format_chapter_context(results)
-        if context and citations:
-            llm_messages.insert(1, {"role": "system", "content": context})
-            log.info("RAG chapter injected: %s (score=%.3f)", citations[0]["source"], results[0].get("score", 0))
-        else:
-            log.info("RAG chapter search: no results for query=%s", question[:80])
-        return citations
-    except Exception:
-        log.warning("RAG chapter retrieval failed, continuing without knowledge context", exc_info=True)
-        return []
+    handlers = {
+        "list_textbooks": lambda _: json.dumps(list_textbooks(), ensure_ascii=False),
+        "list_chapters": lambda args: json.dumps(list_chapters(args.get("textbook", "")), ensure_ascii=False),
+        "search": lambda args: json.dumps(
+            search(
+                query=args.get("query", ""),
+                textbook=args.get("textbook") or None,
+            ),
+            ensure_ascii=False,
+        ),
+        "read_section": lambda args: read_section(
+            textbook=args.get("textbook", ""),
+            chapter=args.get("chapter", ""),
+            heading=args.get("heading", ""),
+        ),
+    }
+    # Wrap sync handlers as async for the client
+    async_handlers = {}
+    for name, fn in handlers.items():
+        async_handlers[name] = lambda args, _fn=fn: asyncio.to_thread(_fn, args)
+    return async_handlers
 
 
 router = APIRouter()
@@ -134,23 +182,40 @@ async def create_session(
             {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
-        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled, request=request)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
 
     rid = getattr(request.state, "request_id", None)
     try:
-        answer = await llm_client.call(
-            llm_messages,
-            purpose="qa",
-            ctx=CallContext(
+        if req.rag_enabled:
+            answer = await llm_client.call_with_tools(
+                llm_messages,
+                tools=QA_TOOLS,
+                tool_handlers=_build_tool_handlers(),
                 purpose="qa",
-                user_id=current_user.id,
-                log_meta={"request_id": rid} if rid else None,
-            ),
-            **get_llm_config("qa"),
-        )
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid} if rid else None,
+                ),
+                **{
+                    k: v
+                    for k, v in get_llm_config("qa").items()
+                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
+                },
+            )
+        else:
+            answer = await llm_client.call(
+                llm_messages,
+                purpose="qa",
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid} if rid else None,
+                ),
+                **get_llm_config("qa"),
+            )
     except Exception as e:
         log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
@@ -170,7 +235,7 @@ async def create_session(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
+    return QAAskResponse(session_id=session.id, answer=answer)
 
 
 @router.post("/sessions/{session_id}/ask", response_model=QAAskResponse)
@@ -203,7 +268,6 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
-    citations = await _inject_rag(llm_messages, req.question.strip(), req.rag_enabled, request=request)
 
     user_msg = QARecord(
         session_id=session.id,
@@ -217,23 +281,41 @@ async def ask_in_session(
     rid = getattr(request.state, "request_id", None)
     llm_client = request.app.state.llm_client
     try:
-        answer = await llm_client.call(
-            llm_messages,
-            purpose="qa",
-            ctx=CallContext(
+        if req.rag_enabled:
+            answer = await llm_client.call_with_tools(
+                llm_messages,
+                tools=QA_TOOLS,
+                tool_handlers=_build_tool_handlers(),
                 purpose="qa",
-                user_id=current_user.id,
-                log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
-            ),
-            **get_llm_config("qa"),
-        )
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+                ),
+                **{
+                    k: v
+                    for k, v in get_llm_config("qa").items()
+                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
+                },
+            )
+        else:
+            answer = await llm_client.call(
+                llm_messages,
+                purpose="qa",
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+                ),
+                **get_llm_config("qa"),
+            )
     except Exception as e:
         log.exception(
             "qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id}
         )
         raise HTTPException(status_code=500, detail=f"AI调用失败: {e!s}")
 
-    stored_content = embed_citations(answer, citations)
+    stored_content = embed_citations(answer, [])
     assistant_msg = QARecord(
         session_id=session.id,
         user_id=current_user.id,
@@ -248,7 +330,7 @@ async def ask_in_session(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
+    return QAAskResponse(session_id=session.id, answer=answer)
 
 
 @router.post("/sessions/{session_id}/ask/stream")
@@ -277,7 +359,6 @@ async def ask_stream(
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
-        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled, request=request)
 
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)
@@ -302,7 +383,7 @@ async def ask_stream(
                     full_reply += chunk
                     yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-                stored_content = embed_citations(full_reply, citations)
+                stored_content = embed_citations(full_reply, [])
                 assistant_record = QARecord(
                     session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
                 )
@@ -310,7 +391,7 @@ async def ask_stream(
                 db.commit()
                 db.refresh(assistant_record)
 
-                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
+                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id, 'citations': None}, ensure_ascii=False)}\n\n"
             except Exception as e:
                 log.exception("QA stream error: session_id=%d", session_id)
                 yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"

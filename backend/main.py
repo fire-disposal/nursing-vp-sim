@@ -146,18 +146,14 @@ async def lifespan(app: FastAPI):
         except Exception:
             log.exception("Knowledge base indexing failed (non-fatal)")
 
-    # Warm chapter embedding index for QA chapter-level search
+    # Warm knowledge base chapter index for QA
     try:
-        from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-        from infrastructure.rag.chapter_index import ensure_index
+        from infrastructure.rag.chapter_index import _ensure_index
 
-        if DEEPSEEK_API_KEY:
-            log.info("Warming chapter embedding index...")
-            await ensure_index(DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL)
-        else:
-            log.info("Skipping chapter embedding index: no API key configured")
+        _ensure_index()
+        log.info("Knowledge chapter index: ready")
     except Exception:
-        log.exception("Chapter embedding index warming failed (non-fatal)")
+        log.exception("Chapter index warming failed (non-fatal)")
 
     app.state.rate_limiter = PgRateLimiter()
 

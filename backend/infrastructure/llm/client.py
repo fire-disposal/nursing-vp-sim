@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 
 import httpx
@@ -69,6 +69,17 @@ class _CallState:
     cache_miss_tokens: int = 0
 
 
+@dataclass
+class _CallResult:
+    """Result of a single LLM HTTP call — content and optionally tool_calls."""
+
+    content: str = ""
+    tool_calls: list[dict] = field(default_factory=list)
+    usage: dict = field(default_factory=dict)
+    cache_hit_tokens: int = 0
+    cache_miss_tokens: int = 0
+
+
 class LLMClient:
     """Unified LLM caller with retry, concurrency limiting, and logging."""
 
@@ -120,7 +131,7 @@ class LLMClient:
         request_text = " ".join(m.get("content", "") for m in messages)
         t0 = time.perf_counter()
 
-        async def _attempt() -> str:
+        async def _attempt() -> _CallResult:
             return await self._do_call(
                 messages,
                 state,
@@ -133,9 +144,10 @@ class LLMClient:
             )
 
         try:
-            content = await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
+            result = await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
+            content = result.content
             latency_ms = int((time.perf_counter() - t0) * 1000)
-            usage = state.usage or {}
+            usage = result.usage or {}
             prompt_tokens = usage.get("prompt_tokens", 0) or 0
             completion_tokens = usage.get("completion_tokens", 0) or 0
             total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
@@ -157,8 +169,8 @@ class LLMClient:
                 provider_name=state.provider_name,
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
-                cache_hit_tokens=state.cache_hit_tokens,
-                cache_miss_tokens=state.cache_miss_tokens,
+                cache_hit_tokens=result.cache_hit_tokens,
+                cache_miss_tokens=result.cache_miss_tokens,
             )
             from infrastructure.llm.token_counter import estimate_cost_cny
 
@@ -194,6 +206,126 @@ class LLMClient:
             )
             self._record_metrics(status="error", tokens=0, cost=0.0, latency_ms=latency_ms)
             raise
+
+    async def call_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        tool_handlers: dict[str, Callable],
+        *,
+        purpose: str,
+        temperature: float = 0.7,
+        max_tokens: int = 512,
+        timeout: int = 30,
+        max_retries: int = 2,
+        max_tool_rounds: int = 5,
+        ctx: CallContext | None = None,
+    ) -> str:
+        """Call LLM with tools — the model may call tools and continue the conversation.
+
+        tool_handlers: dict of {function_name: async handler(arguments_dict) -> str}
+        Returns final content after tool loop completes.
+        """
+        ctx = ctx or CallContext(purpose=purpose)
+        state = _CallState()
+        request_text = " ".join(m.get("content", "") for m in messages)
+        t0 = time.perf_counter()
+
+        msgs = list(messages)  # mutable copy
+        tool_rounds = 0
+
+        while tool_rounds < max_tool_rounds:
+            tool_rounds += 1
+
+            async def _attempt() -> _CallResult:
+                return await self._do_call(
+                    msgs, state, purpose, temperature, max_tokens, timeout, None, ctx, tools=tools
+                )
+
+            try:
+                result = await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
+            except Exception:
+                latency_ms = int((time.perf_counter() - t0) * 1000)
+                log.exception("LLM tool call failed: purpose=%s round=%d", purpose, tool_rounds)
+                raise
+
+            if result.tool_calls:
+                msgs.append(
+                    {
+                        "role": "assistant",
+                        "content": result.content or "",
+                        "tool_calls": result.tool_calls,
+                    }
+                )
+                has_error = False
+                for tc in result.tool_calls:
+                    func_name = tc["function"]["name"]
+                    try:
+                        args = json.loads(tc["function"]["arguments"])
+                    except json.JSONDecodeError:
+                        args = {}
+                    handler = tool_handlers.get(func_name)
+                    if handler:
+                        try:
+                            tool_result = await handler(args)
+                            if not isinstance(tool_result, str):
+                                tool_result = json.dumps(tool_result, ensure_ascii=False)
+                        except Exception:
+                            log.exception("Tool handler failed: %s", func_name)
+                            tool_result = json.dumps({"error": f"Tool '{func_name}' execution failed"})
+                    else:
+                        log.warning("Unknown tool called: %s", func_name)
+                        tool_result = json.dumps({"error": f"Unknown tool: '{func_name}'"})
+                        has_error = True
+                    msgs.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc["id"],
+                            "content": tool_result,
+                        }
+                    )
+                if has_error:
+                    break  # Don't loop on unknown tools
+                continue
+
+            # No tool_calls — final response
+            content = result.content or ""
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            usage = result.usage or {}
+            self._log_worker.enqueue(
+                purpose=purpose,
+                user_id=ctx.user_id,
+                record_id=ctx.record_id,
+                case_id=ctx.case_id,
+                model=state.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                latency_ms=latency_ms,
+                status="success",
+                request_text=request_text,
+                response_text=content,
+                usage=usage or None,
+                meta=ctx.log_meta,
+                config_id=state.config_id,
+                provider_name=state.provider_name,
+                key_price_input=state.price_input,
+                key_price_output=state.price_output,
+                cache_hit_tokens=result.cache_hit_tokens,
+                cache_miss_tokens=result.cache_miss_tokens,
+            )
+            return content
+
+        # Exhausted max_tool_rounds — force final response
+        msgs.append({"role": "user", "content": "请根据已检索到的资料，直接回答最初的问题。"})
+        return await self.call(
+            msgs,
+            purpose=purpose,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            max_retries=0,
+            ctx=ctx,
+        )
 
     async def stream(
         self,
@@ -419,8 +551,9 @@ class LLMClient:
         timeout,
         response_format,
         ctx,
-    ) -> str:
-        """Single HTTP call attempt."""
+        tools=None,
+    ) -> _CallResult:
+        """Single HTTP call attempt. Returns _CallResult with content + optional tool_calls."""
         new_state = await self._select_config(purpose)
         self._copy_state(new_state, state)
 
@@ -434,6 +567,8 @@ class LLMClient:
             payload["user"] = str(ctx.record_id)
         if response_format:
             payload["response_format"] = response_format
+        if tools:
+            payload["tools"] = tools
 
         t0 = time.perf_counter()
         try:
@@ -450,7 +585,9 @@ class LLMClient:
                     )
             resp.raise_for_status()
             data = resp.json()
-            content = data["choices"][0]["message"]["content"]
+            msg = data["choices"][0]["message"]
+            content = msg.get("content", "") or ""
+            tool_calls = msg.get("tool_calls") or []
             latency_ms = int((time.perf_counter() - t0) * 1000)
 
             usage = data.get("usage", {})
@@ -469,7 +606,13 @@ class LLMClient:
                 latency_ms=latency_ms,
                 error=None,
             )
-            return content
+            return _CallResult(
+                content=content,
+                tool_calls=tool_calls,
+                usage=usage,
+                cache_hit_tokens=state.cache_hit_tokens,
+                cache_miss_tokens=state.cache_miss_tokens,
+            )
         except Exception as e:
             await self._router.report_result(
                 state._config,
