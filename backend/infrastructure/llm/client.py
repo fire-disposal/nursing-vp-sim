@@ -127,6 +127,7 @@ class LLMClient:
                 max_tokens,
                 timeout,
                 response_format,
+                ctx,
             )
 
         try:
@@ -219,6 +220,7 @@ class LLMClient:
                     temperature,
                     max_tokens,
                     timeout,
+                    ctx,
                 ):
                     full_reply.append(chunk)
                     yield chunk
@@ -412,6 +414,7 @@ class LLMClient:
         max_tokens,
         timeout,
         response_format,
+        ctx,
     ) -> str:
         """Single HTTP call attempt."""
         new_state = await self._select_config(purpose)
@@ -423,6 +426,8 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if ctx and ctx.record_id:
+            payload["user"] = str(ctx.record_id)
         if response_format:
             payload["response_format"] = response_format
 
@@ -475,6 +480,7 @@ class LLMClient:
         temperature,
         max_tokens,
         timeout,
+        ctx,
     ) -> AsyncIterator[str]:
         """Single streaming HTTP attempt — yields content chunks."""
         new_state = await self._select_config(purpose)
@@ -486,7 +492,10 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
+        if ctx and ctx.record_id:
+            payload["user"] = str(ctx.record_id)
 
         try:
             async with asyncio.timeout(timeout + 10):
