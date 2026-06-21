@@ -1,6 +1,7 @@
 """API 档案 + 用途指派 CRUD"""
 
 import logging
+import re
 import time
 from typing import Annotated
 
@@ -38,6 +39,13 @@ from schemas import (
 router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 
 
+def _require_system_admin(current_user: User) -> None:
+    """ApiSecret is a system-level resource with no per-school scope.
+    Only users without a school_id (super admins) may manage secrets."""
+    if current_user.school_id is not None:
+        raise HTTPException(status_code=403, detail="仅系统管理员可管理API密钥")
+
+
 # ── ApiSecret (API 档案) CRUD ──
 
 
@@ -45,6 +53,7 @@ router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 def list_secrets(
     current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
 ):
+    _require_system_admin(current_user)
     secrets = db.query(ApiSecret).order_by(ApiSecret.created_at.desc()).all()
     result = []
     for s in secrets:
@@ -80,6 +89,9 @@ def create_secret(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    _require_system_admin(current_user)
+    if data.base_url and not re.match(r"^https?://", data.base_url):
+        raise HTTPException(status_code=422, detail="base_url 必须以 http:// 或 https:// 开头")
     for existing in db.query(ApiSecret).all():
         try:
             if decrypt_api_key(existing.encrypted_key) == data.raw_key:
@@ -110,6 +122,7 @@ def update_secret(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    _require_system_admin(current_user)
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="档案不存在")
@@ -128,6 +141,7 @@ async def delete_secret(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    _require_system_admin(current_user)
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="档案不存在")

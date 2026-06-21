@@ -12,7 +12,12 @@ from contexts.patient.initiative import (
 )
 from models import Message
 
-from ..context import PipelineContext
+from ..context import (
+    STATE_FEATURES,
+    STATE_POST_STREAM_EVENTS,
+    STATE_SAVED_MESSAGES,
+    PipelineContext,
+)
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +93,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         return
 
     app = ctx.app_state
-    features = ctx.state.get("features") or {}
+    features = ctx.state.get(STATE_FEATURES) or {}
 
     if features.get("emotion") and ctx.llm_reply:
         emotion_cache = getattr(app, "emotion_cache", None)
@@ -168,8 +173,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         ctx.db.add(msg)
         ctx.db.flush()
 
-        ctx.state.setdefault("_saved_messages", []).append(msg)
-        ctx.state.setdefault("_post_stream_events", []).append({"initiative": {"content": msg_text, "id": msg.id}})
+        ctx.state.setdefault(STATE_SAVED_MESSAGES, []).append(msg)
+        ctx.state.setdefault(STATE_POST_STREAM_EVENTS, []).append({"initiative": {"content": msg_text, "id": msg.id}})
     except Exception:
         log.warning("Initiative generation failed: record_id=%d", ctx.record.id, exc_info=True)
     finally:

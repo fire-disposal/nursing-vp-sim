@@ -7,7 +7,6 @@ export function ScoringDisplayOverlay({
 }: {
 	recordId: string;
 	bus: MessageBus;
-	features: Record<string, boolean>;
 }) {
 	return <ScoreCard bus={bus} recordId={recordId} />;
 }

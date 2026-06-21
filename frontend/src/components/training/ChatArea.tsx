@@ -24,18 +24,30 @@ export function ChatArea({
 	bus,
 	features,
 }: ChatAreaProps) {
-	const hasMessages = messages.length > 0;
-	const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
+  const hasMessages = messages.length > 0;
+  const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
 
-	useEffect(() => {
-		const unsub = bus.on(
-			"initiative:triggered",
-			(data: { content: string }) => {
-				setInitiativeMsgs((prev) => new Set(prev).add(data.content));
-			},
-		);
-		return unsub;
-	}, [bus]);
+  useEffect(() => {
+    if (messages.length === 0) {
+      setInitiativeMsgs(new Set());
+    }
+  }, [messages.length]);
+
+  useEffect(() => {
+    const MAX_INITIATIVE = 200;
+    const unsub = bus.on(
+      "initiative:triggered",
+      (data: { content: string }) => {
+        setInitiativeMsgs((prev) => {
+          const next = new Set(prev).add(data.content);
+          if (next.size <= MAX_INITIATIVE) return next;
+          const arr = [...next];
+          return new Set(arr.slice(arr.length - MAX_INITIATIVE));
+        });
+      },
+    );
+    return unsub;
+  }, [bus]);
 
 	return (
 		<div className="flex flex-col h-full">

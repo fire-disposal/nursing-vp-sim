@@ -3,6 +3,7 @@ import { waitForOnline } from "@/utils/network";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./axios-instance";
+import type { InitiativeStateData } from "./sse";
 import { readSSEStream } from "./sse";
 
 type Schemas = components["schemas"];
@@ -36,7 +37,7 @@ export async function sendMessageStream(
 		comfort: number;
 	}) => void,
 	onInitiative?: (data: { content: string }) => void,
-	onInitiativeState?: (data: { elapsed_seconds: number; threshold_seconds: number; percent: number }) => void,
+  onInitiativeState?: (data: InitiativeStateData) => void,
 ) {
 	const MAX_RETRIES = 3;
 	const FETCH_TIMEOUT = 30_000;

@@ -105,7 +105,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 				)
 			)}
 			{/* Typing indicator */}
-			{hasStreaming && messages.length > 0 && messages[messages.length - 1]?.role === "student" && (
+			{hasStreaming && messages.length > 0 && messages[messages.length - 1]?.role === "patient" && messages[messages.length - 1]?.streaming && (
 				<div className="flex justify-start px-4">
 					<div className="flex items-center gap-2 px-4 py-3 rounded-2xl rounded-bl-sm bg-muted animate-in fade-in-0 duration-300">
 						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:0ms]" />

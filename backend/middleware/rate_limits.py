@@ -36,7 +36,7 @@ class PgRateLimiter:
             )
             count = result.scalar()
             if count > max_requests:
-                db.rollback()
+                db.commit()
                 return False
             db.commit()
             return True

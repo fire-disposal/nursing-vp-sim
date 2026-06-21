@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -147,13 +148,24 @@ def _build_author_note(trust: int, comfort: int) -> str:
 # ── 缓存 API（使用 EmotionCache + DB session） ──
 
 
+_emotion_locks: dict[int, threading.Lock] = {}
+_emotion_locks_guard = threading.Lock()
+
+
 def get_emotion(record_id: int, cache: EmotionCache, db: Session) -> EmotionState:
-    state = cache.get(record_id, db)
-    if state is None or not isinstance(state, EmotionState):
-        state = EmotionState()
-        cache.set(record_id, state, db)
-        db.flush()
-    return state
+    with _emotion_locks_guard:
+        lock = _emotion_locks.get(record_id)
+        if lock is None:
+            lock = threading.Lock()
+            _emotion_locks[record_id] = lock
+
+    with lock:
+        state = cache.get(record_id, db)
+        if state is None or not isinstance(state, EmotionState):
+            state = EmotionState()
+            cache.set(record_id, state, db)
+            db.flush()
+        return state
 
 
 def cleanup_emotion(record_id: int, cache: EmotionCache, db: Session) -> None:

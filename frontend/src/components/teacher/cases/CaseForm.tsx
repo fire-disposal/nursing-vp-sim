@@ -395,8 +395,8 @@ export default function CaseFormModal({
 							</label>
 							<input
 								type="number"
-								min={5}
-								max={120}
+								min={1}
+								max={180}
 								value={caseForm.time_limit}
 								onChange={(e) =>
 									updateField("time_limit", Number(e.target.value))

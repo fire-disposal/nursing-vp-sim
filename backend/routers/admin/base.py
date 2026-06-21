@@ -131,6 +131,7 @@ def update_user(
     if req.avatar is not None:
         user.avatar = req.avatar or None
 
+    # class_id: pass 0 to remove user from their current class (sentinel value)
     if req.class_id is not None:
         if req.class_id != 0:
             cls = db.query(Class).filter(Class.id == req.class_id).first()
@@ -179,17 +180,14 @@ def get_user_detail(
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
-    if not student_role:
-        raise HTTPException(status_code=404, detail="学生角色不存在")
     user = (
         db.query(User)
         .options(joinedload(User.role))
-        .filter(User.id == user_id, User.role_id == student_role.id, User.school_id == current_user.school_id)
+        .filter(User.id == user_id, User.school_id == current_user.school_id)
         .first()
     )
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在或不是学生")
+        raise HTTPException(status_code=404, detail="用户不存在")
 
     now = datetime.now(UTC)
     since = now - timedelta(days=30)

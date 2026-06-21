@@ -5,7 +5,11 @@ import logging
 from contexts.patient.initiative import update_initiative_timer
 from models import Message
 
-from ..context import PipelineContext
+from ..context import (
+    STATE_PHASE_OP_COUNT,
+    STATE_SAVED_MESSAGES,
+    PipelineContext,
+)
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +33,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         _persist_phase_op_count(ctx)
         ctx.db.commit()
         ctx.db.refresh(patient_msg)
-        ctx.state["_saved_messages"] = [patient_msg]
+        ctx.state[STATE_SAVED_MESSAGES] = [patient_msg]
         log.info(
             "Persisted: record_id=%d student=%d patient=%d", ctx.record.id, len(ctx.student_input), len(ctx.llm_reply)
         )
@@ -49,7 +53,7 @@ def _reset_initiative_timer(ctx: PipelineContext) -> None:
 
 
 def _persist_phase_op_count(ctx: PipelineContext) -> None:
-    count = ctx.state.get("_phase_op_count")
+    count = ctx.state.get(STATE_PHASE_OP_COUNT)
     if count is not None:
         rs = dict(ctx.record.runtime_state or {})
         rs["phase_op_count"] = count

@@ -105,9 +105,20 @@ export class StreamManager {
 		this.notifySync();
 	}
 
-	async send(content: string, callbacks: StreamCallbacks = {}): Promise<void> {
-		if (!this.recordId || this._loading) return;
-		this.setLoading(true);
+  dispose(): void {
+    this.abort();
+    this._cancelRaf();
+    this.listeners = [];
+    this.loadingListeners = [];
+  }
+
+  async send(content: string, callbacks: StreamCallbacks = {}): Promise<void> {
+    this.setLoading(true);
+    if (!this.recordId) {
+      this.setLoading(false);
+      console.warn("[StreamManager] send() called with null recordId — silently dropping message");
+      return;
+    }
 
 		const studentId = crypto.randomUUID();
 		this.messages = [

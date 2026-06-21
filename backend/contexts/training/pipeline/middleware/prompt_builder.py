@@ -9,7 +9,7 @@ from contexts.patient import (
 from infrastructure.prompt import render_template
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
-from ..context import PipelineContext
+from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +24,10 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         author_note = await ctx.note_collector.collect(ctx)
 
     # 病例静态数据缓存 — 性格/背景/示例对话整个会话不变，仅 author_note 每轮更新
-    cached = ctx.state.get("_patient_context_kwargs")
+    cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
     if cached is None:
         cached = build_patient_context_kwargs(ctx.case_data)
-        ctx.state["_patient_context_kwargs"] = cached
+        ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
     kwargs = {**cached, "author_note": author_note if author_note.strip() else ""}
     pm = ctx.app_state.prompt_manager
     tmpl = await pm.get(ctx.current_phase.prompt_profile if ctx.current_phase else "patient_chat")

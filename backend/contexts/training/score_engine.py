@@ -84,7 +84,7 @@ async def _score_stage(
             **cfg,
         )
         _coerce_numeric_fields(result)
-    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError, RuntimeError) as e:
+    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
         print(
             f"[SCORING] STAGE1-PARSEFAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
             file=sys.stderr,
@@ -176,7 +176,7 @@ async def _feedback_stage(
             ),
             **cfg,
         )
-    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError, RuntimeError) as e:
+    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
         print(
             f"[SCORING] STAGE2-PARSEFAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
             file=sys.stderr,
@@ -354,7 +354,21 @@ async def evaluate_training(
         sse_manager=sse_manager,
     )
 
-    scoring_result, feedback_result = await asyncio.gather(scoring_task, feedback_task)
+    results = await asyncio.gather(scoring_task, feedback_task, return_exceptions=True)
+    scoring_result_raw, feedback_result_raw = results
+
+    if isinstance(scoring_result_raw, BaseException):
+        if isinstance(feedback_result_raw, BaseException):
+            raise scoring_result_raw from feedback_result_raw
+        log.warning("评分阶段失败，无可用结果: %s", scoring_result_raw)
+        raise scoring_result_raw
+
+    if isinstance(feedback_result_raw, BaseException):
+        log.warning("反馈阶段失败，使用空反馈: %s", feedback_result_raw)
+        feedback_result_raw = {}
+
+    scoring_result = scoring_result_raw
+    feedback_result = feedback_result_raw
 
     if tracker:
         tracker.update(record_id, "saving", 95, "正在保存评分结果...")

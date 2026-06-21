@@ -96,6 +96,11 @@ def create_school(
             db.add(RolePermission(role_id=role.id, permission=perm))
 
     admin_role_id = role_map.get("school_admin")
+    if admin_role_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="系统配置错误：缺少 school_admin 角色定义，请联系系统管理员。",
+        )
     db.add(
         User(
             username=req.admin_username,

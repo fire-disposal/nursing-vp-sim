@@ -4,7 +4,14 @@ import logging
 
 from infrastructure.llm.client import CallContext
 
-from ..context import PipelineContext
+from ..context import (
+    STATE_IDENTITY_CORRECTION_COUNT,
+    STATE_PATIENT_CHAT_CFG,
+    STATE_SOURCE_TRACES,
+    STATE_STREAM_CHUNKS,
+    STATE_STREAM_MODE,
+    PipelineContext,
+)
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +21,7 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
         await next_mw()
         return
 
-    is_stream = ctx.state.get("_stream_mode", False)
+    is_stream = ctx.state.get(STATE_STREAM_MODE, False)
 
     if is_stream:
         await _call_stream(ctx)
@@ -31,13 +38,13 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
     app = ctx.app_state
     llm_client = app.llm_client
-    llm_cfg = ctx.state.get("_patient_chat_cfg")
+    llm_cfg = ctx.state.get(STATE_PATIENT_CHAT_CFG)
     if llm_cfg is None:
         from core.llm_profile import get_llm_config
 
         llm_cfg = get_llm_config("patient_chat")
-        ctx.state["_patient_chat_cfg"] = llm_cfg
-    log_meta = {"source_traces": ctx.state.get("_source_traces", [])}
+        ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg
+    log_meta = {"source_traces": ctx.state.get(STATE_SOURCE_TRACES, [])}
     try:
         reply = await llm_client.call(
             ctx.llm_messages,
@@ -61,9 +68,9 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
     if has_identity_leak(reply):
         log.warning("Identity leak in batch: record_id=%d", ctx.record.id)
-        count = ctx.state.get("_identity_correction_count", 0)
+        count = ctx.state.get(STATE_IDENTITY_CORRECTION_COUNT, 0)
         if count < 2:
-            ctx.state["_identity_correction_count"] = count + 1
+            ctx.state[STATE_IDENTITY_CORRECTION_COUNT] = count + 1
             if ctx.llm_messages is None:
                 ctx.llm_reply = reply
                 return
@@ -98,15 +105,15 @@ async def _call_stream(ctx: PipelineContext) -> None:
 
     app = ctx.app_state
     llm_client = app.llm_client
-    llm_cfg = ctx.state.get("_patient_chat_cfg")
+    llm_cfg = ctx.state.get(STATE_PATIENT_CHAT_CFG)
     if llm_cfg is None:
         from core.llm_profile import get_llm_config
 
         llm_cfg = get_llm_config("patient_chat")
-        ctx.state["_patient_chat_cfg"] = llm_cfg
+        ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg
     full_reply = ""
     chunks = []
-    log_meta = {"source_traces": ctx.state.get("_source_traces", [])}
+    log_meta = {"source_traces": ctx.state.get(STATE_SOURCE_TRACES, [])}
 
     try:
         async for chunk in llm_client.stream(
@@ -130,12 +137,12 @@ async def _call_stream(ctx: PipelineContext) -> None:
         return
 
     if has_identity_leak(full_reply):
-        correction_count = ctx.state.get("_identity_correction_count", 0)
+        correction_count = ctx.state.get(STATE_IDENTITY_CORRECTION_COUNT, 0)
         if correction_count >= 2:
             log.warning("Identity leak correction limit reached (stream): record_id=%d", ctx.record.id)
         else:
             log.warning("Identity leak in stream: record_id=%d, retrying", ctx.record.id)
-            ctx.state["_identity_correction_count"] = correction_count + 1
+            ctx.state[STATE_IDENTITY_CORRECTION_COUNT] = correction_count + 1
             corrected = get_identity_correction_note()
             if ctx.llm_messages is None:
                 ctx.llm_reply = full_reply
@@ -169,4 +176,4 @@ async def _call_stream(ctx: PipelineContext) -> None:
         return
 
     ctx.llm_reply = full_reply
-    ctx.state["_stream_chunks"] = chunks
+    ctx.state[STATE_STREAM_CHUNKS] = chunks

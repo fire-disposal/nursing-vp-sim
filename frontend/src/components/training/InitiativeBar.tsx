@@ -20,18 +20,22 @@ export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 				elapsedRef.current = data.elapsed_seconds ?? 0;
 				thresholdRef.current = data.threshold_seconds ?? 30;
 				setPercent(data.percent ?? 0);
-				// Start client-side tick between SSE updates
-				if (tickRef.current) clearInterval(tickRef.current);
-				tickRef.current = setInterval(() => {
-					elapsedRef.current += 1;
-					const pct = Math.min(100, Math.round((elapsedRef.current / thresholdRef.current) * 100));
-					setPercent(pct);
-				}, 1000);
+				// Start client-side tick once — guarded by ref to avoid duplicate intervals
+				if (!tickRef.current) {
+					tickRef.current = setInterval(() => {
+						elapsedRef.current += 1;
+						const pct = Math.min(100, Math.round((elapsedRef.current / thresholdRef.current) * 100));
+						setPercent(pct);
+					}, 1000);
+				}
 			},
 		);
 		return () => {
 			unsub();
-			if (tickRef.current) clearInterval(tickRef.current);
+			if (tickRef.current) {
+				clearInterval(tickRef.current);
+				tickRef.current = null;
+			}
 		};
 	}, [bus]);
 

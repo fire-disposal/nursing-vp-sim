@@ -25,6 +25,13 @@ def _now_utc() -> datetime:
     return datetime.now(UTC)
 
 
+class TimestampMixin:
+    """Mixin providing created_at + updated_at columns for models with full audit trails."""
+
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
+
+
 class School(Base):
     __tablename__ = "schools"
 
@@ -98,7 +105,7 @@ class UserClass(Base):
     class_: Mapped["Class"] = relationship(back_populates="user_classes")
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
     __table_args__ = (Index("ix_users_school_id", "school_id"), Index("ix_users_student_id", "student_id"))
 
@@ -116,8 +123,6 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="user")
     user_classes: Mapped[list["UserClass"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -134,7 +139,7 @@ class User(Base):
         self._permissions_cache = permissions
 
 
-class Case(Base):
+class Case(Base, TimestampMixin):
     __tablename__ = "cases"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -142,14 +147,12 @@ class Case(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     case_data: Mapped[dict] = mapped_column(JSONB)
     school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     school: Mapped["School | None"] = relationship()
     practices: Mapped[list["Practice"]] = relationship(back_populates="case")
 
 
-class Practice(Base):
+class Practice(Base, TimestampMixin):
     __tablename__ = "practices"
     __table_args__ = (
         Index("ix_practices_case_id", "case_id"),
@@ -164,8 +167,6 @@ class Practice(Base):
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
     behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     case: Mapped["Case"] = relationship(back_populates="practices")
     school: Mapped["School | None"] = relationship()
@@ -173,7 +174,7 @@ class Practice(Base):
     training_records: Mapped[list["TrainingRecord"]] = relationship(back_populates="practice")
 
 
-class Assignment(Base):
+class Assignment(Base, TimestampMixin):
     __tablename__ = "assignments"
     __table_args__ = (
         Index("ix_assignments_teacher", "teacher_id"),
@@ -189,8 +190,6 @@ class Assignment(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     start_time: Mapped[datetime] = mapped_column()
     end_time: Mapped[datetime] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     practice: Mapped["Practice"] = relationship(back_populates="assignments")
     class_: Mapped["Class"] = relationship()
@@ -310,7 +309,7 @@ class ScoreReview(Base):
     reviewer: Mapped["User | None"] = relationship()
 
 
-class Note(Base):
+class Note(Base, TimestampMixin):
     __tablename__ = "notes"
     __table_args__ = (Index("ix_notes_record_id", "record_id"),)
 
@@ -318,11 +317,9 @@ class Note(Base):
     record_id: Mapped[int] = mapped_column(Integer, ForeignKey("training_records.id"))
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
-class Rubric(Base):
+class Rubric(Base, TimestampMixin):
     __tablename__ = "rubrics"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -334,8 +331,6 @@ class Rubric(Base):
     raw_scale: Mapped[int] = mapped_column(Integer, default=3)
     dimensions: Mapped[list] = mapped_column(JSONB)
     is_active: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class LLMCallLog(Base):
@@ -374,15 +369,13 @@ class LLMCallLog(Base):
     config: Mapped["LLMConfig"] = relationship()
 
 
-class QASession(Base):
+class QASession(Base, TimestampMixin):
     __tablename__ = "qa_sessions"
     __table_args__ = (Index("ix_qa_sessions_user_updated", "user_id", "updated_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     title: Mapped[str] = mapped_column(String(80))
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     user: Mapped["User"] = relationship()
     records: Mapped[list["QARecord"]] = relationship(back_populates="session", order_by="QARecord.created_at")
@@ -403,7 +396,7 @@ class QARecord(Base):
     session: Mapped["QASession"] = relationship(back_populates="records")
 
 
-class ApiSecret(Base):
+class ApiSecret(Base, TimestampMixin):
     __tablename__ = "api_secrets"
     __table_args__ = (UniqueConstraint("encrypted_key", "key_suffix", name="uq_api_secret_key"),)
 
@@ -426,13 +419,11 @@ class ApiSecret(Base):
     stats_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
     last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     configs: Mapped[list["LLMConfig"]] = relationship(back_populates="secret", cascade="all, delete-orphan")
 
 
-class LLMConfig(Base):
+class LLMConfig(Base, TimestampMixin):
     __tablename__ = "llm_configs"
     __table_args__ = (UniqueConstraint("secret_id", "purpose", name="uq_llmconfig_profile_purpose"),)
 
@@ -441,8 +432,6 @@ class LLMConfig(Base):
     label: Mapped[str] = mapped_column(String(80), default="")
     purpose: Mapped[str] = mapped_column(String(40))
     status: Mapped[str] = mapped_column(String(20), default="active")
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     secret: Mapped["ApiSecret"] = relationship(back_populates="configs")
 
@@ -465,7 +454,7 @@ class Feedback(Base):
     user: Mapped["User"] = relationship()
 
 
-class PromptTemplate(Base):
+class PromptTemplate(Base, TimestampMixin):
     __tablename__ = "prompt_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -479,11 +468,9 @@ class PromptTemplate(Base):
     is_active: Mapped[bool] = mapped_column(default=False)
     created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
-class QuestionnaireTemplate(Base):
+class QuestionnaireTemplate(Base, TimestampMixin):
     __tablename__ = "questionnaire_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -494,8 +481,6 @@ class QuestionnaireTemplate(Base):
     type: Mapped[str] = mapped_column(String(20))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     questions: Mapped[list["QuestionnaireQuestion"]] = relationship(
         back_populates="template", order_by="QuestionnaireQuestion.sort_order", cascade="all, delete-orphan"
@@ -576,7 +561,7 @@ class CaseQuestionnaire(Base):
     template: Mapped["QuestionnaireTemplate"] = relationship()
 
 
-class NursingRecord(Base):
+class NursingRecord(Base, TimestampMixin):
     __tablename__ = "nursing_records"
     __table_args__ = (Index("ix_nr_record_id", "record_id"),)
 
@@ -585,14 +570,12 @@ class NursingRecord(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     sheet_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="draft")
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     record: Mapped["TrainingRecord"] = relationship()
     user: Mapped["User"] = relationship()
 
 
-class SystemNotification(Base):
+class SystemNotification(Base, TimestampMixin):
     __tablename__ = "system_notifications"
     __table_args__ = (
         CheckConstraint(
@@ -608,13 +591,11 @@ class SystemNotification(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     creator: Mapped["User | None"] = relationship()
 
 
-class ScoringProgress(Base):
+class ScoringProgress(Base, TimestampMixin):
     __tablename__ = "scoring_progress"
     __table_args__ = (UniqueConstraint("record_id", name="uq_sp_record"),)
 
@@ -623,8 +604,6 @@ class ScoringProgress(Base):
     stage: Mapped[str] = mapped_column(String(20), default="pending")
     percent: Mapped[int] = mapped_column(Integer, default=0)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
-    updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
 class Notification(Base):
@@ -650,6 +629,7 @@ class SystemConfig(Base):
     key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
 
@@ -673,6 +653,7 @@ class TrainingSessionState(Base):
     emotion_state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     initiative_timer: Mapped[float | None] = mapped_column(Float, nullable=True)
     initiative_last_trigger: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 
     record: Mapped["TrainingRecord"] = relationship(back_populates="session_state")

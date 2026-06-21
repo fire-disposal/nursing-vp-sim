@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from core.capabilities import ALL_CAPABILITIES
 from core.database import get_db
 from core.pagination import paginate
 from core.security import require_permission
@@ -48,12 +49,9 @@ def list_practices(
     current_user: User = Depends(require_permission("case_manage")),
     db: Session = Depends(get_db),
 ):
-    query = (
-        db.query(Practice)
-        .options(joinedload(Practice.case))
-        .filter(Practice.school_id == current_user.school_id)
-        .order_by(Practice.created_at.desc())
-    )
+    query = db.query(Practice).options(joinedload(Practice.case)).order_by(Practice.created_at.desc())
+    if current_user.school_id is not None:
+        query = query.filter((Practice.school_id == current_user.school_id) | (Practice.school_id.is_(None)))
     practices, total = paginate(query, offset, limit)
 
     practice_ids = [p.id for p in practices]
@@ -99,12 +97,18 @@ def create_practice(
     if case.school_id is not None and case.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="无权使用该校病例")
 
+    features = data.features or {}
+    valid_keys = set(ALL_CAPABILITIES.keys())
+    for k in features:
+        if k not in valid_keys:
+            raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
+
     p = Practice(
         name=data.name,
         description=data.description,
         case_id=data.case_id,
         school_id=current_user.school_id,
-        features=data.features or {},
+        features=features,
         behavior=data.behavior or {},
     )
     db.add(p)
@@ -130,6 +134,10 @@ def update_practice(
         if val is not None:
             setattr(p, field, val)
     if data.features is not None:
+        valid_keys = set(ALL_CAPABILITIES.keys())
+        for k in data.features:
+            if k not in valid_keys:
+                raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
         p.features = data.features
     if data.behavior is not None:
         p.behavior = data.behavior

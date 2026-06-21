@@ -10,7 +10,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from core.capabilities import ALL_CAPABILITY_KEYS
 
 log = logging.getLogger(__name__)
 
@@ -73,6 +75,14 @@ class CaseDataSchema(BaseModel):
     rubric_ref: str = "active"
 
     supported_plugins: list[str] = []
+
+    @field_validator("supported_plugins")
+    @classmethod
+    def check_supported_plugins(cls, v: list[str]) -> list[str]:
+        unknown = [pid for pid in v if pid not in ALL_CAPABILITY_KEYS]
+        if unknown:
+            log.warning("Unknown plugin IDs in supported_plugins: %s", unknown)
+        return v
 
     exam_anchors: dict[str, Any] = {}
 

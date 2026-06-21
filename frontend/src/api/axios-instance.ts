@@ -1,12 +1,11 @@
 import axios from "axios";
-import useAuthStore from "@/stores/authStore";
+import useAuthStore, { isRefreshing, setRefreshing } from "@/stores/authStore";
 
 export const api = axios.create({
 	baseURL: "/api",
 	timeout: 120000,
 });
 
-let isRefreshing = false;
 let failedQueue: Array<{
 	resolve: (value?: unknown) => void;
 	reject: (reason?: unknown) => void;
@@ -58,7 +57,7 @@ api.interceptors.response.use(
 			}
 
 			originalRequest._retry = true;
-			isRefreshing = true;
+			setRefreshing(true);
 
 			try {
 				const refreshResult = await useAuthStore.getState().refreshAuth();
@@ -75,7 +74,7 @@ api.interceptors.response.use(
 				useAuthStore.getState().logout();
 				return Promise.reject(err);
 			} finally {
-				isRefreshing = false;
+				setRefreshing(false);
 			}
 		}
 

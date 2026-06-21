@@ -46,18 +46,33 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _try_acquire_scoring(record_id: int, db) -> bool:
-    """原子性地将 scoring_status 从 NULL 更新为 'pending'。
+def _try_acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
+    """原子性地将 scoring_status 更新为 'pending'。
 
     用 DB 原子 UPDATE 代替内存锁，避免测试间状态泄漏，
     同时消除并发触发同一 record 评分的竞态。
+
+    - allow_retry=False: 仅从 NULL 状态获取（正常 end_training 流程）
+    - allow_retry=True:  从任何可重试状态获取（retry_scoring 流程），
+                         同时清除 scoring_error
     """
     from sqlalchemy import text
 
-    result = db.execute(
-        text("UPDATE training_records SET scoring_status = 'pending' WHERE id = :id AND scoring_status IS NULL"),
-        {"id": record_id},
-    )
+    if allow_retry:
+        result = db.execute(
+            text(
+                "UPDATE training_records SET scoring_status = 'pending', scoring_error = NULL "
+                "WHERE id = :id AND ("
+                "  scoring_status IS NULL OR scoring_status IN ('completed', 'failed', 'pending', 'processing')"
+                ")"
+            ),
+            {"id": record_id},
+        )
+    else:
+        result = db.execute(
+            text("UPDATE training_records SET scoring_status = 'pending' WHERE id = :id AND scoring_status IS NULL"),
+            {"id": record_id},
+        )
     if result.rowcount > 0:
         from .scoring import _increment_scoring_generation
 

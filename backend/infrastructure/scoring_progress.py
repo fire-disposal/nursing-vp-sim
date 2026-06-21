@@ -30,3 +30,7 @@ class ScoringProgressTracker:
 
     def update(self, record_id: int, stage: str, pct: int, msg: str) -> None:
         self.set(record_id, stage, pct, msg)
+
+    def cleanup(self, record_id: int) -> None:
+        """Evict an entry after scoring completes/fails to prevent unbounded growth."""
+        self._store.pop(record_id, None)

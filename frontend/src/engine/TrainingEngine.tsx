@@ -29,10 +29,37 @@ interface TrainingEngineProps {
 	recordId: string;
 }
 
+function useFeatureToggles(initialFeatures: Record<string, boolean>) {
+	const [features, setFeatures] =
+		useState<Record<string, boolean>>(initialFeatures);
+
+	useEffect(() => {
+		setFeatures(initialFeatures);
+	}, [initialFeatures]);
+
+	const toggleFeature = useCallback((key: string, enabled: boolean) => {
+		setFeatures((prev) => {
+			const next = { ...prev, [key]: enabled };
+			if (!enabled && key === "emotion") {
+				next.patient_initiative = false;
+			}
+			return next;
+		});
+	}, []);
+
+	const activePanels = useMemo(
+		() => getActivePanels(features),
+		[features],
+	);
+
+	return { features, toggleFeature, activePanels } as const;
+}
+
 function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const {
 		patient,
 		loading,
+		error: patientError,
 		features: initialFeatures,
 		fromAssignment,
 		initialMessages,
@@ -59,12 +86,9 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [sending, setSending] = useState(false);
 	const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
-	const [features, setFeatures] =
-		useState<Record<string, boolean>>(initialFeatures);
 
-	useEffect(() => {
-		setFeatures(initialFeatures);
-	}, [initialFeatures]);
+	const { features, toggleFeature, activePanels } =
+		useFeatureToggles(initialFeatures);
 
 	useEffect(() => {
 		if (initialMessages.length > 0 && !seededRef.current) {
@@ -82,6 +106,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		return () => {
 			unsub();
 			unsubLoading();
+			streamRef.current.abort();
 		};
 	}, [recordNum]);
 
@@ -89,11 +114,6 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		scoreRef.current.setRecordId(recordNum);
 		return () => scoreRef.current.dispose();
 	}, [recordNum]);
-
-	const activePanels = useMemo(
-		() => getActivePanels(features),
-		[features],
-	);
 
 	const panelPluginsWrapped = useMemo(
 		() =>
@@ -202,7 +222,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	if (!patient) {
 		return (
 			<div className="flex h-screen items-center justify-center text-muted-foreground">
-				患者信息加载失败
+				{patientError || "患者信息加载失败"}
 			</div>
 		);
 	}
@@ -214,15 +234,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					recordId={recordId}
 					patient={patient}
 					features={features}
-					onToggleFeature={(key: string, enabled: boolean) => {
-						setFeatures((prev) => {
-							const next = { ...prev, [key]: enabled };
-							if (!enabled && key === "emotion") {
-								next.patient_initiative = false;
-							}
-							return next;
-						});
-					}}
+					onToggleFeature={toggleFeature}
 					ttsAutoPlay={ttsAutoPlay}
 					onTtsToggle={() => setTtsAutoPlay((v) => !v)}
 					onEnd={endTraining}

@@ -12,11 +12,11 @@ export const getTrends = (period = "month") =>
 
 export const getTeacherSummary = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_TeacherSummaryItem_"]>(
-		"/stats/teacher-summary" satisfies ApiPath as string,
+		"/stats/teacher-summary" as ApiPath,
 		{ params },
 	);
 
 export const getStudentRanking = (params: Record<string, unknown> = {}) =>
-	api.get<Schemas["PaginatedResponse_RankingItem_"]>("/stats/ranking" satisfies ApiPath as string, {
+	api.get<Schemas["PaginatedResponse_RankingItem_"]>("/stats/ranking" as ApiPath, {
 		params,
 	});
