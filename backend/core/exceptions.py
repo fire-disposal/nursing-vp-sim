@@ -86,8 +86,22 @@ async def conflict_handler(request: Request, exc: ConflictError):
 
 
 async def llm_error_handler(request: Request, exc: LLMError):
-    return JSONResponse(status_code=500, content={"code": -1, "data": None, "message": str(exc)})
+    if isinstance(exc, (NoProviderAvailable, LLMConcurrencyExceeded)):
+        status_code = 503
+    elif isinstance(exc, LLMParseError):
+        status_code = 502
+    elif isinstance(exc, LLMRateLimited):
+        status_code = 429
+    else:
+        status_code = 500
+    return JSONResponse(status_code=status_code, content={"code": -1, "data": None, "message": str(exc)})
 
 
 async def scoring_error_handler(request: Request, exc: ScoringError):
-    return JSONResponse(status_code=500, content={"code": -1, "data": None, "message": str(exc)})
+    if isinstance(exc, ScoringValidationError):
+        status_code = 422
+    elif isinstance(exc, ScoringFeedbackError):
+        status_code = 500
+    else:
+        status_code = 500
+    return JSONResponse(status_code=status_code, content={"code": -1, "data": None, "message": str(exc)})

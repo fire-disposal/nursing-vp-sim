@@ -26,8 +26,11 @@ async def settlement_loop(
         settled: list[tuple[int, int, dict]] = await asyncio.to_thread(_settle_with_lock, repo)
         for record_id, case_id, case_data in settled:
             if enqueue_scoring:
-                enqueue_scoring(record_id, case_data)
-                log.info("Settlement: enqueued scoring for record_id=%d", record_id)
+                try:
+                    enqueue_scoring(record_id, case_data)
+                    log.info("Settlement: enqueued scoring for record_id=%d", record_id)
+                except Exception:
+                    log.exception("Settlement: failed to enqueue scoring for record_id=%d", record_id)
 
 
 def _settle_with_lock(repo) -> list[tuple[int, int, dict]]:
@@ -69,9 +72,10 @@ def _settle_once_sync(repo, db) -> list[tuple[int, int, dict]]:
             case_data = case.case_data if case else {}
             settled.append((record.id, record.case_id, case_data))
 
+            db.commit()
             log.info("Settlement: record_id=%d completed", record.id)
         except Exception:
+            db.rollback()
             log.exception("Settlement record_id=%d failed", record.id)
 
-    db.commit()
     return settled
