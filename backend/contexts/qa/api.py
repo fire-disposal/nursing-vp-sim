@@ -218,6 +218,9 @@ async def create_session(
             _inject_search_context(llm_messages, citations)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
+        db.delete(user_msg)
+        db.delete(session)
+        db.commit()
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
 
     rid = getattr(request.state, "request_id", None)
@@ -252,6 +255,9 @@ async def create_session(
             )
     except Exception as e:
         log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
+        db.delete(user_msg)
+        db.delete(session)
+        db.commit()
         raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
 
     stored_content = embed_citations(answer, citations)
@@ -352,6 +358,8 @@ async def ask_in_session(
         log.exception(
             "qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id}
         )
+        db.delete(user_msg)
+        db.commit()
         raise HTTPException(status_code=500, detail=f"AI调用失败: {e!s}")
 
     stored_content = embed_citations(answer, citations)
@@ -449,6 +457,9 @@ async def ask_stream(
                 _db = SessionLocal()
                 try:
                     _db.add(assistant_record)
+                    _db_session = _db.query(QASession).filter(QASession.id == session_id).first()
+                    if _db_session:
+                        _db_session.updated_at = func.now()
                     _db.commit()
                     _db.refresh(assistant_record)
                     record_id = assistant_record.id

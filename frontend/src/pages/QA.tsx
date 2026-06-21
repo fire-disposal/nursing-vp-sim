@@ -67,7 +67,7 @@ export default function QA() {
 	const { confirm } = useConfirm();
 	const toast = useToast();
 
-	const { data: sessions = [] } = useQuery({
+	const { data: sessions = [], isError } = useQuery({
 		queryKey: queryKeys.qa.sessions(),
 		queryFn: () => getQASessions().then((r) => r.data || []),
 		staleTime: 30_000,
@@ -113,8 +113,12 @@ export default function QA() {
 				setMessages([
 					{ id: optimisticId, role: "user", content: q } as QAMessageItem,
 				]);
+
+				const abort = new AbortController();
+				abortRef.current = abort;
+
 				try {
-					const res = await createQASession(q, ragEnabled);
+					const res = await createQASession(q, ragEnabled, abort.signal);
 					const { session_id, answer: ans, citations: cit } = res.data;
 					setActiveSessionId(session_id);
 					setMessages([
@@ -128,6 +132,7 @@ export default function QA() {
 					]);
 					await loadSessions();
 				} catch (err: unknown) {
+					if ((err as { name?: string }).name === "CanceledError") return;
 					const axiosErr = err as {
 						response?: { data?: { detail?: string } };
 						message?: string;
@@ -229,8 +234,10 @@ export default function QA() {
 	};
 
 	const handleNewChat = () => {
+		abortRef.current?.abort();
 		setActiveSessionId(null);
 		setMessages([]);
+		setStreamingAnswer("");
 		setShowSidebar(false);
 		setTimeout(() => inputRef.current?.focus(), 0);
 	};
@@ -303,7 +310,10 @@ export default function QA() {
 								</Button>
 							</button>
 						))}
-						{sessions.length === 0 && (
+						{isError && (
+							<EmptyState title="加载失败" description="无法获取对话记录，请检查网络后重试" className="py-8" />
+						)}
+						{sessions.length === 0 && !isError && (
 							<EmptyState title="暂无历史对话" className="py-8" />
 						)}
 					</div>
@@ -354,7 +364,7 @@ export default function QA() {
 													{m.content}
 												</ReactMarkdown>
 											</div>
-											{!isUser && "citations" in m && m.citations && m.citations.length > 0 && (
+											{!isUser && m.citations && m.citations.length > 0 && (
 												<CitationCard citations={m.citations} />
 											)}
 										</div>

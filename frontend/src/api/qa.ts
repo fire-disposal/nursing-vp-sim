@@ -7,8 +7,8 @@ import { readSSEStream } from "./sse";
 
 type Schemas = components["schemas"];
 
-export const createQASession = (question: string, ragEnabled?: boolean) =>
-	api.post<Schemas["QAAskResponse"]>("/qa/sessions" satisfies ApiPath as string, { question, rag_enabled: ragEnabled });
+export const createQASession = (question: string, ragEnabled?: boolean, signal?: AbortSignal) =>
+	api.post<Schemas["QAAskResponse"]>("/qa/sessions" satisfies ApiPath as string, { question, rag_enabled: ragEnabled }, { signal });
 
 export const getQASessions = () =>
 	api.get<Schemas["QASessionItem"][]>("/qa/sessions" satisfies ApiPath as string);
@@ -100,7 +100,7 @@ export async function askInQASessionStream(
 			});
 			return;
 		} catch (e: unknown) {
-			if (signal?.aborted) return;
+			try { signal?.throwIfAborted(); } catch { return; }
 			const isNetworkError =
 				e instanceof TypeError || (e as { code?: string }).code === "ERR_NETWORK";
 			if (!isNetworkError || attempt >= MAX_RETRIES) {
