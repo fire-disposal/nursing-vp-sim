@@ -57,7 +57,7 @@ class TestIsEnabled:
         assert is_enabled(record, "nonexistent") is False
 
 
-class TestFeatureFlagsRegistry:
+class TestCapabilitiesRegistry:
     def test_all_flags_have_keys(self):
         for key, flag in ALL_CAPABILITIES.items():
             assert flag.key == key

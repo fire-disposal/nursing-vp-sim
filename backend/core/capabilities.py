@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+# Tuple (not dict_keys) for guaranteed iteration order in effective_features()
 ALL_CAPABILITY_KEYS = (
     "allow_pause",
     "patient_initiative",
