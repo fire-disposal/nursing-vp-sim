@@ -224,10 +224,25 @@ async def lifespan(app: FastAPI):
         app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop
     )
 
+    def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
+        from contexts.training.router.scoring import _run_scoring_background
+
+        app.state.task_queue.enqueue(
+            lambda rid=record_id, cd=case_data: _run_scoring_background(
+                rid,
+                cd,
+                llm_client=app.state.llm_client,
+                pm=app.state.prompt_manager,
+                sse_manager=app.state.sse_manager,
+            ),
+            priority=6,
+        )
+
     settlement_task = asyncio.create_task(
         settlement_loop(
             repo=TrainingRepository(),
             interval=CLEANUP_INTERVAL_SECONDS,
+            enqueue_scoring=_enqueue_settlement_scoring,
         )
     )
     app.state._settlement_task = settlement_task
