@@ -439,7 +439,6 @@ class LLMConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     secret_id: Mapped[int] = mapped_column(Integer, ForeignKey("api_secrets.id"))
     label: Mapped[str] = mapped_column(String(80), default="")
-    model: Mapped[str] = mapped_column(String(80))
     purpose: Mapped[str] = mapped_column(String(40))
     status: Mapped[str] = mapped_column(String(20), default="active")
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
