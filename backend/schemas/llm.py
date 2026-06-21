@@ -54,7 +54,6 @@ class SecretCreateResponse(BaseModel):
 class LLMConfigCreate(BaseModel):
     model_config = _REQ_CFG
     secret_id: int = Field(gt=0)
-    model: str = Field(min_length=1, max_length=80)
     purpose: str = Field(min_length=1, max_length=40)
     label: str = Field(default="", max_length=80)
 
@@ -62,7 +61,6 @@ class LLMConfigCreate(BaseModel):
 class LLMConfigUpdate(BaseModel):
     model_config = _REQ_CFG
     secret_id: int | None = None
-    model: str | None = Field(default=None, max_length=80)
     purpose: str | None = Field(default=None, max_length=40)
     label: str | None = Field(default=None, max_length=80)
     status: str | None = Field(default=None, pattern="^(active|disabled)$")
@@ -76,7 +74,6 @@ class LLMConfigResponse(BaseModel):
     secret_suffix: str = ""
     base_url: str = ""
     label: str = ""
-    model: str
     purpose: str
     status: str = "active"
     created_at: datetime

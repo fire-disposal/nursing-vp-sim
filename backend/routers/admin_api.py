@@ -165,7 +165,6 @@ def list_configs(
                 secret_suffix=s.key_suffix if s else "",
                 base_url=s.base_url or "" if s else "",
                 label=c.label or "",
-                model=c.model,
                 purpose=c.purpose,
                 status=c.status,
                 created_at=c.created_at,
@@ -195,7 +194,6 @@ async def create_config(
         .first()
     )
     if existing:
-        existing.model = data.model
         existing.label = data.label or ""
         existing.status = "active"
         db.commit()
@@ -204,7 +202,6 @@ async def create_config(
 
     cfg = LLMConfig(
         secret_id=data.secret_id,
-        model=data.model,
         purpose=data.purpose,
         label=data.label or "",
     )
@@ -228,7 +225,6 @@ async def update_config(
         raise HTTPException(status_code=404, detail="指派不存在")
     for f in (
         "secret_id",
-        "model",
         "purpose",
         "status",
         "label",
