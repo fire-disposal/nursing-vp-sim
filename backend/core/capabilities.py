@@ -1,46 +1,55 @@
 from dataclasses import dataclass
 
+ALL_CAPABILITY_KEYS = (
+    "allow_pause",
+    "patient_initiative",
+    "emotion",
+    "exam_emotion_bridge",
+    "physical_exam",
+    "questionnaire",
+)
+
 
 @dataclass(frozen=True)
-class FeatureFlag:
+class Capability:
     key: str
     label: str
     default: bool
     description: str
 
 
-FEATURE_FLAGS: dict[str, FeatureFlag] = {
-    "allow_pause": FeatureFlag(
+ALL_CAPABILITIES: dict[str, Capability] = {
+    "allow_pause": Capability(
         key="allow_pause",
         label="允许暂停计时",
         default=False,
         description="允许学生在训练中暂停倒计时。后台结算仍以服务器时间为准。",
     ),
-    "patient_initiative": FeatureFlag(
+    "patient_initiative": Capability(
         key="patient_initiative",
         label="患者主动追问",
         default=False,
         description="患者根据性格/情绪/等待时长主动发言",
     ),
-    "emotion": FeatureFlag(
+    "emotion": Capability(
         key="emotion",
         label="患者情绪状态机",
         default=False,
-        description="5态情绪模型（withdrawn/defensive/neutral/relaxed/open），根据学生用语动态变化，注入 author_note 影响患者表现",
+        description="5态情绪模型（withdrawn/defensive/neutral/relaxed/open），根据学生用语动态变化",
     ),
-    "exam_emotion_bridge": FeatureFlag(
+    "exam_emotion_bridge": Capability(
         key="exam_emotion_bridge",
         label="查体-情绪联动",
         default=False,
         description="查体操作影响患者心态：缺乏解释或不相关检查会降低信任/舒适度",
     ),
-    "physical_exam": FeatureFlag(
+    "physical_exam": Capability(
         key="physical_exam",
         label="护理查体",
         default=False,
-        description="允许学生触发护理操作（测血压/体温/听诊等），操作结果通过 Author's Note 注入 LLM",
+        description="允许学生触发护理操作（测血压/体温/听诊等）",
     ),
-    "questionnaire": FeatureFlag(
+    "questionnaire": Capability(
         key="questionnaire",
         label="问卷评估",
         default=False,
@@ -49,16 +58,30 @@ FEATURE_FLAGS: dict[str, FeatureFlag] = {
 }
 
 
-def _get_all_flags() -> dict[str, FeatureFlag]:
-    return dict(FEATURE_FLAGS)
+def all_capabilities() -> dict[str, Capability]:
+    return dict(ALL_CAPABILITIES)
 
 
-def all_feature_flags() -> dict[str, FeatureFlag]:
-    return _get_all_flags()
+def effective_features(
+    student_choices: dict[str, bool] | None = None,
+    case_plugins: list[str] | None = None,
+) -> dict[str, bool]:
+    result = dict.fromkeys(ALL_CAPABILITY_KEYS, False)
+    if case_plugins:
+        for pid in case_plugins:
+            if pid in result:
+                result[pid] = True
+    if student_choices:
+        for k, v in student_choices.items():
+            if k in result:
+                result[k] = v
+    if result.get("patient_initiative"):
+        result["emotion"] = True
+    return result
 
 
 def resolve_features(practice_snapshot: dict | None) -> dict[str, bool]:
-    result = {k: v.default for k, v in _get_all_flags().items()}
+    result = {k: v.default for k, v in ALL_CAPABILITIES.items()}
     if practice_snapshot:
         for k, v in practice_snapshot.get("features", {}).items():
             if k in result:
@@ -67,8 +90,4 @@ def resolve_features(practice_snapshot: dict | None) -> dict[str, bool]:
 
 
 def is_enabled(record, key: str) -> bool:
-    """检查 TrainingRecord 的某个 feature flag 是否启用。
-
-    record: 需有 practice_snapshot 属性的 ORM 对象（如 TrainingRecord 实例）。
-    """
     return resolve_features(record.practice_snapshot).get(key, False)

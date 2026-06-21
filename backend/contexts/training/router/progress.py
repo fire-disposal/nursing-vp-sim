@@ -12,8 +12,8 @@ from contexts.patient import (
     should_initiate,
     update_initiative_timer,
 )
+from core.capabilities import is_enabled, resolve_features
 from core.database import get_db
-from core.feature_flags import is_enabled, resolve_features
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
 from schemas import (

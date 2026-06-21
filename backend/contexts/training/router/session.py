@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
 from contexts.training.config_loader import get_config, list_configs
+from core.capabilities import ALL_CAPABILITIES, resolve_features
 from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
-from core.feature_flags import FEATURE_FLAGS, resolve_features
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
@@ -146,7 +146,7 @@ def _resolve_features(case_data: dict, config: dict) -> dict:
         return config
     features = config["features"]
     for pid in supported:
-        if pid in FEATURE_FLAGS:
+        if pid in ALL_CAPABILITIES:
             features.setdefault(pid, True)
     if "patient_initiative" in features and "emotion" not in features:
         features.setdefault("emotion", True)

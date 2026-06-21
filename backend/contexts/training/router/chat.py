@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from core.capabilities import resolve_features
 from core.database import db_session, get_db
-from core.feature_flags import resolve_features
 from core.security import get_current_user
 from middleware.rate_limits import check_chat_limit
 from models import Case, Message, TrainingRecord, User
