@@ -10,7 +10,6 @@ from core.config import get_llm_config
 from core.database import db_session, get_db
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
-from infrastructure.rag.retriever import format_context, retrieve
 from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
 from schemas import (
@@ -26,100 +25,48 @@ log = logging.getLogger(__name__)
 
 
 async def _inject_rag(
-    llm_messages: list[dict], question: str, rag_enabled: bool = False, *, llm_client=None
+    llm_messages: list[dict], question: str, rag_enabled: bool = False, *, llm_client=None, request=None
 ) -> list[dict[str, str]]:
-    """If RAG enabled, retrieve relevant knowledge and inject as system context.
+    """If RAG enabled, retrieve relevant chapter via embedding search and inject as context.
 
-    When llm_client is provided, uses it to extract targeted search keywords
-    before retrieval for higher precision. Never raises — RAG failure silently degrades.
+    Replaces the old rag-kw + IDF pipeline with chapter-level embedding similarity.
+    Never raises — RAG failure silently degrades.
     """
     if not rag_enabled:
         return []
     try:
-        search_query = question
-        if llm_client is not None:
-            try:
-                search_query = await _extract_search_terms(llm_client, question)
-                log.info("RAG LLM keywords: %s", search_query[:120])
-            except Exception:
-                log.info("RAG LLM keyword extraction failed, using fallback")
-                search_query = _fallback_keywords(question)
-        results = await retrieve(search_query)
-        context, citations = format_context(results)
+        from infrastructure.rag.chapter_index import format_chapter_context, search_chapter
+
+        app = request.app.state if request else None
+        if not app:
+            return []
+
+        llm_router = app.llm_router
+        try:
+            config = llm_router.select("qa")
+            api_key = llm_router.get_decrypted_key(config)
+            base_url = config.secret.base_url if hasattr(config, "secret") and config.secret else ""
+        except Exception:
+            from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+
+            api_key = DEEPSEEK_API_KEY
+            base_url = DEEPSEEK_BASE_URL
+
+        if not api_key:
+            log.warning("RAG chapter search: no API key available")
+            return []
+
+        results = await search_chapter(question, api_key, base_url, top_k=1)
+        context, citations = format_chapter_context(results)
         if context and citations:
             llm_messages.insert(1, {"role": "system", "content": context})
-            log.info("RAG injected: %d citations", len(citations))
+            log.info("RAG chapter injected: %s (score=%.3f)", citations[0]["source"], results[0].get("score", 0))
         else:
-            log.info("RAG no results: query=%s", search_query[:80])
+            log.info("RAG chapter search: no results for query=%s", question[:80])
         return citations
     except Exception:
-        log.warning("RAG retrieval failed, continuing without knowledge context", exc_info=True)
+        log.warning("RAG chapter retrieval failed, continuing without knowledge context", exc_info=True)
         return []
-
-
-def _fallback_keywords(question: str) -> str:
-    """Produce a simple keyword string from the question as fallback (no LLM)."""
-    stop = {
-        "的",
-        "了",
-        "是",
-        "在",
-        "和",
-        "与",
-        "或",
-        "及",
-        "如何",
-        "怎么",
-        "什么",
-        "步骤",
-        "方法",
-        "注意",
-        "要点",
-        "护理",
-        "病人",
-        "患者",
-        "进行",
-        "处理",
-        "使用",
-        "前",
-        "后",
-        "不",
-        "要",
-        "应该",
-        "可以",
-        "需要",
-    }
-    import re
-
-    terms = [t for t in re.split(r"[，,、\s\n。；！？?]+", question) if len(t) >= 2 and t not in stop]
-    if not terms:
-        return question
-    return " ".join(terms)
-
-
-async def _extract_search_terms(llm_client, question: str) -> str:
-    """Use a lightweight LLM call to extract precise search keywords from the question."""
-    prompt = [
-        {
-            "role": "system",
-            "content": "你是一个护理学教材检索助手。从用户问题中提取3-5个最关键的医学术语，用逗号分隔。只返回关键词，不要其他内容。",
-        },
-        {"role": "user", "content": f"问题：{question}\n关键词："},
-    ]
-    try:
-        keywords = await llm_client.call(
-            prompt,
-            purpose="rag-kw",
-            ctx=CallContext(purpose="rag-kw", log_meta={"step": "keyword_extraction"}),
-            max_tokens=80,
-            temperature=0.0,
-        )
-        terms = keywords.strip().rstrip("。，,.")
-        if len(terms) > 2:
-            return terms
-    except Exception:
-        pass
-    return question
 
 
 router = APIRouter()
@@ -187,7 +134,7 @@ async def create_session(
             {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
-        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled, llm_client=llm_client)
+        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled, request=request)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
@@ -256,9 +203,7 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
-    citations = await _inject_rag(
-        llm_messages, req.question.strip(), req.rag_enabled, llm_client=request.app.state.llm_client
-    )
+    citations = await _inject_rag(llm_messages, req.question.strip(), req.rag_enabled, request=request)
 
     user_msg = QARecord(
         session_id=session.id,
@@ -332,9 +277,7 @@ async def ask_stream(
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
-        citations = await _inject_rag(
-            llm_messages, req.question, req.rag_enabled, llm_client=request.app.state.llm_client
-        )
+        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled, request=request)
 
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)
