@@ -62,7 +62,11 @@ export default function CaseSelect() {
 	const navigate = useNavigate();
 	const toast = useToast();
 
-	const { data: casesData, isLoading } = useQuery({
+	const {
+		data: casesData,
+		isLoading,
+		isError,
+	} = useQuery({
 		queryKey: ["cases", offset],
 		queryFn: () => getCases({ offset, limit: LIMIT }).then((r) => r.data),
 		staleTime: 5 * 60_000,
@@ -167,6 +171,10 @@ export default function CaseSelect() {
 						{Array.from({ length: 6 }).map((_, i) => (
 							<LoadingSkeleton key={i} variant="card" />
 						))}
+					</div>
+				) : isError ? (
+					<div className="rounded-xl border bg-card">
+						<EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" />
 					</div>
 				) : filteredCases.length === 0 ? (
 					<div className="rounded-xl border bg-card">

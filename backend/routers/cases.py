@@ -2,6 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import ValidationError
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -142,22 +143,7 @@ def list_cases_manage(
         training_counts = {cid: cnt for cid, cnt in rows}
 
     return PaginatedResponse(
-        items=[
-            CaseManageItem(
-                id=c.id,
-                name=c.name,
-                description=c.description,
-                patient_name=(c.case_data or {}).get("patient_info", {}).get("name", ""),
-                patient_age=(c.case_data or {}).get("patient_info", {}).get("age"),
-                patient_gender=normalize_gender((c.case_data or {}).get("patient_info", {}).get("gender", "")),
-                chief_complaint=(c.case_data or {}).get("chief_complaint", ""),
-                time_limit=(c.case_data or {}).get("time_limit", 20),
-                difficulty=(c.case_data or {}).get("difficulty", 1),
-                created_at=c.created_at,
-                training_count=training_counts.get(c.id, 0),
-            )
-            for c in cases
-        ],
+        items=[_to_manage_item(c, training_counts.get(c.id, 0)) for c in cases],
         total=total,
         offset=offset,
         limit=limit,
@@ -226,7 +212,10 @@ async def generate_case(
         field_value = result.get("field_value") or result.get(data.field)
         return CaseGenerateResponse(field_value=field_value, field=data.field)
 
-    result = assert_valid_case_data(result)
+    try:
+        result = assert_valid_case_data(result)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return CaseGenerateResponse(case_data=result)
 
 
@@ -267,7 +256,10 @@ def create_case(
 ):
     """创建新病例"""
     cd = req.case_data
-    cd = assert_valid_case_data(cd)
+    try:
+        cd = assert_valid_case_data(cd)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     case = Case(
         name=cd["name"],
         description=cd.get("description", ""),
@@ -300,7 +292,10 @@ def update_case(
     if not case:
         raise NotFoundError(detail="病例不存在")
     cd = req.case_data
-    cd = assert_valid_case_data(cd)
+    try:
+        cd = assert_valid_case_data(cd)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     case.name = cd["name"]
     case.description = cd.get("description", "")
     case.case_data = cd
