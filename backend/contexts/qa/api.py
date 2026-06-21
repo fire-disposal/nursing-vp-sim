@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from typing import Annotated
 
@@ -10,7 +12,6 @@ from core.config import get_llm_config
 from core.database import db_session, get_db
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
-from infrastructure.rag.retriever import format_context, retrieve
 from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
 from schemas import (
@@ -24,102 +25,127 @@ from .logic import build_qa_history, get_cached_answer
 
 log = logging.getLogger(__name__)
 
+# ── Tool definitions exposed to the QA LLM ──
 
-async def _inject_rag(
-    llm_messages: list[dict], question: str, rag_enabled: bool = False, *, llm_client=None
-) -> list[dict[str, str]]:
-    """If RAG enabled, retrieve relevant knowledge and inject as system context.
-
-    When llm_client is provided, uses it to extract targeted search keywords
-    before retrieval for higher precision. Never raises — RAG failure silently degrades.
-    """
-    if not rag_enabled:
-        return []
-    try:
-        search_query = question
-        if llm_client is not None:
-            try:
-                search_query = await _extract_search_terms(llm_client, question)
-                log.info("RAG LLM keywords: %s", search_query[:120])
-            except Exception:
-                log.info("RAG LLM keyword extraction failed, using fallback")
-                search_query = _fallback_keywords(question)
-        results = await retrieve(search_query)
-        context, citations = format_context(results)
-        if context and citations:
-            llm_messages.insert(1, {"role": "system", "content": context})
-            log.info("RAG injected: %d citations", len(citations))
-        else:
-            log.info("RAG no results: query=%s", search_query[:80])
-        return citations
-    except Exception:
-        log.warning("RAG retrieval failed, continuing without knowledge context", exc_info=True)
-        return []
-
-
-def _fallback_keywords(question: str) -> str:
-    """Produce a simple keyword string from the question as fallback (no LLM)."""
-    stop = {
-        "的",
-        "了",
-        "是",
-        "在",
-        "和",
-        "与",
-        "或",
-        "及",
-        "如何",
-        "怎么",
-        "什么",
-        "步骤",
-        "方法",
-        "注意",
-        "要点",
-        "护理",
-        "病人",
-        "患者",
-        "进行",
-        "处理",
-        "使用",
-        "前",
-        "后",
-        "不",
-        "要",
-        "应该",
-        "可以",
-        "需要",
-    }
-    import re
-
-    terms = [t for t in re.split(r"[，,、\s\n。；！？?]+", question) if len(t) >= 2 and t not in stop]
-    if not terms:
-        return question
-    return " ".join(terms)
-
-
-async def _extract_search_terms(llm_client, question: str) -> str:
-    """Use a lightweight LLM call to extract precise search keywords from the question."""
-    prompt = [
-        {
-            "role": "system",
-            "content": "你是一个护理学教材检索助手。从用户问题中提取3-5个最关键的医学术语，用逗号分隔。只返回关键词，不要其他内容。",
+QA_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_textbooks",
+            "description": "列出所有可用的护理学教材（仅书名和章节数）",
+            "parameters": {"type": "object", "properties": {}, "required": []},
         },
-        {"role": "user", "content": f"问题：{question}\n关键词："},
-    ]
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_chapters",
+            "description": "列出指定教材的所有章节标题（不含正文内容）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "textbook": {
+                        "type": "string",
+                        "description": "教材名称，如'内科护理学'、'外科护理学'、'新编护理学基础'",
+                    }
+                },
+                "required": ["textbook"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "description": "在护理学教材中全文关键词搜索，返回匹配的章节片段（≤500字）及其位置信息。可用于快速定位相关知识点。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词或短语，如'肺炎护理措施'、'术后并发症'"},
+                    "textbook": {
+                        "type": "string",
+                        "description": "限定在指定教材中搜索（可选，不填则搜索全部教材）",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_section",
+            "description": "读取指定教材某章节下某小节的完整正文内容。先用 search() 定位到具体小节后，再用此工具读取完整内容。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "textbook": {"type": "string", "description": "教材名称"},
+                    "chapter": {"type": "string", "description": "章节标题"},
+                    "heading": {"type": "string", "description": "小节标题（## 标题）"},
+                },
+                "required": ["textbook", "chapter", "heading"],
+            },
+        },
+    },
+]
+
+
+def _build_tool_handlers() -> dict:
+    """Build synchronous tool handlers backed by chapter_index."""
+    from infrastructure.rag.chapter_index import list_chapters, list_textbooks, read_section, search
+
+    handlers = {
+        "list_textbooks": lambda _: json.dumps(list_textbooks(), ensure_ascii=False),
+        "list_chapters": lambda args: json.dumps(list_chapters(args.get("textbook", "")), ensure_ascii=False),
+        "search": lambda args: json.dumps(
+            search(
+                query=args.get("query", ""),
+                textbook=args.get("textbook") or None,
+            ),
+            ensure_ascii=False,
+        ),
+        "read_section": lambda args: read_section(
+            textbook=args.get("textbook", ""),
+            chapter=args.get("chapter", ""),
+            heading=args.get("heading", ""),
+        ),
+    }
+    # Wrap sync handlers as async for the client
+    async_handlers = {}
+    for name, fn in handlers.items():
+        async_handlers[name] = lambda args, _fn=fn: asyncio.to_thread(_fn, args)
+    return async_handlers
+
+
+def _pre_search(question: str) -> list[dict[str, str]]:
+    """Quick keyword search to provide citation metadata. Never raises."""
     try:
-        keywords = await llm_client.call(
-            prompt,
-            purpose="rag-kw",
-            ctx=CallContext(purpose="rag-kw", log_meta={"step": "keyword_extraction"}),
-            max_tokens=80,
-            temperature=0.0,
-        )
-        terms = keywords.strip().rstrip("。，,.")
-        if len(terms) > 2:
-            return terms
+        from infrastructure.rag.chapter_index import search as chapter_search
+
+        results = chapter_search(question, top_k=2)
+        return [{"source": r["textbook"], "section": f"{r['chapter']}/{r['heading']}"} for r in results]
     except Exception:
-        pass
-    return question
+        log.warning("Pre-search failed for citations", exc_info=True)
+        return []
+
+
+def _inject_search_context(llm_messages: list[dict], citations: list[dict]) -> None:
+    """Inject search snippets into messages as system context."""
+    if not citations:
+        return
+    try:
+        from infrastructure.rag.chapter_index import read_section
+
+        parts = ["【参考教材信息】"]
+        parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
+        for i, c in enumerate(citations, 1):
+            parts.append(f"[{i}] [来源: {c['source']} > {c['section']}]")
+            text = read_section(c["source"], c["section"].split("/")[0], c["section"].split("/")[1])
+            parts.append(text[:1500])
+            parts.append("")
+        llm_messages.insert(1, {"role": "system", "content": "\n".join(parts)})
+    except Exception:
+        log.warning("Context injection failed", exc_info=True)
 
 
 router = APIRouter()
@@ -187,23 +213,43 @@ async def create_session(
             {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
-        citations = await _inject_rag(llm_messages, req.question, req.rag_enabled, llm_client=llm_client)
+        if req.rag_enabled:
+            citations = _pre_search(req.question)
+            _inject_search_context(llm_messages, citations)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
 
     rid = getattr(request.state, "request_id", None)
     try:
-        answer = await llm_client.call(
-            llm_messages,
-            purpose="qa",
-            ctx=CallContext(
+        if req.rag_enabled:
+            answer = await llm_client.call_with_tools(
+                llm_messages,
+                tools=QA_TOOLS,
+                tool_handlers=_build_tool_handlers(),
                 purpose="qa",
-                user_id=current_user.id,
-                log_meta={"request_id": rid} if rid else None,
-            ),
-            **get_llm_config("qa"),
-        )
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid} if rid else None,
+                ),
+                **{
+                    k: v
+                    for k, v in get_llm_config("qa").items()
+                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
+                },
+            )
+        else:
+            answer = await llm_client.call(
+                llm_messages,
+                purpose="qa",
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid} if rid else None,
+                ),
+                **get_llm_config("qa"),
+            )
     except Exception as e:
         log.exception("qa LLM调用失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"LLM 调用失败: {e!s}")
@@ -256,9 +302,11 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
-    citations = await _inject_rag(
-        llm_messages, req.question.strip(), req.rag_enabled, llm_client=request.app.state.llm_client
-    )
+
+    citations = []
+    if req.rag_enabled:
+        citations = _pre_search(req.question.strip())
+        _inject_search_context(llm_messages, citations)
 
     user_msg = QARecord(
         session_id=session.id,
@@ -272,16 +320,34 @@ async def ask_in_session(
     rid = getattr(request.state, "request_id", None)
     llm_client = request.app.state.llm_client
     try:
-        answer = await llm_client.call(
-            llm_messages,
-            purpose="qa",
-            ctx=CallContext(
+        if req.rag_enabled:
+            answer = await llm_client.call_with_tools(
+                llm_messages,
+                tools=QA_TOOLS,
+                tool_handlers=_build_tool_handlers(),
                 purpose="qa",
-                user_id=current_user.id,
-                log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
-            ),
-            **get_llm_config("qa"),
-        )
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+                ),
+                **{
+                    k: v
+                    for k, v in get_llm_config("qa").items()
+                    if k in ("timeout", "max_tokens", "temperature", "max_retries")
+                },
+            )
+        else:
+            answer = await llm_client.call(
+                llm_messages,
+                purpose="qa",
+                ctx=CallContext(
+                    purpose="qa",
+                    user_id=current_user.id,
+                    log_meta={"request_id": rid, "session_id": session_id} if rid else {"session_id": session_id},
+                ),
+                **get_llm_config("qa"),
+            )
     except Exception as e:
         log.exception(
             "qa 追问LLM调用失败", extra={"error": str(e), "user_id": current_user.id, "session_id": session_id}
@@ -332,9 +398,24 @@ async def ask_stream(
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
-        citations = await _inject_rag(
-            llm_messages, req.question, req.rag_enabled, llm_client=request.app.state.llm_client
-        )
+
+        citations = []
+        if req.rag_enabled:
+            try:
+                from infrastructure.rag.chapter_index import search as chapter_search
+
+                results = chapter_search(req.question, top_k=2)
+                if results:
+                    parts = ["【参考教材信息】"]
+                    parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
+                    for i, r in enumerate(results, 1):
+                        parts.append(f"[{i}] [来源: {r['textbook']} > {r['chapter']}/{r['heading']}]")
+                        parts.append(r["snippet"])
+                        parts.append("")
+                        citations.append({"source": r["textbook"], "section": f"{r['chapter']}/{r['heading']}"})
+                    llm_messages.insert(1, {"role": "system", "content": "\n".join(parts)})
+            except Exception:
+                log.warning("Streaming RAG search failed", exc_info=True)
 
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)

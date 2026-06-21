@@ -38,6 +38,8 @@ def _build_entry(
     provider_name="deepseek",
     key_price_input=None,
     key_price_output=None,
+    cache_hit_tokens=0,
+    cache_miss_tokens=0,
 ):
     if usage:
         prompt_tokens = usage.get("prompt_tokens")
@@ -84,6 +86,8 @@ def _build_entry(
         "meta": meta,
         "api_key_id": api_key_id,
         "config_id": config_id,
+        "cache_hit_tokens": cache_hit_tokens,
+        "cache_miss_tokens": cache_miss_tokens,
     }
 
 
@@ -198,6 +202,8 @@ class LogWorker:
         provider_name="deepseek",
         key_price_input=None,
         key_price_output=None,
+        cache_hit_tokens=0,
+        cache_miss_tokens=0,
     ):
         if self._queue is None:
             return
@@ -222,6 +228,8 @@ class LogWorker:
             provider_name=provider_name,
             key_price_input=key_price_input,
             key_price_output=key_price_output,
+            cache_hit_tokens=cache_hit_tokens,
+            cache_miss_tokens=cache_miss_tokens,
         )
         try:
             self._queue.put_nowait(entry)

@@ -146,6 +146,15 @@ async def lifespan(app: FastAPI):
         except Exception:
             log.exception("Knowledge base indexing failed (non-fatal)")
 
+    # Warm knowledge base chapter index for QA
+    try:
+        from infrastructure.rag.chapter_index import _ensure_index
+
+        _ensure_index()
+        log.info("Knowledge chapter index: ready")
+    except Exception:
+        log.exception("Chapter index warming failed (non-fatal)")
+
     app.state.rate_limiter = PgRateLimiter()
 
     app.state.httpx_client = httpx.AsyncClient(
@@ -153,7 +162,7 @@ async def lifespan(app: FastAPI):
         limits=httpx.Limits(
             max_connections=LLM_CONNECTION_POOL_SIZE,
             max_keepalive_connections=LLM_CONNECTION_KEEPALIVE,
-            keepalive_expiry=30,
+            keepalive_expiry=120,
         ),
     )
 

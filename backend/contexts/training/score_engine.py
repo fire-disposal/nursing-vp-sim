@@ -5,6 +5,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from core.config import get_llm_config
+from core.database import SessionLocal
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
 from models import Message, Score, TrainingRecord
@@ -183,7 +184,21 @@ async def evaluate_training(
     if not record:
         raise ValueError("训练记录不存在")
 
-    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+    async def _fetch_messages() -> list:
+        _db = SessionLocal()
+        try:
+            return _db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
+        finally:
+            _db.close()
+
+    messages_task = asyncio.to_thread(_fetch_messages)
+
+    if tracker:
+        tracker.start(record_id)
+        tracker.update(record_id, "loading", 5, "正在加载对话记录...")
+
+    rubric = load_rubric_by_version(record.rubric_frozen or "nursing_history_v1@1.0")
+    messages = await messages_task
 
     conversation_lines = []
     for msg in messages:
@@ -191,11 +206,6 @@ async def evaluate_training(
         conversation_lines.append(f"{role_label}：{msg.content}")
     conversation_text = "\n\n".join(conversation_lines)
 
-    if tracker:
-        tracker.start(record_id)
-        tracker.update(record_id, "loading", 5, "正在加载对话记录...")
-
-    rubric = load_rubric_by_version(record.rubric_frozen or "nursing_history_v1@1.0")
     all_required = case_data.get("required_inquiries", [])
     raw_max = rubric.get("raw_max", 57)
 

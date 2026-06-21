@@ -85,13 +85,13 @@ class TestBuildPatientChatMessages:
         assert msgs[0] == {"role": "system", "content": "static"}
         assert msgs[1] == {"role": "system", "content": "dynamic"}
 
-    def test_author_note_injected_before_input(self):
+    def test_author_note_injected_after_input(self):
         history = [self._make_msg("student", "你好"), self._make_msg("patient", "你好")]
         msgs = build_patient_chat_messages(
             "static", "dynamic", history, "test question", author_note="【当前: 患者焦虑】"
         )
-        assert msgs[-2] == {"role": "system", "content": "【当前: 患者焦虑】"}
-        assert msgs[-1] == {"role": "user", "content": "test question"}
+        assert msgs[-2] == {"role": "user", "content": "test question"}
+        assert msgs[-1] == {"role": "system", "content": "【当前: 患者焦虑】"}
 
     def test_no_author_note_when_empty(self):
         history = []

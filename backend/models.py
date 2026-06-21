@@ -367,6 +367,8 @@ class LLMCallLog(Base):
     request_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     response_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    cache_hit_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cache_miss_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
 
     config: Mapped["LLMConfig"] = relationship()

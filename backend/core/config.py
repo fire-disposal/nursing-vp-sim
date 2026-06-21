@@ -108,7 +108,7 @@ BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))
 
 # LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
 _LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
-    "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.6, "max_retries": 2},
+    "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.3, "max_retries": 2},
     "qa": {"timeout": 30, "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
     "scoring": {
         "timeout": 120,
