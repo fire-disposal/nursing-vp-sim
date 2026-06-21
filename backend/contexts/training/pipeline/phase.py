@@ -64,7 +64,7 @@ def parse_phases(case_data: dict) -> list[Phase]:
 def _default_phase(case_data: dict) -> Phase:
     ops = ["chat"]
     if case_data.get("exam_anchors"):
-        ops.extend(["vitals", "bp", "temp", "spo2", "hr", "rr", "skin"])
+        ops.extend(["vitals", "bp", "temp", "spo2", "hr", "rr", "skin", "pain"])
     return Phase(
         id="history_taking",
         name="问诊",

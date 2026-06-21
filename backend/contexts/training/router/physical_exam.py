@@ -186,7 +186,6 @@ def perform_exam(
         }
     )
     rs["exam_results"] = exam_results
-    record.runtime_state = rs
 
     msg = Message(
         record_id=record_id,
@@ -216,13 +215,10 @@ def perform_exam(
         )
         effect = _apply_exam_emotion_effect(ctx)
         if effect is not None and effect.snapshot_updates:
-            rs = dict(record.runtime_state or {})
             for k, v in effect.snapshot_updates.items():
                 key = k.lstrip("_")
                 rs[key] = v
-            record.runtime_state = rs
 
-    rs = dict(record.runtime_state or {})
     rs["phase_op_count"] = rs.get("phase_op_count", 0) + 1
     record.runtime_state = rs
 
@@ -231,5 +227,5 @@ def perform_exam(
 
 
 def _has_explanation(text: str) -> bool:
-    keywords = ["因为", "所以", "给你", "检查一下", "评估", "需要了解", "测量一下", "看一下", "查一下"]
+    keywords = ["因为", "所以", "检查一下", "评估", "需要了解", "测量一下"]
     return any(kw in text for kw in keywords)
