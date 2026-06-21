@@ -128,12 +128,21 @@ def delete_grade(
         )
 
     from sqlalchemy import update as sa_update
+    from sqlalchemy.exc import IntegrityError
 
-    db.execute(
-        sa_update(UserClass)
-        .where(UserClass.class_id.in_(db.query(Class.id).filter(Class.grade_id == grade_id)))
-        .values(class_id=None)
-    )
+    if class_ids:
+        db.execute(
+            sa_update(UserClass)
+            .where(UserClass.class_id.in_(class_ids))
+            .values(class_id=None)
+        )
     db.delete(grade)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="操作冲突：该年级下在删除过程中新增了关联资源，请刷新后重试。",
+        )
     return {"message": f"已删除年级及其下 {class_count} 个班级"}
