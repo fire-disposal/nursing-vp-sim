@@ -103,7 +103,6 @@ export default function PracticesPage() {
 			name: name.trim(),
 			description: form.description.trim() || null,
 			case_id,
-			mode: "training",
 			features,
 			behavior: { time_limit_minutes: time_limit, max_rounds },
 		};

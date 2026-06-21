@@ -41,6 +41,3 @@ export const submitScoreReview = (
 		`/training/records/${recordId}/review` as ApiPath,
 		data,
 	);
-
-export const getSessionConfigs = () =>
-	api.get<Record<string, unknown>[]>("/training/configs" satisfies ApiPath as string);

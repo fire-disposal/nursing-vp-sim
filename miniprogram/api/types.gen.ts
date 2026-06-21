@@ -24,7 +24,6 @@ export interface ApiSecretResponse {
   label: string
   key_suffix: string
   base_url?: string
-  provider?: string
   status?: string
   degraded_reason?: string | null
   degraded_until?: string | null
@@ -102,6 +101,8 @@ export interface AssignmentStudentItem {
 }
 
 export interface AssignmentUpdateRequest {
+  practice_id?: number | null
+  class_id?: number | null
   title?: string | null
   description?: string | null
   start_time?: string | null
@@ -182,10 +183,6 @@ export interface CaseUpdateRequest {
   case_data: Record<string, unknown>
 }
 
-export interface CatalogResponse {
-  providers?: ProviderPresetResponse[]
-}
-
 export interface ChangePasswordRequest {
   old_password: string
   new_password: string
@@ -199,6 +196,11 @@ export interface ChatMessageResponse {
   role: string
   content: string
   operation?: Record<string, unknown> | null
+}
+
+export interface Citation {
+  source: string
+  section: string
 }
 
 export interface ClassCreate {
@@ -256,7 +258,6 @@ export interface EmotionStateResponse {
 
 export interface FeatureConfigResponse {
   id?: string | null
-  mode?: string | null
   features?: Record<string, unknown>
 }
 
@@ -376,11 +377,6 @@ export interface LLMConfigCreate {
   model: string
   purpose: string
   label?: string
-  priority?: number
-  weight?: number
-  price_input_per_1m?: number
-  price_output_per_1m?: number
-  monthly_cost_limit?: number | null
 }
 
 export interface LLMConfigResponse {
@@ -389,16 +385,10 @@ export interface LLMConfigResponse {
   secret_label?: string
   secret_suffix?: string
   base_url?: string
-  provider?: string
   label?: string
   model: string
   purpose: string
-  priority?: number
-  weight?: number
   status?: string
-  price_input_per_1m?: number
-  price_output_per_1m?: number
-  monthly_cost_limit?: number | null
   created_at: string
   updated_at: string
 }
@@ -408,11 +398,6 @@ export interface LLMConfigUpdate {
   model?: string | null
   purpose?: string | null
   label?: string | null
-  priority?: number | null
-  weight?: number | null
-  price_input_per_1m?: number | null
-  price_output_per_1m?: number | null
-  monthly_cost_limit?: number | null
   status?: string | null
 }
 
@@ -435,12 +420,6 @@ export interface MessageItem {
   role: string
   content: string
   created_at: string
-}
-
-export interface ModelPresetItem {
-  name: string
-  price_input?: number
-  price_output?: number
 }
 
 export interface NoteCreateRequest {
@@ -579,7 +558,6 @@ export interface PhaseAdvanceResponse {
 export interface PracticeBrief {
   id: number
   name: string
-  mode: string
   features?: Record<string, unknown>
   behavior?: Record<string, unknown>
 }
@@ -588,10 +566,8 @@ export interface PracticeCreate {
   name: string
   description?: string | null
   case_id: number
-  mode?: string
   features?: Record<string, unknown>
   behavior?: Record<string, unknown>
-  assessment?: Record<string, unknown> | null
 }
 
 export interface PracticeItem {
@@ -600,10 +576,8 @@ export interface PracticeItem {
   description?: string | null
   case_id: number
   case_name?: string
-  mode: string
   features?: Record<string, unknown>
   behavior?: Record<string, unknown>
-  assessment?: Record<string, unknown> | null
   is_active?: boolean
   training_count?: number
   created_at: string
@@ -614,10 +588,8 @@ export interface PracticeUpdate {
   name?: string | null
   description?: string | null
   case_id?: number | null
-  mode?: string | null
   features?: Record<string, unknown> | null
   behavior?: Record<string, unknown> | null
-  assessment?: Record<string, unknown> | null
   is_active?: boolean | null
 }
 
@@ -683,16 +655,10 @@ export interface PromptValidateResponse {
   warnings?: string[]
 }
 
-export interface ProviderPresetResponse {
-  provider?: string
-  display_name?: string
-  base_url?: string
-  models?: ModelPresetItem[]
-}
-
 export interface QAAskResponse {
   session_id: number
   answer: string
+  citations?: Citation[] | null
 }
 
 export interface QAMessageItem {
@@ -700,6 +666,7 @@ export interface QAMessageItem {
   role: string
   content: string
   created_at: string
+  citations?: Citation[] | null
 }
 
 export interface QASessionAdminItem {
@@ -715,6 +682,7 @@ export interface QASessionAdminItem {
 
 export interface QASessionCreate {
   question: string
+  rag_enabled?: boolean
 }
 
 export interface QASessionItem {
@@ -905,6 +873,16 @@ export interface RoleUpdateRequest {
   permissions?: string[] | null
 }
 
+export interface RubricCreateRequest {
+  name: string
+  dimensions?: Record<string, unknown>[]
+  version?: string
+  description?: string | null
+  total_max?: number
+  raw_max?: number
+  raw_scale?: number
+}
+
 export interface RubricResponse {
   id: number
   name: string
@@ -1009,6 +987,34 @@ export interface StudentDetail {
   daily?: unknown[]
 }
 
+export interface SystemNotificationCreateRequest {
+  title: string
+  content: string
+  level?: string
+  is_active?: boolean
+  published_at?: string | null
+}
+
+export interface SystemNotificationResponse {
+  id: number
+  title: string
+  content: string
+  level: string
+  is_active: boolean
+  created_by?: number | null
+  published_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SystemNotificationUpdateRequest {
+  title?: string | null
+  content?: string | null
+  level?: string | null
+  is_active?: boolean | null
+  published_at?: string | null
+}
+
 export interface TeacherSummaryItem {
   user_id: number
   display_name: string
@@ -1089,6 +1095,8 @@ export interface TrainingRecordDetail {
 export interface TrainingStartRequest {
   case_id: number
   practice_id?: number | null
+  features?: Record<string, unknown> | null
+  time_limit_minutes?: number | null
 }
 
 export interface TrainingStartResponse {
@@ -1107,7 +1115,6 @@ export interface TrainingStateResponse {
   config: FeatureConfigResponse
   initiative: InitiativeStateResponse
   current_phase?: string
-  feature_flags?: Record<string, unknown>
 }
 
 export interface TrendStats {

@@ -1508,23 +1508,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/configs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Session Configs */
-        get: operations["get_session_configs_api_training_configs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/training/records": {
         parameters: {
             query?: never;
@@ -1555,40 +1538,6 @@ export interface paths {
         post?: never;
         /** Delete Record */
         delete: operations["delete_record_api_training_records__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/checkpoint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Save Checkpoint */
-        post: operations["save_checkpoint_api_training__record_id__checkpoint_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Resume Training */
-        post: operations["resume_training_api_training__record_id__resume_post"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1677,6 +1626,23 @@ export interface paths {
         head?: never;
         /** Mark Notification Read */
         patch: operations["mark_notification_read_api_training_notifications__notif_id__patch"];
+        trace?: never;
+    };
+    "/api/training/notifications/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notifications Stream */
+        get: operations["notifications_stream_api_training_notifications_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/training/{record_id}/advance-phase": {
@@ -1982,6 +1948,26 @@ export interface paths {
         put?: never;
         /** Ask Stream */
         post: operations["ask_stream_api_qa_sessions__session_id__ask_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/qa/section-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Section Text
+         * @description Return the full textbook section text for a citation (no LLM).
+         */
+        get: operations["get_section_text_api_qa_section_text_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2674,6 +2660,13 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** Citation */
+        Citation: {
+            /** Source */
+            source: string;
+            /** Section */
+            section: string;
+        };
         /** ClassCreate */
         ClassCreate: {
             /** Grade Id */
@@ -2791,8 +2784,6 @@ export interface components {
         FeatureConfigResponse: {
             /** Id */
             id?: string | null;
-            /** Mode */
-            mode?: string | null;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -3404,8 +3395,6 @@ export interface components {
             id: number;
             /** Name */
             name: string;
-            /** Mode */
-            mode: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -3423,11 +3412,6 @@ export interface components {
             description?: string | null;
             /** Case Id */
             case_id: number;
-            /**
-             * Mode
-             * @default training
-             */
-            mode: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -3436,10 +3420,6 @@ export interface components {
             behavior?: {
                 [key: string]: unknown;
             };
-            /** Assessment */
-            assessment?: {
-                [key: string]: unknown;
-            } | null;
         };
         /** PracticeItem */
         PracticeItem: {
@@ -3456,8 +3436,6 @@ export interface components {
              * @default
              */
             case_name: string;
-            /** Mode */
-            mode: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -3466,10 +3444,6 @@ export interface components {
             behavior?: {
                 [key: string]: unknown;
             };
-            /** Assessment */
-            assessment?: {
-                [key: string]: unknown;
-            } | null;
             /**
              * Is Active
              * @default true
@@ -3499,18 +3473,12 @@ export interface components {
             description?: string | null;
             /** Case Id */
             case_id?: number | null;
-            /** Mode */
-            mode?: string | null;
             /** Features */
             features?: {
                 [key: string]: boolean;
             } | null;
             /** Behavior */
             behavior?: {
-                [key: string]: unknown;
-            } | null;
-            /** Assessment */
-            assessment?: {
                 [key: string]: unknown;
             } | null;
             /** Is Active */
@@ -3663,12 +3631,7 @@ export interface components {
             /** Answer */
             answer: string;
             /** Citations */
-            citations?: {
-                /** Source */
-                source: string;
-                /** Section */
-                section: string;
-            }[] | null;
+            citations?: components["schemas"]["Citation"][] | null;
         };
         /** QAMessageItem */
         QAMessageItem: {
@@ -3684,12 +3647,7 @@ export interface components {
              */
             created_at: string;
             /** Citations */
-            citations?: {
-                /** Source */
-                source: string;
-                /** Section */
-                section: string;
-            }[] | null;
+            citations?: components["schemas"]["Citation"][] | null;
         };
         /** QASessionAdminItem */
         QASessionAdminItem: {
@@ -3729,8 +3687,11 @@ export interface components {
         QASessionCreate: {
             /** Question */
             question: string;
-            /** Rag Enabled */
-            rag_enabled?: boolean;
+            /**
+             * Rag Enabled
+             * @default false
+             */
+            rag_enabled: boolean;
         };
         /** QASessionItem */
         QASessionItem: {
@@ -4683,6 +4644,12 @@ export interface components {
             case_id: number;
             /** Practice Id */
             practice_id?: number | null;
+            /** Features */
+            features?: {
+                [key: string]: boolean;
+            } | null;
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
         };
         /** TrainingStartResponse */
         TrainingStartResponse: {
@@ -4720,10 +4687,6 @@ export interface components {
              * @default history_taking
              */
             current_phase: string;
-            /** Feature Flags */
-            feature_flags?: {
-                [key: string]: boolean;
-            };
         };
         /** TrendStats */
         TrendStats: {
@@ -8488,26 +8451,6 @@ export interface operations {
             };
         };
     };
-    get_session_configs_api_training_configs_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     get_records_api_training_records_get: {
         parameters: {
             query?: {
@@ -8602,68 +8545,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_checkpoint_api_training__record_id__checkpoint_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resume_training_api_training__record_id__resume_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -8817,6 +8698,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notifications_stream_api_training_notifications_stream_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -9488,6 +9389,38 @@ export interface operations {
                 "application/json": components["schemas"]["QASessionCreate"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_section_text_api_qa_section_text_get: {
+        parameters: {
+            query: {
+                source: string;
+                section: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

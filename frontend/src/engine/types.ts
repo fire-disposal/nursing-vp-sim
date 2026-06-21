@@ -137,20 +137,6 @@ export interface ManifestAction {
 	type: string;
 	op_type?: string;
 }
-
-export interface ManifestResponse {
-	plugins: ManifestPlugin[];
-	feature_flags: Record<
-		string,
-		{
-			key: string;
-			label: string;
-			default: boolean;
-			description: string;
-		}
-	>;
-}
-
 // ── Frontend Plugin (local definition) ──
 
 export interface FrontendPluginDef {

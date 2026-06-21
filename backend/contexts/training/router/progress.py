@@ -136,7 +136,6 @@ def get_training_state(
         },
         "initiative": initiative_data,
         "current_phase": record.current_phase or "history_taking",
-        "feature_flags": features,
     }
 
 

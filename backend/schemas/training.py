@@ -138,7 +138,6 @@ class EmotionStateResponse(BaseModel):
 
 class FeatureConfigResponse(BaseModel):
     id: str | None = None
-    mode: str | None = None
     features: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -159,7 +158,6 @@ class TrainingStateResponse(BaseModel):
     config: "FeatureConfigResponse"
     initiative: "InitiativeStateResponse"
     current_phase: str = "history_taking"
-    feature_flags: dict[str, bool] = Field(default_factory=dict)
 
 
 class InitiativeTriggerResponse(BaseModel):
