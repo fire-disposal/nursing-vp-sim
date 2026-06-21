@@ -444,11 +444,18 @@ async def ask_stream(
                 assistant_record = QARecord(
                     session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
                 )
-                db.add(assistant_record)
-                db.commit()
-                db.refresh(assistant_record)
+                from core.database import SessionLocal
 
-                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
+                _db = SessionLocal()
+                try:
+                    _db.add(assistant_record)
+                    _db.commit()
+                    _db.refresh(assistant_record)
+                    record_id = assistant_record.id
+                finally:
+                    _db.close()
+
+                yield f"data: {_json.dumps({'done': True, 'id': record_id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
             except Exception as e:
                 log.exception("QA stream error: session_id=%d", session_id)
                 yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
