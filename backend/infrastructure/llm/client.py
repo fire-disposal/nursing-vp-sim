@@ -233,6 +233,9 @@ class LLMClient:
 
         msgs = list(messages)  # mutable copy
         tool_rounds = 0
+        cumulative_usage: dict = {}
+        cumulative_cache_hit = 0
+        cumulative_cache_miss = 0
 
         while tool_rounds < max_tool_rounds:
             tool_rounds += 1
@@ -250,6 +253,13 @@ class LLMClient:
                 raise
 
             if result.tool_calls:
+                # Accumulate usage across tool rounds
+                for k, v in (result.usage or {}).items():
+                    if isinstance(v, (int, float)):
+                        cumulative_usage[k] = cumulative_usage.get(k, 0) + v
+                cumulative_cache_hit += result.cache_hit_tokens or 0
+                cumulative_cache_miss += result.cache_miss_tokens or 0
+
                 msgs.append(
                     {
                         "role": "assistant",
@@ -291,7 +301,12 @@ class LLMClient:
             # No tool_calls — final response
             content = result.content or ""
             latency_ms = int((time.perf_counter() - t0) * 1000)
-            usage = result.usage or {}
+            # Merge final round usage into cumulative
+            for k, v in (result.usage or {}).items():
+                if isinstance(v, (int, float)):
+                    cumulative_usage[k] = cumulative_usage.get(k, 0) + v
+            cumulative_cache_hit += result.cache_hit_tokens or 0
+            cumulative_cache_miss += result.cache_miss_tokens or 0
             self._log_worker.enqueue(
                 purpose=purpose,
                 user_id=ctx.user_id,
@@ -304,14 +319,14 @@ class LLMClient:
                 status="success",
                 request_text=request_text,
                 response_text=content,
-                usage=usage or None,
+                usage=cumulative_usage or None,
                 meta=ctx.log_meta,
                 config_id=state.config_id,
                 provider_name=state.provider_name,
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
-                cache_hit_tokens=result.cache_hit_tokens,
-                cache_miss_tokens=result.cache_miss_tokens,
+                cache_hit_tokens=cumulative_cache_hit,
+                cache_miss_tokens=cumulative_cache_miss,
             )
             return content
 
@@ -670,7 +685,7 @@ class LLMClient:
                                     obj = json.loads(raw)
                                     last_obj = obj
                                     delta = obj["choices"][0].get("delta", {})
-                                    content = delta.get("content", "")
+                                    content = delta.get("content", "") or ""
                                     if content:
                                         yield content
                                 except (json.JSONDecodeError, KeyError, IndexError):

@@ -117,6 +117,37 @@ def _build_tool_handlers() -> dict:
     return async_handlers
 
 
+def _pre_search(question: str) -> list[dict[str, str]]:
+    """Quick keyword search to provide citation metadata. Never raises."""
+    try:
+        from infrastructure.rag.chapter_index import search as chapter_search
+
+        results = chapter_search(question, top_k=2)
+        return [{"source": r["textbook"], "section": f"{r['chapter']}/{r['heading']}"} for r in results]
+    except Exception:
+        log.warning("Pre-search failed for citations", exc_info=True)
+        return []
+
+
+def _inject_search_context(llm_messages: list[dict], citations: list[dict]) -> None:
+    """Inject search snippets into messages as system context."""
+    if not citations:
+        return
+    try:
+        from infrastructure.rag.chapter_index import read_section
+
+        parts = ["【参考教材信息】"]
+        parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
+        for i, c in enumerate(citations, 1):
+            parts.append(f"[{i}] [来源: {c['source']} > {c['section']}]")
+            text = read_section(c["source"], c["section"].split("/")[0], c["section"].split("/")[1])
+            parts.append(text[:1500])
+            parts.append("")
+        llm_messages.insert(1, {"role": "system", "content": "\n".join(parts)})
+    except Exception:
+        log.warning("Context injection failed", exc_info=True)
+
+
 router = APIRouter()
 
 
@@ -182,6 +213,9 @@ async def create_session(
             {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
             {"role": "user", "content": req.question},
         ]
+        if req.rag_enabled:
+            citations = _pre_search(req.question)
+            _inject_search_context(llm_messages, citations)
     except Exception as e:
         log.exception("qa prompt 初始化失败", extra={"error": str(e), "user_id": current_user.id})
         raise HTTPException(status_code=502, detail=f"Prompt 加载失败: {e!s}")
@@ -235,7 +269,7 @@ async def create_session(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer)
+    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
 
 
 @router.post("/sessions/{session_id}/ask", response_model=QAAskResponse)
@@ -268,6 +302,11 @@ async def ask_in_session(
     tmpl = await pm.get("qa")
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
+
+    citations = []
+    if req.rag_enabled:
+        citations = _pre_search(req.question.strip())
+        _inject_search_context(llm_messages, citations)
 
     user_msg = QARecord(
         session_id=session.id,
@@ -315,7 +354,7 @@ async def ask_in_session(
         )
         raise HTTPException(status_code=500, detail=f"AI调用失败: {e!s}")
 
-    stored_content = embed_citations(answer, [])
+    stored_content = embed_citations(answer, citations)
     assistant_msg = QARecord(
         session_id=session.id,
         user_id=current_user.id,
@@ -330,7 +369,7 @@ async def ask_in_session(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer)
+    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
 
 
 @router.post("/sessions/{session_id}/ask/stream")
@@ -360,6 +399,24 @@ async def ask_stream(
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
 
+        citations = []
+        if req.rag_enabled:
+            try:
+                from infrastructure.rag.chapter_index import search as chapter_search
+
+                results = chapter_search(req.question, top_k=2)
+                if results:
+                    parts = ["【参考教材信息】"]
+                    parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
+                    for i, r in enumerate(results, 1):
+                        parts.append(f"[{i}] [来源: {r['textbook']} > {r['chapter']}/{r['heading']}]")
+                        parts.append(r["snippet"])
+                        parts.append("")
+                        citations.append({"source": r["textbook"], "section": f"{r['chapter']}/{r['heading']}"})
+                    llm_messages.insert(1, {"role": "system", "content": "\n".join(parts)})
+            except Exception:
+                log.warning("Streaming RAG search failed", exc_info=True)
+
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)
         db.commit()
@@ -383,7 +440,7 @@ async def ask_stream(
                     full_reply += chunk
                     yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
-                stored_content = embed_citations(full_reply, [])
+                stored_content = embed_citations(full_reply, citations)
                 assistant_record = QARecord(
                     session_id=session_id, user_id=current_user.id, role="assistant", content=stored_content
                 )
@@ -391,7 +448,7 @@ async def ask_stream(
                 db.commit()
                 db.refresh(assistant_record)
 
-                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id, 'citations': None}, ensure_ascii=False)}\n\n"
+                yield f"data: {_json.dumps({'done': True, 'id': assistant_record.id, 'citations': citations or None}, ensure_ascii=False)}\n\n"
             except Exception as e:
                 log.exception("QA stream error: session_id=%d", session_id)
                 yield f"data: {_json.dumps({'error': str(e)[:200]}, ensure_ascii=False)}\n\n"

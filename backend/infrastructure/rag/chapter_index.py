@@ -15,6 +15,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    import jieba
+except ImportError:
+    jieba = None
+
 log = logging.getLogger(__name__)
 
 TEXTBOOKS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "textbooks"
@@ -50,7 +55,7 @@ def _split_sections(content: str) -> list[tuple[str, str]]:
     if current_heading or current_lines:
         body = "\n".join(current_lines).strip()
         if len(body) > 20:
-            sections.append((current_heading, body))
+            sections.append((current_heading or "概述", body))
     return sections
 
 
@@ -97,12 +102,7 @@ def _ensure_index() -> dict[str, Any]:
 
 
 def _try_jieba():
-    try:
-        import jieba  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    return jieba is not None
 
 
 # ── Tools exposed to LLM ──
@@ -138,8 +138,6 @@ def search(query: str, textbook: str | None = None, top_k: int = 5) -> list[dict
     idx = _ensure_index()
     has_jieba = _try_jieba()
     if has_jieba:
-        import jieba
-
         terms = [w.strip() for w in jieba.lcut(query) if len(w.strip()) >= 2]
     else:
         terms = [w.strip() for w in re.split(r"[,，\s]+", query) if len(w.strip()) >= 2]
@@ -164,7 +162,13 @@ def search(query: str, textbook: str | None = None, top_k: int = 5) -> list[dict
                         count += 1  # bonus for chapter title match
                     matches += count
                 if matches > 0:
-                    snippet = sec["body"][:500]
+                    # Show ~500 chars centered on the first match, not just the start
+                    first_pos = min(
+                        (body_lower.find(t.lower()) for t in terms if body_lower.find(t.lower()) >= 0),
+                        default=0,
+                    )
+                    start = max(0, first_pos - 120)
+                    snippet = sec["body"][start : start + 500]
                     scored.append(
                         (
                             matches,
