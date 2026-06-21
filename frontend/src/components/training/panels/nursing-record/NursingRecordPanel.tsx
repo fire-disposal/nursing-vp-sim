@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Loader2, Send } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getNursingRecord, saveNursingRecord } from "@/api/nursing-records";
 import type { PanelTabProps } from "@/engine/types";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { ITEM_COMPONENTS } from "./index";
 import type { RecordSheetItem, RecordSheetSection } from "./types";
 
 const STORAGE_PREFIX = "nursing_record_sheet_";
+const CACHE_TTL_MS = 30_000; // Don't re-fetch if last fetch was < 30s ago
 
 function loadValues(recordId: string): Record<string, Record<string, unknown>> {
 	try {
@@ -98,12 +99,21 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 		"draft" | "submitted" | "saving"
 	>("draft");
 	const [submitError, setSubmitError] = useState<string | null>(null);
+	const lastFetchRef = useRef(0);
 
 	useEffect(() => {
-		setValues(loadValues(recordId));
+		const cached = loadValues(recordId);
+		const hasCachedData = Object.keys(cached).length > 0;
+		const cacheFresh = Date.now() - lastFetchRef.current < CACHE_TTL_MS;
+
+		setValues(cached);
 		setCollapsedSections(new Set());
 		setSubmitStatus("draft");
 		setSubmitError(null);
+
+		if (hasCachedData && cacheFresh) return;
+
+		lastFetchRef.current = Date.now();
 		getNursingRecord(Number(recordId))
 			.then((r) => {
 				const remote = r.data as Record<string, unknown>;
