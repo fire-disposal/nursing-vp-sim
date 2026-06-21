@@ -70,7 +70,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 ctx.llm_reply = reply
                 return
             msgs = list(ctx.llm_messages)
-            msgs.insert(-1, {"role": "system", "content": get_identity_correction_note()})
+            msgs.append({"role": "system", "content": get_identity_correction_note()})
             try:
                 retry = await llm_client.call(
                     msgs,
@@ -141,7 +141,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
                 ctx.llm_reply = full_reply
                 return
             msgs = list(ctx.llm_messages)
-            msgs.insert(-1, {"role": "system", "content": corrected})
+            msgs.append({"role": "system", "content": corrected})
             try:
                 retry = ""
                 async for chunk in llm_client.stream(
