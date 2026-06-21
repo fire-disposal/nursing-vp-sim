@@ -73,6 +73,7 @@ def generate_initiative(
     comfort: int,
     wait_seconds: float,
 ) -> str | None:
+    """Rule-based initiative text generation (fallback)."""
     verbosity = personality.get("verbosity", "normal")
     patience = personality.get("patience", "normal")
     anxiety_trait = personality.get("anxiety_trait", "normal")
@@ -80,7 +81,7 @@ def generate_initiative(
     base_threshold = 30.0
     patience_bias = {"low": -8, "normal": 0, "high": +10}
     anxiety_bias = {"anxious": -5, "normal": 0, "calm": +5}
-    comfort_bias = max(0, 50 - comfort) * 0.3  # 舒适越低越早触发
+    comfort_bias = max(0, 50 - comfort) * 0.3
 
     threshold = base_threshold + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + comfort_bias
     threshold = max(15, min(90, threshold))
@@ -118,6 +119,77 @@ def generate_initiative(
     if verbosity == "verbose" and roll < 0.5:
         return random.choice(_VERBOSE_EXTRAS)
     return random.choice(_NEUTRAL_PROMPTS)
+
+
+async def generate_initiative_llm(
+    llm_client,
+    personality: dict,
+    trust: int,
+    comfort: int,
+    case_name: str,
+    recent_student_msg: str,
+) -> str:
+    """LLM-driven initiative text — generates a natural, context-aware patient utterance."""
+    try:
+        mood = _describe_mood(trust, comfort)
+        traits = _describe_traits(personality)
+        prompt = [
+            {
+                "role": "system",
+                "content": (
+                    f"你正在模拟一位护理训练中的患者。病例：{case_name}。{traits}\n"
+                    f"当前情绪状态：{mood}（信任{trust}/100，舒适{comfort}/100）。\n"
+                    "护士刚刚说了一句话但你没有立即回复。请以患者的身份说一句简短、自然的追问或反应（≤30字），"
+                    "可以是催促、补充信息、表达不适、转移话题或沉默的肢体语言。"
+                    "只输出患者的话，不要任何解释或标签。"
+                ),
+            },
+            {"role": "user", "content": f"护士说：{recent_student_msg}"},
+        ]
+        result = await llm_client.call(
+            prompt,
+            purpose="patient_chat",
+            temperature=0.8,
+            max_tokens=60,
+            timeout=10,
+            max_retries=0,
+        )
+        text = result.strip()
+        if 2 <= len(text) <= 80:
+            return text
+    except Exception:
+        pass
+    return random.choice(_NEUTRAL_PROMPTS)
+
+
+def _describe_mood(trust: int, comfort: int) -> str:
+    if comfort <= 30:
+        return "焦虑不安"
+    if trust <= 40:
+        return "防御抵触"
+    if comfort >= 60:
+        return "放松配合"
+    return "正常"
+
+
+def _describe_traits(personality: dict) -> str:
+    parts = []
+    v = personality.get("verbosity", "normal")
+    if v == "verbose":
+        parts.append("话多健谈")
+    elif v == "terse":
+        parts.append("寡言少语")
+    p = personality.get("patience", "normal")
+    if p == "low":
+        parts.append("缺乏耐心")
+    elif p == "high":
+        parts.append("很有耐心")
+    a = personality.get("anxiety_trait", "normal")
+    if a == "anxious":
+        parts.append("容易紧张")
+    elif a == "calm":
+        parts.append("性格沉稳")
+    return "性格特点：" + "，".join(parts) if parts else ""
 
 
 # ── Cache-based API ──
