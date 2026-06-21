@@ -107,7 +107,7 @@ def get_semaphore(purpose: str) -> int:
 
 
 def _resolve(purpose: str) -> LLMProfile:
-    for prefix, profile in PROFILES.items():
+    for prefix in sorted(PROFILES, key=len, reverse=True):
         if purpose.startswith(prefix):
-            return profile
+            return PROFILES[prefix]
     return _DEFAULT

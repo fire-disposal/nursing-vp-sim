@@ -24,14 +24,6 @@ from .router import ProfileRouter, _SyntheticConfig
 
 log = logging.getLogger(__name__)
 
-# Per-purpose concurrency limits — sourced from core/llm_profile.py
-
-
-def _semaphore_limit(purpose: str) -> int:
-    from core.llm_profile import get_semaphore
-
-    return get_semaphore(purpose)
-
 
 @dataclass
 class CallContext:
@@ -96,11 +88,9 @@ class LLMClient:
         self._default_sem = asyncio.Semaphore(max(1, 50 // _divisor))
 
     def _sem_for(self, purpose: str) -> asyncio.Semaphore:
-        from core.llm_profile import PROFILES
-
-        for prefix in PROFILES:
+        for prefix in sorted(self._semaphores, key=len, reverse=True):
             if purpose.startswith(prefix):
-                return self._semaphores.get(prefix, self._default_sem)
+                return self._semaphores[prefix]
         return self._default_sem
 
     def _record_metrics(self, *, status: str, tokens: int, cost: float, latency_ms: int) -> None:
@@ -515,6 +505,7 @@ class LLMClient:
     async def _select_config(self, purpose: str) -> _CallState:
         """Select a profile from the router and build call state."""
         from cryptography.fernet import InvalidToken as FernetInvalidToken
+
         from core.llm_profile import get_model
 
         config = self._router.select(purpose)
