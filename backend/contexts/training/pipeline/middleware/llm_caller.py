@@ -8,8 +8,6 @@ from ..context import PipelineContext
 
 log = logging.getLogger(__name__)
 
-FALLBACK_EMPTY = "嗯……（患者似乎在犹豫）"
-
 
 async def llm_caller(ctx: PipelineContext, next_mw) -> None:
     if ctx.should_shortcut:
@@ -87,10 +85,12 @@ async def _call_batch(ctx: PipelineContext) -> None:
                 if retry.strip():
                     ctx.llm_reply = retry
             except Exception:
-                log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id)
+                log.warning("Identity leak retry failed (batch): record_id=%d", ctx.record.id, exc_info=True)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
-        ctx.llm_reply = FALLBACK_EMPTY
+        ctx.error = "LLM 服务暂时不可用，请稍后重试"
+        ctx.should_shortcut = True
+        return
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
@@ -161,11 +161,12 @@ async def _call_stream(ctx: PipelineContext) -> None:
                     full_reply = retry
                     chunks = [retry]
             except Exception:
-                log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id)
+                log.warning("Identity leak retry failed (stream): record_id=%d", ctx.record.id, exc_info=True)
 
     if not full_reply.strip():
-        full_reply = FALLBACK_EMPTY
-        chunks = [full_reply]
+        ctx.error = "LLM 服务暂时不可用，请稍后重试"
+        ctx.should_shortcut = True
+        return
 
     ctx.llm_reply = full_reply
     ctx.state["_stream_chunks"] = chunks

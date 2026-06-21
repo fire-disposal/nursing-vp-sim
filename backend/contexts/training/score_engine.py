@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from core.config import get_llm_config
 from core.database import SessionLocal
+from core.exceptions import LLMParseError
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
 from models import Message, Score, TrainingRecord
@@ -58,7 +59,7 @@ async def _score_stage(
             **cfg,
         )
         _coerce_numeric_fields(result)
-    except (json.JSONDecodeError, ValueError, TypeError, RuntimeError) as e:
+    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError, RuntimeError) as e:
         log.warning(
             "评分首次调用失败（JSON解析或校验），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]}
         )
@@ -100,9 +101,9 @@ async def _score_stage(
         if tracker:
             tracker.update(record_id, "scoring", 55, "评分维度分析完成")
         return result2
-    except Exception:
+    except Exception as retry_err:
         log.warning("评分重试也失败", extra={"record_id": record_id}, exc_info=True)
-        raise RuntimeError(f"评分解析重试失败 record_id={record_id}") from None
+        raise RuntimeError(f"评分解析重试失败 record_id={record_id}") from retry_err
 
 
 async def _feedback_stage(
@@ -135,7 +136,7 @@ async def _feedback_stage(
             ),
             **cfg,
         )
-    except (json.JSONDecodeError, ValueError, TypeError, RuntimeError) as e:
+    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError, RuntimeError) as e:
         log.warning("反馈首次调用失败（JSON解析），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]})
         result = {}
 
@@ -171,9 +172,9 @@ async def _feedback_stage(
             ),
             **cfg,
         )
-    except Exception:
+    except Exception as retry_err:
         log.warning("反馈重试也失败", extra={"record_id": record_id}, exc_info=True)
-        raise RuntimeError(f"反馈解析重试失败 record_id={record_id}") from None
+        raise RuntimeError(f"反馈解析重试失败 record_id={record_id}") from retry_err
 
     try:
         _validate_feedback_fields(result2)

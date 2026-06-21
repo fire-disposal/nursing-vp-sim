@@ -39,6 +39,7 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
             dynamic_tmpl = await pm.get("patient_dynamic")
             dynamic_prompt = dynamic_tmpl.render(**kwargs)
         except Exception:
+            log.warning("Dynamic prompt unavailable, falling back to static template", exc_info=True)
             dynamic_prompt = render_template(PATIENT_DYNAMIC_TEMPLATE, **kwargs)
     except Exception as e:
         log.error("Prompt render failed: %s", e)

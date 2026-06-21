@@ -172,7 +172,7 @@ async def _run_scoring_background(
                 record.scoring_error = "评分超时（超过5分钟）"
                 db.commit()
         except Exception as e:
-            log.warning("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
+            log.exception("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
         log.exception("评分超时", extra={"record_id": record_id})
     except Exception as e:
         if tracker:
@@ -184,7 +184,7 @@ async def _run_scoring_background(
                 record.scoring_error = str(e)[:2000] or f"{type(e).__name__}"
                 db.commit()
         except Exception as inner:
-            log.warning("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
+            log.exception("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
         log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
     finally:
         db.close()

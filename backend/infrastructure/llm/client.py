@@ -273,6 +273,9 @@ class LLMClient:
                     try:
                         args = json.loads(tc["function"]["arguments"])
                     except json.JSONDecodeError:
+                        log.warning(
+                            "Tool args parse failed for %s: %s", func_name, tc["function"].get("arguments", "")[:200]
+                        )
                         args = {}
                     handler = tool_handlers.get(func_name)
                     if handler:
@@ -629,6 +632,7 @@ class LLMClient:
                 cache_miss_tokens=state.cache_miss_tokens,
             )
         except Exception as e:
+            log.error("_do_call HTTP/post-parse failure: purpose=%s model=%s error=%s", purpose, state.model, e)
             await self._router.report_result(
                 state._config,
                 success=False,
@@ -689,11 +693,12 @@ class LLMClient:
                                     if content:
                                         yield content
                                 except (json.JSONDecodeError, KeyError, IndexError):
-                                    pass
+                                    log.debug("SSE chunk parse skipped: %s", raw[:120])
                         # Extract usage from last SSE chunk (some providers include it)
                         if last_obj and "usage" in last_obj:
                             state.usage = last_obj["usage"]
         except Exception as e:
+            log.error("_do_stream failure: purpose=%s model=%s error=%s", purpose, state.model, e)
             await self._router.report_result(
                 state._config,
                 success=False,
