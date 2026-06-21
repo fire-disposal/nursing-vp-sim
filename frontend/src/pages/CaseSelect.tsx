@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { getCases, startTraining } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import PracticeSelectModal from "@/components/training/PracticeSelectModal";
+import TrainingConfigModal from "@/components/training/TrainingConfigModal";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -52,6 +52,9 @@ export default function CaseSelect() {
 	const [selectedCase, setSelectedCase] = useState<{
 		id: number;
 		name: string;
+		difficulty: number;
+		description?: string | null;
+		patient_summary?: CaseBrief["patient_summary"];
 	} | null>(null);
 	const [hintDismissed, setHintDismissed] = useState(
 		() => localStorage.getItem("case_hint_dismissed") === "1",
@@ -66,13 +69,8 @@ export default function CaseSelect() {
 	});
 
 	const startMutation = useMutation({
-		mutationFn: ({
-			caseId,
-			practiceId,
-		}: {
-			caseId: number;
-			practiceId?: number | null;
-		}) => startTraining(caseId, practiceId),
+		mutationFn: ({ caseId, features, timeLimit }: { caseId: number; features: Record<string, boolean>; timeLimit: number }) =>
+			startTraining(caseId, null, features, timeLimit),
 		onSuccess: (res) => navigate(`/training/${res.data.record_id}`),
 		onError: () => toast.error("开始训练失败，请重试"),
 	});
@@ -240,7 +238,13 @@ export default function CaseSelect() {
 									)}
 									<Button
 										className="mt-auto w-full"
-										onClick={() => setSelectedCase({ id: c.id, name: c.name })}
+										onClick={() => setSelectedCase({
+											id: c.id,
+											name: c.name,
+											difficulty: c.difficulty || 1,
+											description: c.description,
+											patient_summary: c.patient_summary,
+										})}
 										disabled={startMutation.isPending}
 									>
 										{isStarting ? "启动中..." : "开始训练"}
@@ -262,15 +266,15 @@ export default function CaseSelect() {
 			</div>
 
 			{selectedCase && (
-				<PracticeSelectModal
+				<TrainingConfigModal
 					open={!!selectedCase}
-					caseId={selectedCase.id}
-					caseName={selectedCase.name}
+					caseInfo={selectedCase}
 					onClose={() => setSelectedCase(null)}
-					onSelect={(practiceId) => {
-						startMutation.mutate({ caseId: selectedCase.id, practiceId });
+					onStart={(features, timeLimit) => {
+						startMutation.mutate({ caseId: selectedCase.id, features, timeLimit });
 						setSelectedCase(null);
 					}}
+					loading={startMutation.isPending}
 				/>
 			)}
 		</>
