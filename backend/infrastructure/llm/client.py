@@ -65,6 +65,8 @@ class _CallState:
     price_input: float = 0.0
     price_output: float = 0.0
     usage: dict | None = None
+    cache_hit_tokens: int = 0
+    cache_miss_tokens: int = 0
 
 
 class LLMClient:
@@ -155,6 +157,8 @@ class LLMClient:
                 provider_name=state.provider_name,
                 key_price_input=state.price_input,
                 key_price_output=state.price_output,
+                cache_hit_tokens=state.cache_hit_tokens,
+                cache_miss_tokens=state.cache_miss_tokens,
             )
             from infrastructure.llm.token_counter import estimate_cost_cny
 
@@ -451,6 +455,8 @@ class LLMClient:
 
             usage = data.get("usage", {})
             state.usage = usage
+            state.cache_hit_tokens = usage.get("prompt_cache_hit_tokens", 0) or 0
+            state.cache_miss_tokens = usage.get("prompt_cache_miss_tokens", 0) or 0
             prompt_tokens = usage.get("prompt_tokens", 0) or 0
             completion_tokens = usage.get("completion_tokens", 0) or 0
             total_tokens = usage.get("total_tokens", 0) or prompt_tokens + completion_tokens
