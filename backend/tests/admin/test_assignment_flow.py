@@ -18,7 +18,6 @@ class TestAssignmentFlow:
             name="测试练习",
             description="test",
             case_id=test_case.id,
-            mode="training",
             features={"physical_exam": True},
             behavior={"time_limit_minutes": 20},
         )
@@ -70,7 +69,6 @@ class TestAssignmentFlow:
             name="学生可见测试练习",
             description="test",
             case_id=test_case.id,
-            mode="training",
             features={},
             behavior={"time_limit_minutes": 20},
         )
@@ -108,7 +106,6 @@ class TestAssignmentFlow:
             name="开始训练测试练习",
             description="test",
             case_id=test_case.id,
-            mode="training",
             features={"emotion": True},
             behavior={"time_limit_minutes": 20},
         )
@@ -162,7 +159,6 @@ class TestAssignmentFlow:
             name="越权测试练习",
             description="test",
             case_id=test_case.id,
-            mode="training",
             features={},
             behavior={"time_limit_minutes": 20},
         )
@@ -197,7 +193,6 @@ class TestAssignmentFlow:
             name="删除测试练习",
             description="test",
             case_id=test_case.id,
-            mode="training",
             features={},
             behavior={"time_limit_minutes": 20},
         )
@@ -230,7 +225,6 @@ class TestAssignmentFlow:
             name="更新测试练习",
             description="test",
             case_id=test_case.id,
-            mode="training",
             features={},
             behavior={"time_limit_minutes": 20},
         )
