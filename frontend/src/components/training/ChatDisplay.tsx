@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ChatBubble";
+import { ExamCard } from "@/components/training/ExamCard";
 import {
 	getEmotionBorder,
 	useEmotion,
@@ -85,20 +86,24 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 			className="h-full overflow-y-auto scroll-smooth px-4 py-4 space-y-4"
 			onScroll={handleScroll}
 		>
-			{messages.map((msg, i) => (
-				<ChatBubble
-					key={msg.id ?? i}
-					message={msg}
-					patientAvatar={patientAvatar}
-					nurseAvatar={nurseAvatar}
-					emotionBorder={emotionBorder}
-					portraitUrl={portraitUrl}
-					initiative={
-						msg.role === "patient" &&
-						initiativeMsgs?.has(msg.content)
-					}
-				/>
-			))}
+			{messages.map((msg, i) =>
+				msg.role === "system" && msg.examResult ? (
+					<ExamCard key={msg.id ?? i} result={msg.examResult} />
+				) : (
+					<ChatBubble
+						key={msg.id ?? i}
+						message={msg}
+						patientAvatar={patientAvatar}
+						nurseAvatar={nurseAvatar}
+						emotionBorder={emotionBorder}
+						portraitUrl={portraitUrl}
+						initiative={
+							msg.role === "patient" &&
+							initiativeMsgs?.has(msg.content)
+						}
+					/>
+				)
+			)}
 			{/* Typing indicator */}
 			{hasStreaming && messages.length > 0 && messages[messages.length - 1]?.role === "student" && (
 				<div className="flex justify-start px-4">

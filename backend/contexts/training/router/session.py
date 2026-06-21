@@ -502,6 +502,7 @@ def get_record_detail(
         features=resolve_features(record.practice_snapshot),
         from_assignment=record.assignment_id is not None,
         exam_anchors=case_data.get("exam_anchors", {}),
+        exam_results=dict(record.runtime_state or {}).get("exam_results", []),
     )
 
 

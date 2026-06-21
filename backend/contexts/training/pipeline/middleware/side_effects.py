@@ -5,7 +5,7 @@ import re
 
 from contexts.patient.emotion import get_emotion
 from contexts.patient.initiative import (
-    generate_initiative,
+    generate_initiative_llm,
     get_initiative_seconds,
     should_initiate,
     update_initiative_timer,
@@ -150,10 +150,17 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         if not should_initiate(
             ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         ):
-            update_initiative_timer(ctx.record.id, initiative_cache, ctx.db, len(ctx.llm_reply))
+            update_initiative_timer(ctx.record.id, initiative_cache, ctx.db)
             return
 
-        msg_text = generate_initiative(personality, emotion_state.trust, emotion_state.comfort, 999.0)
+        msg_text = await generate_initiative_llm(
+            ctx.app_state.llm_client,
+            personality,
+            emotion_state.trust,
+            emotion_state.comfort,
+            case_data.get("name", "未知病例"),
+            ctx.student_input or "",
+        )
         if not msg_text:
             return
 
@@ -166,6 +173,6 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     except Exception:
         log.warning("Initiative generation failed: record_id=%d", ctx.record.id, exc_info=True)
     finally:
-        update_initiative_timer(ctx.record.id, initiative_cache, ctx.db, len(ctx.llm_reply or ""))
+        update_initiative_timer(ctx.record.id, initiative_cache, ctx.db)
 
     ctx.db.commit()

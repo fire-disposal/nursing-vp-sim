@@ -68,12 +68,11 @@ function examBadge(ctx: PluginContext): BadgeInfo | null {
   let count = 0;
   const seen = new Set<string>();
   for (const msg of ctx.messages) {
-    if (msg.examResult?.type && !seen.has(msg.examResult.type)) {
-      seen.add(msg.examResult.type);
-      count++;
-      continue;
-    }
-    if (msg.role === "system") {
+				if (msg.examResult?.type && !seen.has(msg.examResult.type)) {
+					seen.add(msg.examResult.type);
+					count++;
+				}
+				if (msg.role === "system") {
       const stripped = (msg.content ?? "").replace(/[:\s]/g, "");
       if (stripped.includes("生命体征") || stripped.includes("体温") || stripped.includes("心率") ||
           stripped.includes("血压") || stripped.includes("血氧") || stripped.includes("呼吸") ||
@@ -93,7 +92,7 @@ export const PANELS: PanelConfig[] = [
   { id: "physical-exam", icon: Stethoscope, label: "护理查体", priority: 3, component: ExamPanel, featureFlag: "physical_exam", badge: examBadge },
   { id: "nursing-record", icon: ClipboardList, label: "护理记录", priority: 4, component: NursingRecordPanel, badge: nursingRecordBadge },
   { id: "emotion", icon: Smile, label: "情绪状态", priority: 5, component: EmotionTab, featureFlag: "emotion" },
-  { id: "initiative", icon: MessageCircle, label: "主动追问", priority: 6, component: InitiativeTab, featureFlag: "patient_initiative" },
+  { id: "initiative", icon: MessageCircle, label: "自主反应", priority: 6, component: InitiativeTab, featureFlag: "patient_initiative" },
 ];
 
 export function getActivePanels(features: Record<string, boolean>) {

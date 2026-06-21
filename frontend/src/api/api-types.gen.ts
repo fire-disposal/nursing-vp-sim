@@ -4631,6 +4631,10 @@ export interface components {
             exam_anchors?: {
                 [key: string]: unknown;
             };
+            /** Exam Results */
+            exam_results?: {
+                [key: string]: unknown;
+            }[];
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {

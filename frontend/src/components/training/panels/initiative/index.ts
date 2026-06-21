@@ -4,8 +4,8 @@ import { InitiativeTab } from "./InitiativeTab";
 
 export default definePlugin({
 	id: "initiative",
-	meta: { name: "主动追问", description: "患者定时主动追问" },
-	tab: { icon: MessageCircle, label: "主动追问", priority: 6 },
+	meta: { name: "患者自主反应", description: "患者根据情绪和等待时间自主反应" },
+	tab: { icon: MessageCircle, label: "自主反应", priority: 6 },
 	component: InitiativeTab,
 	hooks: {},
 });
