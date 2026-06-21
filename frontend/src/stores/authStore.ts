@@ -15,7 +15,8 @@ interface ExtendedAuthState extends AuthState {
 }
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
-let isRefreshing = false;
+export let isRefreshing = false;
+export function setRefreshing(v: boolean) { isRefreshing = v; }
 let isLoggingOut = false;
 
 export function startRefreshTimer(): void {
@@ -24,9 +25,9 @@ export function startRefreshTimer(): void {
 	if (refreshTimer) clearInterval(refreshTimer);
 	refreshTimer = setInterval(() => {
 		if (isRefreshing) return;
-		isRefreshing = true;
+		setRefreshing(true);
 		useAuthStore.getState().refreshAuth().finally(() => {
-			isRefreshing = false;
+			setRefreshing(false);
 		});
 	}, 50 * 60 * 1000);
 }
@@ -53,7 +54,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					user_id: data.user_id,
 					username: data.display_name || username,
 					role: data.role,
-					role_display_name: (data as { role_display_name?: string }).role_display_name || data.role,
+					role_display_name: data.role,
 					display_name: data.display_name,
 					gender: data.gender ?? null,
 					avatar: data.avatar ?? null,
@@ -87,7 +88,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 						user_id: data.id,
 						username: data.username || current?.username || "",
 						role: data.role,
-				role_display_name: (data as { role_display_name?: string }).role_display_name || data.role,
+						role_display_name: data.role_display_name || data.role,
 						display_name: data.display_name,
 						gender: data.gender ?? null,
 						avatar: data.avatar ?? null,
