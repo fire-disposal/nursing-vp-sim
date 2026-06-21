@@ -56,6 +56,10 @@ export function useScoringNotifications() {
                                         duration: 10000,
                                     });
                                 }
+                                if (eventType === "scoring_progress") {
+                                    const { notifySSEProgress } = await import("@/engine/ScoreManager");
+                                    notifySSEProgress(data);
+                                }
                             } catch {
                                 /* ignore malformed SSE */
                             }
