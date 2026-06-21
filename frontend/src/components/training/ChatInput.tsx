@@ -1,5 +1,6 @@
 import { Loader2, Send } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
 	onSend: (text: string) => void;
@@ -42,7 +43,7 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 
 	return (
 		<div
-			className="flex items-end gap-2 px-3 py-2 border-t border-border bg-background shrink-0"
+			className="flex items-end gap-2.5 px-3 sm:px-4 py-2.5 border-t border-border bg-muted/30 shrink-0"
 			style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
 		>
 			<textarea
@@ -50,22 +51,25 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 				value={text}
 				onChange={(e) => setText(e.target.value)}
 				onKeyDown={handleKeyDown}
-				placeholder="输入消息与患者对话..."
-				disabled={disabled}
+				placeholder={loading ? "患者正在回复中，可提前输入下一句…" : "输入消息与患者对话..."}
 				rows={1}
 				onInput={handleInput}
-				className="flex-1 resize-none rounded-lg border border-border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 placeholder:text-muted-foreground"
+				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground"
 			/>
 			<button
 				type="button"
 				onClick={handleSend}
 				disabled={disabled || loading || !text.trim()}
-				className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0 disabled:opacity-50 hover:bg-primary/90 transition-colors"
+				className={cn(
+					"flex shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors disabled:opacity-40",
+					"size-9 md:size-10",
+					!disabled && !loading && "hover:bg-primary/90 active:scale-95",
+				)}
 			>
 				{loading ? (
-					<Loader2 size={16} className="animate-spin" />
+					<Loader2 size={16} className="animate-spin md:size-[18px]" />
 				) : (
-					<Send size={16} />
+					<Send size={16} className="md:size-[18px]" />
 				)}
 			</button>
 		</div>

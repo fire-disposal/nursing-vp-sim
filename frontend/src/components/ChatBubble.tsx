@@ -54,13 +54,13 @@ export const ChatBubble = memo(function ChatBubble({
 		return (
 			<div className="flex items-end gap-2 justify-start" data-role="patient">
 				<img
-					className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted"
+					className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full object-cover shrink-0 bg-muted"
 					src={displayAvatar}
 					alt="患者"
 				/>
 				<div
 					className={cn(
-						"max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed break-words",
+						"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-bl-md text-sm md:text-base leading-relaxed break-words",
 						"bg-card text-foreground border-2 rounded-bl-md",
 						emotionBorder,
 						message.streaming &&
@@ -82,14 +82,14 @@ export const ChatBubble = memo(function ChatBubble({
 		<div className="flex items-end gap-2 justify-end" data-role="student">
 			<div
 				className={cn(
-					"max-w-[90%] sm:max-w-[70%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed break-words",
-					"bg-primary text-primary-foreground text-sm sm:text-base",
+					"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm sm:text-base leading-relaxed break-words",
+					"bg-primary text-primary-foreground",
 				)}
 			>
 				<p className="whitespace-pre-wrap">{message.content}</p>
 			</div>
 			<img
-				className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 bg-muted"
+				className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full object-cover shrink-0 bg-muted"
 				src={nurseAvatar}
 				alt="护士"
 			/>

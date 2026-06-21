@@ -31,6 +31,15 @@ const EMOTION_DOT: Record<EmotionState, string> = {
 	open: "bg-green-500",
 };
 
+const VALUE_BAR_COLOR: Record<EmotionState, string> = {
+	withdrawn: "bg-red-500",
+	defensive: "bg-orange-500",
+	anxious: "bg-purple-500",
+	neutral: "bg-muted-foreground/50",
+	relaxed: "bg-blue-500",
+	open: "bg-green-500",
+};
+
 export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
 	const [values, setValues] = useState({ trust: 50, comfort: 50 });
@@ -44,33 +53,55 @@ export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
 				setValues({ trust: data.trust, comfort: data.comfort });
 				setPulse(true);
 				if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
-				pulseTimerRef.current = setTimeout(() => setPulse(false), 1000);
+				pulseTimerRef.current = setTimeout(() => setPulse(false), 1200);
 			},
 		);
 		return unsub;
 	}, [bus]);
 
+	if (!features.emotion) return null;
+
 	return (
 		<div
-			className="overflow-hidden transition-all duration-300 shrink-0"
-			style={{ maxHeight: features.emotion ? "200px" : "0" }}
+			className={cn(
+				"overflow-hidden transition-all duration-300 shrink-0",
+				pulse && "bg-primary/5",
+			)}
 		>
-			<div
-				className={cn(
-					"flex items-center gap-3 px-4 py-1.5 border-b border-border",
-					features.emotion && pulse && "bg-primary/5",
-				)}
-			>
-				<div className="flex items-center gap-1.5">
-					<span className="text-sm">{EMOTION_ICONS[emotion]}</span>
-					<span className={cn("text-xs font-medium", getEmotionColor(emotion))}>
+			<div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-border">
+				<div className="flex items-center gap-1.5 shrink-0">
+					<span className="text-sm sm:text-base">{EMOTION_ICONS[emotion]}</span>
+					<span className={cn("text-xs sm:text-sm font-semibold", getEmotionColor(emotion))}>
 						{EMOTION_LABELS[emotion]}
 					</span>
-					<span className={cn("size-2 rounded-full", EMOTION_DOT[emotion])} />
+					<span className={cn("size-1.5 sm:size-2 rounded-full", EMOTION_DOT[emotion])} />
 				</div>
-				<div className="flex items-center gap-3 ml-auto text-[10px] text-muted-foreground tabular-nums">
-					<span>信任 {Math.round(values.trust)}</span>
-					<span>舒适 {Math.round(values.comfort)}</span>
+
+				<div className="flex-1 flex items-center gap-2 sm:gap-3 min-w-0">
+					<div className="flex-1 flex items-center gap-1.5 min-w-0">
+						<span className="text-[10px] text-muted-foreground shrink-0">信任</span>
+						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+							<div
+								className={cn("h-full rounded-full transition-all duration-700 ease-out", VALUE_BAR_COLOR[emotion])}
+								style={{ width: `${Math.max(0, Math.min(100, values.trust))}%` }}
+							/>
+						</div>
+						<span className="text-[10px] text-muted-foreground tabular-nums w-6 text-right shrink-0">
+							{Math.round(values.trust)}
+						</span>
+					</div>
+					<div className="flex-1 flex items-center gap-1.5 min-w-0">
+						<span className="text-[10px] text-muted-foreground shrink-0">舒适</span>
+						<div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+							<div
+								className={cn("h-full rounded-full transition-all duration-700 ease-out", VALUE_BAR_COLOR[emotion])}
+								style={{ width: `${Math.max(0, Math.min(100, values.comfort))}%` }}
+							/>
+						</div>
+						<span className="text-[10px] text-muted-foreground tabular-nums w-6 text-right shrink-0">
+							{Math.round(values.comfort)}
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>

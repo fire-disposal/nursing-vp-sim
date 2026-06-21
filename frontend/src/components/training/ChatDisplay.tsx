@@ -116,10 +116,10 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					type="button"
 					onClick={() => scrollToBottom(true)}
 					className={cn(
-						"fixed right-4 z-30 flex items-center justify-center rounded-full border bg-background shadow-md hover:bg-muted transition-colors",
+						"fixed left-1/2 -translate-x-1/2 z-30 flex items-center justify-center rounded-full border bg-background shadow-md hover:bg-muted transition-colors",
 						hasStreaming || hasStream
-							? "bottom-28 px-3 py-1.5 gap-1.5"
-							: "bottom-24 size-9",
+							? "bottom-32 px-3 py-1.5 gap-1.5"
+							: "bottom-28 size-9",
 					)}
 					aria-label="滚动到最新消息"
 				>
