@@ -23,7 +23,7 @@ CASE_GENERATION_SYSTEM = """你是一名资深的护理学教育专家和临床�
   "communication_style": "沟通风格描述（友善自然/紧张焦虑/含糊其辞+细节）",
   "hidden_info": ["隐藏信息列表（患者不会主动透露但学生应通过问诊发现的线索）"],
   "required_inquiries": ["必须采集到的关键内容"],
-  "rubric_ref": "active",  // 评分标准由中央 rubric 管理
+  "rubric_ref": "active",
   "personality": {
     "health_literacy": "normal",
     "verbosity": "normal",
