@@ -9,7 +9,7 @@ import logging
 import os
 from pathlib import Path
 
-from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
@@ -246,20 +246,11 @@ def _seed_llm() -> None:
             db.flush()
             log.debug("种子密钥已创建")
 
-        purposes = [
-            ("scoring", DEEPSEEK_MODEL_PRO),
-            ("patient_chat", DEEPSEEK_MODEL),
-            ("qa", DEEPSEEK_MODEL),
-            ("case_generation", DEEPSEEK_MODEL),
-            ("*", DEEPSEEK_MODEL),
-        ]
-        for purpose, model in purposes:
+        purposes = ["scoring", "scoring_feedback", "patient_chat", "qa", "case_generation", "*"]
+        for purpose in purposes:
             cfg = db.query(LLMConfig).filter(LLMConfig.secret_id == secret.id, LLMConfig.purpose == purpose).first()
-            if cfg:
-                if cfg.model != model:
-                    cfg.model = model
-            else:
-                db.add(LLMConfig(secret_id=secret.id, model=model, purpose=purpose))
+            if not cfg:
+                db.add(LLMConfig(secret_id=secret.id, purpose=purpose, status="active"))
         db.commit()
         log.debug("LLM 种子完成: secret#%d + %d 用途", secret.id, len(purposes))
     except Exception:
