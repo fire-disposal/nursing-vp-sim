@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 
 
-def build_pipeline(features: dict[str, bool] | None = None) -> tuple[list[Any], Any]:
+def build_pipeline() -> tuple[list[Any], Any]:
     if not _CORE_MIDDLEWARE:
         from .middleware import (
             llm_caller,
@@ -30,7 +30,6 @@ def build_pipeline(features: dict[str, bool] | None = None) -> tuple[list[Any], 
         _CORE_MIDDLEWARE[PipelineStage.PERSIST] = [persister]
         _CORE_MIDDLEWARE[PipelineStage.SIDE_EFFECTS] = [side_effects]
 
-    flags = features or {}
     stage_buckets: dict[PipelineStage, list[Any]] = {s: list(_CORE_MIDDLEWARE.get(s, [])) for s in PipelineStage}
 
     result: list[Any] = []

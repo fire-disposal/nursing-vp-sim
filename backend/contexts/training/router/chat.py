@@ -15,6 +15,8 @@ from models import Case, Message, TrainingRecord, User
 from schemas import ChatMessageRequest, ChatMessageResponse
 
 from ..pipeline import (
+    STATE_FEATURES,
+    STATE_STREAM_MODE,
     PipelineContext,
     get_pipeline,
     run_pipeline,
@@ -60,8 +62,8 @@ async def _build_context(
         messages=messages,
     )
     ctx.setup_phases()
-    ctx.state["_stream_mode"] = stream_mode
-    ctx.state["features"] = resolve_features(ctx.record.practice_snapshot)
+    ctx.state[STATE_STREAM_MODE] = stream_mode
+    ctx.state[STATE_FEATURES] = resolve_features(ctx.record.practice_snapshot)
     return ctx
 
 
@@ -74,7 +76,7 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    pipe, collector = get_pipeline(ctx.state["features"])
+    pipe, collector = get_pipeline()
     ctx.note_collector = collector
     await run_pipeline(ctx, pipe)
 
@@ -97,7 +99,7 @@ async def send_message_stream(
     async def _stream_with_db():
         async with db_session() as db:
             ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-            pipe, collector = get_pipeline(ctx.state["features"])
+            pipe, collector = get_pipeline()
             ctx.note_collector = collector
 
             async for chunk in stream_pipeline(ctx, pipe):

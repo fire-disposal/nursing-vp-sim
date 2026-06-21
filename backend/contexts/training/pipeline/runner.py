@@ -4,7 +4,12 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 
-from .context import PipelineContext
+from .context import (
+    STATE_POST_STREAM_EVENTS,
+    STATE_SAVED_MESSAGES,
+    STATE_STREAM_CHUNKS,
+    PipelineContext,
+)
 
 log = logging.getLogger(__name__)
 
@@ -62,11 +67,11 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
         async for chunk in _emit_chunks(ctx):
             yield chunk
 
-    for event in ctx.state.get("_post_stream_events", []):
+    for event in ctx.state.get(STATE_POST_STREAM_EVENTS, []):
         yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     done_id: int | None = None
-    for msg in ctx.state.get("_saved_messages", []):
+    for msg in ctx.state.get(STATE_SAVED_MESSAGES, []):
         if msg.role == "patient":
             done_id = msg.id
             break
@@ -75,7 +80,7 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
 
 
 async def _emit_chunks(ctx: PipelineContext):
-    chunks = ctx.state.get("_stream_chunks", [])
+    chunks = ctx.state.get(STATE_STREAM_CHUNKS, [])
     for chunk in chunks:
         yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 
