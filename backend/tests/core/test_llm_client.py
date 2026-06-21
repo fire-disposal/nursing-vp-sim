@@ -19,7 +19,6 @@ def mock_router():
     router = MagicMock()
     mock_config = MagicMock()
     mock_config.id = 1
-    mock_config.model = "test-model"
     mock_config.secret = MagicMock()
     mock_config.secret.base_url = "https://test.api.com"
     mock_config.secret.price_input_per_1m = 1.0
