@@ -11,7 +11,7 @@ type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
 interface ConfigModalProps {
 	open: boolean;
 	configData: LLMConfigResponse | null;
-	prefilled?: { secret_id?: number; purpose?: string; model?: string } | null;
+	prefilled?: { secret_id?: number; purpose?: string } | null;
 	onClose: () => void;
 	onSaved: () => void;
 }
@@ -21,35 +21,30 @@ const PURPOSE_QUICK = [
 		purpose: "scoring",
 		label: "评分",
 		desc: "DeepSeek Pro — 高精度评分",
-		model: "deepseek-v4-pro",
 		icon: "📊",
 	},
 	{
 		purpose: "patient_chat",
 		label: "患者对话",
 		desc: "DeepSeek Flash — 快速响应",
-		model: "deepseek-v4-flash",
 		icon: "💬",
 	},
 	{
 		purpose: "qa",
 		label: "问答",
 		desc: "DeepSeek Flash — 通用问答",
-		model: "deepseek-v4-flash",
 		icon: "❓",
 	},
 	{
 		purpose: "case_generation",
 		label: "病例生成",
 		desc: "DeepSeek Flash — 生成病例",
-		model: "deepseek-v4-flash",
 		icon: "📋",
 	},
 	{
 		purpose: "*",
 		label: "通配兜底",
 		desc: "DeepSeek Flash — 其他用途后备",
-		model: "deepseek-v4-flash",
 		icon: "🔄",
 	},
 ];
@@ -79,7 +74,6 @@ export default function ConfigModal({
 	const isEdit = configData != null;
 
 	const [label, setLabel] = useState("");
-	const [model, setModel] = useState("");
 	const [purpose, setPurpose] = useState("qa");
 
 	const selectedSecret = secrets.find((s) => String(s.id) === secretId);
@@ -94,16 +88,13 @@ export default function ConfigModal({
 				if (configData) {
 					setSecretId(String(configData.secret_id || ""));
 					setLabel(configData.label || "");
-					setModel(configData.model || "");
 					setPurpose(configData.purpose || "qa");
 				} else if (prefilled) {
 					setSecretId(String(prefilled.secret_id || ak || ""));
-					setModel(prefilled.model || "");
 					setPurpose(prefilled.purpose || "qa");
 				} else {
 					setSecretId(ak);
 					setLabel("");
-					setModel("");
 					setPurpose("qa");
 				}
 			};
@@ -121,7 +112,7 @@ export default function ConfigModal({
 		}
 	}, [open, configData, prefilled]);
 
-	const handleQuickCreate = async (purposeVal: string, modelVal: string) => {
+	const handleQuickCreate = async (purposeVal: string) => {
 		const sid = secretId || autoKey;
 		if (!sid) {
 			error("请先添加 API 密钥");
@@ -132,7 +123,6 @@ export default function ConfigModal({
 			await createConfig({
 				secret_id: Number(sid),
 				label: `${selectedSecret?.label || "key"}-${purposeVal}`,
-				model: modelVal,
 				purpose: purposeVal,
 			});
 			success("已创建");
@@ -150,15 +140,10 @@ export default function ConfigModal({
 		const payload = {
 			secret_id: Number(secretId),
 			label: label || `${selectedSecret?.label || ""}-${purpose}`,
-			model,
 			purpose,
 		};
 		if (!payload.secret_id) {
 			error("请选择密钥");
-			return;
-		}
-		if (!payload.model) {
-			error("请填写模型");
 			return;
 		}
 		setSaving(true);
@@ -216,7 +201,7 @@ export default function ConfigModal({
 						{PURPOSE_QUICK.map((p) => (
 							<button
 								key={p.purpose}
-								onClick={() => handleQuickCreate(p.purpose, p.model)}
+								onClick={() => handleQuickCreate(p.purpose)}
 								disabled={saving || !(secretId || autoKey)}
 								className="p-3 rounded-md border border-border bg-card cursor-pointer text-left flex flex-col gap-0.5 hover:bg-muted disabled:opacity-50"
 							>
@@ -240,15 +225,6 @@ export default function ConfigModal({
 							className={inputClass}
 						/>
 					</label>
-					<div>
-						<div className="mb-1 font-semibold text-sm">模型</div>
-						<input
-							value={model}
-							onChange={(e) => setModel(e.target.value)}
-							placeholder="deepseek-v4-pro"
-							className={inputClass}
-						/>
-					</div>
 					<div>
 						<div className="mb-1 font-semibold text-sm">用途</div>
 						<select
