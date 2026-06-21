@@ -7,7 +7,7 @@ git add → git commit → git push
              │              │
              ▼              ▼
         pre-commit      pre-push
-        ├─ commit-msg format (emoji + type)
+        ├─ commit-msg format check (emoji + type)
         ├─ check-migration-autogen.js (ddl/data separation)
         ├─ ruff format --check (backend)
         ├─ ruff check (backend)
@@ -22,24 +22,15 @@ git add → git commit → git push
                         └─ biome lint --max-diagnostics 50 (frontend)
 ```
 
-- `tsc` + `biome lint` run ONLY on staged frontend files (lint-staged)
-- Migration check runs ONLY on staged files under `backend/migrations/versions/`
-- Pre-push alembic roundtrip: temp DB → upgrade → downgrade → upgrade → drop
-- Checklist content: "无需测试" only for pure refactor/docs/ci/test versions (no feat/fix)
-- Rejected commits show the emoji format table
-
-**Full verification before push:**
-
-```powershell
-cd backend; uv run ruff check; uv run ruff format --check; uv run python -m pytest -x -q; uv run ty check
-cd frontend; npx tsc --noEmit; npx biome check
-```
-
-Or: `pnpm run check` (ruff + ty + biome + tsc, no pytest) or `pnpm run check:full` (includes pytest).
+- **lint-staged**: `tsc` + `biome lint` run ONLY on staged frontend files
+- **Migration check**: ONLY on staged files under `backend/migrations/versions/`
+- **Alembic roundtrip**: temp DB → upgrade → downgrade → upgrade → drop
+- **Checklist**: "无需测试" only for pure refactor/docs/ci/test/chore/build versions; any `feat`/`fix` commit requires a real checklist
+- Rejected commits print the emoji format table
 
 ## pnpm Scripts
 
-All from monorepo root.
+All run from monorepo root.
 
 | Script | Does |
 |--------|------|
@@ -50,36 +41,45 @@ All from monorepo root.
 | `pnpm run db:migrate` | `alembic upgrade head` |
 | `pnpm run db:downgrade` | `alembic downgrade -1` |
 | `pnpm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
-| `pnpm run db:data "name"` | Scaffold data-only migration |
-| `pnpm run api:spec` | Dump openapi.json from running backend |
+| `pnpm run db:data -- "name"` | Scaffold data-only migration (`scripts/create-data-migration.js`) |
+| `pnpm run api:spec` | Dump `openapi.json` — imports app module, no running server needed |
 | `pnpm run api:generate` | Generate `frontend/src/api/api-types.gen.ts` |
 | `pnpm run api:generate:miniapp` | Generate `miniprogram/api/types.gen.ts` |
-| `pnpm run api:update:all` | spec + generate web + generate miniapp |
-| `pnpm run tag` | Auto-generate date-based tag + push (→ staging deploy) |
-| `pnpm run gen:checklist` | Combine all checklists between prod and latest staging |
-| `pnpm run gen:checklist -- --feishu` | Same + publish to feishu sheet (CI: staging.yml auto-triggers) |
+| `pnpm run api:update` | `api:spec` + `api:generate` |
+| `pnpm run api:update:all` | `api:spec` + `api:generate` + `api:generate:miniapp` |
+| `pnpm run tag` | Auto-generate date-based tag + push → triggers staging deploy |
+| `pnpm run gen:checklist` | Combine prod→staging checklists |
+| `pnpm run gen:checklist -- --feishu` | Same + publish to Feishu sheet |
+
+> **After any backend schema/route change, run `pnpm run api:update:all` from monorepo root.** Never manually edit `.gen.ts` files. Never dump openapi.json via curl/SSH.
+
+## Auto-Generated Files — NEVER EDIT
+
+| File | Generator | Update command |
+|------|-----------|----------------|
+| `frontend/src/api/api-types.gen.ts` | `openapi-typescript` | `pnpm run api:update` |
+| `miniprogram/api/types.gen.ts` | `scripts/generate-miniapp-api.mjs` | `pnpm run api:update:all` |
+| `openapi.json` | `pnpm run api:spec` | `pnpm run api:spec` |
+
+**These files are read-only for humans.** Editing them causes `pnpm run check:api` to fail CI and will be overwritten on next regeneration. Any type mismatch means the backend schema changed — regenerate, don't patch.
 
 ## Python Environment
 
-Always use `uv run` from `backend/`. Never call `.venv/Scripts/python.exe` directly.
+Always `uv run` from `backend/`. Never call `.venv/Scripts/python.exe` directly.
 
 ```bash
 cd backend
-uv run ruff check          # lint
+uv run ruff check
 uv run alembic upgrade head
-uv run ty check            # type check
+uv run ty check
+uv run python -m pytest -x -q
 ```
 
-App DB via `DATABASE_URL` (default `vptest`). Both `.env.example` values.
+App DB: `DATABASE_URL` (default `vptest`). Test DB: `TEST_DB_URL`.
 
 ## Testing
 
-**Do NOT run full pytest on every edit.** Target only the affected file or domain. Full suite is for pre-push verification.
-
-```bash
-uv run python -m pytest -x -q                        # full suite (~140s)
-uv run python -m pytest tests/<domain>/ -x -q        # single domain (~5-15s)
-```
+**Do NOT run full pytest on every edit.** Target the affected file or domain.
 
 | Scope | Command | Time |
 |-------|---------|------|
@@ -87,37 +87,31 @@ uv run python -m pytest tests/<domain>/ -x -q        # single domain (~5-15s)
 | One domain | `pytest tests/training/ -x -q` | ~10s |
 | Full suite | `pytest -x -q` or `pnpm run check:full` | ~140s |
 
-Test DB via `TEST_DB_URL`.
-
 ## Migration Rules
 
-Migration chain was squashed to a single `0001_initial.py` (all tables created from current models). No incremental DDL migrations exist.
-
-| Directory | Source | Contains | Required marker |
-|-----------|--------|----------|-----------------|
+| Directory | Source | Contains | Marker |
+|-----------|--------|----------|--------|
 | `ddl/` | `--autogenerate` | CREATE/ALTER/DROP, add_column, indexes | `# ### commands auto generated by Alembic` |
 | `data/` | hand-written | INSERT, UPDATE, seed, `op.execute()` | `# Manual override reason: data_only` |
 
-- **Never hand-write DDL.** Always `alembic revision --autogenerate -m "describe_change"`
+- **Never hand-write DDL** — always `alembic revision --autogenerate -m "describe_change"`
 - **DDL files must NOT contain `op.execute()`** — create a separate data migration
 - **Don't commit empty autogenerated migrations**
 - **`0001_initial` is the base** — do not hand-edit it
-- **Idempotency required**: downstream migrations adding objects already in `0001` must use `insp.get_columns()` / `insp.get_indexes()` / `insp.get_table_names()` guards. No bare `try/except` (PostgreSQL aborts the transaction on first DDL error)
-- Pre-commit hook `check-migration-autogen.js` enforces these rules
+- **Idempotency**: downstream migrations must use `insp.get_columns()` / `insp.get_indexes()` / `insp.get_table_names()` guards, not bare `try/except`
+- Pre-commit hook `check-migration-autogen.js` enforces these
 
 ## Keys & Secrets
 
-Three independent environment variables, no mutual derivation:
-
 | Variable | Purpose | Generate |
 |----------|---------|----------|
-| `JWT_SECRET_KEY` | JWT token signing (HS256) | `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+| `JWT_SECRET_KEY` | JWT signing (HS256) | `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
 | `FERNET_KEY` | API key encryption at rest | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `DEEPSEEK_API_KEY` | DeepSeek API calls | From DeepSeek Platform |
 
-`SECRET_KEY` is **removed**. Both keys must be set independently or `validate_config()` blocks startup.
+All three must be set independently. `validate_config()` blocks startup if missing.
 
-API key management uses the `ApiSecret` table (encrypted by `FERNET_KEY`). On startup, `seed.py` re-encrypts `DEEPSEEK_API_KEY` into the DB with the current `FERNET_KEY`. If DB key decryption fails, the system falls back to env `DEEPSEEK_API_KEY`.
+API key management: `seed.py` encrypts `DEEPSEEK_API_KEY` into `ApiSecret` table using `FERNET_KEY`. On decryption failure, falls back to env `DEEPSEEK_API_KEY`.
 
 ## Commit Format
 
@@ -135,109 +129,55 @@ API key management uses the `ApiSecret` table (encrypted by `FERNET_KEY`). On st
 
 ## Tag Naming
 
-`vYYYY.MM.DD-N` — Beijing time, sequential counter per day.
+`vYYYY.MM.DD-N` — Beijing time, sequential counter per day. Tag push triggers staging deploy.
 
 ```bash
 git tag -a v2026.06.19-3 -m "describe changes"
 git push origin v2026.06.19-3
 ```
 
-Tag push triggers staging deploy. Never push directly to master for deploy.
-
 ## Testing Checklist
 
-Every tag push requires `docs/testing/checklist-{tag}.md` to exist (pre-push hook enforces).
+Every tag push needs `docs/testing/checklist-{tag}.md` (pre-push hook enforces).
 
-**"无需测试" is ONLY for versions with ZERO user-facing changes** — pure `♻️ refactor / 🚀 ci / 📝 docs / ✅ test / 🔧 chore / 📦 build` commits. If the version contains ANY `✨ feat` or `🐛 fix` commit, write a real checklist. Otherwise the Feishu notification won't trigger and the version won't be properly tracked.
+**"无需测试" only if all commits are non-user-facing** (refactor/docs/ci/test/chore/build). Any `feat` or `fix` commit requires a real checklist.
 
-### Generating a checklist
-
-Ask opencode in this repo — it will:
-
-1. `ssh yecaoyun` fetch current prod version from `.version-history`
-2. `git log prod_ver..staging_ver` extract user-visible commits (feat, fix)
-3. Analyze the diff and write a scene-level checklist to `docs/testing/checklist-{tag}.md`
-4. The file includes: operation steps per change, expected results, test account credentials, Pass/Fail checkboxes
-
-### Checklist format
-
-```markdown
-# {stag_ver} 测试清单
-
-**版本**: v{prod_ver} → {stag_ver}
-**环境**: https://test.205716.xyz
-
-### 1. 功能名称
-**操作**: 步骤简述用 → 连接
-**预期**: 可见的预期结果
-```
+Ask opencode to generate — it will fetch prod version, diff commits, and write scene-level steps.
 
 ## Deployment
 
 ### Staging (`test.205716.xyz`)
 
-Triggered automatically on tag push. Workflow: `.github/workflows/staging.yml`.
-- Ports: backend 9081, frontend 9080, db 5434
-- Env injected via `.env` file on server (read by `docker-compose.staging.yml` → `env_file`)
+Triggered by tag push → `.github/workflows/staging.yml`.
+
+| Service | Port |
+|---------|------|
+| backend | 9081 |
+| frontend | 9080 |
+| db | 5434 |
 
 ### Production (`iomt.205716.xyz`)
 
-Manual `workflow_dispatch` via `.github/workflows/cd.yml`:
-```bash
-gh workflow run cd.yml -f version=2026.06.20-2
-```
-- Ports: backend 9001, frontend 9000, db 5433
-- Requires staging version to match exactly (version gate)
-- Auto-backup DB before deploy, rolls back on health check failure
-- Checklist assembly step fetches range from prod → target version
+Manual trigger: `gh workflow run cd.yml -f version=v2026.06.20-X`
 
-### Pre-deploy checklist
+| Service | Port |
+|---------|------|
+| backend | 9001 |
+| frontend | 9000 |
+| db | 5433 |
 
-1. Verify staging deployment healthy: `ssh yecaoyun "curl -sf http://127.0.0.1:9081/api/health"`
-2. Drop production DB if schema changed: `ssh yecaoyun "docker stop nursing-vp-sim-backend-1; docker exec nursing-db psql -U nursing -d postgres -c 'DROP DATABASE IF EXISTS nursing_vp; CREATE DATABASE nursing_vp;'"`
-3. Trigger CD: `gh workflow run cd.yml -f version=v2026.06.20-X`
-4. Verify: `curl -sf https://iomt.205716.xyz/api/health`
+- Version gate: staging must match exactly
+- Auto-backup DB before deploy, rollback on health check failure
+- Rollback: `ssh yecaoyun "cd /opt/nursing-vp-sim && sudo ./rollback.sh"`
 
-### Rollback
+## Path Type Safety
 
-```bash
-ssh yecaoyun "cd /opt/nursing-vp-sim && sudo ./rollback.sh"
-```
-
-## API Client Generation
-
-Never hand-edit `.gen.ts` files — they're auto-generated.
-
-| Generated file | Generator | Update |
-|---------------|-----------|--------|
-| `frontend/src/api/api-types.gen.ts` | `openapi-typescript` | `pnpm run api:update` |
-| `miniprogram/api/types.gen.ts` | `scripts/generate-miniapp-api.mjs` | `pnpm run api:update:all` |
-
-**After backend route changes:**
-```bash
-pnpm run api:spec            # dump openapi.json (backend must be running)
-pnpm run api:update:all      # regenerate both clients
-```
-
-> **Note**: The envelope middleware wraps `/openapi.json` responses. Run after spec dump:
-> ```bash
-> cd backend && uv run python -c "import json; d=json.load(open('../openapi.json')); schema=d['data']; schema['openapi']='3.0.3'; json.dump(schema, open('../openapi.json','w'), ensure_ascii=False)"
-> ```
-
-### Path Type Safety
-
-`frontend/src/api/api-path.ts` derives `ApiPath` from generated types. All paths must use `satisfies ApiPath`:
+`ApiPath` is derived from generated types. All paths must use `satisfies ApiPath`:
 
 ```typescript
-// Static paths
-api.get("/auth/login" satisfies ApiPath as string, config);
-
-// Dynamic paths
+api.get("/auth/login" satisfies ApiPath as string);
 const RECORD = "/training/records/{record_id}" satisfies ApiPath;
-api.get(RECORD.replace("{record_id}", String(id)));
 ```
-
-Backend route changes cause `tsc --noEmit` errors if frontend paths aren't updated.
 
 ## Environment
 
@@ -247,9 +187,7 @@ Backend route changes cause `tsc --noEmit` errors if frontend paths aren't updat
 ENV=development
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/vptest
 TEST_DB_URL=postgresql://postgres:postgres@localhost:5432/nursing_test
-JWT_SECRET_KEY=...          # JWT signing key, min 32 chars
-FERNET_KEY=...              # Fernet encryption key (44-char base64)
-DEEPSEEK_API_KEY=...        # DeepSeek API key
+JWT_SECRET_KEY=...
+FERNET_KEY=...
+DEEPSEEK_API_KEY=...
 ```
-
-Pre-push hook reads `.env` for DB credentials.
