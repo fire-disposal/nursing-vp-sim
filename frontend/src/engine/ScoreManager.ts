@@ -2,11 +2,11 @@
 import { api } from "@/api/axios-instance";
 import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types";
 
-/** Global callback for SSE scoring progress — set by active ScoreManager instance */
-let _globalSSEHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
+/** Per-record handlers for SSE scoring progress — avoids single-global overwrite when multiple ScoreManagers coexist */
+const _sseHandlers = new Map<number, (data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void>();
 
 export function notifySSEProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) {
-	_globalSSEHandler?.(data);
+	_sseHandlers.get(data.record_id)?.(data);
 }
 
 export class ScoreManager {
@@ -20,10 +20,15 @@ export class ScoreManager {
 	private _visibilityHandler: (() => void) | null = null;
 	private _sseThought: string = "";
 
+	private _registeredHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
+
 	constructor(recordId: number | null, bus?: MessageBus) {
 		this.recordId = recordId;
 		this.bus = bus ?? null;
-		_globalSSEHandler = this.onSSEProgress.bind(this);
+		if (recordId) {
+			this._registeredHandler = this.onSSEProgress.bind(this);
+			_sseHandlers.set(recordId, this._registeredHandler);
+		}
 	}
 
 	get score(): ScoreData | null { return this._score; }
@@ -42,10 +47,13 @@ export class ScoreManager {
 		}
 	}
 
-	/** Force emit score:ready even if _score is null (e.g. completed but detail fetch failed) */
+	/** Emit score:ready only when _score is available; fall back to score:unavailable otherwise */
 	private notifyScoreReady(): void {
-		if (this.bus) {
-			this.bus.emit("score:ready", this._score || { total_score: 0 } as ScoreData);
+		if (!this.bus) return;
+		if (this._score) {
+			this.bus.emit("score:ready", this._score);
+		} else {
+			this.bus.emit("score:unavailable", { record_id: this.recordId });
 		}
 	}
 
@@ -173,7 +181,8 @@ export class ScoreManager {
 
 	dispose(): void {
 		this.stopPolling();
-		_globalSSEHandler = null;
+		if (this.recordId) _sseHandlers.delete(this.recordId);
+		this._registeredHandler = null;
 		this.bus = null;
 		this.listeners = [];
 		this._score = null;
@@ -184,6 +193,7 @@ export class ScoreManager {
 
 	reset(): void {
 		this.stopPolling();
+		if (this.recordId) _sseHandlers.delete(this.recordId);
 		this._score = null;
 		this._progress = { phase: null, percentage: 0, message: "" };
 		this._sseThought = "";

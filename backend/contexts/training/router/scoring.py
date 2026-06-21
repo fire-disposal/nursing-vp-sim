@@ -71,6 +71,7 @@ def get_scoring_status(
         "scoring_error": record.scoring_error,
         "score": {
             "total_score": score.total_score,
+            "detail_scores": score.detail_scores,
             "review_status": "reviewed" if review_exists else "pending",
         }
         if score
@@ -113,6 +114,10 @@ async def _run_scoring_background(
             log.warning("评分任务：记录不存在", extra={"record_id": record_id})
             return
         log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
+        if _get_current_generation(record_id) != gen:
+            log.info("评分被新任务取代，跳过执行", extra={"record_id": record_id})
+            return
+
         record.scoring_status = "processing"
         db.commit()
 
@@ -156,6 +161,7 @@ async def _run_scoring_background(
             db.add(notif)
             db.commit()
         except Exception:
+            db.rollback()
             log.warning("Failed to create scoring notification", exc_info=True)
 
         if sse_manager:
@@ -203,6 +209,8 @@ async def _run_scoring_background(
         log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
     finally:
         db.close()
+        if tracker:
+            tracker.cleanup(record_id)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
@@ -294,11 +302,7 @@ async def retry_scoring(
             if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
-        record.scoring_status = None
-        record.scoring_error = None
-        db.flush()
-
-        if not _try_acquire_scoring(record_id, db):
+        if not _try_acquire_scoring(record_id, db, allow_retry=True):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
         old_score = db.query(Score).filter(Score.record_id == record_id).first()

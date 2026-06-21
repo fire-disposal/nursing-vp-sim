@@ -239,14 +239,6 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 						</div>
 					)}
 
-					{/* Summary */}
-					{score.summary && (
-						<div className="rounded-lg bg-muted p-3">
-							<h3 className="mb-1 text-sm font-medium">总结</h3>
-							<p className="text-sm text-muted-foreground leading-relaxed">{score.summary}</p>
-						</div>
-					)}
-
 					{/* Suggestions */}
 					{score.suggestions && (
 						<div className="rounded-lg bg-muted p-3">
