@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MessageBus } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -9,15 +9,30 @@ interface InitiativeBarProps {
 
 export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 	const [percent, setPercent] = useState(0);
+	const elapsedRef = useRef(0);
+	const thresholdRef = useRef(30);
+	const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	useEffect(() => {
 		const unsub = bus.on(
 			"initiative:state",
-			(data: { percent?: number }) => {
+			(data: { elapsed_seconds?: number; threshold_seconds?: number; percent?: number }) => {
+				elapsedRef.current = data.elapsed_seconds ?? 0;
+				thresholdRef.current = data.threshold_seconds ?? 30;
 				setPercent(data.percent ?? 0);
+				// Start client-side tick between SSE updates
+				if (tickRef.current) clearInterval(tickRef.current);
+				tickRef.current = setInterval(() => {
+					elapsedRef.current += 1;
+					const pct = Math.min(100, Math.round((elapsedRef.current / thresholdRef.current) * 100));
+					setPercent(pct);
+				}, 1000);
 			},
 		);
-		return unsub;
+		return () => {
+			unsub();
+			if (tickRef.current) clearInterval(tickRef.current);
+		};
 	}, [bus]);
 
 	const barColor =

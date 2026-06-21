@@ -47,7 +47,7 @@ const PLUGIN_OPTIONS = [
 	},
 	{
 		id: "patient_initiative",
-		label: "患者主动追问",
+		label: "患者自主反应",
 		desc: "患者根据性格/情绪/等待时长主动发言（需同时启用情绪状态机）",
 	},
 
