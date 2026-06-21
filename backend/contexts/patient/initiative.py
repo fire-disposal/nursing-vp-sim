@@ -123,7 +123,7 @@ def generate_initiative(
 # ── Cache-based API ──
 
 
-def update_initiative_timer(record_id: int, cache: InitiativeCache, db: Session, last_reply_length: int = 0) -> None:
+def update_initiative_timer(record_id: int, cache: InitiativeCache, db: Session) -> None:
     now = datetime.now(UTC).timestamp()
     cache.update_timer(record_id, now, db)
 

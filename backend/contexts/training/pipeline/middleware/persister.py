@@ -16,8 +16,8 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         ctx.db.add(student_msg)
         _persist_phase_op_count(ctx)
         ctx.db.commit()
-        _reset_initiative_timer(ctx)
         await next_mw()
+        _reset_initiative_timer(ctx)
         return
 
     student_msg = Message(record_id=ctx.record.id, role="student", content=ctx.student_input)
@@ -34,15 +34,16 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
             "Persisted: record_id=%d student=%d patient=%d", ctx.record.id, len(ctx.student_input), len(ctx.llm_reply)
         )
 
-    _reset_initiative_timer(ctx)
     await next_mw()
+
+    _reset_initiative_timer(ctx)
 
 
 def _reset_initiative_timer(ctx: PipelineContext) -> None:
     try:
         app_state = ctx.app_state
         if hasattr(app_state, "initiative_cache") and app_state.initiative_cache is not None:
-            update_initiative_timer(ctx.record.id, app_state.initiative_cache, ctx.db, len(ctx.student_input or ""))
+            update_initiative_timer(ctx.record.id, app_state.initiative_cache, ctx.db)
     except Exception:
         log.warning("Failed to reset initiative timer: record_id=%d", ctx.record.id, exc_info=True)
 

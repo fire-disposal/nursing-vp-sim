@@ -150,7 +150,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         if not should_initiate(
             ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         ):
-            update_initiative_timer(ctx.record.id, initiative_cache, ctx.db, len(ctx.llm_reply))
+            update_initiative_timer(ctx.record.id, initiative_cache, ctx.db)
             return
 
         msg_text = generate_initiative(personality, emotion_state.trust, emotion_state.comfort, 999.0)
