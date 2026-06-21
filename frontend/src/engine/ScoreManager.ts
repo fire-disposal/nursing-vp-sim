@@ -2,6 +2,13 @@
 import { api } from "@/api/axios-instance";
 import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types";
 
+/** Global callback for SSE scoring progress — set by active ScoreManager instance */
+let _globalSSEHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
+
+export function notifySSEProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) {
+	_globalSSEHandler?.(data);
+}
+
 export class ScoreManager {
 	private recordId: number | null;
 	private bus: MessageBus | null;
@@ -11,10 +18,12 @@ export class ScoreManager {
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private listeners: Array<() => void> = [];
 	private _visibilityHandler: (() => void) | null = null;
+	private _sseThought: string = "";
 
 	constructor(recordId: number | null, bus?: MessageBus) {
 		this.recordId = recordId;
 		this.bus = bus ?? null;
+		_globalSSEHandler = this.onSSEProgress.bind(this);
 	}
 
 	get score(): ScoreData | null { return this._score; }
@@ -153,22 +162,44 @@ export class ScoreManager {
 
 	dispose(): void {
 		this.stopPolling();
+		_globalSSEHandler = null;
 		this.bus = null;
 		this.listeners = [];
 		this._score = null;
 		this._progress = { phase: null, percentage: 0, message: "" };
 		this._visibilityHandler = null;
+		this._sseThought = "";
 	}
 
 	reset(): void {
 		this.stopPolling();
 		this._score = null;
 		this._progress = { phase: null, percentage: 0, message: "" };
+		this._sseThought = "";
 		this.notify();
 	}
 
 	setRecordId(id: number | null): void {
 		this.recordId = id;
 		this.reset();
+	}
+
+	/** Receive real-time SSE scoring progress (from useScoringNotifications hook) */
+	onSSEProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }): void {
+		if (data.record_id !== this.recordId) return;
+		if (data.thought) {
+			this._sseThought = data.thought;
+		}
+		const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
+		const phase = VALID_PHASES.includes(data.stage as any)
+			? (data.stage as ScorePhase)
+			: null;
+		this._progress = {
+			phase,
+			percentage: data.percent,
+			message: data.message,
+			thought: this._sseThought,
+		};
+		this.notify();
 	}
 }

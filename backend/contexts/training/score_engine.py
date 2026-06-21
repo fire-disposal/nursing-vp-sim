@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import sys
 
 from sqlalchemy.orm import Session
 
@@ -27,6 +28,29 @@ from ._scoring_validation import (
 log = logging.getLogger(__name__)
 
 
+async def _sse_progress(
+    sse_manager, user_id: int, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
+) -> None:
+    """Publish scoring progress via SSE if sse_manager and user_id are available."""
+    if not sse_manager or not user_id:
+        return
+    try:
+        await sse_manager.publish(
+            user_id,
+            "scoring_progress",
+            {
+                "record_id": record_id,
+                "stage": stage,
+                "percent": pct,
+                "message": msg,
+                "thought": thought,
+            },
+        )
+    except Exception:
+        if sse_manager and user_id:
+            log.warning("SSE publish failed: stage=%s record_id=%d", stage, record_id)
+
+
 async def _score_stage(
     messages: list[dict],
     record_id: int,
@@ -38,6 +62,7 @@ async def _score_stage(
     llm_client: LLMClient,
     llm_cfg: dict | None = None,
     tracker=None,  # ScoringProgressTracker | None
+    sse_manager=None,
 ) -> dict:
     """第一阶段：逐项评分（total_score + detail_scores + evidence/reason）。"""
     cfg = llm_cfg or get_llm_config("scoring")
@@ -60,6 +85,11 @@ async def _score_stage(
         )
         _coerce_numeric_fields(result)
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError, RuntimeError) as e:
+        print(
+            f"[SCORING] STAGE1-PARSEFAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
+            file=sys.stderr,
+            flush=True,
+        )
         log.warning(
             "评分首次调用失败（JSON解析或校验），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]}
         )
@@ -68,6 +98,8 @@ async def _score_stage(
     if result:
         try:
             _validate_scoring_essentials(result)
+            thought = json.dumps(result, ensure_ascii=False, indent=2)[:5000]
+            await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
             return result
         except (ValueError, TypeError):
             log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
@@ -100,8 +132,15 @@ async def _score_stage(
         _validate_scoring_essentials(result2)
         if tracker:
             tracker.update(record_id, "scoring", 55, "评分维度分析完成")
+        thought = json.dumps(result2, ensure_ascii=False, indent=2)[:3000]
+        await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
         return result2
     except Exception as retry_err:
+        print(
+            f"[SCORING] STAGE1-RETRYFAIL record_id={record_id} error={type(retry_err).__name__}: {str(retry_err)[:200]}",
+            file=sys.stderr,
+            flush=True,
+        )
         log.warning("评分重试也失败", extra={"record_id": record_id}, exc_info=True)
         raise RuntimeError(f"评分解析重试失败 record_id={record_id}") from retry_err
 
@@ -116,6 +155,7 @@ async def _feedback_stage(
     llm_client: LLMClient,
     llm_cfg: dict | None = None,
     tracker=None,  # ScoringProgressTracker | None
+    sse_manager=None,
 ) -> dict:
     """第二阶段：生成反馈（strengths/weaknesses/missed_content/suggestions）。"""
     cfg = llm_cfg or get_llm_config("scoring_feedback")
@@ -137,12 +177,19 @@ async def _feedback_stage(
             **cfg,
         )
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError, RuntimeError) as e:
+        print(
+            f"[SCORING] STAGE2-PARSEFAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
+            file=sys.stderr,
+            flush=True,
+        )
         log.warning("反馈首次调用失败（JSON解析），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]})
         result = {}
 
     if result:
         try:
             _validate_feedback_fields(result)
+            thought = json.dumps(result, ensure_ascii=False, indent=2)[:5000]
+            await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
             return result
         except ValueError as e:
             log.info(
@@ -173,11 +220,20 @@ async def _feedback_stage(
             **cfg,
         )
     except Exception as retry_err:
+        print(
+            f"[SCORING] STAGE2-RETRYFAIL record_id={record_id} error={type(retry_err).__name__}: {str(retry_err)[:200]}",
+            file=sys.stderr,
+            flush=True,
+        )
         log.warning("反馈重试也失败", extra={"record_id": record_id}, exc_info=True)
         raise RuntimeError(f"反馈解析重试失败 record_id={record_id}") from retry_err
 
     try:
         _validate_feedback_fields(result2)
+        if tracker:
+            tracker.update(record_id, "feedback", 90, "反馈建议生成完成")
+        thought = json.dumps(result2, ensure_ascii=False, indent=2)[:3000]
+        await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
         return result2
     except ValueError:
         log.warning("Second feedback retry validation failed: record_id=%d", record_id)
@@ -195,6 +251,8 @@ async def evaluate_training(
     pm,
     llm_client: LLMClient,
     tracker=None,  # ScoringProgressTracker | None
+    sse_manager=None,
+    user_id: int | None = None,
 ) -> Score:
     """对训练对话进行评分并保存结果。
 
@@ -219,6 +277,7 @@ async def evaluate_training(
     if tracker:
         tracker.start(record_id)
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
+    await _sse_progress(sse_manager, user_id, record_id, "loading", 5, "正在加载对话记录...")
 
     rubric = load_rubric_by_version(record.rubric_frozen or "nursing_history_v1@1.0")
     messages = await messages_task
@@ -266,6 +325,7 @@ async def evaluate_training(
 
     if tracker:
         tracker.update(record_id, "scoring", 10, "正在评分维度分析...")
+    await _sse_progress(sse_manager, user_id, record_id, "scoring", 10, "正在评分维度分析...")
 
     scoring_cfg = get_llm_config("scoring")
     feedback_cfg = get_llm_config("scoring_feedback")
@@ -280,6 +340,7 @@ async def evaluate_training(
         llm_client=llm_client,
         llm_cfg=scoring_cfg,
         tracker=tracker,
+        sse_manager=sse_manager,
     )
     feedback_task = _feedback_stage(
         feedback_messages,
@@ -290,12 +351,14 @@ async def evaluate_training(
         llm_client=llm_client,
         llm_cfg=feedback_cfg,
         tracker=tracker,
+        sse_manager=sse_manager,
     )
 
     scoring_result, feedback_result = await asyncio.gather(scoring_task, feedback_task)
 
     if tracker:
         tracker.update(record_id, "saving", 95, "正在保存评分结果...")
+    await _sse_progress(sse_manager, user_id, record_id, "saving", 95, "正在保存评分结果...")
 
     result = {**scoring_result}
     for field in ("strengths", "weaknesses", "missed_content", "suggestions"):

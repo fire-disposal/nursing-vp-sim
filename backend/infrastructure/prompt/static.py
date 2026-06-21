@@ -101,11 +101,11 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
                     "id": item["id"],
                     "name": item["name"],
                     "score": "N_ITEM_SCORE",
-                    "evidence": "对话中的具体证据（30-80字）",
-                    "reason": "评分理由（20-50字）",
+                    "evidence": "对话中的具体证据（≥10汉字）",
+                    "reason": "评分理由（≥5汉字）",
                 }
             )
-        item_objs.append({dim_name: {"score": "N_DIM_SCORE", "max": dim_max, "items": items}})
+        item_objs.append({dim_name: {"score": f"数字(满分{dim_max})", "max": dim_max, "items": items}})
 
     json_obj = {
         "rubric_version": f"{rubric.get('id', '')}@{rubric_version}",
@@ -115,7 +115,6 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
 
     json_template = json.dumps(json_obj, ensure_ascii=False, indent=2)
     json_template = json_template.replace('"N_TOTAL_SCORE"', f"数字(满分{raw_max})")
-    json_template = json_template.replace('"N_DIM_SCORE"', f"数字(满分{raw_max})")
     json_template = json_template.replace('"N_ITEM_SCORE"', "1-3")
 
     lines = []

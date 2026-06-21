@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { notifySSEProgress } from "@/engine/ScoreManager";
 import useAuthStore from "@/stores/authStore";
 
 export function useScoringNotifications() {
@@ -55,6 +56,9 @@ export function useScoringNotifications() {
                                         },
                                         duration: 10000,
                                     });
+                                }
+                                if (eventType === "scoring_progress") {
+                                    notifySSEProgress(data);
                                 }
                             } catch {
                                 /* ignore malformed SSE */

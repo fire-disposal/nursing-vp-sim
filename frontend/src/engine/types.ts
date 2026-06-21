@@ -40,6 +40,7 @@ export interface ScoringProgress {
 	phase: ScorePhase;
 	percentage: number;
 	message: string;
+	thought?: string;
 }
 
 export interface ScoreData {
