@@ -184,7 +184,7 @@ async def evaluate_training(
     if not record:
         raise ValueError("训练记录不存在")
 
-    async def _fetch_messages() -> list:
+    def _fetch_messages() -> list:
         _db = SessionLocal()
         try:
             return _db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()

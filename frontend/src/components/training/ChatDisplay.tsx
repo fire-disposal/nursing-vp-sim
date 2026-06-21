@@ -6,6 +6,7 @@ import {
 	usePortrait,
 } from "@/engine/PluginContext";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
+import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
 
 interface ChatDisplayProps {
@@ -114,11 +115,19 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 				<button
 					type="button"
 					onClick={() => scrollToBottom(true)}
-					className="fixed bottom-24 right-4 z-30 flex size-9 items-center justify-center rounded-full border bg-background shadow-md hover:bg-muted transition-colors"
+					className={cn(
+						"fixed right-4 z-30 flex items-center justify-center rounded-full border bg-background shadow-md hover:bg-muted transition-colors",
+						hasStreaming || hasStream
+							? "bottom-28 px-3 py-1.5 gap-1.5"
+							: "bottom-24 size-9",
+					)}
 					aria-label="滚动到最新消息"
 				>
 					{hasStreaming || hasStream ? (
-						<span className="text-xs text-muted-foreground">患者正在回复...</span>
+						<>
+							<span className="size-2 rounded-full bg-primary/60 animate-pulse" />
+							<span className="text-xs text-muted-foreground whitespace-nowrap">患者正在回复...</span>
+						</>
 					) : (
 						<svg
 						width="16"
