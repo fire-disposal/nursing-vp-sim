@@ -1,7 +1,0 @@
-{
-  "id": "free-exploration",
-  "name": "自由探索",
-  "mode": "free_play",
-  "features": { "physical_exam": true },
-  "behavior": { "emotion_model": true, "time_limit_minutes": 60, "max_rounds": 60 }
-}
