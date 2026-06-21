@@ -175,7 +175,7 @@ def trigger_initiative(
         db.add(patient_msg)
         db.commit()
         db.refresh(patient_msg)
-        update_initiative_timer(record_id, request.app.state.initiative_cache, db, len(msg))
+        update_initiative_timer(record_id, request.app.state.initiative_cache, db)
         return {"triggered": True, "message": msg, "id": patient_msg.id}
 
     return {"triggered": False, "message": None}
