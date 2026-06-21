@@ -50,7 +50,6 @@ export interface ScoreData {
 	weaknesses?: string[];
 	missed_content?: string[];
 	suggestions?: string;
-	summary?: string;
 }
 
 export interface MessageBus {

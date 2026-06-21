@@ -59,6 +59,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const {
 		patient,
 		loading,
+		error: patientError,
 		features: initialFeatures,
 		fromAssignment,
 		initialMessages,
@@ -105,6 +106,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		return () => {
 			unsub();
 			unsubLoading();
+			streamRef.current.abort();
 		};
 	}, [recordNum]);
 
@@ -220,7 +222,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	if (!patient) {
 		return (
 			<div className="flex h-screen items-center justify-center text-muted-foreground">
-				患者信息加载失败
+				{patientError || "患者信息加载失败"}
 			</div>
 		);
 	}
