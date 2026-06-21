@@ -47,7 +47,8 @@ async def _sse_progress(
             },
         )
     except Exception:
-        pass
+        if sse_manager and user_id:
+            log.warning("SSE publish failed: stage=%s record_id=%d", stage, record_id)
 
 
 async def _score_stage(
@@ -97,7 +98,7 @@ async def _score_stage(
     if result:
         try:
             _validate_scoring_essentials(result)
-            thought = json.dumps(result, ensure_ascii=False, indent=2)[:3000]
+            thought = json.dumps(result, ensure_ascii=False, indent=2)[:5000]
             await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
             return result
         except (ValueError, TypeError):
@@ -187,7 +188,7 @@ async def _feedback_stage(
     if result:
         try:
             _validate_feedback_fields(result)
-            thought = json.dumps(result, ensure_ascii=False, indent=2)[:3000]
+            thought = json.dumps(result, ensure_ascii=False, indent=2)[:5000]
             await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
             return result
         except ValueError as e:

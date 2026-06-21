@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { notifySSEProgress } from "@/engine/ScoreManager";
 import useAuthStore from "@/stores/authStore";
 
 export function useScoringNotifications() {
@@ -57,7 +58,6 @@ export function useScoringNotifications() {
                                     });
                                 }
                                 if (eventType === "scoring_progress") {
-                                    const { notifySSEProgress } = await import("@/engine/ScoreManager");
                                     notifySSEProgress(data);
                                 }
                             } catch {
