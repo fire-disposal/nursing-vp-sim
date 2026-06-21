@@ -53,8 +53,10 @@ export function ScoringOverlay({
 			const p = getProgressRef.current();
 			setProgress(p);
 			if (p.phase === "completed") {
-				// Emit score:ready — ScoreCard picks this up
 				clearInterval(id);
+				// Auto-close overlay so ScoreCard (z-50) is visible
+				setClosing(true);
+				setTimeout(() => setVisible(false), 500);
 			}
 		}, 200);
 		return () => clearInterval(id);

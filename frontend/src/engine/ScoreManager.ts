@@ -42,6 +42,13 @@ export class ScoreManager {
 		}
 	}
 
+	/** Force emit score:ready even if _score is null (e.g. completed but detail fetch failed) */
+	private notifyScoreReady(): void {
+		if (this.bus) {
+			this.bus.emit("score:ready", this._score || { total_score: 0 } as ScoreData);
+		}
+	}
+
 	async end(): Promise<void> {
 		if (!this.recordId) return;
 		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
@@ -105,11 +112,15 @@ export class ScoreManager {
 						const record = detail.data as { score?: ScoreData | null };
 						if (record.score?.detail_scores) {
 							this._score = record.score;
+						} else if (data.score?.total_score != null) {
+							this._score = { total_score: data.score.total_score } as ScoreData;
 						}
 					} catch {
-						// If detail fetch fails, emit anyway with progress completed
+						if (data.score?.total_score != null) {
+							this._score = { total_score: data.score.total_score } as ScoreData;
+						}
 					}
-					this.notify();
+					this.notifyScoreReady();
 					return;
 				}
 				// Use backend real progress if available
