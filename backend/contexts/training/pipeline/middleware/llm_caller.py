@@ -33,7 +33,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
     llm_client = app.llm_client
     llm_cfg = ctx.state.get("_patient_chat_cfg")
     if llm_cfg is None:
-        from core.config import get_llm_config
+        from core.llm_profile import get_llm_config
 
         llm_cfg = get_llm_config("patient_chat")
         ctx.state["_patient_chat_cfg"] = llm_cfg
@@ -100,7 +100,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
     llm_client = app.llm_client
     llm_cfg = ctx.state.get("_patient_chat_cfg")
     if llm_cfg is None:
-        from core.config import get_llm_config
+        from core.llm_profile import get_llm_config
 
         llm_cfg = get_llm_config("patient_chat")
         ctx.state["_patient_chat_cfg"] = llm_cfg
