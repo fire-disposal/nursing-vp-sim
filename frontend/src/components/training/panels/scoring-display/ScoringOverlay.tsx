@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Button from "@/components/ui/Button";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +27,7 @@ export function ScoringOverlay({
 	bus: MessageBus;
 	getProgress: () => Progress;
 }) {
+	const navigate = useNavigate();
 	const [visible, setVisible] = useState(false);
 	const [closing, setClosing] = useState(false);
 	const [progress, setProgress] = useState<Progress>({
@@ -95,6 +98,19 @@ export function ScoringOverlay({
 			{progress.phase === "failed" && progress.message && (
 				<p className="mt-1 text-xs text-red-500">{progress.message}</p>
 			)}
+			{(progress.phase === "loading" || progress.phase === "processing" || progress.phase === "scoring" || progress.phase === "feedback") && (
+				<p className="mt-3 text-xs text-muted-foreground">评分在后台进行中，您可以先返回主页</p>
+			)}
+			<div className="mt-4 flex gap-3">
+				<Button variant="outline" size="sm" onClick={() => navigate("/home")}>
+					返回主页
+				</Button>
+				{progress.phase === "failed" && (
+					<Button variant="outline" size="sm" onClick={() => setVisible(false)}>
+						关闭
+					</Button>
+				)}
+			</div>
 		</div>
 	);
 }

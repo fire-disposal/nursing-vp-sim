@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from starlette.responses import StreamingResponse
 
 from contexts.training.score_engine import evaluate_training
 from core.config import SCORING_TIMEOUT_SECONDS
@@ -94,6 +95,7 @@ async def _run_scoring_background(
     llm_client: LLMClient,
     pm: PromptManager,
     tracker: ScoringProgressTracker | None = None,
+    sse_manager=None,
 ) -> None:
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
@@ -146,6 +148,20 @@ async def _run_scoring_background(
             db.commit()
         except Exception:
             log.warning("Failed to create scoring notification", exc_info=True)
+
+        if sse_manager:
+            try:
+                score_obj = db.query(Score).filter(Score.record_id == record_id).first()
+                await sse_manager.publish(
+                    record.user_id,
+                    "scoring_complete",
+                    {
+                        "record_id": record.id,
+                        "total_score": score_obj.total_score if score_obj else None,
+                    },
+                )
+            except Exception:
+                log.warning("SSE publish failed", exc_info=True)
     except TimeoutError:
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
@@ -195,6 +211,7 @@ async def end_training(
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
+        case_data = case.case_data if case else {}
 
         record.status = "completed"
         record.end_time = datetime.now(UTC)
@@ -203,10 +220,11 @@ async def end_training(
         await request.app.state.task_queue.enqueue(
             lambda: _run_scoring_background(
                 record_id,
-                case.case_data if case else {},
+                case_data,
                 llm_client=request.app.state.llm_client,
                 pm=request.app.state.prompt_manager,
                 tracker=getattr(request.app.state, "scoring_tracker", None),
+                sse_manager=request.app.state.sse_manager,
             ),
             priority=5,
         )
@@ -276,14 +294,16 @@ async def retry_scoring(
         db.commit()
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
+        case_data = case.case_data if case else {}
 
         await request.app.state.task_queue.enqueue(
             lambda: _run_scoring_background(
                 record_id,
-                case.case_data if case else {},
+                case_data,
                 llm_client=request.app.state.llm_client,
                 pm=request.app.state.prompt_manager,
                 tracker=getattr(request.app.state, "scoring_tracker", None),
+                sse_manager=request.app.state.sse_manager,
             ),
             priority=5,
         )
@@ -323,3 +343,27 @@ def mark_notification_read(
     notif.is_read = True
     db.commit()
     return {"message": "ok"}
+
+
+@router.get("/notifications/stream")
+async def notifications_stream(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    manager = request.app.state.sse_manager
+    queue = await manager.subscribe(current_user.id)
+
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30)
+                    yield event
+                except TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            manager.unsubscribe(current_user.id, queue)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
