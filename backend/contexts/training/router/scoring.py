@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -101,6 +102,11 @@ async def _run_scoring_background(
 
     db = SessionLocal()
     gen = _get_current_generation(record_id)
+    print(
+        f"[SCORING] START record_id={record_id} gen={gen} timeout={SCORING_GLOBAL_TIMEOUT}s",
+        file=sys.stderr,
+        flush=True,
+    )
     try:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
@@ -121,6 +127,8 @@ async def _run_scoring_background(
                 pm=pm,
                 llm_client=llm_client,
                 tracker=tracker,
+                sse_manager=sse_manager,
+                user_id=record.user_id,
             ),
             timeout=SCORING_GLOBAL_TIMEOUT,
         )
@@ -135,6 +143,7 @@ async def _run_scoring_background(
             tracker.update(record_id, "completed", 100, "评分完成")
         db.commit()
         log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
+        print(f"[SCORING] DONE record_id={record_id}", file=sys.stderr, flush=True)
 
         try:
             notif = Notification(
@@ -163,6 +172,7 @@ async def _run_scoring_background(
             except Exception:
                 log.warning("SSE publish failed", exc_info=True)
     except TimeoutError:
+        print(f"[SCORING] TIMEOUT record_id={record_id}", file=sys.stderr, flush=True)
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         try:
@@ -175,6 +185,11 @@ async def _run_scoring_background(
             log.exception("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
         log.exception("评分超时", extra={"record_id": record_id})
     except Exception as e:
+        print(
+            f"[SCORING] FAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
+            file=sys.stderr,
+            flush=True,
+        )
         if tracker:
             tracker.update(record_id, "failed", 0, str(e)[:100])
         try:
