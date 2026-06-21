@@ -25,8 +25,8 @@ def _make_secret(id=1, label="test-secret", key="encrypted-test-key", suffix="xx
     )
 
 
-def _make_config(id, secret, purpose="qa", model="test-model", status="active"):
-    c = LLMConfig(id=id, secret_id=secret.id, model=model, purpose=purpose, status=status)
+def _make_config(id, secret, purpose="qa", status="active"):
+    c = LLMConfig(id=id, secret_id=secret.id, purpose=purpose, status=status)
     c.secret = secret
     return c
 
@@ -151,7 +151,7 @@ def test_select_no_config_for_purpose():
 
 def test_select_falls_back_to_wildcard():
     secret = _make_secret(id=99)
-    wildcard_cfg = _make_config(99, secret, purpose="*", model="gpt-4")
+    wildcard_cfg = _make_config(99, secret, purpose="*")
 
     router = ProfileRouter()
     router._profiles = {secret.id: secret}

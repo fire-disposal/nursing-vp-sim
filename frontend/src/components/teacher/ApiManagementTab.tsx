@@ -40,8 +40,6 @@ const STATUS_DOT: Record<string, string> = {
 	disabled: "bg-red-400",
 };
 
-const DEEPSEEK_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"];
-
 const selectClass =
 	"py-0.5 px-1.5 border border-border rounded-md text-sm bg-card";
 
@@ -150,7 +148,7 @@ export default function ApiManagementTab() {
 		try {
 			const r = await testConfig(c.id);
 			r.data.ok
-				? toast.success(`${c.model} · ${r.data.latency_ms}ms`)
+				? toast.success(`延迟 ${r.data.latency_ms}ms`)
 				: toast.error(r.data.error || "不通");
 		} catch {
 			toast.error("测试失败");
@@ -160,10 +158,9 @@ export default function ApiManagementTab() {
 	const handleQuickBind = async (
 		purpose: string,
 		secretId: number,
-		model: string,
 	) => {
 		try {
-			await createConfig({ secret_id: secretId, model, purpose, label: "" });
+			await createConfig({ secret_id: secretId, purpose, label: "" });
 			toast.success("已绑定");
 			invalidate();
 		} catch (e: unknown) {
@@ -351,25 +348,6 @@ export default function ApiManagementTab() {
 													</option>
 												))}
 											</select>
-											<select
-												value={cfg.model}
-												onChange={async (e) => {
-													await updateConfig(cfg.id, {
-														model: e.target.value,
-													});
-													invalidate();
-												}}
-												className={cn(selectClass, "font-mono")}
-											>
-												{DEEPSEEK_MODELS.map((m) => (
-													<option key={m} value={m}>
-														{m}
-													</option>
-												))}
-												{!DEEPSEEK_MODELS.includes(cfg.model) && (
-													<option value={cfg.model}>{cfg.model}</option>
-												)}
-											</select>
 											<span
 												className={cn(
 													"inline-flex items-center gap-1 text-sm",
@@ -444,7 +422,7 @@ export default function ApiManagementTab() {
 											onChange={(e) => {
 												const sid = Number(e.target.value);
 												if (!sid) return;
-												handleQuickBind(p.key, sid, DEEPSEEK_MODELS[0]);
+												handleQuickBind(p.key, sid);
 											}}
 											className="py-0.5 px-1.5 border border-border rounded-md text-xs bg-card"
 										>

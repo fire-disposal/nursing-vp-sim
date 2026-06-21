@@ -1,4 +1,3 @@
-import json as _json
 import logging
 import os
 from pathlib import Path
@@ -80,20 +79,15 @@ LLM_PRICE_INPUT_PER_1M = float(os.getenv("LLM_PRICE_INPUT_PER_1M", "1"))
 LLM_PRICE_OUTPUT_PER_1M = float(os.getenv("LLM_PRICE_OUTPUT_PER_1M", "2"))
 LLM_COST_CURRENCY = os.getenv("LLM_COST_CURRENCY", "CNY")
 
-# DeepSeek 种子数据（首次启动用，之后通过管理面板管理）
+# DeepSeek API 连接（首次启动种子用，后续通过管理面板管理密钥）
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
-DEEPSEEK_MODEL_PRO = os.getenv("DEEPSEEK_MODEL_PRO", "deepseek-v4-pro")
 
 # 微信小程序
 WECHAT_APPID = os.getenv("WECHAT_APPID", "")
 WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")
 
-# LLM 调用参数
-LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
-LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "90"))
-LLM_CONCURRENT_LIMIT = int(os.getenv("LLM_CONCURRENT_LIMIT", "50"))
+# LLM HTTP 连接池
 LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))
 LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))
 
@@ -106,38 +100,7 @@ LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "1"))
 # 批量建用户上限 —— 防止单次请求过大导致系统卡死
 BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))
 
-# LLM 调用参数 —— 按 purpose 集中管理，支持 JSON 环境变量覆盖
-_LLM_PURPOSE_DEFAULTS: dict[str, dict] = {
-    "patient_chat": {"timeout": 30, "max_tokens": 512, "temperature": 0.3, "max_retries": 2},
-    "qa": {"timeout": 30, "max_tokens": 1024, "temperature": 0.7, "max_retries": 2},
-    "scoring": {
-        "timeout": 120,
-        "max_tokens": 4096,
-        "temperature": 0,
-        "max_retries": 3,
-        "response_format": {"type": "json_object"},
-    },
-    "scoring_feedback": {
-        "timeout": 60,
-        "max_tokens": 2048,
-        "temperature": 0.3,
-        "max_retries": 2,
-        "response_format": {"type": "json_object"},
-    },
-    "case_generation": {"timeout": 120, "max_tokens": 4096, "temperature": 0.3, "max_retries": 3},
-}
-
-
-def get_llm_config(purpose: str) -> dict:
-    override = os.getenv("LLM_CONFIG_JSON")
-    if override:
-        try:
-            overrides = _json.loads(override)
-            if purpose in overrides:
-                return overrides[purpose]
-        except _json.JSONDecodeError:
-            log.warning("LLM_CONFIG_JSON 解析失败，使用默认配置")
-    return _LLM_PURPOSE_DEFAULTS.get(purpose, _LLM_PURPOSE_DEFAULTS["patient_chat"])
+# LLM 调用配置已迁移至 core/llm_profile.py —— 各用途的 model/temperature/max_tokens 等均在该文件统一管理
 
 
 # 自动结算与智能评分
@@ -164,8 +127,7 @@ def log_config(logger):
     logger.info("  JWT 密钥:   ***%s (%d 位)", jwt_tail, len(JWT_SECRET_KEY))
     fernet_tail = FERNET_KEY[-4:] if len(FERNET_KEY) >= 4 else "****"
     logger.info("  Fernet 密钥: ***%s", fernet_tail)
-    logger.info("  DeepSeek:   %s (model=%s, key=***%s)", DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, api_tail)
+    logger.info("  DeepSeek:   %s (key=***%s)", DEEPSEEK_BASE_URL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
-    logger.info("  LLM 并发:   %d (重试=%d, 超时=%ds)", LLM_CONCURRENT_LIMIT, LLM_MAX_RETRIES, LLM_REQUEST_TIMEOUT)
     logger.info("  LLM Workers: %d (semaphore divisor)", LLM_WORKER_COUNT)
     logger.info("──────────────────────────────────────")

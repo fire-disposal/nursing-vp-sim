@@ -10495,12 +10495,6 @@
             "exclusiveMinimum": 0.0,
             "title": "Secret Id"
           },
-          "model": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Model"
-          },
           "purpose": {
             "type": "string",
             "maxLength": 40,
@@ -10518,7 +10512,6 @@
         "type": "object",
         "required": [
           "secret_id",
-          "model",
           "purpose"
         ],
         "title": "LLMConfigCreate"
@@ -10553,10 +10546,6 @@
             "title": "Label",
             "default": ""
           },
-          "model": {
-            "type": "string",
-            "title": "Model"
-          },
           "purpose": {
             "type": "string",
             "title": "Purpose"
@@ -10581,7 +10570,6 @@
         "required": [
           "id",
           "secret_id",
-          "model",
           "purpose",
           "created_at",
           "updated_at"
@@ -10600,18 +10588,6 @@
               }
             ],
             "title": "Secret Id"
-          },
-          "model": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 80
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model"
           },
           "purpose": {
             "anyOf": [

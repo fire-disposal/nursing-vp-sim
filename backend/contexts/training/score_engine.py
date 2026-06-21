@@ -4,9 +4,9 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from core.config import get_llm_config
 from core.database import SessionLocal
 from core.exceptions import LLMParseError
+from core.llm_profile import get_llm_config
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
 from models import Message, Score, TrainingRecord

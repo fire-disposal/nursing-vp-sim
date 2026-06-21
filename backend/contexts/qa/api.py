@@ -8,8 +8,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from core.config import get_llm_config
 from core.database import db_session, get_db
+from core.llm_profile import get_llm_config
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
 from middleware.rate_limits import check_qa_limit

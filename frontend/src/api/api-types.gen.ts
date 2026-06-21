@@ -3041,8 +3041,6 @@ export interface components {
         LLMConfigCreate: {
             /** Secret Id */
             secret_id: number;
-            /** Model */
-            model: string;
             /** Purpose */
             purpose: string;
             /**
@@ -3077,8 +3075,6 @@ export interface components {
              * @default
              */
             label: string;
-            /** Model */
-            model: string;
             /** Purpose */
             purpose: string;
             /**
@@ -3101,8 +3097,6 @@ export interface components {
         LLMConfigUpdate: {
             /** Secret Id */
             secret_id?: number | null;
-            /** Model */
-            model?: string | null;
             /** Purpose */
             purpose?: string | null;
             /** Label */

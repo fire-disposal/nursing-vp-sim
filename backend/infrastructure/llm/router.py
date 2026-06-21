@@ -7,7 +7,7 @@ import time as _time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, DEEPSEEK_MODEL_PRO
+from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.datetime_utils import ensure_utc
 
 log = logging.getLogger(__name__)
@@ -48,8 +48,8 @@ async def get_env_fallback_state() -> dict:
             "label": "环境变量兜底",
             "key_suffix": DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else "****",
             "base_url": DEEPSEEK_BASE_URL,
-            "model_flash": DEEPSEEK_MODEL,
-            "model_pro": DEEPSEEK_MODEL_PRO,
+            "model_flash": "deepseek-v4-flash",
+            "model_pro": "deepseek-v4-pro",
             "latency_ms": _env_fallback_latency_ms,
             "error": _env_fallback_error,
             "call_count": _env_fallback_stats["call_count"],
@@ -163,14 +163,15 @@ class ProfileRouter:
                         profile.consecutive_failures = 0
                         return binding
 
-        from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+        from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+        from core.llm_profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
             log.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)
             return _SyntheticConfig(
                 label="DeepSeek (env)",
                 base_url=DEEPSEEK_BASE_URL,
-                model=DEEPSEEK_MODEL,
+                model=get_model(purpose),
                 raw_key=DEEPSEEK_API_KEY,
             )
 
@@ -215,7 +216,7 @@ class ProfileRouter:
                     profile.status = "active"
                     profile.degraded_reason = None
                     profile.degraded_until = None
-                self._update_stats(profile, prompt_tokens, completion_tokens, config.model)
+                self._update_stats(profile, prompt_tokens, completion_tokens)
             elif error and "429" in error:
                 profile.status = "degraded"
                 profile.degraded_reason = "rate_limited"

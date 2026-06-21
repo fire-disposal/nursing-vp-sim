@@ -24,22 +24,6 @@ from .router import ProfileRouter, _SyntheticConfig
 
 log = logging.getLogger(__name__)
 
-# Per-purpose concurrency limits — scoring shouldn't block chat
-_PURPOSE_SEMAPHORE_LIMITS: dict[str, int] = {
-    "patient_chat": 50,
-    "qa": 50,
-    "scoring": 10,
-    "scoring_feedback": 10,
-    "case_generation": 3,
-}
-
-
-def _semaphore_limit(purpose: str) -> int:
-    for prefix, limit in _PURPOSE_SEMAPHORE_LIMITS.items():
-        if purpose.startswith(prefix):
-            return limit
-    return 50
-
 
 @dataclass
 class CallContext:
@@ -94,15 +78,17 @@ class LLMClient:
         self._router = router
         self._log_worker = log_worker
         self._metrics = metrics
-        # Per-purpose semaphores — scoring doesn't block chat
+        # Per-purpose semaphores — sourced from core/llm_profile.py
+        from core.llm_profile import PROFILES
+
         _divisor = max(1, int(os.getenv("LLM_WORKER_COUNT", "1")))
         self._semaphores: dict[str, asyncio.Semaphore] = {
-            p: asyncio.Semaphore(max(1, limit // _divisor)) for p, limit in _PURPOSE_SEMAPHORE_LIMITS.items()
+            p: asyncio.Semaphore(max(1, pf.semaphore // _divisor)) for p, pf in PROFILES.items()
         }
         self._default_sem = asyncio.Semaphore(max(1, 50 // _divisor))
 
     def _sem_for(self, purpose: str) -> asyncio.Semaphore:
-        for prefix in _PURPOSE_SEMAPHORE_LIMITS:
+        for prefix in sorted(self._semaphores, key=len, reverse=True):
             if purpose.startswith(prefix):
                 return self._semaphores[prefix]
         return self._default_sem
@@ -520,18 +506,20 @@ class LLMClient:
         """Select a profile from the router and build call state."""
         from cryptography.fernet import InvalidToken as FernetInvalidToken
 
+        from core.llm_profile import get_model
+
         config = self._router.select(purpose)
         try:
             api_key = self._router.get_decrypted_key(config)
         except FernetInvalidToken:
-            from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+            from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 
             if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
                 log.warning("DB 密钥解密失败（FERNET_KEY 不匹配），回退到 env DEEPSEEK_API_KEY")
                 config = _SyntheticConfig(
                     label="DeepSeek (env)",
                     base_url=DEEPSEEK_BASE_URL,
-                    model=DEEPSEEK_MODEL,
+                    model=get_model(purpose),
                     raw_key=DEEPSEEK_API_KEY,
                 )
                 api_key = DEEPSEEK_API_KEY
@@ -543,7 +531,7 @@ class LLMClient:
         state = _CallState()
         state._config = config
         state.api_key = api_key
-        state.model = config.model
+        state.model = get_model(purpose)
         state.config_id = config.id
 
         if hasattr(config, "secret") and config.secret is not None:

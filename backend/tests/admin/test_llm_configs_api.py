@@ -43,14 +43,13 @@ class TestLLMConfigCRUD:
         return secret.id
 
     def test_create_config_with_purpose_priority_conflict(self, client, teacher, secret_id):
-        """same secret_id + purpose upserts: updates model, returns 201"""
+        """same secret_id + purpose upserts: returns 201"""
         _, token = teacher
 
         resp = client.post(
             "/api/admin/api/configs",
             json={
                 "secret_id": secret_id,
-                "model": "test-model",
                 "purpose": "qa",
             },
             headers={"Authorization": f"Bearer {token}"},
@@ -62,7 +61,6 @@ class TestLLMConfigCRUD:
             "/api/admin/api/configs",
             json={
                 "secret_id": secret_id,
-                "model": "test-model-2",
                 "purpose": "qa",
             },
             headers={"Authorization": f"Bearer {token}"},
@@ -77,7 +75,6 @@ class TestLLMConfigCRUD:
 
         cfg = LLMConfig(
             secret_id=secret_id,
-            model="test-model",
             purpose="qa_block",
         )
         db_session.add(cfg)
