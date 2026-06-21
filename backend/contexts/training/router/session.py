@@ -239,10 +239,8 @@ def start_training(
         config = {
             "id": practice.id,
             "name": practice.name,
-            "mode": practice.mode,
             "features": practice.features or {},
             "behavior": practice.behavior or {},
-            "assessment": practice.assessment or {},
         }
     else:
         practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
@@ -250,10 +248,8 @@ def start_training(
             config = {
                 "id": practice.id,
                 "name": practice.name,
-                "mode": practice.mode,
                 "features": practice.features or {},
                 "behavior": practice.behavior or {},
-                "assessment": practice.assessment or {},
             }
         else:
             config = get_config("standard-assessment") or {}
@@ -345,10 +341,8 @@ def start_training_from_assignment(
     config = {
         "id": practice.id,
         "name": practice.name,
-        "mode": practice.mode,
         "features": practice.features or {},
         "behavior": practice.behavior or {},
-        "assessment": practice.assessment or {},
     }
 
     now = datetime.now(UTC)

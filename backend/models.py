@@ -154,10 +154,6 @@ class Practice(Base):
     __table_args__ = (
         Index("ix_practices_case_id", "case_id"),
         Index("ix_practices_school_id", "school_id"),
-        CheckConstraint(
-            "mode IN ('training', 'assessment', 'free_play')",
-            name="ck_practices_mode",
-        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -165,10 +161,8 @@ class Practice(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
     school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
-    mode: Mapped[str] = mapped_column(String(20), default="training")
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
     behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
-    assessment: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)

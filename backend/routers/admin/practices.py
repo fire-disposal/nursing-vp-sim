@@ -32,10 +32,8 @@ def _to_item(p: Practice, training_count: int = 0) -> PracticeItem:
         description=p.description,
         case_id=p.case_id,
         case_name=p.case.name if p.case else "",
-        mode=p.mode,
         features=p.features or {},
         behavior=p.behavior or {},
-        assessment=p.assessment,
         is_active=p.is_active,
         training_count=training_count,
         created_at=p.created_at,
@@ -106,10 +104,8 @@ def create_practice(
         description=data.description,
         case_id=data.case_id,
         school_id=current_user.school_id,
-        mode=data.mode,
         features=data.features or {},
         behavior=data.behavior or {},
-        assessment=data.assessment,
     )
     db.add(p)
     db.commit()
@@ -129,7 +125,7 @@ def update_practice(
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
 
-    for field in ("name", "description", "case_id", "mode", "is_active"):
+    for field in ("name", "description", "case_id", "is_active"):
         val = getattr(data, field, None)
         if val is not None:
             setattr(p, field, val)
@@ -137,8 +133,6 @@ def update_practice(
         p.features = data.features
     if data.behavior is not None:
         p.behavior = data.behavior
-    if data.assessment is not None:
-        p.assessment = data.assessment
 
     db.commit()
     db.refresh(p)

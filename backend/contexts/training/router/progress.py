@@ -132,7 +132,6 @@ def get_training_state(
         "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
         "exam_anchors": case_data.get("exam_anchors", {}),
         "config": {
-            "mode": config.get("mode"),
             "features": features,
         },
         "initiative": initiative_data,
