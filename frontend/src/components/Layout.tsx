@@ -31,6 +31,7 @@ import Modal from "@/components/ui/Modal";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Separator } from "@/components/ui/separator";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useScoringNotifications } from "@/hooks/useScoringNotifications";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
@@ -161,6 +162,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const isQAPage = location.pathname.startsWith("/qa");
 	const isFullPage = isTrainingPage || isQAPage;
 	const isOnline = useNetworkStatus();
+	useScoringNotifications();
 
 	const userAvatar = getUserAvatar(user?.gender);
 

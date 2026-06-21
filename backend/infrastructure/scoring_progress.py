@@ -1,47 +1,26 @@
-"""Scoring progress tracker — DB-backed."""
+"""Scoring progress tracker — in-memory single source of truth.
+
+Previously backed by a PostgreSQL table (ScoringProgress model), which
+created a new DB session on *every update* (~8 per scoring run).  This
+is transient UI-facing data that no other service reads — storing it in
+the database buys zero durability and costs a connection-open + query +
+commit + close per update.
+
+Now a plain dict.  The public API is unchanged, so callers are unaffected.
+"""
 
 from __future__ import annotations
 
-import logging
-
-from core.database import SessionLocal
-from models import ScoringProgress as ScoringProgressModel
-
-log = logging.getLogger(__name__)
-
 
 class ScoringProgressTracker:
+    def __init__(self):
+        self._store: dict[int, dict] = {}
+
     def set(self, record_id: int, stage: str, percent: int, message: str = "") -> None:
-        db = SessionLocal()
-        try:
-            row = db.query(ScoringProgressModel).filter(ScoringProgressModel.record_id == record_id).first()
-            if row:
-                row.stage = stage
-                row.percent = percent
-                row.message = message
-            else:
-                row = ScoringProgressModel(record_id=record_id, stage=stage, percent=percent, message=message)
-                db.add(row)
-            db.commit()
-        except Exception:
-            log.exception("Failed to update scoring progress for record %d", record_id)
-            db.rollback()
-        finally:
-            db.close()
+        self._store[record_id] = {"stage": stage, "percent": percent, "message": message}
 
     def get(self, record_id: int) -> dict | None:
-        db = SessionLocal()
-        try:
-            row = db.query(ScoringProgressModel).filter(ScoringProgressModel.record_id == record_id).first()
-            if row is None:
-                return None
-            return {
-                "stage": row.stage,
-                "percent": row.percent,
-                "message": row.message or "",
-            }
-        finally:
-            db.close()
+        return self._store.get(record_id)
 
     def get_progress(self, record_id: int) -> dict | None:
         return self.get(record_id)
