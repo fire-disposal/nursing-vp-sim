@@ -207,7 +207,7 @@ async def end_training(
         if record.scoring_status in ("pending", "processing"):
             raise HTTPException(status_code=400, detail="评分正在进行中，请稍后查看")
 
-        if not await _try_acquire_scoring(record_id, db):
+        if not _try_acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请刷新查看")
 
         case = db.query(Case).filter(Case.id == record.case_id).first()
@@ -283,7 +283,7 @@ async def retry_scoring(
         record.scoring_error = None
         db.flush()
 
-        if not await _try_acquire_scoring(record_id, db):
+        if not _try_acquire_scoring(record_id, db):
             raise HTTPException(status_code=409, detail="评分已被其他请求触发，请稍后重试")
 
         old_score = db.query(Score).filter(Score.record_id == record_id).first()

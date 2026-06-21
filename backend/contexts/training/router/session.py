@@ -46,7 +46,7 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _try_acquire_scoring(record_id: int, db) -> bool:
+def _try_acquire_scoring(record_id: int, db) -> bool:
     """原子性地将 scoring_status 从 NULL 更新为 'pending'。
 
     用 DB 原子 UPDATE 代替内存锁，避免测试间状态泄漏，
