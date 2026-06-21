@@ -113,6 +113,7 @@ class TrainingRecordDetail(BaseModel):
     features: dict[str, bool] = Field(default_factory=dict)
     from_assignment: bool = False
     exam_anchors: dict[str, Any] = Field(default_factory=dict)
+    exam_results: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ScoringTriggerResponse(BaseModel):
