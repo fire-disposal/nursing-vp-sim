@@ -44,28 +44,35 @@ async def _score_stage(
     if tracker:
         tracker.update(record_id, "scoring", 15, "正在逐项评分分析...")
 
-    result = await llm_client.call_json(
-        messages,
-        purpose="scoring",
-        ctx=CallContext(
-            purpose="scoring",
-            user_id=user_id,
-            record_id=record_id,
-            case_id=case_id,
-            log_meta=log_meta,
-        ),
-        **cfg,
-    )
-    _coerce_numeric_fields(result)
-
     try:
-        _validate_scoring_essentials(result)
-        return result
-    except (ValueError, TypeError):
-        log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
+        result = await llm_client.call_json(
+            messages,
+            purpose="scoring",
+            ctx=CallContext(
+                purpose="scoring",
+                user_id=user_id,
+                record_id=record_id,
+                case_id=case_id,
+                log_meta=log_meta,
+            ),
+            **cfg,
+        )
+        _coerce_numeric_fields(result)
+    except (json.JSONDecodeError, ValueError, TypeError, RuntimeError) as e:
+        log.warning(
+            "评分首次调用失败（JSON解析或校验），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]}
+        )
+        result = {}
 
-    partial_json = json.dumps(result, ensure_ascii=False, indent=2)
-    item_errors = _validate_items_content(result.get("detail_scores", {}))
+    if result:
+        try:
+            _validate_scoring_essentials(result)
+            return result
+        except (ValueError, TypeError):
+            log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
+
+    partial_json = json.dumps(result, ensure_ascii=False, indent=2) if result else "{}"
+    item_errors = _validate_items_content(result.get("detail_scores", {})) if result else ["LLM 未返回有效 JSON"]
     validation_msg = "; ".join(item_errors) if item_errors else "字段缺失或不完整"
     retry_user = SCORING_RETRY_USER.format(
         partial_json=partial_json,
@@ -76,22 +83,26 @@ async def _score_stage(
         {"role": "assistant", "content": partial_json},
         {"role": "user", "content": retry_user},
     ]
-    result2 = await llm_client.call_json(
-        retry_messages,
-        purpose="scoring",
-        ctx=CallContext(
+    try:
+        result2 = await llm_client.call_json(
+            retry_messages,
             purpose="scoring",
-            user_id=user_id,
-            record_id=record_id,
-            case_id=case_id,
-            log_meta=log_meta,
-        ),
-        **cfg,
-    )
-    _validate_scoring_essentials(result2)
-    if tracker:
-        tracker.update(record_id, "scoring", 55, "评分维度分析完成")
-    return result2
+            ctx=CallContext(
+                purpose="scoring",
+                user_id=user_id,
+                record_id=record_id,
+                case_id=case_id,
+                log_meta=log_meta,
+            ),
+            **cfg,
+        )
+        _validate_scoring_essentials(result2)
+        if tracker:
+            tracker.update(record_id, "scoring", 55, "评分维度分析完成")
+        return result2
+    except Exception:
+        log.warning("评分重试也失败", extra={"record_id": record_id}, exc_info=True)
+        raise RuntimeError(f"评分解析重试失败 record_id={record_id}") from None
 
 
 async def _feedback_stage(
@@ -111,47 +122,58 @@ async def _feedback_stage(
     if tracker:
         tracker.update(record_id, "feedback", 65, "正在生成反馈建议...")
 
-    result = await llm_client.call_json(
-        messages,
-        purpose="scoring_feedback",
-        ctx=CallContext(
-            purpose="scoring_feedback",
-            user_id=user_id,
-            record_id=record_id,
-            case_id=case_id,
-            log_meta=log_meta,
-        ),
-        **cfg,
-    )
-
     try:
-        _validate_feedback_fields(result)
-        return result
-    except ValueError as e:
-        log.info(
-            "scoring_feedback_empty",
-            extra={"record_id": record_id, "error": str(e)},
+        result = await llm_client.call_json(
+            messages,
+            purpose="scoring_feedback",
+            ctx=CallContext(
+                purpose="scoring_feedback",
+                user_id=user_id,
+                record_id=record_id,
+                case_id=case_id,
+                log_meta=log_meta,
+            ),
+            **cfg,
         )
+    except (json.JSONDecodeError, ValueError, TypeError, RuntimeError) as e:
+        log.warning("反馈首次调用失败（JSON解析），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]})
+        result = {}
 
-    missing = _check_feedback_empty(result)
+    if result:
+        try:
+            _validate_feedback_fields(result)
+            return result
+        except ValueError as e:
+            log.info(
+                "scoring_feedback_empty",
+                extra={"record_id": record_id, "error": str(e)},
+            )
+
+    missing = _check_feedback_empty(result) if result else ["所有字段"]
+    if not missing:
+        missing = ["strengths", "weaknesses", "missed_content", "suggestions"]
     retry_user = FEEDBACK_RETRY_USER.format(missing=", ".join(missing))
     retry_messages = [
         *messages,
         {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)},
         {"role": "user", "content": retry_user},
     ]
-    result2 = await llm_client.call_json(
-        retry_messages,
-        purpose="scoring_feedback",
-        ctx=CallContext(
+    try:
+        result2 = await llm_client.call_json(
+            retry_messages,
             purpose="scoring_feedback",
-            user_id=user_id,
-            record_id=record_id,
-            case_id=case_id,
-            log_meta=log_meta,
-        ),
-        **cfg,
-    )
+            ctx=CallContext(
+                purpose="scoring_feedback",
+                user_id=user_id,
+                record_id=record_id,
+                case_id=case_id,
+                log_meta=log_meta,
+            ),
+            **cfg,
+        )
+    except Exception:
+        log.warning("反馈重试也失败", extra={"record_id": record_id}, exc_info=True)
+        raise RuntimeError(f"反馈解析重试失败 record_id={record_id}") from None
 
     try:
         _validate_feedback_fields(result2)
