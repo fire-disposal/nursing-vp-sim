@@ -47,7 +47,7 @@ export default function AssignmentDetailPage() {
 
 	const { data, isLoading, error } = useQuery({
 		queryKey: ["assignment", id],
-		queryFn: () => getAssignment(id!),
+		queryFn: () => getAssignment(id!).then((r) => r.data),
 		enabled: !!id,
 		staleTime: 2 * 60_000,
 	});
@@ -77,7 +77,7 @@ export default function AssignmentDetailPage() {
 			<div className="p-8 text-center text-muted-foreground">加载失败</div>
 		);
 
-	const detail = data.data;
+	const detail = data;
 
 	return (
 		<div className="space-y-6">

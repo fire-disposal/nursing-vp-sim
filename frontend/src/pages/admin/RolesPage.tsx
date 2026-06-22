@@ -240,7 +240,7 @@ export default function RolesPage() {
 												无权限
 											</span>
 										)}
-										{role.permissions.map((p) => (
+										{(role.permissions ?? []).map((p) => (
 											<span
 												key={p}
 												className="text-xs bg-muted px-1.5 py-0.5 rounded"

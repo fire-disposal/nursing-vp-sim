@@ -23,7 +23,7 @@ export default function NotificationBell() {
 
 	const { data } = useQuery({
 		queryKey: ["notifications"],
-		queryFn: () => api.get<Notification[]>("/training/notifications"),
+		queryFn: () => api.get<Notification[]>("/training/notifications").then((r) => r.data),
 		refetchInterval: 30_000,
 	});
 
@@ -37,7 +37,7 @@ export default function NotificationBell() {
 		},
 	});
 
-	const notifications: Notification[] = data?.data ?? [];
+	const notifications: Notification[] = data ?? [];
 	const unread = notifications.length;
 
 	const handleClick = useCallback(

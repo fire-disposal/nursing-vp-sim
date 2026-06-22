@@ -120,7 +120,6 @@ export function ExamPanel({ ctx }: PanelTabProps) {
 			} catch (e: unknown) {
 				const err = e as any;
 				const detail =
-					err?.response?.data?.message ||
 					err?.response?.data?.detail ||
 					err?.message ||
 					"操作失败";

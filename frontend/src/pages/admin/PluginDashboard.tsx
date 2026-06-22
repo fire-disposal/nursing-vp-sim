@@ -50,7 +50,7 @@ export default function PluginDashboard() {
 							{p.meta.description}
 						</p>
 						<div className="mt-2 flex flex-wrap gap-1">
-							{p.meta.tags.map((t) => (
+							{(p.meta.tags ?? []).map((t) => (
 								<span
 									key={t}
 									className="rounded bg-muted px-1.5 py-0.5 text-xs"

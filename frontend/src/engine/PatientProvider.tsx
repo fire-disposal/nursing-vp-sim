@@ -92,7 +92,7 @@ export function PatientProvider({
 			})
 			.catch((err) => {
 				if (!cancelled) {
-					const msg = err.response?.data?.message || err.response?.data?.detail || err.message || "加载患者信息失败";
+					const msg = err.response?.data?.detail || err.message || "加载患者信息失败";
 					setError(msg);
 				}
 			})

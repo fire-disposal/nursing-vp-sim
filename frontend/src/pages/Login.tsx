@@ -59,7 +59,7 @@ export default function Login() {
 				message?: string;
 			};
 			setError(
-				axiosErr.response?.data?.message || axiosErr.message || "登录失败",
+				axiosErr.message || "登录失败",
 			);
 		} finally {
 			setLoading(false);

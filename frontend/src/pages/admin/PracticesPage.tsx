@@ -55,17 +55,17 @@ export default function PracticesPage() {
 
 	const { data: listData, isLoading } = useQuery({
 		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices(),
+		queryFn: () => getPractices().then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
 	const { data: casesData } = useQuery({
 		queryKey: queryKeys.cases.managed.all,
-		queryFn: () => getCases(),
+		queryFn: () => getCases().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 
-	const practices = listData?.data?.items ?? [];
-	const cases = casesData?.data?.items ?? [];
+	const practices = listData?.items ?? [];
+	const cases = casesData?.items ?? [];
 
 	const openCreate = () => {
 		setEditingId(null);

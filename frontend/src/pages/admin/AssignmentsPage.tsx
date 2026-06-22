@@ -82,23 +82,23 @@ export default function AssignmentsPage() {
 
 	const { data: listData, isLoading } = useQuery({
 		queryKey: queryKeys.assignments.all,
-		queryFn: () => getAssignments({ limit: 100 }),
+		queryFn: () => getAssignments({ limit: 100 }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
 	const { data: practicesData } = useQuery({
 		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices(),
+		queryFn: () => getPractices().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 	const { data: classesData } = useQuery({
 		queryKey: queryKeys.grades.classes(),
-		queryFn: () => getClasses({}),
+		queryFn: () => getClasses({}).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 
-	const assignments = listData?.data?.items ?? [];
-	const practices = practicesData?.data?.items ?? [];
-	const classes = classesData?.data ?? [];
+	const assignments = listData?.items ?? [];
+	const practices = practicesData?.items ?? [];
+	const classes = classesData ?? [];
 
 	const openCreate = () => {
 		setEditingId(null);

@@ -44,10 +44,10 @@ export default function SystemNotificationsPage() {
 
 	const { data, isLoading } = useQuery({
 		queryKey: ["system-notifications"],
-		queryFn: () => api.get<SystemNotification[]>("/admin/system-notifications"),
+		queryFn: () => api.get<SystemNotification[]>("/admin/system-notifications").then((r) => r.data),
 	});
 
-	const notifications = data?.data ?? [];
+	const notifications = data ?? [];
 
 	const openCreate = () => {
 		setEditingId(null);

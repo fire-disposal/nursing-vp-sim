@@ -51,7 +51,7 @@ function ResponseDetailModal({
 					</Badge>
 				</div>
 				<div className="space-y-4">
-					{r.answers.map((a, idx) => (
+					{(r.answers ?? []).map((a, idx) => (
 						<div
 							key={a.question_id}
 							className="rounded-lg border border-border p-4"
