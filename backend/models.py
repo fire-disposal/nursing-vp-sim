@@ -642,6 +642,7 @@ class TrainingSessionState(Base):
     emotion_state: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     initiative_timer: Mapped[float | None] = mapped_column(Float, nullable=True)
     initiative_last_trigger: Mapped[float | None] = mapped_column(Float, nullable=True)
+    initiative_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("'0'"))
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=_now_utc, onupdate=_now_utc)
 

@@ -115,6 +115,22 @@ class InitiativeCache:
         if row:
             row.initiative_timer = None
             row.initiative_last_trigger = None
+            row.initiative_count = 0
+
+    def get_count(self, record_id: int, db: Session) -> int:
+        row = self._get_row(record_id, db)
+        return row.initiative_count if row else 0
+
+    def increment_count(self, record_id: int, db: Session) -> int:
+        row = self._get_row(record_id, db)
+        if row:
+            row.initiative_count += 1
+            return row.initiative_count
+        from models import TrainingSessionState
+
+        db.add(TrainingSessionState(record_id=record_id, initiative_count=1))
+        db.flush()
+        return 1
 
     def cleanup_completed(self, completed_ids: AbstractSet[int], db: Session) -> int:
         from models import TrainingSessionState
