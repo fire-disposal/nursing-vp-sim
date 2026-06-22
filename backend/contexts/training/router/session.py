@@ -242,7 +242,15 @@ def _create_record(
     if app_state is not None and features.get("patient_initiative"):
         from contexts.patient.initiative import update_initiative_timer
 
-        update_initiative_timer(record.id, app_state.initiative_cache, db)
+        try:
+            update_initiative_timer(record.id, app_state.initiative_cache, db)
+        except Exception:
+            import traceback as _tb
+
+            with open("error_trace.log", "a", encoding="utf-8") as f:
+                f.write("\n=== update_initiative_timer ===\n")
+                _tb.print_exc(file=f)
+            raise
 
     return record, greeting
 
@@ -254,43 +262,53 @@ def start_training(
     db: Annotated[Session, Depends(get_db)],
     request: Request,
 ):
-    effective_school = resolve_school_filter(current_user)
-    case_query = db.query(Case).filter(Case.id == req.case_id)
-    if effective_school is not None:
-        case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
-    case = case_query.first()
-    if not case:
-        raise NotFoundError(detail="病例不存在")
+    try:
+        effective_school = resolve_school_filter(current_user)
+        case_query = db.query(Case).filter(Case.id == req.case_id)
+        if effective_school is not None:
+            case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
+        case = case_query.first()
+        if not case:
+            raise NotFoundError(detail="病例不存在")
 
-    practice = None
-    if req.practice_id:
-        practice = db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
-        if not practice:
-            raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
-    elif req.features is None:
-        practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
+        practice = None
+        if req.practice_id:
+            practice = (
+                db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
+            )
+            if not practice:
+                raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
+        elif req.features is None:
+            practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
 
-    config = _build_config(practice, req.features, req.time_limit_minutes)
+        config = _build_config(practice, req.features, req.time_limit_minutes)
 
-    record, greeting = _create_record(
-        db,
-        current_user.id,
-        case,
-        case.case_data or {},
-        config,
-        practice_id=practice.id if practice else None,
-        app_state=request.app.state,
-    )
+        record, greeting = _create_record(
+            db,
+            current_user.id,
+            case,
+            case.case_data or {},
+            config,
+            practice_id=practice.id if practice else None,
+            app_state=request.app.state,
+        )
 
-    log.info(
-        f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
-        extra={
-            "user_id": current_user.id,
-            "user_role": current_user.role.name if current_user.role else "",
-            "action": "training_start",
-        },
-    )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
+        log.info(
+            f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
+            extra={
+                "user_id": current_user.id,
+                "user_role": current_user.role.name if current_user.role else "",
+                "action": "training_start",
+            },
+        )
+        return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
+    except Exception:
+        import traceback as _tb
+
+        with open("error_trace.log", "a", encoding="utf-8") as f:
+            f.write("\n=== start_training ===\n")
+            _tb.print_exc(file=f)
+        raise
 
 
 @router.post("/start-from-assignment", response_model=TrainingStartResponse)

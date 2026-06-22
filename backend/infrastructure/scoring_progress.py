@@ -24,12 +24,14 @@ class ScoringProgressTracker:
 
     def set(self, record_id: int, stage: str, percent: int, message: str = "", thought: str = "") -> None:
         entry = self._store.setdefault(record_id, {"_ts": time.time()})
-        entry.update({
-            "stage": stage,
-            "percent": percent,
-            "message": message,
-            "_ts": time.time(),
-        })
+        entry.update(
+            {
+                "stage": stage,
+                "percent": percent,
+                "message": message,
+                "_ts": time.time(),
+            }
+        )
         if thought:
             entry[f"thought_{stage}"] = thought
 

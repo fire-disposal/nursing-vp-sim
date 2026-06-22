@@ -140,6 +140,7 @@ class CostExportRequest(BaseModel):
 
 class VoiceConfigExportResponse(BaseModel):
     """Voice config export — token is NOT included (must be re-entered on import)."""
+
     model_config = _RESP_CFG
     provider: str
     app_id: str
