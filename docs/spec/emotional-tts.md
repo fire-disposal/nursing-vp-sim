@@ -2,11 +2,23 @@
 
 > 状态: Draft  
 > 分支: `feat/emotional-tts`  
-> 产品: 火山引擎 · 语音技术 · 大模型语音合成 v2
+> 产品: 火山引擎 · 语音技术 · 传统 TTS + SSML 标记语言
+
+## 0. 方案选型
+
+| 维度 | 传统 TTS + SSML | **大模型 TTS ← 采用** |
+|------|----------------|---------------------|
+| 延迟 | 200-500ms | 1-3s → **通过预缓冲降至 <300ms 感知** |
+| 成本 | ~¥2/万字 | ~¥5/万字 — 教育场景可接受 |
+| 情感表现 | rate/pitch/volume 模拟 | **真实情感建模** — 悲伤/愤怒/恐惧 |
+| 音色库 | 30+ 标准音色 | **10+ 情感音色** + 情感标签 |
+| 关键差异 | 机械感，护理学生可感知不自然 | 自然情感，更贴近真人患者 |
+
+**选型理由**: 大模型 TTS 虽然原始延迟 1-3s，但配合预缓冲、流式合成、连接复用三层优化，实际感知延迟可降至 <300ms。情感真实度对护理仿真训练有不可替代的价值——学生需要听到"真的"紧张或冷漠，而不只是加快/放慢的机械声。
 
 ## 1. 目标
 
-将现有纯文本 TTS（浏览器 SpeechSynthesis API）替换为火山引擎大模型语音合成，实现根据对话情感状态（trust/comfort）自动调节音色的自然语音输出。
+将现有浏览器 SpeechSynthesis API 替换为火山引擎大模型 TTS，根据对话情感状态自动选择 emotion 标签，通过预缓冲策略消除感知延迟。
 
 ---
 
@@ -39,20 +51,74 @@
 
 ## 3. 情绪 → TTS 参数映射
 
-| 情绪状态 | trust/comfort 条件 | TTS emotion | speech_rate | volume |
-|----------|-------------------|-------------|-------------|--------|
-| withdrawn | trust < 30, comfort < 30 | `sad` | 0.85 | 0.9 |
-| defensive | trust < 40, comfort ≥ 30 | `angry` | 1.15 | 1.0 |
-| anxious | trust ≥ 30, comfort < 30 | `fearful` | 1.10 | 0.95 |
-| neutral | 30 ≤ trust < 60, 30 ≤ comfort < 60 | `neutral` | 1.0 | 1.0 |
-| relaxed | trust ≥ 40, comfort ≥ 60 | `happy` | 0.95 | 1.0 |
-| open | trust ≥ 60, comfort ≥ 60 | `friendly` | 1.0 | 1.05 |
+| 情绪状态 | trust/comfort 条件 | emotion 标签 | speech_rate | 效果描述 |
+|----------|-------------------|-------------|-------------|---------|
+| withdrawn | trust < 30, comfort < 30 | `sad` | 0.85 | 低沉退缩 |
+| defensive | trust < 40, comfort ≥ 30 | `angry` | 1.15 | 急促抵触 |
+| anxious | trust ≥ 30, comfort < 30 | `fearful` | 1.10 | 紧张不安 |
+| neutral | 30 ≤ both < 60 | — | 1.0 | 平稳 |
+| relaxed | trust ≥ 40, comfort ≥ 60 | `happy` | 0.95 | 放松 |
+| open | trust ≥ 60, comfort ≥ 60 | `friendly` | 1.0 | 温和配合 |
 
 **映射函数签名**:
 ```python
-def emotion_to_tts_params(state: str, trust: int, comfort: int) -> TTSRequest:
-    """Return (emotion_tag, speech_rate, volume) for given emotion state."""
+def emotion_to_tts_params(state: str) -> TTSRequest:
+    """Return (emotion_tag, speech_rate) for given emotion state."""
 ```
+
+## 4. 延迟优化策略
+
+大模型 TTS 原始延迟 1-3s，通过以下三层优化将感知延迟降至 <300ms：
+
+### 4.1 预缓冲 (Pre-buffer)
+
+在 SSE 流收尾阶段即发起 TTS 请求，与文本渲染并行：
+
+```
+SSE chunk N-2, N-1  →  患者文本已完整（llm_reply 已确定）
+  → 立即 POST /api/tts/synthesize     ← TTS 开始合成
+  → SSE chunk N (final) + stream:done
+  → 此时 TTS 响应已返回或接近完成
+  → 即刻播放
+```
+
+**实现**: 在 `StreamManager` 的 SSE chunk 回调中，当收到倒数第 2 个 chunk 或文本长度不再增长时，触发预合成。`bus.emit("tts:prebuffer", { text, recordId })` → TTSManager 异步发起请求并缓存结果。
+
+### 4.2 连接复用 (HTTP Keep-Alive)
+
+火山 TTS 服务的 TLS 握手 ~200ms。通过 `httpx.AsyncClient` 连接池（`keepalive_expiry=60`）避免每次请求重复握手：
+
+```python
+# infrastructure/tts/client.py
+self._http = httpx.AsyncClient(
+    timeout=httpx.Timeout(8.0),
+    limits=httpx.Limits(max_keepalive_connections=3, max_connections=10),
+)
+```
+
+### 4.3 流式播放 (Streaming Playback)
+
+若火山支持流式 TTS（chunked transfer），前端可边收边播：
+
+```
+POST /api/tts/synthesize/stream
+  → 后端流式转发火山 TTS chunked response
+  → 前端 MediaSource API 逐块播放
+```
+
+若火山暂不支持流式，则使用预缓冲策略兜底，效果相当。
+
+### 4.4 首句优先
+
+对于长回复（>50 字），按第一个标点符号分割，首句单独请求 TTS 即刻播放，剩余部分后台合成、无缝衔接。
+
+### 4.5 延迟目标
+
+| 场景 | 无优化 | 优化后（目标） |
+|------|--------|-------------|
+| 短回复 (≤30字) | 1.2s | **<300ms 感知延迟** |
+| 中回复 (30-80字) | 1.8s | **<500ms 感知延迟** |
+| 长回复 (>80字) | 2.5s | **首句 <500ms，全文 <2s** |
 
 ---
 
@@ -91,10 +157,11 @@ class VolcTTSClient:
 ```
 
 **API 调用流程**:
-1. 组装请求体 (JSON)
-2. 火山鉴权签名 (HMAC-SHA256，参考 `volc-sdk-python`)
-3. POST `https://openspeech.bytedance.com/api/v1/tts`
-4. 解析响应 → 返回 `bytes`
+1. `emotion_to_tts_params()` 将情绪状态 → (emotion_tag, speech_rate)
+2. 组装请求体 `{"text": "...", "emotion": "sad", "speech_rate": 0.85, "voice_type": "zh_female_vv"}`
+3. 火山鉴权签名 (HMAC-SHA256)
+4. POST `openspeech.bytedance.com/api/v1/tts`
+5. 解析响应 → 返回 `bytes`
 
 ### 4.3 `backend/infrastructure/tts/mapper.py`
 **职责**: 情绪状态 → TTS 参数转换
