@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Daily report — calls /api/ops/report and sends HTML email.
 
-Cron: 0 9 * * * cd /opt/nursing-vp-sim/deploy/monitor && python3 daily_report.py
+Cron: 0 9 * * * cd /opt/monitor && /usr/bin/python3 daily_report.py
 """
 
 import json
