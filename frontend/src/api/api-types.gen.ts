@@ -1645,6 +1645,23 @@ export interface paths {
         patch: operations["mark_notification_read_api_training_notifications__notif_id__patch"];
         trace?: never;
     };
+    "/api/training/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark All Notifications Read */
+        patch: operations["mark_all_notifications_read_api_training_notifications_read_all_patch"];
+        trace?: never;
+    };
     "/api/training/notifications/stream": {
         parameters: {
             query?: never;
@@ -2327,17 +2344,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/asr/recognize": {
+    "/api/asr/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Asr Status
+         * @description Lightweight gate the frontend probes before showing the mic button.
+         */
+        get: operations["asr_status_api_asr_status_get"];
         put?: never;
-        /** Recognize */
-        post: operations["recognize_api_asr_recognize_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2405,29 +2425,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ASRRecognizeRequest */
-        ASRRecognizeRequest: {
-            /** Audio */
-            audio: string;
-            /** Record Id */
-            record_id?: number | null;
-            /**
-             * Format
-             * @default wav
-             */
-            format: string;
-            /**
-             * Sample Rate
-             * @default 16000
-             */
-            sample_rate: number;
-        };
-        /** ASRRecognizeResponse */
-        ASRRecognizeResponse: {
-            /** Text */
-            text: string;
-            /** Confidence */
-            confidence: number;
+        /** ASRStatusResponse */
+        ASRStatusResponse: {
+            /** Available */
+            available: boolean;
         };
         /** AdminStats */
         AdminStats: {
@@ -5333,30 +5334,53 @@ export interface components {
              * @default volcengine
              */
             provider: string;
-            /** App Id */
-            app_id: string;
-            /** Token */
-            token: string;
+            /** Api Key */
+            api_key: string;
             /**
-             * Tts Voice Type
-             * @default zh_female_vv
+             * Tts Resource Id
+             * @default seed-tts-2.0
              */
-            tts_voice_type: string;
+            tts_resource_id: string;
+            /**
+             * Tts Speaker
+             * @default zh_female_vv_uranus_bigtts
+             */
+            tts_speaker: string;
+            /**
+             * Tts Model
+             * @default seed-tts-2.0-standard
+             */
+            tts_model: string;
+            /**
+             * Tts Sample Rate
+             * @default 24000
+             */
+            tts_sample_rate: number;
+            /**
+             * Tts Format
+             * @default mp3
+             */
+            tts_format: string;
             /**
              * Tts Timeout
              * @default 8
              */
             tts_timeout: number;
             /**
+             * Asr Resource Id
+             * @default volc.bigasr.sauc.duration
+             */
+            asr_resource_id: string;
+            /**
              * Asr Sample Rate
              * @default 16000
              */
             asr_sample_rate: number;
             /**
-             * Asr Enable Streaming
-             * @default true
+             * Asr Endpoint Mode
+             * @default bigmodel_nostream
              */
-            asr_enable_streaming: boolean;
+            asr_endpoint_mode: string;
             /**
              * Monthly Budget
              * @default 200
@@ -5369,20 +5393,28 @@ export interface components {
             id: number;
             /** Provider */
             provider: string;
-            /** App Id */
-            app_id: string;
-            /** Token Masked */
-            token_masked: string;
-            /** Token Suffix */
-            token_suffix: string;
-            /** Tts Voice Type */
-            tts_voice_type: string;
+            /** Api Key Masked */
+            api_key_masked: string;
+            /** Api Key Suffix */
+            api_key_suffix: string;
+            /** Tts Resource Id */
+            tts_resource_id: string;
+            /** Tts Speaker */
+            tts_speaker: string;
+            /** Tts Model */
+            tts_model: string;
+            /** Tts Sample Rate */
+            tts_sample_rate: number;
+            /** Tts Format */
+            tts_format: string;
             /** Tts Timeout */
             tts_timeout: number;
+            /** Asr Resource Id */
+            asr_resource_id: string;
             /** Asr Sample Rate */
             asr_sample_rate: number;
-            /** Asr Enable Streaming */
-            asr_enable_streaming: boolean;
+            /** Asr Endpoint Mode */
+            asr_endpoint_mode: string;
             /** Monthly Budget */
             monthly_budget: number;
             /** Is Active */
@@ -5399,30 +5431,53 @@ export interface components {
              * @default volcengine
              */
             provider: string;
-            /** App Id */
-            app_id: string;
-            /** Token */
-            token?: string | null;
+            /** Api Key */
+            api_key?: string | null;
             /**
-             * Tts Voice Type
-             * @default zh_female_vv
+             * Tts Resource Id
+             * @default seed-tts-2.0
              */
-            tts_voice_type: string;
+            tts_resource_id: string;
+            /**
+             * Tts Speaker
+             * @default zh_female_vv_uranus_bigtts
+             */
+            tts_speaker: string;
+            /**
+             * Tts Model
+             * @default seed-tts-2.0-standard
+             */
+            tts_model: string;
+            /**
+             * Tts Sample Rate
+             * @default 24000
+             */
+            tts_sample_rate: number;
+            /**
+             * Tts Format
+             * @default mp3
+             */
+            tts_format: string;
             /**
              * Tts Timeout
              * @default 8
              */
             tts_timeout: number;
             /**
+             * Asr Resource Id
+             * @default volc.bigasr.sauc.duration
+             */
+            asr_resource_id: string;
+            /**
              * Asr Sample Rate
              * @default 16000
              */
             asr_sample_rate: number;
             /**
-             * Asr Enable Streaming
-             * @default true
+             * Asr Endpoint Mode
+             * @default bigmodel_nostream
              */
-            asr_enable_streaming: boolean;
+            asr_endpoint_mode: string;
             /**
              * Monthly Budget
              * @default 200
@@ -9420,6 +9475,26 @@ export interface operations {
             };
         };
     };
+    mark_all_notifications_read_api_training_notifications_read_all_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+        };
+    };
     notifications_stream_api_training_notifications_stream_get: {
         parameters: {
             query?: never;
@@ -10800,18 +10875,14 @@ export interface operations {
             };
         };
     };
-    recognize_api_asr_recognize_post: {
+    asr_status_api_asr_status_get: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ASRRecognizeRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -10819,16 +10890,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ASRRecognizeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ASRStatusResponse"];
                 };
             };
         };

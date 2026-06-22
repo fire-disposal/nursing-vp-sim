@@ -13,9 +13,13 @@ interface ChatInputProps {
 export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
-	const { isListening, isProcessing, startListening, stopListening, cancelListening } = useVoice();
+	const { available, isListening, isProcessing, partialText, startListening, stopListening, cancelListening } = useVoice();
 	const voiceRef = useRef(false);
 	const { error: toastError } = useToast();
+
+	useEffect(() => {
+		if (isListening && partialText) setText(partialText);
+	}, [isListening, partialText]);
 
 	useEffect(() => {
 		return () => {
@@ -87,31 +91,33 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 				onInput={handleInput}
 				className="flex-1 resize-none rounded-xl border border-border/60 bg-background px-3.5 py-2.5 text-sm md:text-base outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-shadow placeholder:text-muted-foreground"
 			/>
-			<button
-				type="button"
-				onClick={handleVoiceInput}
-				disabled={disabled || loading || isProcessing}
-				title={
-					isProcessing ? "识别中..." : isListening ? "正在聆听..." : "语音输入"
-				}
-				className={cn(
-					"flex shrink-0 items-center justify-center rounded-xl transition-colors",
-					"size-9 md:size-10",
-					isListening &&
-						"bg-red-100 text-red-500 animate-pulse border-2 border-red-300",
-					!isListening &&
-						!isProcessing &&
-						"border border-border/60 bg-background text-muted-foreground hover:bg-muted",
-					isProcessing &&
-						"border border-border/60 bg-background text-muted-foreground",
-				)}
-			>
-				{isProcessing ? (
-					<Loader2 size={16} className="animate-spin md:size-[18px]" />
-				) : (
-					<Mic size={16} className="md:size-[18px]" />
-				)}
-			</button>
+			{available && (
+				<button
+					type="button"
+					onClick={handleVoiceInput}
+					disabled={disabled || loading || isProcessing}
+					title={
+						isProcessing ? "识别中..." : isListening ? "正在聆听..." : "语音输入"
+					}
+					className={cn(
+						"flex shrink-0 items-center justify-center rounded-xl transition-colors",
+						"size-9 md:size-10",
+						isListening &&
+							"bg-red-100 text-red-500 animate-pulse border-2 border-red-300",
+						!isListening &&
+							!isProcessing &&
+							"border border-border/60 bg-background text-muted-foreground hover:bg-muted",
+						isProcessing &&
+							"border border-border/60 bg-background text-muted-foreground",
+					)}
+				>
+					{isProcessing ? (
+						<Loader2 size={16} className="animate-spin md:size-[18px]" />
+					) : (
+						<Mic size={16} className="md:size-[18px]" />
+					)}
+				</button>
+			)}
 			<button
 				type="button"
 				onClick={handleSend}

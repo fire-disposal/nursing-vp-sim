@@ -1,16 +1,8 @@
 // 自动生成 — 来源 openapi.json
 // 运行 npm run api:generate:miniapp 更新
 
-export interface ASRRecognizeRequest {
-  audio: string
-  record_id?: number | null
-  format?: string
-  sample_rate?: number
-}
-
-export interface ASRRecognizeResponse {
-  text: string
-  confidence: number
+export interface ASRStatusResponse {
+  available: boolean
 }
 
 export interface AdminStats {
@@ -1341,25 +1333,33 @@ export interface ValidationError {
 
 export interface VoiceConfigImportRequest {
   provider?: string
-  app_id: string
-  token: string
-  tts_voice_type?: string
+  api_key: string
+  tts_resource_id?: string
+  tts_speaker?: string
+  tts_model?: string
+  tts_sample_rate?: number
+  tts_format?: string
   tts_timeout?: number
+  asr_resource_id?: string
   asr_sample_rate?: number
-  asr_enable_streaming?: boolean
+  asr_endpoint_mode?: string
   monthly_budget?: number
 }
 
 export interface VoiceConfigResponse {
   id: number
   provider: string
-  app_id: string
-  token_masked: string
-  token_suffix: string
-  tts_voice_type: string
+  api_key_masked: string
+  api_key_suffix: string
+  tts_resource_id: string
+  tts_speaker: string
+  tts_model: string
+  tts_sample_rate: number
+  tts_format: string
   tts_timeout: number
+  asr_resource_id: string
   asr_sample_rate: number
-  asr_enable_streaming: boolean
+  asr_endpoint_mode: string
   monthly_budget: number
   is_active: boolean
   created_at: string
@@ -1368,12 +1368,16 @@ export interface VoiceConfigResponse {
 
 export interface VoiceConfigUpdateRequest {
   provider?: string
-  app_id: string
-  token?: string | null
-  tts_voice_type?: string
+  api_key?: string | null
+  tts_resource_id?: string
+  tts_speaker?: string
+  tts_model?: string
+  tts_sample_rate?: number
+  tts_format?: string
   tts_timeout?: number
+  asr_resource_id?: string
   asr_sample_rate?: number
-  asr_enable_streaming?: boolean
+  asr_endpoint_mode?: string
   monthly_budget?: number
   is_active?: boolean
 }

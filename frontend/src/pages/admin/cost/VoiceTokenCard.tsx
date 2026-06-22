@@ -20,14 +20,10 @@ import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 import { Separator } from "@/components/ui/separator";
 
-const VOICE_TYPES = [
-	"zh_female_vv",
-	"zh_male_vv",
-	"zh_female_qingxin",
-	"zh_male_qingse",
-	"zh_female_shuangkuai",
-	"zh_male_yingjun",
-];
+const TTS_MODELS = ["seed-tts-2.0-standard", "seed-tts-2.0-expressive"];
+const TTS_FORMATS = ["mp3", "wav", "pcm", "ogg_opus"];
+const ASR_ENDPOINT_MODES = ["bigmodel_nostream", "bigmodel", "bigmodel_async"];
+const SAMPLE_RATES = [8000, 16000, 22050, 24000, 44100, 48000];
 
 const selectClass =
 	"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -36,6 +32,40 @@ interface VoiceTokenCardProps {
 	onTest: () => Promise<void>;
 	testLabel: string;
 	TestIcon: ElementType;
+}
+
+const DEFAULT_FORM = {
+	provider: "volcengine",
+	api_key: "",
+	tts_resource_id: "seed-tts-2.0",
+	tts_speaker: "zh_female_vv_uranus_bigtts",
+	tts_model: "seed-tts-2.0-standard",
+	tts_sample_rate: 24000,
+	tts_format: "mp3",
+	tts_timeout: 8,
+	asr_resource_id: "volc.bigasr.sauc.duration",
+	asr_sample_rate: 16000,
+	asr_endpoint_mode: "bigmodel_nostream",
+	monthly_budget: 200,
+};
+
+function formFromConfig(config: VoiceConfigResponse | undefined) {
+	if (!config) return { ...DEFAULT_FORM };
+	return {
+		provider: config.provider || "volcengine",
+		api_key: "",
+		tts_resource_id: config.tts_resource_id || DEFAULT_FORM.tts_resource_id,
+		tts_speaker: config.tts_speaker || DEFAULT_FORM.tts_speaker,
+		tts_model: config.tts_model || DEFAULT_FORM.tts_model,
+		tts_sample_rate: config.tts_sample_rate || DEFAULT_FORM.tts_sample_rate,
+		tts_format: config.tts_format || DEFAULT_FORM.tts_format,
+		tts_timeout: config.tts_timeout || DEFAULT_FORM.tts_timeout,
+		asr_resource_id: config.asr_resource_id || DEFAULT_FORM.asr_resource_id,
+		asr_sample_rate: config.asr_sample_rate || DEFAULT_FORM.asr_sample_rate,
+		asr_endpoint_mode:
+			config.asr_endpoint_mode || DEFAULT_FORM.asr_endpoint_mode,
+		monthly_budget: config.monthly_budget || DEFAULT_FORM.monthly_budget,
+	};
 }
 
 function ImportModal({
@@ -49,31 +79,10 @@ function ImportModal({
 }) {
 	const toast = useToast();
 	const queryClient = useQueryClient();
-
-	const [form, setForm] = useState({
-		provider: "volcengine",
-		app_id: "",
-		token: "",
-		tts_voice_type: "zh_female_vv",
-		tts_timeout: 8,
-		asr_sample_rate: 16000,
-		asr_enable_streaming: true,
-		monthly_budget: 200,
-	});
+	const [form, setForm] = useState({ ...DEFAULT_FORM });
 
 	useEffect(() => {
-		if (open && config) {
-			setForm({
-				provider: config.provider || "volcengine",
-				app_id: config.app_id || "",
-				token: "",
-				tts_voice_type: config.tts_voice_type || "zh_female_vv",
-				tts_timeout: config.tts_timeout || 8,
-				asr_sample_rate: config.asr_sample_rate || 16000,
-				asr_enable_streaming: config.asr_enable_streaming ?? true,
-				monthly_budget: config.monthly_budget || 200,
-			});
-		}
+		if (open) setForm(formFromConfig(config));
 	}, [open, config]);
 
 	const importMutation = useMutation({
@@ -92,24 +101,11 @@ function ImportModal({
 	});
 
 	const handleImport = () => {
-		if (!form.app_id.trim()) {
-			toast.warning("请输入 App ID");
+		if (!form.api_key.trim()) {
+			toast.warning("请输入 API Key");
 			return;
 		}
-		if (!form.token.trim()) {
-			toast.warning("请输入 API Token");
-			return;
-		}
-		importMutation.mutate({
-			provider: form.provider,
-			app_id: form.app_id.trim(),
-			token: form.token.trim(),
-			tts_voice_type: form.tts_voice_type,
-			tts_timeout: form.tts_timeout,
-			asr_sample_rate: form.asr_sample_rate,
-			asr_enable_streaming: form.asr_enable_streaming,
-			monthly_budget: form.monthly_budget,
-		});
+		importMutation.mutate({ ...form, api_key: form.api_key.trim() });
 	};
 
 	const setField = (patch: Partial<typeof form>) =>
@@ -119,21 +115,69 @@ function ImportModal({
 		<Modal open={open} onClose={onClose} title="导入语音服务配置" maxWidth={560}>
 			<div className="space-y-4 py-2">
 				<div className="text-sm text-muted-foreground">
-					填写 Volcengine 语音服务配置，覆盖当前设置。导出文件可作为参考模板。
+					填写火山引擎语音服务配置，覆盖当前设置。
 				</div>
-
 				<Separator />
+
+				<div className="space-y-1.5">
+					<Label htmlFor="import-api-key">API Key</Label>
+					<Input
+						id="import-api-key"
+						type="password"
+						value={form.api_key}
+						onChange={(e) => setField({ api_key: e.target.value })}
+						placeholder="火山引擎控制台 API Key"
+					/>
+				</div>
 
 				<div className="grid grid-cols-2 gap-4">
 					<div className="space-y-1.5">
-						<Label htmlFor="import-provider">服务商</Label>
+						<Label htmlFor="import-tts-speaker">TTS 音色 (speaker)</Label>
+						<Input
+							id="import-tts-speaker"
+							value={form.tts_speaker}
+							onChange={(e) => setField({ tts_speaker: e.target.value })}
+						/>
+					</div>
+					<div className="space-y-1.5">
+						<Label htmlFor="import-tts-resource">TTS Resource ID</Label>
+						<Input
+							id="import-tts-resource"
+							value={form.tts_resource_id}
+							onChange={(e) => setField({ tts_resource_id: e.target.value })}
+						/>
+					</div>
+				</div>
+
+				<div className="grid grid-cols-3 gap-4">
+					<div className="space-y-1.5">
+						<Label htmlFor="import-tts-model">TTS 模型</Label>
 						<select
-							id="import-provider"
-							value={form.provider}
-							onChange={(e) => setField({ provider: e.target.value })}
+							id="import-tts-model"
+							value={form.tts_model}
+							onChange={(e) => setField({ tts_model: e.target.value })}
 							className={selectClass}
 						>
-							<option value="volcengine">Volcengine (火山引擎)</option>
+							{TTS_MODELS.map((m) => (
+								<option key={m} value={m}>
+									{m}
+								</option>
+							))}
+						</select>
+					</div>
+					<div className="space-y-1.5">
+						<Label htmlFor="import-tts-format">TTS 格式</Label>
+						<select
+							id="import-tts-format"
+							value={form.tts_format}
+							onChange={(e) => setField({ tts_format: e.target.value })}
+							className={selectClass}
+						>
+							{TTS_FORMATS.map((f) => (
+								<option key={f} value={f}>
+									{f}
+								</option>
+							))}
 						</select>
 					</div>
 					<div className="space-y-1.5">
@@ -151,91 +195,31 @@ function ImportModal({
 					</div>
 				</div>
 
-				<div className="space-y-1.5">
-					<Label htmlFor="import-app-id">App ID</Label>
-					<Input
-						id="import-app-id"
-						value={form.app_id}
-						onChange={(e) => setField({ app_id: e.target.value })}
-						placeholder="Volcengine 应用 ID"
-					/>
-				</div>
-
-				<div className="space-y-1.5">
-					<Label htmlFor="import-token">API Token</Label>
-					<Input
-						id="import-token"
-						type="password"
-						value={form.token}
-						onChange={(e) => setField({ token: e.target.value })}
-						placeholder="Volcengine Access Token"
-					/>
-				</div>
-
 				<Separator />
 
 				<div className="grid grid-cols-2 gap-4">
 					<div className="space-y-1.5">
-						<Label htmlFor="import-voice-type">TTS 语音类型</Label>
+						<Label htmlFor="import-asr-resource">ASR Resource ID</Label>
+						<Input
+							id="import-asr-resource"
+							value={form.asr_resource_id}
+							onChange={(e) => setField({ asr_resource_id: e.target.value })}
+						/>
+					</div>
+					<div className="space-y-1.5">
+						<Label htmlFor="import-asr-mode">ASR 接入模式</Label>
 						<select
-							id="import-voice-type"
-							value={form.tts_voice_type}
-							onChange={(e) => setField({ tts_voice_type: e.target.value })}
+							id="import-asr-mode"
+							value={form.asr_endpoint_mode}
+							onChange={(e) => setField({ asr_endpoint_mode: e.target.value })}
 							className={selectClass}
 						>
-							{VOICE_TYPES.map((vt) => (
-								<option key={vt} value={vt}>
-									{vt}
+							{ASR_ENDPOINT_MODES.map((m) => (
+								<option key={m} value={m}>
+									{m}
 								</option>
 							))}
 						</select>
-					</div>
-					<div className="space-y-1.5">
-						<Label htmlFor="import-tts-timeout">TTS 超时 (秒)</Label>
-						<Input
-							id="import-tts-timeout"
-							type="number"
-							min={3}
-							max={30}
-							step={1}
-							value={form.tts_timeout}
-							onChange={(e) =>
-								setField({ tts_timeout: Number(e.target.value) })
-							}
-						/>
-					</div>
-				</div>
-
-				<div className="grid grid-cols-2 gap-4">
-					<div className="space-y-1.5">
-						<Label htmlFor="import-asr-rate">ASR 采样率</Label>
-						<select
-							id="import-asr-rate"
-							value={form.asr_sample_rate}
-							onChange={(e) =>
-								setField({ asr_sample_rate: Number(e.target.value) })
-							}
-							className={selectClass}
-						>
-							<option value={8000}>8000 Hz</option>
-							<option value={16000}>16000 Hz</option>
-							<option value={22050}>22050 Hz</option>
-							<option value={44100}>44100 Hz</option>
-							<option value={48000}>48000 Hz</option>
-						</select>
-					</div>
-					<div className="space-y-1.5 flex items-end">
-						<label className="flex items-center gap-2 text-sm">
-							<input
-								type="checkbox"
-								checked={form.asr_enable_streaming}
-								onChange={(e) =>
-									setField({ asr_enable_streaming: e.target.checked })
-								}
-								className="size-4"
-							/>
-							启用流式 ASR
-						</label>
 					</div>
 				</div>
 
@@ -274,7 +258,7 @@ export default function VoiceTokenCard({
 		mutationFn: (data: Parameters<typeof updateVoiceConfig>[0]) =>
 			updateVoiceConfig(data).then((r) => r.data),
 		onSuccess: () => {
-			toast.success("凭证已保存");
+			toast.success("配置已保存");
 			queryClient.invalidateQueries({ queryKey: ["admin", "voice", "config"] });
 		},
 		onError: (e: unknown) => {
@@ -283,31 +267,28 @@ export default function VoiceTokenCard({
 		},
 	});
 
-	const [appId, setAppId] = useState("");
-	const [token, setToken] = useState("");
+	const [form, setForm] = useState({ ...DEFAULT_FORM });
 	const [testPending, setTestPending] = useState(false);
 
-	const initForm = (c: VoiceConfigResponse | undefined) => {
-		if (c) {
-			setAppId(c.app_id || "");
-			setToken("");
-		}
-	};
+	useRefFlag(config, isLoading, (c) => setForm(formFromConfig(c)));
 
-	useRefFlag(config, isLoading, initForm);
+	const setField = (patch: Partial<typeof form>) =>
+		setForm((f) => ({ ...f, ...patch }));
 
 	const handleSave = () => {
-		if (!appId.trim()) {
-			toast.warning("请输入 App ID");
-			return;
-		}
 		saveMutation.mutate({
-			app_id: appId.trim(),
-			token: token || undefined,
-			tts_voice_type: config?.tts_voice_type,
-			asr_sample_rate: config?.asr_sample_rate,
-			asr_enable_streaming: config?.asr_enable_streaming,
-			monthly_budget: config?.monthly_budget,
+			provider: form.provider,
+			api_key: form.api_key || undefined,
+			tts_resource_id: form.tts_resource_id,
+			tts_speaker: form.tts_speaker,
+			tts_model: form.tts_model,
+			tts_sample_rate: form.tts_sample_rate,
+			tts_format: form.tts_format,
+			tts_timeout: form.tts_timeout,
+			asr_resource_id: form.asr_resource_id,
+			asr_sample_rate: form.asr_sample_rate,
+			asr_endpoint_mode: form.asr_endpoint_mode,
+			monthly_budget: form.monthly_budget,
 		});
 	};
 
@@ -344,13 +325,17 @@ export default function VoiceTokenCard({
 		<>
 			<Card>
 				<CardHeader className="flex flex-row items-center justify-between">
-					<CardTitle>API 凭证</CardTitle>
+					<CardTitle>API 凭证与参数</CardTitle>
 					<div className="flex gap-1">
 						<Button variant="outline" size="sm" onClick={handleExport}>
 							<Download className="size-3.5" />
 							导出
 						</Button>
-						<Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setImportOpen(true)}
+						>
 							<Upload className="size-3.5" />
 							导入
 						</Button>
@@ -360,34 +345,144 @@ export default function VoiceTokenCard({
 					{!config ? (
 						<EmptyState
 							title="无语音服务配置"
-							description="请通过「导入」按钮配置 Volcengine API 凭证"
+							description="请通过「导入」按钮配置火山引擎 API Key"
 						/>
 					) : (
 						<>
+							<div className="space-y-1.5">
+								<Label htmlFor="voice-api-key">
+									API Key{" "}
+									<span className="text-muted-foreground text-xs">
+										(当前: {config.api_key_masked || "未设置"})
+									</span>
+								</Label>
+								<Input
+									id="voice-api-key"
+									type="password"
+									value={form.api_key}
+									onChange={(e) => setField({ api_key: e.target.value })}
+									placeholder="留空不修改"
+								/>
+							</div>
+
+							<Separator />
+
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div className="space-y-1.5">
-									<Label htmlFor="voice-app-id">App ID</Label>
+									<Label htmlFor="voice-tts-speaker">TTS 音色 (speaker)</Label>
 									<Input
-										id="voice-app-id"
-										value={appId}
-										onChange={(e) => setAppId(e.target.value)}
-										placeholder="Volcengine App ID"
+										id="voice-tts-speaker"
+										value={form.tts_speaker}
+										onChange={(e) => setField({ tts_speaker: e.target.value })}
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<Label htmlFor="voice-token">
-										API Token{" "}
-										<span className="text-muted-foreground text-xs">
-											(当前: {config.token_masked || "未设置"})
-										</span>
-									</Label>
+									<Label htmlFor="voice-tts-resource">TTS Resource ID</Label>
 									<Input
-										id="voice-token"
-										type="password"
-										value={token}
-										onChange={(e) => setToken(e.target.value)}
-										placeholder="留空不修改"
+										id="voice-tts-resource"
+										value={form.tts_resource_id}
+										onChange={(e) =>
+											setField({ tts_resource_id: e.target.value })
+										}
 									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-tts-model">TTS 模型</Label>
+									<select
+										id="voice-tts-model"
+										value={form.tts_model}
+										onChange={(e) => setField({ tts_model: e.target.value })}
+										className={selectClass}
+									>
+										{TTS_MODELS.map((m) => (
+											<option key={m} value={m}>
+												{m}
+											</option>
+										))}
+									</select>
+								</div>
+								<div className="grid grid-cols-2 gap-2">
+									<div className="space-y-1.5">
+										<Label htmlFor="voice-tts-format">TTS 格式</Label>
+										<select
+											id="voice-tts-format"
+											value={form.tts_format}
+											onChange={(e) => setField({ tts_format: e.target.value })}
+											className={selectClass}
+										>
+											{TTS_FORMATS.map((f) => (
+												<option key={f} value={f}>
+													{f}
+												</option>
+											))}
+										</select>
+									</div>
+									<div className="space-y-1.5">
+										<Label htmlFor="voice-tts-rate">TTS 采样率</Label>
+										<select
+											id="voice-tts-rate"
+											value={form.tts_sample_rate}
+											onChange={(e) =>
+												setField({ tts_sample_rate: Number(e.target.value) })
+											}
+											className={selectClass}
+										>
+											{SAMPLE_RATES.map((r) => (
+												<option key={r} value={r}>
+													{r}
+												</option>
+											))}
+										</select>
+									</div>
+								</div>
+							</div>
+
+							<Separator />
+
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-asr-resource">ASR Resource ID</Label>
+									<Input
+										id="voice-asr-resource"
+										value={form.asr_resource_id}
+										onChange={(e) =>
+											setField({ asr_resource_id: e.target.value })
+										}
+									/>
+								</div>
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-asr-mode">ASR 接入模式</Label>
+									<select
+										id="voice-asr-mode"
+										value={form.asr_endpoint_mode}
+										onChange={(e) =>
+											setField({ asr_endpoint_mode: e.target.value })
+										}
+										className={selectClass}
+									>
+										{ASR_ENDPOINT_MODES.map((m) => (
+											<option key={m} value={m}>
+												{m}
+											</option>
+										))}
+									</select>
+								</div>
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-asr-rate">ASR 采样率</Label>
+									<select
+										id="voice-asr-rate"
+										value={form.asr_sample_rate}
+										onChange={(e) =>
+											setField({ asr_sample_rate: Number(e.target.value) })
+										}
+										className={selectClass}
+									>
+										{SAMPLE_RATES.map((r) => (
+											<option key={r} value={r}>
+												{r}
+											</option>
+										))}
+									</select>
 								</div>
 							</div>
 
@@ -398,7 +493,7 @@ export default function VoiceTokenCard({
 									) : (
 										<Save className="size-4" />
 									)}
-									保存凭证
+									保存配置
 								</Button>
 								<Button
 									variant="outline"

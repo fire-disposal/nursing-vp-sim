@@ -6611,6 +6611,32 @@
         }
       }
     },
+    "/api/training/notifications/read-all": {
+      "patch": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Mark All Notifications Read",
+        "operationId": "mark_all_notifications_read_api_training_notifications_read_all_patch",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/training/notifications/stream": {
       "get": {
         "tags": [
@@ -8778,40 +8804,21 @@
         ]
       }
     },
-    "/api/asr/recognize": {
-      "post": {
+    "/api/asr/status": {
+      "get": {
         "tags": [
           "ASR"
         ],
-        "summary": "Recognize",
-        "operationId": "recognize_api_asr_recognize_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ASRRecognizeRequest"
-              }
-            }
-          },
-          "required": true
-        },
+        "summary": "Asr Status",
+        "description": "Lightweight gate the frontend probes before showing the mic button.",
+        "operationId": "asr_status_api_asr_status_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ASRRecognizeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ASRStatusResponse"
                 }
               }
             }
@@ -8908,62 +8915,18 @@
   },
   "components": {
     "schemas": {
-      "ASRRecognizeRequest": {
+      "ASRStatusResponse": {
         "properties": {
-          "audio": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Audio"
-          },
-          "record_id": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Record Id"
-          },
-          "format": {
-            "type": "string",
-            "title": "Format",
-            "default": "wav"
-          },
-          "sample_rate": {
-            "type": "integer",
-            "maximum": 48000.0,
-            "minimum": 8000.0,
-            "title": "Sample Rate",
-            "default": 16000
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "audio"
-        ],
-        "title": "ASRRecognizeRequest"
-      },
-      "ASRRecognizeResponse": {
-        "properties": {
-          "text": {
-            "type": "string",
-            "title": "Text"
-          },
-          "confidence": {
-            "type": "number",
-            "title": "Confidence"
+          "available": {
+            "type": "boolean",
+            "title": "Available"
           }
         },
         "type": "object",
         "required": [
-          "text",
-          "confidence"
+          "available"
         ],
-        "title": "ASRRecognizeResponse"
+        "title": "ASRStatusResponse"
       },
       "AdminStats": {
         "properties": {
@@ -16346,21 +16309,41 @@
             "title": "Provider",
             "default": "volcengine"
           },
-          "app_id": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "App Id"
-          },
-          "token": {
+          "api_key": {
             "type": "string",
             "minLength": 1,
-            "title": "Token"
+            "title": "Api Key"
           },
-          "tts_voice_type": {
+          "tts_resource_id": {
             "type": "string",
-            "title": "Tts Voice Type",
-            "default": "zh_female_vv"
+            "maxLength": 64,
+            "title": "Tts Resource Id",
+            "default": "seed-tts-2.0"
+          },
+          "tts_speaker": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Tts Speaker",
+            "default": "zh_female_vv_uranus_bigtts"
+          },
+          "tts_model": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Tts Model",
+            "default": "seed-tts-2.0-standard"
+          },
+          "tts_sample_rate": {
+            "type": "integer",
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Tts Sample Rate",
+            "default": 24000
+          },
+          "tts_format": {
+            "type": "string",
+            "maxLength": 16,
+            "title": "Tts Format",
+            "default": "mp3"
           },
           "tts_timeout": {
             "type": "integer",
@@ -16369,6 +16352,12 @@
             "title": "Tts Timeout",
             "default": 8
           },
+          "asr_resource_id": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Asr Resource Id",
+            "default": "volc.bigasr.sauc.duration"
+          },
           "asr_sample_rate": {
             "type": "integer",
             "maximum": 48000.0,
@@ -16376,10 +16365,11 @@
             "title": "Asr Sample Rate",
             "default": 16000
           },
-          "asr_enable_streaming": {
-            "type": "boolean",
-            "title": "Asr Enable Streaming",
-            "default": true
+          "asr_endpoint_mode": {
+            "type": "string",
+            "maxLength": 24,
+            "title": "Asr Endpoint Mode",
+            "default": "bigmodel_nostream"
           },
           "monthly_budget": {
             "type": "number",
@@ -16391,8 +16381,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "app_id",
-          "token"
+          "api_key"
         ],
         "title": "VoiceConfigImportRequest"
       },
@@ -16406,33 +16395,49 @@
             "type": "string",
             "title": "Provider"
           },
-          "app_id": {
+          "api_key_masked": {
             "type": "string",
-            "title": "App Id"
+            "title": "Api Key Masked"
           },
-          "token_masked": {
+          "api_key_suffix": {
             "type": "string",
-            "title": "Token Masked"
+            "title": "Api Key Suffix"
           },
-          "token_suffix": {
+          "tts_resource_id": {
             "type": "string",
-            "title": "Token Suffix"
+            "title": "Tts Resource Id"
           },
-          "tts_voice_type": {
+          "tts_speaker": {
             "type": "string",
-            "title": "Tts Voice Type"
+            "title": "Tts Speaker"
+          },
+          "tts_model": {
+            "type": "string",
+            "title": "Tts Model"
+          },
+          "tts_sample_rate": {
+            "type": "integer",
+            "title": "Tts Sample Rate"
+          },
+          "tts_format": {
+            "type": "string",
+            "title": "Tts Format"
           },
           "tts_timeout": {
             "type": "integer",
             "title": "Tts Timeout"
           },
+          "asr_resource_id": {
+            "type": "string",
+            "title": "Asr Resource Id"
+          },
           "asr_sample_rate": {
             "type": "integer",
             "title": "Asr Sample Rate"
           },
-          "asr_enable_streaming": {
-            "type": "boolean",
-            "title": "Asr Enable Streaming"
+          "asr_endpoint_mode": {
+            "type": "string",
+            "title": "Asr Endpoint Mode"
           },
           "monthly_budget": {
             "type": "number",
@@ -16455,13 +16460,17 @@
         "required": [
           "id",
           "provider",
-          "app_id",
-          "token_masked",
-          "token_suffix",
-          "tts_voice_type",
+          "api_key_masked",
+          "api_key_suffix",
+          "tts_resource_id",
+          "tts_speaker",
+          "tts_model",
+          "tts_sample_rate",
+          "tts_format",
           "tts_timeout",
+          "asr_resource_id",
           "asr_sample_rate",
-          "asr_enable_streaming",
+          "asr_endpoint_mode",
           "monthly_budget",
           "is_active",
           "created_at",
@@ -16476,13 +16485,7 @@
             "title": "Provider",
             "default": "volcengine"
           },
-          "app_id": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "App Id"
-          },
-          "token": {
+          "api_key": {
             "anyOf": [
               {
                 "type": "string",
@@ -16492,12 +16495,38 @@
                 "type": "null"
               }
             ],
-            "title": "Token"
+            "title": "Api Key"
           },
-          "tts_voice_type": {
+          "tts_resource_id": {
             "type": "string",
-            "title": "Tts Voice Type",
-            "default": "zh_female_vv"
+            "maxLength": 64,
+            "title": "Tts Resource Id",
+            "default": "seed-tts-2.0"
+          },
+          "tts_speaker": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Tts Speaker",
+            "default": "zh_female_vv_uranus_bigtts"
+          },
+          "tts_model": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Tts Model",
+            "default": "seed-tts-2.0-standard"
+          },
+          "tts_sample_rate": {
+            "type": "integer",
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Tts Sample Rate",
+            "default": 24000
+          },
+          "tts_format": {
+            "type": "string",
+            "maxLength": 16,
+            "title": "Tts Format",
+            "default": "mp3"
           },
           "tts_timeout": {
             "type": "integer",
@@ -16506,6 +16535,12 @@
             "title": "Tts Timeout",
             "default": 8
           },
+          "asr_resource_id": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Asr Resource Id",
+            "default": "volc.bigasr.sauc.duration"
+          },
           "asr_sample_rate": {
             "type": "integer",
             "maximum": 48000.0,
@@ -16513,10 +16548,11 @@
             "title": "Asr Sample Rate",
             "default": 16000
           },
-          "asr_enable_streaming": {
-            "type": "boolean",
-            "title": "Asr Enable Streaming",
-            "default": true
+          "asr_endpoint_mode": {
+            "type": "string",
+            "maxLength": 24,
+            "title": "Asr Endpoint Mode",
+            "default": "bigmodel_nostream"
           },
           "monthly_budget": {
             "type": "number",
@@ -16532,9 +16568,6 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "app_id"
-        ],
         "title": "VoiceConfigUpdateRequest"
       },
       "VoiceStatusResponse": {

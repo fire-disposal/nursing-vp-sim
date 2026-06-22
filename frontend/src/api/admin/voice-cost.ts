@@ -5,12 +5,17 @@ import { api } from "../axios-instance";
 export interface VoiceConfigResponse {
 	id: number;
 	provider: string;
-	app_id: string;
-	token_masked: string;
-	tts_voice_type: string;
+	api_key_masked: string;
+	api_key_suffix: string;
+	tts_resource_id: string;
+	tts_speaker: string;
+	tts_model: string;
+	tts_sample_rate: number;
+	tts_format: string;
 	tts_timeout: number;
+	asr_resource_id: string;
 	asr_sample_rate: number;
-	asr_enable_streaming: boolean;
+	asr_endpoint_mode: string;
 	monthly_budget: number;
 	is_active: boolean;
 	created_at: string;
@@ -19,12 +24,16 @@ export interface VoiceConfigResponse {
 
 export interface VoiceConfigUpdateRequest {
 	provider?: string;
-	app_id?: string;
-	token?: string | null;
-	tts_voice_type?: string;
+	api_key?: string | null;
+	tts_resource_id?: string;
+	tts_speaker?: string;
+	tts_model?: string;
+	tts_sample_rate?: number;
+	tts_format?: string;
 	tts_timeout?: number;
+	asr_resource_id?: string;
 	asr_sample_rate?: number;
-	asr_enable_streaming?: boolean;
+	asr_endpoint_mode?: string;
 	monthly_budget?: number;
 	is_active?: boolean;
 }
@@ -128,6 +137,12 @@ export const testTTS = () =>
 export const testASR = () =>
 	api.post<VoiceStatusResponse>("/admin/voice/config/test-asr");
 
+export interface ASRStatusResponse {
+	available: boolean;
+}
+
+export const fetchASRStatus = () => api.get<ASRStatusResponse>("/asr/status");
+
 export const fetchCostDashboard = () =>
 	api.get<CostDashboardResponse>("/admin/voice/costs/dashboard");
 
@@ -138,23 +153,31 @@ export const fetchCostExport = (params: CostExportParams) =>
 
 export interface VoiceConfigExportResponse {
 	provider: string;
-	app_id: string;
-	tts_voice_type: string;
+	tts_resource_id: string;
+	tts_speaker: string;
+	tts_model: string;
+	tts_sample_rate: number;
+	tts_format: string;
 	tts_timeout: number;
+	asr_resource_id: string;
 	asr_sample_rate: number;
-	asr_enable_streaming: boolean;
+	asr_endpoint_mode: string;
 	monthly_budget: number;
 	exported_at: string;
 }
 
 export interface VoiceConfigImportRequest {
 	provider?: string;
-	app_id: string;
-	token: string;
-	tts_voice_type?: string;
+	api_key: string;
+	tts_resource_id?: string;
+	tts_speaker?: string;
+	tts_model?: string;
+	tts_sample_rate?: number;
+	tts_format?: string;
 	tts_timeout?: number;
+	asr_resource_id?: string;
 	asr_sample_rate?: number;
-	asr_enable_streaming?: boolean;
+	asr_endpoint_mode?: string;
 	monthly_budget?: number;
 }
 
