@@ -162,7 +162,7 @@ async def generate_initiative_llm(
         if 2 <= len(text) <= 80:
             return text
     except Exception:
-        pass
+        log.warning("LLM initiative prompt generation failed, using fallback", exc_info=True)
     return random.choice(_NEUTRAL_PROMPTS)
 
 

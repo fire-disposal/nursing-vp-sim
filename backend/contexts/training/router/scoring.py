@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import sys
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -20,6 +19,8 @@ from infrastructure.queue import QueueFullError
 from infrastructure.scoring_progress import ScoringProgressTracker
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
 from schemas import ScoringTriggerResponse
+from schemas.common import OkResponse
+from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
 from .session import _try_acquire_scoring
 
@@ -40,7 +41,7 @@ def _get_current_generation(record_id: int) -> int:
     return _scoring_generation.get(record_id, 0)
 
 
-@router.get("/{record_id}/scoring-status")
+@router.get("/{record_id}/scoring-status", response_model=ScoringStatusResponse)
 def get_scoring_status(
     record_id: int,
     request: Request,
@@ -107,11 +108,7 @@ async def _run_scoring_background(
 
     db = SessionLocal()
     gen = _get_current_generation(record_id)
-    print(
-        f"[SCORING] START record_id={record_id} gen={gen} timeout={SCORING_GLOBAL_TIMEOUT}s",
-        file=sys.stderr,
-        flush=True,
-    )
+    log.info("[SCORING] START record_id=%d gen=%d timeout=%ds", record_id, gen, SCORING_GLOBAL_TIMEOUT)
     try:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
@@ -151,8 +148,7 @@ async def _run_scoring_background(
         if tracker:
             tracker.update(record_id, "completed", 100, "评分完成")
         db.commit()
-        log.info("评分完成", extra={"record_id": record_id, "scoring_status": "completed"})
-        print(f"[SCORING] DONE record_id={record_id}", file=sys.stderr, flush=True)
+        log.info("[SCORING] DONE record_id=%d", record_id)
 
         try:
             notif = Notification(
@@ -182,7 +178,7 @@ async def _run_scoring_background(
             except Exception:
                 log.warning("SSE publish failed", exc_info=True)
     except TimeoutError:
-        print(f"[SCORING] TIMEOUT record_id={record_id}", file=sys.stderr, flush=True)
+        log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         try:
@@ -194,13 +190,8 @@ async def _run_scoring_background(
                 db.commit()
         except Exception as e:
             log.exception("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
-        log.exception("评分超时", extra={"record_id": record_id})
     except Exception as e:
-        print(
-            f"[SCORING] FAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
-            file=sys.stderr,
-            flush=True,
-        )
+        log.exception("[SCORING] FAIL record_id=%d error=%s: %s", record_id, type(e).__name__, str(e)[:200])
         if tracker:
             tracker.update(record_id, "failed", 0, str(e)[:100])
         try:
@@ -212,7 +203,6 @@ async def _run_scoring_background(
                 db.commit()
         except Exception as inner:
             log.exception("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
-        log.exception("评分失败", extra={"record_id": record_id, "error": str(e)[:200]})
     finally:
         db.close()
         if tracker:
@@ -344,7 +334,7 @@ async def retry_scoring(
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 
 
-@router.get("/notifications")
+@router.get("/notifications", response_model=list[TrainingNotificationItem])
 def get_notifications(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -360,11 +350,19 @@ def get_notifications(
         .all()
     )
     return [
-        {"id": n.id, "type": n.type, "title": n.title, "body": n.body, "record_id": n.record_id, "created_at": str(n.created_at)} for n in notifs
+        {
+            "id": n.id,
+            "type": n.type,
+            "title": n.title,
+            "body": n.body,
+            "record_id": n.record_id,
+            "created_at": str(n.created_at),
+        }
+        for n in notifs
     ]
 
 
-@router.patch("/notifications/{notif_id}")
+@router.patch("/notifications/{notif_id}", response_model=OkResponse)
 def mark_notification_read(
     notif_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -375,7 +373,7 @@ def mark_notification_read(
         raise HTTPException(status_code=404, detail="通知不存在")
     notif.is_read = True
     db.commit()
-    return {"message": "ok"}
+    return OkResponse(message="ok")
 
 
 @router.get("/notifications/stream")

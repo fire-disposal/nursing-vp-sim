@@ -132,7 +132,7 @@ class DiagnoseService:
                 snap = metrics.snapshot()
                 return snap.get("active_sessions", 0)
         except Exception:
-            pass
+            log.warning("Metrics snapshot _active_sessions failed", exc_info=True)
         return 0
 
     async def _db_status(self) -> dict:
@@ -147,8 +147,14 @@ class DiagnoseService:
                 pool = getattr(engine, "pool", None)
                 info: dict = {"connected": False, "pool_size": 0, "checked_out": 0}
                 if pool:
-                    info["pool_size"] = getattr(pool, "size", 0)
-                    info["checked_out"] = getattr(pool, "checkedin", 0)  # approximate
+                    pool_size = getattr(pool, "size", 0)
+                    if callable(pool_size):
+                        pool_size = pool_size()
+                    checked_out = getattr(pool, "checkedin", 0)
+                    if callable(checked_out):
+                        checked_out = checked_out()
+                    info["pool_size"] = pool_size
+                    info["checked_out"] = checked_out
                 with engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
                 info["connected"] = True

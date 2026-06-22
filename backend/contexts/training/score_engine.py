@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import sys
 
 from sqlalchemy.orm import Session
 
@@ -52,13 +51,15 @@ def _safe_truncate_thought(json_str: str, max_chars: int) -> str:
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                kept.append({
-                    "name": item.get("name", "?"),
-                    "score": item.get("score", 0),
-                    "max": item.get("max", 0),
-                    "evidence": str(item.get("evidence") or "")[:80],
-                    "reason": str(item.get("reason") or "")[:80],
-                })
+                kept.append(
+                    {
+                        "name": item.get("name", "?"),
+                        "score": item.get("score", 0),
+                        "max": item.get("max", 0),
+                        "evidence": str(item.get("evidence") or "")[:80],
+                        "reason": str(item.get("reason") or "")[:80],
+                    }
+                )
             dim_data["items"] = kept
         data["_truncated"] = True
         result = json.dumps(data, ensure_ascii=False, indent=2)
@@ -140,11 +141,6 @@ async def _score_stage(
         )
         _coerce_numeric_fields(result)
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
-        print(
-            f"[SCORING] STAGE1-PARSEFAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
-            file=sys.stderr,
-            flush=True,
-        )
         log.warning(
             "评分首次调用失败（JSON解析或校验），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]}
         )
@@ -191,12 +187,12 @@ async def _score_stage(
         await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
         return result2
     except Exception as retry_err:
-        print(
-            f"[SCORING] STAGE1-RETRYFAIL record_id={record_id} error={type(retry_err).__name__}: {str(retry_err)[:200]}",
-            file=sys.stderr,
-            flush=True,
+        log.warning(
+            "[SCORING] STAGE1-RETRYFAIL record_id=%d error=%s: %s",
+            record_id,
+            type(retry_err).__name__,
+            str(retry_err)[:200],
         )
-        log.warning("评分重试也失败", extra={"record_id": record_id}, exc_info=True)
         raise RuntimeError(f"评分解析重试失败 record_id={record_id}") from retry_err
 
 
@@ -232,12 +228,7 @@ async def _feedback_stage(
             **cfg,
         )
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
-        print(
-            f"[SCORING] STAGE2-PARSEFAIL record_id={record_id} error={type(e).__name__}: {str(e)[:200]}",
-            file=sys.stderr,
-            flush=True,
-        )
-        log.warning("反馈首次调用失败（JSON解析），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]})
+        log.warning("[SCORING] STAGE2-PARSEFAIL record_id=%d error=%s: %s", record_id, type(e).__name__, str(e)[:200])
         result = {}
 
     if result:
@@ -275,12 +266,12 @@ async def _feedback_stage(
             **cfg,
         )
     except Exception as retry_err:
-        print(
-            f"[SCORING] STAGE2-RETRYFAIL record_id={record_id} error={type(retry_err).__name__}: {str(retry_err)[:200]}",
-            file=sys.stderr,
-            flush=True,
+        log.warning(
+            "[SCORING] STAGE2-RETRYFAIL record_id=%d error=%s: %s",
+            record_id,
+            type(retry_err).__name__,
+            str(retry_err)[:200],
         )
-        log.warning("反馈重试也失败", extra={"record_id": record_id}, exc_info=True)
         raise RuntimeError(f"反馈解析重试失败 record_id={record_id}") from retry_err
 
     try:

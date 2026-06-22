@@ -37,7 +37,7 @@ class TTSCircuitBreaker:
 
         try:
             result = await fn(*args, **kwargs) if asyncio.iscoroutinefunction(fn) else fn(*args, **kwargs)
-        except Exception:
+        except Exception as e:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
             if self._state == "half_open":
