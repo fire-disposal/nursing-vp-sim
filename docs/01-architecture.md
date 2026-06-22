@@ -143,7 +143,7 @@ nursing-vp-sim/
 │   │   ├── main.tsx                            # React入口
 │   │   ├── version.ts                          # 版本标记 (构建时注入)
 │   │   ├── api/                                # API 客户端层
-│   │   │   ├── axios-instance.ts               # axios实例 + 拦截器 + envelope解包
+│   │   │   ├── axios-instance.ts               # axios实例 + auth/retry 拦截器
 │   │   │   ├── api-client.ts                   # 统一API客户端
 │   │   │   ├── api-types.gen.ts                # 自动生成的类型定义
 │   │   │   ├── query-keys.ts                   # TanStack Query key 管理
@@ -254,7 +254,7 @@ TrainingEngine 采用插件化架构，通过 PluginContext 动态注册功能�
 
 ## 架构设计原则
 
-1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，axios拦截器自动解包 envelope (`{code, data, message}`)
+1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，使用标准HTTP状态码 + JSON，`useApiQuery` hook 统一消解 AxiosResponse
 2. **有界上下文 (Bounded Contexts)**：业务逻辑按领域划分为 `contexts/training`、`contexts/patient`、`contexts/qa`，每个上下文独立拥有自己的路由、业务逻辑和数据访问
 3. **插件化架构**：前端 TrainingEngine 和后端 training/pipeline 均采用插件/中间件模式，功能模块可独立开发、注册、启用/停用
 4. **管道架构 (Pipeline)**：训练流程采用中间件链：phase_guard → prompt_builder → llm_caller → persister → phase_transition → side_effects，每轮对话经过完整管道处理

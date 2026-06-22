@@ -136,7 +136,7 @@ frontend/src/
 ├── api/
 │   ├── api-client.ts              # API 封装
 │   ├── api-types.gen.ts           # OpenAPI 自动生成类型
-│   └── axios-instance.ts          # axios 实例 (envelope 解包)
+│   └── axios-instance.ts          # axios 实例 (auth/retry 拦截器)
 ├── pages/
 │   ├── Login.tsx                  # 登录 (渐变背景 + 品牌卡片)
 │   ├── DashboardHome.tsx          # 角色分流仪表盘

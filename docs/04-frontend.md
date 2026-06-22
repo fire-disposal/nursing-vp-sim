@@ -36,7 +36,7 @@ frontend/src/
 │   ├── api-client.ts          # 后端 API 封装函数
 │   ├── api-types.gen.ts       # OpenAPI 自动生成类型
 │   ├── api-path.ts            # ApiPath 联合类型 (编译时路径校验)
-│   ├── axios-instance.ts      # axios 实例 + 拦截器 (envelope 解包)
+│   ├── axios-instance.ts      # axios 实例 + auth/retry 拦截器
 │   ├── sse.ts                 # SSE 流式请求封装
 │   ├── auth.ts                # 认证
 │   ├── training.ts            # 训练记录
