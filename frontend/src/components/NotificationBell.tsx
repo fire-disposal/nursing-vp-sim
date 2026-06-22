@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, X } from "lucide-react";
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
@@ -68,46 +69,48 @@ export default function NotificationBell() {
 				)}
 			</button>
 
-			{open && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-					onClick={() => setOpen(false)}
-				>
+			{open &&
+				createPortal(
 					<div
-						className="w-full max-w-sm mx-4 bg-card rounded-xl shadow-xl border border-border overflow-hidden"
-						onClick={(e) => e.stopPropagation()}
+						className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+						onClick={() => setOpen(false)}
 					>
-						<div className="flex items-center justify-between px-4 py-3 border-b">
-							<span className="font-semibold text-sm">通知</span>
-							<button
-								type="button"
-								onClick={() => setOpen(false)}
-								className="p-1 rounded-md hover:bg-muted transition-colors"
-							>
-								<X size={16} />
-							</button>
+						<div
+							className="w-full max-w-sm mx-4 bg-card rounded-xl shadow-xl border border-border overflow-hidden"
+							onClick={(e) => e.stopPropagation()}
+						>
+							<div className="flex items-center justify-between px-4 py-3 border-b">
+								<span className="font-semibold text-sm">通知</span>
+								<button
+									type="button"
+									onClick={() => setOpen(false)}
+									className="p-1 rounded-md hover:bg-muted transition-colors"
+								>
+									<X size={16} />
+								</button>
+							</div>
+							<div className="max-h-80 overflow-y-auto">
+								{notifications.length > 0 ? (
+									notifications.map((n) => (
+										<button
+											type="button"
+											key={n.id}
+											className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50 transition-colors"
+											onClick={() => handleClick(n)}
+										>
+											<div className="text-sm font-medium">{n.title}</div>
+											<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
+											<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 10)}</div>
+										</button>
+									))
+								) : (
+									<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
+								)}
+							</div>
 						</div>
-						<div className="max-h-80 overflow-y-auto">
-							{notifications.length > 0 ? (
-								notifications.map((n) => (
-									<button
-										type="button"
-										key={n.id}
-										className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50 transition-colors"
-										onClick={() => handleClick(n)}
-									>
-										<div className="text-sm font-medium">{n.title}</div>
-										<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
-										<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 10)}</div>
-									</button>
-								))
-							) : (
-								<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
-							)}
-						</div>
-					</div>
-				</div>
-			)}
+					</div>,
+					document.body,
+				)}
 		</>
 	);
 }
