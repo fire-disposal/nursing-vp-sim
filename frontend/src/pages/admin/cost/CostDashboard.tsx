@@ -255,6 +255,8 @@ export default function CostDashboard() {
 		asr_today: { calls: 0, success: 0, error: 0, latency_ms_avg: 0, total_cost: 0 },
 		monthly_budget: 0,
 		monthly_used: 0,
+		llm_monthly_budget: 0,
+		voice_monthly_budget: 0,
 		daily_series: [],
 		top_users: [],
 	};

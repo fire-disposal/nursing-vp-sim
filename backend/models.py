@@ -672,12 +672,14 @@ class RateLimitEntry(Base):
 
 class VoiceConfig(Base, TimestampMixin):
     """TTS + ASR unified configuration. Token is Fernet-encrypted."""
+
     __tablename__ = "voice_configs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(20), default="volcengine")
     app_id: Mapped[str] = mapped_column(String(80))
     token_enc: Mapped[str] = mapped_column(Text)
+    key_suffix: Mapped[str] = mapped_column(String(8), default="")
     tts_voice_type: Mapped[str] = mapped_column(String(40), default="zh_female_vv")
     tts_timeout: Mapped[int] = mapped_column(Integer, default=8)
     asr_sample_rate: Mapped[int] = mapped_column(Integer, default=16000)
@@ -697,7 +699,7 @@ class VoiceCallLog(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     record_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("training_records.id"), nullable=True)
-    direction: Mapped[str] = mapped_column(String(10))       # "tts" | "asr"
+    direction: Mapped[str] = mapped_column(String(10))  # "tts" | "asr"
     text_length: Mapped[int] = mapped_column(Integer, default=0)
     emotion_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)

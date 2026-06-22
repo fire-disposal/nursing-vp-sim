@@ -220,6 +220,34 @@ export class ScoreManager {
 		const phase = VALID_PHASES.includes(data.stage as any)
 			? (data.stage as ScorePhase)
 			: null;
+
+		// Reject regressive updates caused by out-of-order SSE events from
+		// parallel scoring/feedback asyncio.gather.  "failed" is always
+		// accepted because it signals terminal state from any path.
+		const PHASE_ORDER: Record<string, number> = {
+			loading: 0,
+			scoring: 1,
+			feedback: 2,
+			saving: 3,
+			completed: 4,
+		};
+		if (phase && phase !== "failed" && phase !== "processing") {
+			const currentOrder = this._progress.phase
+				? PHASE_ORDER[this._progress.phase]
+				: -1;
+			const newOrder = PHASE_ORDER[phase] ?? -1;
+			if (newOrder >= 0 && currentOrder >= 0 && newOrder < currentOrder) {
+				return; // stale event — skip
+			}
+			// Same phase but lower percentage → also skip
+			if (
+				newOrder === currentOrder &&
+				data.percent < this._progress.percentage
+			) {
+				return;
+			}
+		}
+
 		this._progress = {
 			phase,
 			percentage: data.percent,

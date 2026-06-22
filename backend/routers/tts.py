@@ -39,6 +39,9 @@ def _get_tts_client(db: Session) -> VolcTTSClient | None:
             return _tts_client
         try:
             token = decrypt_api_key(config.token_enc)
+            if config.key_suffix and not token.endswith(config.key_suffix):
+                log.error("Token integrity check failed for config id=%s", config.id)
+                return None
         except Exception:
             log.exception("Failed to decrypt TTS token for config id=%s", config.id)
             return None

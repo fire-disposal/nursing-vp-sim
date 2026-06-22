@@ -43,9 +43,9 @@ export default function CostExportTab() {
 	};
 
 	const downloadCSV = () => {
-		if (!data?.items?.length) return;
-		const headers = Object.keys(data.items[0]);
-		const rows = data.items.map((item) =>
+		if (!data?.length) return;
+		const headers = Object.keys(data[0]);
+		const rows = data.map((item) =>
 			headers.map((h) => String(item[h] ?? "")).join(","),
 		);
 		const csv = [headers.join(","), ...rows].join("\n");
@@ -58,8 +58,13 @@ export default function CostExportTab() {
 		URL.revokeObjectURL(url);
 	};
 
-	const items = data?.items ?? [];
-	const summary = data?.summary;
+	const items = data ?? [];
+	const summary = items.length > 0
+		? {
+				total_cost: items.reduce((sum, r) => sum + (Number(r.cost) || 0), 0),
+				total_calls: items.reduce((sum, r) => sum + (Number(r.calls) || 0), 0),
+			}
+		: null;
 
 	return (
 		<div className="space-y-6 mt-4">

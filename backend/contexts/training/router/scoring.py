@@ -16,6 +16,7 @@ from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
+from infrastructure.queue import QueueFullError
 from infrastructure.scoring_progress import ScoringProgressTracker
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
 from schemas import ScoringTriggerResponse
@@ -182,6 +183,7 @@ async def _run_scoring_background(
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         try:
+            db.expire_all()
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record and _get_current_generation(record_id) == gen:
                 record.scoring_status = "failed"
@@ -199,6 +201,7 @@ async def _run_scoring_background(
         if tracker:
             tracker.update(record_id, "failed", 0, str(e)[:100])
         try:
+            db.expire_all()
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record and _get_current_generation(record_id) == gen:
                 record.scoring_status = "failed"
@@ -211,6 +214,7 @@ async def _run_scoring_background(
         db.close()
         if tracker:
             tracker.cleanup(record_id)
+        _scoring_generation.pop(record_id, None)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
@@ -240,17 +244,20 @@ async def end_training(
         record.end_time = datetime.now(UTC)
         _set_overdue_if_needed(record, db)
 
-        await request.app.state.task_queue.enqueue(
-            lambda: _run_scoring_background(
-                record_id,
-                case_data,
-                llm_client=request.app.state.llm_client,
-                pm=request.app.state.prompt_manager,
-                tracker=getattr(request.app.state, "scoring_tracker", None),
-                sse_manager=request.app.state.sse_manager,
-            ),
-            priority=5,
-        )
+        try:
+            await request.app.state.task_queue.enqueue(
+                lambda: _run_scoring_background(
+                    record_id,
+                    case_data,
+                    llm_client=request.app.state.llm_client,
+                    pm=request.app.state.prompt_manager,
+                    tracker=getattr(request.app.state, "scoring_tracker", None),
+                    sse_manager=request.app.state.sse_manager,
+                ),
+                priority=5,
+            )
+        except QueueFullError:
+            raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
         db.commit()
 
@@ -315,17 +322,20 @@ async def retry_scoring(
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = case.case_data if case else {}
 
-        await request.app.state.task_queue.enqueue(
-            lambda: _run_scoring_background(
-                record_id,
-                case_data,
-                llm_client=request.app.state.llm_client,
-                pm=request.app.state.prompt_manager,
-                tracker=getattr(request.app.state, "scoring_tracker", None),
-                sse_manager=request.app.state.sse_manager,
-            ),
-            priority=5,
-        )
+        try:
+            await request.app.state.task_queue.enqueue(
+                lambda: _run_scoring_background(
+                    record_id,
+                    case_data,
+                    llm_client=request.app.state.llm_client,
+                    pm=request.app.state.prompt_manager,
+                    tracker=getattr(request.app.state, "scoring_tracker", None),
+                    sse_manager=request.app.state.sse_manager,
+                ),
+                priority=5,
+            )
+        except QueueFullError:
+            raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 

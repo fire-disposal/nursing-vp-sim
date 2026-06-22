@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/axios-instance";
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -104,6 +104,17 @@ export default function useVoice(): UseVoiceReturn {
 		setPartialText("");
 		resolveRef.current?.("");
 		resolveRef.current = null;
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			const recorder = mediaRecorderRef.current;
+			if (recorder && recorder.state !== "inactive") {
+				recorder.stop();
+				for (const t of recorder.stream.getTracks()) t.stop();
+			}
+			resolveRef.current = null;
+		};
 	}, []);
 
 	return {

@@ -75,6 +75,8 @@ export interface CostDashboardResponse {
 	asr_today: CostBreakdown;
 	monthly_budget: number;
 	monthly_used: number;
+	llm_monthly_budget: number;
+	voice_monthly_budget: number;
 	daily_series: CostSeriesPoint[];
 	top_users: { user_name: string; total_cost: number; calls: number }[];
 }
@@ -89,10 +91,17 @@ export interface CostExportParams {
 	format?: string;
 }
 
-export interface CostExportResponse {
-	items: Record<string, unknown>[];
-	summary: { total_cost: number; total_calls: number };
+export interface CostExportRow {
+	[key: string]: unknown;
+	date: string;
+	service: string;
+	cost: number;
+	calls: number;
+	success: number;
+	error: number;
 }
+
+export type CostExportResponse = CostExportRow[];
 
 // ── API Functions ──
 
@@ -105,15 +114,19 @@ export const updateVoiceConfig = (data: VoiceConfigUpdateRequest) =>
 export const fetchVoiceUsage = () =>
 	api.get<VoiceUsageResponse>("/admin/voice/usage");
 
+export interface VoiceStatusResponse {
+	provider: string;
+	tts_online: boolean;
+	asr_online: boolean;
+	last_error: string | null;
+	last_error_at: string | null;
+}
+
 export const testTTS = () =>
-	api.post<{ ok: boolean; latency_ms?: number; error?: string }>(
-		"/admin/voice/test/tts",
-	);
+	api.post<VoiceStatusResponse>("/admin/voice/config/test-tts");
 
 export const testASR = () =>
-	api.post<{ ok: boolean; latency_ms?: number; error?: string }>(
-		"/admin/voice/test/asr",
-	);
+	api.post<VoiceStatusResponse>("/admin/voice/config/test-asr");
 
 export const fetchCostDashboard = () =>
 	api.get<CostDashboardResponse>("/admin/voice/costs/dashboard");

@@ -127,6 +127,7 @@ export class StreamManager {
 
   async send(content: string, callbacks: StreamCallbacks = {}): Promise<void> {
     this.setLoading(true);
+    this.abortController?.abort(); // Abort any previous in-flight stream
     if (!this.recordId) {
       this.setLoading(false);
       console.warn("[StreamManager] send() called with null recordId — silently dropping message");

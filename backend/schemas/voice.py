@@ -26,6 +26,7 @@ class VoiceConfigResponse(BaseModel):
     provider: str
     app_id: str
     token_masked: str  # "abc****xyz"
+    token_suffix: str  # last 8 chars of token for integrity check
     tts_voice_type: str
     tts_timeout: int
     asr_sample_rate: int
@@ -82,6 +83,7 @@ class TTSSynthesizeRequest(BaseModel):
 class ASRRecognizeRequest(BaseModel):
     model_config = _REQ_CFG
     audio: str = Field(min_length=1)  # base64-encoded audio
+    record_id: int | None = Field(default=None, ge=1)
     format: str = "wav"
     sample_rate: int = Field(default=16000, ge=8000, le=48000)
 
@@ -104,7 +106,7 @@ class CostBreakdown(BaseModel):
 
 
 class CostSeriesPoint(BaseModel):
-    date: str       # "2026-06-22"
+    date: str  # "2026-06-22"
     llm_cost: float
     tts_cost: float
     asr_cost: float
@@ -118,14 +120,16 @@ class CostDashboardResponse(BaseModel):
     asr_today: CostBreakdown
     monthly_budget: float
     monthly_used: float
+    llm_monthly_budget: float
+    voice_monthly_budget: float
     daily_series: list[CostSeriesPoint]  # last 30 days
-    top_users: list[dict]               # [{user_name, total_cost, calls}]
+    top_users: list[dict]  # [{user_name, total_cost, calls}]
 
 
 class CostExportRequest(BaseModel):
     model_config = _REQ_CFG
-    start_date: str | None = None   # "2026-06-01"
-    end_date: str | None = None     # "2026-06-22"
-    service: str | None = None      # "llm" | "tts" | "asr" | None=all
-    granularity: str = "daily"      # "daily" | "monthly"
-    format: str = "json"            # "json" | "csv"
+    start_date: str | None = None  # "2026-06-01"
+    end_date: str | None = None  # "2026-06-22"
+    service: str | None = None  # "llm" | "tts" | "asr" | None=all
+    granularity: str = "daily"  # "daily" | "monthly"
+    format: str = "json"  # "json" | "csv"

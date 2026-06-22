@@ -12,6 +12,10 @@ log = logging.getLogger(__name__)
 ASR_API_URL = "https://openspeech.bytedance.com/api/v1/asr"
 
 
+class ASRError(Exception):
+    pass
+
+
 @dataclass
 class ASRResult:
     text: str
@@ -21,14 +25,28 @@ class ASRResult:
 
 
 class VolcASRClient:
-    def __init__(self, app_id: str, token: str, cluster: str = "volcengine"):
+    def __init__(self, app_id: str, token: str, cluster: str = "volcengine", timeout: int = 15):
         self._app_id = app_id
         self._token = token
         self._cluster = cluster
+        self._timeout = timeout
+        self._http: httpx.AsyncClient | None = None
+
+    @property
+    def http(self) -> httpx.AsyncClient:
+        if self._http is None:
+            self._http = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._timeout, connect=10.0),
+            )
+        return self._http
+
+    async def close(self) -> None:
+        if self._http:
+            await self._http.aclose()
+            self._http = None
 
     async def recognize(
         self,
-        http: httpx.AsyncClient,
         audio: bytes,
         fmt: str = "wav",
         sample_rate: int = 16000,
@@ -47,18 +65,16 @@ class VolcASRClient:
         }
 
         t0 = time.perf_counter()
-        resp = await http.post(ASR_API_URL, json=payload)
+        resp = await self.http.post(ASR_API_URL, json=payload)
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
 
         if resp.status_code != 200:
-            log.warning("ASR HTTP %d: %s", resp.status_code, resp.text[:500])
-            return ASRResult(text="", confidence=0.0, is_final=True, duration_ms=elapsed_ms)
+            raise ASRError(f"ASR HTTP {resp.status_code}: {resp.text[:500]}")
 
         data = resp.json()
         code = data.get("code", -1)
         if code != 1000:  # Volcengine success code
-            log.warning("ASR API error code=%s msg=%s", code, data.get("message", ""))
-            return ASRResult(text="", confidence=0.0, is_final=True, duration_ms=elapsed_ms)
+            raise ASRError(f"ASR API error code={code} msg={data.get('message', '')}")
 
         result = data.get("result", {})
         text = ""
@@ -85,10 +101,10 @@ class VolcASRClient:
             duration_ms=elapsed_ms,
         )
 
-    async def health_check(self, http: httpx.AsyncClient) -> bool:
+    async def health_check(self) -> bool:
         try:
             small_silence = base64.b64decode("UklGRiQAAABXQVZF")
-            result = await self.recognize(http, small_silence, fmt="wav", sample_rate=8000)
+            result = await self.recognize(small_silence, fmt="wav", sample_rate=8000)
             return True
         except Exception:
             log.exception("ASR health check failed")

@@ -28,6 +28,64 @@ from ._scoring_validation import (
 log = logging.getLogger(__name__)
 
 
+def _safe_truncate_thought(json_str: str, max_chars: int) -> str:
+    """Truncate a JSON string at a valid structural boundary.
+
+    Raw slicing `json_str[:max_chars]` can produce invalid JSON when the cut
+    falls mid-string or mid-token.  This function tries to truncate by
+    reducing detail_scores items; if that fails, it returns a minimal fallback.
+    """
+    if len(json_str) <= max_chars:
+        return json_str
+    try:
+        data = json.loads(json_str)
+        detail_scores = data.get("detail_scores", {})
+        if not isinstance(detail_scores, dict):
+            return _thought_fallback(len(json_str))
+        for dim_data in detail_scores.values():
+            if not isinstance(dim_data, dict):
+                continue
+            items = dim_data.get("items", [])
+            if not isinstance(items, list):
+                continue
+            kept = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                kept.append(
+                    {
+                        "name": item.get("name", "?"),
+                        "score": item.get("score", 0),
+                        "max": item.get("max", 0),
+                        "evidence": str(item.get("evidence") or "")[:80],
+                        "reason": str(item.get("reason") or "")[:80],
+                    }
+                )
+            dim_data["items"] = kept
+        data["_truncated"] = True
+        result = json.dumps(data, ensure_ascii=False, indent=2)
+        if len(result) <= max_chars:
+            return result
+        # Still too large — strip evidence/reason from all items
+        for dim_data in detail_scores.values():
+            if not isinstance(dim_data, dict):
+                continue
+            for item in dim_data.get("items", []):
+                if isinstance(item, dict):
+                    item.pop("evidence", None)
+                    item.pop("reason", None)
+        result = json.dumps(data, ensure_ascii=False, indent=2)
+        if len(result) <= max_chars:
+            return result
+    except (json.JSONDecodeError, TypeError, KeyError):
+        pass
+    return _thought_fallback(len(json_str))
+
+
+def _thought_fallback(original_len: int) -> str:
+    return json.dumps({"_truncated": True, "original_length": original_len}, ensure_ascii=False)
+
+
 async def _sse_progress(
     sse_manager, user_id: int, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
 ) -> None:
@@ -47,8 +105,7 @@ async def _sse_progress(
             },
         )
     except Exception:
-        if sse_manager and user_id:
-            log.warning("SSE publish failed: stage=%s record_id=%d", stage, record_id)
+        log.warning("SSE publish failed: stage=%s record_id=%d", stage, record_id)
 
 
 async def _score_stage(
@@ -98,7 +155,7 @@ async def _score_stage(
     if result:
         try:
             _validate_scoring_essentials(result)
-            thought = json.dumps(result, ensure_ascii=False, indent=2)[:5000]
+            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
             await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
             return result
         except (ValueError, TypeError):
@@ -132,7 +189,7 @@ async def _score_stage(
         _validate_scoring_essentials(result2)
         if tracker:
             tracker.update(record_id, "scoring", 55, "评分维度分析完成")
-        thought = json.dumps(result2, ensure_ascii=False, indent=2)[:3000]
+        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
         await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
         return result2
     except Exception as retry_err:
@@ -188,7 +245,7 @@ async def _feedback_stage(
     if result:
         try:
             _validate_feedback_fields(result)
-            thought = json.dumps(result, ensure_ascii=False, indent=2)[:5000]
+            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
             await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
             return result
         except ValueError as e:
@@ -232,7 +289,7 @@ async def _feedback_stage(
         _validate_feedback_fields(result2)
         if tracker:
             tracker.update(record_id, "feedback", 90, "反馈建议生成完成")
-        thought = json.dumps(result2, ensure_ascii=False, indent=2)[:3000]
+        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
         await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
         return result2
     except ValueError:

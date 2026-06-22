@@ -112,7 +112,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		return () => {
 			unsub();
 			unsubLoading();
-			streamRef.current.abort();
+			streamRef.current.dispose();
 		};
 	}, [recordNum]);
 
@@ -150,6 +150,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		async (text: string) => {
 			const bus = busRef.current;
 			patientAccRef.current = "";
+			bus.emit("chat:beforeSend");
 			streamRef.current.send(text, {
 				onPatientChunk: (chunk: string) => {
 					patientAccRef.current += chunk;

@@ -13,6 +13,8 @@ export class TTSManager {
 	private prebufferAudio: ArrayBuffer | null = null;
 	private currentEmotion: EmotionState = "neutral";
 	private unsubs: Array<() => void> = [];
+	private _currentAudio: HTMLAudioElement | null = null;
+	private _prebufferGen = 0;
 
 	constructor(config?: TTSManagerConfig) {
 		this.emotionProvider = new VolcTTSProvider();
@@ -46,6 +48,7 @@ export class TTSManager {
 		});
 
 		const unsubPrebuffer = bus.on("tts:prebuffer", (data: { text: string }) => {
+			if (!this.autoPlay) return;
 			void this.prebuffer(data.text);
 		});
 
@@ -90,9 +93,7 @@ export class TTSManager {
 			const message = err instanceof Error ? err.message : String(err);
 			this.bus?.emit("tts:error", message);
 			this.bus?.emit("tts:provider-status", {
-				provider: this.recordId
-					? this.emotionProvider.providerName
-					: this.fallbackProvider.providerName,
+				provider: "browser-fallback",
 				latencyMs,
 			});
 		}
@@ -100,30 +101,36 @@ export class TTSManager {
 
 	async prebuffer(text: string): Promise<void> {
 		if (!this.recordId) return;
+		const gen = ++this._prebufferGen;
 		try {
-			this.prebufferAudio = await this.emotionProvider.synthesize(
-				text,
-				this.recordId,
-			);
+			const audio = await this.emotionProvider.synthesize(text, this.recordId);
+			if (gen === this._prebufferGen) this.prebufferAudio = audio;
 		} catch {
-			this.prebufferAudio = null;
+			if (gen === this._prebufferGen) this.prebufferAudio = null;
 		}
 	}
 
 	stop(): void {
 		this.fallbackProvider.stop();
 		this.emotionProvider.cancel();
+		this._currentAudio?.pause();
+		this._currentAudio = null;
+		this.prebufferAudio = null;
 		window.speechSynthesis?.cancel();
 	}
 
 	private async tryEmotionSpeak(text: string): Promise<void> {
 		if (this.recordId) {
-			const audio = await this.emotionProvider.synthesize(
-				text,
-				this.recordId,
-			);
-			await this.playAudio(audio);
-			return;
+			try {
+				const audio = await this.emotionProvider.synthesize(
+					text,
+					this.recordId,
+				);
+				await this.playAudio(audio);
+				return;
+			} catch {
+				// fall through to browser TTS fallback
+			}
 		}
 		this.fallbackProvider.emotion = this.currentEmotion;
 		await this.fallbackProvider.speak(text);
@@ -150,10 +157,13 @@ export class TTSManager {
 		const blob = new Blob([buffer], { type: "audio/mpeg" });
 		const url = URL.createObjectURL(blob);
 		const audio = new Audio(url);
+		this._currentAudio = audio;
+		audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
+		audio.addEventListener("error", () => URL.revokeObjectURL(url), { once: true });
 		try {
 			await audio.play();
 		} finally {
-			URL.revokeObjectURL(url);
+			if (this._currentAudio === audio) this._currentAudio = null;
 		}
 	}
 

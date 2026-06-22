@@ -205,9 +205,11 @@ def get_llm_logs(
     if need_raw:
         q = db.query(LLMCallLog)
         if effective_school is not None:
-            q = q.join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id).join(
-                User, TrainingRecord.user_id == User.id
-            ).filter(User.school_id == effective_school)
+            q = (
+                q.join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id)
+                .join(User, TrainingRecord.user_id == User.id)
+                .filter(User.school_id == effective_school)
+            )
         if record_id is not None:
             q = q.filter(LLMCallLog.record_id == record_id)
         if aggregate_patient_chat and purpose is None:
@@ -298,9 +300,11 @@ def export_llm_logs_csv(
     effective_school = resolve_school_filter(current_user)
     q = db.query(LLMCallLog)
     if effective_school is not None:
-        q = q.join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id).join(
-            User, TrainingRecord.user_id == User.id
-        ).filter(User.school_id == effective_school)
+        q = (
+            q.join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id)
+            .join(User, TrainingRecord.user_id == User.id)
+            .filter(User.school_id == effective_school)
+        )
     if date_from:
         q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
     if date_to:

@@ -34,10 +34,13 @@ async def recognize(
     except Exception:
         raise HTTPException(status_code=400, detail="无效的 base64 音频数据")
 
-    http = request.app.state.httpx_client
-
     t0 = time.perf_counter()
-    result = await asr_client.recognize(http, audio_bytes, req.format, req.sample_rate)
+    try:
+        result = await asr_client.recognize(audio_bytes, req.format, req.sample_rate)
+    except Exception as e:
+        log.error("ASR recognition failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"ASR 识别失败: {str(e)[:200]}")
+
     latency_ms = int((time.perf_counter() - t0) * 1000)
 
     text_length = len(result.text)
@@ -45,6 +48,7 @@ async def recognize(
 
     call_log = VoiceCallLog(
         user_id=current_user.id,
+        record_id=req.record_id,
         direction="asr",
         text_length=text_length,
         confidence=result.confidence,

@@ -15,7 +15,7 @@ from core.database import get_db
 from core.security import require_permission
 from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import VolcTTSClient
-from models import LLMCallLog, User, VoiceCallLog, VoiceConfig
+from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
 from schemas.voice import (
     CostBreakdown,
     CostDashboardResponse,
@@ -32,9 +32,11 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin/voice", tags=["语音管理"])
 
 
-def _mask_token(token_enc: str) -> str:
+def _mask_token(vc: VoiceConfig) -> str:
     try:
-        raw = decrypt_api_key(token_enc)
+        raw = decrypt_api_key(vc.token_enc)
+        if vc.key_suffix and not raw.endswith(vc.key_suffix):
+            return "***mismatch***"
     except Exception:
         return "***error***"
     if len(raw) <= 8:
@@ -49,7 +51,8 @@ def _build_voice_config_response(vc: VoiceConfig | None) -> VoiceConfigResponse 
         id=vc.id,
         provider=vc.provider,
         app_id=vc.app_id,
-        token_masked=_mask_token(vc.token_enc),
+        token_masked=_mask_token(vc),
+        token_suffix=vc.key_suffix or "****",
         tts_voice_type=vc.tts_voice_type,
         tts_timeout=vc.tts_timeout,
         asr_sample_rate=vc.asr_sample_rate,
@@ -89,6 +92,7 @@ def update_config(
         vc.app_id = req.app_id
         if req.token:
             vc.token_enc = encrypt_api_key(req.token)
+            vc.key_suffix = req.token[-8:] if len(req.token) >= 8 else req.token
         vc.tts_voice_type = req.tts_voice_type
         vc.tts_timeout = req.tts_timeout
         vc.asr_sample_rate = req.asr_sample_rate
@@ -97,10 +101,12 @@ def update_config(
         vc.is_active = req.is_active
     else:
         token_enc = encrypt_api_key(req.token) if req.token else ""
+        key_suffix = req.token[-8:] if req.token and len(req.token) >= 8 else (req.token or "")
         vc = VoiceConfig(
             provider=req.provider,
             app_id=req.app_id,
             token_enc=token_enc,
+            key_suffix=key_suffix,
             tts_voice_type=req.tts_voice_type,
             tts_timeout=req.tts_timeout,
             asr_sample_rate=req.asr_sample_rate,
@@ -115,18 +121,17 @@ def update_config(
     return _build_voice_config_response(vc)
 
 
-@router.post("/config/test-tts", response_model=VoiceStatusResponse)
-async def test_tts(
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
-    db: Annotated[Session, Depends(get_db)],
-):
+async def _do_test_tts(db: Session) -> VoiceStatusResponse:
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
     if not vc:
         raise HTTPException(status_code=404, detail="未找到激活的语音配置")
 
     try:
         token = decrypt_api_key(vc.token_enc)
+        if vc.key_suffix and not token.endswith(vc.key_suffix):
+            raise HTTPException(status_code=500, detail="语音服务令牌完整性校验失败，请重新设置 Token")
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="无法解密语音服务令牌")
 
@@ -152,12 +157,24 @@ async def test_tts(
         )
 
 
-@router.post("/config/test-asr", response_model=VoiceStatusResponse)
-async def test_asr(
+@router.post("/config/test-tts", response_model=VoiceStatusResponse)
+async def test_tts(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    return await _do_test_tts(db)
+
+
+@router.post("/test/tts", response_model=VoiceStatusResponse)
+async def test_tts_v2(
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return await _do_test_tts(db)
+
+
+async def _do_test_asr(db: Session, request: Request) -> VoiceStatusResponse:
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
     if not vc:
         raise HTTPException(status_code=404, detail="未找到激活的语音配置")
@@ -166,12 +183,8 @@ async def test_asr(
     if not asr_client:
         raise HTTPException(status_code=503, detail="ASR 客户端未初始化")
 
-    httpx_client = getattr(request.app.state, "httpx_client", None)
-    if not httpx_client:
-        raise HTTPException(status_code=503, detail="HTTP 客户端未就绪")
-
     try:
-        ok = await asr_client.health_check(httpx_client)
+        ok = await asr_client.health_check()
         return VoiceStatusResponse(
             provider=vc.provider,
             tts_online=False,
@@ -187,6 +200,24 @@ async def test_asr(
             last_error=str(e)[:500],
             last_error_at=datetime.now(UTC).isoformat(),
         )
+
+
+@router.post("/config/test-asr", response_model=VoiceStatusResponse)
+async def test_asr(
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return await _do_test_asr(db, request)
+
+
+@router.post("/test/asr", response_model=VoiceStatusResponse)
+async def test_asr_v2(
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return await _do_test_asr(db, request)
 
 
 # ── Voice Usage Stats ──
@@ -268,7 +299,9 @@ def get_voice_usage(
 # ── Unified Cost Dashboard ──
 
 
-def _build_breakdown(total: int, success: int, error_count: int, avg_latency: float, total_cost: float) -> CostBreakdown:
+def _build_breakdown(
+    total: int, success: int, error_count: int, avg_latency: float, total_cost: float
+) -> CostBreakdown:
     return CostBreakdown(
         calls=total,
         success=success,
@@ -283,16 +316,8 @@ def _query_llm_stats(db: Session, since: datetime) -> tuple[int, int, int, float
     total = base.count()
     success = base.filter(LLMCallLog.status == "success").count()
     error_count = base.filter(LLMCallLog.status == "error").count()
-    avg_latency = (
-        db.query(func.avg(LLMCallLog.latency_ms))
-        .filter(LLMCallLog.created_at >= since)
-        .scalar()
-    )
-    total_cost = (
-        db.query(func.sum(LLMCallLog.estimated_cost))
-        .filter(LLMCallLog.created_at >= since)
-        .scalar()
-    )
+    avg_latency = db.query(func.avg(LLMCallLog.latency_ms)).filter(LLMCallLog.created_at >= since).scalar()
+    total_cost = db.query(func.sum(LLMCallLog.estimated_cost)).filter(LLMCallLog.created_at >= since).scalar()
     return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
 
 
@@ -301,22 +326,14 @@ def _query_voice_stats(db: Session, since: datetime) -> tuple[int, int, int, flo
     total = base.count()
     success = base.filter(VoiceCallLog.status == "success").count()
     error_count = base.filter(VoiceCallLog.status == "error").count()
-    avg_latency = (
-        db.query(func.avg(VoiceCallLog.latency_ms))
-        .filter(VoiceCallLog.created_at >= since)
-        .scalar()
-    )
-    total_cost = (
-        db.query(func.sum(VoiceCallLog.cost_estimated))
-        .filter(VoiceCallLog.created_at >= since)
-        .scalar()
-    )
+    avg_latency = db.query(func.avg(VoiceCallLog.latency_ms)).filter(VoiceCallLog.created_at >= since).scalar()
+    total_cost = db.query(func.sum(VoiceCallLog.cost_estimated)).filter(VoiceCallLog.created_at >= since).scalar()
     return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
 
 
 def _query_daily_series(db: Session, days: int = 30) -> list[CostSeriesPoint]:
     now = datetime.now(UTC)
-    since = now - timedelta(days=days)
+    since = now - timedelta(days=days - 1)
 
     llm_rows = (
         db.query(
@@ -332,9 +349,9 @@ def _query_daily_series(db: Session, days: int = 30) -> list[CostSeriesPoint]:
     tts_rows = (
         db.query(
             func.date(VoiceCallLog.created_at).label("date"),
-            func.coalesce(
-                func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0
-            ).label("tts_cost"),
+            func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0).label(
+                "tts_cost"
+            ),
         )
         .filter(VoiceCallLog.created_at >= since)
         .group_by("date")
@@ -345,9 +362,9 @@ def _query_daily_series(db: Session, days: int = 30) -> list[CostSeriesPoint]:
     asr_rows = (
         db.query(
             func.date(VoiceCallLog.created_at).label("date"),
-            func.coalesce(
-                func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "asr"), 0
-            ).label("asr_cost"),
+            func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "asr"), 0).label(
+                "asr_cost"
+            ),
         )
         .filter(VoiceCallLog.created_at >= since)
         .group_by("date")
@@ -380,7 +397,15 @@ def get_cost_dashboard(
     month_start = today_start.replace(day=1)
 
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-    monthly_budget = vc.monthly_budget if vc else 0.0
+    voice_budget = vc.monthly_budget if vc else 0.0
+
+    # Sum LLM monthly_cost_limit from active ApiSecrets
+    llm_budget = (
+        db.query(func.coalesce(func.sum(ApiSecret.monthly_cost_limit), 0)).filter(ApiSecret.status == "active").scalar()
+        or 0.0
+    )
+    llm_budget = round(float(llm_budget), 6)
+    total_budget = round(voice_budget + llm_budget, 6)
 
     # Today: combined
     llm_today = _query_llm_stats(db, today_start)
@@ -389,9 +414,7 @@ def get_cost_dashboard(
     today_success = llm_today[1] + voice_today[1]
     today_error = llm_today[2] + voice_today[2]
     today_latency = (
-        (llm_today[3] * llm_today[0] + voice_today[3] * voice_today[0]) / today_total
-        if today_total > 0
-        else 0.0
+        (llm_today[3] * llm_today[0] + voice_today[3] * voice_today[0]) / today_total if today_total > 0 else 0.0
     )
     today_cost = round(llm_today[4] + voice_today[4], 6)
 
@@ -406,30 +429,66 @@ def get_cost_dashboard(
     month_success = llm_month[1] + voice_month[1]
     month_error = llm_month[2] + voice_month[2]
     month_latency = (
-        (llm_month[3] * llm_month[0] + voice_month[3] * voice_month[0]) / month_total
-        if month_total > 0
-        else 0.0
+        (llm_month[3] * llm_month[0] + voice_month[3] * voice_month[0]) / month_total if month_total > 0 else 0.0
     )
     month_cost = round(llm_month[4] + voice_month[4], 6)
 
-    # Top users (this month)
-    top_users_rows = (
+    # Top users (this month) — LLM costs
+    top_llm_rows = (
         db.query(
             User.display_name.label("user_name"),
-            func.sum(LLMCallLog.estimated_cost).label("total_cost"),
-            func.count(LLMCallLog.id).label("calls"),
+            User.id.label("user_id"),
+            func.sum(LLMCallLog.estimated_cost).label("llm_cost"),
+            func.count(LLMCallLog.id).label("llm_calls"),
         )
         .join(LLMCallLog, LLMCallLog.user_id == User.id, isouter=False)
         .filter(LLMCallLog.created_at >= month_start)
         .group_by(User.id, User.display_name)
-        .order_by(func.sum(LLMCallLog.estimated_cost).desc())
-        .limit(10)
         .all()
     )
-    top_users = [
-        {"user_name": r[0] or "未知", "total_cost": round(float(r[1] or 0), 6), "calls": r[2]}
-        for r in top_users_rows
-    ]
+    # Voice costs
+    top_voice_rows = (
+        db.query(
+            User.display_name.label("user_name"),
+            User.id.label("user_id"),
+            func.sum(VoiceCallLog.cost_estimated).label("voice_cost"),
+            func.count(VoiceCallLog.id).label("voice_calls"),
+        )
+        .join(VoiceCallLog, VoiceCallLog.user_id == User.id, isouter=False)
+        .filter(VoiceCallLog.created_at >= month_start)
+        .group_by(User.id, User.display_name)
+        .all()
+    )
+
+    # Merge LLM + Voice per user
+    user_costs: dict[int, dict] = {}
+    for r in top_llm_rows:
+        uid = r[1]
+        user_costs[uid] = {
+            "user_name": r[0] or "未知",
+            "total_cost": float(r[2] or 0),
+            "calls": int(r[3] or 0),
+        }
+    for r in top_voice_rows:
+        uid = r[1]
+        if uid in user_costs:
+            user_costs[uid]["total_cost"] += float(r[2] or 0)
+            user_costs[uid]["calls"] += int(r[3] or 0)
+        else:
+            user_costs[uid] = {
+                "user_name": r[0] or "未知",
+                "total_cost": float(r[2] or 0),
+                "calls": int(r[3] or 0),
+            }
+
+    top_users = sorted(
+        [
+            {"user_name": v["user_name"], "total_cost": round(v["total_cost"], 6), "calls": v["calls"]}
+            for v in user_costs.values()
+        ],
+        key=lambda x: x["total_cost"],
+        reverse=True,
+    )[:10]
 
     daily_series = _query_daily_series(db, 30)
 
@@ -443,8 +502,10 @@ def get_cost_dashboard(
         asr_today=_build_breakdown(
             voice_asr_today[0], voice_asr_today[1], voice_asr_today[2], voice_asr_today[3], voice_asr_today[4]
         ),
-        monthly_budget=monthly_budget,
+        monthly_budget=total_budget,
         monthly_used=month_cost,
+        llm_monthly_budget=llm_budget,
+        voice_monthly_budget=voice_budget,
         daily_series=daily_series,
         top_users=top_users,
     )
@@ -475,7 +536,10 @@ def _query_voice_stats_direction(db: Session, since: datetime, direction: str) -
 
 
 def _parse_date(d: str) -> datetime:
-    return datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=UTC)
+    try:
+        return datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=UTC)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=422, detail=f"无效的日期格式: {d}，请使用 YYYY-MM-DD 格式")
 
 
 @router.get("/costs/export")
@@ -494,7 +558,11 @@ def export_costs(
 
     rows: list[dict] = []
 
-    date_group = func.date_trunc("month", LLMCallLog.created_at) if granularity == "monthly" else func.date(LLMCallLog.created_at)
+    date_group = (
+        func.date_trunc("month", LLMCallLog.created_at)
+        if granularity == "monthly"
+        else func.date(LLMCallLog.created_at)
+    )
 
     include_llm = not service or service == "llm"
     include_voice = not service or service in ("tts", "asr")
@@ -527,7 +595,9 @@ def export_costs(
 
     if include_voice:
         voice_date_group = (
-            func.date_trunc("month", VoiceCallLog.created_at) if granularity == "monthly" else func.date(VoiceCallLog.created_at)
+            func.date_trunc("month", VoiceCallLog.created_at)
+            if granularity == "monthly"
+            else func.date(VoiceCallLog.created_at)
         )
         direction_filter = [service] if service in ("tts", "asr") else ["tts", "asr"]
 

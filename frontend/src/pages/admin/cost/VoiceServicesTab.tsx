@@ -217,11 +217,13 @@ function ConfigCard() {
 						onClick={async () => {
 							try {
 								const r = await testTTS();
-								r.data.ok
-									? toast.success(
-											`TTS 测试通过 (${r.data.latency_ms}ms)`,
-										)
-									: toast.error(r.data.error || "TTS 测试失败");
+								if (r.data.tts_online) {
+									toast.success(`TTS 测试通过`);
+								} else {
+									toast.error(
+										r.data.last_error || "TTS 测试失败",
+									);
+								}
 							} catch (e: unknown) {
 								const err = e as {
 									response?: { data?: { detail?: string } };
@@ -240,11 +242,13 @@ function ConfigCard() {
 						onClick={async () => {
 							try {
 								const r = await testASR();
-								r.data.ok
-									? toast.success(
-											`ASR 测试通过 (${r.data.latency_ms}ms)`,
-										)
-									: toast.error(r.data.error || "ASR 测试失败");
+								if (r.data.asr_online) {
+									toast.success(`ASR 测试通过`);
+								} else {
+									toast.error(
+										r.data.last_error || "ASR 测试失败",
+									);
+								}
 							} catch (e: unknown) {
 								const err = e as {
 									response?: { data?: { detail?: string } };

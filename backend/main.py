@@ -225,8 +225,12 @@ async def lifespan(app: FastAPI):
         vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
         if vc:
             token = decrypt_api_key(vc.token_enc)
-            app.state.asr_client = VolcASRClient(app_id=vc.app_id, token=token)
-            log.info("ASR client: ready (app_id=%s)", vc.app_id)
+            if vc.key_suffix and not token.endswith(vc.key_suffix):
+                log.error("ASR client: token integrity check failed (suffix mismatch)")
+                app.state.asr_client = None
+            else:
+                app.state.asr_client = VolcASRClient(app_id=vc.app_id, token=token)
+                log.info("ASR client: ready (app_id=%s)", vc.app_id)
         else:
             app.state.asr_client = None
             log.warning("ASR client: no active VoiceConfig found")

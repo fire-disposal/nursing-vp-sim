@@ -7,20 +7,37 @@ the database buys zero durability and costs a connection-open + query +
 commit + close per update.
 
 Now a plain dict.  The public API is unchanged, so callers are unaffected.
+
+TTL auto-eviction on get() prevents stale entries from polluting polling
+responses after process crashes or unexpected task failures.
 """
 
 from __future__ import annotations
 
+import time
+
 
 class ScoringProgressTracker:
-    def __init__(self):
+    def __init__(self, ttl_seconds: float = 900):
         self._store: dict[int, dict] = {}
+        self._ttl = ttl_seconds
 
     def set(self, record_id: int, stage: str, percent: int, message: str = "") -> None:
-        self._store[record_id] = {"stage": stage, "percent": percent, "message": message}
+        self._store[record_id] = {
+            "stage": stage,
+            "percent": percent,
+            "message": message,
+            "_ts": time.time(),
+        }
 
     def get(self, record_id: int) -> dict | None:
-        return self._store.get(record_id)
+        entry = self._store.get(record_id)
+        if entry is None:
+            return None
+        if time.time() - entry.get("_ts", 0) > self._ttl:
+            self._store.pop(record_id, None)
+            return None
+        return entry
 
     def get_progress(self, record_id: int) -> dict | None:
         return self.get(record_id)

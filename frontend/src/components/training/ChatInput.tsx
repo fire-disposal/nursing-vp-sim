@@ -1,5 +1,5 @@
 import { Loader2, Mic, Send } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import useVoice from "@/hooks/useVoice";
 import { cn } from "@/lib/utils";
@@ -13,9 +13,15 @@ interface ChatInputProps {
 export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 	const [text, setText] = useState("");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
-	const { isListening, isProcessing, startListening, stopListening } = useVoice();
+	const { isListening, isProcessing, startListening, stopListening, cancelListening } = useVoice();
 	const voiceRef = useRef(false);
 	const { error: toastError } = useToast();
+
+	useEffect(() => {
+		return () => {
+			cancelListening();
+		};
+	}, [cancelListening]);
 
 	const handleSend = useCallback(() => {
 		const trimmed = text.trim();
