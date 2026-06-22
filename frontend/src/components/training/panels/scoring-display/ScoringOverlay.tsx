@@ -20,13 +20,39 @@ interface Progress {
 	thought?: string;
 }
 
-/** Pull human-readable dimension names from raw LLM thought JSON */
-function extractDimensions(thought: string | undefined): string[] {
+interface ThoughtItem {
+	dimName: string;
+	itemName: string;
+	score: number;
+	max: number;
+	evidence: string;
+	reason: string;
+}
+
+/** Parse raw LLM thought JSON into flat list of dimension items with evidence/reason */
+function parseThoughtItems(thought: string | undefined): ThoughtItem[] {
 	if (!thought) return [];
 	try {
 		const data = JSON.parse(thought) as Record<string, unknown>;
-		const dims = data.detail_scores as Record<string, unknown> | undefined;
-		return dims ? Object.keys(dims) : [];
+		const dims = data.detail_scores as Record<string, Record<string, unknown>> | undefined;
+		if (!dims) return [];
+		const items: ThoughtItem[] = [];
+		for (const [dimName, dimData] of Object.entries(dims)) {
+			if (!dimData || typeof dimData !== "object") continue;
+			const dimItems = dimData.items as Array<Record<string, unknown>> | undefined;
+			if (!dimItems) continue;
+			for (const item of dimItems) {
+				items.push({
+					dimName,
+					itemName: String(item.name ?? "?"),
+					score: Number(item.score ?? 0),
+					max: Number(item.max ?? 3),
+					evidence: String(item.evidence ?? "").trim(),
+					reason: String(item.reason ?? "").trim(),
+				});
+			}
+		}
+		return items;
 	} catch {
 		return [];
 	}
@@ -73,7 +99,7 @@ export function ScoringOverlay({
 	}, [visible]);
 
 	const dimensions = useMemo(
-		() => extractDimensions(progress.thought),
+		() => parseThoughtItems(progress.thought),
 		[progress.thought],
 	);
 
@@ -146,18 +172,33 @@ export function ScoringOverlay({
 					/>
 				</div>
 
-				{/* AI status ticker — small scrolling window */}
-				<div className="h-20 rounded-md border border-border/60 bg-muted/30 px-3 py-2 overflow-hidden">
+				{/* AI thought — scrollable detail panel */}
+				<div className="max-h-[40vh] rounded-md border border-border/60 bg-muted/30 px-3 py-2 overflow-y-auto scrollbar-thin">
 					<div className="text-[11px] leading-relaxed font-mono text-muted-foreground space-y-0.5 animate-in slide-in-from-bottom-2 duration-300">
 						<p className="text-primary/70">$ scoring --start</p>
 						<p>│</p>
 						{progress.thought && dimensions.length > 0 ? (
 							<>
 								<p>│ ◉ 评估维度</p>
-								{dimensions.map((d) => (
-									<p key={d} className="text-foreground/70">
-										│  ↳ {d}
-									</p>
+								{dimensions.map((item, i) => (
+									<div key={i} className="text-foreground/70">
+										<p>
+											│  ↳ {item.dimName} › {item.itemName}{" "}
+											<span className="text-primary/60">
+												({item.score}/{item.max})
+											</span>
+										</p>
+										{item.evidence && (
+											<p className="text-muted-foreground/60 ml-5 break-all">
+												│    evidence: {item.evidence}
+											</p>
+										)}
+										{item.reason && (
+											<p className="text-muted-foreground/60 ml-5 break-all">
+												│    reason: {item.reason}
+											</p>
+										)}
+									</div>
 								))}
 							</>
 						) : (
