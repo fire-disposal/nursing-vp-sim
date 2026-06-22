@@ -11140,6 +11140,18 @@
               }
             ],
             "title": "Id"
+          },
+          "emotion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emotion"
           }
         },
         "type": "object",

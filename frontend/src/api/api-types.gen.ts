@@ -3368,6 +3368,10 @@ export interface components {
             message?: string | null;
             /** Id */
             id?: number | null;
+            /** Emotion */
+            emotion?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** LLMCallLogItem */
         LLMCallLogItem: {

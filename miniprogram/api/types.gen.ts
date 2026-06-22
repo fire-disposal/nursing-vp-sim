@@ -437,6 +437,7 @@ export interface InitiativeTriggerResponse {
   triggered: boolean
   message?: string | null
   id?: number | null
+  emotion?: Record<string, unknown> | null
 }
 
 export interface LLMCallLogItem {

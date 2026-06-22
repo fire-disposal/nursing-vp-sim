@@ -34,6 +34,9 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 			const res = await triggerInitiative(recordId);
 			if (res.data.triggered && res.data.message) {
 				bus.emit("initiative:triggered", { content: res.data.message });
+				if (res.data.emotion) {
+					bus.emit("emotion:changed", res.data.emotion as { state: string; trust: number; comfort: number });
+				}
 			}
 		} catch {
 		} finally {
