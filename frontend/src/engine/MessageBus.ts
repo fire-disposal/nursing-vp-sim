@@ -15,6 +15,8 @@ export interface BusEvents {
 			elapsed_seconds?: number;
 			threshold_seconds?: number;
 			percent?: number;
+			initiative_count?: number;
+			max_reached?: boolean;
 		},
 	];
 	"initiative:triggered": [{ content: string }];
