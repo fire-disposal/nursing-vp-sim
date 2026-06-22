@@ -69,14 +69,6 @@ class MetricsResponse(BaseModel):
     memory_mb: float = 0.0
 
 
-class SystemConfigItem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    key: str
-    value: str | None = None
-    description: str | None = None
-
-
 class DiagnoseServerInfo(BaseModel):
     version: str
     uptime_seconds: int

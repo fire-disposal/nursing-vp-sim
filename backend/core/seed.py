@@ -14,7 +14,7 @@ from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from infrastructure.llm import encrypt_api_key
-from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, SystemConfig, User, VoiceConfig
+from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, User, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -176,18 +176,6 @@ def _seed_data() -> None:
             db.commit()
             log.debug("内置病例已导入 (%d)", case_count)
 
-        # 7. Seed system config defaults (idempotent)
-        _defaults = [
-            ("access_token_expire_minutes", "480", "JWT Token 过期时间（分钟）"),
-            ("scoring_timeout_seconds", "300", "评分超时时间（秒）"),
-            ("cleanup_interval_seconds", "300", "后台清理循环间隔（秒）"),
-            ("qa_rag_enabled", "false", "QA 知识库 RAG 检索（true/false）"),
-        ]
-        for key, value, desc in _defaults:
-            existing = db.query(SystemConfig).filter(SystemConfig.key == key).first()
-            if not existing:
-                db.add(SystemConfig(key=key, value=value, description=desc))
-        db.commit()
     finally:
         db.close()
 
