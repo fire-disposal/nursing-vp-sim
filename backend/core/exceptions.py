@@ -1,7 +1,11 @@
 """Unified application exception hierarchy."""
 
+import logging
+
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
+
+log = logging.getLogger(__name__)
 
 
 class AppError(Exception):
@@ -73,16 +77,21 @@ class ScoringFeedbackError(ScoringError):
 # ── Exception handlers (for FastAPI add_exception_handler) ──
 
 
+async def _log_and_respond(request: Request, status_code: int, detail: str):
+    log.warning("%s %s → %d %s", request.method, request.url.path, status_code, detail)
+    return JSONResponse(status_code=status_code, content={"detail": detail})
+
+
 async def auth_error_handler(request: Request, exc: AuthError):
-    return JSONResponse(status_code=exc.status_code, content={"code": -1, "data": None, "message": exc.detail})
+    return await _log_and_respond(request, exc.status_code, exc.detail)
 
 
 async def not_found_handler(request: Request, exc: NotFoundError):
-    return JSONResponse(status_code=exc.status_code, content={"code": -1, "data": None, "message": exc.detail})
+    return await _log_and_respond(request, exc.status_code, exc.detail)
 
 
 async def conflict_handler(request: Request, exc: ConflictError):
-    return JSONResponse(status_code=exc.status_code, content={"code": -1, "data": None, "message": exc.detail})
+    return await _log_and_respond(request, exc.status_code, exc.detail)
 
 
 async def llm_error_handler(request: Request, exc: LLMError):
@@ -94,7 +103,7 @@ async def llm_error_handler(request: Request, exc: LLMError):
         status_code = 429
     else:
         status_code = 500
-    return JSONResponse(status_code=status_code, content={"code": -1, "data": None, "message": str(exc)})
+    return await _log_and_respond(request, status_code, str(exc))
 
 
 async def scoring_error_handler(request: Request, exc: ScoringError):
@@ -104,4 +113,4 @@ async def scoring_error_handler(request: Request, exc: ScoringError):
         status_code = 500
     else:
         status_code = 500
-    return JSONResponse(status_code=status_code, content={"code": -1, "data": None, "message": str(exc)})
+    return await _log_and_respond(request, status_code, str(exc))

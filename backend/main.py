@@ -30,7 +30,6 @@ from core.config import (
 )
 from core.database import engine, init_db
 from core.diagnose import get_diagnose_service
-from core.envelope import EnvelopeMiddleware
 from core.exceptions import (
     AuthError,
     ConflictError,
@@ -58,6 +57,7 @@ from infrastructure.tts.client import VolcTTSClient
 from middleware.rate_limits import PgRateLimiter
 from models import VoiceConfig
 from repositories.training import TrainingRepository
+from schemas.ops import HealthResponse, MetricsResponse
 
 log = logging.getLogger(__name__)
 
@@ -403,6 +403,11 @@ app.add_exception_handler(ScoringError, scoring_error_handler)
 async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
         raise exc
+    import traceback as _tb
+
+    with open("error_trace.log", "a", encoding="utf-8") as f:
+        f.write(f"\n=== {request.method} {request.url.path} ===\n")
+        _tb.print_exception(type(exc), exc, exc.__traceback__, file=f)
     log.exception("未处理异常 %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
@@ -464,7 +469,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(EnvelopeMiddleware)
+# EnvelopeMiddleware removed — API now returns standard JSON with HTTP status codes.
 
 # Route registration
 from contexts.qa import router as qa_router
@@ -514,7 +519,7 @@ app.include_router(asr_router)
 app.include_router(tts_router)
 
 
-@app.get("/api/health")
+@app.get("/api/health", response_model=HealthResponse)
 def health():
     from core.database import engine
 
@@ -524,12 +529,12 @@ def health():
     except Exception:
         return JSONResponse(
             status_code=503,
-            content={"code": 503, "data": {"status": "db_error"}, "message": "database unreachable"},
+            content={"detail": "database unreachable"},
         )
     return {"status": "ok", "version": APP_VERSION}
 
 
-@app.get("/api/metrics")
+@app.get("/api/metrics", response_model=MetricsResponse)
 async def metrics(request: Request):
     m = request.app.state.metrics
     return m.snapshot()
