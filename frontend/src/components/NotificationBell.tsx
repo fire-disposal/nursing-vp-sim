@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Bell, X } from "lucide-react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
@@ -16,7 +16,6 @@ interface Notification {
 
 export default function NotificationBell() {
 	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
 	const qc = useQueryClient();
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
@@ -40,14 +39,6 @@ export default function NotificationBell() {
 	const notifications: Notification[] = data?.data ?? [];
 	const unread = notifications.length;
 
-	useEffect(() => {
-		const handleClick = (e: MouseEvent) => {
-			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-		};
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, []);
-
 	const handleClick = useCallback(
 		(n: Notification) => {
 			markReadMutation.mutate(n.id);
@@ -62,10 +53,10 @@ export default function NotificationBell() {
 	);
 
 	return (
-		<div ref={ref} className="relative">
+		<>
 			<button
 				type="button"
-				onClick={() => setOpen(!open)}
+				onClick={() => setOpen(true)}
 				className="relative h-8 p-2 rounded-lg hover:bg-muted transition-colors"
 				aria-label={`通知${unread > 0 ? `（${unread} 条未读）` : ""}`}
 			>
@@ -76,28 +67,47 @@ export default function NotificationBell() {
 					</span>
 				)}
 			</button>
-			{open && notifications.length > 0 && (
-				<div className="absolute right-0 bottom-full mb-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
-					<div className="px-3 py-2.5 border-b text-sm font-semibold">通知</div>
-					{notifications.map((n) => (
-						<button
-							type="button"
-							key={n.id}
-							className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50 transition-colors"
-							onClick={() => handleClick(n)}
-						>
-							<div className="text-sm font-medium">{n.title}</div>
-							<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
-							<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 10)}</div>
-						</button>
-					))}
+
+			{open && (
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+					onClick={() => setOpen(false)}
+				>
+					<div
+						className="w-full max-w-sm mx-4 bg-card rounded-xl shadow-xl border border-border overflow-hidden"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="flex items-center justify-between px-4 py-3 border-b">
+							<span className="font-semibold text-sm">通知</span>
+							<button
+								type="button"
+								onClick={() => setOpen(false)}
+								className="p-1 rounded-md hover:bg-muted transition-colors"
+							>
+								<X size={16} />
+							</button>
+						</div>
+						<div className="max-h-80 overflow-y-auto">
+							{notifications.length > 0 ? (
+								notifications.map((n) => (
+									<button
+										type="button"
+										key={n.id}
+										className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50 transition-colors"
+										onClick={() => handleClick(n)}
+									>
+										<div className="text-sm font-medium">{n.title}</div>
+										<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
+										<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 10)}</div>
+									</button>
+								))
+							) : (
+								<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
+							)}
+						</div>
+					</div>
 				</div>
 			)}
-			{open && notifications.length === 0 && (
-				<div className="absolute right-0 bottom-full mb-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50">
-					<div className="px-3 py-2.5 text-center text-sm text-muted-foreground">暂无通知</div>
-				</div>
-			)}
-		</div>
+		</>
 	);
 }
