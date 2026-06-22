@@ -10,6 +10,7 @@ interface Notification {
 	type: string;
 	title: string;
 	body: string;
+	record_id?: number;
 	created_at: string;
 }
 
@@ -51,7 +52,9 @@ export default function NotificationBell() {
 		(n: Notification) => {
 			markReadMutation.mutate(n.id);
 			setOpen(false);
-			if (n.type === "scoring_complete" || n.type.startsWith("scoring_")) {
+			if (n.record_id) {
+				navigate(`/record/${n.record_id}`);
+			} else if (n.type === "scoring_complete" || n.type.startsWith("scoring_")) {
 				navigate("/history");
 			}
 		},

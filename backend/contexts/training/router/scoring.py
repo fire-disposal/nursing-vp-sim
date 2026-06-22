@@ -360,7 +360,7 @@ def get_notifications(
         .all()
     )
     return [
-        {"id": n.id, "type": n.type, "title": n.title, "body": n.body, "created_at": str(n.created_at)} for n in notifs
+        {"id": n.id, "type": n.type, "title": n.title, "body": n.body, "record_id": n.record_id, "created_at": str(n.created_at)} for n in notifs
     ]
 
 
