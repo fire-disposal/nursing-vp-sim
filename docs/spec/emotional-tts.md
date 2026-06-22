@@ -359,7 +359,11 @@ TrainingHeader TTS 按钮旁显示指示灯：
 点击指示灯 → 弹窗显示详情（延迟、今日调用量、费用）。
 
 
-## 8. TTS 密钥与计费管理
+## 8. 密钥与计费管理
+
+> **更新**: 与 ASR 共用 `VoiceConfig` 模型和 `/api/admin/voice/*` 接口。详见 `docs/spec/asr-voice-input.md` §6。
+
+TTS + ASR 同属火山引擎"语音技术"，共享 app_id/token。管理接口统一在 `/api/admin/voice/` 下。
 
 ### 8.1 后端接口
 
@@ -488,12 +492,15 @@ VALID_VOICE_TYPES = frozenset({
 
 ## 10. 实施计划
 
-| Phase | 内容 | 预估 |
+| Phase | 内容 | 共享 |
 |-------|------|------|
-| **Phase 1** | 后端 `infrastructure/tts/` + `routers/tts.py` + `models.py` (TTSConfig/TTSCallLog) + 配置 | 1 次提交 |
-| **Phase 2** | 前端 `TTSManager.ts` 重构 + 双层 Provider + 状态指示灯 | 1 次提交 |
-| **Phase 3** | 熔断降级 + 浏览器 TTS 情感模拟 + 音色病例配置 | 1 次提交 |
-| **Phase 4** | 管理界面 (TTS 配置卡片 + 用量面板) + 管理 API + 测试 | 1 次提交 |
+| **V-1** | `VoiceConfig` + `VoiceCallLog` 模型 + 迁移 + 管理 API | TTS + ASR 共用 |
+| **T-1** | 后端 `infrastructure/tts/` + `routers/tts.py` | TTS |
+| **T-2** | 前端 `TTSManager` 重构 + 双层 Provider + 预缓冲 | TTS |
+| **T-3** | 熔断降级 + 浏览器 TTS 情感模拟 + 音色病例配置 | TTS |
+| **A-1** | 后端 `infrastructure/asr/` + WebSocket 路由 | ASR |
+| **A-2** | 前端 `useVoice` 重构 + `ChatInput` 语音按钮 | ASR |
+| **M-1** | 管理面板"语音服务"Tab + 连通性测试 + 用量 | 共用 |
 
 ---
 
