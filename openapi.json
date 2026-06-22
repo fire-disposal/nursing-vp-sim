@@ -8357,6 +8357,409 @@
         }
       }
     },
+    "/api/admin/voice/config": {
+      "get": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Get Config",
+        "operationId": "get_config_api_admin_voice_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceConfigResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Update Config",
+        "operationId": "update_config_api_admin_voice_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceConfigUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/config/test-tts": {
+      "post": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Test Tts",
+        "operationId": "test_tts_api_admin_voice_config_test_tts_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/test/tts": {
+      "post": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Test Tts V2",
+        "operationId": "test_tts_v2_api_admin_voice_test_tts_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/config/test-asr": {
+      "post": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Test Asr",
+        "operationId": "test_asr_api_admin_voice_config_test_asr_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/test/asr": {
+      "post": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Test Asr V2",
+        "operationId": "test_asr_v2_api_admin_voice_test_asr_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/usage": {
+      "get": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Get Voice Usage",
+        "operationId": "get_voice_usage_api_admin_voice_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceUsageResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/costs/dashboard": {
+      "get": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Get Cost Dashboard",
+        "operationId": "get_cost_dashboard_api_admin_voice_costs_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostDashboardResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/costs/export": {
+      "get": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Export Costs",
+        "operationId": "export_costs_api_admin_voice_costs_export_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Service"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "daily",
+              "title": "Granularity"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "json",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/asr/recognize": {
+      "post": {
+        "tags": [
+          "ASR"
+        ],
+        "summary": "Recognize",
+        "operationId": "recognize_api_asr_recognize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ASRRecognizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ASRRecognizeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/tts/synthesize": {
+      "post": {
+        "tags": [
+          "TTS"
+        ],
+        "summary": "Synthesize",
+        "description": "Synthesize patient speech with emotion-aware voice.\n\nLooks up the training record's current emotional state and maps it\nto TTS parameters (emotion + speech rate), then calls Volcengine TTS.",
+        "operationId": "synthesize_api_tts_synthesize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TTSSynthesizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -8392,6 +8795,63 @@
   },
   "components": {
     "schemas": {
+      "ASRRecognizeRequest": {
+        "properties": {
+          "audio": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Audio"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "default": "wav"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Sample Rate",
+            "default": 16000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "audio"
+        ],
+        "title": "ASRRecognizeRequest"
+      },
+      "ASRRecognizeResponse": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "confidence"
+        ],
+        "title": "ASRRecognizeResponse"
+      },
       "AdminStats": {
         "properties": {
           "total_students": {
@@ -9729,6 +10189,132 @@
           "id"
         ],
         "title": "ConfigCreateResponse"
+      },
+      "CostBreakdown": {
+        "properties": {
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "success": {
+            "type": "integer",
+            "title": "Success"
+          },
+          "error": {
+            "type": "integer",
+            "title": "Error"
+          },
+          "latency_ms_avg": {
+            "type": "number",
+            "title": "Latency Ms Avg"
+          },
+          "total_cost": {
+            "type": "number",
+            "title": "Total Cost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calls",
+          "success",
+          "error",
+          "latency_ms_avg",
+          "total_cost"
+        ],
+        "title": "CostBreakdown"
+      },
+      "CostDashboardResponse": {
+        "properties": {
+          "today": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "this_month": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "llm_today": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "tts_today": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "asr_today": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "monthly_budget": {
+            "type": "number",
+            "title": "Monthly Budget"
+          },
+          "monthly_used": {
+            "type": "number",
+            "title": "Monthly Used"
+          },
+          "llm_monthly_budget": {
+            "type": "number",
+            "title": "Llm Monthly Budget"
+          },
+          "voice_monthly_budget": {
+            "type": "number",
+            "title": "Voice Monthly Budget"
+          },
+          "daily_series": {
+            "items": {
+              "$ref": "#/components/schemas/CostSeriesPoint"
+            },
+            "type": "array",
+            "title": "Daily Series"
+          },
+          "top_users": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Users"
+          }
+        },
+        "type": "object",
+        "required": [
+          "today",
+          "this_month",
+          "llm_today",
+          "tts_today",
+          "asr_today",
+          "monthly_budget",
+          "monthly_used",
+          "llm_monthly_budget",
+          "voice_monthly_budget",
+          "daily_series",
+          "top_users"
+        ],
+        "title": "CostDashboardResponse"
+      },
+      "CostSeriesPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "llm_cost": {
+            "type": "number",
+            "title": "Llm Cost"
+          },
+          "tts_cost": {
+            "type": "number",
+            "title": "Tts Cost"
+          },
+          "asr_cost": {
+            "type": "number",
+            "title": "Asr Cost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "llm_cost",
+          "tts_cost",
+          "asr_cost"
+        ],
+        "title": "CostSeriesPoint"
       },
       "DeleteResponse": {
         "properties": {
@@ -14074,6 +14660,40 @@
         "type": "object",
         "title": "SystemNotificationUpdateRequest"
       },
+      "TTSSynthesizeRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "record_id": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Record Id"
+          },
+          "voice_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "record_id"
+        ],
+        "title": "TTSSynthesizeRequest"
+      },
       "TeacherSummaryItem": {
         "properties": {
           "user_id": {
@@ -15024,6 +15644,271 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VoiceConfigResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "app_id": {
+            "type": "string",
+            "title": "App Id"
+          },
+          "token_masked": {
+            "type": "string",
+            "title": "Token Masked"
+          },
+          "token_suffix": {
+            "type": "string",
+            "title": "Token Suffix"
+          },
+          "tts_voice_type": {
+            "type": "string",
+            "title": "Tts Voice Type"
+          },
+          "tts_timeout": {
+            "type": "integer",
+            "title": "Tts Timeout"
+          },
+          "asr_sample_rate": {
+            "type": "integer",
+            "title": "Asr Sample Rate"
+          },
+          "asr_enable_streaming": {
+            "type": "boolean",
+            "title": "Asr Enable Streaming"
+          },
+          "monthly_budget": {
+            "type": "number",
+            "title": "Monthly Budget"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "app_id",
+          "token_masked",
+          "token_suffix",
+          "tts_voice_type",
+          "tts_timeout",
+          "asr_sample_rate",
+          "asr_enable_streaming",
+          "monthly_budget",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "VoiceConfigResponse"
+      },
+      "VoiceConfigUpdateRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": "volcengine"
+          },
+          "app_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "App Id"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "tts_voice_type": {
+            "type": "string",
+            "title": "Tts Voice Type",
+            "default": "zh_female_vv"
+          },
+          "tts_timeout": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Tts Timeout",
+            "default": 8
+          },
+          "asr_sample_rate": {
+            "type": "integer",
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Asr Sample Rate",
+            "default": 16000
+          },
+          "asr_enable_streaming": {
+            "type": "boolean",
+            "title": "Asr Enable Streaming",
+            "default": true
+          },
+          "monthly_budget": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Monthly Budget",
+            "default": 200.0
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "app_id"
+        ],
+        "title": "VoiceConfigUpdateRequest"
+      },
+      "VoiceStatusResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "tts_online": {
+            "type": "boolean",
+            "title": "Tts Online"
+          },
+          "asr_online": {
+            "type": "boolean",
+            "title": "Asr Online"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "tts_online",
+          "asr_online",
+          "last_error",
+          "last_error_at"
+        ],
+        "title": "VoiceStatusResponse"
+      },
+      "VoiceUsageItem": {
+        "properties": {
+          "calls_total": {
+            "type": "integer",
+            "title": "Calls Total"
+          },
+          "calls_success": {
+            "type": "integer",
+            "title": "Calls Success"
+          },
+          "calls_fallback": {
+            "type": "integer",
+            "title": "Calls Fallback"
+          },
+          "calls_error": {
+            "type": "integer",
+            "title": "Calls Error"
+          },
+          "total_chars": {
+            "type": "integer",
+            "title": "Total Chars"
+          },
+          "total_latency_ms": {
+            "type": "integer",
+            "title": "Total Latency Ms"
+          },
+          "cost_estimated": {
+            "type": "number",
+            "title": "Cost Estimated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calls_total",
+          "calls_success",
+          "calls_fallback",
+          "calls_error",
+          "total_chars",
+          "total_latency_ms",
+          "cost_estimated"
+        ],
+        "title": "VoiceUsageItem"
+      },
+      "VoiceUsageResponse": {
+        "properties": {
+          "tts_today": {
+            "$ref": "#/components/schemas/VoiceUsageItem"
+          },
+          "asr_today": {
+            "$ref": "#/components/schemas/VoiceUsageItem"
+          },
+          "tts_month": {
+            "$ref": "#/components/schemas/VoiceUsageItem"
+          },
+          "asr_month": {
+            "$ref": "#/components/schemas/VoiceUsageItem"
+          },
+          "monthly_budget": {
+            "type": "number",
+            "title": "Monthly Budget"
+          },
+          "monthly_used": {
+            "type": "number",
+            "title": "Monthly Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tts_today",
+          "asr_today",
+          "tts_month",
+          "asr_month",
+          "monthly_budget",
+          "monthly_used"
+        ],
+        "title": "VoiceUsageResponse"
       },
       "WechatBindRequest": {
         "properties": {
