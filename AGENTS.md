@@ -1,5 +1,7 @@
 # AGENTS.md
 
+> **硬约束**: 禁止主动执行 `git tag` / `git push --tags` / `git push origin v*`。新建标签和推送标签必须在用户明确指示后才能执行。
+
 ## Hook Chain
 
 ```
