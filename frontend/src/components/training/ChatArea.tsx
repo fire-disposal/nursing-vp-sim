@@ -30,6 +30,14 @@ export function ChatArea({
 }: ChatAreaProps) {
   const hasMessages = messages.length > 0;
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+
+  // Auto-dismiss welcome once user sends first message
+  useEffect(() => {
+    if (hasMessages) setWelcomeDismissed(true);
+  }, [hasMessages]);
+
+  const showWelcome = !hasMessages && !welcomeDismissed;
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -74,10 +82,14 @@ export function ChatArea({
 				<div
 					className={cn(
 						"absolute inset-0 transition-opacity duration-300",
-						hasMessages ? "opacity-0 pointer-events-none" : "opacity-100",
+						showWelcome ? "opacity-100" : "opacity-0 pointer-events-none",
 					)}
 				>
-					<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
+					<WelcomeScreen
+						patient={patient}
+						onQuickPrompt={onSend}
+						onDismiss={() => setWelcomeDismissed(true)}
+					/>
 				</div>
 			</div>
 			<InitiativeBar bus={bus} features={features} recordId={recordId} />

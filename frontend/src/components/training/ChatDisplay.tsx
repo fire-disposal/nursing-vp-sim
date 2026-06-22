@@ -34,9 +34,6 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	const { emotion } = useEmotion();
 	const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
 
-	const hasStream = messages.some((m) => m.streaming);
-	const showFab = (!isNearBottom || hasStream || hasStreaming) && messages.length > 3;
-
 	const checkNearBottom = useCallback(() => {
 		const el = scrollRef.current;
 		if (!el) return true;
@@ -104,62 +101,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					/>
 				)
 			)}
-			{/* Typing indicator */}
-			{hasStreaming && messages.length > 0 && messages[messages.length - 1]?.role === "patient" && messages[messages.length - 1]?.streaming && (
-				<div className="flex justify-start px-4">
-					<div className="flex items-center gap-2 px-4 py-3 rounded-2xl rounded-bl-sm bg-muted animate-in fade-in-0 duration-300">
-						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:0ms]" />
-						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:150ms]" />
-						<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:300ms]" />
-					</div>
-				</div>
-			)}
 			<div ref={bottomRef} className="h-1" />
-
-			{showFab && (
-				<button
-					type="button"
-					onClick={() => scrollToBottom(true)}
-					className={cn(
-						"fixed left-1/2 -translate-x-1/2 z-30 flex items-center justify-center rounded-full border bg-background shadow-md hover:bg-muted transition-colors",
-						hasStreaming || hasStream
-							? "bottom-32 px-3 py-1.5 gap-1.5"
-							: "bottom-28 size-9",
-					)}
-					aria-label="滚动到最新消息"
-				>
-					{hasStreaming || hasStream ? (
-						<>
-							<span className="size-2 rounded-full bg-primary/60 animate-pulse" />
-							<span className="text-xs text-muted-foreground whitespace-nowrap">患者正在回复...</span>
-						</>
-					) : (
-						<svg
-						width="16"
-						height="16"
-						viewBox="0 0 16 16"
-						fill="none"
-						className="text-foreground"
-						role="img"
-					>
-						<title>滚动到最新消息</title>
-						<path
-							d="M8 3v7m0 0l-3-3m3 3l3-3"
-							stroke="currentColor"
-							strokeWidth="1.5"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						/>
-						<path
-							d="M3 13h10"
-							stroke="currentColor"
-							strokeWidth="1.5"
-							strokeLinecap="round"
-						/>
-					</svg>
-					)}
-				</button>
-			)}
 		</div>
 	);
 });

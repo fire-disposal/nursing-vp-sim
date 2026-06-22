@@ -6,9 +6,10 @@ import { getPatientAvatar } from "@/utils/avatar";
 interface WelcomeScreenProps {
 	patient: PatientData;
 	onQuickPrompt?: (text: string) => void;
+	onDismiss?: () => void;
 }
 
-export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
+export function WelcomeScreen({ patient, onQuickPrompt, onDismiss }: WelcomeScreenProps) {
 	const { portraitUrl } = usePortrait();
 	const avatarSrc =
 		portraitUrl ||
@@ -19,7 +20,10 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	const subInfo = [genderLabel, ageLabel].filter(Boolean).join(" · ");
 
 	return (
-		<div className="flex h-full items-center justify-center p-4">
+		<div
+			className="flex h-full items-center justify-center p-4 cursor-pointer"
+			onClick={onDismiss}
+		>
 			<div className="text-center space-y-6 max-w-sm w-full">
 				<Card className="p-6 text-center space-y-4">
 					<img

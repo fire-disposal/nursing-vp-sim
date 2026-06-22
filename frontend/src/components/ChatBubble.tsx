@@ -51,6 +51,8 @@ export const ChatBubble = memo(function ChatBubble({
 	}
 
 	if (message.role === "patient") {
+		const isStreamingEmpty = message.streaming && !message.content;
+
 		return (
 			<div className="flex items-start gap-2 justify-start" data-role="patient">
 				<img
@@ -63,7 +65,8 @@ export const ChatBubble = memo(function ChatBubble({
 						"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
 						"bg-card text-foreground border-2",
 						emotionBorder,
-						message.streaming &&
+						!isStreamingEmpty &&
+							message.streaming &&
 							"after:content-['▎'] after:animate-pulse after:text-primary after:font-bold",
 					)}
 				>
@@ -72,7 +75,15 @@ export const ChatBubble = memo(function ChatBubble({
 							患者自主反应
 						</span>
 					)}
-					<p className="whitespace-pre-wrap">{message.content}</p>
+					{isStreamingEmpty ? (
+						<div className="flex items-center gap-2 py-1">
+							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:0ms]" />
+							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:150ms]" />
+							<span className="size-2 rounded-full bg-foreground/30 animate-bounce [animation-delay:300ms]" />
+						</div>
+					) : (
+						<p className="whitespace-pre-wrap">{message.content}</p>
+					)}
 				</div>
 			</div>
 		);
