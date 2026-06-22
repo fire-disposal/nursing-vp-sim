@@ -65,7 +65,9 @@ def get_scoring_status(
                 "phase": p["stage"],
                 "percentage": p["percent"],
                 "message": p["message"],
-                "thought": p.get("thought", ""),
+                "thought": p.get("thought_scoring", "") or p.get("thought_feedback", "") or "",
+                "score_thought": p.get("thought_scoring", ""),
+                "feedback_thought": p.get("thought_feedback", ""),
             }
 
     return {

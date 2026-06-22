@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 from infrastructure.cache import InitiativeCache
+from infrastructure.llm.client import CallContext
 
 log = logging.getLogger(__name__)
 
@@ -128,6 +129,8 @@ async def generate_initiative_llm(
     comfort: int,
     case_name: str,
     recent_student_msg: str,
+    *,
+    ctx: CallContext | None = None,
 ) -> str:
     """LLM-driven initiative text — generates a natural, context-aware patient utterance."""
     try:
@@ -153,6 +156,7 @@ async def generate_initiative_llm(
             max_tokens=60,
             timeout=10,
             max_retries=0,
+            ctx=ctx,
         )
         text = result.strip()
         if 2 <= len(text) <= 80:

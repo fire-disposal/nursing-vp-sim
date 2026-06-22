@@ -233,9 +233,18 @@ class LLMClient:
 
             try:
                 result = await async_retry(_attempt, max_retries=max_retries, purpose=purpose)
-            except Exception:
+            except Exception as e:
                 latency_ms = int((time.perf_counter() - t0) * 1000)
                 log.exception("LLM tool call failed: purpose=%s round=%d", purpose, tool_rounds)
+                self._log_worker.enqueue(
+                    purpose=purpose,
+                    model="",
+                    status="error",
+                    error_type=type(e).__name__,
+                    error_message=str(e),
+                    latency_ms=latency_ms,
+                    ctx=ctx,
+                )
                 raise
 
             if result.tool_calls:

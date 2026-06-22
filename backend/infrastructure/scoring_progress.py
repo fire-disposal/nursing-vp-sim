@@ -23,13 +23,15 @@ class ScoringProgressTracker:
         self._ttl = ttl_seconds
 
     def set(self, record_id: int, stage: str, percent: int, message: str = "", thought: str = "") -> None:
-        self._store[record_id] = {
+        entry = self._store.setdefault(record_id, {"_ts": time.time()})
+        entry.update({
             "stage": stage,
             "percent": percent,
             "message": message,
-            "thought": thought,
             "_ts": time.time(),
-        }
+        })
+        if thought:
+            entry[f"thought_{stage}"] = thought
 
     def get(self, record_id: int) -> dict | None:
         entry = self._store.get(record_id)

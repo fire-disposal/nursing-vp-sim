@@ -41,6 +41,8 @@ export interface ScoringProgress {
 	percentage: number;
 	message: string;
 	thought?: string;
+	score_thought?: string;
+	feedback_thought?: string;
 }
 
 export interface ScoreData {

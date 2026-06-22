@@ -1,21 +1,13 @@
-"""side_effects — post-reply effects including emotion analysis, initiative generation and action monitoring."""
+"""side_effects — post-reply effects including emotion analysis and initiative state emission."""
 
 import logging
 import re
 
 from contexts.patient.emotion import get_emotion
-from contexts.patient.initiative import (
-    generate_initiative_llm,
-    get_initiative_seconds,
-    should_initiate,
-    update_initiative_timer,
-)
-from models import Message
+from contexts.patient.initiative import get_initiative_seconds
 
 from ..context import (
     STATE_FEATURES,
-    STATE_POST_STREAM_EVENTS,
-    STATE_SAVED_MESSAGES,
     PipelineContext,
 )
 
@@ -139,7 +131,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         case_data = ctx.case_data or {}
         personality = case_data.get("personality", {}) or case_data.get("patient_info", {}).get("personality", {})
 
-        # Emit initiative state for frontend polling
+        # Emit initiative state for frontend polling bar
         elapsed, threshold = get_initiative_seconds(
             ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         )
@@ -152,33 +144,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 }
             }
         )
-
-        if not should_initiate(
-            ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
-        ):
-            update_initiative_timer(ctx.record.id, initiative_cache, ctx.db)
-            return
-
-        msg_text = await generate_initiative_llm(
-            ctx.app_state.llm_client,
-            personality,
-            emotion_state.trust,
-            emotion_state.comfort,
-            case_data.get("name", "未知病例"),
-            ctx.student_input or "",
-        )
-        if not msg_text:
-            return
-
-        msg = Message(record_id=ctx.record.id, role="patient", content=msg_text)
-        ctx.db.add(msg)
-        ctx.db.flush()
-
-        ctx.state.setdefault(STATE_SAVED_MESSAGES, []).append(msg)
-        ctx.state.setdefault(STATE_POST_STREAM_EVENTS, []).append({"initiative": {"content": msg_text, "id": msg.id}})
     except Exception:
-        log.warning("Initiative generation failed: record_id=%d", ctx.record.id, exc_info=True)
-    finally:
-        update_initiative_timer(ctx.record.id, initiative_cache, ctx.db)
+        log.warning("Initiative state emission failed: record_id=%d", ctx.record.id, exc_info=True)
 
     ctx.db.commit()

@@ -19,6 +19,8 @@ export class ScoreManager {
 	private listeners: Array<() => void> = [];
 	private _visibilityHandler: (() => void) | null = null;
 	private _sseThought: string = "";
+	private _scoreThought: string = "";
+	private _feedbackThought: string = "";
 
 	private _registeredHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
 
@@ -134,15 +136,16 @@ export class ScoreManager {
 				}
 				// Use backend real progress if available
 				if (data.progress) {
+					const p = data.progress as { phase?: string; percentage?: number; message?: string; thought?: string; score_thought?: string; feedback_thought?: string };
 					const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
-					const phase = VALID_PHASES.includes(data.progress.phase as any)
-						? (data.progress.phase as ScorePhase)
-						: null;
+					const phase = VALID_PHASES.includes(p.phase as any) ? (p.phase as ScorePhase) : null;
+					if (p.score_thought) this._scoreThought = p.score_thought;
+					if (p.feedback_thought) this._feedbackThought = p.feedback_thought;
 					this._progress = {
 						phase,
-						percentage: data.progress.percentage,
-						message: data.progress.message,
-						thought: (data.progress as { thought?: string }).thought ?? this._sseThought,
+						percentage: p.percentage ?? 0,
+						message: p.message ?? "",
+						thought: p.thought ?? this._sseThought,
 					};
 				} else {
 					const pct = Math.min(95, 10 + retries * 1.5);
@@ -215,6 +218,8 @@ export class ScoreManager {
 		if (data.record_id !== this.recordId) return;
 		if (data.thought) {
 			this._sseThought = data.thought;
+			if (data.stage === "scoring") this._scoreThought = data.thought;
+			if (data.stage === "feedback") this._feedbackThought = data.thought;
 		}
 		const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
 		const phase = VALID_PHASES.includes(data.stage as any)

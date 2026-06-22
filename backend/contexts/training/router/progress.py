@@ -15,6 +15,7 @@ from contexts.patient import (
 from core.capabilities import is_enabled, resolve_features
 from core.database import get_db
 from core.security import get_current_user
+from infrastructure.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
 from schemas import (
     InitiativeTriggerResponse,
@@ -174,6 +175,12 @@ async def trigger_initiative(
         emotion.comfort,
         case_data.get("name", "未知病例"),
         recent_student_msg="",
+        ctx=CallContext(
+            purpose="patient_chat",
+            user_id=current_user.id,
+            record_id=record_id,
+            case_id=record.case_id,
+        ),
     )
 
     if msg:

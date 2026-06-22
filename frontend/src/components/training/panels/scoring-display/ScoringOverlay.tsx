@@ -18,6 +18,8 @@ interface Progress {
 	percentage: number;
 	message: string;
 	thought?: string;
+	score_thought?: string;
+	feedback_thought?: string;
 }
 
 interface ThoughtItem {
@@ -98,11 +100,6 @@ export function ScoringOverlay({
 		return () => clearInterval(id);
 	}, [visible]);
 
-	const dimensions = useMemo(
-		() => parseThoughtItems(progress.thought),
-		[progress.thought],
-	);
-
 	if (!visible) return null;
 
 	const phaseText = progress.phase
@@ -172,41 +169,47 @@ export function ScoringOverlay({
 					/>
 				</div>
 
-				{/* AI thought — scrollable detail panel */}
-				<div className="max-h-[40vh] rounded-md border border-border/60 bg-muted/30 px-3 py-2 overflow-y-auto scrollbar-thin">
-					<div className="text-[11px] leading-relaxed font-mono text-muted-foreground space-y-0.5 animate-in slide-in-from-bottom-2 duration-300">
-						<p className="text-primary/70">$ scoring --start</p>
-						<p>│</p>
-						{progress.thought && dimensions.length > 0 ? (
-							<>
-								<p>│ ◉ 评估维度</p>
-								{dimensions.map((item, i) => (
-									<div key={i} className="text-foreground/70">
-										<p>
-											│  ↳ {item.dimName} › {item.itemName}{" "}
-											<span className="text-primary/60">
-												({item.score}/{item.max})
-											</span>
-										</p>
-										{item.evidence && (
-											<p className="text-muted-foreground/60 ml-5 break-all">
-												│    evidence: {item.evidence}
-											</p>
-										)}
-										{item.reason && (
-											<p className="text-muted-foreground/60 ml-5 break-all">
-												│    reason: {item.reason}
-											</p>
-										)}
+				{/* Dual AI thought panels — scoring (left) + feedback (right) */}
+				<div className="grid grid-cols-2 gap-2">
+					{/* Score stage column */}
+					<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
+						<div className="text-[10px] font-mono text-primary/70 mb-1">$ scoring_dimensions</div>
+						<div className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
+							{progress.score_thought ? (
+								(parseThoughtItems(progress.score_thought)).map((item, i) => (
+									<div key={i} className="text-foreground/70 py-0.5">
+										<span className="text-primary/60">{item.dimName}</span> › {item.itemName}{" "}
+										<span className="text-primary/60">({item.score}/{item.max})</span>
 									</div>
-								))}
-							</>
-						) : (
-							<>
-								<p className="text-muted-foreground/50">│</p>
-								<p className="text-muted-foreground/50">│ 等待 AI 引擎...</p>
-							</>
-						)}
+								))
+							) : progress.phase === "scoring" ? (
+								<p className="text-muted-foreground/50 animate-pulse">▎ 分析中...</p>
+							) : (
+								<p className="text-muted-foreground/50">等待评分...</p>
+							)}
+						</div>
+					</div>
+
+					{/* Feedback stage column */}
+					<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
+						<div className="text-[10px] font-mono text-primary/70 mb-1">$ feedback_generation</div>
+						<div className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
+							{progress.feedback_thought ? (
+								(() => {
+									try {
+										const fb = JSON.parse(progress.feedback_thought) as Record<string, unknown>;
+										const items = [...(fb.strengths as string[] || []), ...(fb.weaknesses as string[] || [])];
+										return items.slice(0, 8).map((s: string, i: number) => (
+											<div key={i} className="text-foreground/70 py-0.5">+ {s}</div>
+										));
+									} catch { return <p className="text-muted-foreground/50">解析中...</p>; }
+								})()
+							) : progress.phase === "feedback" ? (
+								<p className="text-muted-foreground/50 animate-pulse">▎ 生成中...</p>
+							) : (
+								<p className="text-muted-foreground/50">等待反馈...</p>
+							)}
+						</div>
 					</div>
 				</div>
 
