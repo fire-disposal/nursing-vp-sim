@@ -52,7 +52,7 @@ export const ChatBubble = memo(function ChatBubble({
 
 	if (message.role === "patient") {
 		return (
-			<div className="flex items-end gap-2 justify-start" data-role="patient">
+			<div className="flex items-start gap-2 justify-start" data-role="patient">
 				<img
 					className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full object-cover shrink-0 bg-muted"
 					src={displayAvatar}
@@ -60,8 +60,8 @@ export const ChatBubble = memo(function ChatBubble({
 				/>
 				<div
 					className={cn(
-						"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-bl-md text-sm md:text-base leading-relaxed break-words",
-						"bg-card text-foreground border-2 rounded-bl-md",
+						"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tl-md text-sm md:text-base leading-relaxed break-words",
+						"bg-card text-foreground border-2",
 						emotionBorder,
 						message.streaming &&
 							"after:content-['▎'] after:animate-pulse after:text-primary after:font-bold",
@@ -79,10 +79,10 @@ export const ChatBubble = memo(function ChatBubble({
 	}
 
 	return (
-		<div className="flex items-end gap-2 justify-end" data-role="student">
+		<div className="flex items-start gap-2 justify-end" data-role="student">
 			<div
 				className={cn(
-					"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-br-md text-sm sm:text-base leading-relaxed break-words",
+					"max-w-[90%] sm:max-w-[70%] md:max-w-[60%] px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-2xl rounded-tr-md text-sm sm:text-base leading-relaxed break-words",
 					"bg-primary text-primary-foreground",
 				)}
 			>
