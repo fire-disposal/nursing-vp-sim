@@ -1,9 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { getCases } from "@/api/cases";
 import { createPractice, deletePractice, getPractice, getPractices, updatePractice } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -53,14 +54,14 @@ export default function PracticesPage() {
 	const updateForm = (patch: Partial<PracticeForm>) =>
 		setForm((f) => ({ ...f, ...patch }));
 
-	const { data: listData, isLoading } = useQuery({
+	const { data: listData, isLoading } = useApiQuery({
 		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices().then((r) => r.data),
+		queryFn: () => getPractices(),
 		staleTime: 2 * 60_000,
 	});
-	const { data: casesData } = useQuery({
+	const { data: casesData } = useApiQuery({
 		queryKey: queryKeys.cases.managed.all,
-		queryFn: () => getCases().then((r) => r.data),
+		queryFn: () => getCases(),
 		staleTime: 5 * 60_000,
 	});
 

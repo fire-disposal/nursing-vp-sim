@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 
 interface Notification {
@@ -21,9 +22,9 @@ export default function NotificationBell() {
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
 
-	const { data } = useQuery({
+	const { data } = useApiQuery({
 		queryKey: ["notifications"],
-		queryFn: () => api.get<Notification[]>("/training/notifications").then((r) => r.data),
+		queryFn: () => api.get<Notification[]>("/training/notifications"),
 		refetchInterval: 30_000,
 	});
 

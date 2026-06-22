@@ -1,4 +1,4 @@
-﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Bot, Lightbulb, Menu, Plus, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -13,6 +13,7 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CitationCard from "@/components/qa/CitationCard";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -67,9 +68,9 @@ export default function QA() {
 	const { confirm } = useConfirm();
 	const toast = useToast();
 
-	const { data: sessions = [], isError } = useQuery({
+	const { data: sessions = [], isError } = useApiQuery({
 		queryKey: queryKeys.qa.sessions(),
-		queryFn: () => getQASessions().then((r) => r.data || []),
+		queryFn: () => getQASessions(),
 		staleTime: 30_000,
 	});
 

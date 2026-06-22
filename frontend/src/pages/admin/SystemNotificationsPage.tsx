@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/api/axios-instance";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
 import { getApiErrorMessage } from "@/lib/error-utils";
+import { useApiQuery } from "@/hooks/useApiQuery";
 
 interface SystemNotification {
 	id: number;
@@ -42,9 +43,9 @@ export default function SystemNotificationsPage() {
 	const [form, setForm] = useState({ title: "", content: "", level: "info", published_at: "" });
 	const [saving, setSaving] = useState(false);
 
-	const { data, isLoading } = useQuery({
+	const { data, isLoading } = useApiQuery({
 		queryKey: ["system-notifications"],
-		queryFn: () => api.get<SystemNotification[]>("/admin/system-notifications").then((r) => r.data),
+		queryFn: () => api.get<SystemNotification[]>("/admin/system-notifications"),
 	});
 
 	const notifications = data ?? [];

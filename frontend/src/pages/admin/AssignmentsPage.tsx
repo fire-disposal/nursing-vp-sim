@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Edit, Eye, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ import {
 import { getClasses } from "@/api/grades-classes";
 import { getPractices } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -80,19 +81,19 @@ export default function AssignmentsPage() {
 	const updateForm = (patch: Partial<typeof emptyForm>) =>
 		setForm((f) => ({ ...f, ...patch }));
 
-	const { data: listData, isLoading } = useQuery({
+	const { data: listData, isLoading } = useApiQuery({
 		queryKey: queryKeys.assignments.all,
-		queryFn: () => getAssignments({ limit: 100 }).then((r) => r.data),
+		queryFn: () => getAssignments({ limit: 100 }),
 		staleTime: 2 * 60_000,
 	});
-	const { data: practicesData } = useQuery({
+	const { data: practicesData } = useApiQuery({
 		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices().then((r) => r.data),
+		queryFn: () => getPractices(),
 		staleTime: 5 * 60_000,
 	});
-	const { data: classesData } = useQuery({
+	const { data: classesData } = useApiQuery({
 		queryKey: queryKeys.grades.classes(),
-		queryFn: () => getClasses({}).then((r) => r.data),
+		queryFn: () => getClasses({}),
 		staleTime: 5 * 60_000,
 	});
 
