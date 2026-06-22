@@ -25,6 +25,7 @@ from schemas import (
     ApiSecretUpdate,
     ConfigCreateResponse,
     DeleteResponse,
+    FallbackStateResponse,
     HealthCheckItem,
     LLMConfigCreate,
     LLMConfigResponse,
@@ -398,7 +399,7 @@ async def health_check(
 # ── Env Fallback ──
 
 
-@router.get("/fallback")
+@router.get("/fallback", response_model=FallbackStateResponse)
 async def get_env_fallback(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
 
     return await get_env_fallback_state()

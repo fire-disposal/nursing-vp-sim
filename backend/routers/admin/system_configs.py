@@ -8,11 +8,12 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import require_permission
 from models import SystemConfig, User
+from schemas.ops import SystemConfigItem
 
 router = APIRouter()
 
 
-@router.get("/config")
+@router.get("/config", response_model=list[SystemConfigItem])
 def list_configs(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
@@ -21,7 +22,7 @@ def list_configs(
     return [{"key": c.key, "value": c.value, "description": c.description} for c in configs]
 
 
-@router.put("/config/{key}")
+@router.put("/config/{key}", response_model=SystemConfigItem)
 def update_config(
     key: str,
     body: dict,

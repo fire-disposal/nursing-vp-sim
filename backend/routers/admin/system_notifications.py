@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import require_permission
 from models import SystemNotification, User
+from schemas.common import DeleteResponse
 from schemas.notification import (
     SystemNotificationCreateRequest,
     SystemNotificationResponse,
@@ -62,7 +63,7 @@ def update_notification(
     return sn
 
 
-@router.delete("/{notif_id}")
+@router.delete("/{notif_id}", response_model=DeleteResponse)
 def delete_notification(
     notif_id: int,
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
@@ -73,4 +74,4 @@ def delete_notification(
         raise HTTPException(status_code=404, detail="通知不存在")
     db.delete(sn)
     db.commit()
-    return {"message": "已删除"}
+    return DeleteResponse(message="已删除")

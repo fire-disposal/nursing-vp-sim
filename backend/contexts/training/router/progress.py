@@ -22,6 +22,7 @@ from schemas import (
     PhaseAdvanceResponse,
     TrainingStateResponse,
 )
+from schemas.training import EmotionHistoryResponse, InitiativeHistoryResponse
 
 from ..pipeline.phase import parse_phases, try_advance_phase
 
@@ -195,7 +196,7 @@ async def trigger_initiative(
     return {"triggered": False, "message": None}
 
 
-@router.get("/{record_id}/emotion/history")
+@router.get("/{record_id}/emotion/history", response_model=EmotionHistoryResponse)
 def get_emotion_history(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -211,7 +212,7 @@ def get_emotion_history(
     return {"history": getattr(emotion, "history", [])}
 
 
-@router.get("/{record_id}/initiative/history")
+@router.get("/{record_id}/initiative/history", response_model=InitiativeHistoryResponse)
 def get_initiative_history(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],

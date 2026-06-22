@@ -18,6 +18,7 @@ from schemas import (
     QAAskRequest,
     QAAskResponse,
     QASessionCreate,
+    SectionTextResponse,
 )
 
 from ._citations import embed_citations
@@ -474,7 +475,7 @@ async def ask_stream(
         return StreamingResponse(generate(), media_type="text/event-stream")
 
 
-@router.get("/section-text")
+@router.get("/section-text", response_model=SectionTextResponse)
 def get_section_text(source: str, section: str):
     """Return the full textbook section text for a citation (no LLM)."""
     from core.database import SessionLocal

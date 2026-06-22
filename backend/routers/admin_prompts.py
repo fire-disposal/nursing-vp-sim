@@ -257,7 +257,7 @@ async def activate_prompt(
         db.query(PT).filter(PT.purpose == purpose).update({"is_active": False})
         db.commit()
         await request.app.state.prompt_manager.reload()
-        return {"ok": True}
+    return OkResponse(ok=True)
 
     await _activate(prompt_id, db)
     await request.app.state.prompt_manager.reload()
@@ -308,7 +308,7 @@ def validate_prompt(
     )
 
 
-@router.post("/reload")
+@router.post("/reload", response_model=OkResponse)
 async def reload_prompts_endpoint(
     request: Request, current_user: Annotated[User, Depends(require_permission("prompt_manage"))]
 ):

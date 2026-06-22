@@ -15,6 +15,7 @@ from core.capabilities import resolve_features
 from core.database import get_db
 from core.security import get_current_user
 from models import Case, Message, TrainingRecord, User
+from schemas.training import ExamOperationResponse
 
 
 @dataclass
@@ -151,7 +152,7 @@ def _build_impact_note(op_type: str, impact: dict, dt: int, dc: int, exam_count:
     return " | ".join(parts)
 
 
-@router.post("/{record_id}/exam/{op_type}")
+@router.post("/{record_id}/exam/{op_type}", response_model=ExamOperationResponse)
 def perform_exam(
     record_id: int,
     op_type: str,
