@@ -290,34 +290,6 @@ export interface DeleteResponse {
   message?: string
 }
 
-export interface DiagnoseErrorEntry {
-  time: string
-  level: string
-  logger: string
-  message: string
-}
-
-export interface DiagnoseErrorsInfo {
-  last_5min: number
-  last_hour: number
-  total_captured: number
-  recent: DiagnoseErrorEntry[]
-}
-
-export interface DiagnoseResponse {
-  server: DiagnoseServerInfo
-  database: Record<string, unknown>
-  llm: Record<string, unknown>
-  errors: DiagnoseErrorsInfo
-  active_sessions: number
-  cached_at: string
-}
-
-export interface DiagnoseServerInfo {
-  version: string
-  uptime_seconds: number
-}
-
 export interface DurationStats {
   daily: Record<string, unknown>[]
   total_minutes: number
@@ -611,60 +583,6 @@ export interface NursingRecordSave {
 export interface OkResponse {
   ok?: boolean
   message?: string | null
-}
-
-export interface OpsDashboardResponse {
-  health: Record<string, unknown>
-  time: string
-  uptime_hours: number
-  llm: OpsLLMInfo
-  scoring: OpsScoringInfo
-  sessions: OpsSessionsInfo
-  notifications: OpsNotificationsInfo
-  metrics: Record<string, unknown>
-  diagnostic: DiagnoseResponse
-  system_errors: Record<string, unknown>
-}
-
-export interface OpsErrorsResponse {
-  count: Record<string, unknown>
-  recent: Record<string, unknown>[]
-}
-
-export interface OpsLLMInfo {
-  total_calls_24h?: number
-  success_rate?: number
-  error_count_24h?: number
-  avg_latency_ms?: number
-  recent_errors?: Record<string, unknown>[]
-}
-
-export interface OpsNotificationsInfo {
-  unread?: number
-}
-
-export interface OpsReportResponse {
-  summary: OpsReportSummary
-  llm: OpsLLMInfo
-  scoring: OpsScoringInfo
-  sessions: OpsSessionsInfo
-  notifications: OpsNotificationsInfo
-  alerts: string[]
-}
-
-export interface OpsReportSummary {
-  time: string
-  uptime_hours: number
-  status?: string
-}
-
-export interface OpsScoringInfo {
-  pending?: number
-  stuck?: number
-}
-
-export interface OpsSessionsInfo {
-  active?: number
 }
 
 export interface PaginatedResponse_AssignmentListItem_ {

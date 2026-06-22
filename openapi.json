@@ -8198,9 +8198,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiagnoseResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -8274,9 +8272,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OpsDashboardResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -8332,9 +8328,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OpsErrorsResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -8378,9 +8372,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OpsReportResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -10474,121 +10466,6 @@
         "type": "object",
         "title": "DeleteResponse"
       },
-      "DiagnoseErrorEntry": {
-        "properties": {
-          "time": {
-            "type": "string",
-            "title": "Time"
-          },
-          "level": {
-            "type": "string",
-            "title": "Level"
-          },
-          "logger": {
-            "type": "string",
-            "title": "Logger"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "time",
-          "level",
-          "logger",
-          "message"
-        ],
-        "title": "DiagnoseErrorEntry"
-      },
-      "DiagnoseErrorsInfo": {
-        "properties": {
-          "last_5min": {
-            "type": "integer",
-            "title": "Last 5Min"
-          },
-          "last_hour": {
-            "type": "integer",
-            "title": "Last Hour"
-          },
-          "total_captured": {
-            "type": "integer",
-            "title": "Total Captured"
-          },
-          "recent": {
-            "items": {
-              "$ref": "#/components/schemas/DiagnoseErrorEntry"
-            },
-            "type": "array",
-            "title": "Recent"
-          }
-        },
-        "type": "object",
-        "required": [
-          "last_5min",
-          "last_hour",
-          "total_captured",
-          "recent"
-        ],
-        "title": "DiagnoseErrorsInfo"
-      },
-      "DiagnoseResponse": {
-        "properties": {
-          "server": {
-            "$ref": "#/components/schemas/DiagnoseServerInfo"
-          },
-          "database": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Database"
-          },
-          "llm": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Llm"
-          },
-          "errors": {
-            "$ref": "#/components/schemas/DiagnoseErrorsInfo"
-          },
-          "active_sessions": {
-            "type": "integer",
-            "title": "Active Sessions"
-          },
-          "cached_at": {
-            "type": "string",
-            "title": "Cached At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "server",
-          "database",
-          "llm",
-          "errors",
-          "active_sessions",
-          "cached_at"
-        ],
-        "title": "DiagnoseResponse"
-      },
-      "DiagnoseServerInfo": {
-        "properties": {
-          "version": {
-            "type": "string",
-            "title": "Version"
-          },
-          "uptime_seconds": {
-            "type": "integer",
-            "title": "Uptime Seconds"
-          }
-        },
-        "type": "object",
-        "required": [
-          "version",
-          "uptime_seconds"
-        ],
-        "title": "DiagnoseServerInfo"
-      },
       "DurationStats": {
         "properties": {
           "daily": {
@@ -12072,217 +11949,6 @@
         },
         "type": "object",
         "title": "OkResponse"
-      },
-      "OpsDashboardResponse": {
-        "properties": {
-          "health": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Health"
-          },
-          "time": {
-            "type": "string",
-            "title": "Time"
-          },
-          "uptime_hours": {
-            "type": "number",
-            "title": "Uptime Hours"
-          },
-          "llm": {
-            "$ref": "#/components/schemas/OpsLLMInfo"
-          },
-          "scoring": {
-            "$ref": "#/components/schemas/OpsScoringInfo"
-          },
-          "sessions": {
-            "$ref": "#/components/schemas/OpsSessionsInfo"
-          },
-          "notifications": {
-            "$ref": "#/components/schemas/OpsNotificationsInfo"
-          },
-          "metrics": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metrics"
-          },
-          "diagnostic": {
-            "$ref": "#/components/schemas/DiagnoseResponse"
-          },
-          "system_errors": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "System Errors"
-          }
-        },
-        "type": "object",
-        "required": [
-          "health",
-          "time",
-          "uptime_hours",
-          "llm",
-          "scoring",
-          "sessions",
-          "notifications",
-          "metrics",
-          "diagnostic",
-          "system_errors"
-        ],
-        "title": "OpsDashboardResponse"
-      },
-      "OpsErrorsResponse": {
-        "properties": {
-          "count": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Count"
-          },
-          "recent": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Recent"
-          }
-        },
-        "type": "object",
-        "required": [
-          "count",
-          "recent"
-        ],
-        "title": "OpsErrorsResponse"
-      },
-      "OpsLLMInfo": {
-        "properties": {
-          "total_calls_24h": {
-            "type": "integer",
-            "title": "Total Calls 24H",
-            "default": 0
-          },
-          "success_rate": {
-            "type": "number",
-            "title": "Success Rate",
-            "default": 100.0
-          },
-          "error_count_24h": {
-            "type": "integer",
-            "title": "Error Count 24H",
-            "default": 0
-          },
-          "avg_latency_ms": {
-            "type": "number",
-            "title": "Avg Latency Ms",
-            "default": 0.0
-          },
-          "recent_errors": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Recent Errors",
-            "default": []
-          }
-        },
-        "type": "object",
-        "title": "OpsLLMInfo"
-      },
-      "OpsNotificationsInfo": {
-        "properties": {
-          "unread": {
-            "type": "integer",
-            "title": "Unread",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "OpsNotificationsInfo"
-      },
-      "OpsReportResponse": {
-        "properties": {
-          "summary": {
-            "$ref": "#/components/schemas/OpsReportSummary"
-          },
-          "llm": {
-            "$ref": "#/components/schemas/OpsLLMInfo"
-          },
-          "scoring": {
-            "$ref": "#/components/schemas/OpsScoringInfo"
-          },
-          "sessions": {
-            "$ref": "#/components/schemas/OpsSessionsInfo"
-          },
-          "notifications": {
-            "$ref": "#/components/schemas/OpsNotificationsInfo"
-          },
-          "alerts": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Alerts"
-          }
-        },
-        "type": "object",
-        "required": [
-          "summary",
-          "llm",
-          "scoring",
-          "sessions",
-          "notifications",
-          "alerts"
-        ],
-        "title": "OpsReportResponse"
-      },
-      "OpsReportSummary": {
-        "properties": {
-          "time": {
-            "type": "string",
-            "title": "Time"
-          },
-          "uptime_hours": {
-            "type": "number",
-            "title": "Uptime Hours"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "default": "healthy"
-          }
-        },
-        "type": "object",
-        "required": [
-          "time",
-          "uptime_hours"
-        ],
-        "title": "OpsReportSummary"
-      },
-      "OpsScoringInfo": {
-        "properties": {
-          "pending": {
-            "type": "integer",
-            "title": "Pending",
-            "default": 0
-          },
-          "stuck": {
-            "type": "integer",
-            "title": "Stuck",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "OpsScoringInfo"
-      },
-      "OpsSessionsInfo": {
-        "properties": {
-          "active": {
-            "type": "integer",
-            "title": "Active",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "OpsSessionsInfo"
       },
       "PaginatedResponse_AssignmentListItem_": {
         "properties": {

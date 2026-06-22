@@ -3049,52 +3049,6 @@ export interface components {
              */
             message: string;
         };
-        /** DiagnoseErrorEntry */
-        DiagnoseErrorEntry: {
-            /** Time */
-            time: string;
-            /** Level */
-            level: string;
-            /** Logger */
-            logger: string;
-            /** Message */
-            message: string;
-        };
-        /** DiagnoseErrorsInfo */
-        DiagnoseErrorsInfo: {
-            /** Last 5Min */
-            last_5min: number;
-            /** Last Hour */
-            last_hour: number;
-            /** Total Captured */
-            total_captured: number;
-            /** Recent */
-            recent: components["schemas"]["DiagnoseErrorEntry"][];
-        };
-        /** DiagnoseResponse */
-        DiagnoseResponse: {
-            server: components["schemas"]["DiagnoseServerInfo"];
-            /** Database */
-            database: {
-                [key: string]: unknown;
-            };
-            /** Llm */
-            llm: {
-                [key: string]: unknown;
-            };
-            errors: components["schemas"]["DiagnoseErrorsInfo"];
-            /** Active Sessions */
-            active_sessions: number;
-            /** Cached At */
-            cached_at: string;
-        };
-        /** DiagnoseServerInfo */
-        DiagnoseServerInfo: {
-            /** Version */
-            version: string;
-            /** Uptime Seconds */
-            uptime_seconds: number;
-        };
         /** DurationStats */
         DurationStats: {
             /** Daily */
@@ -3738,122 +3692,6 @@ export interface components {
             ok: boolean;
             /** Message */
             message?: string | null;
-        };
-        /** OpsDashboardResponse */
-        OpsDashboardResponse: {
-            /** Health */
-            health: {
-                [key: string]: unknown;
-            };
-            /** Time */
-            time: string;
-            /** Uptime Hours */
-            uptime_hours: number;
-            llm: components["schemas"]["OpsLLMInfo"];
-            scoring: components["schemas"]["OpsScoringInfo"];
-            sessions: components["schemas"]["OpsSessionsInfo"];
-            notifications: components["schemas"]["OpsNotificationsInfo"];
-            /** Metrics */
-            metrics: {
-                [key: string]: unknown;
-            };
-            diagnostic: components["schemas"]["DiagnoseResponse"];
-            /** System Errors */
-            system_errors: {
-                [key: string]: unknown;
-            };
-        };
-        /** OpsErrorsResponse */
-        OpsErrorsResponse: {
-            /** Count */
-            count: {
-                [key: string]: unknown;
-            };
-            /** Recent */
-            recent: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** OpsLLMInfo */
-        OpsLLMInfo: {
-            /**
-             * Total Calls 24H
-             * @default 0
-             */
-            total_calls_24h: number;
-            /**
-             * Success Rate
-             * @default 100
-             */
-            success_rate: number;
-            /**
-             * Error Count 24H
-             * @default 0
-             */
-            error_count_24h: number;
-            /**
-             * Avg Latency Ms
-             * @default 0
-             */
-            avg_latency_ms: number;
-            /**
-             * Recent Errors
-             * @default []
-             */
-            recent_errors: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** OpsNotificationsInfo */
-        OpsNotificationsInfo: {
-            /**
-             * Unread
-             * @default 0
-             */
-            unread: number;
-        };
-        /** OpsReportResponse */
-        OpsReportResponse: {
-            summary: components["schemas"]["OpsReportSummary"];
-            llm: components["schemas"]["OpsLLMInfo"];
-            scoring: components["schemas"]["OpsScoringInfo"];
-            sessions: components["schemas"]["OpsSessionsInfo"];
-            notifications: components["schemas"]["OpsNotificationsInfo"];
-            /** Alerts */
-            alerts: string[];
-        };
-        /** OpsReportSummary */
-        OpsReportSummary: {
-            /** Time */
-            time: string;
-            /** Uptime Hours */
-            uptime_hours: number;
-            /**
-             * Status
-             * @default healthy
-             */
-            status: string;
-        };
-        /** OpsScoringInfo */
-        OpsScoringInfo: {
-            /**
-             * Pending
-             * @default 0
-             */
-            pending: number;
-            /**
-             * Stuck
-             * @default 0
-             */
-            stuck: number;
-        };
-        /** OpsSessionsInfo */
-        OpsSessionsInfo: {
-            /**
-             * Active
-             * @default 0
-             */
-            active: number;
         };
         /** PaginatedResponse[AssignmentListItem] */
         PaginatedResponse_AssignmentListItem_: {
@@ -10542,7 +10380,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DiagnoseResponse"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10594,7 +10432,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OpsDashboardResponse"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10628,7 +10466,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OpsErrorsResponse"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -10660,7 +10498,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OpsReportResponse"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
