@@ -1,17 +1,40 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MessageBus } from "@/engine/types";
+import { triggerInitiative } from "@/api/training-state";
 import { cn } from "@/lib/utils";
 
 interface InitiativeBarProps {
 	bus: MessageBus;
 	features: Record<string, boolean>;
+	recordId: number;
 }
 
-export function InitiativeBar({ bus, features }: InitiativeBarProps) {
+export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	const [percent, setPercent] = useState(0);
 	const elapsedRef = useRef(0);
 	const thresholdRef = useRef(30);
 	const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const pollingRef = useRef(false);
+
+	const resetTimer = useCallback(() => {
+		elapsedRef.current = 0;
+		setPercent(0);
+	}, []);
+
+	const pollTrigger = useCallback(async () => {
+		if (pollingRef.current) return;
+		pollingRef.current = true;
+		try {
+			const res = await triggerInitiative(recordId);
+			if (res.data.triggered && res.data.message) {
+				bus.emit("initiative:triggered", { content: res.data.message });
+				resetTimer();
+			}
+		} catch {
+		} finally {
+			pollingRef.current = false;
+		}
+	}, [recordId, bus, resetTimer]);
 
 	useEffect(() => {
 		const unsub = bus.on(
@@ -26,6 +49,9 @@ export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 						elapsedRef.current += 1;
 						const pct = Math.min(100, Math.round((elapsedRef.current / thresholdRef.current) * 100));
 						setPercent(pct);
+						if (pct >= 100) {
+							pollTrigger();
+						}
 					}, 1000);
 				}
 			},
@@ -37,7 +63,7 @@ export function InitiativeBar({ bus, features }: InitiativeBarProps) {
 				tickRef.current = null;
 			}
 		};
-	}, [bus]);
+	}, [bus, pollTrigger]);
 
 	const barColor =
 		percent > 80

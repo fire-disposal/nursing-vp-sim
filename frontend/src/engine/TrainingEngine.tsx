@@ -252,6 +252,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						onSend={sendMessage}
 						bus={busRef.current}
 						features={features}
+						recordId={recordNum}
 					/>
 				</div>
 				<FloatingPanelHost

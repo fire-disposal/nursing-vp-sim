@@ -14,6 +14,7 @@ interface ChatAreaProps {
 	onSend: (text: string) => void;
 	bus: MessageBus;
 	features: Record<string, boolean>;
+	recordId: number;
 }
 
 export function ChatArea({
@@ -23,6 +24,7 @@ export function ChatArea({
 	onSend,
 	bus,
 	features,
+	recordId,
 }: ChatAreaProps) {
   const hasMessages = messages.length > 0;
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
@@ -76,7 +78,7 @@ export function ChatArea({
 					<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
 				</div>
 			</div>
-			<InitiativeBar bus={bus} features={features} />
+			<InitiativeBar bus={bus} features={features} recordId={recordId} />
 			<ChatInput onSend={onSend} disabled={sending} loading={sending} />
 		</div>
 	);
