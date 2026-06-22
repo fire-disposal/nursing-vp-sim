@@ -165,11 +165,11 @@ export default function GradesClassesPage() {
 
 	const columns = tab === "grades" ? GRADE_COLUMNS : CLASS_COLUMNS;
 
-	const filteredGrades = grades.filter(
+	const filteredGrades = (grades ?? []).filter(
 		(g: Grade) =>
 			!gradeSearch || g.name.toLowerCase().includes(gradeSearch.toLowerCase()),
 	);
-	const filteredClasses = classes.filter(
+	const filteredClasses = (classes ?? []).filter(
 		(c: ClassItem) =>
 			!classSearch || c.name.toLowerCase().includes(classSearch.toLowerCase()),
 	);
