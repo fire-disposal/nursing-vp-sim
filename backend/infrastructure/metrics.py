@@ -155,16 +155,23 @@ class MetricsSnapshot:
         return round(usage.ru_maxrss / 1024, 1)
 
     def snapshot(self) -> dict:
+        def _safe(fn, default=None):
+            try:
+                return fn()
+            except Exception as e:
+                log.warning("Metrics.snapshot %s failed: %s", getattr(fn, "__name__", "?"), e)
+                return default
+
         return dict(
             uptime_seconds=round(time.time() - self.started_at, 1),
             version=os.getenv("APP_VERSION", "dev"),
-            requests=self._request_stats(),
-            active_sessions=self.active_sessions_supplier(),
-            llm=self._llm_stats(),
-            db=self._db_stats(),
-            queue=dict(
+            requests=_safe(self._request_stats, {}),
+            active_sessions=_safe(self.active_sessions_supplier, 0),
+            llm=_safe(self._llm_stats, {}),
+            db=_safe(self._db_stats, {}),
+            queue=_safe(lambda: dict(
                 task_queue=self.task_queue_size_supplier(),
                 log_queue=self.log_queue_size_supplier(),
-            ),
-            memory_mb=self._memory_mb(),
+            ), {}),
+            memory_mb=_safe(self._memory_mb, 0.0),
         )
