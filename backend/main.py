@@ -403,7 +403,7 @@ app.add_exception_handler(ScoringError, scoring_error_handler)
 async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
         raise exc
-    log.error("未处理异常 %s %s: %s", request.method, request.url.path, exc)
+    log.exception("未处理异常 %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
 
