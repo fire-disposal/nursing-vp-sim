@@ -2,12 +2,13 @@
 
 import csv
 import io
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,8 @@ from schemas.voice import (
     CostBreakdown,
     CostDashboardResponse,
     CostSeriesPoint,
+    VoiceConfigExportResponse,
+    VoiceConfigImportRequest,
     VoiceConfigResponse,
     VoiceConfigUpdateRequest,
     VoiceStatusResponse,
@@ -646,3 +649,74 @@ def export_costs(
         )
 
     return rows
+
+
+# ── Voice Config Export / Import ──
+
+
+@router.get("/config/export")
+def export_voice_config(
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    if not vc:
+        raise HTTPException(status_code=404, detail="未找到激活的语音配置")
+
+    payload = VoiceConfigExportResponse(
+        provider=vc.provider,
+        app_id=vc.app_id,
+        tts_voice_type=vc.tts_voice_type,
+        tts_timeout=vc.tts_timeout,
+        asr_sample_rate=vc.asr_sample_rate,
+        asr_enable_streaming=vc.asr_enable_streaming,
+        monthly_budget=vc.monthly_budget,
+        exported_at=datetime.now(UTC).isoformat(),
+    )
+    json_bytes = json.dumps(payload.model_dump(), ensure_ascii=False, indent=2).encode("utf-8")
+    return Response(
+        content=json_bytes,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=voice_config_export.json"},
+    )
+
+
+@router.post("/config/import", response_model=VoiceConfigResponse)
+def import_voice_config(
+    data: VoiceConfigImportRequest,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+
+    token_enc = encrypt_api_key(data.token)
+    key_suffix = data.token[-8:] if len(data.token) >= 8 else data.token
+
+    if vc:
+        vc.provider = data.provider
+        vc.app_id = data.app_id
+        vc.token_enc = token_enc
+        vc.key_suffix = key_suffix
+        vc.tts_voice_type = data.tts_voice_type
+        vc.tts_timeout = data.tts_timeout
+        vc.asr_sample_rate = data.asr_sample_rate
+        vc.asr_enable_streaming = data.asr_enable_streaming
+        vc.monthly_budget = data.monthly_budget
+    else:
+        vc = VoiceConfig(
+            provider=data.provider,
+            app_id=data.app_id,
+            token_enc=token_enc,
+            key_suffix=key_suffix,
+            tts_voice_type=data.tts_voice_type,
+            tts_timeout=data.tts_timeout,
+            asr_sample_rate=data.asr_sample_rate,
+            asr_enable_streaming=data.asr_enable_streaming,
+            monthly_budget=data.monthly_budget,
+            is_active=True,
+        )
+        db.add(vc)
+
+    db.commit()
+    db.refresh(vc)
+    return _build_voice_config_response(vc)
