@@ -131,6 +131,7 @@ export class StreamManager {
       return;
     }
     this.setLoading(true);
+    this.abortController?.abort(); // Abort any previous in-flight stream
     if (!this.recordId) {
       this.setLoading(false);
       console.warn("[StreamManager] send() called with null recordId — silently dropping message");

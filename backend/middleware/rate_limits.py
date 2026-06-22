@@ -119,6 +119,17 @@ async def check_qa_limit(user_id: int, request: Request):
         )
 
 
+async def check_tts_limit(user_id: int, request: Request):
+    limiter: PgRateLimiter = request.app.state.rate_limiter
+    key = f"tts:{user_id}"
+    if not await limiter.is_allowed(key, max_requests=10, window_seconds=60):
+        log.warning("tts rate limit: user_id=%s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="TTS 合成请求过于频繁，请稍后再试",
+        )
+
+
 async def reset_login_limit(request: Request):
     limiter: PgRateLimiter = request.app.state.rate_limiter
     key = f"login:{_get_client_ip(request)}"

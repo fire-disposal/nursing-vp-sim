@@ -33,6 +33,7 @@ export interface CaseForm {
 	family_history: string;
 	social_history: string;
 	communication_style: string;
+	voice_type: string;
 	hidden_info: string[];
 	required_inquiries: string[];
 	scoring_criteria: Record<string, ScoringDimension>;
@@ -55,6 +56,7 @@ export interface CaseData {
 	family_history: string;
 	social_history: string;
 	communication_style: string;
+	voice_type?: string;
 	hidden_info: string[];
 	required_inquiries: string[];
 	scoring_criteria: Record<string, ScoringDimension>;
@@ -75,6 +77,7 @@ export interface CaseJsonData {
 	family_history?: string;
 	social_history?: string;
 	communication_style?: string;
+	voice_type?: string;
 	hidden_info?: string[];
 	required_inquiries?: string[];
 	scoring_criteria?: Record<string, ScoringDimension>;
@@ -101,6 +104,7 @@ export const NEW_CASE_TEMPLATE: CaseData = {
 	family_history: "",
 	social_history: "",
 	communication_style: "",
+	voice_type: "",
 	hidden_info: [],
 	required_inquiries: [],
 	scoring_criteria: {
@@ -136,6 +140,7 @@ export function buildCaseData(form: CaseForm): CaseData {
 		family_history: form.family_history,
 		social_history: form.social_history,
 		communication_style: form.communication_style,
+		voice_type: form.voice_type || undefined,
 		hidden_info: form.hidden_info,
 		required_inquiries: form.required_inquiries,
 		scoring_criteria: form.scoring_criteria,
@@ -163,6 +168,7 @@ export function parseCaseData(cd: unknown): CaseForm {
 		family_history: rec?.family_history || "",
 		social_history: rec?.social_history || "",
 		communication_style: rec?.communication_style || "",
+		voice_type: rec?.voice_type || "",
 		hidden_info: rec?.hidden_info || [],
 		required_inquiries: rec?.required_inquiries || [],
 		scoring_criteria: rec?.scoring_criteria || {},

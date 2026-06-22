@@ -73,8 +73,9 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const busRef = useRef(createMessageBus());
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
-	const ttsRef = useRef(new TTSManager({ autoPlay: true }));
+	const ttsRef = useRef(new TTSManager({ autoPlay: true, recordId: recordNum }));
 	const seededRef = useRef(false);
+	const patientAccRef = useRef("");
 
 	const { setEmotion } = useEmotion();
 	const { setPortraitUrl } = usePortrait();
@@ -88,6 +89,10 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [sending, setSending] = useState(false);
 	const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
 	const [trainingEnded, setTrainingEnded] = useState(false);
+	const [voiceStatus, setVoiceStatus] = useState<{
+		provider: string;
+		latencyMs: number;
+	} | null>(null);
 
 	const { features, toggleFeature, activePanels } =
 		useFeatureToggles(initialFeatures);
@@ -108,13 +113,17 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		return () => {
 			unsub();
 			unsubLoading();
-			streamRef.current.abort();
+			streamRef.current.dispose();
 		};
 	}, [recordNum]);
 
 	useEffect(() => {
 		scoreRef.current.setRecordId(recordNum);
 		return () => scoreRef.current.dispose();
+	}, [recordNum]);
+
+	useEffect(() => {
+		ttsRef.current.setRecordId(recordNum);
 	}, [recordNum]);
 
 	useEffect(() => {
@@ -141,9 +150,20 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const sendMessage = useCallback(
 		async (text: string) => {
 			const bus = busRef.current;
+			patientAccRef.current = "";
+			bus.emit("chat:beforeSend");
 			streamRef.current.send(text, {
-				onPatientChunk: () => bus.emit("stream:chunk"),
-				onPatientDone: () => bus.emit("stream:done"),
+				onPatientChunk: (chunk: string) => {
+					patientAccRef.current += chunk;
+					bus.emit("stream:chunk");
+					bus.emit("tts:prebuffer", {
+						text: patientAccRef.current,
+					});
+				},
+				onPatientDone: () => {
+					bus.emit("stream:done");
+					patientAccRef.current = "";
+				},
 				onError: (err) => bus.emit("stream:error", err),
 				onExamResult: (examResult) => bus.emit("exam:result", examResult),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
@@ -176,7 +196,13 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			patient: patient!,
 			messages,
 			loading: sending,
-			tts: { isAutoPlay: ttsAutoPlay, setAutoPlay: setTtsAutoPlay },
+			tts: {
+				isAutoPlay: ttsAutoPlay,
+				setAutoPlay: (on: boolean) => {
+					setTtsAutoPlay(on);
+					ttsRef.current.setAutoPlay(on);
+				},
+			},
 			sendMessage,
 			endTraining,
 		}),
@@ -217,6 +243,15 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			toastError(err || "发送消息失败，请重试");
 		});
 	}, [toastError]);
+
+	useEffect(() => {
+		return busRef.current.on(
+			"tts:provider-status",
+			(data: { provider: string; latencyMs: number }) => {
+				setVoiceStatus(data);
+			},
+		);
+	}, []);
 
 	if (loading) {
 		return (
@@ -259,6 +294,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					fromAssignment={fromAssignment}
 					timeLimitMinutes={timeLimit}
 					remainingSeconds={remainingSeconds}
+					voiceStatus={voiceStatus}
 				/>
 				<div className="flex-1 overflow-hidden relative">
 					<ChatArea

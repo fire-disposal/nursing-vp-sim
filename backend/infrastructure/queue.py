@@ -45,8 +45,7 @@ class TaskQueue:
         _practical_max = 10  # bounded by scoring semaphore (llm_profile.py)
         if max_workers > _practical_max:
             log.warning(
-                "SCORING_WORKERS=%d exceeds practical max %d "
-                "(LLM semaphore bottleneck); throughput unchanged",
+                "SCORING_WORKERS=%d exceeds practical max %d (LLM semaphore bottleneck); throughput unchanged",
                 max_workers,
                 _practical_max,
             )
@@ -105,9 +104,7 @@ class TaskQueue:
                 pending,
                 self._queue.maxsize,
             )
-            raise QueueFullError(
-                f"评分队列繁忙，当前积压 {pending} 个任务，请稍后重试"
-            ) from None
+            raise QueueFullError(f"评分队列繁忙，当前积压 {pending} 个任务，请稍后重试") from None
         return future
 
     @property

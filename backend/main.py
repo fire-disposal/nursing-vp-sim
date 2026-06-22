@@ -45,6 +45,7 @@ from core.exceptions import (
 )
 from core.logging_setup import setup_logging
 from core.seed import seed_all
+from infrastructure.asr import VolcASRClient
 from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
@@ -53,7 +54,9 @@ from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
+from infrastructure.tts.client import VolcTTSClient
 from middleware.rate_limits import PgRateLimiter
+from models import VoiceConfig
 from repositories.training import TrainingRepository
 
 log = logging.getLogger(__name__)
@@ -214,6 +217,54 @@ async def lifespan(app: FastAPI):
         log_worker=app.state.log_worker,
         metrics=metrics,
     )
+
+    try:
+        from core.database import SessionLocal
+        from infrastructure.llm.crypto_utils import decrypt_api_key
+
+        db_voice = SessionLocal()
+        vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
+        if vc:
+            token = decrypt_api_key(vc.token_enc)
+            if vc.key_suffix and not token.endswith(vc.key_suffix):
+                log.error("ASR client: token integrity check failed (suffix mismatch)")
+                app.state.asr_client = None
+            else:
+                app.state.asr_client = VolcASRClient(app_id=vc.app_id, token=token)
+                log.info("ASR client: ready (app_id=%s)", vc.app_id)
+        else:
+            app.state.asr_client = None
+            log.warning("ASR client: no active VoiceConfig found")
+        db_voice.close()
+    except Exception:
+        app.state.asr_client = None
+        log.exception("ASR client init failed (non-fatal)")
+
+    try:
+        from core.database import SessionLocal
+        from infrastructure.llm.crypto_utils import decrypt_api_key
+
+        db_voice = SessionLocal()
+        vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
+        if vc and vc.token_enc:
+            token = decrypt_api_key(vc.token_enc)
+            if vc.key_suffix and not token.endswith(vc.key_suffix):
+                log.error("TTS client: token integrity check failed (suffix mismatch)")
+                app.state.tts_client = None
+            else:
+                app.state.tts_client = VolcTTSClient(
+                    app_id=vc.app_id,
+                    token=token,
+                    timeout=vc.tts_timeout,
+                )
+                log.info("TTS client: ready (app_id=%s)", vc.app_id)
+        else:
+            app.state.tts_client = None
+            log.warning("TTS client: no active VoiceConfig found")
+        db_voice.close()
+    except Exception:
+        app.state.tts_client = None
+        log.exception("TTS client init failed (non-fatal)")
 
     background_loop = asyncio.new_event_loop()
     background_thread = threading.Thread(target=background_loop.run_forever, daemon=False, name="bg-loop")
@@ -427,10 +478,13 @@ from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
 from routers.admin_schools import router as admin_schools_router
+from routers.admin_voice import router as admin_voice_router
+from routers.asr import router as asr_router
 from routers.assignments import router as assignments_router
 from routers.assignments import student_router as student_assignments_router
 from routers.diagnose import router as diagnose_router
 from routers.ops import router as ops_router
+from routers.tts import router as tts_router
 
 for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, questionnaires, stats]:
     app.include_router(mod.router)
@@ -447,6 +501,9 @@ app.include_router(assignments_router)
 app.include_router(diagnose_router)
 app.include_router(student_assignments_router)
 app.include_router(ops_router)
+app.include_router(admin_voice_router)
+app.include_router(asr_router)
+app.include_router(tts_router)
 
 
 @app.get("/api/health")

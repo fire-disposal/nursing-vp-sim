@@ -1,1 +1,3 @@
-export type { TTSProvider } from "./types";
+export type { TTSProvider, TTSManagerConfig } from "./types";
+export { VolcTTSProvider } from "./VolcTTSProvider";
+export { TTSManager } from "./TTSManager";

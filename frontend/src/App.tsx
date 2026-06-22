@@ -47,6 +47,7 @@ const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
+const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
 const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
@@ -132,11 +133,12 @@ export default function App() {
 													element={<SystemNotificationsPage />}
 												/>
 											</Route>
-											<Route
-												element={<ProtectedRoute permission="llm_monitor" />}
-											>
-												<Route path="/admin/llm" element={<AdminLLM />} />
-											</Route>
+										<Route
+											element={<ProtectedRoute permission="llm_monitor" />}
+										>
+											<Route path="/admin/llm" element={<AdminLLM />} />
+											<Route path="/admin/costs" element={<CostManagement />} />
+										</Route>
 											<Route
 												element={<ProtectedRoute permission="case_manage" />}
 											>

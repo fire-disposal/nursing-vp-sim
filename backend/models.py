@@ -354,7 +354,7 @@ class LLMCallLog(Base):
     estimated_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
     cost_currency: Mapped[str | None] = mapped_column(String(10), nullable=True, default="CNY")
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
-    status: Mapped[str] = mapped_column(String(20), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="success", server_default=text("'success'"), index=True)
     error_type: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     request_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -668,3 +668,44 @@ class RateLimitEntry(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now_utc, server_default=text("NOW()")
     )
+
+
+class VoiceConfig(Base, TimestampMixin):
+    """TTS + ASR unified configuration. Token is Fernet-encrypted."""
+
+    __tablename__ = "voice_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(20), default="volcengine")
+    app_id: Mapped[str] = mapped_column(String(80))
+    token_enc: Mapped[str] = mapped_column(Text)
+    key_suffix: Mapped[str] = mapped_column(String(8), default="")
+    tts_voice_type: Mapped[str] = mapped_column(String(40), default="zh_female_vv")
+    tts_timeout: Mapped[int] = mapped_column(Integer, default=8)
+    asr_sample_rate: Mapped[int] = mapped_column(Integer, default=16000)
+    asr_enable_streaming: Mapped[bool] = mapped_column(default=True)
+    monthly_budget: Mapped[float] = mapped_column(Float, default=200.0)
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class VoiceCallLog(Base):
+    __tablename__ = "voice_call_logs"
+    __table_args__ = (
+        Index("ix_vcl_user_created", "user_id", "created_at"),
+        Index("ix_vcl_direction", "direction"),
+        Index("ix_vcl_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    record_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("training_records.id"), nullable=True)
+    direction: Mapped[str] = mapped_column(String(10))  # "tts" | "asr"
+    text_length: Mapped[int] = mapped_column(Integer, default=0)
+    emotion_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="success")  # success | fallback | error
+    cost_estimated: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+
+    user: Mapped["User"] = relationship()

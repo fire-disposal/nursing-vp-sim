@@ -11,10 +11,12 @@ interface InitiativeBarProps {
 
 export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	const [percent, setPercent] = useState(0);
+	const [paused, setPaused] = useState(false);
 	const elapsedRef = useRef(0);
 	const thresholdRef = useRef(30);
 	const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const pollingRef = useRef(false);
+	const pausedRef = useRef(false);
 
 	const resetTimer = useCallback(() => {
 		elapsedRef.current = 0;
@@ -43,9 +45,9 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 				elapsedRef.current = data.elapsed_seconds ?? 0;
 				thresholdRef.current = data.threshold_seconds ?? 30;
 				setPercent(data.percent ?? 0);
-				// Start client-side tick once — guarded by ref to avoid duplicate intervals
 				if (!tickRef.current) {
 					tickRef.current = setInterval(() => {
+						if (pausedRef.current) return;
 						elapsedRef.current += 1;
 						const pct = Math.min(100, Math.round((elapsedRef.current / thresholdRef.current) * 100));
 						setPercent(pct);
@@ -65,6 +67,12 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 		};
 	}, [bus, pollTrigger]);
 
+	useEffect(() => {
+		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; setPaused(true); });
+		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; setPaused(false); });
+		return () => { unsubStart(); unsubEnd(); };
+	}, [bus]);
+
 	const barColor =
 		percent > 80
 			? "bg-destructive"
@@ -77,7 +85,7 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 			className="shrink-0 bg-muted/30 overflow-hidden transition-all duration-300"
 			style={{ maxHeight: features.patient_initiative ? "4px" : "0" }}
 		>
-			<div className="h-1 w-full">
+			<div className={cn("h-1 w-full", paused && "opacity-40")}>
 				<div
 					className={cn(
 						"h-full rounded-full transition-all duration-1000",

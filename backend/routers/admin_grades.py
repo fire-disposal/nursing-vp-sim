@@ -131,11 +131,7 @@ def delete_grade(
     from sqlalchemy.exc import IntegrityError
 
     if class_ids:
-        db.execute(
-            sa_update(UserClass)
-            .where(UserClass.class_id.in_(class_ids))
-            .values(class_id=None)
-        )
+        db.execute(sa_update(UserClass).where(UserClass.class_id.in_(class_ids)).values(class_id=None))
     db.delete(grade)
     try:
         db.commit()

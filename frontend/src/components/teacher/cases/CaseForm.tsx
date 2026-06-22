@@ -519,6 +519,25 @@ export default function CaseFormModal({
 							</select>
 						</div>
 					</div>
+					<div className="mt-3">
+						<label className="block text-xs font-semibold text-muted-foreground mb-1">
+							语音类型
+						</label>
+						<select
+							value={caseForm.voice_type}
+							onChange={(e) => updateField("voice_type", e.target.value)}
+							className={inputClass}
+						>
+							<option value="">自动（默认）</option>
+							<option value="zh_female_vv">温柔女声</option>
+							<option value="zh_female_tianmei">甜美女声</option>
+							<option value="zh_male_qingse">青年男声</option>
+							<option value="zh_male_laoshi">老师男声</option>
+							<option value="zh_female_child">女童声</option>
+							<option value="zh_male_elder">老年男声</option>
+							<option value="zh_female_elder">老年女声</option>
+						</select>
+					</div>
 				</fieldset>
 				<fieldset className="border border-border rounded-lg p-4">
 					<legend className="text-sm font-semibold text-gray-700 px-1">

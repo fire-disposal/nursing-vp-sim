@@ -6,6 +6,7 @@ export interface BusEvents {
 	"stream:error": [err: string];
 	"training:ended": [];
 	"score:ready": [score: ScoreData];
+	"score:unavailable": [reason?: string];
 	"emotion:changed": [
 		{ state: string; trust: number; comfort: number },
 	];
@@ -20,6 +21,12 @@ export interface BusEvents {
 	"exam:result": [{ type: string; data: Record<string, unknown> }];
 	"plugins:updated": [];
 	"portrait:changed": [{ url: string }];
+	"tts:provider-status": [{ provider: string; latencyMs: number }];
+	"tts:prebuffer": [{ text: string }];
+	"tts:start": [text: string];
+	"tts:end": [text: string];
+	"tts:error": [message: string];
+	"chat:beforeSend": [];
 }
 
 export class TypedMessageBus implements MessageBus {
