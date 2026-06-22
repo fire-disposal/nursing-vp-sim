@@ -2,6 +2,7 @@ export interface ScoreItemData {
 	id?: number;
 	name: string;
 	score: number;
+	max?: number;
 	evidence?: string;
 	reason?: string;
 }

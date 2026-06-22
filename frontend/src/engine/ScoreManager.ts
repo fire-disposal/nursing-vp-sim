@@ -13,14 +13,12 @@ export class ScoreManager {
 	private recordId: number | null;
 	private bus: MessageBus | null;
 	private _score: ScoreData | null = null;
-	private _progress: ScoringProgress = { phase: null, percentage: 0, message: "" };
+	private _progress: ScoringProgress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "" };
 	private _polling = false;
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private listeners: Array<() => void> = [];
 	private _visibilityHandler: (() => void) | null = null;
 	private _sseThought: string = "";
-	private _scoreThought: string = "";
-	private _feedbackThought: string = "";
 
 	private _registeredHandler: ((data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void) | null = null;
 
@@ -139,13 +137,13 @@ export class ScoreManager {
 					const p = data.progress as { phase?: string; percentage?: number; message?: string; thought?: string; score_thought?: string; feedback_thought?: string };
 					const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
 					const phase = VALID_PHASES.includes(p.phase as any) ? (p.phase as ScorePhase) : null;
-					if (p.score_thought) this._scoreThought = p.score_thought;
-					if (p.feedback_thought) this._feedbackThought = p.feedback_thought;
 					this._progress = {
 						phase,
 						percentage: p.percentage ?? 0,
 						message: p.message ?? "",
 						thought: p.thought ?? this._sseThought,
+						score_thought: p.score_thought ?? this._progress.score_thought ?? "",
+						feedback_thought: p.feedback_thought ?? this._progress.feedback_thought ?? "",
 					};
 				} else {
 					const pct = Math.min(95, 10 + retries * 1.5);
@@ -198,7 +196,7 @@ export class ScoreManager {
 	reset(): void {
 		this.stopPolling();
 		this._score = null;
-		this._progress = { phase: null, percentage: 0, message: "" };
+		this._progress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "" };
 		this._sseThought = "";
 		this.notify();
 	}
@@ -218,8 +216,6 @@ export class ScoreManager {
 		if (data.record_id !== this.recordId) return;
 		if (data.thought) {
 			this._sseThought = data.thought;
-			if (data.stage === "scoring") this._scoreThought = data.thought;
-			if (data.stage === "feedback") this._feedbackThought = data.thought;
 		}
 		const VALID_PHASES = ["loading", "scoring", "feedback", "saving", "completed", "failed", "processing"] as const;
 		const phase = VALID_PHASES.includes(data.stage as any)
@@ -258,6 +254,8 @@ export class ScoreManager {
 			percentage: data.percent,
 			message: data.message,
 			thought: this._sseThought,
+			score_thought: this._progress.score_thought ?? (data.stage === "scoring" ? data.thought : undefined) ?? "",
+			feedback_thought: this._progress.feedback_thought ?? (data.stage === "feedback" ? data.thought : undefined) ?? "",
 		};
 		this.notify();
 	}

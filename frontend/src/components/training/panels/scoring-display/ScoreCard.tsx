@@ -68,7 +68,8 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 
 function DimensionSection({ name, dimension }: { name: string; dimension: ScoreDimension }) {
 	const [barWidth, setBarWidth] = useState("0%");
-	const percentage = dimension.max > 0 ? (dimension.score / dimension.max) * 100 : 0;
+	const dimMax = Number.isFinite(dimension.max) && dimension.max > 0 ? dimension.max : dimension.items?.reduce((s, i) => s + (Number.isFinite(i.max) && i.max > 0 ? i.max : 3), 0) ?? 100;
+	const percentage = dimMax > 0 ? (dimension.score / dimMax) * 100 : 0;
 	const barColor =
 		percentage >= 80 ? "bg-green-500" : percentage >= 60 ? "bg-amber-500" : "bg-red-500";
 
@@ -82,7 +83,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 			<div className="mb-1.5 flex items-center justify-between">
 				<span className="text-sm font-medium">{name}</span>
 				<span className="text-xs tabular-nums text-muted-foreground">
-					<span className="font-semibold text-foreground">{dimension.score}</span>/{dimension.max}
+					<span className="font-semibold text-foreground">{dimension.score}</span>/{dimMax}
 				</span>
 			</div>
 			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -93,14 +94,17 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 			</div>
 			{dimension.items && dimension.items.length > 0 && (
 				<div className="mt-2 space-y-1">
-					{dimension.items.map((item, i) => (
-						<div key={i} className="flex justify-between text-xs text-muted-foreground ml-1">
-							<span>{item.name || `项目 ${i + 1}`}</span>
-							<span className="tabular-nums">
-								{item.score}/{item.max}
-							</span>
-						</div>
-					))}
+					{dimension.items.map((item, i) => {
+						const itemMax = Number.isFinite(item.max) && item.max > 0 ? item.max : 3;
+						return (
+							<div key={i} className="flex justify-between text-xs text-muted-foreground ml-1">
+								<span>{item.name || `项目 ${i + 1}`}</span>
+								<span className="tabular-nums">
+									{item.score}/{itemMax}
+								</span>
+							</div>
+						);
+					})}
 				</div>
 			)}
 		</div>

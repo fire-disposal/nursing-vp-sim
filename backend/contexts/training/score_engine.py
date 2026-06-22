@@ -151,6 +151,8 @@ async def _score_stage(
             _validate_scoring_essentials(result)
             thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
             await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
+            if tracker:
+                tracker.update(record_id, "scoring", 55, "评分维度分析完成", thought=thought)
             return result
         except (ValueError, TypeError):
             log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
@@ -181,9 +183,9 @@ async def _score_stage(
             **cfg,
         )
         _validate_scoring_essentials(result2)
-        if tracker:
-            tracker.update(record_id, "scoring", 55, "评分维度分析完成")
         thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
+        if tracker:
+            tracker.update(record_id, "scoring", 55, "评分维度分析完成", thought=thought)
         await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
         return result2
     except Exception as retry_err:
@@ -236,6 +238,8 @@ async def _feedback_stage(
             _validate_feedback_fields(result)
             thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
             await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
+            if tracker:
+                tracker.update(record_id, "feedback", 90, "反馈建议生成完成", thought=thought)
             return result
         except ValueError as e:
             log.info(
@@ -276,9 +280,9 @@ async def _feedback_stage(
 
     try:
         _validate_feedback_fields(result2)
-        if tracker:
-            tracker.update(record_id, "feedback", 90, "反馈建议生成完成")
         thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
+        if tracker:
+            tracker.update(record_id, "feedback", 90, "反馈建议生成完成", thought=thought)
         await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
         return result2
     except ValueError:

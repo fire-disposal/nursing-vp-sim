@@ -101,6 +101,7 @@ def build_scoring_json_schema(rubric: dict | None = None, stage: str = "scoring"
                     "id": item["id"],
                     "name": item["name"],
                     "score": "N_ITEM_SCORE",
+                    "max": item.get("max", 3),
                     "evidence": "对话中的具体证据（≥10汉字）",
                     "reason": "评分理由（≥5汉字）",
                 }

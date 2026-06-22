@@ -4,7 +4,8 @@ import { cn } from "@/lib/utils";
 import type { ScoreItemData } from "@/types/score";
 
 export default function ScoreItem({ item }: { item: ScoreItemData }) {
-	const [expanded, setExpanded] = useState(item.score < 2);
+	const itemMax = Number.isFinite(item.max) && item.max! > 0 ? item.max! : 3;
+	const [expanded, setExpanded] = useState(item.score < itemMax * 0.6);
 	const hasEvidence = item.evidence || item.reason;
 
 	return (
@@ -14,9 +15,9 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 				className={cn(
 					"flex justify-between items-center px-3 py-2 rounded-lg transition-colors",
 					hasEvidence ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
-					item.score >= 3
+					item.score >= itemMax
 						? "bg-green-50 dark:bg-green-950/20"
-						: item.score >= 2
+						: item.score >= Math.ceil(itemMax * 0.6)
 							? "bg-amber-50 dark:bg-amber-950/20"
 							: "bg-red-50 dark:bg-red-950/20",
 				)}
@@ -32,14 +33,14 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 				<span
 					className={cn(
 						"text-sm font-bold ml-2 shrink-0",
-						item.score >= 3
+						item.score >= itemMax
 							? "text-green-600"
-							: item.score >= 2
+							: item.score >= Math.ceil(itemMax * 0.6)
 								? "text-amber-600"
 								: "text-red-600",
 					)}
 				>
-					{item.score}/3
+					{item.score}/{itemMax}
 				</span>
 			</div>
 			<div

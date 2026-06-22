@@ -44,11 +44,15 @@ function parseThoughtItems(thought: string | undefined): ThoughtItem[] {
 			const dimItems = dimData.items as Array<Record<string, unknown>> | undefined;
 			if (!dimItems) continue;
 			for (const item of dimItems) {
+				const rawMax = Number(item.max);
+				const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 3;
+				const rawScore = Number(item.score ?? 0);
+				const score = Number.isFinite(rawScore) ? rawScore : 0;
 				items.push({
 					dimName,
 					itemName: String(item.name ?? "?"),
-					score: Number(item.score ?? 0),
-					max: Number(item.max ?? 3),
+					score,
+					max,
 					evidence: String(item.evidence ?? "").trim(),
 					reason: String(item.reason ?? "").trim(),
 				});
@@ -174,7 +178,7 @@ export function ScoringOverlay({
 					{/* Score stage column */}
 					<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
 						<div className="text-[10px] font-mono text-primary/70 mb-1">$ scoring_dimensions</div>
-						<div className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
+						<div className="max-h-60 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
 							{progress.score_thought ? (
 								(parseThoughtItems(progress.score_thought)).map((item, i) => (
 									<div key={i} className="text-foreground/70 py-0.5">
@@ -193,7 +197,7 @@ export function ScoringOverlay({
 					{/* Feedback stage column */}
 					<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
 						<div className="text-[10px] font-mono text-primary/70 mb-1">$ feedback_generation</div>
-						<div className="max-h-32 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
+						<div className="max-h-60 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
 							{progress.feedback_thought ? (
 								(() => {
 									try {

@@ -13,6 +13,8 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 	const [expanded, setExpanded] = useState(false);
 	const hasEvidence = item.evidence || item.reason;
 	const currentScore = editedScore !== undefined ? editedScore : item.score;
+	const itemMax = Number.isFinite(item.max) && item.max! > 0 ? item.max! : 3;
+	const scoreOptions = Array.from({ length: itemMax }, (_, i) => i + 1);
 
 	return (
 		<div className="mb-2">
@@ -34,19 +36,19 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 						<span
 							className={cn(
 								"text-xs font-bold",
-								item.score >= 3
+								item.score >= itemMax
 									? "text-green-600"
-									: item.score >= 2
+									: item.score >= Math.ceil(itemMax * 0.6)
 										? "text-amber-600"
 										: "text-red-600",
 							)}
 						>
-							{item.score}/3
+							{item.score}/{itemMax}
 						</span>
 					</div>
 				</div>
 				<div className="flex items-center gap-1.5">
-					{[1, 2, 3].map((s) => (
+					{scoreOptions.map((s) => (
 						<button
 							key={s}
 							onClick={() => onChange(item.id!, s)}

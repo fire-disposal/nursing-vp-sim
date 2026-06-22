@@ -27,7 +27,7 @@ async def settlement_loop(
         for record_id, case_id, case_data in settled:
             if enqueue_scoring:
                 try:
-                    enqueue_scoring(record_id, case_data)
+                    await enqueue_scoring(record_id, case_data)
                     log.info("Settlement: enqueued scoring for record_id=%d", record_id)
                 except Exception:
                     log.exception("Settlement: failed to enqueue scoring for record_id=%d", record_id)

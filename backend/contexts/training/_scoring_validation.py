@@ -171,3 +171,7 @@ def _convert_to_100_scale(result: dict, raw_max: int):
         if isinstance(dim_data, dict):
             dim_data["score"] = round(dim_data.get("score", 0) * factor)
             dim_data["max"] = round(dim_data.get("max", 0) * factor)
+            for item in dim_data.get("items", []):
+                if isinstance(item, dict):
+                    item["score"] = round(item.get("score", 0) * factor)
+                    item["max"] = round(item.get("max", 0) * factor)

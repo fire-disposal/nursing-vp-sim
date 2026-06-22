@@ -278,10 +278,10 @@ async def lifespan(app: FastAPI):
         app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop
     )
 
-    def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
+    async def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
         from contexts.training.router.scoring import _run_scoring_background
 
-        app.state.task_queue.enqueue(
+        await app.state.task_queue.enqueue(
             lambda rid=record_id, cd=case_data: _run_scoring_background(
                 rid,
                 cd,
