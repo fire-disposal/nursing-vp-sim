@@ -57,7 +57,7 @@ CASE_GENERATION_SYSTEM = """你是一名资深的护理学教育专家和临床�
 - **deep_background**：患者不便主动告知但影响诊疗的深层背景。键为话题标签，值为一句话描述。替代旧版的 hidden_info_rules
 - **exam_anchors**：护理查体时的预期发现。vital_signs 的值使用范围格式（如 "138/86-146/92" 表示收缩压/舒张压范围，或 "88-94" 表示单一数值范围）。可包含 skin 等附加查体描述
 - **example_dialogues**：2-3 组护患典型问答，question 是护士可能问的问题，answer 是患者的回答。使用口语化语言，体现患者个性和沟通风格
-- **supported_plugins**：推荐启用的训练插件。可选值：emotion（患者情绪状态机）、physical_exam（护理查体）、patient_initiative（患者主动追问）、portrait（患者立绘）、questionnaire（问卷评估）
+- **supported_plugins**：推荐启用的训练插件。可选值：emotion（患者情绪状态机）、physical_exam（护理查体）、patient_initiative（患者主动追问）、questionnaire（问卷评估）
 
 ## 用户描述
 {#description#}

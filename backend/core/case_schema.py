@@ -24,7 +24,7 @@ class PatientInfo(BaseModel):
 
 
 class PersonalityConfig(BaseModel):
-    health_literacy: Literal["low", "normal", "high"] = "normal"
+    health_literacy: Literal["low", "normal", "high", "medium"] = "normal"
     verbosity: Literal["terse", "normal", "verbose"] = "normal"
     anxiety_trait: Literal["calm", "normal", "anxious"] = "normal"
     patience: Literal["low", "normal", "high"] = "normal"
@@ -78,11 +78,8 @@ class CaseDataSchema(BaseModel):
 
     @field_validator("supported_plugins")
     @classmethod
-    def check_supported_plugins(cls, v: list[str]) -> list[str]:
-        unknown = [pid for pid in v if pid not in ALL_CAPABILITY_KEYS]
-        if unknown:
-            log.warning("Unknown plugin IDs in supported_plugins: %s", unknown)
-        return v
+    def filter_supported_plugins(cls, v: list[str]) -> list[str]:
+        return [pid for pid in v if pid in ALL_CAPABILITY_KEYS]
 
     exam_anchors: dict[str, Any] = {}
 
