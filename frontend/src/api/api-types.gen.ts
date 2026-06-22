@@ -2139,6 +2139,183 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Config */
+        get: operations["get_config_api_admin_voice_config_get"];
+        /** Update Config */
+        put: operations["update_config_api_admin_voice_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/config/test-tts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Tts */
+        post: operations["test_tts_api_admin_voice_config_test_tts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/test/tts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Tts V2 */
+        post: operations["test_tts_v2_api_admin_voice_test_tts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/config/test-asr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Asr */
+        post: operations["test_asr_api_admin_voice_config_test_asr_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/test/asr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Asr V2 */
+        post: operations["test_asr_v2_api_admin_voice_test_asr_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Voice Usage */
+        get: operations["get_voice_usage_api_admin_voice_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/costs/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cost Dashboard */
+        get: operations["get_cost_dashboard_api_admin_voice_costs_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/costs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Costs */
+        get: operations["export_costs_api_admin_voice_costs_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/asr/recognize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recognize */
+        post: operations["recognize_api_asr_recognize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tts/synthesize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Synthesize
+         * @description Synthesize patient speech with emotion-aware voice.
+         *
+         *     Looks up the training record's current emotional state and maps it
+         *     to TTS parameters (emotion + speech rate), then calls Volcengine TTS.
+         */
+        post: operations["synthesize_api_tts_synthesize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -2177,6 +2354,30 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ASRRecognizeRequest */
+        ASRRecognizeRequest: {
+            /** Audio */
+            audio: string;
+            /** Record Id */
+            record_id?: number | null;
+            /**
+             * Format
+             * @default wav
+             */
+            format: string;
+            /**
+             * Sample Rate
+             * @default 16000
+             */
+            sample_rate: number;
+        };
+        /** ASRRecognizeResponse */
+        ASRRecognizeResponse: {
+            /** Text */
+            text: string;
+            /** Confidence */
+            confidence: number;
+        };
         /** AdminStats */
         AdminStats: {
             /** Total Students */
@@ -2740,6 +2941,52 @@ export interface components {
         ConfigCreateResponse: {
             /** Id */
             id: number;
+        };
+        /** CostBreakdown */
+        CostBreakdown: {
+            /** Calls */
+            calls: number;
+            /** Success */
+            success: number;
+            /** Error */
+            error: number;
+            /** Latency Ms Avg */
+            latency_ms_avg: number;
+            /** Total Cost */
+            total_cost: number;
+        };
+        /** CostDashboardResponse */
+        CostDashboardResponse: {
+            today: components["schemas"]["CostBreakdown"];
+            this_month: components["schemas"]["CostBreakdown"];
+            llm_today: components["schemas"]["CostBreakdown"];
+            tts_today: components["schemas"]["CostBreakdown"];
+            asr_today: components["schemas"]["CostBreakdown"];
+            /** Monthly Budget */
+            monthly_budget: number;
+            /** Monthly Used */
+            monthly_used: number;
+            /** Llm Monthly Budget */
+            llm_monthly_budget: number;
+            /** Voice Monthly Budget */
+            voice_monthly_budget: number;
+            /** Daily Series */
+            daily_series: components["schemas"]["CostSeriesPoint"][];
+            /** Top Users */
+            top_users: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** CostSeriesPoint */
+        CostSeriesPoint: {
+            /** Date */
+            date: string;
+            /** Llm Cost */
+            llm_cost: number;
+            /** Tts Cost */
+            tts_cost: number;
+            /** Asr Cost */
+            asr_cost: number;
         };
         /** DeleteResponse */
         DeleteResponse: {
@@ -4461,6 +4708,15 @@ export interface components {
             /** Published At */
             published_at?: string | null;
         };
+        /** TTSSynthesizeRequest */
+        TTSSynthesizeRequest: {
+            /** Text */
+            text: string;
+            /** Record Id */
+            record_id: number;
+            /** Voice Type */
+            voice_type?: string | null;
+        };
         /** TeacherSummaryItem */
         TeacherSummaryItem: {
             /** User Id */
@@ -4769,6 +5025,118 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VoiceConfigResponse */
+        VoiceConfigResponse: {
+            /** Id */
+            id: number;
+            /** Provider */
+            provider: string;
+            /** App Id */
+            app_id: string;
+            /** Token Masked */
+            token_masked: string;
+            /** Token Suffix */
+            token_suffix: string;
+            /** Tts Voice Type */
+            tts_voice_type: string;
+            /** Tts Timeout */
+            tts_timeout: number;
+            /** Asr Sample Rate */
+            asr_sample_rate: number;
+            /** Asr Enable Streaming */
+            asr_enable_streaming: boolean;
+            /** Monthly Budget */
+            monthly_budget: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** VoiceConfigUpdateRequest */
+        VoiceConfigUpdateRequest: {
+            /**
+             * Provider
+             * @default volcengine
+             */
+            provider: string;
+            /** App Id */
+            app_id: string;
+            /** Token */
+            token?: string | null;
+            /**
+             * Tts Voice Type
+             * @default zh_female_vv
+             */
+            tts_voice_type: string;
+            /**
+             * Tts Timeout
+             * @default 8
+             */
+            tts_timeout: number;
+            /**
+             * Asr Sample Rate
+             * @default 16000
+             */
+            asr_sample_rate: number;
+            /**
+             * Asr Enable Streaming
+             * @default true
+             */
+            asr_enable_streaming: boolean;
+            /**
+             * Monthly Budget
+             * @default 200
+             */
+            monthly_budget: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+        };
+        /** VoiceStatusResponse */
+        VoiceStatusResponse: {
+            /** Provider */
+            provider: string;
+            /** Tts Online */
+            tts_online: boolean;
+            /** Asr Online */
+            asr_online: boolean;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Error At */
+            last_error_at: string | null;
+        };
+        /** VoiceUsageItem */
+        VoiceUsageItem: {
+            /** Calls Total */
+            calls_total: number;
+            /** Calls Success */
+            calls_success: number;
+            /** Calls Fallback */
+            calls_fallback: number;
+            /** Calls Error */
+            calls_error: number;
+            /** Total Chars */
+            total_chars: number;
+            /** Total Latency Ms */
+            total_latency_ms: number;
+            /** Cost Estimated */
+            cost_estimated: number;
+        };
+        /** VoiceUsageResponse */
+        VoiceUsageResponse: {
+            tts_today: components["schemas"]["VoiceUsageItem"];
+            asr_today: components["schemas"]["VoiceUsageItem"];
+            tts_month: components["schemas"]["VoiceUsageItem"];
+            asr_month: components["schemas"]["VoiceUsageItem"];
+            /** Monthly Budget */
+            monthly_budget: number;
+            /** Monthly Used */
+            monthly_used: number;
         };
         /** WechatBindRequest */
         WechatBindRequest: {
@@ -9798,6 +10166,280 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_config_api_admin_voice_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceConfigResponse"];
+                };
+            };
+        };
+    };
+    update_config_api_admin_voice_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceConfigUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_tts_api_admin_voice_config_test_tts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    test_tts_v2_api_admin_voice_test_tts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    test_asr_api_admin_voice_config_test_asr_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    test_asr_v2_api_admin_voice_test_asr_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    get_voice_usage_api_admin_voice_usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceUsageResponse"];
+                };
+            };
+        };
+    };
+    get_cost_dashboard_api_admin_voice_costs_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostDashboardResponse"];
+                };
+            };
+        };
+    };
+    export_costs_api_admin_voice_costs_export_get: {
+        parameters: {
+            query?: {
+                start_date?: string;
+                end_date?: string;
+                service?: string;
+                granularity?: string;
+                format?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recognize_api_asr_recognize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ASRRecognizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ASRRecognizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    synthesize_api_tts_synthesize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TTSSynthesizeRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
