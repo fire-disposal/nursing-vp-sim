@@ -37,6 +37,19 @@ export class StreamManager {
 		return this.messages;
 	}
 
+	addPatientMessage(text: string): void {
+		this.messages = [
+			...this.messages,
+			{
+				role: "patient",
+				content: text,
+				streaming: false,
+				timestamp: Date.now().toString(),
+			},
+		];
+		this.notifySync();
+	}
+
 	get loading(): boolean {
 		return this._loading;
 	}

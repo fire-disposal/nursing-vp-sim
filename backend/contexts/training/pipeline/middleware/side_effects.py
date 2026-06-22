@@ -116,6 +116,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         if dt_total != 0 or dc_total != 0:
             label = "+".join(label_parts) if label_parts else ""
             emotion.update(dt_total, dc_total, label)
+            emotion_cache.set(ctx.record.id, emotion, ctx.db)
             ctx.system_events.append(
                 {
                     "emotion_change": {

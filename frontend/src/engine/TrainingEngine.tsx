@@ -202,6 +202,15 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	}, [setEmotion, setPortraitUrl, patient]);
 
 	useEffect(() => {
+		return busRef.current.on(
+			"initiative:triggered",
+			(data: { content: string }) => {
+				streamRef.current.addPatientMessage(data.content);
+			},
+		);
+	}, []);
+
+	useEffect(() => {
 		return busRef.current.on("stream:error", (err: string) => {
 			toastError(err || "发送消息失败，请重试");
 		});

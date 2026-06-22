@@ -68,8 +68,10 @@ export class TTSManager {
 	}
 
 	private extractLastPatientMessage(): string {
-		const elements = document.querySelectorAll('[data-role="patient"]');
+		const elements = document.querySelectorAll('[data-role="patient"]:not([data-initiated])');
 		const last = elements[elements.length - 1];
-		return last?.textContent?.trim() ?? "";
+		const text = last?.textContent?.trim() ?? "";
+		// Strip non-verbal bracket cues like [叹气] [不安地挪动身体]
+		return text.replace(/\[.*?\]/g, "").trim();
 	}
 }
