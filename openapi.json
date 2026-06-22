@@ -1318,7 +1318,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SystemConfigItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Configs Api Admin Config Get"
+                }
               }
             }
           }
@@ -1370,7 +1376,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfigItem"
+                }
               }
             }
           },
@@ -1548,7 +1556,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
               }
             }
           },
@@ -4912,7 +4922,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FallbackStateResponse"
+                }
               }
             }
           }
@@ -5276,7 +5288,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
               }
             }
           }
@@ -6400,7 +6414,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringStatusResponse"
+                }
               }
             }
           },
@@ -6523,7 +6539,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrainingNotificationItem"
+                  },
+                  "type": "array",
+                  "title": "Response Get Notifications Api Training Notifications Get"
+                }
               }
             }
           }
@@ -6563,7 +6585,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
               }
             }
           },
@@ -6773,7 +6797,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EmotionHistoryResponse"
+                }
               }
             }
           },
@@ -6818,7 +6844,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeHistoryResponse"
+                }
               }
             }
           },
@@ -6931,7 +6959,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ExamOperationResponse"
+                }
               }
             }
           },
@@ -7746,7 +7776,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SectionTextResponse"
+                }
               }
             }
           },
@@ -8166,7 +8198,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnoseResponse"
+                }
               }
             }
           },
@@ -8240,7 +8274,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OpsDashboardResponse"
+                }
               }
             }
           },
@@ -8296,7 +8332,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OpsErrorsResponse"
+                }
               }
             }
           },
@@ -8340,7 +8378,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OpsReportResponse"
+                }
               }
             }
           },
@@ -8669,6 +8709,76 @@
         }
       }
     },
+    "/api/admin/voice/config/export": {
+      "get": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Export Voice Config",
+        "operationId": "export_voice_config_api_admin_voice_config_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice/config/import": {
+      "post": {
+        "tags": [
+          "语音管理"
+        ],
+        "summary": "Import Voice Config",
+        "operationId": "import_voice_config_api_admin_voice_config_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceConfigImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/asr/recognize": {
       "post": {
         "tags": [
@@ -8769,7 +8879,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -8785,7 +8897,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
               }
             }
           }
@@ -10316,6 +10430,34 @@
         ],
         "title": "CostSeriesPoint"
       },
+      "DBMetrics": {
+        "properties": {
+          "pool_size": {
+            "type": "integer",
+            "title": "Pool Size"
+          },
+          "checked_out": {
+            "type": "integer",
+            "title": "Checked Out"
+          },
+          "overflow": {
+            "type": "integer",
+            "title": "Overflow",
+            "default": 0
+          },
+          "connections_in_use": {
+            "type": "integer",
+            "title": "Connections In Use"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pool_size",
+          "checked_out",
+          "connections_in_use"
+        ],
+        "title": "DBMetrics"
+      },
       "DeleteResponse": {
         "properties": {
           "ok": {
@@ -10331,6 +10473,121 @@
         },
         "type": "object",
         "title": "DeleteResponse"
+      },
+      "DiagnoseErrorEntry": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "logger": {
+            "type": "string",
+            "title": "Logger"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "level",
+          "logger",
+          "message"
+        ],
+        "title": "DiagnoseErrorEntry"
+      },
+      "DiagnoseErrorsInfo": {
+        "properties": {
+          "last_5min": {
+            "type": "integer",
+            "title": "Last 5Min"
+          },
+          "last_hour": {
+            "type": "integer",
+            "title": "Last Hour"
+          },
+          "total_captured": {
+            "type": "integer",
+            "title": "Total Captured"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnoseErrorEntry"
+            },
+            "type": "array",
+            "title": "Recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_5min",
+          "last_hour",
+          "total_captured",
+          "recent"
+        ],
+        "title": "DiagnoseErrorsInfo"
+      },
+      "DiagnoseResponse": {
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/DiagnoseServerInfo"
+          },
+          "database": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Database"
+          },
+          "llm": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Llm"
+          },
+          "errors": {
+            "$ref": "#/components/schemas/DiagnoseErrorsInfo"
+          },
+          "active_sessions": {
+            "type": "integer",
+            "title": "Active Sessions"
+          },
+          "cached_at": {
+            "type": "string",
+            "title": "Cached At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server",
+          "database",
+          "llm",
+          "errors",
+          "active_sessions",
+          "cached_at"
+        ],
+        "title": "DiagnoseResponse"
+      },
+      "DiagnoseServerInfo": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "title": "Uptime Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "uptime_seconds"
+        ],
+        "title": "DiagnoseServerInfo"
       },
       "DurationStats": {
         "properties": {
@@ -10358,6 +10615,55 @@
           "total_sessions"
         ],
         "title": "DurationStats"
+      },
+      "EmotionHistoryEntry": {
+        "properties": {
+          "trust": {
+            "type": "integer",
+            "title": "Trust"
+          },
+          "comfort": {
+            "type": "integer",
+            "title": "Comfort"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "intent": {
+            "type": "string",
+            "title": "Intent"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trust",
+          "comfort",
+          "state",
+          "intent",
+          "timestamp"
+        ],
+        "title": "EmotionHistoryEntry"
+      },
+      "EmotionHistoryResponse": {
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/EmotionHistoryEntry"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "history"
+        ],
+        "title": "EmotionHistoryResponse"
       },
       "EmotionStateResponse": {
         "properties": {
@@ -10394,6 +10700,135 @@
           "note"
         ],
         "title": "EmotionStateResponse"
+      },
+      "ExamOperationResponse": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExamOperationResult"
+          },
+          "all_results": {
+            "items": {
+              "$ref": "#/components/schemas/ExamOperationResult"
+            },
+            "type": "array",
+            "title": "All Results",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data"
+        ],
+        "title": "ExamOperationResponse"
+      },
+      "ExamOperationResult": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "default": ""
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "ExamOperationResult"
+      },
+      "FallbackStateResponse": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "key_suffix": {
+            "type": "string",
+            "title": "Key Suffix"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "model_flash": {
+            "type": "string",
+            "title": "Model Flash"
+          },
+          "model_pro": {
+            "type": "string",
+            "title": "Model Pro"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "call_count": {
+            "type": "integer",
+            "title": "Call Count",
+            "default": 0
+          },
+          "total_tokens": {
+            "type": "integer",
+            "title": "Total Tokens",
+            "default": 0
+          },
+          "total_cost": {
+            "type": "number",
+            "title": "Total Cost",
+            "default": 0.0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "available",
+          "label",
+          "key_suffix",
+          "base_url",
+          "model_flash",
+          "model_pro"
+        ],
+        "title": "FallbackStateResponse"
       },
       "FeatureConfigResponse": {
         "properties": {
@@ -10707,6 +11142,64 @@
           "status"
         ],
         "title": "HealthCheckItem"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "HealthResponse"
+      },
+      "InitiativeHistoryResponse": {
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/InitiativeMessageEntry"
+            },
+            "type": "array",
+            "title": "History"
+          }
+        },
+        "type": "object",
+        "required": [
+          "history"
+        ],
+        "title": "InitiativeHistoryResponse"
+      },
+      "InitiativeMessageEntry": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "content",
+          "created_at"
+        ],
+        "title": "InitiativeMessageEntry"
       },
       "InitiativeStateResponse": {
         "properties": {
@@ -11216,6 +11709,53 @@
         "type": "object",
         "title": "LLMConfigUpdate"
       },
+      "LLMMetrics": {
+        "properties": {
+          "calls_total": {
+            "type": "integer",
+            "title": "Calls Total"
+          },
+          "calls_success": {
+            "type": "integer",
+            "title": "Calls Success"
+          },
+          "calls_error": {
+            "type": "integer",
+            "title": "Calls Error"
+          },
+          "tokens_used": {
+            "type": "integer",
+            "title": "Tokens Used"
+          },
+          "estimated_cost": {
+            "type": "number",
+            "title": "Estimated Cost"
+          },
+          "latency_ms": {
+            "$ref": "#/components/schemas/LatencyStats"
+          },
+          "degraded_providers": {
+            "type": "integer",
+            "title": "Degraded Providers"
+          },
+          "global_degraded": {
+            "type": "boolean",
+            "title": "Global Degraded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calls_total",
+          "calls_success",
+          "calls_error",
+          "tokens_used",
+          "estimated_cost",
+          "latency_ms",
+          "degraded_providers",
+          "global_degraded"
+        ],
+        "title": "LLMMetrics"
+      },
       "LLMStatsResponse": {
         "properties": {
           "today": {
@@ -11269,6 +11809,34 @@
         ],
         "title": "LLMStatsResponse"
       },
+      "LatencyStats": {
+        "properties": {
+          "p50": {
+            "type": "number",
+            "title": "P50"
+          },
+          "p95": {
+            "type": "number",
+            "title": "P95"
+          },
+          "p99": {
+            "type": "number",
+            "title": "P99"
+          },
+          "avg": {
+            "type": "number",
+            "title": "Avg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "p50",
+          "p95",
+          "p99",
+          "avg"
+        ],
+        "title": "LatencyStats"
+      },
       "LoginRequest": {
         "properties": {
           "username": {
@@ -11319,6 +11887,72 @@
           "created_at"
         ],
         "title": "MessageItem"
+      },
+      "MetricBuckets": {
+        "properties": {
+          "2xx": {
+            "type": "integer",
+            "title": "2Xx",
+            "default": 0
+          },
+          "4xx": {
+            "type": "integer",
+            "title": "4Xx",
+            "default": 0
+          },
+          "5xx": {
+            "type": "integer",
+            "title": "5Xx",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MetricBuckets"
+      },
+      "MetricsResponse": {
+        "properties": {
+          "uptime_seconds": {
+            "type": "number",
+            "title": "Uptime Seconds"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "requests": {
+            "$ref": "#/components/schemas/RequestMetrics"
+          },
+          "active_sessions": {
+            "type": "integer",
+            "title": "Active Sessions"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/LLMMetrics"
+          },
+          "db": {
+            "$ref": "#/components/schemas/DBMetrics"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/QueueMetrics"
+          },
+          "memory_mb": {
+            "type": "number",
+            "title": "Memory Mb",
+            "default": 0.0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "uptime_seconds",
+          "version",
+          "requests",
+          "active_sessions",
+          "llm",
+          "db",
+          "queue"
+        ],
+        "title": "MetricsResponse"
       },
       "NoteCreateRequest": {
         "properties": {
@@ -11438,6 +12072,217 @@
         },
         "type": "object",
         "title": "OkResponse"
+      },
+      "OpsDashboardResponse": {
+        "properties": {
+          "health": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Health"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "uptime_hours": {
+            "type": "number",
+            "title": "Uptime Hours"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/OpsLLMInfo"
+          },
+          "scoring": {
+            "$ref": "#/components/schemas/OpsScoringInfo"
+          },
+          "sessions": {
+            "$ref": "#/components/schemas/OpsSessionsInfo"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/OpsNotificationsInfo"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metrics"
+          },
+          "diagnostic": {
+            "$ref": "#/components/schemas/DiagnoseResponse"
+          },
+          "system_errors": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "System Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "health",
+          "time",
+          "uptime_hours",
+          "llm",
+          "scoring",
+          "sessions",
+          "notifications",
+          "metrics",
+          "diagnostic",
+          "system_errors"
+        ],
+        "title": "OpsDashboardResponse"
+      },
+      "OpsErrorsResponse": {
+        "properties": {
+          "count": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Count"
+          },
+          "recent": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "recent"
+        ],
+        "title": "OpsErrorsResponse"
+      },
+      "OpsLLMInfo": {
+        "properties": {
+          "total_calls_24h": {
+            "type": "integer",
+            "title": "Total Calls 24H",
+            "default": 0
+          },
+          "success_rate": {
+            "type": "number",
+            "title": "Success Rate",
+            "default": 100.0
+          },
+          "error_count_24h": {
+            "type": "integer",
+            "title": "Error Count 24H",
+            "default": 0
+          },
+          "avg_latency_ms": {
+            "type": "number",
+            "title": "Avg Latency Ms",
+            "default": 0.0
+          },
+          "recent_errors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Errors",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "OpsLLMInfo"
+      },
+      "OpsNotificationsInfo": {
+        "properties": {
+          "unread": {
+            "type": "integer",
+            "title": "Unread",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "OpsNotificationsInfo"
+      },
+      "OpsReportResponse": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/OpsReportSummary"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/OpsLLMInfo"
+          },
+          "scoring": {
+            "$ref": "#/components/schemas/OpsScoringInfo"
+          },
+          "sessions": {
+            "$ref": "#/components/schemas/OpsSessionsInfo"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/OpsNotificationsInfo"
+          },
+          "alerts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "llm",
+          "scoring",
+          "sessions",
+          "notifications",
+          "alerts"
+        ],
+        "title": "OpsReportResponse"
+      },
+      "OpsReportSummary": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "uptime_hours": {
+            "type": "number",
+            "title": "Uptime Hours"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "healthy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "uptime_hours"
+        ],
+        "title": "OpsReportSummary"
+      },
+      "OpsScoringInfo": {
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "default": 0
+          },
+          "stuck": {
+            "type": "integer",
+            "title": "Stuck",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "OpsScoringInfo"
+      },
+      "OpsSessionsInfo": {
+        "properties": {
+          "active": {
+            "type": "integer",
+            "title": "Active",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "OpsSessionsInfo"
       },
       "PaginatedResponse_AssignmentListItem_": {
         "properties": {
@@ -13508,6 +14353,24 @@
         "type": "object",
         "title": "QuestionnaireTemplateUpdate"
       },
+      "QueueMetrics": {
+        "properties": {
+          "task_queue": {
+            "type": "integer",
+            "title": "Task Queue"
+          },
+          "log_queue": {
+            "type": "integer",
+            "title": "Log Queue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_queue",
+          "log_queue"
+        ],
+        "title": "QueueMetrics"
+      },
       "RankingItem": {
         "properties": {
           "user_id": {
@@ -13676,6 +14539,27 @@
           "display_name"
         ],
         "title": "RegisterResponse"
+      },
+      "RequestMetrics": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "by_status": {
+            "$ref": "#/components/schemas/MetricBuckets"
+          },
+          "latency_ms": {
+            "$ref": "#/components/schemas/LatencyStats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "by_status",
+          "latency_ms"
+        ],
+        "title": "RequestMetrics"
       },
       "RoleCreateRequest": {
         "properties": {
@@ -14298,6 +15182,58 @@
         ],
         "title": "ScoreReviewResponse"
       },
+      "ScoringStatusResponse": {
+        "properties": {
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
+          },
+          "scoring_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Error"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          }
+        },
+        "type": "object",
+        "title": "ScoringStatusResponse"
+      },
       "ScoringTriggerResponse": {
         "properties": {
           "message": {
@@ -14338,6 +15274,29 @@
           "key_suffix"
         ],
         "title": "SecretCreateResponse"
+      },
+      "SectionTextResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "section",
+          "text"
+        ],
+        "title": "SectionTextResponse"
       },
       "StudentAssignmentItem": {
         "properties": {
@@ -14479,6 +15438,41 @@
           "created_at"
         ],
         "title": "StudentDetail"
+      },
+      "SystemConfigItem": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "SystemConfigItem"
       },
       "SystemNotificationCreateRequest": {
         "properties": {
@@ -14902,6 +15896,56 @@
           "user_id"
         ],
         "title": "TokenResponse"
+      },
+      "TrainingNotificationItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "title",
+          "created_at"
+        ],
+        "title": "TrainingNotificationItem"
       },
       "TrainingRecordBrief": {
         "properties": {
@@ -15644,6 +16688,63 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VoiceConfigImportRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": "volcengine"
+          },
+          "app_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "App Id"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Token"
+          },
+          "tts_voice_type": {
+            "type": "string",
+            "title": "Tts Voice Type",
+            "default": "zh_female_vv"
+          },
+          "tts_timeout": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Tts Timeout",
+            "default": 8
+          },
+          "asr_sample_rate": {
+            "type": "integer",
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Asr Sample Rate",
+            "default": 16000
+          },
+          "asr_enable_streaming": {
+            "type": "boolean",
+            "title": "Asr Enable Streaming",
+            "default": true
+          },
+          "monthly_budget": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Monthly Budget",
+            "default": 200.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "app_id",
+          "token"
+        ],
+        "title": "VoiceConfigImportRequest"
       },
       "VoiceConfigResponse": {
         "properties": {

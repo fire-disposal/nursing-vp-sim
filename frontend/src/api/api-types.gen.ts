@@ -2276,6 +2276,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/config/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Voice Config */
+        get: operations["export_voice_config_api_admin_voice_config_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/voice/config/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Voice Config */
+        post: operations["import_voice_config_api_admin_voice_config_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/asr/recognize": {
         parameters: {
             query?: never;
@@ -2988,6 +3022,20 @@ export interface components {
             /** Asr Cost */
             asr_cost: number;
         };
+        /** DBMetrics */
+        DBMetrics: {
+            /** Pool Size */
+            pool_size: number;
+            /** Checked Out */
+            checked_out: number;
+            /**
+             * Overflow
+             * @default 0
+             */
+            overflow: number;
+            /** Connections In Use */
+            connections_in_use: number;
+        };
         /** DeleteResponse */
         DeleteResponse: {
             /**
@@ -3001,6 +3049,52 @@ export interface components {
              */
             message: string;
         };
+        /** DiagnoseErrorEntry */
+        DiagnoseErrorEntry: {
+            /** Time */
+            time: string;
+            /** Level */
+            level: string;
+            /** Logger */
+            logger: string;
+            /** Message */
+            message: string;
+        };
+        /** DiagnoseErrorsInfo */
+        DiagnoseErrorsInfo: {
+            /** Last 5Min */
+            last_5min: number;
+            /** Last Hour */
+            last_hour: number;
+            /** Total Captured */
+            total_captured: number;
+            /** Recent */
+            recent: components["schemas"]["DiagnoseErrorEntry"][];
+        };
+        /** DiagnoseResponse */
+        DiagnoseResponse: {
+            server: components["schemas"]["DiagnoseServerInfo"];
+            /** Database */
+            database: {
+                [key: string]: unknown;
+            };
+            /** Llm */
+            llm: {
+                [key: string]: unknown;
+            };
+            errors: components["schemas"]["DiagnoseErrorsInfo"];
+            /** Active Sessions */
+            active_sessions: number;
+            /** Cached At */
+            cached_at: string;
+        };
+        /** DiagnoseServerInfo */
+        DiagnoseServerInfo: {
+            /** Version */
+            version: string;
+            /** Uptime Seconds */
+            uptime_seconds: number;
+        };
         /** DurationStats */
         DurationStats: {
             /** Daily */
@@ -3011,6 +3105,24 @@ export interface components {
             total_minutes: number;
             /** Total Sessions */
             total_sessions: number;
+        };
+        /** EmotionHistoryEntry */
+        EmotionHistoryEntry: {
+            /** Trust */
+            trust: number;
+            /** Comfort */
+            comfort: number;
+            /** State */
+            state: string;
+            /** Intent */
+            intent: string;
+            /** Timestamp */
+            timestamp: string;
+        };
+        /** EmotionHistoryResponse */
+        EmotionHistoryResponse: {
+            /** History */
+            history: components["schemas"]["EmotionHistoryEntry"][];
         };
         /** EmotionStateResponse */
         EmotionStateResponse: {
@@ -3026,6 +3138,73 @@ export interface components {
             history?: {
                 [key: string]: unknown;
             }[];
+        };
+        /** ExamOperationResponse */
+        ExamOperationResponse: {
+            /** Type */
+            type: string;
+            data: components["schemas"]["ExamOperationResult"];
+            /**
+             * All Results
+             * @default []
+             */
+            all_results: components["schemas"]["ExamOperationResult"][];
+        };
+        /** ExamOperationResult */
+        ExamOperationResult: {
+            /** Type */
+            type: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+        };
+        /** FallbackStateResponse */
+        FallbackStateResponse: {
+            /** Available */
+            available: boolean;
+            /** Label */
+            label: string;
+            /** Key Suffix */
+            key_suffix: string;
+            /** Base Url */
+            base_url: string;
+            /** Model Flash */
+            model_flash: string;
+            /** Model Pro */
+            model_pro: string;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Error */
+            error?: string | null;
+            /**
+             * Call Count
+             * @default 0
+             */
+            call_count: number;
+            /**
+             * Total Tokens
+             * @default 0
+             */
+            total_tokens: number;
+            /**
+             * Total Cost
+             * @default 0
+             */
+            total_cost: number;
+        } & {
+            [key: string]: unknown;
         };
         /** FeatureConfigResponse */
         FeatureConfigResponse: {
@@ -3169,6 +3348,32 @@ export interface components {
             latency_ms?: number | null;
             /** Error */
             error?: string | null;
+        };
+        /** HealthResponse */
+        HealthResponse: {
+            /**
+             * Status
+             * @default ok
+             */
+            status: string;
+            /** Version */
+            version: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** InitiativeHistoryResponse */
+        InitiativeHistoryResponse: {
+            /** History */
+            history: components["schemas"]["InitiativeMessageEntry"][];
+        };
+        /** InitiativeMessageEntry */
+        InitiativeMessageEntry: {
+            /** Id */
+            id: number;
+            /** Content */
+            content: string;
+            /** Created At */
+            created_at: string;
         };
         /** InitiativeStateResponse */
         InitiativeStateResponse: {
@@ -3351,6 +3556,24 @@ export interface components {
             /** Status */
             status?: string | null;
         };
+        /** LLMMetrics */
+        LLMMetrics: {
+            /** Calls Total */
+            calls_total: number;
+            /** Calls Success */
+            calls_success: number;
+            /** Calls Error */
+            calls_error: number;
+            /** Tokens Used */
+            tokens_used: number;
+            /** Estimated Cost */
+            estimated_cost: number;
+            latency_ms: components["schemas"]["LatencyStats"];
+            /** Degraded Providers */
+            degraded_providers: number;
+            /** Global Degraded */
+            global_degraded: boolean;
+        };
         /** LLMStatsResponse */
         LLMStatsResponse: {
             /** Today */
@@ -3384,6 +3607,17 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** LatencyStats */
+        LatencyStats: {
+            /** P50 */
+            p50: number;
+            /** P95 */
+            p95: number;
+            /** P99 */
+            p99: number;
+            /** Avg */
+            avg: number;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Username */
@@ -3404,6 +3638,44 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** MetricBuckets */
+        MetricBuckets: {
+            /**
+             * 2Xx
+             * @default 0
+             */
+            "2xx": number;
+            /**
+             * 4Xx
+             * @default 0
+             */
+            "4xx": number;
+            /**
+             * 5Xx
+             * @default 0
+             */
+            "5xx": number;
+        };
+        /** MetricsResponse */
+        MetricsResponse: {
+            /** Uptime Seconds */
+            uptime_seconds: number;
+            /** Version */
+            version: string;
+            requests: components["schemas"]["RequestMetrics"];
+            /** Active Sessions */
+            active_sessions: number;
+            llm: components["schemas"]["LLMMetrics"];
+            db: components["schemas"]["DBMetrics"];
+            queue: components["schemas"]["QueueMetrics"];
+            /**
+             * Memory Mb
+             * @default 0
+             */
+            memory_mb: number;
+        } & {
+            [key: string]: unknown;
         };
         /** NoteCreateRequest */
         NoteCreateRequest: {
@@ -3466,6 +3738,122 @@ export interface components {
             ok: boolean;
             /** Message */
             message?: string | null;
+        };
+        /** OpsDashboardResponse */
+        OpsDashboardResponse: {
+            /** Health */
+            health: {
+                [key: string]: unknown;
+            };
+            /** Time */
+            time: string;
+            /** Uptime Hours */
+            uptime_hours: number;
+            llm: components["schemas"]["OpsLLMInfo"];
+            scoring: components["schemas"]["OpsScoringInfo"];
+            sessions: components["schemas"]["OpsSessionsInfo"];
+            notifications: components["schemas"]["OpsNotificationsInfo"];
+            /** Metrics */
+            metrics: {
+                [key: string]: unknown;
+            };
+            diagnostic: components["schemas"]["DiagnoseResponse"];
+            /** System Errors */
+            system_errors: {
+                [key: string]: unknown;
+            };
+        };
+        /** OpsErrorsResponse */
+        OpsErrorsResponse: {
+            /** Count */
+            count: {
+                [key: string]: unknown;
+            };
+            /** Recent */
+            recent: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** OpsLLMInfo */
+        OpsLLMInfo: {
+            /**
+             * Total Calls 24H
+             * @default 0
+             */
+            total_calls_24h: number;
+            /**
+             * Success Rate
+             * @default 100
+             */
+            success_rate: number;
+            /**
+             * Error Count 24H
+             * @default 0
+             */
+            error_count_24h: number;
+            /**
+             * Avg Latency Ms
+             * @default 0
+             */
+            avg_latency_ms: number;
+            /**
+             * Recent Errors
+             * @default []
+             */
+            recent_errors: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** OpsNotificationsInfo */
+        OpsNotificationsInfo: {
+            /**
+             * Unread
+             * @default 0
+             */
+            unread: number;
+        };
+        /** OpsReportResponse */
+        OpsReportResponse: {
+            summary: components["schemas"]["OpsReportSummary"];
+            llm: components["schemas"]["OpsLLMInfo"];
+            scoring: components["schemas"]["OpsScoringInfo"];
+            sessions: components["schemas"]["OpsSessionsInfo"];
+            notifications: components["schemas"]["OpsNotificationsInfo"];
+            /** Alerts */
+            alerts: string[];
+        };
+        /** OpsReportSummary */
+        OpsReportSummary: {
+            /** Time */
+            time: string;
+            /** Uptime Hours */
+            uptime_hours: number;
+            /**
+             * Status
+             * @default healthy
+             */
+            status: string;
+        };
+        /** OpsScoringInfo */
+        OpsScoringInfo: {
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+            /**
+             * Stuck
+             * @default 0
+             */
+            stuck: number;
+        };
+        /** OpsSessionsInfo */
+        OpsSessionsInfo: {
+            /**
+             * Active
+             * @default 0
+             */
+            active: number;
         };
         /** PaginatedResponse[AssignmentListItem] */
         PaginatedResponse_AssignmentListItem_: {
@@ -4262,6 +4650,13 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** QueueMetrics */
+        QueueMetrics: {
+            /** Task Queue */
+            task_queue: number;
+            /** Log Queue */
+            log_queue: number;
+        };
         /** RankingItem */
         RankingItem: {
             /** User Id */
@@ -4325,6 +4720,13 @@ export interface components {
             display_name: string;
             /** Student Id */
             student_id?: string | null;
+        };
+        /** RequestMetrics */
+        RequestMetrics: {
+            /** Total */
+            total: number;
+            by_status: components["schemas"]["MetricBuckets"];
+            latency_ms: components["schemas"]["LatencyStats"];
         };
         /** RoleCreateRequest */
         RoleCreateRequest: {
@@ -4565,6 +4967,21 @@ export interface components {
             /** Review Comment */
             review_comment?: string | null;
         };
+        /** ScoringStatusResponse */
+        ScoringStatusResponse: {
+            /** Scoring Status */
+            scoring_status?: string | null;
+            /** Scoring Error */
+            scoring_error?: string | null;
+            /** Score */
+            score?: {
+                [key: string]: unknown;
+            } | null;
+            /** Progress */
+            progress?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** ScoringTriggerResponse */
         ScoringTriggerResponse: {
             /** Message */
@@ -4580,6 +4997,15 @@ export interface components {
             id: number;
             /** Key Suffix */
             key_suffix: string;
+        };
+        /** SectionTextResponse */
+        SectionTextResponse: {
+            /** Source */
+            source: string;
+            /** Section */
+            section: string;
+            /** Text */
+            text: string;
         };
         /** StudentAssignmentItem */
         StudentAssignmentItem: {
@@ -4648,6 +5074,15 @@ export interface components {
              * @default []
              */
             daily: unknown[];
+        };
+        /** SystemConfigItem */
+        SystemConfigItem: {
+            /** Key */
+            key: string;
+            /** Value */
+            value?: string | null;
+            /** Description */
+            description?: string | null;
         };
         /** SystemNotificationCreateRequest */
         SystemNotificationCreateRequest: {
@@ -4792,6 +5227,21 @@ export interface components {
             gender?: string | null;
             /** Avatar */
             avatar?: string | null;
+        };
+        /** TrainingNotificationItem */
+        TrainingNotificationItem: {
+            /** Id */
+            id: number;
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body?: string | null;
+            /** Record Id */
+            record_id?: number | null;
+            /** Created At */
+            created_at: string;
         };
         /** TrainingRecordBrief */
         TrainingRecordBrief: {
@@ -5025,6 +5475,43 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VoiceConfigImportRequest */
+        VoiceConfigImportRequest: {
+            /**
+             * Provider
+             * @default volcengine
+             */
+            provider: string;
+            /** App Id */
+            app_id: string;
+            /** Token */
+            token: string;
+            /**
+             * Tts Voice Type
+             * @default zh_female_vv
+             */
+            tts_voice_type: string;
+            /**
+             * Tts Timeout
+             * @default 8
+             */
+            tts_timeout: number;
+            /**
+             * Asr Sample Rate
+             * @default 16000
+             */
+            asr_sample_rate: number;
+            /**
+             * Asr Enable Streaming
+             * @default true
+             */
+            asr_enable_streaming: boolean;
+            /**
+             * Monthly Budget
+             * @default 200
+             */
+            monthly_budget: number;
         };
         /** VoiceConfigResponse */
         VoiceConfigResponse: {
@@ -5999,7 +6486,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SystemConfigItem"][];
                 };
             };
         };
@@ -6027,7 +6514,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SystemConfigItem"];
                 };
             };
             /** @description Validation Error */
@@ -6146,7 +6633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8060,7 +8547,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FallbackStateResponse"];
                 };
             };
         };
@@ -8296,7 +8783,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
         };
@@ -8941,7 +9428,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ScoringStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9032,7 +9519,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TrainingNotificationItem"][];
                 };
             };
         };
@@ -9054,7 +9541,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9198,7 +9685,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EmotionHistoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9229,7 +9716,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InitiativeHistoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9298,7 +9785,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExamOperationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9794,7 +10281,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SectionTextResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10055,7 +10542,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DiagnoseResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10107,7 +10594,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OpsDashboardResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10141,7 +10628,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OpsErrorsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10173,7 +10660,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OpsReportResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10395,6 +10882,59 @@ export interface operations {
             };
         };
     };
+    export_voice_config_api_admin_voice_config_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    import_voice_config_api_admin_voice_config_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceConfigImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recognize_api_asr_recognize_post: {
         parameters: {
             query?: never;
@@ -10476,7 +11016,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };
@@ -10496,7 +11036,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MetricsResponse"];
                 };
             };
         };

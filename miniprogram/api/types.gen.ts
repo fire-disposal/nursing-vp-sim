@@ -1,6 +1,18 @@
 // 自动生成 — 来源 openapi.json
 // 运行 npm run api:generate:miniapp 更新
 
+export interface ASRRecognizeRequest {
+  audio: string
+  record_id?: number | null
+  format?: string
+  sample_rate?: number
+}
+
+export interface ASRRecognizeResponse {
+  text: string
+  confidence: number
+}
+
 export interface AdminStats {
   total_students: number
   total_records: number
@@ -237,9 +249,73 @@ export interface ConfigCreateResponse {
   id: number
 }
 
+export interface CostBreakdown {
+  calls: number
+  success: number
+  error: number
+  latency_ms_avg: number
+  total_cost: number
+}
+
+export interface CostDashboardResponse {
+  today: CostBreakdown
+  this_month: CostBreakdown
+  llm_today: CostBreakdown
+  tts_today: CostBreakdown
+  asr_today: CostBreakdown
+  monthly_budget: number
+  monthly_used: number
+  llm_monthly_budget: number
+  voice_monthly_budget: number
+  daily_series: CostSeriesPoint[]
+  top_users: Record<string, unknown>[]
+}
+
+export interface CostSeriesPoint {
+  date: string
+  llm_cost: number
+  tts_cost: number
+  asr_cost: number
+}
+
+export interface DBMetrics {
+  pool_size: number
+  checked_out: number
+  overflow?: number
+  connections_in_use: number
+}
+
 export interface DeleteResponse {
   ok?: boolean
   message?: string
+}
+
+export interface DiagnoseErrorEntry {
+  time: string
+  level: string
+  logger: string
+  message: string
+}
+
+export interface DiagnoseErrorsInfo {
+  last_5min: number
+  last_hour: number
+  total_captured: number
+  recent: DiagnoseErrorEntry[]
+}
+
+export interface DiagnoseResponse {
+  server: DiagnoseServerInfo
+  database: Record<string, unknown>
+  llm: Record<string, unknown>
+  errors: DiagnoseErrorsInfo
+  active_sessions: number
+  cached_at: string
+}
+
+export interface DiagnoseServerInfo {
+  version: string
+  uptime_seconds: number
 }
 
 export interface DurationStats {
@@ -248,12 +324,51 @@ export interface DurationStats {
   total_sessions: number
 }
 
+export interface EmotionHistoryEntry {
+  trust: number
+  comfort: number
+  state: string
+  intent: string
+  timestamp: string
+}
+
+export interface EmotionHistoryResponse {
+  history: EmotionHistoryEntry[]
+}
+
 export interface EmotionStateResponse {
   trust: number
   comfort: number
   state: string
   note: string
   history?: Record<string, unknown>[]
+}
+
+export interface ExamOperationResponse {
+  type: string
+  data: ExamOperationResult
+  all_results?: ExamOperationResult[]
+}
+
+export interface ExamOperationResult {
+  type: string
+  label?: string
+  value?: string
+  unit?: string
+}
+
+export interface FallbackStateResponse {
+  available: boolean
+  label: string
+  key_suffix: string
+  base_url: string
+  model_flash: string
+  model_pro: string
+  latency_ms?: number | null
+  error?: string | null
+  call_count?: number
+  total_tokens?: number
+  total_cost?: number
 }
 
 export interface FeatureConfigResponse {
@@ -324,6 +439,21 @@ export interface HealthCheckItem {
   error?: string | null
 }
 
+export interface HealthResponse {
+  status?: string
+  version: string
+}
+
+export interface InitiativeHistoryResponse {
+  history: InitiativeMessageEntry[]
+}
+
+export interface InitiativeMessageEntry {
+  id: number
+  content: string
+  created_at: string
+}
+
 export interface InitiativeStateResponse {
   elapsed_seconds: number
   threshold_seconds: number
@@ -374,7 +504,6 @@ export interface LLMCallLogItem {
 
 export interface LLMConfigCreate {
   secret_id: number
-  model: string
   purpose: string
   label?: string
 }
@@ -386,7 +515,6 @@ export interface LLMConfigResponse {
   secret_suffix?: string
   base_url?: string
   label?: string
-  model: string
   purpose: string
   status?: string
   created_at: string
@@ -395,10 +523,20 @@ export interface LLMConfigResponse {
 
 export interface LLMConfigUpdate {
   secret_id?: number | null
-  model?: string | null
   purpose?: string | null
   label?: string | null
   status?: string | null
+}
+
+export interface LLMMetrics {
+  calls_total: number
+  calls_success: number
+  calls_error: number
+  tokens_used: number
+  estimated_cost: number
+  latency_ms: LatencyStats
+  degraded_providers: number
+  global_degraded: boolean
 }
 
 export interface LLMStatsResponse {
@@ -408,6 +546,13 @@ export interface LLMStatsResponse {
   by_purpose: Record<string, unknown>[]
   by_provider?: Record<string, unknown>[]
   daily: Record<string, unknown>[]
+}
+
+export interface LatencyStats {
+  p50: number
+  p95: number
+  p99: number
+  avg: number
 }
 
 export interface LoginRequest {
@@ -420,6 +565,23 @@ export interface MessageItem {
   role: string
   content: string
   created_at: string
+}
+
+export interface MetricBuckets {
+  2xx?: number
+  4xx?: number
+  5xx?: number
+}
+
+export interface MetricsResponse {
+  uptime_seconds: number
+  version: string
+  requests: RequestMetrics
+  active_sessions: number
+  llm: LLMMetrics
+  db: DBMetrics
+  queue: QueueMetrics
+  memory_mb?: number
 }
 
 export interface NoteCreateRequest {
@@ -449,6 +611,60 @@ export interface NursingRecordSave {
 export interface OkResponse {
   ok?: boolean
   message?: string | null
+}
+
+export interface OpsDashboardResponse {
+  health: Record<string, unknown>
+  time: string
+  uptime_hours: number
+  llm: OpsLLMInfo
+  scoring: OpsScoringInfo
+  sessions: OpsSessionsInfo
+  notifications: OpsNotificationsInfo
+  metrics: Record<string, unknown>
+  diagnostic: DiagnoseResponse
+  system_errors: Record<string, unknown>
+}
+
+export interface OpsErrorsResponse {
+  count: Record<string, unknown>
+  recent: Record<string, unknown>[]
+}
+
+export interface OpsLLMInfo {
+  total_calls_24h?: number
+  success_rate?: number
+  error_count_24h?: number
+  avg_latency_ms?: number
+  recent_errors?: Record<string, unknown>[]
+}
+
+export interface OpsNotificationsInfo {
+  unread?: number
+}
+
+export interface OpsReportResponse {
+  summary: OpsReportSummary
+  llm: OpsLLMInfo
+  scoring: OpsScoringInfo
+  sessions: OpsSessionsInfo
+  notifications: OpsNotificationsInfo
+  alerts: string[]
+}
+
+export interface OpsReportSummary {
+  time: string
+  uptime_hours: number
+  status?: string
+}
+
+export interface OpsScoringInfo {
+  pending?: number
+  stuck?: number
+}
+
+export interface OpsSessionsInfo {
+  active?: number
 }
 
 export interface PaginatedResponse_AssignmentListItem_ {
@@ -823,6 +1039,11 @@ export interface QuestionnaireTemplateUpdate {
   is_active?: boolean | null
 }
 
+export interface QueueMetrics {
+  task_queue: number
+  log_queue: number
+}
+
 export interface RankingItem {
   user_id: number
   display_name: string
@@ -850,6 +1071,12 @@ export interface RegisterResponse {
   role: string
   display_name: string
   student_id?: string | null
+}
+
+export interface RequestMetrics {
+  total: number
+  by_status: MetricBuckets
+  latency_ms: LatencyStats
 }
 
 export interface RoleCreateRequest {
@@ -951,6 +1178,13 @@ export interface ScoreReviewResponse {
   review_comment?: string | null
 }
 
+export interface ScoringStatusResponse {
+  scoring_status?: string | null
+  scoring_error?: string | null
+  score?: Record<string, unknown> | null
+  progress?: Record<string, unknown> | null
+}
+
 export interface ScoringTriggerResponse {
   message: string
   record_id: number
@@ -960,6 +1194,12 @@ export interface ScoringTriggerResponse {
 export interface SecretCreateResponse {
   id: number
   key_suffix: string
+}
+
+export interface SectionTextResponse {
+  source: string
+  section: string
+  text: string
 }
 
 export interface StudentAssignmentItem {
@@ -985,6 +1225,12 @@ export interface StudentDetail {
   avg_score?: number | null
   recent_records?: unknown[]
   daily?: unknown[]
+}
+
+export interface SystemConfigItem {
+  key: string
+  value?: string | null
+  description?: string | null
 }
 
 export interface SystemNotificationCreateRequest {
@@ -1013,6 +1259,12 @@ export interface SystemNotificationUpdateRequest {
   level?: string | null
   is_active?: boolean | null
   published_at?: string | null
+}
+
+export interface TTSSynthesizeRequest {
+  text: string
+  record_id: number
+  voice_type?: string | null
 }
 
 export interface TeacherSummaryItem {
@@ -1053,6 +1305,15 @@ export interface TokenResponse {
   avatar?: string | null
 }
 
+export interface TrainingNotificationItem {
+  id: number
+  type: string
+  title: string
+  body?: string | null
+  record_id?: number | null
+  created_at: string
+}
+
 export interface TrainingRecordBrief {
   id: number
   case_id: number
@@ -1090,6 +1351,7 @@ export interface TrainingRecordDetail {
   features?: Record<string, unknown>
   from_assignment?: boolean
   exam_anchors?: Record<string, unknown>
+  exam_results?: Record<string, unknown>[]
 }
 
 export interface TrainingStartRequest {
@@ -1162,6 +1424,72 @@ export interface ValidationError {
   type: string
   input?: unknown
   ctx?: Record<string, unknown>
+}
+
+export interface VoiceConfigImportRequest {
+  provider?: string
+  app_id: string
+  token: string
+  tts_voice_type?: string
+  tts_timeout?: number
+  asr_sample_rate?: number
+  asr_enable_streaming?: boolean
+  monthly_budget?: number
+}
+
+export interface VoiceConfigResponse {
+  id: number
+  provider: string
+  app_id: string
+  token_masked: string
+  token_suffix: string
+  tts_voice_type: string
+  tts_timeout: number
+  asr_sample_rate: number
+  asr_enable_streaming: boolean
+  monthly_budget: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface VoiceConfigUpdateRequest {
+  provider?: string
+  app_id: string
+  token?: string | null
+  tts_voice_type?: string
+  tts_timeout?: number
+  asr_sample_rate?: number
+  asr_enable_streaming?: boolean
+  monthly_budget?: number
+  is_active?: boolean
+}
+
+export interface VoiceStatusResponse {
+  provider: string
+  tts_online: boolean
+  asr_online: boolean
+  last_error: string | null
+  last_error_at: string | null
+}
+
+export interface VoiceUsageItem {
+  calls_total: number
+  calls_success: number
+  calls_fallback: number
+  calls_error: number
+  total_chars: number
+  total_latency_ms: number
+  cost_estimated: number
+}
+
+export interface VoiceUsageResponse {
+  tts_today: VoiceUsageItem
+  asr_today: VoiceUsageItem
+  tts_month: VoiceUsageItem
+  asr_month: VoiceUsageItem
+  monthly_budget: number
+  monthly_used: number
 }
 
 export interface WechatBindRequest {
