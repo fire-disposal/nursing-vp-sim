@@ -410,7 +410,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
     t0 = time.perf_counter()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        ms = int((time.perf_counter() - t0) * 1000)
+        log.exception("%s %s → 500 (unhandled exception) [%dms]", request.method, request.url.path, ms)
+        raise
     ms = int((time.perf_counter() - t0) * 1000)
     if response.status_code >= 500:
         log.error("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)

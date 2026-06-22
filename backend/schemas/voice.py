@@ -133,3 +133,31 @@ class CostExportRequest(BaseModel):
     service: str | None = None  # "llm" | "tts" | "asr" | None=all
     granularity: str = "daily"  # "daily" | "monthly"
     format: str = "json"  # "json" | "csv"
+
+
+# ── Voice Config Import/Export ──
+
+
+class VoiceConfigExportResponse(BaseModel):
+    """Voice config export — token is NOT included (must be re-entered on import)."""
+    model_config = _RESP_CFG
+    provider: str
+    app_id: str
+    tts_voice_type: str
+    tts_timeout: int
+    asr_sample_rate: int
+    asr_enable_streaming: bool
+    monthly_budget: float
+    exported_at: str
+
+
+class VoiceConfigImportRequest(BaseModel):
+    model_config = _REQ_CFG
+    provider: str = "volcengine"
+    app_id: str = Field(min_length=1, max_length=80)
+    token: str = Field(min_length=1)  # required on import (not exported)
+    tts_voice_type: str = "zh_female_vv"
+    tts_timeout: int = Field(default=8, ge=3, le=30)
+    asr_sample_rate: int = Field(default=16000, ge=8000, le=48000)
+    asr_enable_streaming: bool = True
+    monthly_budget: float = Field(default=200.0, ge=0)

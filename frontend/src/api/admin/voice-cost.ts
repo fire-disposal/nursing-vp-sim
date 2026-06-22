@@ -133,3 +133,33 @@ export const fetchCostDashboard = () =>
 
 export const fetchCostExport = (params: CostExportParams) =>
 	api.get<CostExportResponse>("/admin/voice/costs/export", { params });
+
+// ── Voice Config Import / Export ──
+
+export interface VoiceConfigExportResponse {
+	provider: string;
+	app_id: string;
+	tts_voice_type: string;
+	tts_timeout: number;
+	asr_sample_rate: number;
+	asr_enable_streaming: boolean;
+	monthly_budget: number;
+	exported_at: string;
+}
+
+export interface VoiceConfigImportRequest {
+	provider?: string;
+	app_id: string;
+	token: string;
+	tts_voice_type?: string;
+	tts_timeout?: number;
+	asr_sample_rate?: number;
+	asr_enable_streaming?: boolean;
+	monthly_budget?: number;
+}
+
+export const exportVoiceConfig = () =>
+	api.get<VoiceConfigExportResponse>("/admin/voice/config/export");
+
+export const importVoiceConfig = (data: VoiceConfigImportRequest) =>
+	api.post<VoiceConfigResponse>("/admin/voice/config/import", data);
