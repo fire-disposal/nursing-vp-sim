@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 
 import httpx
@@ -349,9 +349,18 @@ class LLMClient:
         max_tokens: int = 512,
         timeout: int = 30,
         max_retries: int = 2,
+        response_format: dict | None = None,
         ctx: CallContext | None = None,
+        on_reasoning: Callable[[str], Awaitable[None]] | None = None,
+        enable_thinking: bool = False,
     ) -> AsyncIterator[str]:
-        """Send a streaming chat completion and yield content chunks."""
+        """Send a streaming chat completion and yield content chunks.
+
+        If *on_reasoning* is provided, reasoning_content chunks are passed
+        to it instead of being yielded.  If *enable_thinking* is True,
+        reasoning_effort=high and thinking={type:enabled} are added to the
+        request body (DeepSeek thinking mode).
+        """
         ctx = ctx or CallContext(purpose=purpose)
         request_text = " ".join(m.get("content", "") for m in messages)
         full_reply: list[str] = []
@@ -369,7 +378,10 @@ class LLMClient:
                     temperature,
                     max_tokens,
                     timeout,
+                    response_format,
                     ctx,
+                    on_reasoning=on_reasoning,
+                    enable_thinking=enable_thinking,
                 ):
                     full_reply.append(chunk)
                     yield chunk
@@ -645,9 +657,18 @@ class LLMClient:
         temperature,
         max_tokens,
         timeout,
+        response_format,
         ctx,
+        *,
+        on_reasoning=None,
+        enable_thinking=False,
     ) -> AsyncIterator[str]:
-        """Single streaming HTTP attempt — yields content chunks."""
+        """Single streaming HTTP attempt — yields content chunks.
+
+        If *on_reasoning* is set, reasoning_content is passed to it instead
+        of being yielded.  If *enable_thinking* is True, reasoning_effort
+        and thinking headers are added (DeepSeek thinking mode).
+        """
         new_state = await self._select_config(purpose)
         self._copy_state(new_state, state)
 
@@ -659,6 +680,11 @@ class LLMClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        if enable_thinking:
+            payload["reasoning_effort"] = "high"
+            payload["thinking"] = {"type": "enabled"}
+        if response_format:
+            payload["response_format"] = response_format
         if ctx and ctx.record_id:
             payload["user"] = str(ctx.record_id)
 
@@ -686,6 +712,9 @@ class LLMClient:
                                     obj = json.loads(raw)
                                     last_obj = obj
                                     delta = obj["choices"][0].get("delta", {})
+                                    reasoning = delta.get("reasoning_content", "")
+                                    if reasoning and on_reasoning:
+                                        await on_reasoning(reasoning)
                                     content = delta.get("content", "") or ""
                                     if content:
                                         yield content
