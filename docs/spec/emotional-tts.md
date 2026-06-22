@@ -221,26 +221,143 @@ Student sends message
             ├─ POST openspeech.bytedance.com/api/v1/tts
             └─ 返回 audio bytes
       3. new Audio(blob).play()        [浏览器播放]
-    → 降级: catch error → 静默失败（不回退到原生 TTS 以避免体验分裂）
+     → 降级: catch error → 浏览器 TTS 无缝回退
 ```
 
 ---
 
 ## 7. 降级与容错
 
-| 失败场景 | 策略 |
-|---------|------|
-| 火山 API 超时 (>8s) | 静默丢弃，不播放 |
-| 火山 API 鉴权失败 | 日志告警，后续请求降级到浏览器 TTS |
-| 网络不通 | 跳过本次 TTS（已有聊天文字可见） |
-| 情绪状态不存在 | 使用 `neutral` 默认值 |
-| audio 播放失败 | 静默忽略 |
+### 7.1 降级策略：火山 → 浏览器 TTS 无缝切换
 
-**熔断**: 连续 3 次失败 → 5 分钟内全部降级到浏览器 TTS。火山恢复后自动切回。
+```
+火山 TTS 调用
+  ├─ 成功 → 播放火山音频
+  └─ 失败 → 检查降级状态
+       ├─ 未达熔断阈值 → 尝试浏览器 TTS
+       └─ 已达熔断阈值 → 浏览器 TTS（跳过火山请求）
+```
+
+**熔断器状态机**:
+```
+CLOSED ──3次连续失败──→ OPEN (5min)
+  ↑                        │
+  └── 1次成功(半开探测) ───┘
+```
+
+### 7.2 浏览器 TTS 回退
+
+前端保留现有 `createBrowserTTS()` 作为 Provider，形成双层 TTS 架构：
+
+```typescript
+// 双层 Provider 模式
+class TTSManager {
+    private emotionProvider: VolcTTSProvider;   // 火山（优先）
+    private fallbackProvider: BrowserTTSProvider; // 浏览器（回退）
+    
+    async speak(text: string, recordId: number): Promise<void> {
+        try {
+            await this.emotionProvider.speak(text, recordId);
+        } catch {
+            // 无缝回退 — 用户无感知
+            await this.fallbackProvider.speak(text);
+        }
+    }
+}
+```
+
+**浏览器 TTS 的情感模拟**（基础降级）：
+- 调节 `SpeechSynthesisUtterance.rate` — 愤怒加速，悲伤减速
+- 调节 `SpeechSynthesisUtterance.pitch` — 紧张升调，平静降调
+- 限制：无法表达细微情感差异，但提供基础区分度
+
+### 7.3 失败场景矩阵
+
+| 失败场景 | 行为 |
+|---------|------|
+| 火山 API 超时 (>8s) | 浏览器 TTS 回退，记录熔断计数 |
+| 火山 API 鉴权失败 | 日志告警，浏览器回退，触发熔断 |
+| 网络不通 | 浏览器 TTS 回退 |
+| 情绪状态不存在 | 使用 `neutral` 默认参数 |
+| audio 播放失败 | 静默忽略 |
+| 浏览器 TTS 不可用 | 静默丢弃（如无声卡） |
+
+### 7.4 TTS 状态指示
+
+TrainingHeader TTS 按钮旁显示指示灯：
+- 🟢 火山引擎在线
+- 🟡 浏览器回退中
+- 🔴 TTS 不可用
+
+点击指示灯 → 弹窗显示详情（延迟、今日调用量、费用）。
+
+
+## 8. TTS 密钥与计费管理
+
+### 8.1 后端接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/admin/tts/config` | 获取 TTS 配置（提供商、密钥掩码、计费状态） |
+| `PUT` | `/api/admin/tts/config` | 更新 TTS 密钥和配置 |
+| `POST` | `/api/admin/tts/config/test` | 测试连通性（用当前配置调用一次 TTS） |
+| `GET` | `/api/admin/tts/usage` | 获取调用统计（今日/本月/总计的调用次数、费用） |
+| `GET` | `/api/admin/tts/status` | 当前 TTS 服务状态（在线/降级/不可用、最近错误） |
+
+### 8.2 数据模型
+
+```python
+class TTSConfig(Base):
+    __tablename__ = "tts_configs"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str]         # "volcengine"
+    app_id: Mapped[str]           # 加密存储
+    access_token: Mapped[str]     # 加密存储
+    voice_type: Mapped[str]       # "zh_female_vv"
+    cluster: Mapped[str]          # "volcengine"
+    monthly_budget: Mapped[float] # 月度费用上限 (CNY)
+    is_active: Mapped[bool]
+```
+
+```python
+class TTSCallLog(Base):
+    __tablename__ = "tts_call_logs"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int]
+    record_id: Mapped[int | None]
+    text_length: Mapped[int]      # 原文长度
+    emotion_state: Mapped[str | None]
+    latency_ms: Mapped[int]
+    status: Mapped[str]           # "success" | "fallback" | "error"
+    cost_estimated: Mapped[float] # 预估费用
+    created_at: Mapped[datetime]
+```
+
+### 8.3 管理界面
+
+| 页面 | 位置 | 内容 |
+|------|------|------|
+| TTS 配置卡片 | `pages/admin/LLMManagementPage.tsx` 内新增 Tab | App ID / Token 掩码输入、音色选择、月度预算、连通性测试按钮 |
+| TTS 用量面板 | 同上 Tab 下方 | 今日/本月调用次数、费用统计、成功率折线图 |
+| TTS 状态指示灯 | `TrainingHeader.tsx` | 实时显示当前 TTS 模式（火山/浏览器/关闭） |
+
+### 8.4 计费估算
+
+火山大模型 TTS 定价约 ¥5/万字。按以下公式估算：
+- 每次调用字符数 × 单价 ÷ 10000 = 预估费用
+- 月度预算到达 90% → 管理员告警
+- 月度预算到达 100% → 自动切换为浏览器 TTS
+
+### 8.5 权限
+
+- `tts_manage` 权限控制 `/api/admin/tts/*` 接口
+- 普通用户只能使用 TTS（通过训练路由），不接触配置
 
 ---
 
-## 8. 音色预设
+## 9. 音色预设
 
 | voice_type | 描述 | 适用场景 |
 |------------|------|---------|
@@ -253,17 +370,18 @@ Student sends message
 
 ---
 
-## 9. 实施计划
+## 10. 实施计划
 
 | Phase | 内容 | 预估 |
 |-------|------|------|
-| **Phase 1** | 后端 `infrastructure/tts/` + `routers/tts.py` + 配置 | 1 次提交 |
-| **Phase 2** | 前端 `TTSManager.ts` 重构 + API 对接 | 1 次提交 |
-| **Phase 3** | 熔断降级 + 音色病例配置 + 测试 | 1 次提交 |
+| **Phase 1** | 后端 `infrastructure/tts/` + `routers/tts.py` + `models.py` (TTSConfig/TTSCallLog) + 配置 | 1 次提交 |
+| **Phase 2** | 前端 `TTSManager.ts` 重构 + 双层 Provider + 状态指示灯 | 1 次提交 |
+| **Phase 3** | 熔断降级 + 浏览器 TTS 情感模拟 + 音色病例配置 | 1 次提交 |
+| **Phase 4** | 管理界面 (TTS 配置卡片 + 用量面板) + 管理 API + 测试 | 1 次提交 |
 
 ---
 
-## 10. 安全
+## 11. 安全
 
 - AK/SK 仅存储在后端 `ApiSecret` 表（Fernet 加密）
 - 前端不接触任何火山凭证
@@ -272,7 +390,7 @@ Student sends message
 
 ---
 
-## 11. 开放问题
+## 12. 开放问题
 
 - [ ] 火山语音是否需要开通企业认证？（个人开发者能否使用）
 - [ ] `zh_female_vv` 音色在 `fearful`/`angry` 情感下的实际效果需实测
