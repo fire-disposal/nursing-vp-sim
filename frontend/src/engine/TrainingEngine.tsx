@@ -236,7 +236,11 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					features={features}
 					onToggleFeature={toggleFeature}
 					ttsAutoPlay={ttsAutoPlay}
-					onTtsToggle={() => setTtsAutoPlay((v) => !v)}
+					onTtsToggle={() => {
+						const next = !ttsAutoPlay;
+						setTtsAutoPlay(next);
+						ttsRef.current.setAutoPlay(next);
+					}}
 					onEnd={endTraining}
 					sending={sending}
 					featuresLocked={fromAssignment}

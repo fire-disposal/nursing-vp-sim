@@ -68,9 +68,7 @@ export class TTSManager {
 	}
 
 	private extractLastPatientMessage(): string {
-		const elements = document.querySelectorAll(
-			".training-grid [data-slot='content'] [data-role]",
-		);
+		const elements = document.querySelectorAll('[data-role="patient"]');
 		const last = elements[elements.length - 1];
 		return last?.textContent?.trim() ?? "";
 	}
