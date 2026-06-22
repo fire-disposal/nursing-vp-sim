@@ -1,6 +1,6 @@
 # 05 — LLM 设计与提示词工程
 
-> 适用版本: 当前 | 最后更新: 2026-06-15
+> 适用版本: 当前 | 最后更新: 2026-06-22
 
 ## 架构总览
 
@@ -16,11 +16,11 @@ LLMClient (infrastructure/llm/client.py)
 
 ## LLM 配置
 
-按 purpose 管理超时/token/温度，集中在 `core/config.py` 的 `_LLM_PURPOSE_DEFAULTS`：
+按 purpose 管理超时/token/温度，集中在 `core/llm_profile.py` 的 `PROFILES`：
 
 | purpose | timeout | max_tokens | temperature | max_retries |
 |---------|---------|------------|-------------|-------------|
-| patient_chat | 30s | 512 | 0.6 | 2 |
+| patient_chat | 30s | 512 | 0.3 | 2 |
 | qa | 30s | 1024 | 0.7 | 2 |
 | scoring | 120s | 4096 | 0 | 3 |
 | scoring_feedback | 60s | 2048 | 0.3 | 2 |
@@ -77,7 +77,7 @@ select(purpose)
 
 启动时 `load_from_db()`：从 DB 加载所有配置 + 恢复已过冷却期的 profile。
 
-**加密存储：** API Key 经 Fernet（SHA-256(SECRET_KEY) 派生）加密存入 `api_secrets.encrypted_key`。
+**加密存储：** API Key 经 Fernet（独立 `FERNET_KEY`）加密存入 `api_secrets.encrypted_key`。
 
 ## 重试与退避 (circuit.py)
 
@@ -172,4 +172,4 @@ backoff_delay(attempt)  # attempt 0-indexed
 | `infrastructure/prompt/registry.py` | VariableRegistry 变量注册 |
 | `infrastructure/prompt/static.py` | 评分标准文本生成 |
 | `contexts/patient/guards.py` | PostGuard 患者身份保护 |
-| `core/config.py` | LLM 配置常量 |
+| `core/llm_profile.py` | LLM 配置常量 (LLMProfile dataclass) |

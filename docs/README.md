@@ -17,13 +17,14 @@
 | [领域划分指南](domain-division-guide.md) | 按域并行开发的 AI 辅助参考 |
 | [变更日志](changelog/CHANGELOG-2026-W22-W23.md) | W22-W23 (05.29~06.05) |
 | [变更日志](changelog/CHANGELOG-2026-W24-W25.md) | W24-W25 (06.13~06.19) |
+| [变更日志](changelog/CHANGELOG-2026-W27.md) | W27 (06.20~06.22) |
 | [功能计划](plans/) | 待完成功能的设计与缺口分析 |
 | [团队协作指南](../CONTRIBUTING.md) | 分支模型、PR 规范、冲突处理 |
 
 ## 当前版本
 
-- **版本**: v2026.06.19-2
-- **最后更新**: 2026-06-19
+- **版本**: v2026.06.22-16
+- **最后更新**: 2026-06-22
 - **仓库**: [fire-disposal/nursing-vp-sim](https://github.com/fire-disposal/nursing-vp-sim)
 - **状态**: 生产就绪。CI/CD 完整（GitHub Actions + Docker → GHCR → VPS），前后端测试全通过。
 
@@ -51,7 +52,7 @@
 - **评分版本化**：评分标准独立 JSON 文件，版本追踪（rubric_version + model_name + prompt_version）
 - **统计图表**：关联 ComposedChart（次数+时长、次数+得分），双Y轴对比
 - **病例难度分级**：5个病例覆盖1-3级难度（初级1例/中级2例/高级2例），前端星级徽章+筛选器
-- 教师端管理后台：6个Tab（训练记录/用户管理/病例管理/Practice 管理/LLM调用监控/系统调试），每个Tab含多维过滤、CSV导出、批量操作
+- 教师端管理后台：左侧边栏导航，含 用户管理/角色管理/学校管理/年级班级/病例管理/练习模板/作业发布/训练管理/LLM管理/成本管理/用户反馈/问卷管理/调试工坊/系统运维/系统通知 等独立路由页面，每页含多维过滤、CSV导出、批量操作
 - **护理记录 Plugin**：6 种可配置记录项（VitalSign/Input/Select/Radio/Checkbox/Textarea）+ 本地草稿 + 后端持久化
 - **体格检查 Plugin**：交互式查体，多部位/多项目检查
 - **情感追踪 (Emotion)**：实时情感模型 + 轨迹可视化 + AI 行为驱动
@@ -61,6 +62,12 @@
 - **流式对话**：SSE 逐字显示 + 闪烁光标动画，首字延迟 <1s
 - **韧性保护**：Error Boundary 全局异常边界 + beforeunload 离开守卫 + 输入恢复 + 定时器防绕过
 - **安全防护**：速率限制（登录/注册/聊天/问答）、密码强度统一（最低6位）、审计日志（JSON格式，控制台+文件，请求ID追踪）
+- **语音交互 (Voice)**：基于火山引擎的 TTS 情感语音合成 + ASR 浏览器端语音识别，管理面板可配置凭证/音色，成本仪表盘追踪用量
+- **患者自主追问 (Patient Initiative)**：LLM 驱动的患者主动反应 + 指数退避冷却 + SSE 实时推送 + 独立面板
+- **运维监控 (Ops)**：`/api/ops/dashboard` `/api/ops/report` `/api/ops/errors`（DIAGNOSE_TOKEN 认证）统一健康/LLM/评分/会话/语音统计 + 自动告警，admin 端「系统运维」面板
+- **成本管理**：LLM + Voice 分项费用追踪、趋势图、预算对比
+- **系统通知**：通知铃铛 + 管理员通知管理
+- **问卷调查**：管理端问卷 CRUD + 学生应答页
 - 前后端测试套件
 
 ---
@@ -97,7 +104,7 @@
 - 虚拟患者对话（SSE流式，首字<1s）+ 自动评分（19项，100分制）+ 护理问答
 - 训练倒计时（20分钟限制，<5分钟警告，到时自动结束）+ 采集进度侧栏（客户端关键词匹配）
 - 证据化评分（evidence + reason 可展开）+ 教师复核 ScoreReview（逐项修改 + 备注 + 复核徽章）
-- 评分标准版本化（rubrics/nursing_history_v1.json）+ 评分容错
+- 评分标准版本化（data/rubrics/nursing_history_v1.json）+ 评分容错
 - **Nursing Record Plugin**: 6 种可配置记录项 + 本地草稿 + 后端持久化
 - **Physical Exam Plugin**: 交互式查体 + 多部位检查
 - **Emotion Tracking**: 实时情感模型 + 轨迹可视化
@@ -105,13 +112,13 @@
 
 **前端设计系统 (shadcn/ui + 自研)**:
 - shadcn/ui (14个): Button, Badge, Card, Dialog, AlertDialog, Tabs, Input, Select, Textarea, Form, Table, DropdownMenu, Separator, Label
-- 自研 (7个): Modal, ConfirmDialog, PageHeader, Pagination, StatCard, FormField, LoadingState, LoadingSkeleton, EmptyState
-- **Plugin 系统**: 6 个前端 plugin (inquiry/portrait/nursing-record/physical-exam/emotion/initiative) + TrainingEngine + PluginRegistry + MessageBus + StreamManager + ScoreManager
+- 自研 (9个): Modal, ConfirmDialog, PageHeader, Pagination, StatCard, FormField, LoadingState, LoadingSkeleton, EmptyState
+- **Plugin 系统**: 6 个前端 plugin (inquiry/patient-info/nursing-record/physical-exam/emotion/initiative) + TrainingEngine + PluginRegistry + MessageBus + StreamManager + ScoreManager
 
 **页面状态**:
 - 9个路由页面全部使用新设计系统组件
 - DashboardHome: 完整的 StudentDashboard / TeacherDashboard 角色分流
-- Admin: 拆分为 6 个独立 Tab（RecordsTab / UsersTab / CasesTab / PracticesPage / MonitorTab / DebugPage）
+- Admin: 侧边栏独立路由页面（/admin/users, /admin/cases, /admin/practices, /admin/llm, /admin/costs, /admin/feedback, /admin/questionnaires, /admin/debug, /admin/system-ops, /admin/system-notifications 等 ~17 个路由）
 - ChatTraining: 独立极简全屏布局 + SSE 流式对话 + Plugin 驱动侧栏
 - 所有学生端页面已使用 PageHeader 统一标题栏
 
@@ -146,9 +153,14 @@ frontend/src/
 │   ├── Stats.tsx                  # 训练统计
 │   ├── History.tsx                # 历史记录
 │   ├── RecordDetail.tsx           # 记录详情
-│   └── admin/                     # 教师端页面
+│   └── admin/                     # 教师端侧边栏路由页面（15 个）
+│       │                          # AssignmentsPage / AssignmentDetailPage / CasesPage /
+│       │                          # CostManagementPage / FeedbackPage / GradesClassesPage /
+│       │                          # LLMManagementPage / PluginDashboard / PracticesPage /
+│       │                          # RolesPage / SchoolsPage / SystemNotificationsPage /
+│       │                          # SystemOpsPage / UserDetailPage / UsersPage
 │       ├── PracticesPage.tsx      # Practice CRUD 管理
-│       ├── AdminDebugPage.tsx     # 系统调试
+│       ├── AdminDebugPage.tsx     # 调试工坊
 │       └── ...
 ├── engine/                        # 训练引擎
 │   ├── TrainingEngine.tsx         # 编排器
@@ -193,7 +205,6 @@ frontend/src/
 
 | 优先级 | 事项 | 预估工作量 |
 |--------|------|-----------|
-| Phase 5 | 暗色模式切换开关 | **已完成** — next-themes 实现 |
 | P1 | 移动端响应式布局 | 4h |
 | P1 | 断网检测 + 消息重试 + Token刷新 | 2-3h (断网检测已完成，消息重试待完善) |
 | P2 | 补齐导出/统计/问答/批量导入/LLM失败路径测试覆盖 | 4-6h |
@@ -213,7 +224,7 @@ cd frontend && pnpm install && pnpm run dev
 ### Docker 部署
 
 ```bash
-# 根目录 .env 配置 DEEPSEEK_API_KEY 和 SECRET_KEY 后
+# 根目录 .env 配置 DEEPSEEK_API_KEY、JWT_SECRET_KEY、FERNET_KEY 后
 docker compose up -d
 ```
 

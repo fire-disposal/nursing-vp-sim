@@ -1,6 +1,6 @@
 # 03 — 数据库设计
 
-> 适用版本: current | 最后更新: 2026-06-15
+> 适用版本: current | 最后更新: 2026-06-22
 
 数据库：PostgreSQL 15，通过 SQLAlchemy 2.0 ORM + Alembic 管理迁移。
 
@@ -175,15 +175,12 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 | description | TEXT | NULLABLE | 练习说明 |
 | case_id | INTEGER | FK→cases.id, RESTRICT | 所属病例 |
 | school_id | INTEGER | FK→schools.id, SET NULL, NULLABLE | 所属学校 |
-| mode | VARCHAR(20) | DEFAULT "training" | 练习模式: training / assessment / free_play |
 | features | JSONB | DEFAULT {} | 功能开关配置 (如启用体检、护理记录等) |
 | behavior | JSONB | DEFAULT {} | 行为配置 (时限、患者行为等) |
-| assessment | JSONB | NULLABLE | 考核配置 (评分标准、通过线等) |
 | is_active | BOOLEAN | DEFAULT TRUE | 是否启用 |
 | created_at | DATETIME (UTC) | DEFAULT NOW | |
 | updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
 
-CheckConstraint: `mode IN ('training', 'assessment', 'free_play')`
 索引: `ix_practices_case_id`, `ix_practices_school_id`
 关联: `case`, `school`, `assignments`, `training_records`
 
@@ -304,7 +301,7 @@ detail_scores 结构（100分制）：
 索引: `ix_score_reviews_score_id`
 关联: `score`, `reviewer`
 
-> 支持多次复核：同一 Score 可有多条 ScoreReview 记录，按 created_at 排序。
+> 每份 Score 仅支持一次复核（UniqueConstraint on score_id）。
 
 ### notes — 笔记表
 
@@ -449,14 +446,8 @@ detail_scores 结构（100分制）：
 | id | INTEGER | PK, 自增 | 配置ID |
 | secret_id | INTEGER | FK→api_secrets.id | 所属 Secret |
 | label | VARCHAR(80) | DEFAULT "" | 配置标签 |
-| model | VARCHAR(80) | NOT NULL | 模型名 |
 | purpose | VARCHAR(40) | NOT NULL | 用途 (chat / scoring / qa / guard 等) |
-| priority | INTEGER | DEFAULT 10 | 路由优先级 (越大越优先) |
-| weight | INTEGER | DEFAULT 10 | 路由权重 |
 | status | VARCHAR(20) | DEFAULT "active" | active / disabled |
-| price_input_per_1m | NUMERIC(10,6) | DEFAULT 0 | 输入价格 (覆盖 Secret 级别) |
-| price_output_per_1m | NUMERIC(10,6) | DEFAULT 0 | 输出价格 |
-| monthly_cost_limit | NUMERIC(12,6) | NULLABLE | 月费用上限 |
 | created_at | DATETIME (UTC) | DEFAULT NOW | |
 | updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
 
@@ -573,11 +564,117 @@ detail_scores 结构（100分制）：
 | id | INTEGER | PK, 自增 | 通知ID |
 | title | VARCHAR(200) | NOT NULL | 通知标题 |
 | content | TEXT | NOT NULL | 通知内容 |
-| level | VARCHAR(10) | DEFAULT "info" | info / warning / error |
+| level | VARCHAR(20) | DEFAULT "info" | info / warning / success |
+| is_active | BOOLEAN | DEFAULT TRUE | 是否激活 |
+| created_by | INTEGER | FK→users.id, SET NULL, NULLABLE | 创建人 |
+| published_at | DATETIME (UTC) | NULLABLE | 发布时间 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | 创建时间 |
+| updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | 更新时间 |
+
+CheckConstraint: `level IN ('info', 'warning', 'success')`
+索引: `ix_system_notifications_created_at`
+
+### training_session_state — 训练会话状态表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| record_id | INTEGER | PK, FK→training_records.id, CASCADE | 训练记录ID (一对一) |
+| emotion_state | JSONB | NOT NULL, DEFAULT {} | 情绪状态快照 |
+| initiative_timer | FLOAT | NULLABLE | 主动发言计时器 |
+| initiative_last_trigger | FLOAT | NULLABLE | 上次主动触发时间 |
+| initiative_count | INTEGER | NOT NULL, DEFAULT 0 | 主动发言累计次数 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | |
+| updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
+
+关联: `record`
+
+### scoring_progress — 评分进度表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INTEGER | PK, 自增 | |
+| record_id | INTEGER | FK→training_records.id, CASCADE, UNIQUE | 训练记录ID (一对一) |
+| stage | VARCHAR(20) | DEFAULT "pending" | 评分阶段 |
+| percent | INTEGER | DEFAULT 0 | 进度百分比 |
+| message | TEXT | NULLABLE | 进度提示信息 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | |
+| updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
+
+唯一约束: `(record_id)`
+
+### notifications — 用户通知表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INTEGER | PK, 自增 | 通知ID |
+| user_id | INTEGER | FK→users.id, CASCADE, INDEX | 接收用户 |
+| record_id | INTEGER | NULLABLE | 关联训练记录 |
+| type | VARCHAR(30) | NOT NULL | 通知类型 |
+| title | VARCHAR(200) | NOT NULL | 通知标题 |
+| body | TEXT | NULLABLE | 通知正文 |
 | is_read | BOOLEAN | DEFAULT FALSE | 是否已读 |
 | created_at | DATETIME (UTC) | DEFAULT NOW | |
 
-索引: `ix_system_notifications_created_at`
+索引: `ix_notifications_user_read (user_id, is_read)`
+关联: `user`
+
+### knowledge_chunks — 知识切片表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INTEGER | PK, 自增 | |
+| source | VARCHAR(100) | INDEX | 来源标识 |
+| section | VARCHAR(200) | NOT NULL | 章节 |
+| chunk_text | TEXT | NOT NULL | 切片文本 |
+| embedding | JSONB | NULLABLE | 向量嵌入 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | |
+
+### rate_limit_entries — 限流计数表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK, 自增 | |
+| key | VARCHAR(255) | NOT NULL | 限流键 |
+| created_at | DATETIME (UTC, tz) | NOT NULL, DEFAULT NOW() | 计数时间 |
+
+索引: `idx_rate_limit_key_ts (key, created_at)`
+
+### voice_configs — 语音配置表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INTEGER | PK, 自增 | 配置ID |
+| provider | VARCHAR(20) | DEFAULT "volcengine" | 语音服务商 |
+| app_id | VARCHAR(80) | NOT NULL | 应用ID |
+| token_enc | TEXT | NOT NULL | Fernet 加密的 Token |
+| key_suffix | VARCHAR(8) | DEFAULT "" | Token 后缀 (用于识别) |
+| tts_voice_type | VARCHAR(40) | DEFAULT "zh_female_vv" | TTS 音色 |
+| tts_timeout | INTEGER | DEFAULT 8 | TTS 超时(秒) |
+| asr_sample_rate | INTEGER | DEFAULT 16000 | ASR 采样率 |
+| asr_enable_streaming | BOOLEAN | DEFAULT TRUE | 是否启用流式 ASR |
+| monthly_budget | FLOAT | DEFAULT 200.0 | 月度预算 |
+| is_active | BOOLEAN | DEFAULT TRUE | 是否激活 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | |
+| updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
+
+### voice_call_logs — 语音调用日志表
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INTEGER | PK, 自增 | 日志ID |
+| user_id | INTEGER | FK→users.id, INDEX | 触发用户 |
+| record_id | INTEGER | FK→training_records.id, NULLABLE | 关联训练记录 |
+| direction | VARCHAR(10) | NOT NULL | tts / asr |
+| text_length | INTEGER | DEFAULT 0 | 文本长度 |
+| emotion_state | VARCHAR(20) | NULLABLE | 情绪状态 |
+| confidence | FLOAT | NULLABLE | 识别置信度 |
+| latency_ms | INTEGER | DEFAULT 0 | 调用延迟(毫秒) |
+| status | VARCHAR(20) | DEFAULT "success" | success / fallback / error |
+| cost_estimated | FLOAT | DEFAULT 0.0 | 估算费用 |
+| created_at | DATETIME (UTC) | DEFAULT NOW | |
+
+索引: `ix_vcl_user_created (user_id, created_at)`, `ix_vcl_direction`, `ix_vcl_created_at`
+关联: `user`
 
 ## 种子数据
 

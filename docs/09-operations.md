@@ -1,6 +1,6 @@
 # 09 — 运维安全指南
 
-> 适用版本: v2026.06.19-2 | 最后更新: 2026-06-19
+> 适用版本: v2026.06.22-16 | 最后更新: 2026-06-22
 
 面对生产环境运维人员的操作手册，涵盖部署流程、回滚、备份、安全加固要点、应急预案。
 
@@ -12,6 +12,7 @@
 
 | Workflow | 触发方式 | 目标 | 域名 |
 |----------|---------|------|------|
+| `auto-tag.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
 | `staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
 | `cd.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
 | `rollback.yml` | `workflow_dispatch`（手动） | 回滚 | — |
@@ -39,7 +40,7 @@ pnpm run tag → v2026.06.02-N
 
 ### 部署前检查清单
 
-- [ ] `SECRET_KEY` 已设置为 ≥32 字符随机字符串（cd.yml 自动生成 `openssl rand -hex 32`，64 字符）
+- [ ] `JWT_SECRET_KEY` 已手动设置为 ≥32 字符随机字符串（cd.yml **不**自动生成，须手动写入 `.env`；可用 `python -c "import secrets; print(secrets.token_urlsafe(32))"` 生成）
 - [ ] `CORS_ORIGINS` 已改为实际生产域名（默认模板为 `http://localhost`）
 - [ ] `DEEPSEEK_API_KEY` 已填入有效的 API Key
 - [ ] `POSTGRES_PASSWORD` 不为默认值（cd.yml 自动生成 `openssl rand -hex 16`）
@@ -50,7 +51,7 @@ pnpm run tag → v2026.06.02-N
 首次部署时 cd.yml 自动执行：
 
 1. `sudo mkdir -p /opt/nursing-vp-sim/backups`
-2. 生成 `.env` 模板（含随机 `SECRET_KEY` 和 `POSTGRES_PASSWORD`）
+2. 生成 `.env` 模板（含随机 `POSTGRES_PASSWORD`；`JWT_SECRET_KEY` / `FERNET_KEY` 不自动生成，须手动写入）
 3. 生成 `docker-compose.yml`
 4. 拉取镜像并启动
 
@@ -98,31 +99,31 @@ ssh 用户名@服务器IP "cd /opt/nursing-vp-sim && bash rollback.sh"
 ```
   可用部署历史 (最近 5 次):
   ┌──────────────────────────────────────────────────────────┐
-  │ [1] v1.2.3      2026-06-02T14:30:00Z   ← 当前
-  │ [2] v1.2.2      2026-06-01T10:00:00Z
-  │ [3] v1.2.1      2026-05-30T09:15:00Z
+  │ [1] v2026.06.02-3      2026-06-02T14:30:00Z   ← 当前
+  │ [2] v2026.06.02-2      2026-06-01T10:00:00Z
+  │ [3] v2026.06.02-1      2026-05-30T09:15:00Z
   └──────────────────────────────────────────────────────────┘
 
   请选择要回滚的版本 [1-3] (q 退出): 2
 
   将回滚到:
-    版本:   v1.2.2
-    后端:   ghcr.io/xxx/nursing-vp-sim-backend:v1.2.2
-    前端:   ghcr.io/xxx/nursing-vp-sim-frontend:v1.2.2
+    版本:   v2026.06.02-2
+    后端:   ghcr.io/xxx/nursing-vp-sim-backend:v2026.06.02-2
+    前端:   ghcr.io/xxx/nursing-vp-sim-frontend:v2026.06.02-2
 
   确认回滚? (y/n): y
 
   >> 拉取镜像...
   >> 更新 compose 配置...
   >> 重启服务...
-  >> 回滚完成，服务已恢复至 v1.2.2
+  >> 回滚完成，服务已恢复至 v2026.06.02-2
 ```
 
 非交互参数：
 
 ```bash
 # 直接回滚到指定版本，跳过确认
-bash rollback.sh --yes v1.2.2
+bash rollback.sh --yes 2026.06.02-2
 
 # 仅列出版本历史
 bash rollback.sh --list
@@ -133,7 +134,7 @@ bash rollback.sh --list
 1. 打开仓库 Actions 页面
 2. 选择 **Emergency Rollback**
 3. 点击 "Run workflow"
-4. 输入目标版本号（如 `1.2.2`）
+4. 输入目标版本号（如 `2026.06.02-2`）
 5. 点击 "Run workflow" 执行
 
 ### 版本历史文件
@@ -141,7 +142,7 @@ bash rollback.sh --list
 服务器上 `/opt/nursing-vp-sim/.version-history`，格式为：
 
 ```
-2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:v1.2.3|ghcr.io/owner/nursing-vp-sim-frontend:v1.2.3
+2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:v2026.06.02-3|ghcr.io/owner/nursing-vp-sim-frontend:v2026.06.02-3
 ```
 
 每次成功部署追加一行，保留最近 10 次记录。
@@ -245,7 +246,7 @@ SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname
 
 | 事项 | 操作 |
 |------|------|
-| SECRET_KEY | 确保 ≥32 字符。cd.yml 自动生成强密钥，勿手动替换为弱密钥 |
+| JWT_SECRET_KEY | 须手动写入 `.env`，确保 ≥32 字符随机串。cd.yml **不**自动生成 |
 | CORS_ORIGINS | 改为精确的生产域名，不要用 `*` |
 | 禁用种子数据 | 生产环境设置 `ENV=production`（plan）或确保首次部署后不再重建空 DB |
 | PostgreSQL 密码 | cd.yml 自动生成随机密码，不使用默认 `postgres` |
@@ -428,7 +429,7 @@ sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s 
 |---|--------|------|------|------|
 | 2 | **Docker 容器无资源限制** | 任一容器可耗尽宿主机资源 | 🔧 可修复 | 添加 `deploy.resources.limits` |
 | 3 | **无 Nginx 级速率限制** | 仅 Python 层 `rate_limits.py`（按 user_id），大流量 DDoS 可消耗 FastAPI 资源 | 🏛️ 已充分 | Python 层覆盖高危端点；当前流量低无需 nginx 层 |
-| 4 | **JWT Token 无主动撤销机制** | 角色变更后旧 token 仍有效（最长 8h） | 🏛️ 固有约束 | 紧急改 SECRET_KEY 全局失效 |
+| 4 | **JWT Token 无主动撤销机制** | 角色变更后旧 token 仍有效（最长 8h） | 🏛️ 固有约束 | 紧急改 JWT_SECRET_KEY 全局失效 |
 | 5 | **Token 存储在 localStorage** | XSS 可窃取 | 🏛️ 固有约束 | CSP + React XSS 防护；长期向 HttpOnly Cookie |
 | 7 | **LLM 环境变量兜底无限额** | 所有 DB 密钥失效后回退 `.env` key | ⚠️ 已缓解 | DeepSeek 控制台已设硬限额 |
 
@@ -489,6 +490,30 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 | `active_sessions` | 当前活跃训练会话数 |
 
 **安全配置：** 在 `.env` 中设置 `DIAGNOSE_TOKEN` 为随机字符串。未设置时端点自动隐藏（返回 404）。
+
+### 运维 API 端点
+
+共四个运维端点，均用 `DIAGNOSE_TOKEN` query 参数认证（如 `?token=***`）；另有 admin 端 `/admin/ops/*` 系列，改用登录态 + `api_manage` 权限。
+
+| 端点 | 用途 | 主要内容 |
+|------|------|----------|
+| `/api/diagnose` | 低层诊断快照 | server / DB / LLM / errors / active_sessions |
+| `/api/ops/dashboard` | 统一运维面板 | LLM 24h 统计 / 评分队列 / 活跃会话 / 语音统计 / SSE / 指标 / 通知 / 预算 |
+| `/api/ops/errors` | 错误环缓冲 | 错误计数 + 最近错误列表 |
+| `/api/ops/report` | 运维日报 | 汇总摘要 + 自动告警 |
+
+`/api/ops/report` 自动告警阈值：
+
+| 指标 | 触发阈值 |
+|------|----------|
+| LLM 成功率 | < 90% |
+| LLM 24h 错误数 | > 50 |
+| 卡住评分 | > 5 条 |
+| 活跃会话 | > 50 个 |
+| TTS 成功率 | < 90% |
+| ASR 成功率 | < 80% |
+| TTS 24h 错误数 | > 20 |
+
 ## 关键指标
 
 | 指标 | 检查方式 | 正常阈值 |

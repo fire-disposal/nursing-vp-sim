@@ -1,6 +1,6 @@
 # 04 — 前端设计
 
-> 适用版本: current | 最后更新: 2026-06-15
+> 适用版本: current | 最后更新: 2026-06-22
 
 ## 技术栈
 
@@ -13,7 +13,7 @@
 | shadcn/ui (Base UI + Radix) | 组件库 — Button, Card, Dialog, Table, Badge, Tabs, Form 等 |
 | react-router-dom v7 | 客户端路由 |
 | @tanstack/react-query v5 | 服务端状态管理 + 缓存 |
-| zustand v5 | 客户端状态管理 (auth, gradesClasses, school) |
+| zustand v5 | 客户端状态管理 (authStore, gradesClassesStore) |
 | axios | HTTP 客户端，120s 超时 + 自动重试 |
 | sonner | Toast 通知系统 |
 | react-hook-form + zod | 表单状态管理 + 校验 |
@@ -60,7 +60,10 @@ frontend/src/
 │       ├── roles.ts
 │       ├── llm.ts
 │       ├── feedback.ts
-│       └── api-management.ts
+│       ├── api-management.ts
+│       ├── ops.ts
+│       ├── schools.ts
+│       └── voice-cost.ts
 ├── assets/avatars/            # 患者/护士头像 PNG
 ├── components/
 │   ├── ErrorBoundary.tsx      # 类组件全局异常边界
@@ -71,14 +74,20 @@ frontend/src/
 │   ├── ProtectedRoute.tsx     # 路由权限守卫 (role + permission)
 │   ├── QuestionnaireModal.tsx # 训练后问卷弹窗
 │   ├── Toast.tsx              # sonner Toast 封装 (useToast hook)
-│   ├── training/              # 训练页子组件 (7 个)
-│   │   ├── ChatArea.tsx       # 对话区域容器
-│   │   ├── ChatDisplay.tsx    # 消息列表渲染
-│   │   ├── ChatInput.tsx      # 输入框 + 发送
-│   │   ├── TrainingHeader.tsx # 训练顶栏
-│   │   ├── WelcomeScreen.tsx  # 训练欢迎页
-│   │   ├── PracticeSelectModal.tsx  # 练习选择弹窗
-│   │   └── PanelHost.tsx      # 侧边面板宿主
+│   ├── training/              # 训练页子组件 (13 个)
+│   │   ├── ChatArea.tsx            # 对话区域容器
+│   │   ├── ChatDisplay.tsx         # 消息列表渲染
+│   │   ├── ChatInput.tsx           # 输入框 + 发送
+│   │   ├── TrainingHeader.tsx      # 训练顶栏
+│   │   ├── WelcomeScreen.tsx       # 训练欢迎页
+│   │   ├── TrainingConfigModal.tsx # 训练配置弹窗
+│   │   ├── EmotionIndicator.tsx    # 情绪指示器
+│   │   ├── InitiativeBar.tsx       # 主动发起进度条
+│   │   ├── ExamCard.tsx            # 体格检查卡片
+│   │   ├── PatientPortrait.tsx     # 患者画像
+│   │   ├── FloatingPanelHost.tsx   # 浮动面板宿主
+│   │   ├── PluginErrorBoundary.tsx # 插件异常边界
+│   │   └── PanelHost.tsx           # 侧边面板宿主
 │   ├── teacher/               # 教师端组件 (15 顶级文件 + 4 子目录, 共 36 文件)
 │   │   ├── ApiManagementTab.tsx
 │   │   ├── CallLogDetail.tsx
@@ -103,7 +112,7 @@ frontend/src/
 │   │   └── TrainingDurationChart.tsx  # Recharts 训练趋势图
 │   ├── login/
 │   │   └── LoginIllustration.tsx      # Lottie 登录插画
-│   └── ui/                    # shadcn/ui 组件 + 自研组件 (25 个)
+│   └── ui/                    # shadcn/ui 组件 + 自研组件 (29 个)
 ├── engine/                    # 训练引擎系统
 │   ├── index.ts               # 统一导出
 │   ├── TrainingEngine.tsx     # 训练循环编排
@@ -127,19 +136,25 @@ frontend/src/
 │   ├── physical-exam/         # 体格检查结果
 │   ├── questionnaire/         # 训练后问卷
 │   └── scoring-display/       # 评分结果展示
-├── hooks/                     # 自定义 Hooks (7 个)
-│   ├── useNetworkStatus.ts    # 网络连接状态检测
-│   ├── useQuestionnaire.ts    # 问卷数据管理
-│   ├── useScoreProgress.ts    # 评分进度指示
-│   ├── useTrainingTimer.ts    # 训练倒计时
-│   ├── useVoice.ts            # 语音识别 + TTS 朗读
-│   ├── useChartTheme.ts       # 图表主题适配
-│   └── useMediaQuery.ts       # 响应式断点查询
+├── hooks/                     # 自定义 Hooks (10 个)
+│   ├── useApiQuery.ts             # 统一 API 查询封装
+│   ├── useNetworkStatus.ts        # 网络连接状态检测
+│   ├── useQuestionnaire.ts        # 问卷数据管理
+│   ├── useScoringNotifications.ts # 评分通知
+│   ├── useTrainingTimer.ts        # 训练倒计时
+│   ├── useVoice.ts                # 语音识别 + TTS 朗读
+│   ├── useChartTheme.ts           # 图表主题适配
+│   ├── useLayoutMode.ts           # 布局模式
+│   ├── useDebouncedSearch.ts      # 防抖搜索
+│   └── useMediaQuery.ts           # 响应式断点查询
 ├── lib/
+│   ├── error-utils.ts         # 错误处理工具
 │   └── utils.ts               # cn() — clsx + tailwind-merge
-├── pages/                     # 路由页面 (14 个)
+├── pages/                     # 路由页面 (15 个)
 │   ├── Login.tsx
 │   ├── DashboardHome.tsx      # 角色分流仪表盘
+│   ├── TeacherDashboard.tsx   # 教师仪表盘
+│   ├── StudentDashboard.tsx   # 学生仪表盘
 │   ├── CaseSelect.tsx         # 病例选择
 │   ├── ChatTraining.tsx       # 训练主页面
 │   ├── History.tsx            # 训练记录列表
@@ -148,10 +163,10 @@ frontend/src/
 │   ├── Stats.tsx              # 训练统计图表
 │   ├── MyResponses.tsx        # 我的问卷应答
 │   ├── Profile.tsx            # 用户个人资料
-│   ├── Admin.tsx              # 管理员入口 (LLM 管理 + 调试 + 插件)
+│   ├── Admin.tsx              # 训练管理入口 (问答记录 Tab)
 │   ├── AdminQuestionnaires.tsx  # 问卷管理
 │   ├── AdminDebugPage.tsx     # 调试页 (仅 dev)
-│   └── admin/                 # 管理后台独立页面 (12 个)
+│   └── admin/                 # 管理后台独立页面 (15 个)
 │       ├── UsersPage.tsx
 │       ├── UserDetailPage.tsx
 │       ├── CasesPage.tsx
@@ -163,7 +178,10 @@ frontend/src/
 │       ├── PluginDashboard.tsx
 │       ├── PracticesPage.tsx
 │       ├── RolesPage.tsx
-│       └── SchoolsPage.tsx
+│       ├── SchoolsPage.tsx
+│       ├── SystemOpsPage.tsx
+│       ├── SystemNotificationsPage.tsx
+│       └── CostManagementPage.tsx
 ├── stores/                    # Zustand 状态 (2 个)
 │   ├── authStore.ts
 │   └── gradesClassesStore.ts
@@ -175,7 +193,9 @@ frontend/src/
 │   ├── store.ts
 │   └── globals.d.ts
 └── utils/
-    └── avatar.ts              # 患者/护士头像映射
+    ├── avatar.ts              # 患者/护士头像映射
+    ├── patient-portrait.ts    # 患者画像生成
+    └── network.ts             # 网络工具
 ```
 
 ## 路由设计
@@ -193,8 +213,8 @@ frontend/src/
 | `/stats` | StatsPage | 登录 | Layout | 训练统计图表 |
 | `/my-responses` | MyResponses | 登录 | Layout | 我的问卷应答 |
 | `/profile` | Profile | 登录 | Layout | 用户个人资料 |
-| `/admin` | Admin | score_review | Layout | LLM 管理 + 调试 + 插件 Tabs |
-| `/admin/debug` | AdminDebugPage | score_review | Layout | 系统调试 (仅 dev) |
+| `/admin` | Admin | score_review | Layout | 训练管理 (问答记录) |
+| `/admin/debug` | AdminDebugPage | score_review | Layout | 调试工坊 |
 | `/admin/plugins` | PluginDashboard | score_review | Layout | 插件注册中心 |
 | `/admin/llm` | LLMManagementPage | llm_monitor | Layout | API/Provider/Key/Prompt 管理 |
 | `/admin/cases` | CasesPage | case_manage | Layout | 病例管理 |
@@ -208,6 +228,9 @@ frontend/src/
 | `/admin/questionnaires` | AdminQuestionnaires | questionnaire_manage | Layout | 问卷管理 |
 | `/admin/assignments` | AssignmentsPage | score_review | Layout | 作业管理 |
 | `/admin/assignments/:id` | AssignmentDetailPage | score_review | Layout | 作业详情 |
+| /admin/system-ops | SystemOpsPage | api_manage | Layout | 系统运维面板 |
+| /admin/system-notifications | SystemNotificationsPage | api_manage | Layout | 系统通知管理 |
+| /admin/costs | CostManagementPage | llm_monitor | Layout | 成本/用量管理 |
 | `*` | → `/login` | - | - | 未匹配路由 |
 
 ## 设计系统
@@ -384,5 +407,5 @@ TrainingEngine
 ## 测试
 
 - 框架: Vitest 4 + @testing-library/react 16 + jsdom
-- 5 个测试文件，21 条用例
+- 10 个测试文件
 - 覆盖: Toast, ConfirmDialog, authStore, axios-instance, stores

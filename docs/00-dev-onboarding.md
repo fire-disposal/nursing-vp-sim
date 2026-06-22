@@ -34,7 +34,7 @@ cd frontend && pnpm install && cd ..
 ### 环境变量
 
 ```bash
-cp .env.example .env    # 填入 SECRET_KEY（≥32字符）、DEEPSEEK_API_KEY
+cp .env.example .env    # 填入 JWT_SECRET_KEY、FERNET_KEY、DEEPSEEK_API_KEY
 ```
 
 ```bash

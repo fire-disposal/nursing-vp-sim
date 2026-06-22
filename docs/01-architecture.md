@@ -1,6 +1,6 @@
 # 01 — 系统架构
 
-> 适用版本: current | 最后更新: 2026-06-15
+> 适用版本: current | 最后更新: 2026-06-22
 
 ## 技术栈
 
@@ -14,12 +14,12 @@
 | UI组件 | shadcn/ui 风格 + Tailwind CSS v4 | 设计系统组件库 |
 | HTTP客户端 | axios (前端) / httpx (后端) | 前端120s超时+自动重试；后端共享连接池 |
 | 数据库 | PostgreSQL 15 + SQLAlchemy 2.0 ORM + Alembic 迁移 | 生产级关系型数据库 |
-| 认证 | JWT (python-jose) | 无状态Token认证 |
-| 密码哈希 | bcrypt (passlib) | 安全密码存储 |
+| 认证 | JWT (PyJWT) | 无状态Token认证 |
+| 密码哈希 | bcrypt | 安全密码存储 |
 | LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义） | 优先级加权路由、熔断、健康检查 |
 | LLM 可靠性 | 分离超时(聊天30s/评分120s)+重试(2-3次)+限流(10并发)+JSON容错 | 防止API限流和瞬时故障 |
-| 加密 | Fernet 对称加密（SECRET_KEY 派生） | API Key 加密存储 |
-| 语音 | 浏览器 Web Speech API + TTS Engine | 语音识别 + 语音合成 |
+| 加密 | Fernet 对称加密（独立 FERNET_KEY） | API Key 加密存储 |
+| 语音 | 火山引擎 ASR + TTS | 服务端语音识别 + 情感语音合成 |
 | 图表 | recharts (ComposedChart) | 关联训练统计（双Y轴：次数+时长、次数+得分） |
 | 图标 | lucide-react | 统一 SVG 图标库 |
 | 评分标准 | rubrics/ JSON 文件 + DB Rubric 模型 | 19项条目动态生成 Prompt，evidence+reason 证据化，100分制显示 |
@@ -44,18 +44,19 @@ nursing-vp-sim/
 │   ├── core/                                   # 核心基础设施
 │   │   ├── database.py                         # 数据库引擎 + 会话工厂
 │   │   ├── config.py                           # 全局配置 (SCORING_TIMEOUT_SECONDS 等)
-│   │   ├── auth.py                             # JWT认证 + 权限验证
+│   │   ├── security.py                         # JWT认证 + 权限验证
 │   │   ├── pagination.py                       # 分页工具
-│   │   └── login_strategies/                   # 登录策略 (密码/微信)
+│   │   └── login_strategies/                   # 登录策略 (密码/微信/OAuth2/CAS)
 │   ├── contexts/                               # 有界上下文 — 业务逻辑层
 │   │   ├── training/                           # 训练上下文（核心）
-│   │   │   ├── config_loader.py                # 会话配置加载 (session_configs)
 │   │   │   ├── score_engine.py                 # 评分引擎
 │   │   │   ├── pipeline/                       # 训练管道架构
 │   │   │   │   ├── context.py                  # 管道上下文数据类
 │   │   │   │   ├── phase.py                    # 训练阶段定义
 │   │   │   │   ├── registry.py                 # 管道注册表
 │   │   │   │   ├── runner.py                   # 管道执行器
+│   │   │   │   ├── stages.py                   # 管道阶段枚举 + 排序
+│   │   │   │   ├── builder.py                  # 管道中间件链装配
 │   │   │   │   └── middleware/                 # 中间件链
 │   │   │   │       ├── phase_guard.py           # 阶段守卫
 │   │   │   │       ├── prompt_builder.py        # Prompt构建
@@ -69,6 +70,8 @@ nursing-vp-sim/
 │   │   │       ├── scoring.py                  # 评分 + 复核
 │   │   │       ├── nursing.py                  # 护理记录
 │   │   │       ├── progress.py                 # 采集进度
+│   │   │       ├── score_review.py             # 教师评分复核
+│   │   │       ├── physical_exam.py            # 体格检查API
 │   │   │       └── _config.py                  # 会话配置端点
 │   │   ├── patient/                            # 患者上下文
 │   │   │   ├── guards.py                       # 患者角色边界保护
@@ -81,6 +84,7 @@ nursing-vp-sim/
 │   │   └── qa/                                 # 问答上下文
 │   │       ├── api.py                          # QA路由
 │   │       ├── logic.py                        # QA业务逻辑
+│   │       ├── _citations.py                   # QA引用管理
 │   │       └── _sessions.py                    # QA会话管理
 │   ├── infrastructure/                         # 基础设施层
 │   │   ├── cache.py                            # 内存缓存（速率限制等）
@@ -89,6 +93,8 @@ nursing-vp-sim/
 │   │   ├── metrics.py                          # 指标收集
 │   │   ├── export.py                           # 数据导出
 │   │   ├── wechat.py                           # 微信集成
+│   │   ├── sse_manager.py                      # SSE 流管理
+│   │   ├── scoring_progress.py                 # 评分进度轮询
 │   │   ├── llm/                                # LLM 基础设施
 │   │   │   ├── client.py                       # LLM API客户端
 │   │   │   ├── router.py                       # 多Provider优先级加权路由
@@ -96,7 +102,7 @@ nursing-vp-sim/
 │   │   │   ├── logging.py                      # LLM调用审计日志
 │   │   │   ├── parsing.py                      # JSON响应解析 + 容错
 │   │   │   ├── crypto_utils.py                 # Fernet加密 (API Key)
-│   │   │   └── provider_catalog.py             # Provider产品目录
+│   │   │   └── token_counter.py                # Token 用量统计
 │   │   └── prompt/                             # Prompt 基础设施
 │   │       ├── manager.py                      # DB模板加载/渲染/缓存
 │   │       ├── registry.py                     # Prompt注册表
@@ -111,10 +117,13 @@ nursing-vp-sim/
 │   │   ├── stats.py                            # 训练统计 + 趋势 + 排名
 │   │   ├── export.py                           # CSV/文本导出
 │   │   ├── feedback.py                         # 用户反馈
+│   │   ├── ops.py                              # 运维API (dashboard/report/errors)
 │   │   ├── admin/                              # 管理后台路由
 │   │   │   ├── base.py                         # 管理基础
 │   │   │   ├── practices.py                    # 练习管理
-│   │   │   ├── plugins.py                      # 插件配置
+│   │   │   ├── rubrics.py                      # 评分标准管理
+│   │   │   ├── ops.py                          # 运维管理子路由
+│   │   │   ├── system_notifications.py         # 系统通知管理
 │   │   │   └── export.py                       # 管理导出
 │   │   ├── admin_api.py                        # API Secret/Config 管理
 │   │   ├── admin_prompts.py                    # Prompt 模板管理
@@ -122,6 +131,7 @@ nursing-vp-sim/
 │   │   ├── admin_roles.py                      # 角色权限管理
 │   │   ├── admin_grades.py                     # 年级管理
 │   │   ├── admin_classes.py                    # 班级管理
+│   │   ├── admin_voice.py                      # 语音成本管理
 │   │   └── questionnaires/                     # 问卷路由
 │   │       ├── templates.py                    # 模板CRUD
 │   │       ├── questions.py                    # 题目CRUD
@@ -217,7 +227,7 @@ nursing-vp-sim/
 │   │   ├── schemas/                            # Zod/验证 schemas
 │   │   └── __tests__/                          # 前端测试 (Vitest)
 │   ├── index.html
-│   ├── vite.config.ts                          # Vite配置 (API代理)
+│   ├── vite.config.ts                          # Vite配置 (Tailwind整合 + API代理 + 路径别名)
 │   ├── biome.json                              # Biome linter/formatter
 │   └── package.json
 │
