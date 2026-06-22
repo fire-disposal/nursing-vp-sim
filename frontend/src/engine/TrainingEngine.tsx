@@ -24,6 +24,7 @@ import type {
 	PanelTabProps,
 	PluginContext,
 } from "./types";
+import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 
 interface TrainingEngineProps {
 	recordId: string;
@@ -115,6 +116,12 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		return () => scoreRef.current.dispose();
 	}, [recordNum]);
 
+	useEffect(() => {
+		if (patient) {
+			setPortraitUrl(getPatientPortraitUrl(patient, null));
+		}
+	}, [patient, setPortraitUrl]);
+
 	const panelPluginsWrapped = useMemo(
 		() =>
 			activePanels.map((p) => ({
@@ -187,18 +194,12 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			"emotion:changed",
 			(data: { state: string }) => {
 				setEmotion(data.state as EmotionState);
+				if (patient) {
+					setPortraitUrl(getPatientPortraitUrl(patient, data.state));
+				}
 			},
 		);
-	}, [setEmotion]);
-
-	useEffect(() => {
-		return busRef.current.on(
-			"portrait:changed",
-			(data: { url: string }) => {
-				setPortraitUrl(data.url);
-			},
-		);
-	}, [setPortraitUrl]);
+	}, [setEmotion, setPortraitUrl, patient]);
 
 	useEffect(() => {
 		return busRef.current.on("stream:error", (err: string) => {
