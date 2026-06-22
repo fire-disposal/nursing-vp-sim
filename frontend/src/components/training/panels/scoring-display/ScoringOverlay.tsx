@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Brain, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Brain, Loader2 } from "lucide-react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -20,30 +20,15 @@ interface Progress {
 	thought?: string;
 }
 
-function parseThoughtSummary(thought: string | undefined): {
-	dimensions: string[];
-	totalScore: number | null;
-} {
-	if (!thought) return { dimensions: [], totalScore: null };
+/** Pull human-readable dimension names from raw LLM thought JSON */
+function extractDimensions(thought: string | undefined): string[] {
+	if (!thought) return [];
 	try {
 		const data = JSON.parse(thought) as Record<string, unknown>;
 		const dims = data.detail_scores as Record<string, unknown> | undefined;
-		const total =
-			typeof data.total_score === "number" ? data.total_score : null;
-		return {
-			dimensions: dims ? Object.keys(dims) : [],
-			totalScore: total,
-		};
+		return dims ? Object.keys(dims) : [];
 	} catch {
-		return { dimensions: [], totalScore: null };
-	}
-}
-
-function formatThought(thought: string): string {
-	try {
-		return JSON.stringify(JSON.parse(thought), null, 2);
-	} catch {
-		return thought;
+		return [];
 	}
 }
 
@@ -61,13 +46,11 @@ export function ScoringOverlay({
 		percentage: 0,
 		message: "",
 	});
-	const [thoughtExpanded, setThoughtExpanded] = useState(false);
 
 	useEffect(() => {
 		const unsub = bus.on("training:ended", () => {
 			setVisible(true);
 			setClosing(false);
-			setThoughtExpanded(false);
 		});
 		return unsub;
 	}, [bus]);
@@ -80,7 +63,6 @@ export function ScoringOverlay({
 		const id = setInterval(() => {
 			const p = getProgressRef.current();
 			setProgress(p);
-			if (p.thought) setThoughtExpanded(true);
 			if (p.phase === "completed") {
 				clearInterval(id);
 				setClosing(true);
@@ -90,8 +72,8 @@ export function ScoringOverlay({
 		return () => clearInterval(id);
 	}, [visible]);
 
-	const { dimensions, totalScore } = useMemo(
-		() => parseThoughtSummary(progress.thought),
+	const dimensions = useMemo(
+		() => extractDimensions(progress.thought),
 		[progress.thought],
 	);
 
@@ -116,30 +98,30 @@ export function ScoringOverlay({
 			{/* Card */}
 			<div
 				className={cn(
-					"w-full max-w-md mx-4 rounded-xl border border-border bg-card p-6 shadow-lg",
+					"w-full max-w-sm mx-4 rounded-xl border border-border bg-card p-5 shadow-lg",
 					!closing && "animate-in zoom-in-95 fade-in-0",
 					closing && "animate-out zoom-out-95 fade-out-0",
 					"duration-300",
 				)}
 			>
 				{/* Header */}
-				<div className="flex items-center gap-3 mb-5">
+				<div className="flex items-center gap-3 mb-4">
 					<div
 						className={cn(
-							"flex size-10 shrink-0 items-center justify-center rounded-full",
+							"flex size-9 shrink-0 items-center justify-center rounded-full",
 							isFailed
 								? "bg-destructive/10 text-destructive"
 								: "bg-primary/10 text-primary",
 						)}
 					>
 						{isActive ? (
-							<Loader2 className="size-5 animate-spin" />
+							<Loader2 className="size-4 animate-spin" />
 						) : (
-							<Brain className="size-5" />
+							<Brain className="size-4" />
 						)}
 					</div>
 					<div className="min-w-0">
-						<p className="truncate text-base font-semibold">
+						<p className="text-sm font-semibold truncate">
 							{isActive
 								? "正在评估训练表现"
 								: isFailed
@@ -147,70 +129,48 @@ export function ScoringOverlay({
 									: "评估完成"}
 						</p>
 						<p className="text-xs text-muted-foreground">
-							{phaseText}
-							{isActive ? ` · ${progress.percentage}%` : ""}
+							{phaseText} · {progress.percentage}%
 						</p>
 					</div>
 				</div>
 
 				{/* Progress bar */}
-				<div className="mb-4">
-					<div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-						<div
-							className={cn(
-								"h-full rounded-full transition-all duration-500 ease-out",
-								isFailed ? "bg-destructive" : "bg-primary",
-							)}
-							style={{
-								width: `${Math.max(isActive ? 4 : progress.percentage, progress.percentage)}%`,
-							}}
-						/>
+				<div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+					<div
+						className={cn(
+							"h-full rounded-full transition-all duration-500 ease-out",
+							isFailed ? "bg-destructive" : "bg-primary",
+						)}
+						style={{ width: `${Math.max(4, progress.percentage)}%` }}
+					/>
+				</div>
+
+				{/* AI status ticker — small scrolling window */}
+				<div className="h-20 rounded-md border border-border/60 bg-muted/30 px-3 py-2 overflow-hidden">
+					<div className="text-[11px] leading-relaxed font-mono text-muted-foreground space-y-0.5 animate-in slide-in-from-bottom-2 duration-300">
+						<p className="text-primary/70">$ scoring --start</p>
+						<p>│</p>
+						{progress.thought && dimensions.length > 0 ? (
+							<>
+								<p>│ ◉ 评估维度</p>
+								{dimensions.map((d) => (
+									<p key={d} className="text-foreground/70">
+										│  ↳ {d}
+									</p>
+								))}
+							</>
+						) : (
+							<>
+								<p className="text-muted-foreground/50">│</p>
+								<p className="text-muted-foreground/50">│ 等待 AI 引擎...</p>
+							</>
+						)}
 					</div>
 				</div>
 
-				{/* AI reasoning box */}
-				{progress.thought && (
-					<div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
-						{/* Summary bar — always visible */}
-						<div className="px-4 py-2.5 flex items-center justify-between">
-							<div className="flex items-center gap-2 min-w-0">
-								<Brain className="size-3.5 shrink-0 text-primary" />
-								<span className="text-xs text-muted-foreground truncate">
-									{dimensions.length > 0
-										? `评分维度：${dimensions.join("、")}`
-										: "AI 推理过程"}
-									{totalScore != null && (
-										<span className="ml-1 font-mono text-primary">
-											· {totalScore} 分
-										</span>
-									)}
-								</span>
-							</div>
-							<button
-								type="button"
-								onClick={() => setThoughtExpanded(!thoughtExpanded)}
-								className="shrink-0 ml-2 text-muted-foreground hover:text-foreground transition-colors"
-							>
-								{thoughtExpanded ? (
-									<ChevronUp className="size-4" />
-								) : (
-									<ChevronDown className="size-4" />
-								)}
-							</button>
-						</div>
-
-						{/* Expanded detail */}
-						{thoughtExpanded && (
-							<pre className="border-t border-border bg-muted/20 px-4 py-3 max-h-56 overflow-auto text-[11px] leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground">
-								{formatThought(progress.thought)}
-							</pre>
-						)}
-					</div>
-				)}
-
-				{/* Error message */}
+				{/* Error */}
 				{isFailed && progress.message && (
-					<div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5">
+					<div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
 						<p className="text-xs text-destructive whitespace-pre-wrap">
 							{progress.message}
 						</p>
@@ -218,25 +178,20 @@ export function ScoringOverlay({
 				)}
 
 				{/* Footer */}
-				<div className="mt-4 flex items-center justify-between">
-					{isActive && !progress.thought && (
-						<p className="text-xs text-muted-foreground">
-							正在启动 AI 评分引擎...
-						</p>
-					)}
-					{isFailed && (
+				{isFailed && (
+					<div className="mt-3 flex justify-end">
 						<button
 							type="button"
 							onClick={() => {
 								setClosing(true);
 								setTimeout(() => setVisible(false), 200);
 							}}
-							className="ml-auto rounded-md bg-secondary px-4 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors"
+							className="rounded-md bg-secondary px-3 py-1 text-xs font-medium hover:bg-secondary/80 transition-colors"
 						>
 							关闭
 						</button>
-					)}
-				</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
