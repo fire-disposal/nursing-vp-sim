@@ -3,6 +3,7 @@ import { Bell } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
+import { useToast } from "@/components/Toast";
 
 interface Notification {
 	id: number;
@@ -17,6 +18,7 @@ export default function NotificationBell() {
 	const ref = useRef<HTMLDivElement>(null);
 	const qc = useQueryClient();
 	const navigate = useNavigate();
+	const { error: toastError } = useToast();
 
 	const { data } = useQuery({
 		queryKey: ["notifications"],
@@ -28,6 +30,9 @@ export default function NotificationBell() {
 		mutationFn: (id: number) => api.patch(`/training/notifications/${id}`),
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey: ["notifications"] });
+		},
+		onError: () => {
+			toastError("标记已读失败");
 		},
 	});
 
