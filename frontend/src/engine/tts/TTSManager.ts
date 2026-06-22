@@ -4,6 +4,12 @@ import { createBrowserTTS } from "./browser-tts";
 import type { TTSProvider, TTSManagerConfig } from "./types";
 import { VolcTTSProvider } from "./VolcTTSProvider";
 
+function splitFirstSentence(text: string): [string, string] {
+	const m = text.match(/^(.+?[。！？!?])/);
+	if (!m || m[1].length >= text.length) return [text, ""];
+	return [m[1], text.slice(m[1].length)];
+}
+
 export class TTSManager {
 	private emotionProvider: VolcTTSProvider;
 	private fallbackProvider: TTSProvider;
@@ -93,7 +99,7 @@ export class TTSManager {
 			const message = err instanceof Error ? err.message : String(err);
 			this.bus?.emit("tts:error", message);
 			this.bus?.emit("tts:provider-status", {
-				provider: "browser-fallback",
+				provider: "unavailable",
 				latencyMs,
 			});
 		}
@@ -149,7 +155,17 @@ export class TTSManager {
 		}
 		const text = this.extractLastPatientMessage();
 		if (text) {
-			await this.speak(text);
+			if (text.length > 50) {
+				const [first, rest] = splitFirstSentence(text);
+				await this.speak(first);
+				if (rest) {
+					setTimeout(() => {
+						void this.speak(rest);
+					}, 0);
+				}
+			} else {
+				await this.speak(text);
+			}
 		}
 	}
 

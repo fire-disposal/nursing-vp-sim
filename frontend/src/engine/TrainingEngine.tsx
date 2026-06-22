@@ -88,6 +88,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [sending, setSending] = useState(false);
 	const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
+	const [trainingEnded, setTrainingEnded] = useState(false);
 	const [voiceStatus, setVoiceStatus] = useState<{
 		provider: string;
 		latencyMs: number;
@@ -180,6 +181,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	);
 
 	const endTraining = useCallback(async () => {
+		setTrainingEnded(true);
 		try {
 			await scoreRef.current.end();
 		} catch {
@@ -194,7 +196,13 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			patient: patient!,
 			messages,
 			loading: sending,
-			tts: { isAutoPlay: ttsAutoPlay, setAutoPlay: setTtsAutoPlay },
+			tts: {
+				isAutoPlay: ttsAutoPlay,
+				setAutoPlay: (on: boolean) => {
+					setTtsAutoPlay(on);
+					ttsRef.current.setAutoPlay(on);
+				},
+			},
 			sendMessage,
 			endTraining,
 		}),
@@ -293,6 +301,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						messages={messages}
 						patient={patient}
 						sending={sending}
+						trainingEnded={trainingEnded}
 						onSend={sendMessage}
 						bus={busRef.current}
 						features={features}

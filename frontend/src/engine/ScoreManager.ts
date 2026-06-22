@@ -184,7 +184,6 @@ export class ScoreManager {
 		this.stopPolling();
 		if (this.recordId) _sseHandlers.delete(this.recordId);
 		this._registeredHandler = null;
-		this.bus = null;
 		this.listeners = [];
 		this._score = null;
 		this._progress = { phase: null, percentage: 0, message: "" };

@@ -14,7 +14,7 @@ from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from infrastructure.llm import encrypt_api_key
-from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, SystemConfig, User
+from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, SystemConfig, User, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ def seed_all() -> None:
     """Run all seed operations. Idempotent — safe to call multiple times."""
     _seed_data()
     _seed_llm()
+    _seed_voice()
 
 
 def _seed_data() -> None:
@@ -255,6 +256,34 @@ def _seed_llm() -> None:
         log.debug("LLM 种子完成: secret#%d + %d 用途", secret.id, len(purposes))
     except Exception:
         log.exception("LLM 种子失败，使用环境变量兜底")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _seed_voice() -> None:
+    db = SessionLocal()
+    try:
+        active = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+        if not active:
+            db.add(
+                VoiceConfig(
+                    provider="volcengine",
+                    app_id="",
+                    token_enc="",
+                    key_suffix="",
+                    tts_voice_type="zh_female_vv",
+                    tts_timeout=8,
+                    asr_sample_rate=16000,
+                    asr_enable_streaming=True,
+                    monthly_budget=200.0,
+                    is_active=True,
+                )
+            )
+            db.commit()
+            log.info("VoiceConfig seed: no active config found, created placeholder")
+    except Exception:
+        log.exception("VoiceConfig 种子失败")
         db.rollback()
     finally:
         db.close()

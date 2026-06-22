@@ -126,6 +126,10 @@ export class StreamManager {
   }
 
   async send(content: string, callbacks: StreamCallbacks = {}): Promise<void> {
+    if (this._loading) {
+      console.warn("[StreamManager] send() called while already sending — ignoring");
+      return;
+    }
     this.setLoading(true);
     this.abortController?.abort(); // Abort any previous in-flight stream
     if (!this.recordId) {

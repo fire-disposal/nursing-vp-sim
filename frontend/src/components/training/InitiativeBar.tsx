@@ -11,6 +11,7 @@ interface InitiativeBarProps {
 
 export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	const [percent, setPercent] = useState(0);
+	const [paused, setPaused] = useState(false);
 	const elapsedRef = useRef(0);
 	const thresholdRef = useRef(30);
 	const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -67,8 +68,8 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	}, [bus, pollTrigger]);
 
 	useEffect(() => {
-		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; });
-		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; });
+		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; setPaused(true); });
+		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; setPaused(false); });
 		return () => { unsubStart(); unsubEnd(); };
 	}, [bus]);
 
@@ -84,7 +85,7 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 			className="shrink-0 bg-muted/30 overflow-hidden transition-all duration-300"
 			style={{ maxHeight: features.patient_initiative ? "4px" : "0" }}
 		>
-			<div className="h-1 w-full">
+			<div className={cn("h-1 w-full", paused && "opacity-40")}>
 				<div
 					className={cn(
 						"h-full rounded-full transition-all duration-1000",

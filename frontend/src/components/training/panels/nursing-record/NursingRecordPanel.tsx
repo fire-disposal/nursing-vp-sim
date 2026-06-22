@@ -1,6 +1,5 @@
-import { ChevronDown, ChevronRight, Loader2, Send } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getNursingRecord, saveNursingRecord } from "@/api/nursing-records";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PanelTabProps } from "@/engine/types";
 import { cn } from "@/lib/utils";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
@@ -8,7 +7,6 @@ import { ITEM_COMPONENTS } from "./index";
 import type { RecordSheetItem, RecordSheetSection } from "./types";
 
 const STORAGE_PREFIX = "nursing_record_sheet_";
-const CACHE_TTL_MS = 30_000; // Don't re-fetch if last fetch was < 30s ago
 
 function loadValues(recordId: string): Record<string, Record<string, unknown>> {
 	try {
@@ -96,39 +94,16 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 		new Set(),
 	);
 	const [submitStatus, setSubmitStatus] = useState<
-		"draft" | "submitted" | "saving"
+		"draft" | "submitted"
 	>("draft");
 	const [submitError, setSubmitError] = useState<string | null>(null);
-	const lastFetchRef = useRef(0);
 
 	useEffect(() => {
 		const cached = loadValues(recordId);
-		const hasCachedData = Object.keys(cached).length > 0;
-		const cacheFresh = Date.now() - lastFetchRef.current < CACHE_TTL_MS;
-
 		setValues(cached);
 		setCollapsedSections(new Set());
 		setSubmitStatus("draft");
 		setSubmitError(null);
-
-		if (hasCachedData && cacheFresh) return;
-
-		lastFetchRef.current = Date.now();
-		getNursingRecord(Number(recordId))
-			.then((r) => {
-				const remote = r.data as Record<string, unknown>;
-				if (remote?.sheet_data) {
-					setValues(
-						remote.sheet_data as Record<string, Record<string, unknown>>,
-					);
-					saveValues(
-						recordId,
-						remote.sheet_data as Record<string, Record<string, unknown>>,
-					);
-				}
-				if (remote?.status === "submitted") setSubmitStatus("submitted");
-			})
-			.catch(() => {});
 	}, [recordId]);
 
 	useEffect(() => {
@@ -179,19 +154,9 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 	);
 
 	const handleSubmit = useCallback(async () => {
-		setSubmitStatus("saving");
+		saveValues(recordId, values);
+		setSubmitStatus("submitted");
 		setSubmitError(null);
-		try {
-			await saveNursingRecord(Number(recordId), {
-				sheet_data: values,
-				status: "submitted",
-			});
-			setSubmitStatus("submitted");
-		} catch (err: unknown) {
-			const e = err as { response?: { data?: { detail?: string } } };
-			setSubmitError(e?.response?.data?.detail || "提交失败");
-			setSubmitStatus("draft");
-		}
 	}, [recordId, values]);
 
 	return (
@@ -251,24 +216,17 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 			<div className="flex items-center justify-between pt-2 gap-2">
 				<p className="text-[0.6rem] text-muted-foreground">
 					{submitStatus === "submitted"
-						? "已提交"
-						: submitStatus === "saving"
-							? "提交中..."
-							: "草稿"}
+						? "已保存 (本地)"
+						: "草稿 (本地)"}
 				</p>
 				{submitStatus !== "submitted" && (
 					<button
 						type="button"
 						onClick={handleSubmit}
-						disabled={submitStatus === "saving" || ctx.loading}
+						disabled={ctx.loading}
 						className="inline-flex items-center gap-1 rounded bg-primary px-2.5 py-1 text-[0.65rem] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
 					>
-						{submitStatus === "saving" ? (
-							<Loader2 size={11} className="animate-spin" />
-						) : (
-							<Send size={11} />
-						)}
-						提交护理记录
+						保存
 					</button>
 				)}
 				{submitError && (

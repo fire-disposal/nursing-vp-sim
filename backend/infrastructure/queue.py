@@ -45,8 +45,7 @@ class TaskQueue:
         _practical_max = 10  # bounded by scoring semaphore (llm_profile.py)
         if max_workers > _practical_max:
             log.warning(
-                "SCORING_WORKERS=%d exceeds practical max %d "
-                "(LLM semaphore bottleneck); throughput unchanged",
+                "SCORING_WORKERS=%d exceeds practical max %d (LLM semaphore bottleneck); throughput unchanged",
                 max_workers,
                 _practical_max,
             )

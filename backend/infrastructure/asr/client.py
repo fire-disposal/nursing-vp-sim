@@ -65,7 +65,11 @@ class VolcASRClient:
         }
 
         t0 = time.perf_counter()
-        resp = await self.http.post(ASR_API_URL, json=payload)
+        resp = await self.http.post(
+            ASR_API_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer;{self._token}"},
+        )
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
 
         if resp.status_code != 200:

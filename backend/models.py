@@ -354,7 +354,7 @@ class LLMCallLog(Base):
     estimated_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
     cost_currency: Mapped[str | None] = mapped_column(String(10), nullable=True, default="CNY")
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
-    status: Mapped[str] = mapped_column(String(20), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="success", server_default=text("'success'"), index=True)
     error_type: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     request_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)

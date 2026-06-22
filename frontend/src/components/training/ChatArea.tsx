@@ -11,6 +11,7 @@ interface ChatAreaProps {
 	messages: ChatMessage[];
 	patient: PatientData;
 	sending: boolean;
+	trainingEnded?: boolean;
 	onSend: (text: string) => void;
 	bus: MessageBus;
 	features: Record<string, boolean>;
@@ -21,6 +22,7 @@ export function ChatArea({
 	messages,
 	patient,
 	sending,
+	trainingEnded = false,
 	onSend,
 	bus,
 	features,
@@ -79,7 +81,7 @@ export function ChatArea({
 				</div>
 			</div>
 			<InitiativeBar bus={bus} features={features} recordId={recordId} />
-			<ChatInput onSend={onSend} disabled={sending} loading={sending} />
+			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} />
 		</div>
 	);
 }

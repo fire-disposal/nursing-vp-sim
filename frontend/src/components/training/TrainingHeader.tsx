@@ -234,21 +234,27 @@ export function TrainingHeader({
 					</button>
 					)}
 
-					{voiceStatus && !isCompact && (
-						<div
-							className="relative shrink-0"
-							title={`TTS: ${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`}
-						>
-							<Zap size={12} className="sm:size-[14px] text-muted-foreground" />
-							<span
-								className={cn(
-									"absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-background",
-									voiceStatus.provider.includes("browser")
+					{!isCompact && (
+					<div
+						className="relative shrink-0"
+						title={
+							voiceStatus
+								? `TTS: ${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`
+								: "TTS: 不可用"
+						}
+					>
+						<Zap size={12} className="sm:size-[14px] text-muted-foreground" />
+						<span
+							className={cn(
+								"absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-background",
+								!voiceStatus || voiceStatus.provider === "unavailable"
+									? "bg-red-400"
+									: voiceStatus.provider.includes("browser")
 										? "bg-amber-400"
 										: "bg-emerald-400",
-								)}
-							/>
-						</div>
+							)}
+						/>
+					</div>
 					)}
 
 					{!isCompact && (

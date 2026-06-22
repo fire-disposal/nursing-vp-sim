@@ -54,7 +54,9 @@ from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
+from infrastructure.tts.client import VolcTTSClient
 from middleware.rate_limits import PgRateLimiter
+from models import VoiceConfig
 from repositories.training import TrainingRepository
 
 log = logging.getLogger(__name__)
@@ -219,7 +221,6 @@ async def lifespan(app: FastAPI):
     try:
         from core.database import SessionLocal
         from infrastructure.llm.crypto_utils import decrypt_api_key
-        from models import VoiceConfig
 
         db_voice = SessionLocal()
         vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
@@ -238,6 +239,32 @@ async def lifespan(app: FastAPI):
     except Exception:
         app.state.asr_client = None
         log.exception("ASR client init failed (non-fatal)")
+
+    try:
+        from core.database import SessionLocal
+        from infrastructure.llm.crypto_utils import decrypt_api_key
+
+        db_voice = SessionLocal()
+        vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
+        if vc and vc.token_enc:
+            token = decrypt_api_key(vc.token_enc)
+            if vc.key_suffix and not token.endswith(vc.key_suffix):
+                log.error("TTS client: token integrity check failed (suffix mismatch)")
+                app.state.tts_client = None
+            else:
+                app.state.tts_client = VolcTTSClient(
+                    app_id=vc.app_id,
+                    token=token,
+                    timeout=vc.tts_timeout,
+                )
+                log.info("TTS client: ready (app_id=%s)", vc.app_id)
+        else:
+            app.state.tts_client = None
+            log.warning("TTS client: no active VoiceConfig found")
+        db_voice.close()
+    except Exception:
+        app.state.tts_client = None
+        log.exception("TTS client init failed (non-fatal)")
 
     background_loop = asyncio.new_event_loop()
     background_thread = threading.Thread(target=background_loop.run_forever, daemon=False, name="bg-loop")

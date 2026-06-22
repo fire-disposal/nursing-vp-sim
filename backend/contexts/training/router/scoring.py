@@ -214,7 +214,8 @@ async def _run_scoring_background(
         db.close()
         if tracker:
             tracker.cleanup(record_id)
-        _scoring_generation.pop(record_id, None)
+        if _get_current_generation(record_id) == gen:
+            _scoring_generation.pop(record_id, None)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)

@@ -19,9 +19,9 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         student_msg = Message(record_id=ctx.record.id, role="student", content=ctx.student_input)
         ctx.db.add(student_msg)
         _persist_phase_op_count(ctx)
+        _reset_initiative_timer(ctx)
         ctx.db.commit()
         await next_mw()
-        _reset_initiative_timer(ctx)
         return
 
     student_msg = Message(record_id=ctx.record.id, role="student", content=ctx.student_input)
@@ -31,6 +31,7 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         patient_msg = Message(record_id=ctx.record.id, role="patient", content=ctx.llm_reply)
         ctx.db.add(patient_msg)
         _persist_phase_op_count(ctx)
+        _reset_initiative_timer(ctx)
         ctx.db.commit()
         ctx.db.refresh(patient_msg)
         ctx.state[STATE_SAVED_MESSAGES] = [patient_msg]
@@ -39,8 +40,6 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
         )
 
     await next_mw()
-
-    _reset_initiative_timer(ctx)
 
 
 def _reset_initiative_timer(ctx: PipelineContext) -> None:
