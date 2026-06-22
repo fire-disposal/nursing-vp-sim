@@ -9,7 +9,7 @@ def test_ops_dashboard_hidden_without_token(client):
 
 
 def test_ops_dashboard_with_valid_token(client):
-    with patch("routers.ops._DIAGNOSE_TOKEN", "test-token"):
+    with patch("routers.ops.DIAGNOSE_TOKEN", "test-token"):
         resp = client.get("/api/ops/dashboard?token=test-token")
         assert resp.status_code == 200
         data = resp.json()
@@ -18,13 +18,13 @@ def test_ops_dashboard_with_valid_token(client):
 
 
 def test_ops_dashboard_invalid_token(client):
-    with patch("routers.ops._DIAGNOSE_TOKEN", "test-token"):
+    with patch("routers.ops.DIAGNOSE_TOKEN", "test-token"):
         resp = client.get("/api/ops/dashboard?token=wrong-token")
         assert resp.status_code == 403
 
 
 def test_ops_errors_with_valid_token(client):
-    with patch("routers.ops._DIAGNOSE_TOKEN", "test-token"):
+    with patch("routers.ops.DIAGNOSE_TOKEN", "test-token"):
         resp = client.get("/api/ops/errors?token=test-token")
         assert resp.status_code == 200
         data = resp.json()

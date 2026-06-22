@@ -87,6 +87,9 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 WECHAT_APPID = os.getenv("WECHAT_APPID", "")
 WECHAT_SECRET = os.getenv("WECHAT_SECRET", "")
 
+# 运维诊断令牌 — /api/ops/* 和 /api/diagnose 端点的访问密钥
+DIAGNOSE_TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
+
 # LLM HTTP 连接池
 LLM_CONNECTION_POOL_SIZE = int(os.getenv("LLM_CONNECTION_POOL_SIZE", "60"))
 LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))
@@ -129,5 +132,6 @@ def log_config(logger):
     logger.info("  Fernet 密钥: ***%s", fernet_tail)
     logger.info("  DeepSeek:   %s (key=***%s)", DEEPSEEK_BASE_URL, api_tail)
     logger.info("  JWT 过期:   %d 分钟", ACCESS_TOKEN_EXPIRE_MINUTES)
+    logger.info("  诊断令牌:   %s", "已配置" if DIAGNOSE_TOKEN else "未配置（运维端点隐藏）")
     logger.info("  LLM Workers: %d (semaphore divisor)", LLM_WORKER_COUNT)
     logger.info("──────────────────────────────────────")

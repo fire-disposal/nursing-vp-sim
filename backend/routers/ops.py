@@ -6,12 +6,12 @@
 """
 
 import logging
-import os
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import case, func
 
+from core.config import APP_VERSION, DIAGNOSE_TOKEN
 from core.database import SessionLocal
 from core.diagnose import get_diagnose_service
 from models import LLMCallLog, Notification, TrainingRecord
@@ -20,13 +20,11 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["ops"])
 
-_DIAGNOSE_TOKEN = os.getenv("DIAGNOSE_TOKEN", "")
-
 
 def _check_token(token: str) -> None:
-    if not _DIAGNOSE_TOKEN:
+    if not DIAGNOSE_TOKEN:
         raise HTTPException(status_code=404, detail="not found")
-    if token != _DIAGNOSE_TOKEN:
+    if token != DIAGNOSE_TOKEN:
         raise HTTPException(status_code=403, detail="invalid token")
 
 
@@ -44,7 +42,7 @@ async def ops_dashboard(
         day_ago = now - timedelta(hours=24)
 
         # ── 基础健康 ──
-        health_data = {"status": "ok", "version": os.getenv("APP_VERSION", "dev")}
+        health_data = {"status": "ok", "version": APP_VERSION}
 
         # ── LLM 调用统计（近 24h） ──
         llm_stats = (
@@ -192,7 +190,7 @@ async def ops_report(
     _check_token(token)
 
     dashboard = await ops_dashboard(token, request)
-    data = dashboard  # 不再自包装，EnvelopeMiddleware 统一处理
+    data = dashboard
 
     # 提取关键指标，生成日报摘要
     llm = data.get("llm", {})
