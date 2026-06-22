@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Brain, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -19,17 +20,31 @@ interface Progress {
 	thought?: string;
 }
 
-/** Parse raw LLM JSON thought into human-readable dimension names being scored */
-function parseThoughtSummary(thought: string | undefined): string[] {
-	if (!thought) return [];
+function parseThoughtSummary(thought: string | undefined): {
+	dimensions: string[];
+	totalScore: number | null;
+} {
+	if (!thought) return { dimensions: [], totalScore: null };
 	try {
 		const data = JSON.parse(thought) as Record<string, unknown>;
 		const dims = data.detail_scores as Record<string, unknown> | undefined;
-		if (dims) return Object.keys(dims);
+		const total =
+			typeof data.total_score === "number" ? data.total_score : null;
+		return {
+			dimensions: dims ? Object.keys(dims) : [],
+			totalScore: total,
+		};
 	} catch {
-		return [];
+		return { dimensions: [], totalScore: null };
 	}
-	return [];
+}
+
+function formatThought(thought: string): string {
+	try {
+		return JSON.stringify(JSON.parse(thought), null, 2);
+	} catch {
+		return thought;
+	}
 }
 
 export function ScoringOverlay({
@@ -46,13 +61,13 @@ export function ScoringOverlay({
 		percentage: 0,
 		message: "",
 	});
-	const [showThought, setShowThought] = useState(false);
+	const [thoughtExpanded, setThoughtExpanded] = useState(false);
 
 	useEffect(() => {
 		const unsub = bus.on("training:ended", () => {
 			setVisible(true);
 			setClosing(false);
-			setShowThought(false);
+			setThoughtExpanded(false);
 		});
 		return unsub;
 	}, [bus]);
@@ -65,8 +80,7 @@ export function ScoringOverlay({
 		const id = setInterval(() => {
 			const p = getProgressRef.current();
 			setProgress(p);
-			// Auto-expand thought when available so student sees AI reasoning
-			if (p.thought) setShowThought(true);
+			if (p.thought) setThoughtExpanded(true);
 			if (p.phase === "completed") {
 				clearInterval(id);
 				setClosing(true);
@@ -76,93 +90,153 @@ export function ScoringOverlay({
 		return () => clearInterval(id);
 	}, [visible]);
 
-	const thoughtDims = useMemo(() => parseThoughtSummary(progress.thought), [progress.thought]);
+	const { dimensions, totalScore } = useMemo(
+		() => parseThoughtSummary(progress.thought),
+		[progress.thought],
+	);
 
 	if (!visible) return null;
 
 	const phaseText = progress.phase
 		? phaseLabels[progress.phase] || progress.phase
 		: "";
-	const isActive = progress.phase !== "completed" && progress.phase !== "failed";
-	const hasThought = !!progress.thought;
+	const isActive =
+		progress.phase !== "completed" && progress.phase !== "failed";
+	const isFailed = progress.phase === "failed";
 
 	return (
 		<div
 			className={cn(
-				"fixed inset-0 z-40 flex flex-col items-center justify-center bg-background/90",
+				"fixed inset-0 z-40 flex items-center justify-center bg-background/80",
 				!closing && "animate-in fade-in-0",
 				closing && "animate-out fade-out-0",
 				"duration-300",
 			)}
 		>
-			<p className="mb-4 text-lg font-medium">
-				{isActive ? "正在评估训练表现..." : progress.phase === "completed" ? "评估完成" : "评估失败"}
-			</p>
+			{/* Card */}
+			<div
+				className={cn(
+					"w-full max-w-md mx-4 rounded-xl border border-border bg-card p-6 shadow-lg",
+					!closing && "animate-in zoom-in-95 fade-in-0",
+					closing && "animate-out zoom-out-95 fade-out-0",
+					"duration-300",
+				)}
+			>
+				{/* Header */}
+				<div className="flex items-center gap-3 mb-5">
+					<div
+						className={cn(
+							"flex size-10 shrink-0 items-center justify-center rounded-full",
+							isFailed
+								? "bg-destructive/10 text-destructive"
+								: "bg-primary/10 text-primary",
+						)}
+					>
+						{isActive ? (
+							<Loader2 className="size-5 animate-spin" />
+						) : (
+							<Brain className="size-5" />
+						)}
+					</div>
+					<div className="min-w-0">
+						<p className="truncate text-base font-semibold">
+							{isActive
+								? "正在评估训练表现"
+								: isFailed
+									? "评估失败"
+									: "评估完成"}
+						</p>
+						<p className="text-xs text-muted-foreground">
+							{phaseText}
+							{isActive ? ` · ${progress.percentage}%` : ""}
+						</p>
+					</div>
+				</div>
 
-			{/* Progress bar */}
-			<div className="h-2 w-64 rounded-full bg-muted">
-				<div
-					className={cn(
-						"h-full rounded-full transition-all duration-300",
-						progress.phase === "failed" ? "bg-destructive" : "bg-primary",
-					)}
-					style={{ width: `${Math.max(2, progress.percentage)}%` }}
-				/>
-			</div>
+				{/* Progress bar */}
+				<div className="mb-4">
+					<div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+						<div
+							className={cn(
+								"h-full rounded-full transition-all duration-500 ease-out",
+								isFailed ? "bg-destructive" : "bg-primary",
+							)}
+							style={{
+								width: `${Math.max(isActive ? 4 : progress.percentage, progress.percentage)}%`,
+							}}
+						/>
+					</div>
+				</div>
 
-			{/* Stage + percentage */}
-			<p className="mt-2 text-sm text-muted-foreground">
-				{phaseText}
-				{isActive ? ` (${progress.percentage}%)` : ""}
-			</p>
+				{/* AI reasoning box */}
+				{progress.thought && (
+					<div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+						{/* Summary bar — always visible */}
+						<div className="px-4 py-2.5 flex items-center justify-between">
+							<div className="flex items-center gap-2 min-w-0">
+								<Brain className="size-3.5 shrink-0 text-primary" />
+								<span className="text-xs text-muted-foreground truncate">
+									{dimensions.length > 0
+										? `评分维度：${dimensions.join("、")}`
+										: "AI 推理过程"}
+									{totalScore != null && (
+										<span className="ml-1 font-mono text-primary">
+											· {totalScore} 分
+										</span>
+									)}
+								</span>
+							</div>
+							<button
+								type="button"
+								onClick={() => setThoughtExpanded(!thoughtExpanded)}
+								className="shrink-0 ml-2 text-muted-foreground hover:text-foreground transition-colors"
+							>
+								{thoughtExpanded ? (
+									<ChevronUp className="size-4" />
+								) : (
+									<ChevronDown className="size-4" />
+								)}
+							</button>
+						</div>
 
-			{/* Activity message — more prominent */}
-			{isActive && progress.message && (
-				<p className="mt-2 max-w-md text-center text-xs text-muted-foreground animate-pulse">
-					{progress.message}
-				</p>
-			)}
+						{/* Expanded detail */}
+						{thoughtExpanded && (
+							<pre className="border-t border-border bg-muted/20 px-4 py-3 max-h-56 overflow-auto text-[11px] leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground">
+								{formatThought(progress.thought)}
+							</pre>
+						)}
+					</div>
+				)}
 
-			{/* AI reasoning section */}
-			{hasThought && (
-				<div className="mt-4 max-w-lg w-full px-4">
-					{thoughtDims.length > 0 && (
-						<p className="text-xs text-muted-foreground mb-1">
-							正在评分维度：{thoughtDims.join("、")}
+				{/* Error message */}
+				{isFailed && progress.message && (
+					<div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5">
+						<p className="text-xs text-destructive whitespace-pre-wrap">
+							{progress.message}
+						</p>
+					</div>
+				)}
+
+				{/* Footer */}
+				<div className="mt-4 flex items-center justify-between">
+					{isActive && !progress.thought && (
+						<p className="text-xs text-muted-foreground">
+							正在启动 AI 评分引擎...
 						</p>
 					)}
-					<button
-						type="button"
-						onClick={() => setShowThought(!showThought)}
-						className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-					>
-						{showThought ? "隐藏" : "查看"}AI 推理详情
-					</button>
-					{showThought && (
-						<pre className="mt-1 max-h-64 overflow-auto rounded-md border border-border bg-muted/50 p-3 text-xs leading-relaxed whitespace-pre-wrap font-mono">
-							{progress.thought}
-						</pre>
+					{isFailed && (
+						<button
+							type="button"
+							onClick={() => {
+								setClosing(true);
+								setTimeout(() => setVisible(false), 200);
+							}}
+							className="ml-auto rounded-md bg-secondary px-4 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors"
+						>
+							关闭
+						</button>
 					)}
 				</div>
-			)}
-
-			{progress.phase === "failed" && progress.message && (
-				<p className="mt-1 max-w-md text-center text-xs text-red-500 whitespace-pre-wrap">{progress.message}</p>
-			)}
-
-			<div className="mt-4 flex gap-3">
-				{progress.phase === "failed" && (
-					<button
-						type="button"
-						onClick={() => {
-							setClosing(true);
-							setTimeout(() => setVisible(false), 200);
-						}}
-						className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-muted transition-colors"
-					>
-						关闭
-					</button>
-				)}
 			</div>
 		</div>
 	);
