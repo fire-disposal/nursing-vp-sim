@@ -51,7 +51,7 @@ const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
 const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
-const SystemConfigsPage = lazy(() => import("@/pages/admin/SystemConfigsPage"));
+const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
 const SystemNotificationsPage = lazy(() => import("@/pages/admin/SystemNotificationsPage"));
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
@@ -124,14 +124,14 @@ export default function App() {
 											<Route
 												element={<ProtectedRoute permission="api_manage" />}
 											>
-												<Route
-													path="/admin/system-configs"
-													element={<SystemConfigsPage />}
-												/>
-												<Route
-													path="/admin/system-notifications"
-													element={<SystemNotificationsPage />}
-												/>
+											<Route
+												path="/admin/system-ops"
+												element={<SystemOpsPage />}
+											/>
+											<Route
+												path="/admin/system-notifications"
+												element={<SystemNotificationsPage />}
+											/>
 											</Route>
 										<Route
 											element={<ProtectedRoute permission="llm_monitor" />}

@@ -1,4 +1,5 @@
 ﻿import {
+	Activity,
 	BarChart3,
 	Bug,
 	Building2,
@@ -15,7 +16,6 @@
 	MessageSquare,
 	Server,
 	Settings,
-	Settings2,
 	Shield,
 	Stethoscope,
 	UserSearch,
@@ -136,9 +136,9 @@ const allLinks: NavLinkItem[] = [
 		permission: "score_review",
 	},
 	{
-		to: "/admin/system-configs",
-		icon: Settings2,
-		label: "系统配置",
+		to: "/admin/system-ops",
+		icon: Activity,
+		label: "系统运维",
 		permission: "api_manage",
 	},
 	{

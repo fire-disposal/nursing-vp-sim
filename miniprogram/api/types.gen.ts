@@ -1145,12 +1145,6 @@ export interface StudentDetail {
   daily?: unknown[]
 }
 
-export interface SystemConfigItem {
-  key: string
-  value?: string | null
-  description?: string | null
-}
-
 export interface SystemNotificationCreateRequest {
   title: string
   content: string

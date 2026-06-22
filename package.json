@@ -6,7 +6,7 @@
   "description": "Nursing Virtual Patient Simulator — LLM-powered medical history interview training",
   "scripts": {
     "prepare": "husky",
-    "dev": "npx kill-port 8000 3000 && cross-env FORCE_COLOR=1 concurrently -n BE,FE -c blue,green --kill-others \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
+    "dev": "npx kill-port 8000 && cross-env FORCE_COLOR=1 concurrently -n BE,FE -c blue,green --kill-others \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
     "dev:backend": "cd backend && cross-env PYTHONUTF8=1 uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug",
     "dev:frontend": "cd frontend && cross-env FORCE_COLOR=1 pnpm dev",
     "check": "pnpm run check:backend && pnpm run check:frontend",

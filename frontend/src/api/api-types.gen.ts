@@ -316,6 +316,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ops/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Ops Dashboard */
+        get: operations["admin_ops_dashboard_api_admin_ops_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ops/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Ops Errors */
+        get: operations["admin_ops_errors_api_admin_ops_errors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ops/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Ops Report */
+        get: operations["admin_ops_report_api_admin_ops_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/api/rubrics": {
         parameters: {
             query?: never;
@@ -380,40 +431,6 @@ export interface paths {
         put?: never;
         /** Activate Rubric */
         post: operations["activate_rubric_api_admin_api_rubrics__rubric_id__activate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Configs */
-        get: operations["list_configs_api_admin_config_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/config/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Config */
-        put: operations["update_config_api_admin_config__key__put"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4913,15 +4930,6 @@ export interface components {
              */
             daily: unknown[];
         };
-        /** SystemConfigItem */
-        SystemConfigItem: {
-            /** Key */
-            key: string;
-            /** Value */
-            value?: string | null;
-            /** Description */
-            description?: string | null;
-        };
         /** SystemNotificationCreateRequest */
         SystemNotificationCreateRequest: {
             /** Title */
@@ -6139,6 +6147,78 @@ export interface operations {
             };
         };
     };
+    admin_ops_dashboard_api_admin_ops_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    admin_ops_errors_api_admin_ops_errors_get: {
+        parameters: {
+            query?: {
+                /** @description 返回条数 */
+                n?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_ops_report_api_admin_ops_report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     list_rubrics_api_admin_api_rubrics_get: {
         parameters: {
             query?: never;
@@ -6296,63 +6376,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OkResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_configs_api_admin_config_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SystemConfigItem"][];
-                };
-            };
-        };
-    };
-    update_config_api_admin_config__key__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SystemConfigItem"];
                 };
             };
             /** @description Validation Error */

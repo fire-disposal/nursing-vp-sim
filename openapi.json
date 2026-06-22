@@ -1057,6 +1057,102 @@
         ]
       }
     },
+    "/api/admin/ops/dashboard": {
+      "get": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Admin Ops Dashboard",
+        "operationId": "admin_ops_dashboard_api_admin_ops_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/ops/errors": {
+      "get": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Admin Ops Errors",
+        "operationId": "admin_ops_errors_api_admin_ops_errors_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "返回条数",
+              "default": 20,
+              "title": "N"
+            },
+            "description": "返回条数"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ops/report": {
+      "get": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Admin Ops Report",
+        "operationId": "admin_ops_report_api_admin_ops_report_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/api/rubrics": {
       "get": {
         "tags": [
@@ -1289,95 +1385,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/config": {
-      "get": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "List Configs",
-        "operationId": "list_configs_api_admin_config_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SystemConfigItem"
-                  },
-                  "type": "array",
-                  "title": "Response List Configs Api Admin Config Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/config/{key}": {
-      "put": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Update Config",
-        "operationId": "update_config_api_admin_config__key__put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Key"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Body"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SystemConfigItem"
                 }
               }
             }
@@ -15104,41 +15111,6 @@
           "created_at"
         ],
         "title": "StudentDetail"
-      },
-      "SystemConfigItem": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key"
-        ],
-        "title": "SystemConfigItem"
       },
       "SystemNotificationCreateRequest": {
         "properties": {
