@@ -4,6 +4,7 @@
 	Building2,
 	ClipboardCheck,
 	ClipboardList,
+	Coins,
 	GraduationCap,
 	HelpCircle,
 	Home,
@@ -108,6 +109,12 @@ const allLinks: NavLinkItem[] = [
 		to: "/admin/llm",
 		icon: Server,
 		label: "LLM 管理",
+		permission: "llm_monitor",
+	},
+	{
+		to: "/admin/costs",
+		icon: Coins,
+		label: "成本管理",
 		permission: "llm_monitor",
 	},
 	{

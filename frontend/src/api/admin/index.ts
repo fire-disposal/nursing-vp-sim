@@ -5,3 +5,4 @@ export * from "./roles";
 export * from "./schools";
 export * from "./system-configs";
 export * from "./users";
+export * from "./voice-cost";

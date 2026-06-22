@@ -90,3 +90,42 @@ class ASRRecognizeResponse(BaseModel):
     model_config = _RESP_CFG
     text: str
     confidence: float
+
+
+# ── Unified Cost Dashboard ──
+
+
+class CostBreakdown(BaseModel):
+    calls: int
+    success: int
+    error: int
+    latency_ms_avg: float
+    total_cost: float
+
+
+class CostSeriesPoint(BaseModel):
+    date: str       # "2026-06-22"
+    llm_cost: float
+    tts_cost: float
+    asr_cost: float
+
+
+class CostDashboardResponse(BaseModel):
+    today: CostBreakdown
+    this_month: CostBreakdown
+    llm_today: CostBreakdown
+    tts_today: CostBreakdown
+    asr_today: CostBreakdown
+    monthly_budget: float
+    monthly_used: float
+    daily_series: list[CostSeriesPoint]  # last 30 days
+    top_users: list[dict]               # [{user_name, total_cost, calls}]
+
+
+class CostExportRequest(BaseModel):
+    model_config = _REQ_CFG
+    start_date: str | None = None   # "2026-06-01"
+    end_date: str | None = None     # "2026-06-22"
+    service: str | None = None      # "llm" | "tts" | "asr" | None=all
+    granularity: str = "daily"      # "daily" | "monthly"
+    format: str = "json"            # "json" | "csv"

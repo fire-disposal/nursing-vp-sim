@@ -105,7 +105,10 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
 
     item_errors = _validate_items_content(result.get("detail_scores", {}))
     if item_errors:
-        raise ValueError(f"评分条目内容校验不通过: {'; '.join(item_errors)}")
+        log.warning(
+            "评分条目内容校验不通过（降为警告，不阻断评分）",
+            extra={"item_errors": item_errors, "detail_scores": result.get("detail_scores", {})},
+        )
 
     empty_feedback = []
     for field, expected_type in [

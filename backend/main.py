@@ -447,6 +447,7 @@ from routers.admin_api import router as admin_api_router
 from routers.admin_prompts import router as admin_prompts_router
 from routers.admin_roles import router as admin_roles_router
 from routers.admin_schools import router as admin_schools_router
+from routers.admin_voice import router as admin_voice_router
 from routers.asr import router as asr_router
 from routers.assignments import router as assignments_router
 from routers.assignments import student_router as student_assignments_router
@@ -469,6 +470,7 @@ app.include_router(assignments_router)
 app.include_router(diagnose_router)
 app.include_router(student_assignments_router)
 app.include_router(ops_router)
+app.include_router(admin_voice_router)
 app.include_router(asr_router)
 app.include_router(tts_router)
 
