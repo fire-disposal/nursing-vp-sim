@@ -428,6 +428,7 @@ async def _stream_feedback_attempt(
 
         full_text = "".join(content_parts)
         result = _safe_parse_json(full_text)
+        _coerce_numeric_fields(result)
         return result
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
         log.warning(

@@ -14,7 +14,7 @@ from sqlalchemy import case, func
 from core.config import APP_VERSION, DIAGNOSE_TOKEN
 from core.database import SessionLocal
 from core.diagnose import get_diagnose_service
-from models import LLMCallLog, Notification, TrainingRecord
+from models import LLMCallLog, Notification, TrainingRecord, VoiceCallLog, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +129,28 @@ async def ops_dashboard(
             or 0
         )
 
+        # ── 语音服务统计（近 24h） ──
+        voice_stats = _query_voice_stats(db, day_ago)
+
+        # ── SSE 连接统计 ──
+        sse_stats = {}
+        if request and hasattr(request.app.state, "sse_manager"):
+            try:
+                sse_stats = request.app.state.sse_manager.stats
+            except Exception:
+                pass
+
+        # ── 评分进行中 ──
+        scoring_in_progress = 0
+        if request and hasattr(request.app.state, "scoring_tracker"):
+            try:
+                scoring_in_progress = len(request.app.state.scoring_tracker._store)
+            except Exception:
+                pass
+
+        # ── 语音月度预算 ──
+        voice_budget = _query_voice_budget(db)
+
         return {
             "health": health_data,
             "time": now.isoformat(),
@@ -143,6 +165,7 @@ async def ops_dashboard(
             "scoring": {
                 "pending": scoring_pending,
                 "stuck": scoring_stuck,
+                "in_progress": scoring_in_progress,
             },
             "sessions": {
                 "active": active_sessions,
@@ -150,6 +173,9 @@ async def ops_dashboard(
             "notifications": {
                 "unread": unread_notifications,
             },
+            "voice": voice_stats,
+            "voice_budget": voice_budget,
+            "sse": sse_stats,
             "metrics": metrics_snapshot,
             "diagnostic": diagnostic,
             "system_errors": system_errors,
@@ -196,9 +222,10 @@ async def ops_report(
     llm = data.get("llm", {})
     scoring = data.get("scoring", {})
     sessions = data.get("sessions", {})
+    voice = data.get("voice", {})
 
     alerts = []
-    if llm.get("success_rate", 100) < 90:
+    if llm.get("total_calls_24h", 0) > 0 and llm.get("success_rate", 100) < 90:
         alerts.append(f"LLM 成功率 {llm['success_rate']}% 低于 90%")
     if llm.get("error_count_24h", 0) > 50:
         alerts.append(f"近 24h LLM 错误 {llm['error_count_24h']} 次")
@@ -206,6 +233,14 @@ async def ops_report(
         alerts.append(f"卡住评分 {scoring['stuck']} 条")
     if sessions.get("active", 0) > 50:
         alerts.append(f"活跃会话 {sessions['active']} 个")
+    tts = voice.get("tts", {})
+    asr_ = voice.get("asr", {})
+    if tts.get("calls_24h", 0) > 0 and tts.get("success_rate", 100) < 90:
+        alerts.append(f"TTS 成功率 {tts['success_rate']}% 低于 90%")
+    if asr_.get("calls_24h", 0) > 0 and asr_.get("success_rate", 100) < 80:
+        alerts.append(f"ASR 成功率 {asr_['success_rate']}% 低于 80%")
+    if tts.get("error_count_24h", 0) > 20:
+        alerts.append(f"近 24h TTS 错误 {tts['error_count_24h']} 次")
 
     return {
         "summary": {
@@ -230,5 +265,66 @@ async def ops_report(
         "notifications": {
             "unread": data.get("notifications", {}).get("unread", 0),
         },
+        "voice": data.get("voice", {}),
+        "voice_budget": data.get("voice_budget", {}),
         "alerts": alerts,
+    }
+
+
+# ── Helper queries ──
+
+
+def _query_voice_stats(db, day_ago) -> dict:
+    """Voice (TTS/ASR) stats for the past 24h — single aggregation query per direction."""
+    rows = (
+        db.query(
+            VoiceCallLog.direction,
+            func.count(VoiceCallLog.id).label("total"),
+            func.sum(case((VoiceCallLog.status == "success", 1), else_=0)).label("success"),
+            func.sum(case((VoiceCallLog.status == "error", 1), else_=0)).label("error"),
+            func.avg(VoiceCallLog.latency_ms).label("avg_latency_ms"),
+            func.sum(VoiceCallLog.cost_estimated).label("cost"),
+        )
+        .filter(VoiceCallLog.created_at >= day_ago)
+        .group_by(VoiceCallLog.direction)
+        .all()
+    )
+
+    result: dict = {"tts": {}, "asr": {}}
+    for r in rows:
+        total = r.total or 0
+        success = r.success or 0
+        section = {
+            "calls_24h": total,
+            "success_rate": round(success / max(total, 1) * 100, 1),
+            "error_count_24h": r.error or 0,
+            "avg_latency_ms": round(r.avg_latency_ms or 0, 0),
+            "cost_24h": round(float(r.cost or 0), 4),
+        }
+        if r.direction == "tts":
+            result["tts"] = section
+        elif r.direction == "asr":
+            result["asr"] = section
+    return result
+
+
+def _query_voice_budget(db) -> dict:
+    """Monthly voice budget vs consumption."""
+    cfg = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    if not cfg:
+        return {"monthly_budget": 0, "monthly_cost": 0, "usage_pct": 0}
+
+    now = datetime.now(UTC)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_cost = (
+        db.query(func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0))
+        .filter(VoiceCallLog.created_at >= month_start)
+        .scalar()
+        or 0
+    )
+    budget = float(cfg.monthly_budget or 0)
+    return {
+        "monthly_budget": budget,
+        "monthly_cost": round(float(monthly_cost), 4),
+        "usage_pct": round(float(monthly_cost) / max(budget, 1) * 100, 1),
     }

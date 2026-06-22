@@ -12,7 +12,7 @@ from core.config import APP_VERSION
 from core.database import get_db
 from core.diagnose import get_diagnose_service
 from core.security import require_permission
-from models import LLMCallLog, Notification, TrainingRecord, User
+from models import LLMCallLog, Notification, TrainingRecord, User, VoiceCallLog, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +93,58 @@ def _query_unread_notifications(db: Session):
     )
 
 
+def _query_voice_stats(db: Session, day_ago: datetime):
+    rows = (
+        db.query(
+            VoiceCallLog.direction,
+            func.count(VoiceCallLog.id).label("total"),
+            func.sum(case((VoiceCallLog.status == "success", 1), else_=0)).label("success"),
+            func.sum(case((VoiceCallLog.status == "error", 1), else_=0)).label("error"),
+            func.avg(VoiceCallLog.latency_ms).label("avg_latency_ms"),
+            func.sum(VoiceCallLog.cost_estimated).label("cost"),
+        )
+        .filter(VoiceCallLog.created_at >= day_ago)
+        .group_by(VoiceCallLog.direction)
+        .all()
+    )
+    result: dict = {"tts": {}, "asr": {}}
+    for r in rows:
+        total = r.total or 0
+        success = r.success or 0
+        section = {
+            "calls_24h": total,
+            "success_rate": round(success / max(total, 1) * 100, 1),
+            "error_count_24h": r.error or 0,
+            "avg_latency_ms": round(r.avg_latency_ms or 0, 0),
+            "cost_24h": round(float(r.cost or 0), 4),
+        }
+        if r.direction == "tts":
+            result["tts"] = section
+        elif r.direction == "asr":
+            result["asr"] = section
+    return result
+
+
+def _query_voice_budget(db: Session):
+    cfg = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    if not cfg:
+        return {"monthly_budget": 0, "monthly_cost": 0, "usage_pct": 0}
+    now = datetime.now(UTC)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_cost = (
+        db.query(func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0))
+        .filter(VoiceCallLog.created_at >= month_start)
+        .scalar()
+        or 0
+    )
+    budget = float(cfg.monthly_budget or 0)
+    return {
+        "monthly_budget": budget,
+        "monthly_cost": round(float(monthly_cost), 4),
+        "usage_pct": round(float(monthly_cost) / max(budget, 1) * 100, 1),
+    }
+
+
 @router.get("/ops/dashboard")
 async def admin_ops_dashboard(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
@@ -108,6 +160,22 @@ async def admin_ops_dashboard(
     active_sessions = _query_active_sessions(db)
     recent_errors = _query_recent_llm_errors(db, day_ago)
     unread_notifications = _query_unread_notifications(db)
+    voice_stats = _query_voice_stats(db, day_ago)
+    voice_budget = _query_voice_budget(db)
+
+    sse_stats = {}
+    if hasattr(request.app.state, "sse_manager"):
+        try:
+            sse_stats = request.app.state.sse_manager.stats
+        except Exception:
+            pass
+
+    scoring_in_progress = 0
+    if hasattr(request.app.state, "scoring_tracker"):
+        try:
+            scoring_in_progress = len(request.app.state.scoring_tracker._store)
+        except Exception:
+            pass
 
     try:
         service = get_diagnose_service()
@@ -135,9 +203,12 @@ async def admin_ops_dashboard(
             "avg_latency_ms": llm_stats["avg_latency_ms"],
             "recent_errors": recent_errors,
         },
-        "scoring": scoring,
+        "scoring": {**scoring, "in_progress": scoring_in_progress},
         "sessions": {"active": active_sessions},
         "notifications": {"unread": unread_notifications},
+        "voice": voice_stats,
+        "voice_budget": voice_budget,
+        "sse": sse_stats,
         "metrics": metrics_snapshot,
         "diagnostic": diagnostic,
         "system_errors": system_errors,
@@ -177,9 +248,10 @@ async def admin_ops_report(
     llm = data.get("llm", {})
     scoring = data.get("scoring", {})
     sessions = data.get("sessions", {})
+    voice = data.get("voice", {})
 
     alerts = []
-    if llm.get("success_rate", 100) < 90:
+    if llm.get("total_calls_24h", 0) > 0 and llm.get("success_rate", 100) < 90:
         alerts.append(f"LLM 成功率 {llm['success_rate']}% 低于 90%")
     if llm.get("error_count_24h", 0) > 50:
         alerts.append(f"近 24h LLM 错误 {llm['error_count_24h']} 次")
@@ -187,6 +259,14 @@ async def admin_ops_report(
         alerts.append(f"卡住评分 {scoring['stuck']} 条")
     if sessions.get("active", 0) > 50:
         alerts.append(f"活跃会话 {sessions['active']} 个")
+    tts = voice.get("tts", {})
+    asr_ = voice.get("asr", {})
+    if tts.get("calls_24h", 0) > 0 and tts.get("success_rate", 100) < 90:
+        alerts.append(f"TTS 成功率 {tts['success_rate']}% 低于 90%")
+    if asr_.get("calls_24h", 0) > 0 and asr_.get("success_rate", 100) < 80:
+        alerts.append(f"ASR 成功率 {asr_['success_rate']}% 低于 80%")
+    if tts.get("error_count_24h", 0) > 20:
+        alerts.append(f"近 24h TTS 错误 {tts['error_count_24h']} 次")
 
     return {
         "summary": {
@@ -211,5 +291,7 @@ async def admin_ops_report(
         "notifications": {
             "unread": data.get("notifications", {}).get("unread", 0),
         },
+        "voice": data.get("voice", {}),
+        "voice_budget": data.get("voice_budget", {}),
         "alerts": alerts,
     }

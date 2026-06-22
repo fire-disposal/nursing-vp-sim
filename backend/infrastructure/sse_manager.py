@@ -35,3 +35,14 @@ class SSEManager:
                 dead.append(queue)
         for queue in dead:
             self.unsubscribe(user_id, queue)
+
+    @property
+    def stats(self) -> dict:
+        """Connection stats for ops diagnostics."""
+        total = 0
+        for queues in self._subscribers.values():
+            total += len(queues)
+        return {
+            "total_connections": total,
+            "unique_users": len(self._subscribers),
+        }
