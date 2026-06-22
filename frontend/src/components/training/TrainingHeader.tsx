@@ -7,6 +7,7 @@ import {
 	Pause,
 	Phone,
 	Play,
+	Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +41,7 @@ interface TrainingHeaderProps {
 	fromAssignment?: boolean;
 	timeLimitMinutes?: number;
 	remainingSeconds?: number | null;
+	voiceStatus?: { provider: string; latencyMs: number } | null;
 }
 
 export function TrainingHeader({
@@ -55,6 +57,7 @@ export function TrainingHeader({
 	fromAssignment: _fromAssignment = false,
 	timeLimitMinutes,
 	remainingSeconds,
+	voiceStatus,
 }: TrainingHeaderProps) {
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();
@@ -229,6 +232,23 @@ export function TrainingHeader({
 							<EarOff size={14} className="sm:size-[16px]" />
 						)}
 					</button>
+					)}
+
+					{voiceStatus && !isCompact && (
+						<div
+							className="relative shrink-0"
+							title={`TTS: ${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`}
+						>
+							<Zap size={12} className="sm:size-[14px] text-muted-foreground" />
+							<span
+								className={cn(
+									"absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-background",
+									voiceStatus.provider.includes("browser")
+										? "bg-amber-400"
+										: "bg-emerald-400",
+								)}
+							/>
+						</div>
 					)}
 
 					{!isCompact && (

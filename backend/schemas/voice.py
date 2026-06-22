@@ -6,6 +6,7 @@ from schemas.common import _REQ_CFG, _RESP_CFG
 
 # ── Config CRUD ──
 
+
 class VoiceConfigUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     provider: str = "volcengine"
@@ -37,6 +38,7 @@ class VoiceConfigResponse(BaseModel):
 
 # ── Usage stats ──
 
+
 class VoiceUsageItem(BaseModel):
     calls_total: int
     calls_success: int
@@ -62,3 +64,29 @@ class VoiceStatusResponse(BaseModel):
     asr_online: bool
     last_error: str | None
     last_error_at: str | None
+
+
+# ── TTS ──
+
+
+class TTSSynthesizeRequest(BaseModel):
+    model_config = _REQ_CFG
+    text: str = Field(min_length=1, max_length=500)
+    record_id: int = Field(ge=1)
+    voice_type: str | None = Field(default=None, max_length=40)
+
+
+# ── ASR ──
+
+
+class ASRRecognizeRequest(BaseModel):
+    model_config = _REQ_CFG
+    audio: str = Field(min_length=1)  # base64-encoded audio
+    format: str = "wav"
+    sample_rate: int = Field(default=16000, ge=8000, le=48000)
+
+
+class ASRRecognizeResponse(BaseModel):
+    model_config = _RESP_CFG
+    text: str
+    confidence: float

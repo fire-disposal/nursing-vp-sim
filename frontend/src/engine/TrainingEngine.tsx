@@ -73,8 +73,9 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const busRef = useRef(createMessageBus());
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
-	const ttsRef = useRef(new TTSManager({ autoPlay: true }));
+	const ttsRef = useRef(new TTSManager({ autoPlay: true, recordId: recordNum }));
 	const seededRef = useRef(false);
+	const patientAccRef = useRef("");
 
 	const { setEmotion } = useEmotion();
 	const { setPortraitUrl } = usePortrait();
@@ -87,6 +88,10 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [sending, setSending] = useState(false);
 	const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
+	const [voiceStatus, setVoiceStatus] = useState<{
+		provider: string;
+		latencyMs: number;
+	} | null>(null);
 
 	const { features, toggleFeature, activePanels } =
 		useFeatureToggles(initialFeatures);
@@ -117,6 +122,10 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	}, [recordNum]);
 
 	useEffect(() => {
+		ttsRef.current.setRecordId(recordNum);
+	}, [recordNum]);
+
+	useEffect(() => {
 		if (patient) {
 			setPortraitUrl(getPatientPortraitUrl(patient, null));
 		}
@@ -140,9 +149,19 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const sendMessage = useCallback(
 		async (text: string) => {
 			const bus = busRef.current;
+			patientAccRef.current = "";
 			streamRef.current.send(text, {
-				onPatientChunk: () => bus.emit("stream:chunk"),
-				onPatientDone: () => bus.emit("stream:done"),
+				onPatientChunk: (chunk: string) => {
+					patientAccRef.current += chunk;
+					bus.emit("stream:chunk");
+					bus.emit("tts:prebuffer", {
+						text: patientAccRef.current,
+					});
+				},
+				onPatientDone: () => {
+					bus.emit("stream:done");
+					patientAccRef.current = "";
+				},
 				onError: (err) => bus.emit("stream:error", err),
 				onExamResult: (examResult) => bus.emit("exam:result", examResult),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
@@ -216,6 +235,15 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		});
 	}, [toastError]);
 
+	useEffect(() => {
+		return busRef.current.on(
+			"tts:provider-status",
+			(data: { provider: string; latencyMs: number }) => {
+				setVoiceStatus(data);
+			},
+		);
+	}, []);
+
 	if (loading) {
 		return (
 			<div className="flex flex-col h-screen">
@@ -257,6 +285,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					fromAssignment={fromAssignment}
 					timeLimitMinutes={timeLimit}
 					remainingSeconds={remainingSeconds}
+					voiceStatus={voiceStatus}
 				/>
 				<div className="flex-1 overflow-hidden relative">
 					<ChatArea
