@@ -1,7 +1,6 @@
 """评分校验工具 —— 类型转换 + 字段验证 + 百分制换算"""
 
 import logging
-from contextlib import suppress
 
 log = logging.getLogger(__name__)
 
@@ -34,8 +33,11 @@ def _coerce_numeric_fields(obj: dict, depth: int = 0):
         return
     for key in ("total_score", "score", "max"):
         if key in obj and isinstance(obj[key], str):
-            with suppress(ValueError):
-                obj[key] = float(obj[key]) if "." in obj[key] else int(obj[key])
+            raw = obj[key]
+            try:
+                obj[key] = float(raw) if "." in raw else int(raw)
+            except ValueError:
+                log.warning("coerce_numeric_fields 无法转换: key=%s value=%r", key, raw[:200])
     for value in obj.values():
         if isinstance(value, dict):
             _coerce_numeric_fields(value, depth + 1)
@@ -74,9 +76,23 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
                 continue
             item_score = item.get("score", 0)
             if isinstance(item_score, str):
-                with suppress(ValueError):
+                try:
                     item_score = float(item_score)
+                except ValueError:
+                    log.warning(
+                        "评分条目 score 字符串无法转换: dim=%s item=%s value=%r",
+                        dim_name,
+                        item.get("name", "?"),
+                        item_score[:100],
+                    )
+                    item_score = 0
             if not isinstance(item_score, (int, float)):
+                log.warning(
+                    "评分条目 score 类型异常(强制清零): dim=%s item=%s type=%s",
+                    dim_name,
+                    item.get("name", "?"),
+                    type(item_score).__name__,
+                )
                 item_score = 0
             ev = (item.get("evidence") or "").strip()
             rea = (item.get("reason") or "").strip()
@@ -105,7 +121,10 @@ def _validate_scoring_result(result: dict, rubric: dict | None = None):
 
     item_errors = _validate_items_content(result.get("detail_scores", {}))
     if item_errors:
-        raise ValueError(f"评分条目内容校验不通过: {'; '.join(item_errors)}")
+        log.warning(
+            "评分条目内容校验不通过（降为警告，不阻断评分）",
+            extra={"item_errors": item_errors, "detail_scores": result.get("detail_scores", {})},
+        )
 
     empty_feedback = []
     for field, expected_type in [
