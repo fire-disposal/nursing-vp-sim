@@ -87,6 +87,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [sending, setSending] = useState(false);
 	const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
+	const [trainingEnded, setTrainingEnded] = useState(false);
 
 	const { features, toggleFeature, activePanels } =
 		useFeatureToggles(initialFeatures);
@@ -160,6 +161,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	);
 
 	const endTraining = useCallback(async () => {
+		setTrainingEnded(true);
 		try {
 			await scoreRef.current.end();
 		} catch {
@@ -263,6 +265,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						messages={messages}
 						patient={patient}
 						sending={sending}
+						trainingEnded={trainingEnded}
 						onSend={sendMessage}
 						bus={busRef.current}
 						features={features}
