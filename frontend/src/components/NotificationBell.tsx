@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
@@ -28,10 +28,10 @@ export default function NotificationBell() {
 		refetchInterval: 30_000,
 	});
 
-	const markReadMutation = useMutation({
-		mutationFn: (id: number) => api.patch(`/training/notifications/${id}`),
+	const markAllReadMutation = useMutation({
+		mutationFn: () => api.patch("/training/notifications/read-all"),
 		onSuccess: () => {
-			qc.invalidateQueries({ queryKey: ["notifications"] });
+			qc.setQueryData<Notification[]>(["notifications"], []);
 		},
 		onError: () => {
 			toastError("标记已读失败");
@@ -41,9 +41,15 @@ export default function NotificationBell() {
 	const notifications: Notification[] = data ?? [];
 	const unread = notifications.length;
 
+	// Mark all as read when panel opens
+	useEffect(() => {
+		if (open && notifications.length > 0) {
+			markAllReadMutation.mutate();
+		}
+	}, [open]);
+
 	const handleClick = useCallback(
 		(n: Notification) => {
-			markReadMutation.mutate(n.id);
 			setOpen(false);
 			if (n.record_id) {
 				navigate(`/record/${n.record_id}`);
@@ -51,7 +57,7 @@ export default function NotificationBell() {
 				navigate("/history");
 			}
 		},
-		[markReadMutation, navigate],
+		[navigate],
 	);
 
 	return (
