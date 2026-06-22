@@ -85,6 +85,7 @@ export function ScoringOverlay({
 	const isActive =
 		progress.phase !== "completed" && progress.phase !== "failed";
 	const isFailed = progress.phase === "failed";
+	const stuck = isActive && !!progress.thought && progress.percentage > 10;
 
 	return (
 		<div
@@ -178,7 +179,7 @@ export function ScoringOverlay({
 				)}
 
 				{/* Footer */}
-				{isFailed && (
+				{(isFailed || stuck) && (
 					<div className="mt-3 flex justify-end">
 						<button
 							type="button"
@@ -188,7 +189,7 @@ export function ScoringOverlay({
 							}}
 							className="rounded-md bg-secondary px-3 py-1 text-xs font-medium hover:bg-secondary/80 transition-colors"
 						>
-							关闭
+							{isFailed ? "关闭" : "后台继续"}
 						</button>
 					</div>
 				)}

@@ -59,6 +59,7 @@ export class ScoreManager {
 
 	async end(): Promise<void> {
 		if (!this.recordId) return;
+		if (this._polling || this._progress.phase === "completed") return;
 		this._progress = { phase: "loading", percentage: 5, message: "正在结束训练..." };
 		this.notify();
 		try {
@@ -200,8 +201,9 @@ export class ScoreManager {
 	}
 
 	setRecordId(id: number | null): void {
-		this.reset();
+		if (this.recordId) _sseHandlers.delete(this.recordId);
 		this.recordId = id;
+		this.reset();
 		if (id) {
 			this._registeredHandler = this.onSSEProgress.bind(this);
 			_sseHandlers.set(id, this._registeredHandler);

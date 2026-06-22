@@ -170,3 +170,5 @@ def get_emotion(record_id: int, cache: EmotionCache, db: Session) -> EmotionStat
 
 def cleanup_emotion(record_id: int, cache: EmotionCache, db: Session) -> None:
     cache.cleanup(record_id, db)
+    with _emotion_locks_guard:
+        _emotion_locks.pop(record_id, None)
