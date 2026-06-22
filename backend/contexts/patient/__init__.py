@@ -50,12 +50,14 @@ from .prompt import (
 )
 
 __all__ = [
+    "MAX_INITIATIVE_COUNT",
     "EmotionNoteSource",
     "EmotionState",
     "ExamImpactSource",
     "ExamResultsSource",
     "IdentityGuardSource",
     "NoteSource",
+    "apply_initiative_penalty",
     "build_patient_chat_messages",
     "build_patient_context_kwargs",
     "check_initiate_ready",

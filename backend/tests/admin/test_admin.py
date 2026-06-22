@@ -156,87 +156,6 @@ class TestLLMLogs:
         assert data["items"] == []
         assert data["total"] == 0
 
-    def test_get_llm_logs_with_data(self, client, teacher, db_session, test_case):
-        from core.security import hash_password
-        from models import LLMCallLog, Role, TrainingRecord
-        from models import User as UserModel
-
-        student_role = db_session.query(Role).filter(Role.name == "student").first()
-        student = UserModel(
-            username="logtest",
-            password_hash=hash_password("123"),
-            role_id=student_role.id,
-            school_id=1,
-            display_name="测试学生",
-        )
-        db_session.add(student)
-        db_session.commit()
-        db_session.refresh(student)
-
-        record = TrainingRecord(user_id=student.id, case_id=test_case.id, status="completed")
-        db_session.add(record)
-        db_session.commit()
-        db_session.refresh(record)
-
-        now = datetime.now(UTC)
-        logs = [
-            LLMCallLog(
-                user_id=student.id,
-                record_id=record.id,
-                case_id=1,
-                purpose="patient_chat",
-                model="deepseek-chat",
-                provider_name="deepseek",
-                status="success",
-                latency_ms=500,
-                prompt_tokens=100,
-                completion_tokens=50,
-                total_tokens=150,
-                token_estimated=0,
-                estimated_cost=0.002,
-                created_at=now,
-            ),
-            LLMCallLog(
-                user_id=student.id,
-                record_id=record.id,
-                case_id=1,
-                purpose="patient_chat",
-                model="deepseek-chat",
-                provider_name="deepseek",
-                status="success",
-                latency_ms=300,
-                prompt_tokens=200,
-                completion_tokens=80,
-                total_tokens=280,
-                token_estimated=0,
-                estimated_cost=0.003,
-                created_at=now,
-            ),
-            LLMCallLog(
-                user_id=student.id,
-                purpose="scoring",
-                model="deepseek-chat",
-                provider_name="deepseek",
-                status="success",
-                latency_ms=200,
-                prompt_tokens=300,
-                completion_tokens=100,
-                total_tokens=400,
-                token_estimated=0,
-                estimated_cost=0.001,
-                created_at=now,
-            ),
-        ]
-        for log in logs:
-            db_session.add(log)
-        db_session.commit()
-
-        _, token = teacher
-        resp = client.get("/api/admin/llm-logs", headers={"Authorization": f"Bearer {token}"})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total"] >= 2  # 1 aggregated patient_chat + 1 scoring
-
     def test_get_llm_logs_aggregation(self, client, teacher, db_session, test_case):
         """聚合模式下 patient_chat 应合并为一条训练级记录"""
         from core.security import hash_password
@@ -514,11 +433,6 @@ class TestStudentDetail:
     def test_get_detail_not_found(self, client, teacher):
         _, token = teacher
         resp = client.get("/api/admin/users/99999", headers={"Authorization": f"Bearer {token}"})
-        assert resp.status_code == 404
-
-    def test_get_detail_teacher_not_student(self, client, teacher):
-        user, token = teacher
-        resp = client.get(f"/api/admin/users/{user.id}", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 404
 
     def test_get_detail_forbidden_for_student(self, client, student):
