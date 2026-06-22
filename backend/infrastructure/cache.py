@@ -25,7 +25,7 @@ class EmotionCache:
         from models import TrainingSessionState
 
         row = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
-        if row is None or not isinstance(row.emotion_state, dict) or not row.emotion_state.get("trust"):
+        if row is None or not isinstance(row.emotion_state, dict) or "trust" not in row.emotion_state:
             return None
         from contexts.patient.emotion import EmotionState
 
