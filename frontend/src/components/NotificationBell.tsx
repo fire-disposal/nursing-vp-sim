@@ -77,7 +77,7 @@ export default function NotificationBell() {
 				)}
 			</button>
 			{open && notifications.length > 0 && (
-				<div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
+				<div className="absolute right-0 bottom-full mb-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
 					<div className="px-3 py-2.5 border-b text-sm font-semibold">通知</div>
 					{notifications.map((n) => (
 						<button
@@ -94,7 +94,7 @@ export default function NotificationBell() {
 				</div>
 			)}
 			{open && notifications.length === 0 && (
-				<div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50">
+				<div className="absolute right-0 bottom-full mb-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50">
 					<div className="px-3 py-2.5 text-center text-sm text-muted-foreground">暂无通知</div>
 				</div>
 			)}
