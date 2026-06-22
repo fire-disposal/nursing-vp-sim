@@ -134,38 +134,85 @@ async def generate_initiative_llm(
     *,
     ctx: CallContext | None = None,
 ) -> str:
-    """LLM-driven initiative text — generates a natural, context-aware patient utterance."""
+    """LLM-driven initiative text — generates a natural, context-aware patient utterance.
+
+    Falls back to a second LLM attempt with a simpler prompt before using
+    minimal hardcoded phrases as absolute last resort.
+    """
+    mood = _describe_mood(trust, comfort)
+    traits = _describe_traits(personality)
+
+    common_prompt = (
+        f"病例：{case_name}。{traits}\n"
+        f"当前情绪状态：{mood}（信任度{trust}/100，舒适度{comfort}/100）。\n"
+    )
+
+    # ── Attempt 1: full context ──
     try:
-        mood = _describe_mood(trust, comfort)
-        traits = _describe_traits(personality)
-        prompt = [
-            {
-                "role": "system",
-                "content": (
-                    f"你正在模拟一位护理训练中的患者。病例：{case_name}。{traits}\n"
-                    f"当前情绪状态：{mood}（信任{trust}/100，舒适{comfort}/100）。\n"
-                    "护士刚刚说了一句话但你没有立即回复。请以患者的身份说一句简短、自然的追问或反应（≤30字），"
-                    "可以是催促、补充信息、表达不适、转移话题或沉默的肢体语言。"
-                    "只输出患者的话，不要任何解释或标签。"
-                ),
-            },
-            {"role": "user", "content": f"护士说：{recent_student_msg}"},
-        ]
         result = await llm_client.call(
-            prompt,
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        f"你正在模拟一位护理训练中的患者。{common_prompt}"
+                        "护士刚刚说了一句话但你停顿了一会儿没回复。请以患者的身份说一句简短、自然的追问或反应（15-40字），"
+                        "可以是催促、补充信息、表达不适、转移话题或沉默的肢体语言（用[]标注）。"
+                        "只输出患者的话，不要任何解释、前缀或标签。"
+                    ),
+                },
+                {"role": "user", "content": f"护士说：{recent_student_msg or '（护士在沉默）'}"},
+            ],
             purpose="patient_chat",
-            temperature=0.8,
+            temperature=0.9,
+            max_tokens=80,
+            timeout=15,
+            max_retries=1,
+            ctx=ctx,
+        )
+        text = result.strip()
+        if 8 <= len(text) <= 80:
+            return text
+    except Exception:
+        log.warning("LLM initiative attempt 1 failed, retrying with simpler prompt", exc_info=True)
+
+    # ── Attempt 2: simpler prompt, no student msg context ──
+    try:
+        result = await llm_client.call(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        f"你是一位{mood}的患者。{common_prompt}"
+                        "请用15-30字说一句自然的追问、抱怨或沉默反应（肢体语言用[]标注）。只输出患者的话。"
+                    ),
+                },
+            ],
+            purpose="patient_chat",
+            temperature=0.9,
             max_tokens=60,
             timeout=10,
             max_retries=0,
             ctx=ctx,
         )
         text = result.strip()
-        if 2 <= len(text) <= 80:
+        if 5 <= len(text) <= 80:
             return text
     except Exception:
-        log.warning("LLM initiative prompt generation failed, using fallback", exc_info=True)
-    return random.choice(_NEUTRAL_PROMPTS)
+        log.warning("LLM initiative attempt 2 failed", exc_info=True)
+
+    # ── Absolute last resort: minimal generic fallback ──
+    return _last_resort_fallback(mood)
+
+
+def _last_resort_fallback(mood: str) -> str:
+    """Minimal fallback when both LLM attempts fail."""
+    fallbacks = {
+        "焦虑不安": "[不安地挪动身体]",
+        "防御抵触": "（沉默地等着）",
+        "放松配合": "不急，你慢慢问。",
+        "正常": "还有什么要问的吗？",
+    }
+    return fallbacks.get(mood, "……")
 
 
 def _describe_mood(trust: int, comfort: int) -> str:
