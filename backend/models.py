@@ -661,19 +661,26 @@ class RateLimitEntry(Base):
 
 
 class VoiceConfig(Base, TimestampMixin):
-    """TTS + ASR unified configuration. Token is Fernet-encrypted."""
+    """TTS + ASR unified configuration. API key is Fernet-encrypted.
+
+    Uses the new Volcengine console single ``X-Api-Key`` (v3 protocol).
+    """
 
     __tablename__ = "voice_configs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(20), default="volcengine")
-    app_id: Mapped[str] = mapped_column(String(80))
-    token_enc: Mapped[str] = mapped_column(Text)
-    key_suffix: Mapped[str] = mapped_column(String(8), default="")
-    tts_voice_type: Mapped[str] = mapped_column(String(40), default="zh_female_vv")
+    api_key_enc: Mapped[str] = mapped_column(Text, default="")
+    api_key_suffix: Mapped[str] = mapped_column(String(8), default="")
+    tts_resource_id: Mapped[str] = mapped_column(String(64), default="seed-tts-2.0")
+    tts_speaker: Mapped[str] = mapped_column(String(64), default="zh_female_vv_uranus_bigtts")
+    tts_model: Mapped[str] = mapped_column(String(40), default="seed-tts-2.0-standard")
+    tts_sample_rate: Mapped[int] = mapped_column(Integer, default=24000)
+    tts_format: Mapped[str] = mapped_column(String(16), default="mp3")
     tts_timeout: Mapped[int] = mapped_column(Integer, default=8)
+    asr_resource_id: Mapped[str] = mapped_column(String(64), default="volc.bigasr.sauc.duration")
     asr_sample_rate: Mapped[int] = mapped_column(Integer, default=16000)
-    asr_enable_streaming: Mapped[bool] = mapped_column(default=True)
+    asr_endpoint_mode: Mapped[str] = mapped_column(String(24), default="bigmodel_nostream")
     monthly_budget: Mapped[float] = mapped_column(Float, default=200.0)
     is_active: Mapped[bool] = mapped_column(default=True)
 

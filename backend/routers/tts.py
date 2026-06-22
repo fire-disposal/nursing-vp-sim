@@ -15,7 +15,7 @@ from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infrastructure.tts.client import VolcTTSClient
 from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
 from middleware.rate_limits import check_tts_limit
-from models import Case, TrainingRecord, User, VoiceCallLog
+from models import Case, TrainingRecord, User, VoiceCallLog, VoiceConfig
 from schemas.voice import TTSSynthesizeRequest
 
 log = logging.getLogger(__name__)
@@ -23,6 +23,13 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
 _tts_circuit_breaker = TTSCircuitBreaker(failure_threshold=3, cooldown_seconds=300)
+
+_AUDIO_MEDIA_TYPES = {
+    "mp3": "audio/mpeg",
+    "wav": "audio/wav",
+    "pcm": "audio/pcm",
+    "ogg_opus": "audio/ogg",
+}
 
 
 def _estimate_cost(text_length: int) -> float:
@@ -78,9 +85,21 @@ async def synthesize(
         emotion_state = emotion.state
 
     age, gender = _extract_demographics(case)
-    voice_type = resolve_voice_type(req.voice_type, age, gender)
+    speaker = resolve_voice_type(req.voice_type, age, gender)
 
-    tts_req = emotion_to_tts(text=req.text, state=emotion_state, voice=voice_type)
+    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    tts_model = vc.tts_model if vc else "seed-tts-2.0-standard"
+    tts_format = vc.tts_format if vc else "mp3"
+    tts_sample_rate = vc.tts_sample_rate if vc else 24000
+
+    tts_req = emotion_to_tts(
+        text=req.text,
+        state=emotion_state,
+        speaker=speaker,
+        model=tts_model,
+        fmt=tts_format,
+        sample_rate=tts_sample_rate,
+    )
 
     t0 = time.perf_counter()
     status = "success"
@@ -113,10 +132,10 @@ async def synthesize(
 
     return Response(
         content=audio,
-        media_type="audio/mpeg",
+        media_type=_AUDIO_MEDIA_TYPES.get(tts_format, "application/octet-stream"),
         headers={
             "X-TTS-Emotion": emotion_state,
-            "X-TTS-Voice": voice_type,
+            "X-TTS-Voice": speaker,
             "X-TTS-Latency-Ms": str(latency_ms),
         },
     )

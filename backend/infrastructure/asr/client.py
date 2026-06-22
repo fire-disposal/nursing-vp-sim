@@ -1,115 +1,112 @@
-"""Volcengine ASR (speech-to-text) client — HTTP one-shot recognition."""
+"""Volcengine BigASR (SAUC) v3 streaming client — WebSocket.
 
-import base64
+A thin per-session wrapper around an upstream WebSocket connection. The ASR
+router opens one client per browser connection and pumps audio in / text out.
+All failures are surfaced as :class:`ASRError` so the caller can degrade.
+"""
+
 import logging
-import time
-from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import httpx
+import websockets
+
+from infrastructure.asr.fallback import asr_configured
+from infrastructure.asr.protocol import (
+    ServerResponse,
+    build_audio_request,
+    build_full_client_request,
+    default_full_client_request,
+    parse_server_response,
+)
+from infrastructure.volc.auth import VOLC_WS_BASE_URL, asr_headers
+
+if TYPE_CHECKING:
+    from websockets.asyncio.client import ClientConnection
 
 log = logging.getLogger(__name__)
-
-ASR_API_URL = "https://openspeech.bytedance.com/api/v1/asr"
 
 
 class ASRError(Exception):
     pass
 
 
-@dataclass
-class ASRResult:
-    text: str
-    confidence: float  # 0.0-1.0
-    is_final: bool
-    duration_ms: int = 0
-
-
 class VolcASRClient:
-    def __init__(self, app_id: str, token: str, cluster: str = "volcengine", timeout: int = 15):
-        self._app_id = app_id
-        self._token = token
-        self._cluster = cluster
-        self._timeout = timeout
-        self._http: httpx.AsyncClient | None = None
+    def __init__(
+        self,
+        api_key: str,
+        resource_id: str = "volc.bigasr.sauc.duration",
+        endpoint_mode: str = "bigmodel_nostream",
+        sample_rate: int = 16000,
+        connect_timeout: int = 8,
+    ):
+        self._api_key = api_key
+        self._resource_id = resource_id
+        self._endpoint_mode = endpoint_mode
+        self._sample_rate = sample_rate
+        self._connect_timeout = connect_timeout
+        self._ws: ClientConnection | None = None
 
     @property
-    def http(self) -> httpx.AsyncClient:
-        if self._http is None:
-            self._http = httpx.AsyncClient(
-                timeout=httpx.Timeout(self._timeout, connect=10.0),
+    def url(self) -> str:
+        return f"{VOLC_WS_BASE_URL}/api/v3/sauc/{self._endpoint_mode}"
+
+    def is_configured(self) -> bool:
+        return asr_configured(self._api_key, self._resource_id)
+
+    async def connect(self) -> None:
+        """Open the upstream WS and send the full-client-request config frame."""
+        if not self.is_configured():
+            raise ASRError("ASR not configured (missing api_key or resource_id)")
+        try:
+            self._ws = await websockets.connect(
+                self.url,
+                additional_headers=asr_headers(self._api_key, self._resource_id),
+                open_timeout=self._connect_timeout,
+                max_size=None,
             )
-        return self._http
+        except Exception as e:  # any connect failure must degrade gracefully
+            raise ASRError(f"ASR connect failed: {e}") from e
+
+        config = default_full_client_request(sample_rate=self._sample_rate)
+        await self._ws.send(build_full_client_request(config))
+
+    async def send_audio(self, chunk: bytes, is_last: bool = False) -> None:
+        if self._ws is None:
+            raise ASRError("ASR session not connected")
+        await self._ws.send(build_audio_request(chunk, is_last=is_last))
+
+    async def recv(self) -> ServerResponse | None:
+        """Receive and decode one server frame. Returns None when the stream ends."""
+        if self._ws is None:
+            raise ASRError("ASR session not connected")
+        try:
+            raw = await self._ws.recv()
+        except websockets.ConnectionClosedOK:
+            return None
+        except websockets.ConnectionClosed as e:
+            raise ASRError(f"ASR connection closed: {e}") from e
+        if isinstance(raw, str):
+            raw = raw.encode("utf-8")
+        resp = parse_server_response(raw)
+        if resp.is_error:
+            log.error("ASR error frame: code=%s payload=%s", resp.code, resp.payload)
+        return resp
 
     async def close(self) -> None:
-        if self._http:
-            await self._http.aclose()
-            self._http = None
-
-    async def recognize(
-        self,
-        audio: bytes,
-        fmt: str = "wav",
-        sample_rate: int = 16000,
-    ) -> ASRResult:
-        audio_b64 = base64.b64encode(audio).decode("ascii")
-
-        payload = {
-            "app": {"appid": self._app_id, "token": self._token, "cluster": self._cluster},
-            "user": {"uid": "nursing-vp-sim"},
-            "audio": {
-                "audio": audio_b64,
-                "format": fmt,
-                "rate": sample_rate,
-            },
-            "request": {"reqid": str(int(time.time() * 1000))},
-        }
-
-        t0 = time.perf_counter()
-        resp = await self.http.post(
-            ASR_API_URL,
-            json=payload,
-            headers={"Authorization": f"Bearer;{self._token}"},
-        )
-        elapsed_ms = int((time.perf_counter() - t0) * 1000)
-
-        if resp.status_code != 200:
-            raise ASRError(f"ASR HTTP {resp.status_code}: {resp.text[:500]}")
-
-        data = resp.json()
-        code = data.get("code", -1)
-        if code != 1000:  # Volcengine success code
-            raise ASRError(f"ASR API error code={code} msg={data.get('message', '')}")
-
-        result = data.get("result", {})
-        text = ""
-        confidence = 0.0
-
-        utterances = result.get("utterances", [])
-        if utterances:
-            texts = []
-            total_conf = 0.0
-            for u in utterances:
-                t = u.get("text", "")
-                texts.append(t)
-                total_conf += u.get("confidence", 0.0)
-            text = "".join(texts)
-            confidence = round(total_conf / len(utterances), 4) if utterances else 0.0
-        else:
-            text = result.get("text", "")
-            confidence = result.get("confidence", 0.0)
-
-        return ASRResult(
-            text=text,
-            confidence=confidence,
-            is_final=True,
-            duration_ms=elapsed_ms,
-        )
+        if self._ws is not None:
+            try:
+                await self._ws.close()
+            except Exception:
+                pass
+            self._ws = None
 
     async def health_check(self) -> bool:
+        """Probe upstream connectivity: connect, then close. No audio sent."""
         try:
-            small_silence = base64.b64decode("UklGRiQAAABXQVZF")
-            result = await self.recognize(small_silence, fmt="wav", sample_rate=8000)
+            await self.connect()
+            await self.close()
             return True
         except Exception:
-            log.exception("ASR health check failed")
+            log.warning("ASR health check failed", exc_info=True)
+            await self.close()
             return False

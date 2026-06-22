@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
+from infrastructure.asr.client import VolcASRClient
 from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import VolcTTSClient
 from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
@@ -35,10 +36,12 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin/voice", tags=["语音管理"])
 
 
-def _mask_token(vc: VoiceConfig) -> str:
+def _mask_api_key(vc: VoiceConfig) -> str:
     try:
-        raw = decrypt_api_key(vc.token_enc)
-        if vc.key_suffix and not raw.endswith(vc.key_suffix):
+        raw = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
+        if not raw:
+            return "未设置"
+        if vc.api_key_suffix and not raw.endswith(vc.api_key_suffix):
             return "***mismatch***"
     except Exception:
         return "***error***"
@@ -53,13 +56,17 @@ def _build_voice_config_response(vc: VoiceConfig | None) -> VoiceConfigResponse 
     return VoiceConfigResponse(
         id=vc.id,
         provider=vc.provider,
-        app_id=vc.app_id,
-        token_masked=_mask_token(vc),
-        token_suffix=vc.key_suffix or "****",
-        tts_voice_type=vc.tts_voice_type,
+        api_key_masked=_mask_api_key(vc),
+        api_key_suffix=vc.api_key_suffix or "****",
+        tts_resource_id=vc.tts_resource_id,
+        tts_speaker=vc.tts_speaker,
+        tts_model=vc.tts_model,
+        tts_sample_rate=vc.tts_sample_rate,
+        tts_format=vc.tts_format,
         tts_timeout=vc.tts_timeout,
+        asr_resource_id=vc.asr_resource_id,
         asr_sample_rate=vc.asr_sample_rate,
-        asr_enable_streaming=vc.asr_enable_streaming,
+        asr_endpoint_mode=vc.asr_endpoint_mode,
         monthly_budget=vc.monthly_budget,
         is_active=vc.is_active,
         created_at=vc.created_at.isoformat(),
@@ -92,28 +99,36 @@ def update_config(
     if vc:
         if req.provider:
             vc.provider = req.provider
-        vc.app_id = req.app_id
-        if req.token:
-            vc.token_enc = encrypt_api_key(req.token)
-            vc.key_suffix = req.token[-8:] if len(req.token) >= 8 else req.token
-        vc.tts_voice_type = req.tts_voice_type
+        if req.api_key:
+            vc.api_key_enc = encrypt_api_key(req.api_key)
+            vc.api_key_suffix = req.api_key[-8:] if len(req.api_key) >= 8 else req.api_key
+        vc.tts_resource_id = req.tts_resource_id
+        vc.tts_speaker = req.tts_speaker
+        vc.tts_model = req.tts_model
+        vc.tts_sample_rate = req.tts_sample_rate
+        vc.tts_format = req.tts_format
         vc.tts_timeout = req.tts_timeout
+        vc.asr_resource_id = req.asr_resource_id
         vc.asr_sample_rate = req.asr_sample_rate
-        vc.asr_enable_streaming = req.asr_enable_streaming
+        vc.asr_endpoint_mode = req.asr_endpoint_mode
         vc.monthly_budget = req.monthly_budget
         vc.is_active = req.is_active
     else:
-        token_enc = encrypt_api_key(req.token) if req.token else ""
-        key_suffix = req.token[-8:] if req.token and len(req.token) >= 8 else (req.token or "")
+        api_key_enc = encrypt_api_key(req.api_key) if req.api_key else ""
+        api_key_suffix = req.api_key[-8:] if req.api_key and len(req.api_key) >= 8 else (req.api_key or "")
         vc = VoiceConfig(
             provider=req.provider,
-            app_id=req.app_id,
-            token_enc=token_enc,
-            key_suffix=key_suffix,
-            tts_voice_type=req.tts_voice_type,
+            api_key_enc=api_key_enc,
+            api_key_suffix=api_key_suffix,
+            tts_resource_id=req.tts_resource_id,
+            tts_speaker=req.tts_speaker,
+            tts_model=req.tts_model,
+            tts_sample_rate=req.tts_sample_rate,
+            tts_format=req.tts_format,
             tts_timeout=req.tts_timeout,
+            asr_resource_id=req.asr_resource_id,
             asr_sample_rate=req.asr_sample_rate,
-            asr_enable_streaming=req.asr_enable_streaming,
+            asr_endpoint_mode=req.asr_endpoint_mode,
             monthly_budget=req.monthly_budget,
             is_active=req.is_active,
         )
@@ -130,17 +145,19 @@ async def _do_test_tts(db: Session) -> VoiceStatusResponse:
         raise HTTPException(status_code=404, detail="未找到激活的语音配置")
 
     try:
-        token = decrypt_api_key(vc.token_enc)
-        if vc.key_suffix and not token.endswith(vc.key_suffix):
-            raise HTTPException(status_code=500, detail="语音服务令牌完整性校验失败，请重新设置 Token")
+        api_key = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
+        if not api_key:
+            raise HTTPException(status_code=400, detail="尚未设置 API Key")
+        if vc.api_key_suffix and not api_key.endswith(vc.api_key_suffix):
+            raise HTTPException(status_code=500, detail="API Key 完整性校验失败，请重新设置")
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=500, detail="无法解密语音服务令牌")
+        raise HTTPException(status_code=500, detail="无法解密 API Key")
 
-    client = VolcTTSClient(app_id=vc.app_id, token=token, timeout=vc.tts_timeout)
+    client = VolcTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
     try:
-        ok = await client.health_check()
+        ok = await client.health_check(speaker=vc.tts_speaker)
         await client.close()
         return VoiceStatusResponse(
             provider=vc.provider,
@@ -182,17 +199,33 @@ async def _do_test_asr(db: Session, request: Request) -> VoiceStatusResponse:
     if not vc:
         raise HTTPException(status_code=404, detail="未找到激活的语音配置")
 
-    asr_client = getattr(request.app.state, "asr_client", None)
-    if not asr_client:
-        raise HTTPException(status_code=503, detail="ASR 客户端未初始化")
-
     try:
-        ok = await asr_client.health_check()
+        api_key = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
+    except Exception:
+        api_key = ""
+
+    if not api_key or not vc.asr_resource_id:
+        return VoiceStatusResponse(
+            provider=vc.provider,
+            tts_online=False,
+            asr_online=False,
+            last_error="ASR 未配置（缺少 API Key 或 resource_id），将使用文本输入降级",
+            last_error_at=datetime.now(UTC).isoformat(),
+        )
+
+    client = VolcASRClient(
+        api_key=api_key,
+        resource_id=vc.asr_resource_id,
+        endpoint_mode=vc.asr_endpoint_mode,
+        sample_rate=vc.asr_sample_rate,
+    )
+    try:
+        ok = await client.health_check()
         return VoiceStatusResponse(
             provider=vc.provider,
             tts_online=False,
             asr_online=ok,
-            last_error=None if ok else "ASR 健康检查失败",
+            last_error=None if ok else "ASR 上游建连失败",
             last_error_at=None if ok else datetime.now(UTC).isoformat(),
         )
     except Exception as e:
@@ -665,11 +698,15 @@ def export_voice_config(
 
     payload = VoiceConfigExportResponse(
         provider=vc.provider,
-        app_id=vc.app_id,
-        tts_voice_type=vc.tts_voice_type,
+        tts_resource_id=vc.tts_resource_id,
+        tts_speaker=vc.tts_speaker,
+        tts_model=vc.tts_model,
+        tts_sample_rate=vc.tts_sample_rate,
+        tts_format=vc.tts_format,
         tts_timeout=vc.tts_timeout,
+        asr_resource_id=vc.asr_resource_id,
         asr_sample_rate=vc.asr_sample_rate,
-        asr_enable_streaming=vc.asr_enable_streaming,
+        asr_endpoint_mode=vc.asr_endpoint_mode,
         monthly_budget=vc.monthly_budget,
         exported_at=datetime.now(UTC).isoformat(),
     )
@@ -689,29 +726,37 @@ def import_voice_config(
 ):
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
 
-    token_enc = encrypt_api_key(data.token)
-    key_suffix = data.token[-8:] if len(data.token) >= 8 else data.token
+    api_key_enc = encrypt_api_key(data.api_key)
+    api_key_suffix = data.api_key[-8:] if len(data.api_key) >= 8 else data.api_key
 
     if vc:
         vc.provider = data.provider
-        vc.app_id = data.app_id
-        vc.token_enc = token_enc
-        vc.key_suffix = key_suffix
-        vc.tts_voice_type = data.tts_voice_type
+        vc.api_key_enc = api_key_enc
+        vc.api_key_suffix = api_key_suffix
+        vc.tts_resource_id = data.tts_resource_id
+        vc.tts_speaker = data.tts_speaker
+        vc.tts_model = data.tts_model
+        vc.tts_sample_rate = data.tts_sample_rate
+        vc.tts_format = data.tts_format
         vc.tts_timeout = data.tts_timeout
+        vc.asr_resource_id = data.asr_resource_id
         vc.asr_sample_rate = data.asr_sample_rate
-        vc.asr_enable_streaming = data.asr_enable_streaming
+        vc.asr_endpoint_mode = data.asr_endpoint_mode
         vc.monthly_budget = data.monthly_budget
     else:
         vc = VoiceConfig(
             provider=data.provider,
-            app_id=data.app_id,
-            token_enc=token_enc,
-            key_suffix=key_suffix,
-            tts_voice_type=data.tts_voice_type,
+            api_key_enc=api_key_enc,
+            api_key_suffix=api_key_suffix,
+            tts_resource_id=data.tts_resource_id,
+            tts_speaker=data.tts_speaker,
+            tts_model=data.tts_model,
+            tts_sample_rate=data.tts_sample_rate,
+            tts_format=data.tts_format,
             tts_timeout=data.tts_timeout,
+            asr_resource_id=data.asr_resource_id,
             asr_sample_rate=data.asr_sample_rate,
-            asr_enable_streaming=data.asr_enable_streaming,
+            asr_endpoint_mode=data.asr_endpoint_mode,
             monthly_budget=data.monthly_budget,
             is_active=True,
         )

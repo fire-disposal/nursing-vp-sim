@@ -44,7 +44,6 @@ from core.exceptions import (
 )
 from core.logging_setup import setup_logging
 from core.seed import seed_all
-from infrastructure.asr import VolcASRClient
 from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
@@ -218,49 +217,32 @@ async def lifespan(app: FastAPI):
         metrics=metrics,
     )
 
+    # ASR (v3) is opened per-connection by the /api/asr/stream proxy, so there
+    # is no long-lived singleton client. Keep the attribute defined for safety.
+    app.state.asr_client = None
+
     try:
         from core.database import SessionLocal
         from infrastructure.llm.crypto_utils import decrypt_api_key
 
         db_voice = SessionLocal()
         vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
-        if vc and vc.token_enc:
+        if vc and vc.api_key_enc:
             try:
-                token = decrypt_api_key(vc.token_enc)
+                api_key = decrypt_api_key(vc.api_key_enc)
             except Exception:
-                log.warning("ASR client: token decryption failed — placeholder or unconfigured")
-                token = ""
-            if token:
-                app.state.asr_client = VolcASRClient(app_id=vc.app_id, token=token)
-                log.info("ASR client: ready (app_id=%s)", vc.app_id)
-            else:
-                app.state.asr_client = None
-        else:
-            app.state.asr_client = None
-            log.warning("ASR client: no active VoiceConfig or empty token")
-        db_voice.close()
-    except Exception:
-        app.state.asr_client = None
-        log.exception("ASR client init failed (non-fatal)")
-
-    try:
-        from core.database import SessionLocal
-        from infrastructure.llm.crypto_utils import decrypt_api_key
-
-        db_voice = SessionLocal()
-        vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
-        if vc and vc.token_enc:
-            token = decrypt_api_key(vc.token_enc)
-            if vc.key_suffix and not token.endswith(vc.key_suffix):
-                log.error("TTS client: token integrity check failed (suffix mismatch)")
-                app.state.tts_client = None
-            else:
+                log.warning("TTS client: api_key decryption failed — placeholder or unconfigured")
+                api_key = ""
+            if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
                 app.state.tts_client = VolcTTSClient(
-                    app_id=vc.app_id,
-                    token=token,
+                    api_key=api_key,
+                    resource_id=vc.tts_resource_id,
                     timeout=vc.tts_timeout,
                 )
-                log.info("TTS client: ready (app_id=%s)", vc.app_id)
+                log.info("TTS client: ready (resource_id=%s)", vc.tts_resource_id)
+            else:
+                app.state.tts_client = None
+                log.warning("TTS client: api_key empty or integrity check failed")
         else:
             app.state.tts_client = None
             log.warning("TTS client: no active VoiceConfig found")
@@ -403,11 +385,6 @@ app.add_exception_handler(ScoringError, scoring_error_handler)
 async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
         raise exc
-    import traceback as _tb
-
-    with open("error_trace.log", "a", encoding="utf-8") as f:
-        f.write(f"\n=== {request.method} {request.url.path} ===\n")
-        _tb.print_exception(type(exc), exc, exc.__traceback__, file=f)
     log.exception("未处理异常 %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 

@@ -10,12 +10,16 @@ from schemas.common import _REQ_CFG, _RESP_CFG
 class VoiceConfigUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     provider: str = "volcengine"
-    app_id: str = Field(min_length=1, max_length=80)
-    token: str | None = Field(default=None, min_length=1)  # null = keep existing
-    tts_voice_type: str = "zh_female_vv"
+    api_key: str | None = Field(default=None, min_length=1)  # null = keep existing
+    tts_resource_id: str = Field(default="seed-tts-2.0", max_length=64)
+    tts_speaker: str = Field(default="zh_female_vv_uranus_bigtts", max_length=64)
+    tts_model: str = Field(default="seed-tts-2.0-standard", max_length=40)
+    tts_sample_rate: int = Field(default=24000, ge=8000, le=48000)
+    tts_format: str = Field(default="mp3", max_length=16)
     tts_timeout: int = Field(default=8, ge=3, le=30)
+    asr_resource_id: str = Field(default="volc.bigasr.sauc.duration", max_length=64)
     asr_sample_rate: int = Field(default=16000, ge=8000, le=48000)
-    asr_enable_streaming: bool = True
+    asr_endpoint_mode: str = Field(default="bigmodel_nostream", max_length=24)
     monthly_budget: float = Field(default=200.0, ge=0)
     is_active: bool = True
 
@@ -24,13 +28,17 @@ class VoiceConfigResponse(BaseModel):
     model_config = _RESP_CFG
     id: int
     provider: str
-    app_id: str
-    token_masked: str  # "abc****xyz"
-    token_suffix: str  # last 8 chars of token for integrity check
-    tts_voice_type: str
+    api_key_masked: str  # "abc****xyz"
+    api_key_suffix: str  # last 8 chars for integrity check
+    tts_resource_id: str
+    tts_speaker: str
+    tts_model: str
+    tts_sample_rate: int
+    tts_format: str
     tts_timeout: int
+    asr_resource_id: str
     asr_sample_rate: int
-    asr_enable_streaming: bool
+    asr_endpoint_mode: str
     monthly_budget: float
     is_active: bool
     created_at: str
@@ -80,18 +88,9 @@ class TTSSynthesizeRequest(BaseModel):
 # ── ASR ──
 
 
-class ASRRecognizeRequest(BaseModel):
-    model_config = _REQ_CFG
-    audio: str = Field(min_length=1)  # base64-encoded audio
-    record_id: int | None = Field(default=None, ge=1)
-    format: str = "wav"
-    sample_rate: int = Field(default=16000, ge=8000, le=48000)
-
-
-class ASRRecognizeResponse(BaseModel):
+class ASRStatusResponse(BaseModel):
     model_config = _RESP_CFG
-    text: str
-    confidence: float
+    available: bool
 
 
 # ── Unified Cost Dashboard ──
@@ -139,15 +138,19 @@ class CostExportRequest(BaseModel):
 
 
 class VoiceConfigExportResponse(BaseModel):
-    """Voice config export — token is NOT included (must be re-entered on import)."""
+    """Voice config export — api_key is NOT included (must be re-entered on import)."""
 
     model_config = _RESP_CFG
     provider: str
-    app_id: str
-    tts_voice_type: str
+    tts_resource_id: str
+    tts_speaker: str
+    tts_model: str
+    tts_sample_rate: int
+    tts_format: str
     tts_timeout: int
+    asr_resource_id: str
     asr_sample_rate: int
-    asr_enable_streaming: bool
+    asr_endpoint_mode: str
     monthly_budget: float
     exported_at: str
 
@@ -155,10 +158,14 @@ class VoiceConfigExportResponse(BaseModel):
 class VoiceConfigImportRequest(BaseModel):
     model_config = _REQ_CFG
     provider: str = "volcengine"
-    app_id: str = Field(min_length=1, max_length=80)
-    token: str = Field(min_length=1)  # required on import (not exported)
-    tts_voice_type: str = "zh_female_vv"
+    api_key: str = Field(min_length=1)  # required on import (not exported)
+    tts_resource_id: str = Field(default="seed-tts-2.0", max_length=64)
+    tts_speaker: str = Field(default="zh_female_vv_uranus_bigtts", max_length=64)
+    tts_model: str = Field(default="seed-tts-2.0-standard", max_length=40)
+    tts_sample_rate: int = Field(default=24000, ge=8000, le=48000)
+    tts_format: str = Field(default="mp3", max_length=16)
     tts_timeout: int = Field(default=8, ge=3, le=30)
+    asr_resource_id: str = Field(default="volc.bigasr.sauc.duration", max_length=64)
     asr_sample_rate: int = Field(default=16000, ge=8000, le=48000)
-    asr_enable_streaming: bool = True
+    asr_endpoint_mode: str = Field(default="bigmodel_nostream", max_length=24)
     monthly_budget: float = Field(default=200.0, ge=0)

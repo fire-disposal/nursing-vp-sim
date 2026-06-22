@@ -1,43 +1,49 @@
-"""Volcengine Large Model TTS HTTP client.
+"""Volcengine SeedTTS 2.0 (doubao) TTS HTTP client — v3 unidirectional protocol.
 
-Handles TTS synthesis via the Volcengine OpenSpeech API,
-with Bearer-token authentication and binary audio response parsing.
+Authenticates with the new console single ``X-Api-Key`` and streams audio
+back as newline-delimited JSON, each line carrying a base64 audio chunk.
 """
 
+import base64
 import json
 import logging
-import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import httpx
 
+from infrastructure.volc.auth import VOLC_BASE_URL, tts_headers
+
 log = logging.getLogger(__name__)
 
-TTS_ENDPOINT = "https://openspeech.bytedance.com/api/v1/tts"
+TTS_ENDPOINT = f"{VOLC_BASE_URL}/api/v3/tts/unidirectional"
+
+# Terminal status code emitted by the v3 unidirectional stream.
+_CODE_DONE = 20000000
 
 
 @dataclass
 class TTSRequest:
     text: str
-    voice_type: str = "zh_female_vv"
-    emotion: str | None = None
-    speech_rate: float = 1.0
-    encoding: str = "mp3"
+    speaker: str = "zh_female_vv_uranus_bigtts"
+    speech_rate: int = 0  # integer [-50, 100]; 100 == 2.0x
+    loudness_rate: int = 0  # integer [-50, 100]
+    model: str = "seed-tts-2.0-standard"
+    fmt: str = "mp3"  # mp3 / pcm / ogg_opus / wav
+    sample_rate: int = 24000
+    additions: dict = field(default_factory=dict)
 
 
 class VolcTTSClient:
-    """Async client for Volcengine Large-Model TTS synthesis."""
+    """Async client for Volcengine SeedTTS 2.0 (v3) synthesis."""
 
     def __init__(
         self,
-        app_id: str,
-        token: str,
-        cluster: str = "volcano_tts",
+        api_key: str,
+        resource_id: str = "seed-tts-2.0",
         timeout: int = 8,
     ):
-        self._app_id = app_id
-        self._token = token
-        self._cluster = cluster
+        self._api_key = api_key
+        self._resource_id = resource_id
         self._timeout = timeout
         self._http: httpx.AsyncClient | None = None
 
@@ -55,35 +61,27 @@ class VolcTTSClient:
             self._http = None
 
     def _build_body(self, req: TTSRequest) -> dict:
-        body: dict = {
-            "app": {
-                "appid": self._app_id,
-                "token": self._token,
-                "cluster": self._cluster,
-            },
-            "user": {
-                "uid": "nursing-vp-sim",
-            },
-            "audio": {
-                "voice_type": req.voice_type,
-                "encoding": req.encoding,
-                "speed_ratio": req.speech_rate,
-            },
-            "request": {
-                "reqid": uuid.uuid4().hex,
+        additions = json.dumps(req.additions, ensure_ascii=False) if req.additions else ""
+        return {
+            "req_params": {
                 "text": req.text,
-                "text_type": "plain",
-                "operation": "query",
-            },
+                "speaker": req.speaker,
+                "additions": additions,
+                "audio_params": {
+                    "format": req.fmt,
+                    "sample_rate": req.sample_rate,
+                    "speech_rate": req.speech_rate,
+                    "loudness_rate": req.loudness_rate,
+                },
+            }
         }
-        if req.emotion:
-            body["audio"]["emotion"] = req.emotion
-        return body
 
     async def synthesize(self, req: TTSRequest) -> bytes:
-        """Synthesize speech from text. Returns raw audio bytes (MP3 by default).
+        """Synthesize speech from text, returning raw audio bytes.
 
-        Raises httpx.HTTPStatusError on HTTP errors, RuntimeError on API-level errors.
+        Parses the newline-delimited JSON stream: each ``code == 0`` line
+        carries a base64 audio chunk, ``code == 20000000`` ends the stream,
+        and any other positive code raises with the full response line logged.
         """
         body = self._build_body(req)
         body_bytes = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -91,35 +89,46 @@ class VolcTTSClient:
         resp = await self.http.post(
             TTS_ENDPOINT,
             content=body_bytes,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer;{self._token}",
-            },
+            headers=tts_headers(self._api_key, self._resource_id),
         )
         resp.raise_for_status()
 
-        content_type = resp.headers.get("content-type", "")
+        chunks: list[bytes] = []
+        for line in resp.text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                log.warning("TTS: skipping non-JSON line: %.200s", line)
+                continue
 
-        if "application/json" in content_type:
-            data = resp.json()
-            code = data.get("code", -1)
-            if code != 3000:
-                msg = data.get("message", "unknown error")
-                log.error("TTS API error: code=%s message=%s", code, msg)
-                raise RuntimeError(f"TTS synthesis failed: {msg}")
-            audio_b64 = data.get("data", "")
-            if not audio_b64:
-                raise RuntimeError("TTS returned empty audio data")
-            import base64
+            code = payload.get("code", -1)
+            if code == _CODE_DONE:
+                break
+            if code == 0:
+                data_b64 = payload.get("data")
+                if data_b64:
+                    chunks.append(base64.b64decode(data_b64))
+                continue
+            # Any other positive code is an error — log the FULL line so we
+            # never again lose the upstream error body (the v1 blind spot).
+            log.error("TTS API error: %s", line)
+            raise RuntimeError(f"TTS synthesis failed: code={code} body={line[:300]}")
 
-            return base64.b64decode(audio_b64)
+        audio = b"".join(chunks)
+        if not audio:
+            raise RuntimeError("TTS returned empty audio data")
+        return audio
 
-        return resp.content
-
-    async def health_check(self) -> bool:
+    async def health_check(self, speaker: str | None = None) -> bool:
         """Quick connectivity check using a minimal synthesis request."""
         try:
-            audio = await self.synthesize(TTSRequest(text="测试", voice_type="zh_female_vv"))
+            req = TTSRequest(text="测试")
+            if speaker:
+                req.speaker = speaker
+            audio = await self.synthesize(req)
             return len(audio) > 0
         except Exception:
             log.warning("TTS health check failed", exc_info=True)
