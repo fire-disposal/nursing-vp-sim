@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from contexts.patient import (
-    generate_initiative,
+    generate_initiative_llm,
     get_emotion,
     get_initiative_seconds,
     should_initiate,
@@ -140,7 +140,7 @@ def get_training_state(
 
 
 @router.post("/{record_id}/initiative/trigger", response_model=InitiativeTriggerResponse)
-def trigger_initiative(
+async def trigger_initiative(
     record_id: int,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -167,7 +167,14 @@ def trigger_initiative(
     if not should_initiate(record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort):
         return {"triggered": False, "message": None}
 
-    msg = generate_initiative(personality, emotion.trust, emotion.comfort, wait_seconds=60)
+    msg = await generate_initiative_llm(
+        request.app.state.llm_client,
+        personality,
+        emotion.trust,
+        emotion.comfort,
+        case_data.get("name", "未知病例"),
+        recent_student_msg="",
+    )
 
     if msg:
         now = datetime.now(UTC)

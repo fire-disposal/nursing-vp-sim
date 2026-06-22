@@ -68,9 +68,18 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	}, [bus, pollTrigger]);
 
 	useEffect(() => {
-		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; setPaused(true); });
-		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; setPaused(false); });
+		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; });
+		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; });
 		return () => { unsubStart(); unsubEnd(); };
+	}, [bus]);
+
+	useEffect(() => {
+		return bus.on("training:ended", () => {
+			if (tickRef.current) {
+				clearInterval(tickRef.current);
+				tickRef.current = null;
+			}
+		});
 	}, [bus]);
 
 	const barColor =

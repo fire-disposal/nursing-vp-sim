@@ -142,6 +142,7 @@ export class ScoreManager {
 						phase,
 						percentage: data.progress.percentage,
 						message: data.progress.message,
+						thought: (data.progress as { thought?: string }).thought ?? this._sseThought,
 					};
 				} else {
 					const pct = Math.min(95, 10 + retries * 1.5);
