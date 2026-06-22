@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleDollarSign, Cpu, TrendingUp } from "lucide-react";
+import { CircleDollarSign, Cpu, Key, TrendingUp } from "lucide-react";
 import { fetchSecrets } from "@/api/admin/api-management";
+import ApiManagementTab from "@/components/teacher/ApiManagementTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import StatCard from "@/components/ui/StatCard";
-import ApiManagementTab from "@/components/teacher/ApiManagementTab";
 
 function LLMCostSummary() {
 	const { data: secrets = [], isLoading } = useQuery({
@@ -40,13 +40,13 @@ function LLMCostSummary() {
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 			<StatCard
 				icon={CircleDollarSign}
-				value={`¥${totalCostToday.toFixed(4)}`}
+				value={`¥${totalCostToday.toFixed(2)}`}
 				label="今日 LLM 费用"
 				color="blue"
 			/>
 			<StatCard
 				icon={TrendingUp}
-				value={`¥${totalCostMonth.toFixed(4)}`}
+				value={`¥${totalCostMonth.toFixed(2)}`}
 				label="本月 LLM 费用"
 				color="teal"
 			/>
@@ -69,16 +69,17 @@ function LLMCostSummary() {
 export default function LLMAPITab() {
 	return (
 		<div className="space-y-6 mt-4">
+			<LLMCostSummary />
+
 			<Card>
-				<CardHeader>
-					<CardTitle>LLM 费用概览</CardTitle>
+				<CardHeader className="flex flex-row items-center gap-2">
+					<Key className="size-4 text-muted-foreground" />
+					<CardTitle>密钥与用途管理</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<LLMCostSummary />
+					<ApiManagementTab />
 				</CardContent>
 			</Card>
-
-			<ApiManagementTab />
 		</div>
 	);
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Mic, Play, Save, Volume2 } from "lucide-react";
+import { Loader2, Mic, Save, Volume2, Zap } from "lucide-react";
 import { useState } from "react";
 import {
 	fetchVoiceConfig,
@@ -14,8 +14,8 @@ import Button from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
 	Table,
@@ -25,6 +25,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 const VOICE_TYPES = [
 	"zh_female_vv",
@@ -34,6 +35,9 @@ const VOICE_TYPES = [
 	"zh_female_shuangkuai",
 	"zh_male_yingjun",
 ];
+
+const selectClass =
+	"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 function ConfigCard() {
 	const toast = useToast();
@@ -151,7 +155,7 @@ function ConfigCard() {
 									tts_voice_type: e.target.value,
 								}))
 							}
-							className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+							className={selectClass}
 						>
 							{VOICE_TYPES.map((vt) => (
 								<option key={vt} value={vt}>
@@ -171,13 +175,13 @@ function ConfigCard() {
 									asr_sample_rate: Number(e.target.value),
 								}))
 							}
-							className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+							className={selectClass}
 						>
-							<option value={8000}>8000</option>
-							<option value={16000}>16000</option>
-							<option value={22050}>22050</option>
-							<option value={44100}>44100</option>
-							<option value={48000}>48000</option>
+							<option value={8000}>8000 Hz</option>
+							<option value={16000}>16000 Hz</option>
+							<option value={22050}>22050 Hz</option>
+							<option value={44100}>44100 Hz</option>
+							<option value={48000}>48000 Hz</option>
 						</select>
 					</div>
 					<div className="space-y-1.5">
@@ -200,7 +204,7 @@ function ConfigCard() {
 
 				<Separator />
 
-				<div className="flex gap-2 flex-wrap">
+				<div className="flex items-center justify-between flex-wrap gap-3">
 					<Button
 						onClick={handleSave}
 						disabled={saveMutation.isPending}
@@ -212,59 +216,91 @@ function ConfigCard() {
 						)}
 						保存配置
 					</Button>
-					<Button
-						variant="outline"
-						onClick={async () => {
-							try {
-								const r = await testTTS();
-								if (r.data.tts_online) {
-									toast.success(`TTS 测试通过`);
-								} else {
+
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							onClick={async () => {
+								try {
+									const r = await testTTS();
+									if (r.data.tts_online) {
+										toast.success("TTS 测试通过");
+									} else {
+										toast.error(
+											r.data.last_error || "TTS 测试失败",
+										);
+									}
+								} catch (e: unknown) {
+									const err = e as {
+										response?: { data?: { detail?: string } };
+									};
 									toast.error(
-										r.data.last_error || "TTS 测试失败",
+										err.response?.data?.detail || "TTS 测试失败",
 									);
 								}
-							} catch (e: unknown) {
-								const err = e as {
-									response?: { data?: { detail?: string } };
-								};
-								toast.error(
-									err.response?.data?.detail || "TTS 测试失败",
-								);
-							}
-						}}
-					>
-						<Volume2 className="size-4" />
-						测试 TTS
-					</Button>
-					<Button
-						variant="outline"
-						onClick={async () => {
-							try {
-								const r = await testASR();
-								if (r.data.asr_online) {
-									toast.success(`ASR 测试通过`);
-								} else {
+							}}
+						>
+							<Volume2 className="size-4" />
+							测试 TTS
+						</Button>
+						<Button
+							variant="outline"
+							onClick={async () => {
+								try {
+									const r = await testASR();
+									if (r.data.asr_online) {
+										toast.success("ASR 测试通过");
+									} else {
+										toast.error(
+											r.data.last_error || "ASR 测试失败",
+										);
+									}
+								} catch (e: unknown) {
+									const err = e as {
+										response?: { data?: { detail?: string } };
+									};
 									toast.error(
-										r.data.last_error || "ASR 测试失败",
+										err.response?.data?.detail || "ASR 测试失败",
 									);
 								}
-							} catch (e: unknown) {
-								const err = e as {
-									response?: { data?: { detail?: string } };
-								};
-								toast.error(
-									err.response?.data?.detail || "ASR 测试失败",
-								);
-							}
-						}}
-					>
-						<Mic className="size-4" />
-						测试 ASR
-					</Button>
+							}}
+						>
+							<Mic className="size-4" />
+							测试 ASR
+						</Button>
+					</div>
 				</div>
 			</CardContent>
 		</Card>
+	);
+}
+
+function BudgetBar({
+	used,
+	budget,
+}: {
+	used: number;
+	budget: number;
+}) {
+	const pct = budget > 0 ? Math.min((used / budget) * 100, 100) : 0;
+	const color =
+		pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500";
+
+	return (
+		<div className="space-y-1.5">
+			<div className="flex items-center justify-between text-xs">
+				<span className="text-muted-foreground">预算使用率</span>
+				<span className="font-medium tabular-nums">
+					{pct.toFixed(1)}% · ¥{used.toFixed(0)} / ¥{budget.toFixed(0)}
+				</span>
+			</div>
+			<div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+				<div
+					className={cn("h-full rounded-full transition-all duration-500", color)}
+					style={{ width: `${Math.max(pct, 2)}%` }}
+				/>
+			</div>
+		</div>
 	);
 }
 
@@ -287,75 +323,71 @@ function UsageStatsCard() {
 
 	return (
 		<Card>
-			<CardHeader>
+			<CardHeader className="flex flex-row items-center gap-2">
+				<Zap className="size-4 text-muted-foreground" />
 				<CardTitle>使用统计</CardTitle>
 			</CardHeader>
-			<CardContent>
+			<CardContent className="space-y-4">
 				<Table>
 					<TableHeader>
 						<TableRow>
 							<TableHead>服务</TableHead>
 							<TableHead>周期</TableHead>
-							<TableHead>总调用</TableHead>
-							<TableHead>成功</TableHead>
-							<TableHead>失败</TableHead>
-							<TableHead>预估费用</TableHead>
+							<TableHead className="text-right">总调用</TableHead>
+							<TableHead className="text-right">成功</TableHead>
+							<TableHead className="text-right">失败</TableHead>
+							<TableHead className="text-right">预估费用</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						<TableRow>
 							<TableCell className="font-medium">TTS</TableCell>
-							<TableCell>今日</TableCell>
-							<TableCell>{usage.tts_today.calls_total}</TableCell>
-							<TableCell>{usage.tts_today.calls_success}</TableCell>
-							<TableCell>{usage.tts_today.calls_error}</TableCell>
-							<TableCell>
+							<TableCell className="text-muted-foreground">今日</TableCell>
+							<TableCell className="text-right tabular-nums">{usage.tts_today.calls_total}</TableCell>
+							<TableCell className="text-right tabular-nums text-emerald-600">{usage.tts_today.calls_success}</TableCell>
+							<TableCell className="text-right tabular-nums text-red-500">{usage.tts_today.calls_error}</TableCell>
+							<TableCell className="text-right tabular-nums font-medium">
 								¥{usage.tts_today.cost_estimated.toFixed(4)}
 							</TableCell>
 						</TableRow>
 						<TableRow>
 							<TableCell className="font-medium">TTS</TableCell>
-							<TableCell>本月</TableCell>
-							<TableCell>{usage.tts_month.calls_total}</TableCell>
-							<TableCell>
-								{usage.tts_month.calls_success}
-							</TableCell>
-							<TableCell>{usage.tts_month.calls_error}</TableCell>
-							<TableCell>
+							<TableCell className="text-muted-foreground">本月</TableCell>
+							<TableCell className="text-right tabular-nums">{usage.tts_month.calls_total}</TableCell>
+							<TableCell className="text-right tabular-nums text-emerald-600">{usage.tts_month.calls_success}</TableCell>
+							<TableCell className="text-right tabular-nums text-red-500">{usage.tts_month.calls_error}</TableCell>
+							<TableCell className="text-right tabular-nums font-medium">
 								¥{usage.tts_month.cost_estimated.toFixed(4)}
 							</TableCell>
 						</TableRow>
 						<TableRow>
 							<TableCell className="font-medium">ASR</TableCell>
-							<TableCell>今日</TableCell>
-							<TableCell>{usage.asr_today.calls_total}</TableCell>
-							<TableCell>
-								{usage.asr_today.calls_success}
-							</TableCell>
-							<TableCell>{usage.asr_today.calls_error}</TableCell>
-							<TableCell>
+							<TableCell className="text-muted-foreground">今日</TableCell>
+							<TableCell className="text-right tabular-nums">{usage.asr_today.calls_total}</TableCell>
+							<TableCell className="text-right tabular-nums text-emerald-600">{usage.asr_today.calls_success}</TableCell>
+							<TableCell className="text-right tabular-nums text-red-500">{usage.asr_today.calls_error}</TableCell>
+							<TableCell className="text-right tabular-nums font-medium">
 								¥{usage.asr_today.cost_estimated.toFixed(4)}
 							</TableCell>
 						</TableRow>
 						<TableRow>
 							<TableCell className="font-medium">ASR</TableCell>
-							<TableCell>本月</TableCell>
-							<TableCell>{usage.asr_month.calls_total}</TableCell>
-							<TableCell>
-								{usage.asr_month.calls_success}
-							</TableCell>
-							<TableCell>{usage.asr_month.calls_error}</TableCell>
-							<TableCell>
+							<TableCell className="text-muted-foreground">本月</TableCell>
+							<TableCell className="text-right tabular-nums">{usage.asr_month.calls_total}</TableCell>
+							<TableCell className="text-right tabular-nums text-emerald-600">{usage.asr_month.calls_success}</TableCell>
+							<TableCell className="text-right tabular-nums text-red-500">{usage.asr_month.calls_error}</TableCell>
+							<TableCell className="text-right tabular-nums font-medium">
 								¥{usage.asr_month.cost_estimated.toFixed(4)}
 							</TableCell>
 						</TableRow>
 					</TableBody>
 				</Table>
+
 				{usage.monthly_budget > 0 && (
-					<div className="mt-3 text-xs text-muted-foreground">
-						月度预算: ¥{usage.monthly_budget.toFixed(0)} / 已用: ¥
-						{usage.monthly_used.toFixed(2)}
-					</div>
+					<BudgetBar
+						used={usage.monthly_used}
+						budget={usage.monthly_budget}
+					/>
 				)}
 			</CardContent>
 		</Card>
