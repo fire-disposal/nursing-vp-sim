@@ -72,12 +72,20 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
         for item in dim_data.get("items", []):
             if not isinstance(item, dict):
                 continue
+            item_score = item.get("score", 0)
+            if isinstance(item_score, str):
+                with suppress(ValueError):
+                    item_score = float(item_score)
+            if not isinstance(item_score, (int, float)):
+                item_score = 0
             ev = (item.get("evidence") or "").strip()
             rea = (item.get("reason") or "").strip()
-            if len(ev) < 10:
-                errors.append(f"{dim_name}.{item.get('name', '?')}: evidence 过短 ({len(ev)}字)")
-            if len(rea) < 5:
-                errors.append(f"{dim_name}.{item.get('name', '?')}: reason 过短 ({len(rea)}字)")
+            # Only require detailed evidence/reason if the student scored points
+            if item_score > 0:
+                if len(ev) < 10:
+                    errors.append(f"{dim_name}.{item.get('name', '?')}: evidence 过短 ({len(ev)}字)")
+                if len(rea) < 5:
+                    errors.append(f"{dim_name}.{item.get('name', '?')}: reason 过短 ({len(rea)}字)")
     return errors
 
 

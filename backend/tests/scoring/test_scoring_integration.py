@@ -335,8 +335,8 @@ class TestScoringFlowEndToEnd:
                             "id": "comm_01",
                             "name": "打招呼",
                             "score": 3,
-                            "evidence": "主动问候",
-                            "reason": "开场好",
+                            "evidence": "学生在对话开始时主动向病人问好",
+                            "reason": "体现了良好的职业礼仪",
                         }
                     ],
                 },
@@ -348,9 +348,16 @@ class TestScoringFlowEndToEnd:
                             "id": "hist_01",
                             "name": "既往史",
                             "score": 2,
-                            "evidence": "问到既往史",
-                            "reason": "基本",
-                        }
+                            "evidence": "学生询问了病人是否有住院和手术经历",
+                            "reason": "基本完整覆盖",
+                        },
+                        {
+                            "id": "hist_02",
+                            "name": "家族史",
+                            "score": 0,
+                            "evidence": "无",
+                            "reason": "",
+                        },
                     ],
                 },
             },
@@ -359,7 +366,7 @@ class TestScoringFlowEndToEnd:
             "missed_content": ["过敏史"],
             "suggestions": "建议加强病史采集深度",
         }
-        _validate_scoring_result(result)  # 不应抛异常
+        _validate_scoring_result(result)  # 不应抛异常：scored项有足够evidence，score=0项不校验
 
     def test_validate_rejects_missing_total_score(self):
         from contexts.training._scoring_validation import _validate_scoring_result

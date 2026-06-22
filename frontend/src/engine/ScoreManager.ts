@@ -193,7 +193,6 @@ export class ScoreManager {
 
 	reset(): void {
 		this.stopPolling();
-		if (this.recordId) _sseHandlers.delete(this.recordId);
 		this._score = null;
 		this._progress = { phase: null, percentage: 0, message: "" };
 		this._sseThought = "";
@@ -201,8 +200,12 @@ export class ScoreManager {
 	}
 
 	setRecordId(id: number | null): void {
-		this.recordId = id;
 		this.reset();
+		this.recordId = id;
+		if (id) {
+			this._registeredHandler = this.onSSEProgress.bind(this);
+			_sseHandlers.set(id, this._registeredHandler);
+		}
 	}
 
 	/** Receive real-time SSE scoring progress (from useScoringNotifications hook) */

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,19 @@ interface Progress {
 	percentage: number;
 	message: string;
 	thought?: string;
+}
+
+/** Parse raw LLM JSON thought into human-readable dimension names being scored */
+function parseThoughtSummary(thought: string | undefined): string[] {
+	if (!thought) return [];
+	try {
+		const data = JSON.parse(thought) as Record<string, unknown>;
+		const dims = data.detail_scores as Record<string, unknown> | undefined;
+		if (dims) return Object.keys(dims);
+	} catch {
+		return [];
+	}
+	return [];
 }
 
 export function ScoringOverlay({
@@ -52,21 +65,18 @@ export function ScoringOverlay({
 		const id = setInterval(() => {
 			const p = getProgressRef.current();
 			setProgress(p);
+			// Auto-expand thought when available so student sees AI reasoning
+			if (p.thought) setShowThought(true);
 			if (p.phase === "completed") {
 				clearInterval(id);
-				// Auto-close overlay so ScoreCard (z-50) is visible
 				setClosing(true);
-				setTimeout(() => setVisible(false), 500);
+				setTimeout(() => setVisible(false), 800);
 			}
 		}, 200);
 		return () => clearInterval(id);
 	}, [visible]);
 
-	// Auto-close with animation only on user action, not programmatically
-	const handleClose = () => {
-		setClosing(true);
-		setTimeout(() => setVisible(false), 200);
-	};
+	const thoughtDims = useMemo(() => parseThoughtSummary(progress.thought), [progress.thought]);
 
 	if (!visible) return null;
 
@@ -88,48 +98,66 @@ export function ScoringOverlay({
 			<p className="mb-4 text-lg font-medium">
 				{isActive ? "正在评估训练表现..." : progress.phase === "completed" ? "评估完成" : "评估失败"}
 			</p>
+
+			{/* Progress bar */}
 			<div className="h-2 w-64 rounded-full bg-muted">
 				<div
 					className={cn(
 						"h-full rounded-full transition-all duration-300",
 						progress.phase === "failed" ? "bg-destructive" : "bg-primary",
 					)}
-					style={{ width: `${progress.percentage}%` }}
+					style={{ width: `${Math.max(2, progress.percentage)}%` }}
 				/>
 			</div>
+
+			{/* Stage + percentage */}
 			<p className="mt-2 text-sm text-muted-foreground">
 				{phaseText}
 				{isActive ? ` (${progress.percentage}%)` : ""}
 			</p>
-			{progress.phase === "failed" && progress.message && (
-				<p className="mt-1 max-w-md text-center text-xs text-red-500 whitespace-pre-wrap">{progress.message}</p>
-			)}
-			{isActive && (
-				<p className="mt-3 text-xs text-muted-foreground">请耐心等待，评分完成后将自动展示结果</p>
+
+			{/* Activity message — more prominent */}
+			{isActive && progress.message && (
+				<p className="mt-2 max-w-md text-center text-xs text-muted-foreground animate-pulse">
+					{progress.message}
+				</p>
 			)}
 
+			{/* AI reasoning section */}
 			{hasThought && (
-				<div className="mt-3 max-w-lg w-full">
+				<div className="mt-4 max-w-lg w-full px-4">
+					{thoughtDims.length > 0 && (
+						<p className="text-xs text-muted-foreground mb-1">
+							正在评分维度：{thoughtDims.join("、")}
+						</p>
+					)}
 					<button
 						type="button"
 						onClick={() => setShowThought(!showThought)}
 						className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
 					>
-						{showThought ? "隐藏" : "查看"}模型原始输出
+						{showThought ? "隐藏" : "查看"}AI 推理详情
 					</button>
 					{showThought && (
-						<pre className="mt-1 max-h-48 overflow-auto rounded-md border border-border bg-muted/50 p-2 text-[10px] leading-relaxed whitespace-pre-wrap">
+						<pre className="mt-1 max-h-64 overflow-auto rounded-md border border-border bg-muted/50 p-3 text-xs leading-relaxed whitespace-pre-wrap font-mono">
 							{progress.thought}
 						</pre>
 					)}
 				</div>
 			)}
 
+			{progress.phase === "failed" && progress.message && (
+				<p className="mt-1 max-w-md text-center text-xs text-red-500 whitespace-pre-wrap">{progress.message}</p>
+			)}
+
 			<div className="mt-4 flex gap-3">
 				{progress.phase === "failed" && (
 					<button
 						type="button"
-						onClick={handleClose}
+						onClick={() => {
+							setClosing(true);
+							setTimeout(() => setVisible(false), 200);
+						}}
 						className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-muted transition-colors"
 					>
 						关闭
