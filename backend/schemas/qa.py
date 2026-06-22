@@ -53,3 +53,9 @@ class QASessionAdminItem(BaseModel):
     message_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+class SectionTextResponse(BaseModel):
+    source: str
+    section: str
+    text: str

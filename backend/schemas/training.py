@@ -180,3 +180,59 @@ class NursingRecordResponse(BaseModel):
     sheet_data: dict
     status: str
     updated_at: datetime
+
+
+class ScoringStatusResponse(BaseModel):
+    scoring_status: str | None = None
+    scoring_error: str | None = None
+    score: dict[str, Any] | None = None
+    progress: dict[str, Any] | None = None
+
+
+class TrainingNotificationItem(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: str | None = None
+    record_id: int | None = None
+    created_at: str
+
+
+class EmotionHistoryEntry(BaseModel):
+    trust: int
+    comfort: int
+    state: str
+    intent: str
+    timestamp: str
+
+
+class EmotionHistoryResponse(BaseModel):
+    history: list[EmotionHistoryEntry]
+
+
+class InitiativeMessageEntry(BaseModel):
+    id: int
+    content: str
+    created_at: str
+
+
+class InitiativeHistoryResponse(BaseModel):
+    history: list[InitiativeMessageEntry]
+
+
+class ExamOperationResult(BaseModel):
+    type: str
+    label: str = ""
+    value: str = ""
+    unit: str = ""
+
+
+class ExamOperationResponse(BaseModel):
+    type: str
+    data: ExamOperationResult
+    all_results: list[ExamOperationResult] = []
+
+
+class FeaturesResponse(BaseModel):
+    ok: bool = True
+    features: dict[str, bool] = {}
