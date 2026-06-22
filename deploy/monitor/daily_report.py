@@ -50,7 +50,8 @@ def fetch_report(port: int) -> dict | None:
         )
         if r.returncode != 0:
             return None
-        data = json.loads(r.stdout).get("data")
+        # /api/ops/report 已改为直接返回数据体（无 {"data": ...} 信封包装）
+        data = json.loads(r.stdout)
         return data if isinstance(data, dict) else None
     except Exception:
         return None
@@ -139,6 +140,44 @@ def build_report() -> str:
         llm_section += "</td></tr>"
     llm_section += "</table></div>"
 
+    # ── Voice (TTS/ASR) ──
+    pv_voice = prod.get("voice", {})
+    sv_voice = stag.get("voice", {})
+    voice_section = _card("语音服务 (TTS/ASR)") + "<table><tr><th></th><th class='r'>正式服</th><th class='r'>测试服</th></tr>"
+    for svc, sr_green, sr_amber in [("tts", 90, 75), ("asr", 80, 60)]:
+        pt = pv_voice.get(svc, {})
+        st = sv_voice.get(svc, {})
+        name = svc.upper()
+        pc = pt.get("calls_24h", 0)
+        sc = st.get("calls_24h", 0)
+        voice_section += f"<tr><td>{name} 调用(24h)</td>{_td(str(pc))}{_td(str(sc))}</tr>"
+        psr, ssr = pt.get("success_rate"), st.get("success_rate")
+        pcolor = _cmp(psr if psr is not None else 100, sr_green, sr_amber) if pc else ""
+        scolor = _cmp(ssr if ssr is not None else 100, sr_green, sr_amber) if sc else ""
+        voice_section += (
+            f"<tr><td>{name} 成功率</td>"
+            f"{_td(_pct(psr) if pc else '-', pcolor)}{_td(_pct(ssr) if sc else '-', scolor)}</tr>"
+        )
+        pe, se = pt.get("error_count_24h", 0), st.get("error_count_24h", 0)
+        voice_section += (
+            f"<tr><td>{name} 错误(24h)</td>"
+            f"{_td(str(pe), 'var(--c-err)' if pe else '')}{_td(str(se), 'var(--c-err)' if se else '')}</tr>"
+        )
+
+    def _bcell(b: dict) -> str:
+        budget = b.get("monthly_budget", 0)
+        if not budget:
+            return _td("-")
+        pct = b.get("usage_pct", 0)
+        return _td(
+            f"¥{b.get('monthly_cost', 0):.2f}/{budget:.0f} ({pct:.0f}%)",
+            _cmp(pct, 80, 100, inverse=True),
+        )
+
+    voice_section += f"<tr><td>本月语音成本</td>{_bcell(prod.get('voice_budget', {}))}{_bcell(stag.get('voice_budget', {}))}</tr>"
+    voice_section += "</table></div>"
+
+
     # ── Scoring ──
     psc = prod.get("scoring", {})
     ssc = stag.get("scoring", {})
@@ -164,7 +203,7 @@ def build_report() -> str:
     else:
         errlog = _card("异常摘要", "h-ok") + '<div class="status-ok">当前运行正常，无异常</div></div>'
 
-    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__SCORING__", scoring).replace("__SESSIONS__", sessions).replace("__ERRLOG__", errlog)
+    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__VOICE__", voice_section).replace("__SCORING__", scoring).replace("__SESSIONS__", sessions).replace("__ERRLOG__", errlog)
 
 
 CSS = """\
@@ -215,7 +254,7 @@ WRAPPER = (
     '<!DOCTYPE html><html><head><meta charset="utf-8">'
     '<meta name="color-scheme" content="light dark">'
     f"<style>{CSS}</style></head><body><div class='container'>"
-    "__HEADER____OVERVIEW____ERRLOG____LLM____SCORING____SESSIONS__"
+    "__HEADER____OVERVIEW____ERRLOG____LLM____VOICE____SCORING____SESSIONS__"
     '<div class="footer">由 daily_report.py 自动生成 · 每日 09:00 · '
     "数据来自 /api/ops/report</div></div></body></html>"
 )
