@@ -15,6 +15,7 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	const thresholdRef = useRef(30);
 	const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const pollingRef = useRef(false);
+	const pausedRef = useRef(false);
 
 	const resetTimer = useCallback(() => {
 		elapsedRef.current = 0;
@@ -43,9 +44,9 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 				elapsedRef.current = data.elapsed_seconds ?? 0;
 				thresholdRef.current = data.threshold_seconds ?? 30;
 				setPercent(data.percent ?? 0);
-				// Start client-side tick once — guarded by ref to avoid duplicate intervals
 				if (!tickRef.current) {
 					tickRef.current = setInterval(() => {
+						if (pausedRef.current) return;
 						elapsedRef.current += 1;
 						const pct = Math.min(100, Math.round((elapsedRef.current / thresholdRef.current) * 100));
 						setPercent(pct);
@@ -64,6 +65,12 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 			}
 		};
 	}, [bus, pollTrigger]);
+
+	useEffect(() => {
+		const unsubStart = bus.on("tts:start", () => { pausedRef.current = true; });
+		const unsubEnd = bus.on("tts:end", () => { pausedRef.current = false; });
+		return () => { unsubStart(); unsubEnd(); };
+	}, [bus]);
 
 	const barColor =
 		percent > 80
