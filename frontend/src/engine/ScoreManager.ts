@@ -222,8 +222,19 @@ export class ScoreManager {
 			? (data.stage as ScorePhase)
 			: null;
 
-		// Reject regressive updates caused by out-of-order SSE events from
-		// parallel scoring/feedback asyncio.gather.  "failed" is always
+		// Always update per-stage thought fields (even if phase/percentage is regressive).
+		// Scoring and feedback run in parallel via asyncio.gather — either may finish first.
+		// We must allow cross-phase thought updates so both panels show streaming content.
+		let merged = { ...this._progress };
+		if (data.stage === "scoring" && data.thought) {
+			merged.score_thought = data.thought;
+		}
+		if (data.stage === "feedback" && data.thought) {
+			merged.feedback_thought = data.thought;
+		}
+
+		// Reject regressive phase/percentage updates caused by out-of-order SSE events
+		// from parallel scoring/feedback asyncio.gather.  "failed" is always
 		// accepted because it signals terminal state from any path.
 		const PHASE_ORDER: Record<string, number> = {
 			loading: 0,
@@ -232,31 +243,33 @@ export class ScoreManager {
 			saving: 3,
 			completed: 4,
 		};
+		let skipPhase = false;
 		if (phase && phase !== "failed" && phase !== "processing") {
 			const currentOrder = this._progress.phase
 				? PHASE_ORDER[this._progress.phase]
 				: -1;
 			const newOrder = PHASE_ORDER[phase] ?? -1;
 			if (newOrder >= 0 && currentOrder >= 0 && newOrder < currentOrder) {
-				return; // stale event — skip
+				skipPhase = true; // stale event — keep current phase/percentage
 			}
-			// Same phase but lower percentage → also skip
+			// Same phase but lower percentage → also skip phase update
 			if (
+				!skipPhase &&
 				newOrder === currentOrder &&
 				data.percent < this._progress.percentage
 			) {
-				return;
+				skipPhase = true;
 			}
 		}
 
-		this._progress = {
-			phase,
-			percentage: data.percent,
-			message: data.message,
-			thought: this._sseThought,
-			score_thought: this._progress.score_thought ?? (data.stage === "scoring" ? data.thought : undefined) ?? "",
-			feedback_thought: this._progress.feedback_thought ?? (data.stage === "feedback" ? data.thought : undefined) ?? "",
-		};
+		if (!skipPhase) {
+			merged.phase = phase;
+			merged.percentage = data.percent;
+			merged.message = data.message;
+			merged.thought = this._sseThought;
+		}
+
+		this._progress = merged as ScoringProgress;
 		this.notify();
 	}
 }

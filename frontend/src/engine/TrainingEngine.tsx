@@ -180,6 +180,11 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		[],
 	);
 
+	const subscribeProgress = useCallback(
+		(fn: () => void) => scoreRef.current?.subscribe(fn) ?? (() => {}),
+		[],
+	);
+
 	const endTraining = useCallback(async () => {
 		setTrainingEnded(true);
 		try {
@@ -317,6 +322,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			<ScoringOverlay
 				bus={busRef.current}
 				getProgress={getProgress}
+				subscribeProgress={subscribeProgress}
 			/>
 			<ScoreCard bus={busRef.current} recordId={recordId} />
 		</>

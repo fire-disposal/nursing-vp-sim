@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Brain, Loader2 } from "lucide-react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,6 @@ interface ThoughtItem {
 	reason: string;
 }
 
-/** Parse raw LLM thought JSON into flat list of dimension items with evidence/reason */
 function parseThoughtItems(thought: string | undefined): ThoughtItem[] {
 	if (!thought) return [];
 	try {
@@ -67,9 +66,11 @@ function parseThoughtItems(thought: string | undefined): ThoughtItem[] {
 export function ScoringOverlay({
 	bus,
 	getProgress,
+	subscribeProgress,
 }: {
 	bus: MessageBus;
 	getProgress: () => Progress;
+	subscribeProgress: (fn: () => void) => () => void;
 }) {
 	const [visible, setVisible] = useState(false);
 	const [closing, setClosing] = useState(false);
@@ -79,6 +80,19 @@ export function ScoringOverlay({
 		message: "",
 	});
 
+	const scoreScrollRef = useRef<HTMLDivElement>(null);
+	const feedbackScrollRef = useRef<HTMLDivElement>(null);
+
+	// Auto-scroll both panels to bottom when thought content changes
+	useEffect(() => {
+		if (scoreScrollRef.current) {
+			scoreScrollRef.current.scrollTop = scoreScrollRef.current.scrollHeight;
+		}
+		if (feedbackScrollRef.current) {
+			feedbackScrollRef.current.scrollTop = feedbackScrollRef.current.scrollHeight;
+		}
+	}, [progress.score_thought, progress.feedback_thought]);
+
 	useEffect(() => {
 		const unsub = bus.on("training:ended", () => {
 			setVisible(true);
@@ -87,22 +101,27 @@ export function ScoringOverlay({
 		return unsub;
 	}, [bus]);
 
+	// Subscribe to ScoreManager for push-based updates (replaces polling)
 	const getProgressRef = useRef(getProgress);
 	getProgressRef.current = getProgress;
 
 	useEffect(() => {
 		if (!visible) return;
-		const id = setInterval(() => {
+
+		// Immediate first read
+		setProgress(getProgressRef.current());
+
+		const unsub = subscribeProgress(() => {
 			const p = getProgressRef.current();
 			setProgress(p);
 			if (p.phase === "completed") {
-				clearInterval(id);
 				setClosing(true);
 				setTimeout(() => setVisible(false), 800);
 			}
-		}, 200);
-		return () => clearInterval(id);
-	}, [visible]);
+		});
+
+		return unsub;
+	}, [visible, subscribeProgress]);
 
 	if (!visible) return null;
 
@@ -123,7 +142,6 @@ export function ScoringOverlay({
 				"duration-300",
 			)}
 		>
-			{/* Card */}
 			<div
 				className={cn(
 					"w-full max-w-sm mx-4 rounded-xl border border-border bg-card p-5 shadow-lg",
@@ -178,14 +196,23 @@ export function ScoringOverlay({
 					{/* Score stage column */}
 					<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
 						<div className="text-[10px] font-mono text-primary/70 mb-1">$ scoring_dimensions</div>
-						<div className="max-h-60 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
+						<div
+							ref={scoreScrollRef}
+							className="max-h-30 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+						>
 							{progress.score_thought ? (
-								(parseThoughtItems(progress.score_thought)).map((item, i) => (
-									<div key={i} className="text-foreground/70 py-0.5">
-										<span className="text-primary/60">{item.dimName}</span> › {item.itemName}{" "}
-										<span className="text-primary/60">({item.score}/{item.max})</span>
-									</div>
-								))
+								(() => {
+									const items = parseThoughtItems(progress.score_thought);
+									if (items.length > 0) {
+										return items.map((item, i) => (
+											<div key={i} className="text-foreground/70 py-0.5">
+												<span className="text-primary/60">{item.dimName}</span> › {item.itemName}{" "}
+												<span className="text-primary/60">({item.score}/{item.max})</span>
+											</div>
+										));
+									}
+									return <p className="text-foreground/60 whitespace-pre-wrap break-all">{progress.score_thought!.slice(0, 600)}</p>;
+								})()
 							) : progress.phase === "scoring" ? (
 								<p className="text-muted-foreground/50 animate-pulse">▎ 分析中...</p>
 							) : (
@@ -197,16 +224,22 @@ export function ScoringOverlay({
 					{/* Feedback stage column */}
 					<div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 overflow-hidden">
 						<div className="text-[10px] font-mono text-primary/70 mb-1">$ feedback_generation</div>
-						<div className="max-h-60 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground">
+						<div
+							ref={feedbackScrollRef}
+							className="max-h-30 overflow-y-auto text-[10px] leading-relaxed font-mono text-muted-foreground [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+						>
 							{progress.feedback_thought ? (
 								(() => {
 									try {
 										const fb = JSON.parse(progress.feedback_thought) as Record<string, unknown>;
 										const items = [...(fb.strengths as string[] || []), ...(fb.weaknesses as string[] || [])];
-										return items.slice(0, 8).map((s: string, i: number) => (
-											<div key={i} className="text-foreground/70 py-0.5">+ {s}</div>
-										));
-									} catch { return <p className="text-muted-foreground/50">解析中...</p>; }
+										if (items.length > 0) {
+											return items.slice(0, 8).map((s: string, i: number) => (
+												<div key={i} className="text-foreground/70 py-0.5">+ {s}</div>
+											));
+										}
+									} catch { /* parse failed — show raw streaming text below */ }
+									return <p className="text-foreground/60 whitespace-pre-wrap break-all">{progress.feedback_thought!.slice(0, 600)}</p>;
 								})()
 							) : progress.phase === "feedback" ? (
 								<p className="text-muted-foreground/50 animate-pulse">▎ 生成中...</p>
