@@ -40,7 +40,7 @@ jobs:
           echo "✓ Single head: $HEADS"
 
           # Rule 2: check the HEAD migration only
-          HEAD_REV=$(echo "$HEADS" | head -1)
+          HEAD_REV=$(echo "$HEADS" | head -1 | sed 's/ *(head)$//')
           HEAD_FILE=$(grep -rl "Revision ID: $HEAD_REV" migrations/versions/ | head -1)
           if [ -z "$HEAD_FILE" ]; then
             echo "::warning::Could not find HEAD migration file for $HEAD_REV"
