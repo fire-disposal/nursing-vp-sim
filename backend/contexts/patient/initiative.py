@@ -19,6 +19,8 @@ from infrastructure.llm.client import CallContext
 
 log = logging.getLogger(__name__)
 
+MAX_INITIATIVE_COUNT = 2
+
 _NONVERBAL_CUES = [
     "[叹气]",
     "[不安地挪动身体]",
@@ -224,6 +226,9 @@ def get_initiative_seconds(
     threshold = 30.0 + patience_bias.get(patience, 0) + anxiety_bias.get(anxiety_trait, 0) + comfort_bias
     threshold = max(15, min(90, threshold))
 
+    count = cache.get_count(record_id, db)
+    threshold *= 2**count
+
     return elapsed, threshold
 
 
@@ -235,6 +240,8 @@ def check_initiate_ready(
     trust: int,
     comfort: int,
 ) -> bool:
+    if cache.get_count(record_id, db) >= MAX_INITIATIVE_COUNT:
+        return False
     elapsed, threshold = get_initiative_seconds(record_id, cache, db, personality, trust, comfort)
     return elapsed >= threshold
 
@@ -247,6 +254,8 @@ def should_initiate(
     trust: int,
     comfort: int,
 ) -> bool:
+    if cache.get_count(record_id, db) >= MAX_INITIATIVE_COUNT:
+        return False
     if not check_initiate_ready(record_id, cache, db, personality, trust, comfort):
         return False
     now = datetime.now(UTC).timestamp()
@@ -255,6 +264,31 @@ def should_initiate(
         return False
     cache.set_last_trigger(record_id, now, db)
     return True
+
+
+def apply_initiative_penalty(
+    record_id: int,
+    cache: InitiativeCache,
+    emotion_cache,
+    db: Session,
+) -> dict:
+    """Apply trust/comfort penalty for patient initiative.
+    Returns emotion state dict for SSE emission."""
+    from contexts.patient.emotion import get_emotion
+
+    count = cache.get_count(record_id, db)
+    emotion = get_emotion(record_id, emotion_cache, db)
+
+    if count == 1:
+        trust_delta = -5
+        comfort_delta = -8
+    else:
+        trust_delta = -15
+        comfort_delta = -20
+
+    emotion.update(trust_delta, comfort_delta, f"initiative:{count}")
+    emotion_cache.set(record_id, emotion, db)
+    return {"state": emotion.state, "trust": emotion.trust, "comfort": emotion.comfort}
 
 
 def cleanup_initiative(record_id: int, cache: InitiativeCache, db: Session) -> None:

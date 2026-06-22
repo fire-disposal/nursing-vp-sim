@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from contexts.patient import (
+    MAX_INITIATIVE_COUNT,
+    apply_initiative_penalty,
     generate_initiative_llm,
     get_emotion,
     get_initiative_seconds,
@@ -190,7 +192,15 @@ async def trigger_initiative(
         db.add(patient_msg)
         db.commit()
         db.refresh(patient_msg)
-        update_initiative_timer(record_id, request.app.state.initiative_cache, db)
+
+        count = request.app.state.initiative_cache.increment_count(record_id, db)
+        emotion_data = apply_initiative_penalty(
+            record_id, request.app.state.initiative_cache, request.app.state.emotion_cache, db
+        )
+        db.commit()
+
+        if count < MAX_INITIATIVE_COUNT:
+            update_initiative_timer(record_id, request.app.state.initiative_cache, db)
         return {"triggered": True, "message": msg, "id": patient_msg.id}
 
     return {"triggered": False, "message": None}

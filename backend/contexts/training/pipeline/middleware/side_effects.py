@@ -4,7 +4,7 @@ import logging
 import re
 
 from contexts.patient.emotion import get_emotion
-from contexts.patient.initiative import get_initiative_seconds
+from contexts.patient.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
 
 from ..context import (
     STATE_FEATURES,
@@ -135,12 +135,16 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         elapsed, threshold = get_initiative_seconds(
             ctx.record.id, initiative_cache, ctx.db, personality, emotion_state.trust, emotion_state.comfort
         )
+        count = initiative_cache.get_count(ctx.record.id, ctx.db)
+        max_reached = count >= MAX_INITIATIVE_COUNT
         ctx.system_events.append(
             {
                 "initiative_state": {
                     "elapsed_seconds": round(elapsed, 1),
                     "threshold_seconds": round(threshold, 1),
                     "percent": min(100, round(elapsed / max(1, threshold) * 100, 1)),
+                    "initiative_count": count,
+                    "max_reached": max_reached,
                 }
             }
         )

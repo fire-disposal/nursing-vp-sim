@@ -22,6 +22,8 @@ from .guards import (
 
 # 主动行为引擎
 from .initiative import (
+    MAX_INITIATIVE_COUNT,
+    apply_initiative_penalty,
     check_initiate_ready,
     cleanup_initiative,
     generate_initiative,
