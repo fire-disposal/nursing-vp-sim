@@ -357,16 +357,65 @@ class TTSCallLog(Base):
 
 ---
 
-## 9. 音色预设
+## 9. 音色预设与声线分配
 
-| voice_type | 描述 | 适用场景 |
+### 9.1 音色库
+
+| voice_type | 描述 | 适用人群 |
 |------------|------|---------|
-| `zh_female_vv` | 温柔女声 | 默认患者（中年女性） |
-| `zh_male_qingse` | 青年男声 | 青年男性患者 |
-| `zh_female_tianmei` | 甜美女声 | 年轻女性患者 |
-| `zh_male_laoshi` | 老师男声 | 中年男性患者 |
+| `zh_female_vv` | 温柔女声 | 中年女性 |
+| `zh_male_qingse` | 青年男声 | 青年男性 |
+| `zh_female_tianmei` | 甜美女声 | 年轻女性 |
+| `zh_male_laoshi` | 老师男声 | 中年男性 |
+| `zh_female_child` | 女童声 | 儿童（不限性别） |
+| `zh_male_elder` | 老年男声 | 老年男性 |
+| `zh_female_elder` | 老年女声 | 老年女性 |
 
-音色选择可写入病例 `case_data.personality.voice_type`，支持病例编辑时配置。
+### 9.2 声线分配优先级
+
+```
+1. case_data.personality.voice_type   ← 病例显式配置
+   ↓ (为空或音色不存在)
+2. 患者人口学自动匹配 (age + gender)
+   ↓ (患者信息不完整)
+3. 系统默认: zh_female_vv
+```
+
+### 9.3 人口学自动匹配规则
+
+```python
+# infrastructure/tts/mapper.py
+
+def resolve_voice_type(voice_type: str | None, age: int | None, gender: str | None) -> str:
+    """按优先级解析最终使用的音色。"""
+    # 1. 病例显式配置（需验证有效性）
+    if voice_type and voice_type in VALID_VOICE_TYPES:
+        return voice_type
+
+    # 2. 人口学推断
+    if age is not None and gender is not None:
+        if age <= 12:
+            return "zh_female_child"
+        if age >= 60:
+            return "zh_male_elder" if gender == "male" else "zh_female_elder"
+        if age <= 25:
+            return "zh_male_qingse" if gender == "male" else "zh_female_tianmei"
+        return "zh_male_laoshi" if gender == "male" else "zh_female_vv"
+
+    # 3. 未知 → 默认
+    return "zh_female_vv"
+
+VALID_VOICE_TYPES = frozenset({
+    "zh_female_vv", "zh_male_qingse", "zh_female_tianmei",
+    "zh_male_laoshi", "zh_female_child", "zh_male_elder", "zh_female_elder",
+})
+```
+
+### 9.4 用例编辑
+
+- 病例编辑表单：`personality.voice_type` 下拉框，选项为音色库所有值 + "自动"（默认）
+- 选择"自动"时：字段值 `null`，触发人口学匹配
+- 用例 API 返回时附带解析后的实际音色（`resolved_voice_type`），方便前端预览
 
 ---
 
