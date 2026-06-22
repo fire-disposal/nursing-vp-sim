@@ -1,11 +1,8 @@
 """Virtual Patient Training System — FastAPI application entrypoint."""
 
 import asyncio
-import atexit
 import logging
 import os
-import signal
-import sys
 import textwrap
 import threading
 import time
@@ -63,33 +60,6 @@ from repositories.training import TrainingRepository
 from schemas.ops import HealthResponse, MetricsResponse
 
 log = logging.getLogger(__name__)
-
-_shutting_down = False
-
-
-def _handle_signal(signum, frame):
-    global _shutting_down
-    if _shutting_down:
-        os._exit(1)
-    _shutting_down = True
-    log.warning("Received signal %d — initiating graceful shutdown", signum)
-
-
-signal.signal(signal.SIGINT, _handle_signal)
-signal.signal(signal.SIGTERM, _handle_signal)
-
-
-@atexit.register
-def _emergency_shutdown():
-    if _shutting_down:
-        try:
-            from core.database import engine
-
-            engine.dispose()
-        except Exception:
-            pass
-        os._exit(0)
-
 
 NOTIFICATION_LOCK_KEY = 987654322
 
@@ -300,7 +270,7 @@ async def lifespan(app: FastAPI):
         log.exception("TTS client init failed (non-fatal)")
 
     background_loop = asyncio.new_event_loop()
-    background_thread = threading.Thread(target=background_loop.run_forever, daemon=True, name="bg-loop")
+    background_thread = threading.Thread(target=background_loop.run_forever, daemon=False, name="bg-loop")
     background_thread.start()
     app.state._background_loop = background_loop
     app.state._background_thread = background_thread
