@@ -243,7 +243,10 @@ class LLMClient:
                     error_type=type(e).__name__,
                     error_message=str(e),
                     latency_ms=latency_ms,
-                    ctx=ctx,
+                    user_id=ctx.user_id,
+                    record_id=ctx.record_id,
+                    case_id=ctx.case_id,
+                    meta=ctx.log_meta,
                 )
                 raise
 
@@ -555,11 +558,12 @@ class LLMClient:
         state.model = get_model(purpose)
         state.config_id = config.id
 
-        if hasattr(config, "secret") and config.secret is not None:
+        secret = getattr(config, "secret", None)
+        if secret is not None:
             state.provider_name = "deepseek"
-            state.base_url = config.secret.base_url
-            state.price_input = float(config.secret.price_input_per_1m or 0)
-            state.price_output = float(config.secret.price_output_per_1m or 0)
+            state.base_url = secret.base_url
+            state.price_input = float(secret.price_input_per_1m or 0)
+            state.price_output = float(secret.price_output_per_1m or 0)
         else:
             state.provider_name = "deepseek"
             state.base_url = getattr(config, "base_url", "")

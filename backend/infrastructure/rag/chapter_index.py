@@ -18,7 +18,7 @@ from typing import Any
 try:
     import jieba
 except ImportError:
-    jieba = None
+    jieba = None  # ty: ignore[invalid-assignment]
 
 log = logging.getLogger(__name__)
 

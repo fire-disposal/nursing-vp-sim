@@ -3,6 +3,7 @@ import contextlib
 import json
 import logging
 import time
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -89,7 +90,7 @@ def _thought_fallback(original_len: int) -> str:
 
 
 async def _sse_progress(
-    sse_manager, user_id: int, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
+    sse_manager, user_id: int | None, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
 ) -> None:
     """Publish scoring progress via SSE if sse_manager and user_id are available."""
     if not sse_manager or not user_id:
@@ -130,9 +131,15 @@ async def _score_stage(
         tracker.update(record_id, "scoring", 15, "正在逐项评分分析...")
 
     result = await _stream_scoring_attempt(
-        llm_client, messages, record_id, cfg,
-        user_id=user_id, case_id=case_id, log_meta=log_meta,
-        sse_manager=sse_manager, tracker=tracker,
+        llm_client,
+        messages,
+        record_id,
+        cfg,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        sse_manager=sse_manager,
+        tracker=tracker,
     )
 
     if result:
@@ -159,9 +166,15 @@ async def _score_stage(
         {"role": "user", "content": retry_user},
     ]
     result2 = await _stream_scoring_attempt(
-        llm_client, retry_messages, record_id, cfg,
-        user_id=user_id, case_id=case_id, log_meta=log_meta,
-        sse_manager=sse_manager, tracker=tracker,
+        llm_client,
+        retry_messages,
+        record_id,
+        cfg,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        sse_manager=sse_manager,
+        tracker=tracker,
     )
     if not result2:
         raise RuntimeError(f"评分解析重试失败 record_id={record_id}")
@@ -202,7 +215,7 @@ async def _stream_scoring_attempt(
         case_id=case_id,
         log_meta=log_meta,
     )
-    stream_kwargs = {
+    stream_kwargs: dict[str, Any] = {
         "purpose": "scoring",
         "ctx": ctx,
         "enable_thinking": True,
@@ -298,9 +311,15 @@ async def _feedback_stage(
         tracker.update(record_id, "feedback", 65, "正在生成反馈建议...")
 
     result = await _stream_feedback_attempt(
-        llm_client, messages, record_id, cfg,
-        user_id=user_id, case_id=case_id, log_meta=log_meta,
-        sse_manager=sse_manager, tracker=tracker,
+        llm_client,
+        messages,
+        record_id,
+        cfg,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        sse_manager=sse_manager,
+        tracker=tracker,
     )
 
     if result:
@@ -327,9 +346,15 @@ async def _feedback_stage(
         {"role": "user", "content": retry_user},
     ]
     result2 = await _stream_feedback_attempt(
-        llm_client, retry_messages, record_id, cfg,
-        user_id=user_id, case_id=case_id, log_meta=log_meta,
-        sse_manager=sse_manager, tracker=tracker,
+        llm_client,
+        retry_messages,
+        record_id,
+        cfg,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        sse_manager=sse_manager,
+        tracker=tracker,
     )
     if not result2:
         raise RuntimeError(f"反馈解析重试失败 record_id={record_id}")
@@ -369,7 +394,7 @@ async def _stream_feedback_attempt(
         case_id=case_id,
         log_meta=log_meta,
     )
-    stream_kwargs = {
+    stream_kwargs: dict[str, Any] = {
         "purpose": "scoring_feedback",
         "ctx": ctx,
         "enable_thinking": True,
@@ -433,7 +458,9 @@ async def _stream_feedback_attempt(
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
         log.warning(
             "[SCORING] STAGE2-PARSEFAIL record_id=%d error=%s: %s",
-            record_id, type(e).__name__, str(e)[:200],
+            record_id,
+            type(e).__name__,
+            str(e)[:200],
         )
         return {}
     finally:

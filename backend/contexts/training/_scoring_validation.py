@@ -76,6 +76,7 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
                 continue
             item_score = item.get("score", 0)
             if isinstance(item_score, str):
+                raw_score = item_score
                 try:
                     item_score = float(item_score)
                 except ValueError:
@@ -83,7 +84,7 @@ def _validate_items_content(detail_scores: dict) -> list[str]:
                         "评分条目 score 字符串无法转换: dim=%s item=%s value=%r",
                         dim_name,
                         item.get("name", "?"),
-                        item_score[:100],
+                        raw_score[:100],
                     )
                     item_score = 0
             if not isinstance(item_score, (int, float)):

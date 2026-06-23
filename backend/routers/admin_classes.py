@@ -32,7 +32,7 @@ def list_classes(
         .group_by(UserClass.class_id)
         .all()
     )
-    count_lookup = dict(student_counts) if student_counts else {}
+    count_lookup = {class_id: count for class_id, count in student_counts}
 
     result = []
     for cls, grade_name in rows:

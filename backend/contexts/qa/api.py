@@ -15,6 +15,7 @@ from infrastructure.llm.client import CallContext
 from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
 from schemas import (
+    Citation,
     QAAskRequest,
     QAAskResponse,
     QASessionCreate,
@@ -205,7 +206,7 @@ async def create_session(
         )
         return QAAskResponse(session_id=session.id, answer=cached)
 
-    citations = []
+    citations: list[dict[str, str]] = []
     llm_client = request.app.state.llm_client
     try:
         pm = request.app.state.prompt_manager
@@ -276,7 +277,11 @@ async def create_session(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
+    return QAAskResponse(
+        session_id=session.id,
+        answer=answer,
+        citations=[Citation(source=c["source"], section=c["section"]) for c in citations] or None,
+    )
 
 
 @router.post("/sessions/{session_id}/ask", response_model=QAAskResponse)
@@ -310,7 +315,7 @@ async def ask_in_session(
     llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
     llm_messages.append({"role": "user", "content": req.question.strip()})
 
-    citations = []
+    citations: list[dict[str, str]] = []
     if req.rag_enabled:
         citations = _pre_search(req.question.strip())
         _inject_search_context(llm_messages, citations)
@@ -378,7 +383,11 @@ async def ask_in_session(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return QAAskResponse(session_id=session.id, answer=answer, citations=citations or None)
+    return QAAskResponse(
+        session_id=session.id,
+        answer=answer,
+        citations=[Citation(source=c["source"], section=c["section"]) for c in citations] or None,
+    )
 
 
 @router.post("/sessions/{session_id}/ask/stream")
@@ -408,7 +417,7 @@ async def ask_stream(
         llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
         llm_messages.append({"role": "user", "content": req.question})
 
-        citations = []
+        citations: list[dict[str, str]] = []
         if req.rag_enabled:
             try:
                 from infrastructure.rag.chapter_index import search as chapter_search

@@ -26,7 +26,7 @@ def list_grades(
         .group_by(Class.grade_id)
         .all()
     )
-    class_count_lookup = dict(class_counts) if class_counts else {}
+    class_count_lookup = {grade_id: count for grade_id, count in class_counts}
 
     student_counts = (
         db.query(Class.grade_id, func.count(UserClass.user_id))
@@ -35,7 +35,7 @@ def list_grades(
         .group_by(Class.grade_id)
         .all()
     )
-    student_count_lookup = dict(student_counts) if student_counts else {}
+    student_count_lookup = {grade_id: count for grade_id, count in student_counts}
 
     result = []
     for g in grades:

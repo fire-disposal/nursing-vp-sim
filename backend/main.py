@@ -374,11 +374,11 @@ app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=li
 
 # ── Custom exception handlers (registered before the generic handler) ──
 
-app.add_exception_handler(AuthError, auth_error_handler)
-app.add_exception_handler(NotFoundError, not_found_handler)
-app.add_exception_handler(ConflictError, conflict_handler)
-app.add_exception_handler(LLMError, llm_error_handler)
-app.add_exception_handler(ScoringError, scoring_error_handler)
+app.add_exception_handler(AuthError, auth_error_handler)  # ty: ignore[invalid-argument-type]
+app.add_exception_handler(NotFoundError, not_found_handler)  # ty: ignore[invalid-argument-type]
+app.add_exception_handler(ConflictError, conflict_handler)  # ty: ignore[invalid-argument-type]
+app.add_exception_handler(LLMError, llm_error_handler)  # ty: ignore[invalid-argument-type]
+app.add_exception_handler(ScoringError, scoring_error_handler)  # ty: ignore[invalid-argument-type]
 
 
 @app.exception_handler(Exception)
@@ -517,8 +517,7 @@ async def metrics(request: Request):
     if m is None:
         return JSONResponse(status_code=503, content=_empty_metrics("metrics not initialized"))
     try:
-        raw = m.snapshot()
-        return raw
+        return m.snapshot()
     except Exception as e:
         log.warning("/api/metrics snapshot failed: %s", e)
         return JSONResponse(status_code=500, content=_empty_metrics(str(e)[:200]))
@@ -530,7 +529,16 @@ def _empty_metrics(error: str = "") -> dict:
         "version": os.getenv("APP_VERSION", "dev"),
         "requests": {"total": 0, "by_status": {}, "latency_ms": {"p50": 0, "p95": 0, "p99": 0, "avg": 0}},
         "active_sessions": 0,
-        "llm": {"calls_total": 0, "calls_success": 0, "calls_error": 0, "tokens_used": 0, "estimated_cost": 0, "latency_ms": {"avg": 0, "p95": 0}, "degraded_providers": 0, "global_degraded": False},
+        "llm": {
+            "calls_total": 0,
+            "calls_success": 0,
+            "calls_error": 0,
+            "tokens_used": 0,
+            "estimated_cost": 0,
+            "latency_ms": {"avg": 0, "p95": 0},
+            "degraded_providers": 0,
+            "global_degraded": False,
+        },
         "db": {"pool_size": 0, "checked_out": 0, "overflow": 0, "connections_in_use": 0},
         "queue": {"task_queue": 0, "log_queue": 0},
         "memory_mb": 0.0,

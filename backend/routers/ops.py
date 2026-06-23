@@ -30,8 +30,8 @@ def _check_token(token: str) -> None:
 
 @router.get("/api/ops/dashboard")
 async def ops_dashboard(
+    request: Request,
     token: str = Query("", description="诊断令牌"),
-    request: Request = None,
 ):
     """统一运维面板 —— OpenClaw Agent 专用入口，一次调用获取全部状态。"""
     _check_token(token)
@@ -53,7 +53,7 @@ async def ops_dashboard(
                 func.avg(LLMCallLog.latency_ms).label("avg_latency_ms"),
             )
             .filter(LLMCallLog.created_at >= day_ago)
-            .first()
+            .one()
         )
         llm_total = llm_stats.total or 0
         llm_success = llm_stats.success or 0
@@ -209,13 +209,13 @@ async def ops_errors(
 
 @router.get("/api/ops/report")
 async def ops_report(
+    request: Request,
     token: str = Query("", description="诊断令牌"),
-    request: Request = None,
 ):
     """运维日报 —— 返回纯数据的日报摘要，OpenClaw Agent 或外部 cron 可消费。"""
     _check_token(token)
 
-    dashboard = await ops_dashboard(token, request)
+    dashboard = await ops_dashboard(request=request, token=token)
     data = dashboard
 
     # 提取关键指标，生成日报摘要

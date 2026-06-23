@@ -28,7 +28,7 @@ def _query_llm_stats(db: Session, since: datetime):
             func.avg(LLMCallLog.latency_ms).label("avg_latency_ms"),
         )
         .filter(LLMCallLog.created_at >= since)
-        .first()
+        .one()
     )
     return {
         "total": row.total or 0,
@@ -61,12 +61,7 @@ def _query_scoring_queue(db: Session, day_ago: datetime):
 
 
 def _query_active_sessions(db: Session):
-    return (
-        db.query(func.count(TrainingRecord.id))
-        .filter(TrainingRecord.status == "in_progress")
-        .scalar()
-        or 0
-    )
+    return db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.status == "in_progress").scalar() or 0
 
 
 def _query_recent_llm_errors(db: Session, since: datetime):
@@ -85,12 +80,7 @@ def _query_recent_llm_errors(db: Session, since: datetime):
 
 
 def _query_unread_notifications(db: Session):
-    return (
-        db.query(func.count(Notification.id))
-        .filter(Notification.is_read == False)
-        .scalar()
-        or 0
-    )
+    return db.query(func.count(Notification.id)).filter(Notification.is_read == False).scalar() or 0
 
 
 def _query_voice_stats(db: Session, day_ago: datetime):

@@ -36,12 +36,13 @@ def export_records(
     record_ids = [r.id for r in records]
     msg_counts = {}
     if record_ids:
-        msg_counts = dict(
-            db.query(Message.record_id, func.count(Message.id))
+        msg_counts = {
+            rid: count
+            for rid, count in db.query(Message.record_id, func.count(Message.id))
             .filter(Message.record_id.in_(record_ids))
             .group_by(Message.record_id)
             .all()
-        )
+        }
 
     columns = [
         Column("记录ID", lambda r: str(r.id)),
