@@ -270,13 +270,6 @@ export interface CostSeriesPoint {
   asr_cost: number
 }
 
-export interface DBMetrics {
-  pool_size: number
-  checked_out: number
-  overflow?: number
-  connections_in_use: number
-}
-
 export interface DeleteResponse {
   ok?: boolean
   message?: string
@@ -493,17 +486,6 @@ export interface LLMConfigUpdate {
   status?: string | null
 }
 
-export interface LLMMetrics {
-  calls_total: number
-  calls_success: number
-  calls_error: number
-  tokens_used: number
-  estimated_cost: number
-  latency_ms: LatencyStats
-  degraded_providers: number
-  global_degraded: boolean
-}
-
 export interface LLMStatsResponse {
   today: Record<string, unknown>
   week: Record<string, unknown>
@@ -511,13 +493,6 @@ export interface LLMStatsResponse {
   by_purpose: Record<string, unknown>[]
   by_provider?: Record<string, unknown>[]
   daily: Record<string, unknown>[]
-}
-
-export interface LatencyStats {
-  p50: number
-  p95: number
-  p99: number
-  avg: number
 }
 
 export interface LoginRequest {
@@ -530,23 +505,6 @@ export interface MessageItem {
   role: string
   content: string
   created_at: string
-}
-
-export interface MetricBuckets {
-  2xx?: number
-  4xx?: number
-  5xx?: number
-}
-
-export interface MetricsResponse {
-  uptime_seconds: number
-  version: string
-  requests: RequestMetrics
-  active_sessions: number
-  llm: LLMMetrics
-  db: DBMetrics
-  queue: QueueMetrics
-  memory_mb?: number
 }
 
 export interface NoteCreateRequest {
@@ -950,11 +908,6 @@ export interface QuestionnaireTemplateUpdate {
   is_active?: boolean | null
 }
 
-export interface QueueMetrics {
-  task_queue: number
-  log_queue: number
-}
-
 export interface RankingItem {
   user_id: number
   display_name: string
@@ -982,12 +935,6 @@ export interface RegisterResponse {
   role: string
   display_name: string
   student_id?: string | null
-}
-
-export interface RequestMetrics {
-  total: number
-  by_status: MetricBuckets
-  latency_ms: LatencyStats
 }
 
 export interface RoleCreateRequest {

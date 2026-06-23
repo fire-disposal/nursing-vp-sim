@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
+import { useApiQuery } from "@/hooks/useApiQuery";
 
 interface Notification {
 	id: number;
@@ -28,28 +28,36 @@ export default function NotificationBell() {
 		refetchInterval: 30_000,
 	});
 
+	const markOneReadMutation = useMutation({
+		mutationFn: (id: number) => api.patch(`/training/notifications/${id}`),
+		onMutate: (id) => {
+			qc.setQueryData<Notification[]>(["notifications"], (prev) =>
+				(prev ?? []).filter((n) => n.id !== id),
+			);
+		},
+		onError: () => {
+			toastError("标记已读失败");
+			qc.invalidateQueries({ queryKey: ["notifications"] });
+		},
+	});
+
 	const markAllReadMutation = useMutation({
 		mutationFn: () => api.patch("/training/notifications/read-all"),
-		onSuccess: () => {
+		onMutate: () => {
 			qc.setQueryData<Notification[]>(["notifications"], []);
 		},
 		onError: () => {
 			toastError("标记已读失败");
+			qc.invalidateQueries({ queryKey: ["notifications"] });
 		},
 	});
 
 	const notifications: Notification[] = data ?? [];
 	const unread = notifications.length;
 
-	// Mark all as read when panel opens
-	useEffect(() => {
-		if (open && notifications.length > 0) {
-			markAllReadMutation.mutate();
-		}
-	}, [open]);
-
 	const handleClick = useCallback(
 		(n: Notification) => {
+			markOneReadMutation.mutate(n.id);
 			setOpen(false);
 			if (n.record_id) {
 				navigate(`/record/${n.record_id}`);
@@ -57,7 +65,7 @@ export default function NotificationBell() {
 				navigate("/history");
 			}
 		},
-		[navigate],
+		[navigate, markOneReadMutation],
 	);
 
 	return (
@@ -88,13 +96,24 @@ export default function NotificationBell() {
 						>
 							<div className="flex items-center justify-between px-4 py-3 border-b">
 								<span className="font-semibold text-sm">通知</span>
-								<button
-									type="button"
-									onClick={() => setOpen(false)}
-									className="p-1 rounded-md hover:bg-muted transition-colors"
-								>
-									<X size={16} />
-								</button>
+								<div className="flex items-center gap-2">
+									{unread > 0 && (
+										<button
+											type="button"
+											onClick={() => markAllReadMutation.mutate()}
+											className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+										>
+											全部已读
+										</button>
+									)}
+									<button
+										type="button"
+										onClick={() => setOpen(false)}
+										className="p-1 rounded-md hover:bg-muted transition-colors"
+									>
+										<X size={16} />
+									</button>
+								</div>
 							</div>
 							<div className="max-h-80 overflow-y-auto">
 								{notifications.length > 0 ? (

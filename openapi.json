@@ -1153,13 +1153,13 @@
         ]
       }
     },
-    "/api/admin/api/rubrics": {
+    "/api/admin/rubrics": {
       "get": {
         "tags": [
           "管理"
         ],
         "summary": "List Rubrics",
-        "operationId": "list_rubrics_api_admin_api_rubrics_get",
+        "operationId": "list_rubrics_api_admin_rubrics_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1170,7 +1170,7 @@
                     "$ref": "#/components/schemas/RubricResponse"
                   },
                   "type": "array",
-                  "title": "Response List Rubrics Api Admin Api Rubrics Get"
+                  "title": "Response List Rubrics Api Admin Rubrics Get"
                 }
               }
             }
@@ -1187,7 +1187,7 @@
           "管理"
         ],
         "summary": "Create Rubric",
-        "operationId": "create_rubric_api_admin_api_rubrics_post",
+        "operationId": "create_rubric_api_admin_rubrics_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1227,13 +1227,13 @@
         ]
       }
     },
-    "/api/admin/api/rubrics/active": {
+    "/api/admin/rubrics/active": {
       "get": {
         "tags": [
           "管理"
         ],
         "summary": "Get Active Rubric",
-        "operationId": "get_active_rubric_api_admin_api_rubrics_active_get",
+        "operationId": "get_active_rubric_api_admin_rubrics_active_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1253,13 +1253,13 @@
         ]
       }
     },
-    "/api/admin/api/rubrics/{rubric_id}": {
+    "/api/admin/rubrics/{rubric_id}": {
       "put": {
         "tags": [
           "管理"
         ],
         "summary": "Update Rubric",
-        "operationId": "update_rubric_api_admin_api_rubrics__rubric_id__put",
+        "operationId": "update_rubric_api_admin_rubrics__rubric_id__put",
         "security": [
           {
             "HTTPBearer": []
@@ -1314,7 +1314,7 @@
           "管理"
         ],
         "summary": "Delete Rubric",
-        "operationId": "delete_rubric_api_admin_api_rubrics__rubric_id__delete",
+        "operationId": "delete_rubric_api_admin_rubrics__rubric_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -1355,13 +1355,13 @@
         }
       }
     },
-    "/api/admin/api/rubrics/{rubric_id}/activate": {
+    "/api/admin/rubrics/{rubric_id}/activate": {
       "post": {
         "tags": [
           "管理"
         ],
         "summary": "Activate Rubric",
-        "operationId": "activate_rubric_api_admin_api_rubrics__rubric_id__activate_post",
+        "operationId": "activate_rubric_api_admin_rubrics__rubric_id__activate_post",
         "security": [
           {
             "HTTPBearer": []
@@ -1402,14 +1402,14 @@
         }
       }
     },
-    "/api/admin/api/admin/system-notifications": {
+    "/api/admin/system-notifications": {
       "get": {
         "tags": [
           "管理",
           "admin"
         ],
         "summary": "List Notifications",
-        "operationId": "list_notifications_api_admin_api_admin_system_notifications_get",
+        "operationId": "list_notifications_api_admin_system_notifications_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1420,7 +1420,7 @@
                     "$ref": "#/components/schemas/SystemNotificationResponse"
                   },
                   "type": "array",
-                  "title": "Response List Notifications Api Admin Api Admin System Notifications Get"
+                  "title": "Response List Notifications Api Admin System Notifications Get"
                 }
               }
             }
@@ -1438,7 +1438,7 @@
           "admin"
         ],
         "summary": "Create Notification",
-        "operationId": "create_notification_api_admin_api_admin_system_notifications_post",
+        "operationId": "create_notification_api_admin_system_notifications_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1478,14 +1478,14 @@
         ]
       }
     },
-    "/api/admin/api/admin/system-notifications/{notif_id}": {
+    "/api/admin/system-notifications/{notif_id}": {
       "put": {
         "tags": [
           "管理",
           "admin"
         ],
         "summary": "Update Notification",
-        "operationId": "update_notification_api_admin_api_admin_system_notifications__notif_id__put",
+        "operationId": "update_notification_api_admin_system_notifications__notif_id__put",
         "security": [
           {
             "HTTPBearer": []
@@ -1541,7 +1541,7 @@
           "admin"
         ],
         "summary": "Delete Notification",
-        "operationId": "delete_notification_api_admin_api_admin_system_notifications__notif_id__delete",
+        "operationId": "delete_notification_api_admin_system_notifications__notif_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -6564,6 +6564,32 @@
         ]
       }
     },
+    "/api/training/notifications/read-all": {
+      "patch": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Mark All Notifications Read",
+        "operationId": "mark_all_notifications_read_api_training_notifications_read_all_patch",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/training/notifications/{notif_id}": {
       "patch": {
         "tags": [
@@ -6609,32 +6635,6 @@
             }
           }
         }
-      }
-    },
-    "/api/training/notifications/read-all": {
-      "patch": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Mark All Notifications Read",
-        "operationId": "mark_all_notifications_read_api_training_notifications_read_all_patch",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/training/notifications/stream": {
@@ -8903,9 +8903,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetricsResponse"
-                }
+                "schema": {}
               }
             }
           }
@@ -10392,34 +10390,6 @@
         ],
         "title": "CostSeriesPoint"
       },
-      "DBMetrics": {
-        "properties": {
-          "pool_size": {
-            "type": "integer",
-            "title": "Pool Size"
-          },
-          "checked_out": {
-            "type": "integer",
-            "title": "Checked Out"
-          },
-          "overflow": {
-            "type": "integer",
-            "title": "Overflow",
-            "default": 0
-          },
-          "connections_in_use": {
-            "type": "integer",
-            "title": "Connections In Use"
-          }
-        },
-        "type": "object",
-        "required": [
-          "pool_size",
-          "checked_out",
-          "connections_in_use"
-        ],
-        "title": "DBMetrics"
-      },
       "DeleteResponse": {
         "properties": {
           "ok": {
@@ -11568,53 +11538,6 @@
         "type": "object",
         "title": "LLMConfigUpdate"
       },
-      "LLMMetrics": {
-        "properties": {
-          "calls_total": {
-            "type": "integer",
-            "title": "Calls Total"
-          },
-          "calls_success": {
-            "type": "integer",
-            "title": "Calls Success"
-          },
-          "calls_error": {
-            "type": "integer",
-            "title": "Calls Error"
-          },
-          "tokens_used": {
-            "type": "integer",
-            "title": "Tokens Used"
-          },
-          "estimated_cost": {
-            "type": "number",
-            "title": "Estimated Cost"
-          },
-          "latency_ms": {
-            "$ref": "#/components/schemas/LatencyStats"
-          },
-          "degraded_providers": {
-            "type": "integer",
-            "title": "Degraded Providers"
-          },
-          "global_degraded": {
-            "type": "boolean",
-            "title": "Global Degraded"
-          }
-        },
-        "type": "object",
-        "required": [
-          "calls_total",
-          "calls_success",
-          "calls_error",
-          "tokens_used",
-          "estimated_cost",
-          "latency_ms",
-          "degraded_providers",
-          "global_degraded"
-        ],
-        "title": "LLMMetrics"
-      },
       "LLMStatsResponse": {
         "properties": {
           "today": {
@@ -11668,34 +11591,6 @@
         ],
         "title": "LLMStatsResponse"
       },
-      "LatencyStats": {
-        "properties": {
-          "p50": {
-            "type": "number",
-            "title": "P50"
-          },
-          "p95": {
-            "type": "number",
-            "title": "P95"
-          },
-          "p99": {
-            "type": "number",
-            "title": "P99"
-          },
-          "avg": {
-            "type": "number",
-            "title": "Avg"
-          }
-        },
-        "type": "object",
-        "required": [
-          "p50",
-          "p95",
-          "p99",
-          "avg"
-        ],
-        "title": "LatencyStats"
-      },
       "LoginRequest": {
         "properties": {
           "username": {
@@ -11746,72 +11641,6 @@
           "created_at"
         ],
         "title": "MessageItem"
-      },
-      "MetricBuckets": {
-        "properties": {
-          "2xx": {
-            "type": "integer",
-            "title": "2Xx",
-            "default": 0
-          },
-          "4xx": {
-            "type": "integer",
-            "title": "4Xx",
-            "default": 0
-          },
-          "5xx": {
-            "type": "integer",
-            "title": "5Xx",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "MetricBuckets"
-      },
-      "MetricsResponse": {
-        "properties": {
-          "uptime_seconds": {
-            "type": "number",
-            "title": "Uptime Seconds"
-          },
-          "version": {
-            "type": "string",
-            "title": "Version"
-          },
-          "requests": {
-            "$ref": "#/components/schemas/RequestMetrics"
-          },
-          "active_sessions": {
-            "type": "integer",
-            "title": "Active Sessions"
-          },
-          "llm": {
-            "$ref": "#/components/schemas/LLMMetrics"
-          },
-          "db": {
-            "$ref": "#/components/schemas/DBMetrics"
-          },
-          "queue": {
-            "$ref": "#/components/schemas/QueueMetrics"
-          },
-          "memory_mb": {
-            "type": "number",
-            "title": "Memory Mb",
-            "default": 0.0
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "uptime_seconds",
-          "version",
-          "requests",
-          "active_sessions",
-          "llm",
-          "db",
-          "queue"
-        ],
-        "title": "MetricsResponse"
       },
       "NoteCreateRequest": {
         "properties": {
@@ -14001,24 +13830,6 @@
         "type": "object",
         "title": "QuestionnaireTemplateUpdate"
       },
-      "QueueMetrics": {
-        "properties": {
-          "task_queue": {
-            "type": "integer",
-            "title": "Task Queue"
-          },
-          "log_queue": {
-            "type": "integer",
-            "title": "Log Queue"
-          }
-        },
-        "type": "object",
-        "required": [
-          "task_queue",
-          "log_queue"
-        ],
-        "title": "QueueMetrics"
-      },
       "RankingItem": {
         "properties": {
           "user_id": {
@@ -14187,27 +13998,6 @@
           "display_name"
         ],
         "title": "RegisterResponse"
-      },
-      "RequestMetrics": {
-        "properties": {
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "by_status": {
-            "$ref": "#/components/schemas/MetricBuckets"
-          },
-          "latency_ms": {
-            "$ref": "#/components/schemas/LatencyStats"
-          }
-        },
-        "type": "object",
-        "required": [
-          "total",
-          "by_status",
-          "latency_ms"
-        ],
-        "title": "RequestMetrics"
       },
       "RoleCreateRequest": {
         "properties": {

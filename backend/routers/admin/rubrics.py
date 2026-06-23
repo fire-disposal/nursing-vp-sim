@@ -10,7 +10,7 @@ from core.security import require_permission
 from models import Rubric, User
 from schemas import DeleteResponse, OkResponse, RubricCreateRequest, RubricResponse
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 
 @router.get("/rubrics", response_model=list[RubricResponse])

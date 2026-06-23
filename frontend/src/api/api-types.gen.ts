@@ -367,7 +367,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/rubrics": {
+    "/api/admin/rubrics": {
         parameters: {
             query?: never;
             header?: never;
@@ -375,17 +375,17 @@ export interface paths {
             cookie?: never;
         };
         /** List Rubrics */
-        get: operations["list_rubrics_api_admin_api_rubrics_get"];
+        get: operations["list_rubrics_api_admin_rubrics_get"];
         put?: never;
         /** Create Rubric */
-        post: operations["create_rubric_api_admin_api_rubrics_post"];
+        post: operations["create_rubric_api_admin_rubrics_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/rubrics/active": {
+    "/api/admin/rubrics/active": {
         parameters: {
             query?: never;
             header?: never;
@@ -393,7 +393,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Active Rubric */
-        get: operations["get_active_rubric_api_admin_api_rubrics_active_get"];
+        get: operations["get_active_rubric_api_admin_rubrics_active_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -402,7 +402,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/rubrics/{rubric_id}": {
+    "/api/admin/rubrics/{rubric_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -411,16 +411,16 @@ export interface paths {
         };
         get?: never;
         /** Update Rubric */
-        put: operations["update_rubric_api_admin_api_rubrics__rubric_id__put"];
+        put: operations["update_rubric_api_admin_rubrics__rubric_id__put"];
         post?: never;
         /** Delete Rubric */
-        delete: operations["delete_rubric_api_admin_api_rubrics__rubric_id__delete"];
+        delete: operations["delete_rubric_api_admin_rubrics__rubric_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/rubrics/{rubric_id}/activate": {
+    "/api/admin/rubrics/{rubric_id}/activate": {
         parameters: {
             query?: never;
             header?: never;
@@ -430,14 +430,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Activate Rubric */
-        post: operations["activate_rubric_api_admin_api_rubrics__rubric_id__activate_post"];
+        post: operations["activate_rubric_api_admin_rubrics__rubric_id__activate_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/admin/system-notifications": {
+    "/api/admin/system-notifications": {
         parameters: {
             query?: never;
             header?: never;
@@ -445,17 +445,17 @@ export interface paths {
             cookie?: never;
         };
         /** List Notifications */
-        get: operations["list_notifications_api_admin_api_admin_system_notifications_get"];
+        get: operations["list_notifications_api_admin_system_notifications_get"];
         put?: never;
         /** Create Notification */
-        post: operations["create_notification_api_admin_api_admin_system_notifications_post"];
+        post: operations["create_notification_api_admin_system_notifications_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/admin/system-notifications/{notif_id}": {
+    "/api/admin/system-notifications/{notif_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -464,10 +464,10 @@ export interface paths {
         };
         get?: never;
         /** Update Notification */
-        put: operations["update_notification_api_admin_api_admin_system_notifications__notif_id__put"];
+        put: operations["update_notification_api_admin_system_notifications__notif_id__put"];
         post?: never;
         /** Delete Notification */
-        delete: operations["delete_notification_api_admin_api_admin_system_notifications__notif_id__delete"];
+        delete: operations["delete_notification_api_admin_system_notifications__notif_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1628,23 +1628,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/notifications/{notif_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Mark Notification Read */
-        patch: operations["mark_notification_read_api_training_notifications__notif_id__patch"];
-        trace?: never;
-    };
     "/api/training/notifications/read-all": {
         parameters: {
             query?: never;
@@ -1660,6 +1643,23 @@ export interface paths {
         head?: never;
         /** Mark All Notifications Read */
         patch: operations["mark_all_notifications_read_api_training_notifications_read_all_patch"];
+        trace?: never;
+    };
+    "/api/training/notifications/{notif_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark Notification Read */
+        patch: operations["mark_notification_read_api_training_notifications__notif_id__patch"];
         trace?: never;
     };
     "/api/training/notifications/stream": {
@@ -3040,20 +3040,6 @@ export interface components {
             /** Asr Cost */
             asr_cost: number;
         };
-        /** DBMetrics */
-        DBMetrics: {
-            /** Pool Size */
-            pool_size: number;
-            /** Checked Out */
-            checked_out: number;
-            /**
-             * Overflow
-             * @default 0
-             */
-            overflow: number;
-            /** Connections In Use */
-            connections_in_use: number;
-        };
         /** DeleteResponse */
         DeleteResponse: {
             /**
@@ -3532,24 +3518,6 @@ export interface components {
             /** Status */
             status?: string | null;
         };
-        /** LLMMetrics */
-        LLMMetrics: {
-            /** Calls Total */
-            calls_total: number;
-            /** Calls Success */
-            calls_success: number;
-            /** Calls Error */
-            calls_error: number;
-            /** Tokens Used */
-            tokens_used: number;
-            /** Estimated Cost */
-            estimated_cost: number;
-            latency_ms: components["schemas"]["LatencyStats"];
-            /** Degraded Providers */
-            degraded_providers: number;
-            /** Global Degraded */
-            global_degraded: boolean;
-        };
         /** LLMStatsResponse */
         LLMStatsResponse: {
             /** Today */
@@ -3583,17 +3551,6 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** LatencyStats */
-        LatencyStats: {
-            /** P50 */
-            p50: number;
-            /** P95 */
-            p95: number;
-            /** P99 */
-            p99: number;
-            /** Avg */
-            avg: number;
-        };
         /** LoginRequest */
         LoginRequest: {
             /** Username */
@@ -3614,44 +3571,6 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-        };
-        /** MetricBuckets */
-        MetricBuckets: {
-            /**
-             * 2Xx
-             * @default 0
-             */
-            "2xx": number;
-            /**
-             * 4Xx
-             * @default 0
-             */
-            "4xx": number;
-            /**
-             * 5Xx
-             * @default 0
-             */
-            "5xx": number;
-        };
-        /** MetricsResponse */
-        MetricsResponse: {
-            /** Uptime Seconds */
-            uptime_seconds: number;
-            /** Version */
-            version: string;
-            requests: components["schemas"]["RequestMetrics"];
-            /** Active Sessions */
-            active_sessions: number;
-            llm: components["schemas"]["LLMMetrics"];
-            db: components["schemas"]["DBMetrics"];
-            queue: components["schemas"]["QueueMetrics"];
-            /**
-             * Memory Mb
-             * @default 0
-             */
-            memory_mb: number;
-        } & {
-            [key: string]: unknown;
         };
         /** NoteCreateRequest */
         NoteCreateRequest: {
@@ -4510,13 +4429,6 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
-        /** QueueMetrics */
-        QueueMetrics: {
-            /** Task Queue */
-            task_queue: number;
-            /** Log Queue */
-            log_queue: number;
-        };
         /** RankingItem */
         RankingItem: {
             /** User Id */
@@ -4580,13 +4492,6 @@ export interface components {
             display_name: string;
             /** Student Id */
             student_id?: string | null;
-        };
-        /** RequestMetrics */
-        RequestMetrics: {
-            /** Total */
-            total: number;
-            by_status: components["schemas"]["MetricBuckets"];
-            latency_ms: components["schemas"]["LatencyStats"];
         };
         /** RoleCreateRequest */
         RoleCreateRequest: {
@@ -6278,7 +6183,7 @@ export interface operations {
             };
         };
     };
-    list_rubrics_api_admin_api_rubrics_get: {
+    list_rubrics_api_admin_rubrics_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -6298,7 +6203,7 @@ export interface operations {
             };
         };
     };
-    create_rubric_api_admin_api_rubrics_post: {
+    create_rubric_api_admin_rubrics_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -6331,7 +6236,7 @@ export interface operations {
             };
         };
     };
-    get_active_rubric_api_admin_api_rubrics_active_get: {
+    get_active_rubric_api_admin_rubrics_active_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -6351,7 +6256,7 @@ export interface operations {
             };
         };
     };
-    update_rubric_api_admin_api_rubrics__rubric_id__put: {
+    update_rubric_api_admin_rubrics__rubric_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -6386,7 +6291,7 @@ export interface operations {
             };
         };
     };
-    delete_rubric_api_admin_api_rubrics__rubric_id__delete: {
+    delete_rubric_api_admin_rubrics__rubric_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -6417,7 +6322,7 @@ export interface operations {
             };
         };
     };
-    activate_rubric_api_admin_api_rubrics__rubric_id__activate_post: {
+    activate_rubric_api_admin_rubrics__rubric_id__activate_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -6448,7 +6353,7 @@ export interface operations {
             };
         };
     };
-    list_notifications_api_admin_api_admin_system_notifications_get: {
+    list_notifications_api_admin_system_notifications_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -6468,7 +6373,7 @@ export interface operations {
             };
         };
     };
-    create_notification_api_admin_api_admin_system_notifications_post: {
+    create_notification_api_admin_system_notifications_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -6501,7 +6406,7 @@ export interface operations {
             };
         };
     };
-    update_notification_api_admin_api_admin_system_notifications__notif_id__put: {
+    update_notification_api_admin_system_notifications__notif_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -6536,7 +6441,7 @@ export interface operations {
             };
         };
     };
-    delete_notification_api_admin_api_admin_system_notifications__notif_id__delete: {
+    delete_notification_api_admin_system_notifications__notif_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -9444,6 +9349,26 @@ export interface operations {
             };
         };
     };
+    mark_all_notifications_read_api_training_notifications_read_all_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+        };
+    };
     mark_notification_read_api_training_notifications__notif_id__patch: {
         parameters: {
             query?: never;
@@ -9471,26 +9396,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    mark_all_notifications_read_api_training_notifications_read_all_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OkResponse"];
                 };
             };
         };
@@ -10963,7 +10868,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MetricsResponse"];
+                    "application/json": unknown;
                 };
             };
         };

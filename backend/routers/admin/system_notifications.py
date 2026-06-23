@@ -15,7 +15,7 @@ from schemas.notification import (
     SystemNotificationUpdateRequest,
 )
 
-router = APIRouter(prefix="/api/admin/system-notifications", tags=["admin"])
+router = APIRouter(prefix="/system-notifications", tags=["admin"])
 
 
 @router.get("", response_model=list[SystemNotificationResponse])
