@@ -12,10 +12,10 @@ describe("PanelConfig", () => {
 		expect(emotionPanels).toHaveLength(0);
 	});
 
-	it("getActivePanels includes emotion when enabled", () => {
+	it("emotion panel is no longer registered (handled by top bar)", () => {
+		expect(PANELS.some((p) => p.id === "emotion")).toBe(false);
 		const active = getActivePanels({ emotion: true });
-		const emotionPanels = active.filter((p) => p.featureFlag === "emotion");
-		expect(emotionPanels).toHaveLength(1);
+		expect(active.filter((p) => p.featureFlag === "emotion")).toHaveLength(0);
 	});
 
 	it("returns sorted by priority", () => {

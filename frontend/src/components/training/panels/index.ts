@@ -1,7 +1,6 @@
-import { ClipboardList, ListChecks, MessageCircle, Smile, Stethoscope, User } from "lucide-react";
+import { ClipboardList, ListChecks, MessageCircle, Stethoscope, User } from "lucide-react";
 import type { ComponentType } from "react";
 import type { BadgeInfo, PanelTabProps, PluginContext } from "@/engine/types";
-import { EmotionTab } from "./emotion/EmotionTab";
 import { InitiativeTab } from "./initiative/InitiativeTab";
 import { InquiryTab } from "./inquiry/InquiryTab";
 import { NURSING_RECORD_SHEET_CONFIG } from "./nursing-record/config";
@@ -91,7 +90,6 @@ export const PANELS: PanelConfig[] = [
   { id: "inquiry", icon: ListChecks, label: "问诊清单", priority: 1, component: InquiryTab, badge: inquiryBadge },
   { id: "physical-exam", icon: Stethoscope, label: "护理查体", priority: 3, component: ExamPanel, featureFlag: "physical_exam", badge: examBadge },
   { id: "nursing-record", icon: ClipboardList, label: "护理记录", priority: 4, component: NursingRecordPanel, badge: nursingRecordBadge },
-  { id: "emotion", icon: Smile, label: "情绪状态", priority: 5, component: EmotionTab, featureFlag: "emotion" },
   { id: "initiative", icon: MessageCircle, label: "自主反应", priority: 6, component: InitiativeTab, featureFlag: "patient_initiative" },
 ];
 
