@@ -38,13 +38,22 @@ if (!fs.existsSync(checklistFile)) {
 }
 
 const doPush = process.argv.includes("--push");
+
+// Queued auto-tag runs check out a stale master (the SHA from their own trigger
+// event). Sync onto the latest remote master BEFORE tagging so the placeholder
+// commit fast-forwards and the tag points at a real master commit.
+if (doPush && isCI) {
+  execSync("git fetch origin master --quiet");
+  execSync("git rebase origin/master", { stdio: "inherit" });
+}
+
 const msg = doPush ? `Creating and pushing: ${tag}` : `Creating: ${tag}`;
 console.log(msg);
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
 
 if (doPush) {
   if (isCI) {
-    execSync(`git push origin HEAD`, { stdio: "inherit" });
+    execSync(`git push origin HEAD:master`, { stdio: "inherit" });
   }
   execSync(`git push origin "${tag}"`, { stdio: "inherit" });
   console.log(`Pushed: ${tag}`);
