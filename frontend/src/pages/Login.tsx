@@ -68,21 +68,7 @@ export default function Login() {
 	};
 
 	return (
-		<div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-sky-50">
-			<div className="absolute inset-0 bg-grid-medical" />
-
-			<div
-				className="absolute size-72 rounded-full bg-blue-400/10 blur-2xl animate-float"
-				style={{ left: "-5%", top: "15%" }}
-			/>
-			<div
-				className="absolute size-96 rounded-full bg-teal-400/6 blur-2xl animate-float-delayed"
-				style={{ right: "-5%", bottom: "5%" }}
-			/>
-			<div
-				className="absolute size-64 rounded-full bg-indigo-300/6 blur-2xl animate-breathe"
-				style={{ left: "40%", top: "40%" }}
-			/>
+		<div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
 
 			<div className="relative z-10 flex w-full max-w-5xl items-center gap-8 px-6 py-10">
 				<LoginIllustration />
