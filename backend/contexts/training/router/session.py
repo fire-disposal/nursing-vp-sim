@@ -31,6 +31,7 @@ from models import (
     TrainingRecord,
     User,
     UserClass,
+    VoiceCallLog,
 )
 from schemas import (
     DeleteResponse,
@@ -542,6 +543,7 @@ def delete_record(
     db.query(Note).filter(Note.record_id == record_id).delete()
     db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
     db.query(NursingRecord).filter(NursingRecord.record_id == record_id).delete()
+    db.query(VoiceCallLog).filter(VoiceCallLog.record_id == record_id).delete()
     db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).update(
         {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
     )
