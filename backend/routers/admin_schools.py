@@ -33,6 +33,8 @@ def list_schools(
     db: Session = Depends(get_db),
 ):
     q = db.query(School)
+    if current_user.school_id is not None:
+        q = q.filter(School.id == current_user.school_id)
     if search:
         q = q.filter(School.name.ilike(f"%{search}%"))
     total = q.count()
@@ -137,6 +139,11 @@ def delete_school(
     current_user: User = Depends(require_permission("school_manage")),
     db: Session = Depends(get_db),
 ):
+    if current_user.school_id is not None and school_id != current_user.school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="无权操作其他学校的数据",
+        )
     if school_id == current_user.school_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能删除自己所在的学校")
 
