@@ -3,7 +3,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
@@ -39,6 +39,42 @@ def _increment_scoring_generation(record_id: int) -> None:
 
 def _get_current_generation(record_id: int) -> int:
     return _scoring_generation.get(record_id, 0)
+
+
+def _create_notification(
+    db: Session,
+    *,
+    user_id: int,
+    record_id: int | None,
+    type: str,
+    title: str,
+    body: str,
+) -> None:
+    """Create a user notification in its own transaction. Never raises."""
+    try:
+        db.add(
+            Notification(
+                user_id=user_id,
+                record_id=record_id,
+                type=type,
+                title=title,
+                body=body,
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        log.warning("Failed to create notification (type=%s)", type, exc_info=True)
+
+
+async def _publish_scoring_event(sse_manager, user_id: int, event: str, payload: dict) -> None:
+    """Publish an SSE event, swallowing transport errors."""
+    if not sse_manager:
+        return
+    try:
+        await sse_manager.publish(user_id, event, payload)
+    except Exception:
+        log.warning("SSE publish failed (event=%s)", event, exc_info=True)
 
 
 @router.get("/{record_id}/scoring-status", response_model=ScoringStatusResponse)
@@ -150,33 +186,25 @@ async def _run_scoring_background(
         db.commit()
         log.info("[SCORING] DONE record_id=%d", record_id)
 
-        try:
-            notif = Notification(
-                user_id=record.user_id,
-                record_id=record.id,
-                type="scoring_complete",
-                title="评分已完成",
-                body="训练评分已完成，请查看详情",
-            )
-            db.add(notif)
-            db.commit()
-        except Exception:
-            db.rollback()
-            log.warning("Failed to create scoring notification", exc_info=True)
+        _create_notification(
+            db,
+            user_id=record.user_id,
+            record_id=record.id,
+            type="scoring_complete",
+            title="评分已完成",
+            body="训练评分已完成，请查看详情",
+        )
 
-        if sse_manager:
-            try:
-                score_obj = db.query(Score).filter(Score.record_id == record_id).first()
-                await sse_manager.publish(
-                    record.user_id,
-                    "scoring_complete",
-                    {
-                        "record_id": record.id,
-                        "total_score": score_obj.total_score if score_obj else None,
-                    },
-                )
-            except Exception:
-                log.warning("SSE publish failed", exc_info=True)
+        score_obj = db.query(Score).filter(Score.record_id == record_id).first()
+        await _publish_scoring_event(
+            sse_manager,
+            record.user_id,
+            "scoring_complete",
+            {
+                "record_id": record.id,
+                "total_score": score_obj.total_score if score_obj else None,
+            },
+        )
     except TimeoutError:
         log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
         if tracker:
@@ -188,6 +216,20 @@ async def _run_scoring_background(
                 record.scoring_status = "failed"
                 record.scoring_error = "评分超时（超过5分钟）"
                 db.commit()
+                _create_notification(
+                    db,
+                    user_id=record.user_id,
+                    record_id=record.id,
+                    type="scoring_failed",
+                    title="评分失败",
+                    body="评分超时（超过5分钟），请重试",
+                )
+                await _publish_scoring_event(
+                    sse_manager,
+                    record.user_id,
+                    "scoring_failed",
+                    {"record_id": record.id, "error": "评分超时（超过5分钟）"},
+                )
         except Exception as e:
             log.exception("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
     except Exception as e:
@@ -201,6 +243,20 @@ async def _run_scoring_background(
                 record.scoring_status = "failed"
                 record.scoring_error = str(e)[:2000] or f"{type(e).__name__}"
                 db.commit()
+                _create_notification(
+                    db,
+                    user_id=record.user_id,
+                    record_id=record.id,
+                    type="scoring_failed",
+                    title="评分失败",
+                    body=f"评分失败：{record.scoring_error or '未知错误'}",
+                )
+                await _publish_scoring_event(
+                    sse_manager,
+                    record.user_id,
+                    "scoring_failed",
+                    {"record_id": record.id, "error": record.scoring_error or "未知错误"},
+                )
         except Exception as inner:
             log.exception("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
     finally:
@@ -338,17 +394,14 @@ async def retry_scoring(
 def get_notifications(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    unread_only: Annotated[bool, Query()] = True,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    notifs = (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == current_user.id,
-            Notification.is_read == False,
-        )
-        .order_by(Notification.created_at.desc())
-        .limit(20)
-        .all()
-    )
+    q = db.query(Notification).filter(Notification.user_id == current_user.id)
+    if unread_only:
+        q = q.filter(Notification.is_read == False)
+    notifs = q.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
     return [
         {
             "id": n.id,
@@ -356,7 +409,8 @@ def get_notifications(
             "title": n.title,
             "body": n.body,
             "record_id": n.record_id,
-            "created_at": str(n.created_at),
+            "is_read": n.is_read,
+            "created_at": n.created_at,
         }
         for n in notifs
     ]

@@ -11,8 +11,9 @@ interface Notification {
 	id: number;
 	type: string;
 	title: string;
-	body: string;
+	body: string | null;
 	record_id?: number;
+	is_read?: boolean;
 	created_at: string;
 }
 
@@ -22,10 +23,10 @@ export default function NotificationBell() {
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
 
-	const { data } = useApiQuery({
+	const { data, isLoading, isError } = useApiQuery({
 		queryKey: ["notifications"],
 		queryFn: () => api.get<Notification[]>("/training/notifications"),
-		refetchInterval: 30_000,
+		refetchInterval: 60_000,
 	});
 
 	const markOneReadMutation = useMutation({
@@ -79,7 +80,7 @@ export default function NotificationBell() {
 				<Bell size={16} />
 				{unread > 0 && (
 					<span className="absolute -top-0.5 -right-0.5 flex items-center justify-center size-4 text-[10px] font-bold text-white bg-destructive rounded-full">
-						{unread > 9 ? "9+" : unread}
+						{unread > 99 ? "99+" : unread}
 					</span>
 				)}
 			</button>
@@ -116,7 +117,11 @@ export default function NotificationBell() {
 								</div>
 							</div>
 							<div className="max-h-80 overflow-y-auto">
-								{notifications.length > 0 ? (
+								{isError ? (
+									<div className="px-4 py-8 text-center text-sm text-destructive">加载失败，请稍后重试</div>
+								) : isLoading ? (
+									<div className="px-4 py-8 text-center text-sm text-muted-foreground">加载中…</div>
+								) : notifications.length > 0 ? (
 									notifications.map((n) => (
 										<button
 											type="button"
@@ -125,8 +130,8 @@ export default function NotificationBell() {
 											onClick={() => handleClick(n)}
 										>
 											<div className="text-sm font-medium">{n.title}</div>
-											<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
-											<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 10)}</div>
+											{n.body && <div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>}
+											<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 16).replace("T", " ")}</div>
 										</button>
 									))
 								) : (

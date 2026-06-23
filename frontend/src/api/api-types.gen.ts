@@ -4996,7 +4996,15 @@ export interface components {
             body?: string | null;
             /** Record Id */
             record_id?: number | null;
-            /** Created At */
+            /**
+             * Is Read
+             * @default false
+             */
+            is_read: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /** TrainingRecordBrief */
@@ -6355,7 +6363,10 @@ export interface operations {
     };
     list_notifications_api_admin_system_notifications_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6369,6 +6380,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemNotificationResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9331,7 +9351,11 @@ export interface operations {
     };
     get_notifications_api_training_notifications_get: {
         parameters: {
-            query?: never;
+            query?: {
+                unread_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9345,6 +9369,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrainingNotificationItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

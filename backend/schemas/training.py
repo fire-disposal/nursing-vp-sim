@@ -196,7 +196,8 @@ class TrainingNotificationItem(BaseModel):
     title: str
     body: str | None = None
     record_id: int | None = None
-    created_at: str
+    is_read: bool = False
+    created_at: datetime
 
 
 class EmotionHistoryEntry(BaseModel):

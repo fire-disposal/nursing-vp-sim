@@ -612,12 +612,15 @@ class Notification(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    record_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    record_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="CASCADE"), nullable=True
+    )
     type: Mapped[str] = mapped_column(String(30))
     title: Mapped[str] = mapped_column(String(200))
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_read: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
+    updated_at: Mapped[datetime | None] = mapped_column(default=_now_utc, onupdate=_now_utc, nullable=True)
 
     user: Mapped["User"] = relationship()
 

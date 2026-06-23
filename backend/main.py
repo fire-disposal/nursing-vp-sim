@@ -313,51 +313,63 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(stop_background_loop)
 
 
-async def _notification_publisher(interval: int = 60):
-    """后台任务：定时检查 SystemNotification 是否到达发布时间，到达后推送到用户通知。"""
+def _publish_pending_notifications() -> None:
+    """Sync worker: deliver due system notifications to active users. Holds a Postgres
+    advisory lock so only one process publishes. Safe to call repeatedly; never raises."""
     from sqlalchemy import insert, text
 
     from core.database import SessionLocal
     from models import Notification, SystemNotification, User
 
+    db = SessionLocal()
+    try:
+        locked = db.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": NOTIFICATION_LOCK_KEY}).scalar()
+        if not locked:
+            return
+        try:
+            now = datetime.now(UTC)
+            pending = (
+                db.query(SystemNotification)
+                .filter(
+                    SystemNotification.is_active == True,
+                    SystemNotification.published_at.isnot(None),
+                    SystemNotification.published_at <= now,
+                )
+                .all()
+            )
+            if not pending:
+                return
+            user_ids = [r[0] for r in db.query(User.id).filter(User.is_active == True).all()]
+            if not user_ids:
+                # No recipients yet — keep notifications active so they deliver once users exist.
+                log.warning("Notification publisher: %d pending but no active users; deferring", len(pending))
+                return
+            for sn in pending:
+                db.execute(
+                    insert(Notification).values(
+                        [dict(user_id=uid, type="system", title=sn.title, body=sn.content) for uid in user_ids]
+                    )
+                )
+                sn.is_active = False
+                log.info("Notification published: %s -> %d users", sn.title, len(user_ids))
+            db.commit()
+        finally:
+            try:
+                db.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": NOTIFICATION_LOCK_KEY})
+            except Exception:
+                log.warning("Failed to release notification advisory lock", exc_info=True)
+    except Exception:
+        log.exception("Notification publisher error")
+        db.rollback()
+    finally:
+        db.close()
+
+
+async def _notification_publisher(interval: int = 60):
+    """后台任务：定时检查 SystemNotification 是否到达发布时间，到达后推送到用户通知。"""
     while True:
         await asyncio.sleep(interval)
-        db = SessionLocal()
-        try:
-            locked = db.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": NOTIFICATION_LOCK_KEY}).scalar()
-            if not locked:
-                continue
-            try:
-                now = datetime.now(UTC)
-                pending = (
-                    db.query(SystemNotification)
-                    .filter(
-                        SystemNotification.is_active == True,
-                        SystemNotification.published_at.isnot(None),
-                        SystemNotification.published_at <= now,
-                    )
-                    .all()
-                )
-                if not pending:
-                    continue
-                user_ids = [r[0] for r in db.query(User.id).filter(User.is_active == True).all()]
-                for sn in pending:
-                    if user_ids:
-                        db.execute(
-                            insert(Notification).values(
-                                [dict(user_id=uid, type="system", title=sn.title, body=sn.content) for uid in user_ids]
-                            )
-                        )
-                    sn.is_active = False
-                    log.info("Notification published: %s -> %d users", sn.title, len(user_ids))
-                db.commit()
-            finally:
-                db.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": NOTIFICATION_LOCK_KEY})
-        except Exception:
-            log.exception("Notification publisher error")
-            db.rollback()
-        finally:
-            db.close()
+        await asyncio.to_thread(_publish_pending_notifications)
 
 
 def _handle_task_exception(loop, ctx):

@@ -1,8 +1,9 @@
 """System notification management — scheduled broadcast announcements."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -22,8 +23,10 @@ router = APIRouter(prefix="/system-notifications", tags=["admin"])
 def list_notifications(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    return db.query(SystemNotification).order_by(SystemNotification.created_at.desc()).all()
+    return db.query(SystemNotification).order_by(SystemNotification.created_at.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=SystemNotificationResponse)
@@ -38,7 +41,7 @@ def create_notification(
         level=body.level,
         is_active=body.is_active,
         created_by=current_user.id,
-        published_at=body.published_at,
+        published_at=body.published_at or datetime.now(UTC),
     )
     db.add(sn)
     db.commit()

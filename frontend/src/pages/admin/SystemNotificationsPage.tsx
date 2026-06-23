@@ -4,14 +4,16 @@ import { useState } from "react";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
-import { getApiErrorMessage } from "@/lib/error-utils";
+import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { getApiErrorMessage } from "@/lib/error-utils";
 
 interface SystemNotification {
 	id: number;
@@ -35,6 +37,12 @@ const LEVEL_CLASSES: Record<string, string> = {
 	success: "bg-green-100 text-green-700",
 };
 
+function toLocalDateTime(s: string): string {
+	// Backend stores naive UTC datetimes; append Z so the browser renders local time.
+	const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`;
+	return new Date(iso).toLocaleString("zh-CN");
+}
+
 export default function SystemNotificationsPage() {
 	const qc = useQueryClient();
 	const toast = useToast();
@@ -42,6 +50,7 @@ export default function SystemNotificationsPage() {
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState({ title: "", content: "", level: "info", published_at: "" });
 	const [saving, setSaving] = useState(false);
+	const [deleteId, setDeleteId] = useState<number | null>(null);
 
 	const { data, isLoading } = useApiQuery({
 		queryKey: ["system-notifications"],
@@ -125,7 +134,7 @@ export default function SystemNotificationsPage() {
 								<p className="text-sm text-muted-foreground mt-1 line-clamp-2">{n.content}</p>
 								<div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
 									{n.published_at ? (
-										<span>📅 {new Date(n.published_at).toLocaleString("zh-CN")} 发布</span>
+										<span>📅 {toLocalDateTime(n.published_at)} 发布</span>
 									) : (
 										<span>即时发布</span>
 									)}
@@ -134,7 +143,7 @@ export default function SystemNotificationsPage() {
 							</div>
 							<button
 								type="button"
-								onClick={() => handleDelete(n.id)}
+								onClick={() => setDeleteId(n.id)}
 								className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
 							>
 								<Trash2 className="size-4" />
@@ -152,7 +161,7 @@ export default function SystemNotificationsPage() {
 					</div>
 					<div>
 						<Label>内容</Label>
-						<Input value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} placeholder="通知正文" />
+						<Textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} placeholder="通知正文，支持多行" rows={4} />
 					</div>
 					<div>
 						<Label>级别</Label>
@@ -176,6 +185,18 @@ export default function SystemNotificationsPage() {
 					</div>
 				</div>
 			</Modal>
+			<ConfirmDialog
+				open={deleteId !== null}
+				title="删除系统通知"
+				message="确定删除这条系统通知？此操作不可撤销。"
+				confirmLabel="删除"
+				danger
+				onCancel={() => setDeleteId(null)}
+				onConfirm={() => {
+					if (deleteId !== null) handleDelete(deleteId);
+					setDeleteId(null);
+				}}
+			/>
 		</div>
 	);
 }

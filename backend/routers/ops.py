@@ -119,11 +119,12 @@ async def ops_dashboard(
             except Exception:
                 pass
 
-        # ── 通知统计 ──
+        # ── 通知统计（近 30 天未读） ──
         unread_notifications = (
             db.query(func.count(Notification.id))
             .filter(
                 Notification.is_read == False,
+                Notification.created_at >= now - timedelta(days=30),
             )
             .scalar()
             or 0
