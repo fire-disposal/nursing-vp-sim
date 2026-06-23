@@ -136,8 +136,7 @@ export default function VoiceTTSTab() {
 							toast.error(r.data.last_error || "TTS 测试失败");
 						}
 					} catch (e: unknown) {
-						const err = e as { response?: { data?: { detail?: string } } };
-						toast.error(err.response?.data?.detail || "TTS 测试失败");
+						toast.apiError(e, "TTS 测试失败");
 					}
 				}}
 				testLabel="测试 TTS"

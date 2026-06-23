@@ -31,7 +31,7 @@ export default function SecretModal({
 	const [priceOutput, setPriceOutput] = useState("0.5");
 	const [monthlyLimit, setMonthlyLimit] = useState("");
 	const [saving, setSaving] = useState(false);
-	const { success, error } = useToast();
+	const { success, apiError } = useToast();
 	const isEdit = secret != null;
 
 	useEffect(() => {
@@ -78,8 +78,7 @@ export default function SecretModal({
 			onSaved();
 			onClose();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			error(err.response?.data?.detail || "保存失败");
+			apiError(e, "保存失败");
 		} finally {
 			setSaving(false);
 		}

@@ -118,8 +118,7 @@ export default function GradesClassesPage() {
 			setModalOpen(false);
 			toast.success(editId ? "已更新" : "已创建");
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "操作失败");
+			toast.apiError(e, "操作失败");
 		}
 	};
 
@@ -136,8 +135,7 @@ export default function GradesClassesPage() {
 			fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
 			toast.success("已删除");
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "操作失败");
+			toast.apiError(e, "操作失败");
 		}
 	};
 
@@ -153,8 +151,7 @@ export default function GradesClassesPage() {
 			fetchClasses(gradeFilter ? Number(gradeFilter) : undefined);
 			toast.success("已删除");
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "操作失败");
+			toast.apiError(e, "操作失败");
 		}
 	};
 

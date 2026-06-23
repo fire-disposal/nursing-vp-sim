@@ -70,7 +70,7 @@ export default function ConfigModal({
 	const [secrets, setSecrets] = useState<ApiSecretResponse[]>([]);
 	const [secretId, setSecretId] = useState("");
 	const [saving, setSaving] = useState(false);
-	const { success, error } = useToast();
+	const { success, error, apiError } = useToast();
 	const isEdit = configData != null;
 
 	const [label, setLabel] = useState("");
@@ -129,8 +129,7 @@ export default function ConfigModal({
 			onSaved();
 			onClose();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			error(err.response?.data?.detail || "创建失败");
+			apiError(e, "创建失败");
 		} finally {
 			setSaving(false);
 		}
@@ -158,8 +157,7 @@ export default function ConfigModal({
 			onSaved();
 			onClose();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			error(err.response?.data?.detail || "保存失败");
+			apiError(e, "保存失败");
 		} finally {
 			setSaving(false);
 		}

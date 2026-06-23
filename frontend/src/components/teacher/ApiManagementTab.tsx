@@ -102,8 +102,7 @@ export default function ApiManagementTab() {
 			toast.success("已删除");
 			invalidate();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "失败");
+			toast.apiError(e, "失败");
 		}
 	};
 
@@ -122,8 +121,7 @@ export default function ApiManagementTab() {
 			toast.success("已解除");
 			invalidate();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "失败");
+			toast.apiError(e, "失败");
 		}
 	};
 	const handleToggle = async (c: LLMConfigResponse) => {
@@ -131,8 +129,7 @@ export default function ApiManagementTab() {
 			await toggleConfig(c.id);
 			invalidate();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "失败");
+			toast.apiError(e, "失败");
 		}
 	};
 	const handleReset = async (c: LLMConfigResponse) => {
@@ -140,8 +137,7 @@ export default function ApiManagementTab() {
 			await resetConfig(c.id);
 			invalidate();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "失败");
+			toast.apiError(e, "失败");
 		}
 	};
 	const handleTest = async (c: LLMConfigResponse) => {
@@ -164,8 +160,7 @@ export default function ApiManagementTab() {
 			toast.success("已绑定");
 			invalidate();
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "绑定失败");
+			toast.apiError(e, "绑定失败");
 		}
 	};
 

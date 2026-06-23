@@ -26,7 +26,7 @@ export default function PluginDashboard() {
 			})
 			.catch((e) => {
 				setLoading(false);
-				toast.error(e?.response?.data?.detail || "加载插件列表失败");
+				toast.apiError(e, "加载插件列表失败");
 			});
 	}, []);
 

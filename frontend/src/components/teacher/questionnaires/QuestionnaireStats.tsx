@@ -1,6 +1,6 @@
 import { ArrowLeft, BarChart3, Download } from "lucide-react";
-import { toast } from "sonner";
 import { exportQuestionnaireCSV } from "@/api/questionnaires";
+import { toast } from "@/components/Toast";
 import type {
 	ResponseStats,
 	TemplateListItem,
@@ -35,8 +35,7 @@ export default function QuestionnaireStats({
 			URL.revokeObjectURL(url);
 			toast.success("CSV 导出成功");
 		} catch (err: unknown) {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "导出失败");
+			toast.apiError(err, "导出失败");
 		}
 	};
 

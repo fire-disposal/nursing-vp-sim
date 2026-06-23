@@ -95,8 +95,7 @@ function ImportModal({
 			onClose();
 		},
 		onError: (e: unknown) => {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "导入失败");
+			toast.apiError(e, "导入失败");
 		},
 	});
 
@@ -262,8 +261,7 @@ export default function VoiceTokenCard({
 			queryClient.invalidateQueries({ queryKey: ["admin", "voice", "config"] });
 		},
 		onError: (e: unknown) => {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "保存失败");
+			toast.apiError(e, "保存失败");
 		},
 	});
 

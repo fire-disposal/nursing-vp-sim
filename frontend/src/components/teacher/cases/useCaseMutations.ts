@@ -49,8 +49,7 @@ export function useDeleteCase() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.cases.managed.all });
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "删除失败");
+			toast.apiError(err, "删除失败");
 		},
 	});
 }

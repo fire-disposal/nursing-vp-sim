@@ -67,8 +67,7 @@ export default function History() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
 		},
 		onError: (err: unknown) => {
-			const axiosErr = err as { response?: { data?: { detail?: string } } };
-			toast.error(axiosErr.response?.data?.detail || "删除失败");
+			toast.apiError(err, "删除失败");
 		},
 	});
 

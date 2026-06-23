@@ -118,8 +118,7 @@ export default function RecordDetail() {
 				}
 			}
 		} catch (err: unknown) {
-			const axiosErr = err as { response?: { data?: { detail?: string } } };
-			toast.error(axiosErr.response?.data?.detail || "重试评分失败");
+			toast.apiError(err, "重试评分失败");
 		} finally {
 			setRetrying(false);
 		}
@@ -158,8 +157,7 @@ export default function RecordDetail() {
 			});
 			queryClient.invalidateQueries({ queryKey: queryKeys.training.review(id!) });
 		} catch (err: unknown) {
-			const axiosErr = err as { response?: { data?: { detail?: string } } };
-			toast.error(axiosErr.response?.data?.detail || "提交复核失败");
+			toast.apiError(err, "提交复核失败");
 		} finally {
 			setSubmittingReview(false);
 		}

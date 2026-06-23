@@ -87,8 +87,7 @@ export function useDeletePrompt() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.prompts.list });
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "删除失败");
+			toast.apiError(err, "删除失败");
 		},
 	});
 }

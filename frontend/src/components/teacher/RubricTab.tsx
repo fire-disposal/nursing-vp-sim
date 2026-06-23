@@ -160,8 +160,7 @@ export default function RubricTab() {
 			refresh();
 			toast.success(editId ? "已更新" : "已创建");
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "保存失败");
+			toast.apiError(e, "保存失败");
 		}
 	};
 
@@ -182,8 +181,7 @@ export default function RubricTab() {
 			refresh();
 			toast.success("已删除");
 		} catch (e: unknown) {
-			const err = e as { response?: { data?: { detail?: string } } };
-			toast.error(err.response?.data?.detail || "删除失败");
+			toast.apiError(e, "删除失败");
 		}
 		setDeleteTarget(null);
 	};

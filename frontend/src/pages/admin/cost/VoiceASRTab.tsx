@@ -136,8 +136,7 @@ export default function VoiceASRTab() {
 							toast.error(r.data.last_error || "ASR 测试失败");
 						}
 					} catch (e: unknown) {
-						const err = e as { response?: { data?: { detail?: string } } };
-						toast.error(err.response?.data?.detail || "ASR 测试失败");
+						toast.apiError(e, "ASR 测试失败");
 					}
 				}}
 				testLabel="测试 ASR"

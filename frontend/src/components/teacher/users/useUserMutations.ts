@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { batchCreateUsers, deleteUser, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { register } from "@/api/auth";
 import { queryKeys } from "@/api/query-keys";
+import { toast } from "@/components/Toast";
 
 type Schemas = components["schemas"];
 
@@ -17,8 +17,7 @@ export function useRegisterMutation() {
 			toast.success("注册成功！");
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "注册失败");
+			toast.apiError(err, "注册失败");
 		},
 	});
 }
@@ -39,8 +38,7 @@ export function useUpdateUserMutation() {
 			toast.success("用户已更新");
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "保存失败");
+			toast.apiError(err, "保存失败");
 		},
 	});
 }
@@ -55,8 +53,7 @@ export function useDeleteUserMutation() {
 			toast.success("用户已删除");
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "删除失败");
+			toast.apiError(err, "删除失败");
 		},
 	});
 }
@@ -77,8 +74,7 @@ export function useBatchCreateUsersMutation() {
 			}
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "批量导入失败");
+			toast.apiError(err, "批量导入失败");
 		},
 	});
 }

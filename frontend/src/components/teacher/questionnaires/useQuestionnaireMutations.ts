@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { api } from "@/api/axios-instance";
 import { queryKeys } from "@/api/query-keys";
+import { toast } from "@/components/Toast";
 import type { TemplateForm } from "@/components/teacher/questionnaires/types";
 
 export function useSaveTemplateMutation() {
@@ -42,8 +42,7 @@ export function useSaveTemplateMutation() {
 			toast.success(editingId ? "问卷模板已更新" : "问卷模板已创建");
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "保存失败");
+			toast.apiError(err, "保存失败");
 		},
 	});
 }
@@ -58,8 +57,7 @@ export function useDeleteTemplateMutation() {
 			toast.success("问卷模板已删除");
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "删除失败");
+			toast.apiError(err, "删除失败");
 		},
 	});
 }
@@ -88,8 +86,7 @@ export function useAssignTemplateMutation() {
 			toast.success("病例分配已更新");
 		},
 		onError: (err: unknown) => {
-			const e = err as { response?: { data?: { detail?: string } } };
-			toast.error(e.response?.data?.detail || "分配失败");
+			toast.apiError(err, "分配失败");
 		},
 	});
 }
