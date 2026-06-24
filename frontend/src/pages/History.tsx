@@ -114,7 +114,7 @@ export default function History() {
 							<select
 								value={filters.status}
 								onChange={(e) => handleFilterChange("status", e.target.value)}
-								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
 							>
 								<option value="">全部</option>
 								<option value="in_progress">进行中</option>
@@ -131,7 +131,7 @@ export default function History() {
 								onChange={(e) =>
 									handleFilterChange("date_from", e.target.value)
 								}
-								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
 							/>
 						</div>
 						<div className="flex-1 min-w-[140px]">
@@ -142,7 +142,7 @@ export default function History() {
 								type="date"
 								value={filters.date_to}
 								onChange={(e) => handleFilterChange("date_to", e.target.value)}
-								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+								className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus-ring"
 							/>
 						</div>
 						<div className="flex gap-2 items-end">

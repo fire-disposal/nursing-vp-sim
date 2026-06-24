@@ -447,7 +447,7 @@ export default function QA() {
 					</button>
 					<input
 							ref={inputRef}
-							className="flex-1 rounded-lg border border-input bg-background px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
+							className="flex-1 rounded-lg border border-input bg-background px-3 py-3 text-sm placeholder:text-muted-foreground focus-ring disabled:opacity-50"
 							value={input}
 							onChange={(e) => setInput(e.target.value)}
 							onKeyDown={handleKeyDown}
