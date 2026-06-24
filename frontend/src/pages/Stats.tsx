@@ -465,7 +465,7 @@ function StatsContent({
 										<TableCell
 											className={cn(
 												"font-bold",
-												s.avg_score != null ? "text-primary" : "text-gray-400",
+												s.avg_score != null ? "text-primary" : "text-muted-foreground",
 											)}
 										>
 											{s.avg_score != null ? `${s.avg_score}分` : "-"}

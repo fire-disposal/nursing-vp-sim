@@ -162,7 +162,7 @@ export default function PromptForm({
 							: isBuiltinEditing
 								? "border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"
 								: "border border-border bg-card",
-						"text-foreground focus:outline-none focus:border-blue-500",
+						"text-foreground focus-ring",
 					)}
 				/>
 			</div>
@@ -188,7 +188,7 @@ export default function PromptForm({
 								: isBuiltinEditing
 									? "border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"
 									: "border border-border bg-card",
-							"text-foreground focus:outline-none focus:border-blue-500",
+							"text-foreground focus-ring",
 						)}
 					/>
 				</div>
@@ -229,7 +229,7 @@ export default function PromptForm({
 					className={cn(
 						"p-3 rounded-lg mb-3 text-sm",
 						validation.valid
-							? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+							? "bg-success text-success-foreground"
 							: "bg-destructive/10 text-destructive",
 					)}
 				>

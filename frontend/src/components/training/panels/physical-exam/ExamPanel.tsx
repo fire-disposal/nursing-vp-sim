@@ -161,14 +161,14 @@ export function ExamPanel({ ctx }: PanelTabProps) {
 										className={cn(
 											"rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 text-left flex items-center gap-1.5",
 											done
-												? "border-green-300 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+												? "border-transparent bg-success text-success-foreground"
 												: "border-border bg-card hover:bg-muted",
 										)}
 									>
 										{isActive ? (
 											<Loader2 size={12} className="animate-spin shrink-0" />
 										) : done ? (
-											<Check size={12} className="text-green-500 shrink-0" />
+											<Check size={12} className="text-success-foreground shrink-0" />
 										) : (
 											<Stethoscope size={12} className="text-muted-foreground shrink-0" />
 										)}
@@ -183,7 +183,7 @@ export function ExamPanel({ ctx }: PanelTabProps) {
 
 			{/* ── 错误提示 ── */}
 			{error && (
-				<div className="rounded-lg border border-red-200 bg-red-50 p-2 text-[0.65rem] text-red-600">
+				<div className="rounded-lg border border-transparent bg-danger p-2 text-[0.65rem] text-danger-foreground">
 					{error}
 				</div>
 			)}
@@ -207,7 +207,7 @@ export function ExamPanel({ ctx }: PanelTabProps) {
 									{item.unit && <span className="ml-0.5">{item.unit}</span>}
 								</span>
 								{copiedId === `r-${i}` ? (
-									<span className="text-[10px] text-green-600 shrink-0 w-10 text-right">
+									<span className="text-[10px] text-success-foreground shrink-0 w-10 text-right">
 										已复制
 									</span>
 								) : (

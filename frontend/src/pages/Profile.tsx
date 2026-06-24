@@ -90,7 +90,7 @@ export default function Profile() {
 					className={cn(
 						"mb-4 px-4 py-3 rounded-lg text-sm",
 						saveMsg.includes("成功")
-							? "bg-green-50 text-green-600"
+							? "bg-success text-success-foreground"
 							: "bg-destructive/10 text-destructive",
 					)}
 				>
@@ -216,7 +216,7 @@ export default function Profile() {
 							className={cn(
 								"px-3 py-2 rounded-lg text-sm",
 								pwdMsg.includes("成功")
-									? "bg-green-50 text-green-600"
+									? "bg-success text-success-foreground"
 									: "bg-destructive/10 text-destructive",
 							)}
 						>

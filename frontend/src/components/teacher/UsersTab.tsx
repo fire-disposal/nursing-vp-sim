@@ -26,10 +26,10 @@ import {
 type Schemas = components["schemas"];
 
 const btnPrimary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors border-none cursor-pointer";
 
 const btnSecondary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer";
 
 interface UsersTabProps {
 	currentUserId?: number;

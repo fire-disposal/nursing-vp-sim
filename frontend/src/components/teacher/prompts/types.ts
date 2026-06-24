@@ -41,4 +41,4 @@ export const PURPOSE_LABELS: Record<string, string> = {
 };
 
 export const inputBase =
-	"w-full py-1 px-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:border-blue-500";
+	"w-full py-1 px-2 border border-border rounded-lg text-sm bg-card text-foreground focus-ring";

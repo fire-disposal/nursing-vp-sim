@@ -1,7 +1,6 @@
 import { ArrowLeft, Download } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -16,6 +15,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useApiQuery } from "@/hooks/useApiQuery";
 
 function statusBadge(status: string) {
 	switch (status) {
@@ -23,13 +23,13 @@ function statusBadge(status: string) {
 			return <Badge variant="secondary">未开始</Badge>;
 		case "in_progress":
 			return (
-				<span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+				<span className="inline-flex items-center rounded-full bg-info px-2 py-0.5 text-xs font-medium text-info-foreground">
 					进行中
 				</span>
 			);
 		case "completed":
 			return (
-				<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+				<span className="inline-flex items-center rounded-full bg-success px-2 py-0.5 text-xs font-medium text-success-foreground">
 					已完成
 				</span>
 			);
@@ -123,7 +123,7 @@ export default function AssignmentDetailPage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold text-green-600">
+						<div className="text-2xl font-bold text-success-foreground">
 							{detail.completed_count}
 						</div>
 					</CardContent>
@@ -135,7 +135,7 @@ export default function AssignmentDetailPage() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold text-blue-600">
+						<div className="text-2xl font-bold text-primary">
 							{detail.scored_count}
 						</div>
 					</CardContent>

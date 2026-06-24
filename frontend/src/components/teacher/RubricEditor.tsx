@@ -22,7 +22,7 @@ interface RubricEditorProps {
 }
 
 const inputClass =
-	"border border-border rounded-md bg-card focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10";
+	"border border-border rounded-md bg-card focus-ring";
 
 export default function RubricEditor({
 	dimensions,
@@ -112,7 +112,7 @@ export default function RubricEditor({
 							满分
 							<input
 								type="number"
-								className="w-14 ml-1 py-1 px-1 h-7 border border-border rounded-md bg-card text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+								className="w-14 ml-1 py-1 px-1 h-7 border border-border rounded-md bg-card text-sm focus-ring"
 								value={dim.max}
 								onChange={(e) =>
 									updateDim(di, { max: Number(e.target.value) || 0 })
@@ -122,7 +122,7 @@ export default function RubricEditor({
 						<Button
 							size="sm"
 							variant="ghost"
-							className="text-red-500 hover:bg-destructive/10"
+							className="text-destructive hover:bg-destructive/10"
 							onClick={() => removeDim(di)}
 							title="删除此维度"
 						>
@@ -160,7 +160,7 @@ export default function RubricEditor({
 									<Button
 										size="sm"
 										variant="ghost"
-										className="text-red-500 hover:bg-destructive/10"
+										className="text-destructive hover:bg-destructive/10"
 										onClick={() => removeItem(di, ii)}
 										title="删除此条目"
 									>

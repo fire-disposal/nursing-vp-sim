@@ -12,7 +12,6 @@ import {
 import { getClasses } from "@/api/grades-classes";
 import { getPractices } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -31,6 +30,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { getApiErrorMessage } from "@/lib/error-utils";
 
 function formatDateTime(iso: string) {
@@ -49,7 +49,7 @@ function statusBadge(item: { start_time: string; end_time: string }) {
 	if (now > new Date(item.end_time).getTime())
 		return <Badge variant="outline">已结束</Badge>;
 	return (
-		<span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+		<span className="inline-flex items-center rounded-full bg-success px-2 py-0.5 text-xs font-medium text-success-foreground">
 			进行中
 		</span>
 	);

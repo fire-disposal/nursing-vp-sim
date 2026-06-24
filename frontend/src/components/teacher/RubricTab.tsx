@@ -212,7 +212,7 @@ export default function RubricTab() {
 										v{r.version}
 									</span>
 									{r.is_active && (
-										<span className="text-[0.625rem] bg-green-100 text-green-700 px-1.5 rounded-full">
+										<span className="text-[0.625rem] bg-success text-success-foreground px-1.5 rounded-full">
 											当前
 										</span>
 									)}
@@ -246,7 +246,7 @@ export default function RubricTab() {
 										<Button
 											size="sm"
 											variant="ghost"
-											className="text-red-500 hover:bg-destructive/10"
+											className="text-destructive hover:bg-destructive/10"
 											onClick={() => setDeleteTarget(r)}
 										>
 											<Trash2 size={12} />
@@ -331,7 +331,7 @@ export default function RubricTab() {
 						<div className="flex-1">
 							<label className="text-sm font-medium">名称</label>
 							<input
-								className="w-full py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+								className="w-full py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus-ring"
 								value={formName}
 								onChange={(e) => setFormName(e.target.value)}
 								placeholder="nursing_history_v1"
@@ -340,7 +340,7 @@ export default function RubricTab() {
 						<div>
 							<label className="text-sm font-medium">版本</label>
 							<input
-								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus-ring"
 								value={formVersion}
 								onChange={(e) => setFormVersion(e.target.value)}
 							/>
@@ -350,7 +350,7 @@ export default function RubricTab() {
 					<div>
 						<label className="text-sm font-medium">描述</label>
 						<input
-							className="w-full py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+							className="w-full py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus-ring"
 							value={formDesc}
 							onChange={(e) => setFormDesc(e.target.value)}
 							placeholder="简要说明该评分标准的用途"
@@ -362,7 +362,7 @@ export default function RubricTab() {
 							<label className="text-sm">展示满分</label>
 							<input
 								type="number"
-								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus-ring"
 								value={formTotalMax}
 								onChange={(e) => setFormTotalMax(Number(e.target.value))}
 							/>
@@ -371,7 +371,7 @@ export default function RubricTab() {
 							<label className="text-sm">原始满分</label>
 							<input
 								type="number"
-								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus-ring"
 								value={formRawMax}
 								onChange={(e) => setFormRawMax(Number(e.target.value))}
 							/>
@@ -380,7 +380,7 @@ export default function RubricTab() {
 							<label className="text-sm">原始刻度</label>
 							<input
 								type="number"
-								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+								className="w-20 py-1.5 px-2.5 border border-border rounded-md bg-card text-sm text-foreground focus-ring"
 								value={formRawScale}
 								onChange={(e) => setFormRawScale(Number(e.target.value))}
 							/>
@@ -430,7 +430,7 @@ export default function RubricTab() {
 						) : (
 							<div>
 								<textarea
-									className="w-full font-mono text-xs py-2 px-2.5 border border-border rounded-md bg-card focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+									className="w-full font-mono text-xs py-2 px-2.5 border border-border rounded-md bg-card focus-ring"
 									value={jsonText}
 									onChange={(e) => applyJsonDims(e.target.value)}
 									rows={18}

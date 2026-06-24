@@ -63,11 +63,11 @@ export default function VariableCard({
 				</code>
 				<div className="flex items-center gap-1">
 					{isSystem && (
-						<span className="text-[0.625rem] bg-amber-100 text-amber-700 px-1 rounded-full leading-[17px] whitespace-nowrap dark:bg-amber-900/30 dark:text-amber-300">
+						<span className="text-[0.625rem] bg-warning text-warning-foreground px-1 rounded-full leading-[17px] whitespace-nowrap">
 							系统注入
 						</span>
 					)}
-					<span className="text-xs text-muted-foreground/70 bg-gray-100 px-1.5 rounded-full dark:bg-gray-800">
+					<span className="text-xs text-muted-foreground/70 bg-muted px-1.5 rounded-full">
 						{meta.type || "string"}
 					</span>
 				</div>

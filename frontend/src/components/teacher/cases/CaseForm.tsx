@@ -244,8 +244,8 @@ export default function CaseFormModal({
 					className={cn(
 						"px-3.5 py-2.5 rounded-lg text-sm mb-4",
 						caseMsg.includes("成功") || caseMsg.includes("导入成功")
-							? "bg-green-50 text-green-600"
-							: "bg-destructive/10 text-red-500",
+							? "bg-success text-success-foreground"
+							: "bg-destructive/10 text-destructive",
 					)}
 				>
 					{caseMsg}
@@ -276,8 +276,8 @@ export default function CaseFormModal({
 								className={cn(
 									"px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
 									aiMode === "quick"
-										? "bg-primary text-white border-blue-600"
-										: "bg-card text-gray-600 border-border hover:bg-muted",
+										? "bg-primary text-primary-foreground border-primary"
+										: "bg-card text-muted-foreground border-border hover:bg-muted",
 								)}
 							>
 								快速生成
@@ -288,8 +288,8 @@ export default function CaseFormModal({
 								className={cn(
 									"px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors",
 									aiMode === "reference"
-										? "bg-primary text-white border-blue-600"
-										: "bg-card text-gray-600 border-border hover:bg-muted",
+										? "bg-primary text-primary-foreground border-primary"
+										: "bg-card text-muted-foreground border-border hover:bg-muted",
 								)}
 							>
 								参考资料生成
@@ -373,7 +373,7 @@ export default function CaseFormModal({
 			</div>
 			<form onSubmit={handleSave} className="flex flex-col gap-3">
 				<fieldset className="border border-border rounded-lg p-4">
-					<legend className="text-sm font-semibold text-gray-700 px-1">
+					<legend className="text-sm font-semibold text-foreground px-1">
 						基础信息
 					</legend>
 					<div className="flex gap-3 flex-wrap">
@@ -434,7 +434,7 @@ export default function CaseFormModal({
 					</div>
 				</fieldset>
 				<fieldset className="border border-border rounded-lg p-4">
-					<legend className="text-sm font-semibold text-gray-700 px-1">
+					<legend className="text-sm font-semibold text-foreground px-1">
 						<MonitorCog size={14} className="inline mr-1" />
 						支持插件
 					</legend>
@@ -475,7 +475,7 @@ export default function CaseFormModal({
 					</div>
 				</fieldset>
 				<fieldset className="border border-border rounded-lg p-4">
-					<legend className="text-sm font-semibold text-gray-700 px-1">
+					<legend className="text-sm font-semibold text-foreground px-1">
 						患者信息
 					</legend>
 					<div className="flex gap-3 flex-wrap">
@@ -540,7 +540,7 @@ export default function CaseFormModal({
 					</div>
 				</fieldset>
 				<fieldset className="border border-border rounded-lg p-4">
-					<legend className="text-sm font-semibold text-gray-700 px-1">
+					<legend className="text-sm font-semibold text-foreground px-1">
 						临床信息
 					</legend>
 					<div className="flex flex-col gap-3">
@@ -648,11 +648,11 @@ export default function CaseFormModal({
 					</div>
 				</fieldset>
 				<fieldset className="border border-border rounded-lg p-4">
-					<legend className="text-sm font-semibold text-gray-700 px-1">
+					<legend className="text-sm font-semibold text-foreground px-1">
 						<button
 							type="button"
 							onClick={() => setShowAdvanced(!showAdvanced)}
-							className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-lg bg-transparent border-none cursor-pointer hover:bg-gray-100"
+							className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-lg bg-transparent border-none cursor-pointer hover:bg-muted"
 						>
 							{showAdvanced ? (
 								<ChevronUp size={14} />
@@ -730,7 +730,7 @@ export default function CaseFormModal({
 								</label>
 								<textarea
 									rows={6}
-									className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs font-mono bg-card resize-y focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+									className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs font-mono bg-card resize-y focus-ring"
 									value={JSON.stringify(caseForm.scoring_criteria, null, 2)}
 									onChange={(e) => {
 										try {

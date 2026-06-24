@@ -24,16 +24,16 @@ interface UserFormProps {
 }
 
 const inputClass =
-	"w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus:outline-none focus:border-blue-500 focus:bg-card focus:ring-2 focus:ring-blue-500/10";
+	"w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus-ring focus-visible:bg-card";
 
 const selectClass =
-	"w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus:outline-none focus:border-blue-500 focus:bg-card focus:ring-2 focus:ring-blue-500/10";
+	"w-full h-10 px-3 border border-border rounded-lg bg-muted text-foreground text-sm focus-ring focus-visible:bg-card";
 
 const btnPrimary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors border-none cursor-pointer";
 
 const btnSecondary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer";
 
 const emptyRegForm: UserFormValues = {
 	username: "",
@@ -163,7 +163,7 @@ export default function UserForm({
 				maxWidth={480}
 			>
 				{editUserMsg && (
-					<div className="bg-destructive/10 text-red-500 px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">
+					<div className="bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">
 						{editUserMsg}
 					</div>
 				)}
@@ -283,8 +283,8 @@ export default function UserForm({
 					className={cn(
 						"px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left",
 						registerMsg.includes("成功")
-							? "bg-green-50 text-green-600"
-							: "bg-destructive/10 text-red-500",
+							? "bg-success text-success-foreground"
+							: "bg-destructive/10 text-destructive",
 					)}
 				>
 					{registerMsg}

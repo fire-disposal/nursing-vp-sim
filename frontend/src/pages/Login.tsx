@@ -92,7 +92,7 @@ export default function Login() {
 
 					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
 						{error && (
-							<div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+							<div className="mb-4 flex items-center gap-2 rounded-lg border border-danger bg-danger px-3 py-2.5 text-sm text-danger-foreground">
 								<Activity size={16} className="shrink-0" />
 								<span>{error}</span>
 							</div>

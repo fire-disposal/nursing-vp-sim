@@ -37,10 +37,10 @@ export default function ReviewItem({ item, editedScore, onChange }: ReviewItemPr
 							className={cn(
 								"text-xs font-bold",
 								item.score >= itemMax
-									? "text-green-600"
+									? "text-success-foreground"
 									: item.score >= Math.ceil(itemMax * 0.6)
-										? "text-amber-600"
-										: "text-red-600",
+										? "text-warning-foreground"
+										: "text-danger-foreground",
 							)}
 						>
 							{item.score}/{itemMax}

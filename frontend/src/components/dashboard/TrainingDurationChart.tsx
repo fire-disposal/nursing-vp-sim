@@ -67,7 +67,7 @@ export default function TrainingDurationChart() {
 			<div className="flex items-start justify-between mb-3.5">
 				<div>
 					<h3 className="text-sm font-bold">训练投入趋势</h3>
-					<span className="text-xs text-gray-400">每日训练次数与时长关联</span>
+					<span className="text-xs text-muted-foreground">每日训练次数与时长关联</span>
 				</div>
 				<div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
 					{PERIODS.map((p) => (
@@ -76,7 +76,7 @@ export default function TrainingDurationChart() {
 							className={cn(
 								"py-[5px] px-3.5 border-none bg-transparent rounded-md text-xs font-medium text-muted-foreground cursor-pointer",
 								period === p.key &&
-									"bg-card text-gray-800 font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
+									"bg-card text-foreground font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
 							)}
 							onClick={() => setPeriod(p.key)}
 						>
@@ -91,23 +91,23 @@ export default function TrainingDurationChart() {
 					<span className="block text-sm font-bold">
 						{trends?.total_sessions ?? 0}次
 					</span>
-					<span className="text-xs text-gray-400">训练次数</span>
+					<span className="text-xs text-muted-foreground">训练次数</span>
 				</div>
 				<div className="text-center p-2 bg-muted rounded-lg">
 					<span className="block text-sm font-bold">
 						{trends?.total_minutes ?? 0}min
 					</span>
-					<span className="text-xs text-gray-400">总时长</span>
+					<span className="text-xs text-muted-foreground">总时长</span>
 				</div>
 				<div className="text-center p-2 bg-muted rounded-lg">
 					<span className="block text-sm font-bold">{averageMinutes}min</span>
-					<span className="text-xs text-gray-400">平均时长</span>
+					<span className="text-xs text-muted-foreground">平均时长</span>
 				</div>
 				<div className="text-center p-2 bg-muted rounded-lg">
 					<span className="block text-sm font-bold">
 						{trends?.avg_score != null ? `${trends.avg_score}分` : "-"}
 					</span>
-					<span className="text-xs text-gray-400">平均得分</span>
+					<span className="text-xs text-muted-foreground">平均得分</span>
 				</div>
 			</div>
 

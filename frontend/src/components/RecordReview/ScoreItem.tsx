@@ -16,10 +16,10 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 					"flex justify-between items-center px-3 py-2 rounded-lg transition-colors",
 					hasEvidence ? "cursor-pointer hover:bg-muted/80" : "cursor-default",
 					item.score >= itemMax
-						? "bg-green-50 dark:bg-green-950/20"
+						? "bg-success"
 						: item.score >= Math.ceil(itemMax * 0.6)
-							? "bg-amber-50 dark:bg-amber-950/20"
-							: "bg-red-50 dark:bg-red-950/20",
+							? "bg-warning"
+							: "bg-danger",
 				)}
 			>
 				<div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -34,10 +34,10 @@ export default function ScoreItem({ item }: { item: ScoreItemData }) {
 					className={cn(
 						"text-sm font-bold ml-2 shrink-0",
 						item.score >= itemMax
-							? "text-green-600"
+							? "text-success-foreground"
 							: item.score >= Math.ceil(itemMax * 0.6)
-								? "text-amber-600"
-								: "text-red-600",
+								? "text-warning-foreground"
+								: "text-danger-foreground",
 					)}
 				>
 					{item.score}/{itemMax}

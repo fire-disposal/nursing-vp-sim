@@ -70,13 +70,13 @@ export default function QuestionnaireStats({
 							<div className="text-xs text-muted-foreground mt-1">总分配数</div>
 						</div>
 						<div className="rounded-xl border border-border bg-muted p-4 text-center">
-							<div className="text-2xl font-bold text-green-600">
+							<div className="text-2xl font-bold text-success-foreground">
 								{stats.total_completed}
 							</div>
 							<div className="text-xs text-muted-foreground mt-1">已完成</div>
 						</div>
 						<div className="rounded-xl border border-border bg-muted p-4 text-center">
-							<div className="text-2xl font-bold text-amber-600">
+							<div className="text-2xl font-bold text-warning-foreground">
 								{(stats.completion_rate * 100).toFixed(1)}%
 							</div>
 							<div className="text-xs text-muted-foreground mt-1">完成率</div>

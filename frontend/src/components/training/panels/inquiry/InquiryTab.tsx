@@ -51,12 +51,12 @@ export function InquiryTab({ ctx }: PanelTabProps) {
 						className={cn(
 							"flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
 							done
-								? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+								? "bg-success text-success-foreground"
 								: "text-muted-foreground",
 						)}
 					>
 						{done ? (
-							<CheckCircle2 size={14} className="text-green-500 shrink-0" />
+							<CheckCircle2 size={14} className="text-success-foreground shrink-0" />
 						) : (
 							<Circle size={14} className="shrink-0" />
 						)}

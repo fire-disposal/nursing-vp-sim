@@ -192,7 +192,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 					{/* Strengths */}
 					{score.strengths && score.strengths.length > 0 && (
 						<div>
-							<h3 className="mb-1.5 text-sm font-medium text-green-600 flex items-center gap-1.5">
+							<h3 className="mb-1.5 text-sm font-medium text-success-foreground flex items-center gap-1.5">
 								<span className="inline-block size-1.5 rounded-full bg-green-500" />
 								优势
 							</h3>
@@ -210,7 +210,7 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 					{/* Weaknesses */}
 					{score.weaknesses && score.weaknesses.length > 0 && (
 						<div>
-							<h3 className="mb-1.5 text-sm font-medium text-amber-600 flex items-center gap-1.5">
+							<h3 className="mb-1.5 text-sm font-medium text-warning-foreground flex items-center gap-1.5">
 								<span className="inline-block size-1.5 rounded-full bg-amber-500" />
 								改进建议
 							</h3>

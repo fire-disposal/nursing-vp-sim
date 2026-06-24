@@ -103,7 +103,7 @@ export function ChatInput({ onSend, disabled, loading }: ChatInputProps) {
 						"flex shrink-0 items-center justify-center rounded-xl transition-colors",
 						"size-9 md:size-10",
 						isListening &&
-							"bg-red-100 text-red-500 animate-pulse border-2 border-red-300",
+							"bg-danger text-danger-foreground animate-pulse border-2 border-transparent",
 						!isListening &&
 							!isProcessing &&
 							"border border-border/60 bg-background text-muted-foreground hover:bg-muted",

@@ -170,7 +170,7 @@ export default function FeedbackModal({
 						"px-6 py-2 rounded-md border-none cursor-pointer text-sm font-medium text-white flex items-center gap-1 transition-colors duration-150",
 						rating && !submitting
 							? "bg-primary"
-							: "bg-gray-300 opacity-60 cursor-not-allowed",
+							: "bg-muted opacity-60 cursor-not-allowed",
 					)}
 				>
 					<Send size={14} />

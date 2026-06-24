@@ -136,8 +136,8 @@ export default function MonitorTab() {
 	if (statsError) {
 		return (
 			<div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center">
-				<AlertCircle size={36} className="mx-auto mb-3 text-red-500" />
-				<div className="text-red-600 mb-2">监控数据加载失败</div>
+				<AlertCircle size={36} className="mx-auto mb-3 text-destructive" />
+				<div className="text-destructive mb-2">监控数据加载失败</div>
 				<button
 					type="button"
 					onClick={() => refetchStats()}
@@ -199,7 +199,7 @@ export default function MonitorTab() {
 								className={cn(
 									"text-[1.8rem] font-bold",
 									s.color === "green"
-										? "text-green-600"
+										? "text-success-foreground"
 										: s.color === "amber"
 											? "text-amber-500"
 											: "text-primary",
@@ -386,7 +386,7 @@ export default function MonitorTab() {
 						</div>
 						<button
 							onClick={() => exportMutation.mutate()}
-							className="flex items-center gap-1 text-xs py-1 px-3 border border-border rounded-md bg-card text-gray-600 cursor-pointer hover:bg-muted"
+							className="flex items-center gap-1 text-xs py-1 px-3 border border-border rounded-md bg-card text-muted-foreground cursor-pointer hover:bg-muted"
 						>
 							<Download size={13} /> 导出CSV
 						</button>

@@ -225,7 +225,7 @@ export default function RecordDetail() {
 
 				<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 					<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-						<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+						<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-info text-info-foreground">
 							<User size={18} />
 						</div>
 						<div className="min-w-0">
@@ -250,7 +250,7 @@ export default function RecordDetail() {
 					</div>
 
 					<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-						<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
+						<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-warning text-warning-foreground">
 							<Clock size={18} />
 						</div>
 						<div className="min-w-0">
@@ -262,7 +262,7 @@ export default function RecordDetail() {
 					</div>
 
 					<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-						<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400">
+						<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-success text-success-foreground">
 							<BarChart3 size={18} />
 						</div>
 						<div className="min-w-0">
@@ -277,16 +277,16 @@ export default function RecordDetail() {
 				</div>
 
 				{record.status === "completed" && !record.score && (
-					<div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-5 sm:p-6">
+					<div className="rounded-xl border border-warning bg-warning p-5 sm:p-6">
 						<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
 							<div>
-								<h3 className="font-semibold text-amber-700 dark:text-amber-400">
+								<h3 className="font-semibold text-warning-foreground">
 									{record.scoring_status === "pending" ||
 									record.scoring_status === "processing"
 										? "评分正在生成中..."
 										: "暂无评分"}
 								</h3>
-								<p className="text-sm text-amber-700/80 dark:text-amber-400/80 mt-1">
+								<p className="text-sm text-warning-foreground/80 mt-1">
 									{record.scoring_status === "pending" ||
 									record.scoring_status === "processing"
 										? "AI 正在分析对话内容，预计几秒到一分钟内完成。"

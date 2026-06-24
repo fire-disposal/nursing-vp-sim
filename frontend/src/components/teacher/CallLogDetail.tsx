@@ -90,7 +90,7 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 					</div>
 				)}
 				{isError && (
-					<div className="text-center py-10 text-red-500">加载失败</div>
+					<div className="text-center py-10 text-destructive">加载失败</div>
 				)}
 				{!isLoading && !isError && !log && (
 					<div className="text-center py-10 text-muted-foreground">
@@ -165,7 +165,7 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 								)}
 							</div>
 							{log.error_message && (
-								<div className="mt-2 p-2 rounded bg-red-50 text-red-700 text-xs">
+								<div className="mt-2 p-2 rounded bg-danger text-danger-foreground text-xs">
 									{log.error_message}
 								</div>
 							)}

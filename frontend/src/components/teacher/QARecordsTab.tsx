@@ -96,7 +96,7 @@ export default function QARecordsTab() {
 						placeholder="搜索学生..."
 						value={searchInput}
 						onChange={(e) => handleSearchChange(e.target.value)}
-						className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus:outline-none focus:border-blue-500 focus:bg-card"
+						className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm bg-muted focus-ring focus-visible:bg-card"
 					/>
 				</div>
 				<span className="text-sm text-muted-foreground">

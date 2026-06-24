@@ -115,7 +115,7 @@ export default function PromptList({
 													{v.name || "-"}
 												</span>
 												{v.is_active ? (
-													<span className="text-xs px-1.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap inline-flex items-center gap-0.5 dark:bg-green-900/30 dark:text-green-300">
+													<span className="text-xs px-1.5 rounded-full bg-success text-success-foreground whitespace-nowrap inline-flex items-center gap-0.5">
 														<CheckCircle size={10} />{" "}
 														{v.locked ? "内置生效" : "激活"}
 													</span>

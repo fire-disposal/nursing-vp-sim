@@ -230,7 +230,7 @@ export function NursingRecordPanel({ ctx }: PanelTabProps) {
 					</button>
 				)}
 				{submitError && (
-					<p className="text-[0.6rem] text-red-500 ml-auto">{submitError}</p>
+					<p className="text-[0.6rem] text-destructive ml-auto">{submitError}</p>
 				)}
 			</div>
 		</div>

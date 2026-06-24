@@ -306,7 +306,7 @@ export default function GradesClassesPage() {
 												<Button
 													variant="ghost"
 													size="sm"
-													className="text-red-500 hover:bg-destructive/10"
+													className="text-destructive hover:bg-destructive/10"
 													onClick={() =>
 														tab === "grades"
 															? handleDeleteGrade(item as Grade)
@@ -351,7 +351,7 @@ export default function GradesClassesPage() {
 							<select
 								value={formGradeId}
 								onChange={(e) => setFormGradeId(e.target.value)}
-								className="w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus:outline-none focus:border-blue-500"
+								className="w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus-ring"
 							>
 								<option value="">请选择年级</option>
 								{grades.map((g) => (
@@ -364,7 +364,7 @@ export default function GradesClassesPage() {
 					)}
 					<FormField label="名称">
 						<input
-							className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-blue-500"
+							className="w-full px-3 py-2 border border-border rounded-md text-sm focus-ring"
 							value={formName}
 							onChange={(e) => setFormName(e.target.value)}
 							placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}

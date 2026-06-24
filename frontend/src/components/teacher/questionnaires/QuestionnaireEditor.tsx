@@ -219,7 +219,7 @@ export default function QuestionnaireEditor({
 												<button
 													type="button"
 													onClick={() => removeQuestion(i)}
-													className="p-0.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 cursor-pointer border-none bg-transparent"
+													className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer border-none bg-transparent"
 													title="删除"
 												>
 													<X size={14} />

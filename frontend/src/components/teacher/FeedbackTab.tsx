@@ -422,8 +422,8 @@ export default function FeedbackTab() {
 							className={cn(
 								"px-4 py-1.5 rounded-full border text-sm cursor-pointer transition-colors",
 								tag === opt.value
-									? "bg-primary text-white border-blue-600"
-									: "border-border bg-card text-gray-600 hover:border-blue-400 hover:text-primary",
+									? "bg-primary text-primary-foreground border-primary"
+									: "border-border bg-card text-muted-foreground hover:border-blue-400 hover:text-primary",
 							)}
 							onClick={() => setTag(opt.value)}
 						>

@@ -192,13 +192,13 @@ export default function ApiManagementTab() {
 			{/* Secrets section */}
 			<div className="mb-4">
 				<div className="flex justify-between items-center mb-2">
-					<h3 className="text-sm font-semibold text-gray-700">API 密钥</h3>
+					<h3 className="text-sm font-semibold text-foreground">API 密钥</h3>
 					<button
 						onClick={() => {
 							setEditingSecret(null);
 							setShowSecretModal(true);
 						}}
-						className="inline-flex items-center gap-1 py-1 px-3 border-none rounded-md bg-primary text-white cursor-pointer text-sm"
+						className="inline-flex items-center gap-1 py-1 px-3 border-none rounded-md bg-primary text-primary-foreground cursor-pointer text-sm"
 					>
 						<Plus size={14} /> 添加密钥
 					</button>
@@ -222,10 +222,10 @@ export default function ApiManagementTab() {
 										: "关闭";
 							const statusColor =
 								secStatus === "active"
-									? "text-green-600"
+									? "text-success-foreground"
 									: secStatus === "degraded"
-										? "text-amber-600"
-										: "text-red-500";
+										? "text-warning-foreground"
+										: "text-danger-foreground";
 							return (
 								<div
 									key={s.id}
@@ -272,7 +272,7 @@ export default function ApiManagementTab() {
 											</button>
 											<button
 												onClick={() => handleDeleteSecret(s)}
-												className="bg-transparent border-none cursor-pointer text-red-400 hover:text-red-600 p-0.5"
+												className="bg-transparent border-none cursor-pointer text-destructive hover:text-destructive p-0.5"
 												title="删除"
 											>
 												<Trash2 size={12} />
@@ -289,7 +289,7 @@ export default function ApiManagementTab() {
 			{/* Purpose bindings */}
 			<div>
 				<div className="flex justify-between items-center mb-2">
-					<h3 className="text-sm font-semibold text-gray-700">用途绑定</h3>
+					<h3 className="text-sm font-semibold text-foreground">用途绑定</h3>
 					<button
 						onClick={() =>
 							reloadRouter()
@@ -299,7 +299,7 @@ export default function ApiManagementTab() {
 								})
 								.catch(() => toast.error("重载失败"))
 						}
-						className="inline-flex items-center gap-1 py-1 px-2 border border-border rounded-md bg-muted text-gray-700 cursor-pointer text-sm"
+						className="inline-flex items-center gap-1 py-1 px-2 border border-border rounded-md bg-muted text-foreground cursor-pointer text-sm"
 					>
 						<RefreshCw size={14} />
 					</button>
@@ -347,9 +347,9 @@ export default function ApiManagementTab() {
 												className={cn(
 													"inline-flex items-center gap-1 text-sm",
 													cfg.status === "active"
-														? "text-green-700"
+														? "text-success-foreground"
 														: cfg.status === "degraded"
-															? "text-amber-700"
+															? "text-warning-foreground"
 															: "text-destructive",
 												)}
 											>
@@ -406,7 +406,7 @@ export default function ApiManagementTab() {
 											</button>
 											<button
 												onClick={() => handleDeleteConfig(cfg)}
-												className="bg-transparent border-none cursor-pointer text-red-400 p-0.5"
+												className="bg-transparent border-none cursor-pointer text-destructive p-0.5"
 												title="解除绑定"
 											>
 												<Trash2 size={12} />

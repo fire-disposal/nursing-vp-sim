@@ -16,7 +16,7 @@ interface SecretModalProps {
 }
 
 const inputClass =
-	"w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus:outline-none focus:border-blue-500";
+	"w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus-ring";
 
 export default function SecretModal({
 	open,

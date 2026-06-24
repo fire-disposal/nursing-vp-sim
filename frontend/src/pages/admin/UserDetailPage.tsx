@@ -93,7 +93,7 @@ export default function UserDetailPage() {
 
 			<div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5 mb-6">
 				<div className={statCardClass}>
-					<div className={cn(statIconClass, "bg-blue-50 text-primary")}>
+					<div className={cn(statIconClass, "bg-info text-primary")}>
 						<Activity size={22} />
 					</div>
 					<div>
@@ -104,7 +104,7 @@ export default function UserDetailPage() {
 					</div>
 				</div>
 				<div className={statCardClass}>
-					<div className={cn(statIconClass, "bg-amber-50 text-amber-500")}>
+					<div className={cn(statIconClass, "bg-warning text-warning-foreground")}>
 						<Clock size={22} />
 					</div>
 					<div>
@@ -117,7 +117,7 @@ export default function UserDetailPage() {
 					</div>
 				</div>
 				<div className={statCardClass}>
-					<div className={cn(statIconClass, "bg-green-50 text-green-500")}>
+					<div className={cn(statIconClass, "bg-success text-success-foreground")}>
 						<Target size={22} />
 					</div>
 					<div>

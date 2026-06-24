@@ -115,10 +115,10 @@ export const NEW_CASE_TEMPLATE: CaseData = {
 };
 
 export const inputClass =
-	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10";
+	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring";
 
 export const textareaClass =
-	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 resize-y";
+	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring resize-y";
 
 export function buildCaseData(form: CaseForm): CaseData {
 	return {

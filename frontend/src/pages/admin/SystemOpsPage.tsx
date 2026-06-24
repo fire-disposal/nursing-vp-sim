@@ -68,7 +68,7 @@ function LLMDetailCard({ data }: { data: OpsDashboard }) {
 						{Math.round(data.llm.total_calls_24h * data.llm.success_rate / 100)}
 					</span>
 					<span className="text-muted-foreground">失败</span>
-					<span className="text-right tabular-nums text-red-500">
+					<span className="text-right tabular-nums text-danger-foreground">
 						{data.llm.error_count_24h}
 					</span>
 					<span className="text-muted-foreground">平均延迟</span>
@@ -115,7 +115,7 @@ function ScoringSessionsCard({ data }: { data: OpsDashboard }) {
 					<span
 						className={cn(
 							"text-right tabular-nums font-medium",
-							data.scoring.stuck > 0 && "text-red-500",
+							data.scoring.stuck > 0 && "text-danger-foreground",
 						)}
 					>
 						{data.scoring.stuck}

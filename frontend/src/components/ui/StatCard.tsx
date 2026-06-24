@@ -75,7 +75,7 @@ export default function StatCard({
 					<div
 						className={cn(
 							"mt-0.5 text-xs font-medium",
-							trend > 0 ? "text-green-600" : "text-red-600",
+							trend > 0 ? "text-success-foreground" : "text-destructive",
 						)}
 					>
 						{trend > 0 ? "\u2191" : "\u2193"} {Math.abs(trend)}%

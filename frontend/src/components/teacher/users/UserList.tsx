@@ -30,7 +30,7 @@ const filterSelectClass =
 	"py-1.5 px-2.5 border border-border rounded-lg text-sm bg-card";
 
 const btnDanger =
-	"inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-destructive/10 text-destructive hover:bg-red-200 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors border-none cursor-pointer";
 
 export default function UserList({
 	users,
@@ -140,10 +140,10 @@ export default function UserList({
 												className={cn(
 													"inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
 													u.role === "super_admin" || u.role === "school_admin"
-														? "bg-red-50 text-red-700"
+														? "bg-danger text-danger-foreground"
 														: u.role === "teacher"
-															? "bg-blue-50 text-primary"
-															: "bg-green-50 text-green-700",
+															? "bg-info text-info-foreground"
+															: "bg-success text-success-foreground",
 												)}
 											>
 												{roles.find((r) => r.name === u.role)?.display_name ||
@@ -164,7 +164,7 @@ export default function UserList({
 										<td className="px-4 py-3 border-b border-border">
 											<div className="flex gap-2">
 												<button
-													className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer"
+													className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer"
 													onClick={(e) => {
 														e.stopPropagation();
 														onEditUser(u);

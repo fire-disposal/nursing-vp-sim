@@ -13,10 +13,10 @@ interface BatchImportProps {
 }
 
 const btnPrimary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors border-none cursor-pointer";
 
 const btnSecondary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border-none cursor-pointer";
+	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer";
 
 export default function BatchImport({
 	open,
@@ -143,7 +143,7 @@ export default function BatchImport({
 						setBatchText(e.target.value);
 						parseBatchText(e.target.value);
 					}}
-					className="w-full font-mono text-sm p-2 border border-border rounded-lg focus:outline-none focus:border-blue-500"
+					className="w-full font-mono text-sm p-2 border border-border rounded-lg focus-ring"
 					disabled={isImporting}
 				/>
 				<div className="text-xs text-muted-foreground mt-1">
@@ -151,7 +151,7 @@ export default function BatchImport({
 				</div>
 			</div>
 			<div className="mb-3 flex items-center gap-3 flex-wrap">
-				<label className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer">
+				<label className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors cursor-pointer">
 					<Upload size={14} /> 上传 CSV 文件
 					<input
 						type="file"
@@ -177,7 +177,7 @@ export default function BatchImport({
 				</span>
 			</div>
 			{batchParseError && (
-				<div className="text-red-500 text-sm mb-3 flex items-center gap-1.5">
+				<div className="text-destructive text-sm mb-3 flex items-center gap-1.5">
 					<AlertCircle size={16} /> {batchParseError}
 				</div>
 			)}
@@ -227,10 +227,10 @@ export default function BatchImport({
 												className={cn(
 													"inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
 													u.role === "super_admin" || u.role === "school_admin"
-														? "bg-red-50 text-red-700"
+														? "bg-danger text-danger-foreground"
 														: u.role === "teacher"
-															? "bg-blue-50 text-primary"
-															: "bg-green-50 text-green-700",
+															? "bg-info text-info-foreground"
+															: "bg-success text-success-foreground",
 												)}
 											>
 												{roles.find((r) => r.name === u.role)?.display_name ||

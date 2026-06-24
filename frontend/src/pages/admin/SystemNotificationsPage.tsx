@@ -32,9 +32,9 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 const LEVEL_CLASSES: Record<string, string> = {
-	info: "bg-blue-100 text-blue-700",
-	warning: "bg-amber-100 text-amber-700",
-	success: "bg-green-100 text-green-700",
+	info: "bg-info text-info-foreground",
+	warning: "bg-warning text-warning-foreground",
+	success: "bg-success text-success-foreground",
 };
 
 function toLocalDateTime(s: string): string {

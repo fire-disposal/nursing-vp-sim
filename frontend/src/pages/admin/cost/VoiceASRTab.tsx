@@ -65,7 +65,7 @@ function ASRUsageTable() {
 									<TableCell className="text-right tabular-nums text-emerald-600">
 										{row.calls_success}
 									</TableCell>
-									<TableCell className="text-right tabular-nums text-red-500">
+									<TableCell className="text-right tabular-nums text-danger-foreground">
 										{row.calls_error}
 									</TableCell>
 									<TableCell className="text-right tabular-nums">
