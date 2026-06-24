@@ -43,6 +43,17 @@
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
 
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-danger: var(--danger);
+	--color-danger-foreground: var(--danger-foreground);
+	--color-neutral: var(--neutral);
+	--color-neutral-foreground: var(--neutral-foreground);
+
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
@@ -50,6 +61,10 @@
 	--radius-2xl: calc(var(--radius) + 8px);
 	--radius-3xl: calc(var(--radius) + 12px);
 	--radius-4xl: calc(var(--radius) + 16px);
+
+	--shadow-e1: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+	--shadow-e2: 0 4px 12px -2px rgb(15 23 42 / 0.1);
+	--shadow-e3: 0 12px 32px -8px rgb(15 23 42 / 0.18);
 }
 
 :root {
@@ -86,6 +101,16 @@
 		--sidebar-accent-foreground: #0f766e;
 		--sidebar-border: #e2e8f0;
 		--sidebar-ring: #0f766e;
+		--success: #dcfce7;
+		--success-foreground: #15803d;
+		--info: #dbeafe;
+		--info-foreground: #1d4ed8;
+		--warning: #fef3c7;
+		--warning-foreground: #b45309;
+		--danger: #fee2e2;
+		--danger-foreground: #b91c1c;
+		--neutral: #f3f4f6;
+		--neutral-foreground: #4b5563;
 	}
 
 .dark {
@@ -121,6 +146,16 @@
 		--sidebar-accent-foreground: #99f6e4;
 		--sidebar-border: rgba(255, 255, 255, 0.1);
 		--sidebar-ring: #14b8a6;
+		--success: rgba(20, 83, 45, 0.3);
+		--success-foreground: #4ade80;
+		--info: rgba(30, 58, 138, 0.3);
+		--info-foreground: #60a5fa;
+		--warning: rgba(120, 53, 15, 0.3);
+		--warning-foreground: #fbbf24;
+		--danger: rgba(127, 29, 29, 0.3);
+		--danger-foreground: #f87171;
+		--neutral: #1f2937;
+		--neutral-foreground: #9ca3af;
 	}
 
 @layer base {
@@ -170,4 +205,8 @@
 		linear-gradient(rgba(15, 118, 110, 0.03) 1px, transparent 1px),
 		linear-gradient(90deg, rgba(15, 118, 110, 0.03) 1px, transparent 1px);
 	background-size: 48px 48px;
+}
+
+@utility focus-ring {
+	@apply outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
 }
