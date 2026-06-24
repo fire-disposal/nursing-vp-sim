@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/axios-instance";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus } from "@/engine/types";
 
 interface QuestionnaireOverlayProps {
@@ -103,8 +104,13 @@ function QuestionnaireOverlayInner({
 	};
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div className="w-full max-w-lg rounded-lg bg-background p-6 shadow-lg">
+		<Dialog
+			open
+			onOpenChange={(o) => {
+				if (!o) setPhase(null);
+			}}
+		>
+			<DialogContent maxWidth={512}>
 				<h2 className="mb-4 text-lg font-semibold">{questionnaire.title}</h2>
 				<div className="max-h-[60vh] space-y-4 overflow-auto">
 					{questionnaire.questions.map((q) => (
@@ -155,7 +161,7 @@ function QuestionnaireOverlayInner({
 						提交
 					</button>
 				</div>
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

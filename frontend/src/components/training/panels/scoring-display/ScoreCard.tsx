@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus, ScoreData, ScoreDimension } from "@/engine/types";
 import { cn } from "@/lib/utils";
 
@@ -120,17 +121,9 @@ export interface ScoreCardInnerProps {
 }
 
 export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProps) {
-	const [closing, setClosing] = useState(false);
+	const handleClose = () => onClose();
 
-	const handleClose = () => {
-		setClosing(true);
-		setTimeout(onClose, 200);
-	};
-
-	const handleRestart = () => {
-		setClosing(true);
-		setTimeout(() => onRestart?.(), 200);
-	};
+	const handleRestart = () => onRestart?.();
 
 	const totalMax = useMemo(() => {
 		if (!score.detail_scores) return 100;
@@ -140,33 +133,10 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 	}, [score.detail_scores]);
 
 	return (
-		<div className="fixed inset-0 isolate z-50 flex items-center justify-center">
-			<div
-				className={cn(
-					"absolute inset-0 bg-black/50 transition-opacity duration-200",
-					closing ? "opacity-0" : "opacity-100",
-				)}
-			/>
-			<Card
-				size="sm"
-				className={cn(
-					"relative z-10 mx-4 w-full max-w-md max-h-[80vh] overflow-auto shadow-xl",
-					!closing && "animate-in fade-in-0 zoom-in-95",
-					closing && "animate-out fade-out-0 zoom-out-95",
-					"duration-200",
-				)}
-			>
+		<Dialog open onOpenChange={(o) => !o && handleClose()}>
+			<DialogContent maxWidth={448}>
 				<CardHeader>
-					<div className="flex items-center justify-between">
-						<CardTitle>训练评分报告</CardTitle>
-						<button
-							type="button"
-							onClick={handleClose}
-							className="text-muted-foreground hover:text-foreground transition-colors"
-						>
-							✕
-						</button>
-					</div>
+					<CardTitle>训练评分报告</CardTitle>
 				</CardHeader>
 
 				<CardContent className="space-y-5">
@@ -273,8 +243,8 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 						</button>
 					)}
 				</CardFooter>
-			</Card>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

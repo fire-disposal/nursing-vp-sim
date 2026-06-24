@@ -90,7 +90,7 @@ export default function ReviewEditor({
 					</div>
 					<button
 						onClick={onClose}
-						className="w-8 h-8 rounded-lg border border-border bg-card flex items-center justify-center hover:bg-muted transition-colors"
+						className="size-9 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
 					>
 						<X size={16} />
 					</button>

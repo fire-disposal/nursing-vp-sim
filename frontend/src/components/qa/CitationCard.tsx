@@ -3,6 +3,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getSectionText } from "@/api/api-client";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface Citation {
 	source: string;
@@ -64,27 +65,14 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 			</div>
 
 			{modal && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-					onClick={() => setModal(null)}
-				>
-					<div
-						className="bg-card rounded-xl border border-border shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col"
-						onClick={(e) => e.stopPropagation()}
-					>
+				<Dialog open onOpenChange={(o) => !o && setModal(null)}>
+					<DialogContent maxWidth={768}>
 						<div className="flex items-center gap-2 px-5 py-3 border-b border-border">
 							<BookOpen size={14} className="text-primary" />
 							<div className="flex-1 min-w-0">
 								<span className="text-sm font-medium">{modal.source}</span>
 								<span className="text-xs text-muted-foreground"> › {modal.section}</span>
 							</div>
-							<button
-								type="button"
-								className="text-muted-foreground hover:text-foreground p-1 cursor-pointer"
-								onClick={() => setModal(null)}
-							>
-								✕
-							</button>
 						</div>
 						<div className="overflow-y-auto p-5 text-sm leading-relaxed">
 							{loadingModal ? (
@@ -100,8 +88,8 @@ export default function CitationCard({ citations }: { citations: Citation[] }) {
 								</div>
 							)}
 						</div>
-					</div>
-				</div>
+					</DialogContent>
+				</Dialog>
 			)}
 		</>
 	);

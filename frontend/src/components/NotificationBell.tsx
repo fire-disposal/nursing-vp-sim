@@ -88,11 +88,11 @@ export default function NotificationBell() {
 			{open &&
 				createPortal(
 					<div
-						className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+						className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-xs"
 						onClick={() => setOpen(false)}
 					>
 						<div
-							className="w-full max-w-sm mx-4 bg-card rounded-xl shadow-xl border border-border overflow-hidden"
+							className="w-full max-w-sm mx-4 bg-card rounded-xl shadow-e3 border border-border overflow-hidden"
 							onClick={(e) => e.stopPropagation()}
 						>
 							<div className="flex items-center justify-between px-4 py-3 border-b">
@@ -110,7 +110,7 @@ export default function NotificationBell() {
 									<button
 										type="button"
 										onClick={() => setOpen(false)}
-										className="p-1 rounded-md hover:bg-muted transition-colors"
+										className="size-9 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
 									>
 										<X size={16} />
 									</button>
