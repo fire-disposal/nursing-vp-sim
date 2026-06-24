@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { PRODUCT_NAME } from "./data";
 import EngineeringBand from "./sections/EngineeringBand";
 import FinalCta from "./sections/FinalCta";
+import FutureOutlook from "./sections/FutureOutlook";
 import Hero from "./sections/Hero";
 import Highlights from "./sections/Highlights";
 import Overview from "./sections/Overview";
@@ -32,6 +33,7 @@ export default function ShowcasePage() {
 				<Highlights />
 				<EngineeringBand />
 				<TechStack />
+				<FutureOutlook />
 				<FinalCta />
 			</main>
 		</div>

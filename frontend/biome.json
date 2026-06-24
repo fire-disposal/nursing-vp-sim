@@ -32,7 +32,8 @@
 				"noLabelWithoutControl": "off",
 				"noStaticElementInteractions": "off",
 				"useButtonType": "off",
-				"useKeyWithClickEvents": "off"
+				"useKeyWithClickEvents": "off",
+				"useMediaCaption": "off"
 			},
 			"correctness": {
 				"useExhaustiveDependencies": "off"

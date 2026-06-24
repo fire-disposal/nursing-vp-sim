@@ -11,6 +11,7 @@ type MaskWordProps = {
 	lineY: [number, number, number, number];
 	lineTexts: [string, string, string, string];
 	lineOpacity: [string, string, string, string];
+	lineFontSize: number;
 	shiftY: number;
 	duration: string;
 	className?: string;
@@ -27,6 +28,7 @@ function MaskWord({
 	lineY,
 	lineTexts,
 	lineOpacity,
+	lineFontSize,
 	shiftY,
 	duration,
 	className,
@@ -59,30 +61,30 @@ function MaskWord({
 				<rect width="100%" height="100%" fill="var(--primary)" fillOpacity="0.10" />
 				<g>
 					<g>
-						<text x="0" y={lineY[0]} fill="var(--primary)" fillOpacity={lineOpacity[0]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[0]} fill="var(--primary)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[0]}
 						</text>
-						<text x="0" y={lineY[1]} fill="var(--primary)" fillOpacity={lineOpacity[1]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[1]} fill="var(--primary)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[1]}
 						</text>
-						<text x="0" y={lineY[2]} fill="var(--primary)" fillOpacity={lineOpacity[2]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[2]} fill="var(--primary)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[2]}
 						</text>
-						<text x="0" y={lineY[3]} fill="var(--primary)" fillOpacity={lineOpacity[3]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[3]} fill="var(--primary)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[3]}
 						</text>
 					</g>
 					<g transform={`translate(0 ${shiftY})`}>
-						<text x="0" y={lineY[0]} fill="var(--primary)" fillOpacity={lineOpacity[0]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[0]} fill="var(--primary)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[0]}
 						</text>
-						<text x="0" y={lineY[1]} fill="var(--primary)" fillOpacity={lineOpacity[1]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[1]} fill="var(--primary)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[1]}
 						</text>
-						<text x="0" y={lineY[2]} fill="var(--primary)" fillOpacity={lineOpacity[2]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[2]} fill="var(--primary)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[2]}
 						</text>
-						<text x="0" y={lineY[3]} fill="var(--primary)" fillOpacity={lineOpacity[3]} fontSize="13" fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[3]} fill="var(--primary)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[3]}
 						</text>
 					</g>
@@ -128,7 +130,8 @@ export default function VirtualPatientMaskText() {
 				fontSize={180}
 				textWidth="2.72em"
  				letterSpacing="-4"
-				lineY={[28, 52, 76, 100]}
+				lineFontSize={13}
+				lineY={[30, 56, 82, 108]}
 				lineTexts={[
 					"LLM · RAG · Prompt · SSE",
 					"TTS · ASR · Emotion · Memory",
@@ -136,7 +139,7 @@ export default function VirtualPatientMaskText() {
 					"Flow · State · Feedback",
 				]}
 				lineOpacity={["0.56", "0.38", "0.45", "0.34"]}
-				shiftY={104}
+				shiftY={108}
 				duration="18s"
 			/>
 			<MaskWord
@@ -147,8 +150,9 @@ export default function VirtualPatientMaskText() {
 				fontSize={180}
 				textWidth="2.72em"
 				letterSpacing="-6"
+				lineFontSize={13}
 				className="-ml-[0.36em]"
-				lineY={[30, 56, 80, 104]}
+				lineY={[30, 56, 82, 108]}
 				lineTexts={[
 					"Evidence · Explainable · Review",
 					"Scenario · Checkpoint · Trace",
@@ -156,7 +160,7 @@ export default function VirtualPatientMaskText() {
 					"Dialogue · Status · Score",
 				]}
 				lineOpacity={["0.52", "0.4", "0.46", "0.36"]}
-				shiftY={112}
+				shiftY={108}
 				duration="22s"
 			/>
 		</span>

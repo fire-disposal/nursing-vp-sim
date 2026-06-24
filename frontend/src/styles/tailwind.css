@@ -233,3 +233,24 @@
 		transform: translateX(-33.333333%);
 	}
 }
+
+@keyframes audio-wave {
+	0%,
+	100% {
+		transform: scaleY(0.4);
+	}
+	50% {
+		transform: scaleY(1);
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

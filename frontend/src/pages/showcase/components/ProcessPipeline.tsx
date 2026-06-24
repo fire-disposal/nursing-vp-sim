@@ -5,15 +5,46 @@ type Stage = {
 	label: string;
 	detail: string;
 	accent: string;
+	subDetails: string[];
 };
 
 const STAGES: Stage[] = [
-	{ label: "Guard", detail: "权限 / 场景 / 输入校验", accent: "from-cyan-500 to-sky-500" },
-	{ label: "Prompt", detail: "上下文装配 / 角色注入", accent: "from-violet-500 to-fuchsia-500" },
-	{ label: "LLM", detail: "角色扮演 / 信息逐步披露", accent: "from-emerald-500 to-teal-500" },
-	{ label: "Memory", detail: "状态 / 情绪 / 病史写回", accent: "from-amber-500 to-orange-500" },
-	{ label: "SSE", detail: "流式评分 / 证据回传", accent: "from-pink-500 to-rose-500" },
-	{ label: "Effects", detail: "告警 / 记录 / 结算", accent: "from-indigo-500 to-blue-500" },
+	{
+		label: "Guard",
+		detail: "权限 / 场景 / 输入校验",
+		accent: "from-cyan-500 to-sky-500",
+		subDetails: ["用户身份验证与角色鉴权", "训练场景参数合法性检查", "对话内容安全过滤与长度限制"],
+	},
+	{
+		label: "Prompt",
+		detail: "上下文装配 / 角色注入",
+		accent: "from-violet-500 to-fuchsia-500",
+		subDetails: ["加载患者人设、病史与性格特征", "拼接历史对话与当前情绪状态", "组合系统指令、评分标准与输出格式"],
+	},
+	{
+		label: "LLM",
+		detail: "角色扮演 / 信息逐步披露",
+		accent: "from-emerald-500 to-teal-500",
+		subDetails: ["模拟患者语气、用词与情绪反应", "按信任度逐步暴露隐藏病史信息", "根据等待时长与沟通质量主动追问"],
+	},
+	{
+		label: "Memory",
+		detail: "状态 / 情绪 / 病史写回",
+		accent: "from-amber-500 to-orange-500",
+		subDetails: ["更新患者信任值与舒适度坐标", "已披露病史持久化写入数据库", "完整对话记录归档与增量索引"],
+	},
+	{
+		label: "SSE",
+		detail: "流式评分 / 证据回传",
+		accent: "from-pink-500 to-rose-500",
+		subDetails: ["逐维度评分结果实时推送", "每项评分附带对话原文引用", "前端逐项展开显示评分与证据"],
+	},
+	{
+		label: "Effects",
+		detail: "记录 / 结算 / 通知",
+		accent: "from-indigo-500 to-blue-500",
+		subDetails: ["生成结构化训练报告与建议", "评分完成后推送结算提醒", "自动生成个性化复习方向"],
+	},
 ];
 
 export default function ProcessPipeline() {
@@ -73,19 +104,15 @@ export default function ProcessPipeline() {
 					<div className={cn("h-2.5 w-28 rounded-full bg-gradient-to-r", stage.accent)} />
 				</div>
 				<div className="mt-4 grid gap-3 sm:grid-cols-3">
-					{[
-						"角色与上下文",
-						"状态与记忆",
-						"反馈与副作用",
-					].map((label, index) => (
+					{stage.subDetails.map((text, index) => (
 						<div
-							key={label}
-							className="rounded-2xl border border-border/60 bg-muted/30 p-4"
+							key={text}
+							className="rounded-2xl border border-border/60 bg-muted/30 p-4 transition-colors"
 						>
 							<div className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
 								0{index + 1}
 							</div>
-							<div className="mt-2 text-sm font-medium text-foreground">{label}</div>
+							<div className="mt-2 text-sm font-medium text-foreground">{text}</div>
 						</div>
 					))}
 				</div>
