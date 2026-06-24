@@ -8,6 +8,7 @@ import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { createMessageBus } from "./MessageBus";
+import TrainingContext from "./TrainingContext";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PluginContext";
 import {
@@ -281,26 +282,29 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 
 	return (
 		<>
+		<TrainingContext.Provider
+			value={{
+				recordId,
+				patient,
+				features,
+				ttsAutoPlay,
+				sending,
+				featuresLocked: !!fromAssignment,
+				fromAssignment: !!fromAssignment,
+				timeLimitMinutes: timeLimit,
+				remainingSeconds,
+				voiceStatus,
+				toggleFeature,
+				toggleTts: () => {
+					const next = !ttsAutoPlay;
+					setTtsAutoPlay(next);
+					ttsRef.current.setAutoPlay(next);
+				},
+				endTraining,
+			}}
+		>
 			<div className="flex flex-col h-screen">
-				<TrainingHeader
-					recordId={recordId}
-					patient={patient}
-					features={features}
-					onToggleFeature={toggleFeature}
-					ttsAutoPlay={ttsAutoPlay}
-					onTtsToggle={() => {
-						const next = !ttsAutoPlay;
-						setTtsAutoPlay(next);
-						ttsRef.current.setAutoPlay(next);
-					}}
-					onEnd={endTraining}
-					sending={sending}
-					featuresLocked={fromAssignment}
-					fromAssignment={fromAssignment}
-					timeLimitMinutes={timeLimit}
-					remainingSeconds={remainingSeconds}
-					voiceStatus={voiceStatus}
-				/>
+				<TrainingHeader />
 				<div className="flex-1 overflow-hidden relative">
 					<ChatArea
 						messages={messages}
@@ -319,6 +323,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					plugins={panelPluginsWrapped}
 				/>
 			</div>
+		</TrainingContext.Provider>
 			<ScoringOverlay
 				bus={busRef.current}
 				getProgress={getProgress}
