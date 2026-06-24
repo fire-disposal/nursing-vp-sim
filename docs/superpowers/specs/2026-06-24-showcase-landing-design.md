@@ -1,0 +1,204 @@
+# 展示落地页（Showcase Landing）设计文档
+
+**日期**: 2026-06-24
+**分支**: `feat/showcase-landing`
+**定位**: 面向演示 / 评审 / 对外展示的技术亮点展示页（audience C）
+**Design Read**: 技术亮点展示页，临床科技感语言，适度炫技（视差滚动 / 滚动 pin·scrub / 揭示动效），分寸与和谐优先。复用项目现有 Tailwind v4 + shadcn 风格 token + lucide 图标 + 已有 Geist 字体；动效用 **GSAP ScrollTrigger**（用户批准，唯一新增依赖，**限于懒加载的 showcase chunk，不进主包**）+ IntersectionObserver / CSS。
+
+> 重要：所有技术亮点已按当前 HEAD 真实代码核对（见 §11 核对记录）。git 历史中已废弃的特性（如旧"插件化/manifest 自动发现"框架）**不得**作为亮点。
+
+---
+
+## 1. 目标与非目标
+
+### 目标
+- 在现有前端 SPA 内新增一个**公开、匿名可访问**的展示页，突出系统**真正落地**的技术创新点。
+- 快接入、小成本：**不动** nginx / Dockerfile / CICD，跟随下一个 tag 一起上线。
+- 视觉适度炫技（视差滚动、CSS 滚动驱动动效），贴合系统主题（护理 + LLM 虚拟患者），达到"亮眼且和谐"的展示效果。
+
+### 非目标（明确排除）
+- 不做严肃 SEO / SSR / 预渲染（CSR 路由即可）。
+- **仅新增 `gsap` 一个依赖**（用户批准，用于跨浏览器顺滑滚动 pin / scrub）：通过 `import` 进入懒加载的 showcase chunk，**不污染主包**；不加 Motion / 新图标库；显示字体复用已有 `@fontsource-variable/geist`。
+- 不改后端、不改 API、不需 `api:update`。
+- 暗色模式独立适配非必需（用语义 token 自然继承，不单独投入）。
+- 真实系统截图本期不交付——使用**用户授权的占位符**，后续替换。
+
+---
+
+## 2. 受众与内容取舍
+
+受众为演示 / 评审场景，内容以"真实落地的技术创新点"为主线。**全部以当前 HEAD 代码为依据**（README 滞后、git 历史含废弃特性，均不直接采信）。
+
+### 主线叙事（concept spine）
+> 把 LLM 真正做成"可教学、可评估、可观测"的虚拟患者系统——流式管道引擎承载多模态交互（文本 / 语音 / 情绪），透明化 AI 评分给出可解释结果，教材 RAG 让知识可溯源。
+
+### 六大核心亮点（已逐项核对，措辞贴合真实实现）
+1. **训练引擎架构** —— **六阶段流式处理管道**（守卫→转换→提示→LLM→持久化→副作用）+ 按特性开关装配的 **5 个训练面板**（问诊 / 查体 / 护理记录 / 情绪 / 自主反馈）。证据：`backend/contexts/training/pipeline/builder.py`、`frontend/src/components/training/panels/index.ts`。
+   > 注意：不提"插件 / manifest / 自动发现"，旧框架已移除（commit `27d0b640`）。
+2. **LLM 虚拟患者对话 + 自主反馈** —— 角色扮演 + 隐藏信息逐步披露 + **患者主动追问**（LLM 生成 + 规则兜底，按等待时长 / 信任 / 舒适度触发，指数退避自动停止）。证据：`backend/contexts/patient/initiative.py`、`frontend/.../panels/initiative/InitiativeTab.tsx`。
+3. **患者情绪系统** —— **6 种情绪状态**（沉默回避 / 防御抵触 / 焦虑不安 / 正常配合 / 放松友好 / 开放信任，基于信任-舒适二维模型，LLM 逐轮分析驱动）+ 立绘情绪变体（8 类患者，约 40 张素材实时联动）。证据：`backend/contexts/patient/emotion.py`、`frontend/src/utils/patient-portrait.ts`、`frontend/src/assets/avatars/`。
+4. **语音交互** —— 火山引擎 TTS / ASR（SeedTTS 2.0 + BigASR WS 流式），情绪联动音色、双路提供方（火山 + 浏览器兜底）、熔断与优雅降级。证据：`backend/routers/tts.py`、`backend/routers/asr.py`、`frontend/src/engine/tts/`。
+5. **流式自动评分 + 透明化** —— SSE 逐项进度 + **双面板 LLM 思考过程展示**（评分 + 反馈并行）+ **19 项**证据化反馈（沟通技能 14 + 病史采集 5，每项附对话证据与评分理由）。证据：`backend/contexts/training/score_engine.py`、`backend/data/rubrics/nursing_history_v1.json`、`frontend/.../scoring-display/`。
+6. **教材知识库 RAG** —— **关键词 / IDF 加权检索** + 层级章节浏览（作为 **LLM Tool Calls** 暴露）+ 引用出处可溯源（点击查看教材原文）。证据：`backend/infrastructure/rag/`、`backend/contexts/qa/`。
+   > 注意：**非 pgvector / 非向量相似度**；embedding 列存在但未用于检索，措辞不得提"向量检索"。
+
+### 工程化底座（紧凑条带，1 段，不展开为独立特性页）
+多 Provider 路由（优先级加权 / 熔断 / 限流 / 月度成本上限 / env 回退）、流式 SSE、LLM 调用日志 + 统一成本面板（LLM + 语音）、**运维面板 + 自动告警阈值**（成功率 / 错误数 / 卡住评分 / 活跃会话）。证据：`backend/infrastructure/llm/router.py`、`backend/routers/ops.py`、`backend/routers/admin_voice.py`。
+> 取舍理由：体现工程成熟度，但对演示受众冲击力弱于六大亮点，压缩为可信度背书，不稀释主线。
+
+### 技术栈条带
+React 19 / FastAPI / PostgreSQL / SQLAlchemy / Alembic / DeepSeek / 火山引擎 TTS·ASR。（**不含 pgvector**。）
+
+### 数字使用纪律
+仅用真实数字（19 项评分维度、6 种情绪状态、8 类患者、5 个训练面板、六阶段管道）。**禁止**编造精确指标（准确率 / 并发数 / QPS 等）。
+
+---
+
+## 3. 架构与接入
+
+### 路由
+- 新增公开路由 `/showcase`，为 `App.tsx` 中 `/login` 的**同级路由**，置于 `ProtectedRoute` **外层**，匿名可直达。
+- 现有兜底 `<Route path="*" element={<Navigate to="/login" replace />} />` **保持不变**。
+- 分享链接：`https://test.205716.xyz/showcase`。
+
+### 不触碰
+- `nginx.conf` / `deploy/nginx/*`（外层已整体反代 9080，子路径自动可达）。
+- `Dockerfile.frontend` / `docker-compose.*` / `.github/workflows/*` / 后端任何文件。
+
+---
+
+## 4. 设计系统（taste-skill 指导，落到本项目）
+
+### Dials
+- `DESIGN_VARIANCE: 8`（错落、有视觉冲击）
+- `MOTION_INTENSITY: 7`（视差 + 滚动驱动动效；用户要求"适度炫技"，但分寸 / 和谐优先）
+- `VISUAL_DENSITY: 4`（标准 web 间距）
+
+### Token 与主题
+- 全程语义 token：`bg-background` / `text-foreground` / `text-muted-foreground` / `bg-card` / `border` / `bg-primary` / `text-primary` 等。
+- **主题锁定**：单一主题（沿用 App 默认外观），整页不做 section 级主题反转。
+- **单一强调色** = `primary`，全页一致。**THE LILA RULE**：不用 AI 紫 / 随机霓虹渐变，所有渐变 / 光晕基于品牌 `primary`。
+- **单一圆角尺度**：统一 `rounded-2xl`（与 Login 卡片一致），按钮可全圆，全页遵循同一规则。
+
+### 字体与图标
+- 显示标题用**已有的 Geist**（`@fontsource-variable/geist`，taste skill 首选，零新成本），`tracking-tight` + 大字阶；正文沿用默认栈，`leading-relaxed` / `max-w-[65ch]`。不引入新字体。
+- 沿用 **`lucide-react`**（已依赖），统一 `strokeWidth={1.5}`，单一图标家族，不手绘 SVG。
+
+### 动效系统（MOTION 7，GSAP ScrollTrigger，限懒加载 chunk）
+所有动效遵循 taste skill"motion must be motivated"——每个动效服务于层级 / 叙事 / 反馈之一，信息性区块保持安静。**已选定 GSAP** 实现跨浏览器顺滑的 pin / scrub / 视差。
+- **集成方式**：在 showcase 组件内 `import { gsap } from "gsap"` + `import { ScrollTrigger } from "gsap/ScrollTrigger"`，`gsap.registerPlugin(ScrollTrigger)`；每个动效组件 `'use client'` 叶子，`useEffect` 内 `gsap.context()` 装配并在卸载 `ctx.revert()` 清理。因 `ShowcasePage` 经 `React.lazy` 懒加载，GSAP 仅进入 showcase chunk，不污染主包。
+- **Hero 视差**：多层 `transform: translateY` 视差，ScrollTrigger `scrub` 驱动（背景 / 中景 / 前景不同速率）。
+- **粘性段落转场（亮点 5）**：sticky-stack —— `start:"top top"`、`pin:true`、`pinSpacing:false`，后一卡进入时前一卡 `scale/opacity` 由 `scrub` 衰减（参照 taste skill §5.A 骨架）。
+- **滚动揭示**：进入视口的分段 `opacity/translateY` stagger —— 轻量揭示可用 IntersectionObserver / CSS（不必动用 GSAP），pin/scrub 才用 GSAP（taste skill：把 GSAP 留给真正的 pin/scrub）。
+- **数字 count-up**：概览数字进入视口计数一次（GSAP `ScrollTrigger.batch` 或 IntersectionObserver + 一次性 rAF）。
+- **品牌微动**：`primary` 克制呼吸光晕，全页**最多一处**。
+- **Marquee ≤ 1**：技术栈横向滚动若用，全页仅此一处。
+- **触感反馈**：CTA / 卡片 `:hover` `transition` + `:active` `-translate-y-[1px]` / `scale-[0.98]`。
+- **降级（强制）**：用 `gsap.matchMedia()` —— `(prefers-reduced-motion: reduce)` 分支不注册任何 ScrollTrigger、内容静态呈现；同时按 `(min-width: 768px)` 在窄屏关闭视差 / pin。组件卸载 `ctx.revert()` 彻底清理，路由切换无残留。
+- **性能（强制）**：仅动画 `transform` / `opacity`；**禁止** `window.addEventListener("scroll")` 逐帧监听；`invalidateOnRefresh:true` 适配 resize；grain 若用，置于固定 `pointer-events-none` 层。
+- **许可**：GSAP 及 ScrollTrigger 现为免费（含商用），无授权风险。
+
+---
+
+## 5. 页面结构（深度 B，多段滚动）
+
+布局家族多样（≥4 种；连续 image+text split ≤2 段；eyebrow 每 3 段 ≤1 个；hero 严守纪律）。每段标注其动效。
+
+1. **顶栏 TopBar**（高 ≤72px，单行）：左 品牌（Stethoscope + "虚拟患者训练系统"），右 单一 CTA「进入系统」→ `/login`。滚动时轻微背景模糊 / 收缩（CSS）。
+2. **Hero**（`min-h-[100dvh]`，顶部内边距 ≤`pt-24`）：
+   - 文本元素 ≤4：品牌小标 + 主标题（≤2 行）+ 副文（≤20 字）+ 1 个主 CTA「进入系统」。
+   - **多层视差**：品牌色光晕背景层 + Hero 系统截图占位符（16:10，1440×900）中景层，滚动视差。
+3. **概览条带**（slim）：3 个真实事实（"5 个可配置训练面板" / "19 项评分维度" / "文本·语音·情绪 多模态"），数字 count-up，无卡片、用留白 / 分隔。
+4. **亮点 1 · 训练引擎架构**：full-width，六阶段管道用 chips / 流程示意，配 **系统截图占位符**（训练面板，1440×900）。布局家族 A。
+5. **亮点 2 · 虚拟患者对话 + 自主反馈**：image+text split，配 **系统截图占位符**（对话页，4:3 或 16:10）。布局家族 B（split #1）。揭示 stagger。
+6. **亮点 3 · 患者情绪系统**：图标 / 概念 bento，6 情绪状态 chips + 文案，有节奏非纯白堆叠。布局家族 C。
+7. **亮点 4 · 语音交互**：image+text split（反向）+ 图标。布局家族 B（split #2，连续上限内）。
+8. **亮点 5 · 流式评分 + 透明化**：full-width，**粘性转场**展示双思考面板概念，配 **系统截图占位符**（评分页，16:10）。打破连续 split。布局家族 A 变体。
+9. **亮点 6 · 教材知识库 RAG**：图标 / 引用卡概念驱动（不再加截图占位以控量）。布局家族 D。
+10. **工程化底座**：紧凑 grid / chips 条带（多 Provider 路由、SSE、成本面板、运维告警、CI/CD）。布局家族 E。
+11. **技术栈**：诚实小条带（可作唯一 marquee）。
+12. **底部 CTA 段**：单一意图标签「进入系统」→ `/login`（与顶栏 / Hero 同标签，无重复意图 CTA）。品牌微动光晕收尾。
+13. **Footer**：极简（产品名 + 年份）。
+
+**截图占位符**：4 张（Hero 产品总览、训练面板、对话页、评分页），其余亮点以图标 / 概念驱动。**每个占位带"屏幕名 + 尺寸"标注**（如 `系统截图 · 1440×900（评分页）`），作为后续挑选 / 制作真实截图的参考依据，务必保留完好。
+
+---
+
+## 6. 系统截图占位符规范（用户授权例外）
+
+taste skill 默认禁止"假截图 / 占位 div"。本期经**用户明确授权**使用占位符，后续替换为真实截图。
+
+- 组件 `ScreenshotPlaceholder`：空白背景（`bg-muted` 或白）+ 1px `border` + 居中**黑色文本** `系统截图 · {width}×{height}`（如 `系统截图 · 1440×900`）。
+- 以 `aspect-ratio` 预留尺寸，避免 CLS。
+- 每处占位标注 `{/* TODO: 替换为真实系统截图 */}`，便于检索替换。
+
+---
+
+## 7. 文件改动清单
+
+### 新增（均在 `frontend/src/pages/showcase/`）
+- `ShowcasePage.tsx` —— 页面根：设置 `document.title`、主题锁定、组合各 section。
+- `components/ScreenshotPlaceholder.tsx`
+- `components/Reveal.tsx` —— IntersectionObserver 滚动揭示，`prefers-reduced-motion` 感知。
+- `sections/TopBar.tsx` / `Hero.tsx` / `Overview.tsx` / 亮点段组件 / `EngineeringBand.tsx` / `TechStack.tsx` / `FinalCta.tsx` / `Footer.tsx`。
+- `data.ts` —— 亮点文案 / 图标 / 配置集中存放。
+- `lib/gsap.ts` —— 集中 `registerPlugin(ScrollTrigger)` 与 `gsap.matchMedia()` 辅助，供各动效组件复用。
+
+### 依赖
+- 新增 `gsap`（root 执行 `pnpm --filter frontend add gsap`，更新 `frontend/package.json` + `pnpm-lock.yaml`；Dockerfile 的 `pnpm install --frozen-lockfile` 自动生效）。
+- 经 `React.lazy` 懒加载，`gsap` 落在 showcase chunk，不进主包；如需可在 `vite.config.ts` `manualChunks` 单列 `gsap` chunk（可选）。
+
+### 修改
+- `frontend/src/App.tsx` ——
+  - 顶部新增 `const Showcase = lazy(() => import("@/pages/showcase/ShowcasePage"));`
+  - 在 `<Route path="/login" ... />` 同级、`ProtectedRoute` 之外新增 `<Route path="/showcase" element={<Showcase />} />`。
+
+---
+
+## 8. 可访问性 / 质量门槛（taste skill 硬规则）
+
+- CTA 文本对比度 ≥ WCAG AA，不换行（"进入系统" 单行）。
+- Hero 在初始视口内可见（标题 ≤2 行、副文 ≤20 字、CTA 不需滚动即可见）。
+- 全页单一主题、单一强调色、单一圆角尺度。
+- `prefers-reduced-motion: reduce` 下经 `gsap.matchMedia()` 不注册任何动效、内容静态可读；组件卸载 `ctx.revert()` 无残留。
+- 移动端每个多列布局显式声明 `<768px` 单列回退；视差 / 粘性在窄屏酌情关闭。
+- 文案中文，发布前做一次 copy 自审（无语病、无 AI 味生造词、无编造精确数字）。
+
+---
+
+## 9. 验收与验证
+
+### 手动
+- 匿名（未登录）访问 `/showcase` 正常渲染；点「进入系统」跳 `/login`。
+- 桌面 / 移动两种宽度无布局破裂；`prefers-reduced-motion` 下无位移动画；动效顺滑无卡顿。
+- 已登录用户访问 `/showcase` 同样可见（公开路由，不被 `ProtectedRoute` 拦截）。
+
+### 自动（推送前，frontend 目录）
+```
+npx tsc --noEmit
+npx biome check
+```
+（无后端改动，无需 `api:update` / pytest。）
+
+---
+
+## 10. 范围之外（YAGNI）
+
+- 真实截图采集与替换（后续单独进行）。
+- 暗色模式专项打磨、多语言 / i18n。
+- 任何 nginx / Docker / CICD / 后端改动。
+- 引入 Motion / Lottie 等其它动画库（动效统一用已选定的 GSAP）。
+
+---
+
+## 11. 技术亮点核对记录（HEAD，2026-06-24）
+
+| 亮点 | 核对结论 | 关键证据 |
+|------|----------|----------|
+| ~~插件化引擎~~ → 训练引擎架构 | **旧框架已废弃**，改述为六阶段管道 + 5 面板 | `pipeline/builder.py`；`panels/index.ts`；commit `27d0b640` 移除插件基础设施 |
+| 虚拟患者 + 自主反馈 | 存在 | `patient/initiative.py`（LLM + 规则兜底） |
+| 情绪系统 | 存在，6 状态 / 二维模型 / ~40 立绘 | `patient/emotion.py`；`assets/avatars/` |
+| 语音交互 | 存在，火山 TTS+ASR 双路 | `routers/tts.py`、`routers/asr.py` |
+| 流式评分透明化 | 存在，双思考面板 / 19 项 | `score_engine.py`；`rubrics/nursing_history_v1.json` |
+| RAG 教材库 | 存在但**非 pgvector**，关键词/IDF + Tool Calls | `infrastructure/rag/retriever.py`（IDF）；embedding 列为 JSONB 未用于检索 |
+| 工程化底座 | 全部存在 | `llm/router.py`、`routers/ops.py`、成本面板 |

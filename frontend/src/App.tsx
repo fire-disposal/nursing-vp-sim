@@ -23,6 +23,7 @@ const queryClient = new QueryClient({
 });
 
 const Login = lazy(() => import("@/pages/Login"));
+const Showcase = lazy(() => import("@/pages/showcase/ShowcasePage"));
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 const CaseSelect = lazy(() => import("@/pages/CaseSelect"));
 const ChatTraining = lazy(() => import("@/pages/ChatTraining"));
@@ -84,6 +85,7 @@ export default function App() {
 							<Suspense fallback={<PageLoader />}>
 								<Routes>
 									<Route path="/login" element={<Login />} />
+									<Route path="/showcase" element={<Showcase />} />
 									<Route element={<ProtectedRoute />}>
 										<Route
 											element={
