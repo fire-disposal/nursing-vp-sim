@@ -172,13 +172,13 @@ export default function TeacherDashboard({
 													<span
 														className={cn(
 															"font-semibold",
-															r.score_total >= 85
-																? "text-green-600"
-																: r.score_total >= 70
-																	? "text-primary"
-																	: r.score_total >= 60
-																		? "text-amber-600"
-																		: "text-red-600",
+														r.score_total >= 85
+															? "text-success-foreground"
+															: r.score_total >= 70
+																? "text-primary"
+																: r.score_total >= 60
+																	? "text-warning-foreground"
+																	: "text-danger-foreground",
 														)}
 													>
 														{r.score_total}分

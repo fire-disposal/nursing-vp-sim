@@ -109,10 +109,10 @@ export default function CaseSelect() {
 
 			<div className="space-y-6">
 				{!hintDismissed && (
-					<div className="relative rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 sm:p-5">
+					<div className="relative rounded-xl border border-transparent bg-warning p-4 sm:p-5">
 						<div className="flex gap-3 items-start">
 							<Lightbulb size={20} className="text-amber-500 shrink-0 mt-0.5" />
-							<p className="text-sm text-amber-800">
+							<p className="text-sm text-warning-foreground">
 								<span className="font-semibold">提示：</span>
 								每次对话结束后，系统将根据你的问诊完整度自动评分。建议针对患者的主诉展开系统性提问。
 							</p>

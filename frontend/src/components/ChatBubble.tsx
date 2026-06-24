@@ -40,9 +40,9 @@ export const ChatBubble = memo(function ChatBubble({
 	if (message.role === "system") {
 		return (
 			<div className="flex justify-center" data-role="system">
-				<div className="flex items-start gap-2 max-w-[85%] rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs sm:text-sm">
-					<Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-					<div className="whitespace-pre-wrap leading-relaxed text-blue-800">
+				<div className="flex items-start gap-2 max-w-[85%] rounded-xl border-transparent bg-info text-info-foreground px-3 py-2 text-xs sm:text-sm">
+					<Info className="h-4 w-4 text-info-foreground shrink-0 mt-0.5" />
+					<div className="whitespace-pre-wrap leading-relaxed">
 				<p className="whitespace-pre-wrap">{message.content}</p>
 					</div>
 				</div>
@@ -71,7 +71,7 @@ export const ChatBubble = memo(function ChatBubble({
 					)}
 				>
 					{initiative && (
-						<span className="inline-block text-[10px] text-amber-600 font-medium bg-amber-50 px-1.5 py-0.5 rounded-sm mb-1">
+						<span className="inline-block text-[10px] font-medium bg-warning text-warning-foreground px-1.5 py-0.5 rounded-sm mb-1">
 							患者自主反应
 						</span>
 					)}

@@ -32,14 +32,14 @@ export default function Pagination({
 			</span>
 			<div className="flex gap-2">
 				<button
-					className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+					className="inline-flex items-center justify-center rounded-lg border border-input focus-ring bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
 					disabled={!hasPrev}
 					onClick={() => onChange(Math.max(0, offset - limit))}
 				>
 					上一页
 				</button>
 				<button
-					className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+					className="inline-flex items-center justify-center rounded-lg border border-input focus-ring bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
 					disabled={!hasNext}
 					onClick={() => onChange(offset + limit)}
 				>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
+import Badge from "@/components/ui/Badge";
+import PageHeader from "@/components/ui/PageHeader";
 
 interface BackendPlugin {
 	id: string;
@@ -34,17 +36,15 @@ export default function PluginDashboard() {
 
 	return (
 		<div className="p-6">
-			<h1 className="mb-6 text-2xl font-bold">插件注册表</h1>
+			<PageHeader title="插件注册表" />
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 				{plugins.map((p) => (
 					<div key={p.id} className="rounded-lg border p-4">
 						<div className="flex items-center justify-between">
 							<h3 className="font-semibold">{p.name}</h3>
-							<span
-								className={`rounded px-2 py-0.5 text-xs ${p.feature_flag ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
-							>
+							<Badge variant={p.feature_flag ? "info" : "neutral"}>
 								{p.feature_flag ? `flag: ${p.feature_flag}` : "始终启用"}
-							</span>
+							</Badge>
 						</div>
 						<p className="mt-1 text-sm text-muted-foreground">
 							{p.meta.description}

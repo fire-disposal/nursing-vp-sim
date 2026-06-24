@@ -5,23 +5,23 @@ type StatColor = "blue" | "green" | "amber" | "red" | "teal";
 
 const colorClasses: Record<StatColor, { bg: string; color: string }> = {
 	blue: {
-		bg: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
+		bg: "bg-info text-info-foreground",
 		color: "",
 	},
 	green: {
-		bg: "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
+		bg: "bg-success text-success-foreground",
 		color: "",
 	},
 	amber: {
-		bg: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400",
+		bg: "bg-warning text-warning-foreground",
 		color: "",
 	},
 	red: {
-		bg: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400",
+		bg: "bg-danger text-danger-foreground",
 		color: "",
 	},
 	teal: {
-		bg: "bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400",
+		bg: "bg-accent text-accent-foreground",
 		color: "",
 	},
 };
@@ -51,8 +51,8 @@ export default function StatCard({
 		<div
 			onClick={onClick}
 			className={cn(
-				"flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all",
-				onClick && "cursor-pointer hover:border-primary hover:shadow-sm",
+				"flex items-center gap-4 rounded-xl ring-1 ring-foreground/10 bg-card p-4 transition-all",
+				onClick && "cursor-pointer hover:border-primary hover:shadow-e1",
 				className,
 			)}
 		>

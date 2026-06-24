@@ -186,13 +186,13 @@ export function TrainingHeader({
 							!timerActive && "bg-muted/30 text-muted-foreground border-muted",
 							timerActive &&
 								remaining != null &&
-								remaining <= 120 &&
-								"border-red-200 bg-red-50 text-red-600",
+							remaining <= 120 &&
+							"border-transparent bg-danger text-danger-foreground",
 							timerActive &&
 								remaining != null &&
 								remaining > 120 &&
-								remaining <= 300 &&
-								"border-amber-200 bg-amber-50 text-amber-600",
+							remaining <= 300 &&
+							"border-transparent bg-warning text-warning-foreground",
 							timerActive &&
 								remaining != null &&
 								remaining > 300 &&

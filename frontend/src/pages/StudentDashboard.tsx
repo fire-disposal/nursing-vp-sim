@@ -8,6 +8,7 @@ import {
 	Clock,
 	MessageCircle,
 	Play,
+	Star,
 	Stethoscope,
 	Target,
 	TrendingUp,
@@ -303,7 +304,7 @@ export default function StudentDashboard({
 				<div className="flex flex-col gap-6 min-w-0">
 					<Card size="sm">
 						<CardContent className="flex flex-col items-center p-8 sm:p-12">
-							<div className="flex size-[56px] sm:size-[88px] items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-3 sm:mb-6">
+							<div className="flex size-[56px] sm:size-[88px] items-center justify-center rounded-full bg-accent text-accent-foreground mb-3 sm:mb-6">
 								<Stethoscope size={40} />
 							</div>
 							<div className="text-xl font-bold text-foreground mb-1.5">
@@ -314,7 +315,7 @@ export default function StudentDashboard({
 									? "你有一个进行中的训练，点击下方按钮继续。"
 									: "选择虚拟患者，系统模拟真实护理问诊场景，训练结束后自动评分并提供反馈。"}
 							</div>
-							<div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-medium mb-3 sm:mb-6">
+							<div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent text-accent-foreground rounded-full text-xs font-medium mb-3 sm:mb-6">
 								<BookOpen size={14} /> 病例库：{cases.length} 例可用
 							</div>
 							<Button
@@ -371,16 +372,30 @@ export default function StudentDashboard({
 													<div className="text-sm font-semibold text-foreground">
 														{c.name}
 														<span
-															className={cn(
-																"inline-flex items-center gap-0.5 ml-2 px-2 py-0.5 rounded-full text-xs font-semibold",
-																d === 1 && "bg-green-100 text-green-700",
-																d === 2 && "bg-amber-100 text-amber-700",
-																d === 3 && "bg-red-100 text-red-700",
-															)}
-														>
-															{"★".repeat(d)}
-															{"☆".repeat(3 - d)}
-														</span>
+														className={cn(
+															"inline-flex items-center gap-0.5 ml-2 px-2 py-0.5 rounded-full text-xs font-semibold",
+															d === 1 && "bg-success text-success-foreground",
+															d === 2 && "bg-warning text-warning-foreground",
+															d === 3 && "bg-danger text-danger-foreground",
+														)}
+													>
+														{Array.from({ length: d }).map((_, si) => (
+															<Star
+																key={`f-${si}`}
+																size={12}
+																className="text-warning-foreground"
+																fill="currentColor"
+															/>
+														))}
+														{Array.from({ length: 3 - d }).map((_, si) => (
+															<Star
+																key={`e-${si}`}
+																size={12}
+																className="text-muted-foreground/40"
+																fill="none"
+															/>
+														))}
+													</span>
 													</div>
 													<div className="text-xs text-muted-foreground">
 														{p.gender} · {p.age}岁 ·{" "}
@@ -530,9 +545,9 @@ export default function StudentDashboard({
 											<span className="text-xs text-muted-foreground">
 												沟通技能
 											</span>
-											<span className="block text-sm font-bold text-blue-600">
-												{(latestCompleted as { score?: ScoreData }).score
-													?.detail_scores?.沟通技能?.score ?? "-"}
+										<span className="block text-sm font-bold text-primary">
+											{(latestCompleted as { score?: ScoreData }).score
+												?.detail_scores?.沟通技能?.score ?? "-"}
 												<span className="text-xs text-muted-foreground">
 													/
 													{(latestCompleted as { score?: ScoreData }).score
@@ -637,7 +652,7 @@ export default function StudentDashboard({
 								{QUICK_QA_HINTS.map((h, i) => (
 									<span
 										key={i}
-										className="text-xs text-primary bg-blue-50 px-2 py-0.5 rounded-md cursor-pointer hover:bg-blue-100 transition-colors"
+										className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md cursor-pointer hover:bg-primary/15 transition-colors"
 										onClick={() => navigate(`/qa?q=${encodeURIComponent(h)}`)}
 									>
 										{h}
