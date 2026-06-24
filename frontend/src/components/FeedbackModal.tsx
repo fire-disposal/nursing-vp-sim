@@ -87,6 +87,7 @@ export default function FeedbackModal({
 					<div className="flex justify-center gap-3">
 						{moods.map((m) => (
 							<button
+								type="button"
 								key={m.value}
 								onClick={() => setRating(m.value)}
 								className={cn(
@@ -126,6 +127,7 @@ export default function FeedbackModal({
 					<div className="flex flex-wrap gap-2">
 						{tags.map((t) => (
 							<button
+								type="button"
 								key={t.value}
 								onClick={() => setTag(tag === t.value ? "" : t.value)}
 								className={cn(
@@ -158,6 +160,7 @@ export default function FeedbackModal({
 
 			<div className="flex justify-end gap-2">
 				<button
+					type="button"
 					onClick={handleClose}
 					disabled={submitting}
 					className="px-6 py-2 rounded-md border border-border bg-card text-muted-foreground text-sm font-medium cursor-pointer transition-colors duration-150"
@@ -165,6 +168,7 @@ export default function FeedbackModal({
 					取消
 				</button>
 				<button
+					type="button"
 					onClick={handleSubmit}
 					disabled={!rating || submitting}
 					className={cn(

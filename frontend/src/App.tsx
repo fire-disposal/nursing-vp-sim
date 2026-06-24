@@ -11,6 +11,7 @@ import {
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
+import PermissionGuard from "@/components/PermissionGuard";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
@@ -75,136 +76,75 @@ function PageLoader() {
 
 export default function App() {
 	return (
-		<BrowserRouter>
-			<QueryClientProvider client={queryClient}>
-				<ForceLogoutListener />
-				<Toaster />
-				<ConfirmProvider>
-					<FeedbackProvider>
-						<ErrorBoundary>
-							<Suspense fallback={<PageLoader />}>
-								<Routes>
-									<Route path="/login" element={<Login />} />
-									<Route path="/showcase" element={<Showcase />} />
-									<Route element={<ProtectedRoute />}>
-										<Route
-											element={
-												<Layout>
-													<Outlet />
-												</Layout>
-											}
-										>
-											<Route index element={<Navigate to="/home" replace />} />
-											<Route path="/home" element={<DashboardHome />} />
+			<BrowserRouter>
+				<QueryClientProvider client={queryClient}>
+					<ForceLogoutListener />
+					<Toaster />
+					<ConfirmProvider>
+						<FeedbackProvider>
+							<ErrorBoundary>
+								<Suspense fallback={<PageLoader />}>
+									<Routes>
+										<Route path="/login" element={<Login />} />
+										<Route path="/showcase" element={<Showcase />} />
+										<Route element={<ProtectedRoute />}>
 											<Route
 												element={
-													<ProtectedRoute permission="training_access" />
+													<Layout>
+														<Outlet />
+													</Layout>
 												}
 											>
+												<Route index element={<Navigate to="/home" replace />} />
+												<Route path="/home" element={<DashboardHome />} />
 												<Route path="/cases" element={<CaseSelect />} />
-												<Route
-													path="/training/:recordId"
-													element={<ChatTraining />}
-												/>
-											</Route>
-											<Route path="/history" element={<History />} />
-											<Route path="/record/:id" element={<RecordDetail />} />
-											<Route path="/qa" element={<QA />} />
-											<Route path="/stats" element={<StatsPage />} />
-											<Route path="/my-responses" element={<MyResponses />} />
-											<Route path="/profile" element={<Profile />} />
-											<Route
-												element={<ProtectedRoute permission="score_review" />}
-											>
+												<Route path="/training/:recordId" element={<ChatTraining />} />
+												<Route path="/history" element={<History />} />
+												<Route path="/record/:id" element={<RecordDetail />} />
+												<Route path="/qa" element={<QA />} />
+												<Route path="/stats" element={<StatsPage />} />
+												<Route path="/my-responses" element={<MyResponses />} />
+												<Route path="/profile" element={<Profile />} />
+												{/*
+												 * All admin routes are flat under Layout to avoid the
+												 * ProtectedRoute layout-route switching bug that caused
+												 * sidebar navigation to stop working.
+												 *
+												 * Permission checks happen via PermissionGuard inside
+												 * each page component.  The sidebar already filters links
+												 * based on user permissions.
+												 */}
 												<Route path="/admin" element={<Admin />} />
 												<Route path="/admin/debug" element={<AdminDebug />} />
+												<Route path="/admin/plugins" element={<PluginDashboard />} />
+												<Route path="/admin/system-ops" element={<SystemOpsPage />} />
 												<Route
-													path="/admin/plugins"
-													element={<PluginDashboard />}
+													path="/admin/system-notifications"
+													element={<SystemNotificationsPage />}
 												/>
-											</Route>
-											<Route
-												element={<ProtectedRoute permission="api_manage" />}
-											>
-											<Route
-												path="/admin/system-ops"
-												element={<SystemOpsPage />}
-											/>
-											<Route
-												path="/admin/system-notifications"
-												element={<SystemNotificationsPage />}
-											/>
-											</Route>
-										<Route
-											element={<ProtectedRoute permission="llm_monitor" />}
-										>
-											<Route path="/admin/llm" element={<AdminLLM />} />
-											<Route path="/admin/costs" element={<CostManagement />} />
-										</Route>
-											<Route
-												element={<ProtectedRoute permission="case_manage" />}
-											>
+												<Route path="/admin/llm" element={<AdminLLM />} />
+												<Route path="/admin/costs" element={<CostManagement />} />
 												<Route path="/admin/cases" element={<AdminCases />} />
-												<Route
-													path="/admin/practices"
-													element={<PracticesPage />}
-												/>
-											</Route>
-											<Route
-												element={<ProtectedRoute permission="user_manage" />}
-											>
+												<Route path="/admin/practices" element={<PracticesPage />} />
 												<Route path="/admin/users" element={<AdminUsers />} />
 												<Route
 													path="/admin/users/:userId"
 													element={<AdminUserDetail />}
 												/>
-											</Route>
-											<Route
-												element={
-													<ProtectedRoute permission="grade_class_manage" />
-												}
-											>
 												<Route
 													path="/admin/grades-classes"
 													element={<AdminGradesClasses />}
 												/>
-											</Route>
-											<Route
-												element={
-													<ProtectedRoute permission="feedback_review" />
-												}
-											>
 												<Route
 													path="/admin/feedback"
 													element={<AdminFeedback />}
 												/>
-											</Route>
-											<Route
-												element={<ProtectedRoute permission="school_manage" />}
-											>
-												<Route
-													path="/admin/schools"
-													element={<AdminSchools />}
-												/>
-											</Route>
-											<Route
-												element={<ProtectedRoute permission="role_manage" />}
-											>
+												<Route path="/admin/schools" element={<AdminSchools />} />
 												<Route path="/admin/roles" element={<AdminRoles />} />
-											</Route>
-											<Route
-												element={
-													<ProtectedRoute permission="questionnaire_manage" />
-												}
-											>
 												<Route
 													path="/admin/questionnaires"
 													element={<AdminQuestionnaires />}
 												/>
-											</Route>
-											<Route
-												element={<ProtectedRoute permission="score_review" />}
-											>
 												<Route
 													path="/admin/assignments"
 													element={<AssignmentsPage />}
@@ -215,14 +155,13 @@ export default function App() {
 												/>
 											</Route>
 										</Route>
-									</Route>
-									<Route path="*" element={<Navigate to="/login" replace />} />
-								</Routes>
-							</Suspense>
-						</ErrorBoundary>
-					</FeedbackProvider>
-				</ConfirmProvider>
-			</QueryClientProvider>
-		</BrowserRouter>
+										<Route path="*" element={<Navigate to="/login" replace />} />
+									</Routes>
+								</Suspense>
+							</ErrorBoundary>
+						</FeedbackProvider>
+					</ConfirmProvider>
+				</QueryClientProvider>
+			</BrowserRouter>
 	);
 }

@@ -61,6 +61,7 @@ export interface GradesClassesState {
 	grades: Grade[];
 	classes: ClassItem[];
 	loading: boolean;
+	_pendingFetch: Promise<void> | null;
 	fetchGrades: () => Promise<void>;
 	createGrade: (name: string) => Promise<Grade>;
 	updateGrade: (id: number, name: string) => Promise<Grade>;

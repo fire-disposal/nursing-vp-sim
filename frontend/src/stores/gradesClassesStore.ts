@@ -15,17 +15,22 @@ const useGradesClassesStore = create<GradesClassesState>((set, get) => ({
 	grades: [] as Grade[],
 	classes: [] as ClassItem[],
 	loading: false,
+	_pendingFetch: null as Promise<void> | null,
 
 	fetchGrades: async (): Promise<void> => {
-		const { grades: _grades, loading } = get();
-		if (loading) return;
+		const existing = get()._pendingFetch;
+		if (existing) return existing;
 		set({ loading: true });
-		try {
-			const { data } = await getGrades();
-			set({ grades: data, loading: false });
-		} catch {
-			set({ loading: false });
-		}
+		const promise = (async () => {
+			try {
+				const { data } = await getGrades();
+				set({ grades: data, loading: false, _pendingFetch: null });
+			} catch {
+				set({ loading: false, _pendingFetch: null });
+			}
+		})();
+		set({ _pendingFetch: promise });
+		return promise;
 	},
 
 	createGrade: async (name: string): Promise<Grade> => {

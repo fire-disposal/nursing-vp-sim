@@ -47,6 +47,29 @@ interface DailyItem {
 	avg_score: number | null;
 }
 
+/** Safely coerce unknown array to typed array, discarding entries that don't match the shape. */
+function asRecentRecords(arr: unknown): RecentRecord[] {
+	if (!Array.isArray(arr)) return [];
+	return arr.filter(
+		(item): item is RecentRecord =>
+			typeof item === "object" &&
+			item !== null &&
+			typeof (item as RecentRecord).id === "number" &&
+			typeof (item as RecentRecord).case_name === "string",
+	);
+}
+
+function asDailyItems(arr: unknown): DailyItem[] {
+	if (!Array.isArray(arr)) return [];
+	return arr.filter(
+		(item): item is DailyItem =>
+			typeof item === "object" &&
+			item !== null &&
+			typeof (item as DailyItem).date === "string" &&
+			typeof (item as DailyItem).sessions === "number",
+	);
+}
+
 const statCardClass =
 	"bg-card rounded-xl shadow-sm p-5 border border-border flex items-center gap-3.5";
 const statIconClass =
@@ -75,12 +98,11 @@ export default function UserDetailPage() {
 		return <div className="text-center py-12 text-muted-foreground">未找到用户</div>;
 	}
 
-	const daily = (student.daily || []) as unknown as DailyItem[];
+	const daily = asDailyItems(student.daily);
 	const hasChartData = daily.length > 0;
 	const formatDate = (d: StudentDetail) =>
 		new Date(d.created_at).toLocaleDateString("zh-CN");
-	const recentRecords = (student.recent_records ||
-		[]) as unknown as RecentRecord[];
+	const recentRecords = asRecentRecords(student.recent_records);
 
 	return (
 		<>
