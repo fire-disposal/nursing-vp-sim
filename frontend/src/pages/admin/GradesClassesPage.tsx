@@ -2,7 +2,7 @@ import { GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import FormField from "@/components/ui/form-field";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";

@@ -20,7 +20,7 @@ import {
 	useDeleteTemplateMutation,
 	useSaveTemplateMutation,
 } from "@/components/teacher/questionnaires/useQuestionnaireMutations";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 
 export default function QuestionnairesTab() {
 	const [view, setView] = useState<ViewMode>("list");

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";

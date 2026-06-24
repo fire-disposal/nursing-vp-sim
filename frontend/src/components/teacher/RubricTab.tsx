@@ -20,7 +20,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Modal from "@/components/ui/Modal";
 import RubricEditor from "./RubricEditor";

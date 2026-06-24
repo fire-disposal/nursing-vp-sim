@@ -8,7 +8,7 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";

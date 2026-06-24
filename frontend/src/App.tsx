@@ -12,7 +12,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { ConfirmProvider } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
 import { onForceLogout } from "@/events";
 

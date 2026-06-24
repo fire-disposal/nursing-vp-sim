@@ -7,7 +7,7 @@ import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import { Card } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";

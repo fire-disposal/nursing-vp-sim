@@ -16,7 +16,7 @@ import CitationCard from "@/components/qa/CitationCard";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { getNurseAvatar } from "@/utils/avatar";

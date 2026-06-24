@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ConfirmProvider, useConfirm } from "@/components/ui/ConfirmDialog";
+import { ConfirmProvider, useConfirm } from "@/components/ui/confirm";
 
 function ConfirmTrigger({ onResult }: { onResult: (v: boolean) => void }) {
 	const { confirm } = useConfirm();

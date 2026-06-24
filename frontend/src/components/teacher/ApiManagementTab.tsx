@@ -17,7 +17,7 @@ import {
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Tooltip from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -92,7 +92,6 @@ export default function ApiManagementTab() {
 			!(await confirm({
 				title: "删除档案",
 				message: `删除 "${s.label}"？`,
-				confirmText: "删除",
 				danger: true,
 			}))
 		)
@@ -111,7 +110,6 @@ export default function ApiManagementTab() {
 			!(await confirm({
 				title: "解除绑定",
 				message: "移除此用途指派？",
-				confirmText: "解除",
 				danger: true,
 			}))
 		)

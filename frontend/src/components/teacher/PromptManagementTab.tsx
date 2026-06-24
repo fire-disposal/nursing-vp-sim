@@ -9,7 +9,7 @@ import {
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import PromptForm from "./prompts/PromptForm";
@@ -147,7 +147,6 @@ export default function PromptManagementTab() {
 		const ok = await confirm({
 			title: "切换版本",
 			message: msg,
-			confirmText: "切换",
 		});
 		if (!ok) return;
 		activateMutation.mutate(p);
@@ -161,7 +160,6 @@ export default function PromptManagementTab() {
 		const ok = await confirm({
 			title: "删除",
 			message: `删除「${PURPOSE_LABELS[p.purpose]}」v${p.version}?`,
-			confirmText: "删除",
 			danger: true,
 		});
 		if (!ok) return;

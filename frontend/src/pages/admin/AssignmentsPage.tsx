@@ -15,7 +15,7 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import { Card } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";

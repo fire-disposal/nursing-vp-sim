@@ -3,7 +3,7 @@ import { useState } from "react";
 import { getClasses } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem } from "@/types/store";
 import BatchImport from "./users/BatchImport";

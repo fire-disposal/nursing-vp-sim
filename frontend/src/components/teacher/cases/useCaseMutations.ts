@@ -7,7 +7,7 @@ import {
 } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import type { CaseManageItem } from "./types";
 
 export function useCreateCase() {

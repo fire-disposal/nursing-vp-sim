@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
