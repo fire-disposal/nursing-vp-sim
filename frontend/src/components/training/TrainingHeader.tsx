@@ -15,8 +15,8 @@ import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { usePortrait } from "@/engine/PluginContext";
-import type { PatientData } from "@/engine/types";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
+import { useTrainingContext } from "@/engine/TrainingContext";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -28,20 +28,12 @@ const FEATURE_META: Record<string, { label: string; desc: string }> = {
 	},
 };
 
+/**
+ * Props are zero — TrainingHeader reads all state from TrainingContext.
+ * This avoids the prop-explosion problem that accumulated 13+ props.
+ */
 interface TrainingHeaderProps {
-	recordId: string;
-	patient: PatientData;
-	features: Record<string, boolean>;
-	onToggleFeature: (key: string, enabled: boolean) => void;
-	ttsAutoPlay: boolean;
-	onTtsToggle: () => void;
-	onEnd: () => Promise<void>;
-	sending: boolean;
-	featuresLocked?: boolean;
-	fromAssignment?: boolean;
-	timeLimitMinutes?: number;
-	remainingSeconds?: number | null;
-	voiceStatus?: { provider: string; latencyMs: number } | null;
+	dummy?: never;
 }
 
 export function TrainingHeader({
