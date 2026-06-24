@@ -21,12 +21,14 @@ export default function FeatureFull({
 		<Reveal>
 			<div className="flex flex-col gap-8">
 				<div className="flex flex-col gap-4">
-					<div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
-						<Icon size={24} strokeWidth={1.5} className="text-primary" />
+					<div className="flex items-center gap-4">
+						<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+							<Icon size={22} strokeWidth={1.5} className="text-primary" />
+						</div>
+						<h3 className="text-[1.65rem] font-bold tracking-tight md:text-[2rem] [font-family:'Geist_Variable',sans-serif]">
+							{title}
+						</h3>
 					</div>
-					<h3 className="text-2xl font-bold tracking-tight md:text-3xl [font-family:'Geist_Variable',sans-serif]">
-						{title}
-					</h3>
 					<p className="max-w-[65ch] leading-relaxed text-muted-foreground">
 						{body}
 					</p>

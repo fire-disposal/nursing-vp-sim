@@ -15,11 +15,16 @@ export default function ScreenshotPlaceholder({
 	return (
 		<div
 			style={{ aspectRatio: `${width} / ${height}` }}
-			className={`flex w-full items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted ${className ?? ""}`}
+			className={`flex w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border/50 bg-muted/20 ${className ?? ""}`}
 		>
-			<span className="select-none text-center text-sm font-medium text-muted-foreground">
-				系统截图 · {label ?? `${width}×${height}`}
-			</span>
+			<div className="flex flex-col items-center gap-3 select-none text-center">
+				<div className="flex size-11 items-center justify-center rounded-full border border-border/60 bg-background/70">
+					<div className="size-5 rounded-sm border-2 border-muted-foreground/30 border-dashed" />
+				</div>
+				<span className="text-sm font-medium tracking-wide text-muted-foreground/70">
+					系统截图 · {label ?? `${width}×${height}`}
+				</span>
+			</div>
 		</div>
 	);
 }

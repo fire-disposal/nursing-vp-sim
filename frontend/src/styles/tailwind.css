@@ -67,6 +67,11 @@
 	--shadow-e3: 0 12px 32px -8px rgb(15 23 42 / 0.18);
 }
 
+@keyframes marquee-vertical {
+	from { transform: translateY(0); }
+	to { transform: translateY(-50%); }
+}
+
 :root {
 		--background: #f8fafc;
 		--foreground: #111827;
@@ -217,5 +222,14 @@
 	}
 	to {
 		transform: translateX(-50%);
+	}
+}
+
+@keyframes marquee-third {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-33.333333%);
 	}
 }

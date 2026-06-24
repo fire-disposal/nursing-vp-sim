@@ -19,9 +19,14 @@ export default function ShowcasePage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-background text-foreground">
+		<div className="relative min-h-screen bg-background text-foreground selection:bg-primary/20">
+			<div className="pointer-events-none fixed inset-0 -z-30 overflow-hidden">
+				<div className="absolute left-1/2 top-0 h-[22rem] w-[22rem] -translate-x-1/2 rounded-full bg-primary/[0.04] blur-[160px]" />
+				<div className="absolute bottom-0 right-0 h-[18rem] w-[18rem] rounded-full bg-blue-500/[0.04] blur-[140px]" />
+			</div>
+
 			<TopBar />
-			<main>
+			<main className="relative z-10">
 				<Hero />
 				<Overview />
 				<Highlights />

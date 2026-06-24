@@ -10,7 +10,7 @@ import {
 
 export const PRODUCT_NAME = "虚拟患者训练系统";
 export const HERO_TITLE = "把 LLM 做成可教学、可评估的虚拟患者";
-export const HERO_SUBTITLE = "护理病史采集技能训练平台：多模态对话、透明化评分、可溯源知识。";
+export const HERO_SUBTITLE = "护理病史采集训练平台：5 个训练面板、19 项评分维度、6 种情绪状态，覆盖对话、评分与知识溯源。";
 export const CTA_LABEL = "进入系统";
 export const CTA_HREF = "/login";
 
@@ -93,11 +93,11 @@ export const HIGHLIGHTS: Highlight[] = [
 		id: "scoring",
 		icon: Activity,
 		title: "流式评分 + 透明化",
-		body: "SSE 逐项进度，双面板展示 LLM 思考过程，19 项证据化反馈逐条可查。",
+		body: "SSE 逐项推送评分结果，配合证据回链与理由展开，便于快速查看与复核。",
 		points: [
-			"评分 + 反馈并行，思考过程实时流式",
 			"19 项维度：沟通技能 14 + 病史采集 5",
 			"每项附对话证据与评分理由",
+			"评分结果可直接回看对话上下文",
 		],
 		layout: "sticky",
 		screenshot: { width: 1440, height: 900, label: "1440×900（评分页）" },
