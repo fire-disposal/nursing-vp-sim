@@ -181,7 +181,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	return (
 		<>
 			<div className="mb-4 flex gap-3">
-				<button className={btnPrimary} onClick={openCreateUser}>
+				<button type="button" className={btnPrimary} onClick={openCreateUser}>
 					<Plus size={16} /> 注册新用户
 				</button>
 				<button

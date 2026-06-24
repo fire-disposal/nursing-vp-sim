@@ -15,8 +15,9 @@ interface ToastApi {
 let _nextId = 0;
 
 function show(message: string, type: ToastType = "info", duration = 4000) {
-	sonnerToast[type](message, { id: `${type}:${message}`, duration });
-	return ++_nextId;
+	const id = `t:${++_nextId}:${Date.now()}`;
+	sonnerToast[type](message, { id, duration });
+	return _nextId;
 }
 
 export const toast: ToastApi = {

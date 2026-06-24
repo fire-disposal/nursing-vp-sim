@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/axios-instance";
@@ -22,6 +22,7 @@ export default function NotificationBell() {
 	const qc = useQueryClient();
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
+	const mutationLockRef = useRef(false);
 
 	const { data, isLoading, isError } = useApiQuery({
 		queryKey: ["notifications"],
@@ -32,9 +33,13 @@ export default function NotificationBell() {
 	const markOneReadMutation = useMutation({
 		mutationFn: (id: number) => api.patch(`/training/notifications/${id}`),
 		onMutate: (id) => {
+			if (mutationLockRef.current) return;
 			qc.setQueryData<Notification[]>(["notifications"], (prev) =>
 				(prev ?? []).filter((n) => n.id !== id),
 			);
+		},
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: ["notifications"] });
 		},
 		onError: () => {
 			toastError("标记已读失败");
@@ -45,11 +50,18 @@ export default function NotificationBell() {
 	const markAllReadMutation = useMutation({
 		mutationFn: () => api.patch("/training/notifications/read-all"),
 		onMutate: () => {
+			mutationLockRef.current = true;
 			qc.setQueryData<Notification[]>(["notifications"], []);
+		},
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: ["notifications"] });
 		},
 		onError: () => {
 			toastError("标记已读失败");
 			qc.invalidateQueries({ queryKey: ["notifications"] });
+		},
+		onSettled: () => {
+			mutationLockRef.current = false;
 		},
 	});
 
@@ -58,6 +70,7 @@ export default function NotificationBell() {
 
 	const handleClick = useCallback(
 		(n: Notification) => {
+			if (mutationLockRef.current) return;
 			markOneReadMutation.mutate(n.id);
 			setOpen(false);
 			if (n.record_id) {
@@ -102,7 +115,8 @@ export default function NotificationBell() {
 										<button
 											type="button"
 											onClick={() => markAllReadMutation.mutate()}
-											className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+											disabled={mutationLockRef.current}
+											className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
 										>
 											全部已读
 										</button>
