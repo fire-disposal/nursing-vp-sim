@@ -7,6 +7,7 @@ import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import Pagination from "@/components/ui/pagination";
+import { thClass, tdClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 
 function truncate(text: string, maxLen: number): string {
@@ -14,9 +15,8 @@ function truncate(text: string, maxLen: number): string {
 	return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
 }
 
-const thClass =
-	"sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border";
-const tdClass = "px-4 py-3 border-b border-border";
+
+
 
 export default function QARecordsTab() {
 	const [offset, setOffset] = useState(0);

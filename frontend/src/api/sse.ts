@@ -79,8 +79,8 @@ export async function readSSEStream(
 						return;
 					}
 					if (data.content) handlers.onChunk?.(data.content);
-				} catch {
-					/* ignore malformed SSE chunks */
+				} catch (e) {
+					console.warn("[SSE] malformed chunk:", e);
 				}
 			}
 		}

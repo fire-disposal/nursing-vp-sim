@@ -1,25 +1,15 @@
 import { Navigate, Outlet } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 
-interface ProtectedRouteProps {
-	role?: string;
-	permission?: string;
-}
-
-export default function ProtectedRoute({
-	role,
-	permission,
-}: ProtectedRouteProps) {
+/**
+ * Login gate — redirects unauthenticated users to /login.
+ * Permission checks are now handled by PermissionGuard in each page component.
+ */
+export default function ProtectedRoute() {
 	const user = useAuthStore((s) => s.user);
 	const token = useAuthStore((s) => s.token);
-	const permissions = useAuthStore((s) => s.permissions);
 
 	if (!token || !user) return <Navigate to="/login" replace />;
-
-	if (permission && !permissions.includes(permission)) {
-		if (role && user.role !== role) return <Navigate to="/home" replace />;
-		return <Navigate to="/home" replace />;
-	}
 
 	return <Outlet />;
 }

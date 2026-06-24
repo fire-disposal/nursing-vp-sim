@@ -27,6 +27,7 @@ import Button from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import PageHeader from "@/components/ui/page-header";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
+import { statCardClass, statIconClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];
@@ -70,10 +71,6 @@ function asDailyItems(arr: unknown): DailyItem[] {
 	);
 }
 
-const statCardClass =
-	"bg-card rounded-xl shadow-sm p-5 border border-border flex items-center gap-3.5";
-const statIconClass =
-	"w-11 h-11 rounded-xl flex items-center justify-center shrink-0";
 
 export default function UserDetailPage() {
 	const { userId } = useParams<{ userId: string }>();

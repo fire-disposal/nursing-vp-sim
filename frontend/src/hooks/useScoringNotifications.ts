@@ -9,6 +9,7 @@ export function useScoringNotifications() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const retryCountRef = useRef(0);
 
     useEffect(() => {
         let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
@@ -74,15 +75,18 @@ export function useScoringNotifications() {
                                 if (eventType === "scoring_progress") {
                                     notifySSEProgress(data);
                                 }
-                            } catch {
-                                /* ignore malformed SSE */
+                            } catch (e) {
+                                console.warn("[SSE] malformed event data:", e);
                             }
                         }
                     }
                 }
             } catch (_err) {
                 if (!aborted) {
-                    retryRef.current = setTimeout(connect, 5000);
+                    const delay = Math.min(1000 * 2 ** retryCountRef.current, 30000);
+                    retryCountRef.current = Math.min(retryCountRef.current + 1, 5);
+                    console.warn("[SSE] disconnected, retrying in " + delay + "ms (attempt " + retryCountRef.current + ")");
+                    retryRef.current = setTimeout(connect, delay);
                 }
             }
         }
