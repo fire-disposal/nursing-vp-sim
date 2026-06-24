@@ -15,12 +15,12 @@ from ._citations import clean_content, extract_citations
 log = logging.getLogger(__name__)
 
 
-def get_cached_answer(question: str, db: Session) -> str | None:
-    """检查同一问题是否已有回答（不限会话，跨会话缓存）。"""
+def get_cached_answer(question: str, user_id: int, db: Session) -> str | None:
+    """检查同一问题是否已有回答（按用户隔离缓存，跨会话但同用户共享）。"""
     normalized = question.strip()
     user_record = (
         db.query(QARecord)
-        .filter(QARecord.role == "user", QARecord.content == normalized)
+        .filter(QARecord.role == "user", QARecord.content == normalized, QARecord.user_id == user_id)
         .order_by(QARecord.created_at.desc())
         .first()
     )

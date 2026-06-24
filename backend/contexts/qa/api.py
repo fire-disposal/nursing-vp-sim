@@ -189,7 +189,7 @@ async def create_session(
     db.add(user_msg)
     db.commit()
 
-    cached = None if req.rag_enabled else get_cached_answer(req.question, db)
+    cached = None if req.rag_enabled else get_cached_answer(req.question, current_user.id, db)
     if cached is not None:
         assistant_msg = QARecord(
             session_id=session.id,

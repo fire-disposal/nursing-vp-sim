@@ -17,6 +17,8 @@ from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
 from infrastructure.queue import QueueFullError
 from infrastructure.scoring_progress import ScoringProgressTracker
+# NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
+# 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
 from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse
@@ -30,6 +32,8 @@ router = APIRouter()
 
 # Generation counter to detect stale background scoring tasks.
 # Incremented in _try_acquire_scoring whenever a new scoring session starts.
+# NOTE: 模块级 dict 在单进程开发环境下正常工作。
+# 生产多 worker 部署时需迁移至 Redis，详见 docs/ops/multi-worker.md
 _scoring_generation: dict[int, int] = {}
 
 
@@ -131,6 +135,51 @@ def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
         record.is_overdue = True
 
 
+
+def _handle_scoring_failure(
+    record_id: int,
+    gen: int,
+    error_msg: str,
+    tracker: ScoringProgressTracker | None = None,
+    sse_manager=None,
+    user_id: int | None = None,
+) -> None:
+    """Shared error handling — updates DB status, creates notification, publishes SSE."""
+    try:
+        from core.database import SessionLocal
+        db = SessionLocal()
+        try:
+            db.expire_all()
+            record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+            if record and _get_current_generation(record_id) == gen:
+                record.scoring_status = "failed"
+                record.scoring_error = error_msg[:2000]
+                db.commit()
+                actual_user_id = user_id or record.user_id
+                _create_notification(
+                    db,
+                    user_id=actual_user_id,
+                    record_id=record.id,
+                    type="scoring_failed",
+                    title="评分失败",
+                    body=f"评分失败：{error_msg[:100] or '未知错误'}",
+                )
+                if sse_manager:
+                    import asyncio
+                    asyncio.ensure_future(
+                        _publish_scoring_event(
+                            sse_manager,
+                            actual_user_id,
+                            "scoring_failed",
+                            {"record_id": record.id, "error": error_msg[:100] or "未知错误"},
+                        )
+                    )
+        finally:
+            db.close()
+    except Exception as inner:
+        log.exception("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
+
+
 async def _run_scoring_background(
     record_id: int,
     case_data: dict,
@@ -209,56 +258,19 @@ async def _run_scoring_background(
         log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
-        try:
-            db.expire_all()
-            record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record and _get_current_generation(record_id) == gen:
-                record.scoring_status = "failed"
-                record.scoring_error = "评分超时（超过5分钟）"
-                db.commit()
-                _create_notification(
-                    db,
-                    user_id=record.user_id,
-                    record_id=record.id,
-                    type="scoring_failed",
-                    title="评分失败",
-                    body="评分超时（超过5分钟），请重试",
-                )
-                await _publish_scoring_event(
-                    sse_manager,
-                    record.user_id,
-                    "scoring_failed",
-                    {"record_id": record.id, "error": "评分超时（超过5分钟）"},
-                )
-        except Exception as e:
-            log.exception("评分超时后状态更新失败", extra={"record_id": record_id, "error": str(e)})
+        _handle_scoring_failure(
+            record_id, gen, "评分超时（超过5分钟）",
+            tracker=tracker, sse_manager=sse_manager,
+        )
     except Exception as e:
-        log.exception("[SCORING] FAIL record_id=%d error=%s: %s", record_id, type(e).__name__, str(e)[:200])
+        msg = str(e)[:200]
+        log.exception("[SCORING] FAIL record_id=%d error=%s: %s", record_id, type(e).__name__, msg)
         if tracker:
-            tracker.update(record_id, "failed", 0, str(e)[:100])
-        try:
-            db.expire_all()
-            record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record and _get_current_generation(record_id) == gen:
-                record.scoring_status = "failed"
-                record.scoring_error = str(e)[:2000] or f"{type(e).__name__}"
-                db.commit()
-                _create_notification(
-                    db,
-                    user_id=record.user_id,
-                    record_id=record.id,
-                    type="scoring_failed",
-                    title="评分失败",
-                    body=f"评分失败：{record.scoring_error or '未知错误'}",
-                )
-                await _publish_scoring_event(
-                    sse_manager,
-                    record.user_id,
-                    "scoring_failed",
-                    {"record_id": record.id, "error": record.scoring_error or "未知错误"},
-                )
-        except Exception as inner:
-            log.exception("评分失败后状态更新失败", extra={"record_id": record_id, "error": str(inner)})
+            tracker.update(record_id, "failed", 0, msg)
+        _handle_scoring_failure(
+            record_id, gen, str(e)[:2000] or type(e).__name__,
+            tracker=tracker, sse_manager=sse_manager,
+        )
     finally:
         db.close()
         if tracker:
