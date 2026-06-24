@@ -8,7 +8,7 @@ import {
 } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";

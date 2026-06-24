@@ -6,7 +6,7 @@ import {
 	inputClass,
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/teacher/questionnaires/types";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 

@@ -19,8 +19,8 @@ import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
 import {
 	Card,
 	CardAction,
@@ -28,8 +28,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import PageHeader from "@/components/ui/PageHeader";
-import StatCard from "@/components/ui/StatCard";
+import PageHeader from "@/components/ui/page-header";
+import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
 	TableBody,

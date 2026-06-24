@@ -6,7 +6,7 @@ import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
 import { getActivePanels } from "@/components/training/panels";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { createMessageBus } from "./MessageBus";
 import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PluginContext";

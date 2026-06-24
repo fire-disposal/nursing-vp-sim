@@ -12,7 +12,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { updateTrainingFeatures } from "@/api/training-state";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import Modal from "@/components/ui/Modal";
 import { usePortrait } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";

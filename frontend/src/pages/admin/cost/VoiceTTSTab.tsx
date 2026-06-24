@@ -6,7 +6,7 @@ import {
 } from "@/api/admin/voice-cost";
 import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import StatCard from "@/components/ui/StatCard";
+import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
 	TableBody,

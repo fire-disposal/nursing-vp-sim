@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { generateCase, getCaseDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import type { CaseForm, CaseManageItem, ScoringDimension } from "./types";

@@ -1,6 +1,6 @@
 import { Clock, MessageCircle, Minus, Pause, Plus, Smile, Star, Stethoscope, User } from "lucide-react";
 import { useCallback, useState } from "react";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 

@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
-import Badge from "@/components/ui/Badge";
+import Badge from "@/components/ui/badge";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
 import ReviewItem from "./ReviewItem";
 

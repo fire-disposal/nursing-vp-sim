@@ -12,11 +12,11 @@ import {
 	TYPE_LABEL,
 	TYPE_OPTIONS,
 } from "@/components/teacher/questionnaires/types";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import EmptyState from "@/components/ui/EmptyState";
-import LoadingState from "@/components/ui/LoadingState";
-import Pagination from "@/components/ui/Pagination";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
+import LoadingState from "@/components/ui/loading-state";
+import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 interface QuestionnaireListProps {

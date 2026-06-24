@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
-import PageHeader from "@/components/ui/PageHeader";
+import Badge from "@/components/ui/badge";
+import PageHeader from "@/components/ui/page-header";
 
 interface BackendPlugin {
 	id: string;

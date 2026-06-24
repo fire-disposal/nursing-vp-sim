@@ -6,14 +6,14 @@ import { createPractice, deletePractice, getPractice, getPractices, updatePracti
 import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Card } from "@/components/ui/card";
-import EmptyState from "@/components/ui/EmptyState";
+import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Modal from "@/components/ui/Modal";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 import {
 	Table,
 	TableBody,

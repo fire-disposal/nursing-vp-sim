@@ -12,9 +12,9 @@ import { useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import CallLogTimeline from "@/components/teacher/CallLogTimeline";
-import Badge from "@/components/ui/Badge";
-import EmptyState from "@/components/ui/EmptyState";
-import Pagination from "@/components/ui/Pagination";
+import Badge from "@/components/ui/badge";
+import EmptyState from "@/components/ui/empty-state";
+import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];

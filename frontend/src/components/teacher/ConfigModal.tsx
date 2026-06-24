@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createConfig, fetchSecrets, updateConfig } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import Modal from "@/components/ui/Modal";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];

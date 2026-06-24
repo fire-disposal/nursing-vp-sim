@@ -11,8 +11,8 @@ import {
 	YAxis,
 } from "recharts";
 import { getTrends } from "@/api/api-client";
-import { ChartTooltip } from "@/components/ui/ChartTooltip";
-import EmptyState from "@/components/ui/EmptyState";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import EmptyState from "@/components/ui/empty-state";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import { cn } from "@/lib/utils";
 

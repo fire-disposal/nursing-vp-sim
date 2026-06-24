@@ -29,7 +29,7 @@ const SIDE_CLASSES: Record<string, string> = {
 		"inset-x-0 bottom-0 border-t translate-y-full data-[state=open]:translate-y-0 rounded-t-2xl",
 };
 
-export default function Sheet({
+export function Sheet({
 	open,
 	onClose,
 	side = "right",

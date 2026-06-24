@@ -4,8 +4,8 @@ import ApiManagementTab from "@/components/teacher/ApiManagementTab";
 import MonitorTab from "@/components/teacher/MonitorTab";
 import PromptManagementTab from "@/components/teacher/PromptManagementTab";
 import RubricTab from "@/components/teacher/RubricTab";
-import PageHeader from "@/components/ui/PageHeader";
-import Tabs from "@/components/ui/Tabs";
+import PageHeader from "@/components/ui/page-header";
+import Tabs from "@/components/ui/tabs";
 
 const TABS = [
 	{ key: "monitor", icon: BarChart3, label: "调用监控" },

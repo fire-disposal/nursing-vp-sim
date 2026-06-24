@@ -28,13 +28,13 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
-import { ChartTooltip } from "@/components/ui/ChartTooltip";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
-import Pagination from "@/components/ui/Pagination";
-import StatCard from "@/components/ui/StatCard";
-import { LegacyTabs } from "@/components/ui/Tabs";
+import EmptyState from "@/components/ui/empty-state";
+import PageHeader from "@/components/ui/page-header";
+import Pagination from "@/components/ui/pagination";
+import StatCard from "@/components/ui/stat-card";
+import { LegacyTabs } from "@/components/ui/tabs";
 import {
 	Table,
 	TableBody,

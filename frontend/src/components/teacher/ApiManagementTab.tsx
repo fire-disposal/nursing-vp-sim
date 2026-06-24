@@ -18,8 +18,8 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import EmptyState from "@/components/ui/EmptyState";
-import Tooltip from "@/components/ui/Tooltip";
+import EmptyState from "@/components/ui/empty-state";
+import Tooltip from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import SecretModal from "./SecretModal";
 

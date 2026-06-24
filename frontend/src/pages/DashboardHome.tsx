@@ -9,8 +9,8 @@ import {
 } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
-import PageHeader from "@/components/ui/PageHeader";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 import type { ScoreData } from "@/types/score";
 import StudentDashboard from "./StudentDashboard";

@@ -1,10 +1,10 @@
 import { Key, Loader2, Save, User } from "lucide-react";
 import { useState } from "react";
 import { changePassword, updateMyProfile } from "@/api/api-client";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Modal from "@/components/ui/Modal";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";

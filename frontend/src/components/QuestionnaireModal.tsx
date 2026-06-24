@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 import { Textarea } from "@/components/ui/textarea";

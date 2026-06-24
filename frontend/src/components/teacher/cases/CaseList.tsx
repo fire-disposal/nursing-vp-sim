@@ -1,9 +1,9 @@
 import { ClipboardList, Edit3, Plus, Trash2, Wand2 } from "lucide-react";
 import { useRef } from "react";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import EmptyState from "@/components/ui/EmptyState";
-import Pagination from "@/components/ui/Pagination";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
+import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import type { CaseManageItem } from "./types";
 import { difficultyLabel, inputClass } from "./types";

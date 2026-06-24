@@ -6,8 +6,8 @@ import {
 	QUESTION_TYPE_OPTIONS,
 	textareaClass,
 } from "@/components/teacher/questionnaires/types";
-import Button from "@/components/ui/Button";
-import LoadingState from "@/components/ui/LoadingState";
+import Button from "@/components/ui/button";
+import LoadingState from "@/components/ui/loading-state";
 import Modal from "@/components/ui/Modal";
 
 interface QuestionnaireEditorProps {

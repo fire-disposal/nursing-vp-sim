@@ -4,12 +4,12 @@ import { useState } from "react";
 import { getMyResponses } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import EmptyState from "@/components/ui/EmptyState";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
 import Modal from "@/components/ui/Modal";
-import PageHeader from "@/components/ui/PageHeader";
-import Pagination from "@/components/ui/Pagination";
+import PageHeader from "@/components/ui/page-header";
+import Pagination from "@/components/ui/pagination";
 import {
 	Table,
 	TableBody,

@@ -23,12 +23,12 @@ import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import { ChartTooltip } from "@/components/ui/ChartTooltip";
-import EmptyState from "@/components/ui/EmptyState";
-import LoadingState from "@/components/ui/LoadingState";
-import Pagination from "@/components/ui/Pagination";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import EmptyState from "@/components/ui/empty-state";
+import LoadingState from "@/components/ui/loading-state";
+import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 type Schemas = components["schemas"];

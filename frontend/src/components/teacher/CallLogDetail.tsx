@@ -9,8 +9,8 @@ import {
 	Zap,
 } from "lucide-react";
 import { getLogDetail } from "@/api/api-client";
-import Badge from "@/components/ui/Badge";
-import Sheet from "@/components/ui/Sheet";
+import Badge from "@/components/ui/badge";
+import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 interface CallLogDetailProps {

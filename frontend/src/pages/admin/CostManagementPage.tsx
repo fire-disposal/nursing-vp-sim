@@ -1,7 +1,7 @@
 import { Coins } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import PageHeader from "@/components/ui/PageHeader";
-import Tabs from "@/components/ui/Tabs";
+import PageHeader from "@/components/ui/page-header";
+import Tabs from "@/components/ui/tabs";
 import CostDashboard from "@/pages/admin/cost/CostDashboard";
 import CostExportTab from "@/pages/admin/cost/CostExportTab";
 import LLMAPITab from "@/pages/admin/cost/LLMAPITab";

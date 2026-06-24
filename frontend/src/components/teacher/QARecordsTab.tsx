@@ -3,10 +3,10 @@ import { Eye, MessageCircle, Search } from "lucide-react";
 import { useRef, useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/Button";
-import EmptyState from "@/components/ui/EmptyState";
+import Button from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
 import Modal from "@/components/ui/Modal";
-import Pagination from "@/components/ui/Pagination";
+import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 function truncate(text: string, maxLen: number): string {

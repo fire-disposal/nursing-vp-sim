@@ -6,12 +6,12 @@ import { deleteRecord, getRecords } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
-import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
-import Pagination from "@/components/ui/Pagination";
+import EmptyState from "@/components/ui/empty-state";
+import PageHeader from "@/components/ui/page-header";
+import Pagination from "@/components/ui/pagination";
 import {
 	Table,
 	TableBody,

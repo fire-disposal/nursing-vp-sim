@@ -1,6 +1,6 @@
 import { CircleAlert, Home } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 
 interface Props {
 	children: ReactNode;

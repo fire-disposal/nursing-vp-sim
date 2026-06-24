@@ -2,9 +2,9 @@ import { Activity, AlertTriangle, CheckCircle2, Cpu, RefreshCw, Server, Timer } 
 import { useState } from "react";
 import { fetchOpsDashboard, fetchOpsErrors, type OpsDashboard, type OpsErrors } from "@/api/admin/ops";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
-import PageHeader from "@/components/ui/PageHeader";
-import StatCard from "@/components/ui/StatCard";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
+import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
 	TableBody,

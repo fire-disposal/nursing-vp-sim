@@ -22,10 +22,10 @@ import {
 } from "recharts";
 import { getStudentDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import { ChartTooltip } from "@/components/ui/ChartTooltip";
-import PageHeader from "@/components/ui/PageHeader";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import PageHeader from "@/components/ui/page-header";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 import { cn } from "@/lib/utils";
 

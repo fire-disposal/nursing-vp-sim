@@ -1,6 +1,6 @@
 ﻿import { UserSearch } from "lucide-react";
 import CasesTab from "@/components/teacher/CasesTab";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 
 export default function CasesPage() {
 	return (

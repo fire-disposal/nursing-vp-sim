@@ -1,6 +1,6 @@
 import { ClipboardCheck } from "lucide-react";
 import QuestionnairesTab from "@/components/teacher/QuestionnairesTab";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 
 export default function AdminQuestionnaires() {
 	return (

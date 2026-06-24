@@ -4,9 +4,9 @@ import { useState } from "react";
 import { getRecordLogs } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import CallLogDetail from "@/components/teacher/CallLogDetail";
-import Badge from "@/components/ui/Badge";
-import EmptyState from "@/components/ui/EmptyState";
-import LoadingState from "@/components/ui/LoadingState";
+import Badge from "@/components/ui/badge";
+import EmptyState from "@/components/ui/empty-state";
+import LoadingState from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 
 type LLMCallLogItem = components["schemas"]["LLMCallLogItem"];

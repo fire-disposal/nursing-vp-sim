@@ -1,6 +1,6 @@
 ﻿import { Settings } from "lucide-react";
 import QARecordsTab from "@/components/teacher/QARecordsTab";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 
 export default function Admin() {
 	return (

@@ -16,10 +16,10 @@ import {
 } from "recharts";
 import type { CostDashboardResponse } from "@/api/admin/voice-cost";
 import { fetchCostDashboard } from "@/api/admin/voice-cost";
-import { ChartTooltip } from "@/components/ui/ChartTooltip";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
-import StatCard from "@/components/ui/StatCard";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
 	TableBody,

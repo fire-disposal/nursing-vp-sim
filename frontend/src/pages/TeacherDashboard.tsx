@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 import type { components } from "@/api/api-types.gen";
 import TrainingDurationChart from "@/components/dashboard/TrainingDurationChart";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
 import {
 	Card,
 	CardAction,
@@ -21,9 +21,9 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import EmptyState from "@/components/ui/EmptyState";
-import PageHeader from "@/components/ui/PageHeader";
-import StatCard from "@/components/ui/StatCard";
+import EmptyState from "@/components/ui/empty-state";
+import PageHeader from "@/components/ui/page-header";
+import StatCard from "@/components/ui/stat-card";
 import {
 	Table,
 	TableBody,

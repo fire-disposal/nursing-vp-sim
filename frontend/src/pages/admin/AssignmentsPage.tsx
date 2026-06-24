@@ -13,15 +13,15 @@ import { getClasses } from "@/api/grades-classes";
 import { getPractices } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Card } from "@/components/ui/card";
-import EmptyState from "@/components/ui/EmptyState";
+import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Modal from "@/components/ui/Modal";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 import {
 	Table,
 	TableBody,

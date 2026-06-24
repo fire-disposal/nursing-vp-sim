@@ -1,6 +1,6 @@
 ﻿import { Users } from "lucide-react";
 import UsersTab from "@/components/teacher/UsersTab";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 
 export default function UsersPage() {

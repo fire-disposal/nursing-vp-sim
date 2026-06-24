@@ -2,11 +2,11 @@ import { ArrowLeft, Download } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
 import { useToast } from "@/components/Toast";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
-import PageHeader from "@/components/ui/PageHeader";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
 import {
 	Table,
 	TableBody,

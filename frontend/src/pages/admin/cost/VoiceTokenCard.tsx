@@ -11,11 +11,11 @@ import {
 	type VoiceConfigResponse,
 } from "@/api/admin/voice-cost";
 import { useToast } from "@/components/Toast";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import EmptyState from "@/components/ui/EmptyState";
+import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
 import Modal from "@/components/ui/Modal";
 import { Separator } from "@/components/ui/separator";

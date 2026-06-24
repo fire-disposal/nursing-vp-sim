@@ -6,8 +6,8 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import Button from "@/components/ui/Button";
-import EmptyState from "@/components/ui/EmptyState";
+import Button from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { PromptTemplateResponse } from "./types";
 import { PURPOSE_LABELS, PURPOSES } from "./types";

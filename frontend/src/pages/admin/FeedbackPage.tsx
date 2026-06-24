@@ -1,6 +1,6 @@
 ﻿import { MessageSquare } from "lucide-react";
 import FeedbackTab from "@/components/teacher/FeedbackTab";
-import PageHeader from "@/components/ui/PageHeader";
+import PageHeader from "@/components/ui/page-header";
 
 export default function FeedbackPage() {
 	return (

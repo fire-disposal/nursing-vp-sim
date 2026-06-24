@@ -13,12 +13,12 @@ import { getCases, startTraining } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import TrainingConfigModal from "@/components/training/TrainingConfigModal";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import EmptyState from "@/components/ui/EmptyState";
-import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
-import PageHeader from "@/components/ui/PageHeader";
-import Pagination from "@/components/ui/Pagination";
+import Badge from "@/components/ui/badge";
+import Button from "@/components/ui/button";
+import EmptyState from "@/components/ui/empty-state";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
+import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
