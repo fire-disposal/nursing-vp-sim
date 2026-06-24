@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { selectClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem, Grade } from "@/types/store";
@@ -36,8 +37,7 @@ const CLASS_COLUMNS = [
 	},
 ];
 
-const selectClass =
-	"px-2.5 py-1.5 border border-border rounded-md text-sm bg-card";
+
 
 export default function GradesClassesPage() {
 	const [tab, setTab] = useState<"grades" | "classes">("grades");
