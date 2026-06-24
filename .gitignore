@@ -63,3 +63,7 @@ dev-report*.html
 
 # PowerShell 误解析 --version 产生的目录
 --version/
+
+# 本地技能（个人化，不入仓库）
+.agents/skills/
+skills-lock.json
