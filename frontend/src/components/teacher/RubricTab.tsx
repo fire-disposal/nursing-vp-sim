@@ -22,7 +22,11 @@ import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import Modal from "@/components/ui/Modal";
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+} from "@/components/ui/dialog";
 import RubricEditor from "./RubricEditor";
 
 type Schemas = components["schemas"];
@@ -312,20 +316,11 @@ export default function RubricTab() {
 				))}
 			</div>
 
-			<Modal
-				open={showModal}
-				onClose={() => setShowModal(false)}
-				title={editId ? "编辑评分标准" : "新建评分标准"}
-				maxWidth={720}
-				footer={
-					<>
-						<Button variant="outline" onClick={() => setShowModal(false)}>
-							取消
-						</Button>
-						<Button onClick={handleSave}>{editId ? "保存" : "创建"}</Button>
-					</>
-				}
-			>
+			<Dialog open={showModal} onOpenChange={(o) => !o && setShowModal(false)}>
+				<DialogContent
+					title={editId ? "编辑评分标准" : "新建评分标准"}
+					maxWidth={720}
+				>
 				<div className="flex flex-col gap-2.5 max-h-[70vh] overflow-auto">
 					<div className="flex gap-3">
 						<div className="flex-1">
@@ -442,7 +437,14 @@ export default function RubricTab() {
 						)}
 					</div>
 				</div>
-			</Modal>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setShowModal(false)}>
+							取消
+						</Button>
+						<Button onClick={handleSave}>{editId ? "保存" : "创建"}</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<ConfirmDialog
 				open={!!deleteTarget}

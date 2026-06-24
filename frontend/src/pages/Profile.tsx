@@ -3,7 +3,7 @@ import { useState } from "react";
 import { changePassword, updateMyProfile } from "@/api/api-client";
 import Button from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/stores/authStore";
@@ -209,7 +209,8 @@ export default function Profile() {
 				</div>
 			</div>
 
-			<Modal open={pwdOpen} onClose={() => setPwdOpen(false)} title="修改密码">
+			<Dialog open={pwdOpen} onOpenChange={(o) => !o && setPwdOpen(false)}>
+				<DialogContent title="修改密码" maxWidth={560}>
 				<div className="space-y-3 py-2">
 					{pwdMsg && (
 						<div
@@ -251,7 +252,8 @@ export default function Profile() {
 						{pwdLoading ? "修改中..." : "确认修改"}
 					</Button>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

@@ -11,7 +11,7 @@ import { generateCase, getCaseDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { CaseForm, CaseManageItem, ScoringDimension } from "./types";
 import {
@@ -233,12 +233,11 @@ export default function CaseFormModal({
 	};
 
 	return (
-		<Modal
-			open={open}
-			onClose={onClose}
-			title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
-			maxWidth={800}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent
+				title={editingCase ? `编辑病例: ${editingCase.name}` : "添加新病例"}
+				maxWidth={800}
+			>
 			{caseMsg && (
 				<div
 					className={cn(
@@ -770,6 +769,7 @@ export default function CaseFormModal({
 					</Button>
 				</div>
 			</form>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

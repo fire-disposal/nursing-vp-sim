@@ -5,7 +5,7 @@ import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
@@ -160,11 +160,11 @@ export default function QARecordsTab() {
 				onChange={setOffset}
 			/>
 
-			<Modal
+			<Dialog
 				open={showPreview}
-				onClose={() => setShowPreview(false)}
-				title={`对话预览：${previewTitle}`}
+				onOpenChange={(o) => !o && setShowPreview(false)}
 			>
+				<DialogContent title={`对话预览：${previewTitle}`} maxWidth={560}>
 				<div className="max-h-[60vh] overflow-y-auto py-2">
 					{loadingPreview ? (
 						<p className="text-center text-muted-foreground/70">加载中...</p>
@@ -186,7 +186,8 @@ export default function QARecordsTab() {
 						</div>
 					)}
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

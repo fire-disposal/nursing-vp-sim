@@ -1,7 +1,7 @@
 import { Clock, MessageCircle, Minus, Pause, Plus, Smile, Star, Stethoscope, User } from "lucide-react";
 import { useCallback, useState } from "react";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface PatientInfo {
@@ -43,7 +43,8 @@ export default function TrainingConfigModal({ open, caseInfo, onClose, onStart, 
     const adjustTime = (delta: number) => setTimeLimit((t) => Math.min(60, Math.max(5, t + delta)));
 
     return (
-        <Modal open={open} onClose={onClose} title="训练配置" maxWidth={480}>
+        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+            <DialogContent title="训练配置" maxWidth={480}>
             <div className="flex flex-col gap-5 pb-1">
                 {/* Case Preview */}
                 <div className="rounded-xl border bg-gradient-to-br from-primary/5 to-primary/[0.02] p-4">
@@ -170,6 +171,7 @@ export default function TrainingConfigModal({ open, caseInfo, onClose, onStart, 
                     {loading ? "启动中..." : "开始训练"}
                 </Button>
             </div>
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 }

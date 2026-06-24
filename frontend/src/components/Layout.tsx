@@ -28,7 +28,7 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -311,11 +311,11 @@ export default function Layout({ children }: { children: ReactNode }) {
 					</div>
 				</div>
 
-				<Modal
+				<Dialog
 					open={aboutOpen}
-					onClose={() => setAboutOpen(false)}
-					title="关于系统"
+					onOpenChange={(o) => !o && setAboutOpen(false)}
 				>
+					<DialogContent title="关于系统" maxWidth={560}>
 					<div className="space-y-3 py-2 text-center">
 						<div className="flex justify-center">
 							<div className="flex size-12 items-center justify-center rounded-xl bg-primary shadow">
@@ -344,7 +344,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 							意见反馈
 						</Button>
 					</div>
-				</Modal>
+					</DialogContent>
+				</Dialog>
 			</aside>
 
 			<div

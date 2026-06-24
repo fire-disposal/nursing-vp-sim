@@ -17,7 +17,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
 const TTS_MODELS = ["seed-tts-2.0-standard", "seed-tts-2.0-expressive"];
@@ -111,7 +111,8 @@ function ImportModal({
 		setForm((f) => ({ ...f, ...patch }));
 
 	return (
-		<Modal open={open} onClose={onClose} title="导入语音服务配置" maxWidth={560}>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent title="导入语音服务配置" maxWidth={560}>
 			<div className="space-y-4 py-2">
 				<div className="text-sm text-muted-foreground">
 					填写火山引擎语音服务配置，覆盖当前设置。
@@ -234,7 +235,8 @@ function ImportModal({
 					</Button>
 				</div>
 			</div>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

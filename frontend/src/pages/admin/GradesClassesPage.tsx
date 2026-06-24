@@ -6,7 +6,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import FormField from "@/components/ui/form-field";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
@@ -324,28 +324,25 @@ export default function GradesClassesPage() {
 					)}
 				</div>
 
-				<Modal
+				<Dialog
 					open={modalOpen}
-					onClose={() => {
-						setFormName("");
-						setFormGradeId("");
-						setEditId(null);
-						setModalOpen(false);
+					onOpenChange={(o) => {
+						if (!o) {
+							setFormName("");
+							setFormGradeId("");
+							setEditId(null);
+							setModalOpen(false);
+						}
 					}}
-					title={
-						editId
-							? `编辑${tab === "grades" ? "年级" : "班级"}`
-							: `新建${tab === "grades" ? "年级" : "班级"}`
-					}
-					footer={
-						<>
-							<Button variant="outline" onClick={() => setModalOpen(false)}>
-								取消
-							</Button>
-							<Button onClick={handleSave}>{editId ? "保存" : "创建"}</Button>
-						</>
-					}
 				>
+					<DialogContent
+						title={
+							editId
+								? `编辑${tab === "grades" ? "年级" : "班级"}`
+								: `新建${tab === "grades" ? "年级" : "班级"}`
+						}
+						maxWidth={560}
+					>
 					{tab === "classes" && (
 						<FormField label="所属年级">
 							<select
@@ -370,7 +367,14 @@ export default function GradesClassesPage() {
 							placeholder={tab === "grades" ? "如: 2024级" : "如: 护理1班"}
 						/>
 					</FormField>
-				</Modal>
+						<DialogFooter>
+							<Button variant="outline" onClick={() => setModalOpen(false)}>
+								取消
+							</Button>
+							<Button onClick={handleSave}>{editId ? "保存" : "创建"}</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			</div>
 	);
 }

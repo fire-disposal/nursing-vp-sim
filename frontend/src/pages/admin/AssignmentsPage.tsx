@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import {
 	Table,
@@ -268,12 +268,14 @@ export default function AssignmentsPage() {
 				</Card>
 			)}
 
-			<Modal
+			<Dialog
 				open={modalOpen}
-				onClose={() => setModalOpen(false)}
-				title={editingId ? "编辑练习发布" : "创建练习发布"}
-				maxWidth={560}
+				onOpenChange={(o) => !o && setModalOpen(false)}
 			>
+				<DialogContent
+					title={editingId ? "编辑练习发布" : "创建练习发布"}
+					maxWidth={560}
+				>
 				<div className="flex flex-col gap-4">
 					<div>
 						<label className="text-sm font-medium">标题</label>
@@ -351,7 +353,8 @@ export default function AssignmentsPage() {
 						</Button>
 					</div>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

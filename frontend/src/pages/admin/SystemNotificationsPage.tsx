@@ -9,7 +9,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/useApiQuery";
@@ -152,7 +152,8 @@ export default function SystemNotificationsPage() {
 					))}
 				</div>
 			)}
-			<Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
+				<DialogContent maxWidth={560}>
 				<div className="space-y-4">
 					<h3 className="text-lg font-semibold">{editingId ? "编辑通知" : "新建通知"}</h3>
 					<div>
@@ -184,7 +185,8 @@ export default function SystemNotificationsPage() {
 						<Button onClick={handleSubmit} disabled={saving}>{saving ? "保存中..." : editingId ? "更新" : "创建"}</Button>
 					</div>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 			<ConfirmDialog
 				open={deleteId !== null}
 				title="删除系统通知"

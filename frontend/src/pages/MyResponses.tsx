@@ -7,7 +7,7 @@ import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import {
@@ -35,12 +35,8 @@ function ResponseDetailModal({
 }) {
 	if (!r) return null;
 	return (
-		<Modal
-			open={open}
-			onClose={onClose}
-			title={r.template_title}
-			maxWidth={700}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent title={r.template_title} maxWidth={700}>
 			<div className="space-y-4">
 				<div className="flex items-center gap-3 text-sm text-muted-foreground">
 					<span>
@@ -91,7 +87,8 @@ function ResponseDetailModal({
 				</div>
 				{r.answers.length === 0 && <EmptyState title="暂无回答记录" />}
 			</div>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }
 

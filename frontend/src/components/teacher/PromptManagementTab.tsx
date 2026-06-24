@@ -10,7 +10,7 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import PromptForm from "./prompts/PromptForm";
 import PromptList from "./prompts/PromptList";
@@ -298,12 +298,11 @@ export default function PromptManagementTab() {
 				/>
 			</div>
 
-			<Modal
+			<Dialog
 				open={showActiveModal}
-				onClose={() => setShowActiveModal(false)}
-				title="生效版本一览"
-				maxWidth={900}
+				onOpenChange={(o) => !o && setShowActiveModal(false)}
 			>
+				<DialogContent title="生效版本一览" maxWidth={900}>
 				<div className="flex gap-2 mb-4 border-b border-border pb-3 overflow-x-auto">
 					{PURPOSES.filter((p) => p !== "*").map((p) => {
 						const eff = getEffectivePrompt(p);
@@ -376,7 +375,8 @@ export default function PromptManagementTab() {
 						</div>
 					);
 				})()}
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

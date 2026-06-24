@@ -1,6 +1,6 @@
 import { AlertCircle, Download, FileText, Upload, Users } from "lucide-react";
 import { useState } from "react";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { BatchUser, RoleOption } from "./types";
 
@@ -121,16 +121,15 @@ export default function BatchImport({
 	}
 
 	return (
-		<Modal
-			open={open}
-			onClose={handleClose}
-			title={
-				<>
-					<Users size={20} /> 批量导入用户
-				</>
-			}
-			maxWidth={650}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+			<DialogContent
+				title={
+					<>
+						<Users size={20} /> 批量导入用户
+					</>
+				}
+				maxWidth={650}
+			>
 			<div className="mb-3">
 				<label className="font-semibold text-sm flex items-center gap-1.5 mb-2">
 					<FileText size={14} /> 粘贴文本（每行一个用户，逗号分隔）
@@ -269,6 +268,7 @@ export default function BatchImport({
 					{isImporting ? "导入中..." : `导入 ${batchPreview.length} 名用户`}
 				</button>
 			</div>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

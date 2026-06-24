@@ -1,8 +1,8 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import Button from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import Modal from "@/components/ui/Modal";
 import { Textarea } from "@/components/ui/textarea";
 
 export interface QuestionItem {
@@ -94,7 +94,8 @@ export function QuestionnaireModal({
 	if (!template) return null;
 
 	return (
-		<Modal open={open} onClose={() => {}} title={template.title} maxWidth={700}>
+		<Dialog open={open} onOpenChange={() => {}}>
+			<DialogContent title={template.title} maxWidth={700}>
 			<div className="space-y-6">
 				{template.description && (
 					<p className="text-sm text-muted-foreground">
@@ -210,6 +211,7 @@ export function QuestionnaireModal({
 					</Button>
 				</div>
 			</div>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

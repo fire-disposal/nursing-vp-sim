@@ -7,7 +7,7 @@ import {
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/teacher/questionnaires/types";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface QuestionnaireAssignProps {
@@ -55,12 +55,11 @@ export default function QuestionnaireAssign({
 	};
 
 	return (
-		<Modal
-			open={open}
-			onClose={onClose}
-			title={`分配病例: ${templateTitle}`}
-			maxWidth={600}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent
+				title={`分配病例: ${templateTitle}`}
+				maxWidth={600}
+			>
 			<form onSubmit={onSubmit} className="flex flex-col gap-4">
 				<div>
 					<div className="flex items-center justify-between mb-2">
@@ -178,6 +177,7 @@ export default function QuestionnaireAssign({
 					</Button>
 				</div>
 			</form>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

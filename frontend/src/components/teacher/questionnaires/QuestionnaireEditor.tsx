@@ -8,7 +8,7 @@ import {
 } from "@/components/teacher/questionnaires/types";
 import Button from "@/components/ui/button";
 import LoadingState from "@/components/ui/loading-state";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface QuestionnaireEditorProps {
 	open: boolean;
@@ -77,12 +77,11 @@ export default function QuestionnaireEditor({
 	};
 
 	return (
-		<Modal
-			open={open}
-			onClose={onClose}
-			title={editingId ? "编辑问卷模板" : "新建问卷模板"}
-			maxWidth={700}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent
+				title={editingId ? "编辑问卷模板" : "新建问卷模板"}
+				maxWidth={700}
+			>
 			{editMsg && (
 				<div className="bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm mb-4">
 					{editMsg}
@@ -317,6 +316,7 @@ export default function QuestionnaireEditor({
 					</div>
 				</form>
 			)}
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

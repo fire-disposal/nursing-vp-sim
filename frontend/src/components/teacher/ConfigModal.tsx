@@ -3,7 +3,7 @@ import { createConfig, fetchSecrets, updateConfig } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
@@ -164,11 +164,11 @@ export default function ConfigModal({
 	};
 
 	return (
-		<Modal
-			open={open}
-			onClose={onClose}
-			title={isEdit ? "编辑绑定" : "添加用途绑定"}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent
+				title={isEdit ? "编辑绑定" : "添加用途绑定"}
+				maxWidth={560}
+			>
 			<div className="mb-3">
 				<div className="mb-1 font-semibold text-sm">选择密钥</div>
 				<select
@@ -250,6 +250,7 @@ export default function ConfigModal({
 					</Button>
 				</div>
 			)}
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

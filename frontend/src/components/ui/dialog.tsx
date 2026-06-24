@@ -55,7 +55,7 @@ function DialogContent({
 	title,
 	style,
 	...props
-}: DialogPrimitive.Popup.Props & {
+}: Omit<DialogPrimitive.Popup.Props, "title"> & {
 	variant?: "dialog" | "alert" | "confirm";
 	size?: "sm" | "md" | "lg";
 	showCloseButton?: boolean;

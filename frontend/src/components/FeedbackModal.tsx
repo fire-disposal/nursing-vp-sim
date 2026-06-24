@@ -2,7 +2,7 @@ import { Send } from "lucide-react";
 import { useState } from "react";
 import { submitFeedback } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface Mood {
@@ -77,7 +77,8 @@ export default function FeedbackModal({
 	};
 
 	return (
-		<Modal open={open} onClose={handleClose} title="意见反馈" maxWidth={480}>
+		<Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+			<DialogContent title="意见反馈" maxWidth={480}>
 			<div className="flex flex-col gap-6">
 				<div>
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
@@ -177,6 +178,7 @@ export default function FeedbackModal({
 					提交
 				</button>
 			</div>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

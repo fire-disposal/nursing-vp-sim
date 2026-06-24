@@ -8,7 +8,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
@@ -255,15 +255,17 @@ export default function RolesPage() {
 					)}
 				</div>
 
-				<Modal
+				<Dialog
 					open={showCreate}
-					onClose={() => {
-						setNewName("");
-						setNewDisplayName("");
-						setShowCreate(false);
+					onOpenChange={(o) => {
+						if (!o) {
+							setNewName("");
+							setNewDisplayName("");
+							setShowCreate(false);
+						}
 					}}
-					title="新建角色"
 				>
+					<DialogContent title="新建角色" maxWidth={560}>
 					<div className="space-y-4 py-2">
 						<div>
 							<Label>角色标识</Label>
@@ -285,7 +287,8 @@ export default function RolesPage() {
 							创建角色
 						</Button>
 					</div>
-				</Modal>
+					</DialogContent>
+				</Dialog>
 			</div>
 	);
 }

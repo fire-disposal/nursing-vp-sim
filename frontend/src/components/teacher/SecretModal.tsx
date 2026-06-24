@@ -3,7 +3,7 @@ import { createSecret, updateSecret } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 type Schemas = components["schemas"];
 type ApiSecretResponse = Schemas["ApiSecretResponse"];
@@ -85,11 +85,11 @@ export default function SecretModal({
 	};
 
 	return (
-		<Modal
-			open={open}
-			onClose={onClose}
-			title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}
-		>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent
+				title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}
+				maxWidth={560}
+			>
 			<div className="flex flex-col gap-3">
 				<label>
 					<div className="mb-1 font-semibold text-sm">标签</div>
@@ -172,6 +172,7 @@ export default function SecretModal({
 					</Button>
 				</div>
 			</div>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

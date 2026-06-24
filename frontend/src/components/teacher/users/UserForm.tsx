@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { ClassItem, Grade } from "@/types/store";
 import type {
@@ -156,12 +156,11 @@ export default function UserForm({
 
 	if (isEdit) {
 		return (
-			<Modal
-				open={open}
-				onClose={onClose}
-				title={`编辑用户: ${user?.display_name}`}
-				maxWidth={480}
-			>
+			<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+				<DialogContent
+					title={`编辑用户: ${user?.display_name}`}
+					maxWidth={480}
+				>
 				{editUserMsg && (
 					<div className="bg-destructive/10 text-destructive px-3.5 py-2.5 rounded-lg text-sm mb-4 text-left">
 						{editUserMsg}
@@ -272,12 +271,14 @@ export default function UserForm({
 						</button>
 					</div>
 				</form>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		);
 	}
 
 	return (
-		<Modal open={open} onClose={onClose} title="添加用户" maxWidth={780}>
+		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+			<DialogContent title="添加用户" maxWidth={780}>
 			{registerMsg && (
 				<div
 					className={cn(
@@ -409,6 +410,7 @@ export default function UserForm({
 					{isSaving ? "注册中..." : "注册"}
 				</button>
 			</form>
-		</Modal>
+			</DialogContent>
+		</Dialog>
 	);
 }

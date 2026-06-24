@@ -16,7 +16,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
@@ -202,14 +202,16 @@ export default function SchoolsPage() {
 				</div>
 			)}
 
-			<Modal
+			<Dialog
 				open={showCreate}
-				onClose={() => {
-					resetForm();
-					setShowCreate(false);
+				onOpenChange={(o) => {
+					if (!o) {
+						resetForm();
+						setShowCreate(false);
+					}
 				}}
-				title="新建学校"
 			>
+				<DialogContent title="新建学校" maxWidth={560}>
 				<div className="space-y-4 py-2">
 					<div>
 						<Label>学校名称</Label>
@@ -252,7 +254,8 @@ export default function SchoolsPage() {
 						{createMutation.isPending ? "创建中..." : "创建学校"}
 					</Button>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

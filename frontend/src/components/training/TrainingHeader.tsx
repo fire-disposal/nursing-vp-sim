@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/button";
-import Modal from "@/components/ui/Modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { usePortrait } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
@@ -279,12 +279,11 @@ export function TrainingHeader({
 				</div>
 			</header>
 
-			<Modal
+			<Dialog
 				open={endConfirmOpen}
-				onClose={() => setEndConfirmOpen(false)}
-				title="结束训练"
-				maxWidth={360}
+				onOpenChange={(o) => !o && setEndConfirmOpen(false)}
 			>
+				<DialogContent title="结束训练" maxWidth={360}>
 				<p className="text-sm text-muted-foreground mb-5">
 					确定要结束本次训练吗？结束后系统将自动生成评分。
 				</p>
@@ -300,14 +299,14 @@ export function TrainingHeader({
 						确认结束
 					</Button>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 
-			<Modal
+			<Dialog
 				open={autoEndOpen}
-				onClose={() => setAutoEndOpen(false)}
-				title="训练时间到"
-				maxWidth={360}
+				onOpenChange={(o) => !o && setAutoEndOpen(false)}
 			>
+				<DialogContent title="训练时间到" maxWidth={360}>
 				<p className="text-sm text-muted-foreground mb-2">
 					本次训练时间已用尽，即将自动结束。
 				</p>
@@ -319,14 +318,14 @@ export function TrainingHeader({
 						立即结束
 					</Button>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 
-			<Modal
+			<Dialog
 				open={featuresOpen}
-				onClose={() => setFeaturesOpen(false)}
-				title="插件特性"
-				maxWidth={420}
+				onOpenChange={(o) => !o && setFeaturesOpen(false)}
 			>
+				<DialogContent title="插件特性" maxWidth={420}>
 				{featuresLocked ? (
 					<p className="text-sm text-amber-600 bg-amber-50 rounded-md px-3 py-2 mb-3">
 						此练习的插件配置由教师设定，不可更改
@@ -389,7 +388,8 @@ export function TrainingHeader({
 						关闭
 					</Button>
 				</div>
-			</Modal>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }
