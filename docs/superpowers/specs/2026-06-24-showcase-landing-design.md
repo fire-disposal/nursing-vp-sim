@@ -3,7 +3,7 @@
 **日期**: 2026-06-24
 **分支**: `feat/showcase-landing`
 **定位**: 面向演示 / 评审 / 对外展示的技术亮点展示页（audience C）
-**Design Read**: 技术亮点展示页，临床科技感语言，适度炫技（视差滚动 / 滚动驱动动效），分寸与和谐优先。复用项目现有 Tailwind v4 + shadcn 风格 token + lucide 图标，动效用 **CSS 原生 scroll-driven animations + IntersectionObserver**，**不引入任何新依赖**。
+**Design Read**: 技术亮点展示页，临床科技感语言，适度炫技（视差滚动 / 滚动 pin·scrub / 揭示动效），分寸与和谐优先。复用项目现有 Tailwind v4 + shadcn 风格 token + lucide 图标 + 已有 Geist 字体；动效用 **GSAP ScrollTrigger**（用户批准，唯一新增依赖，**限于懒加载的 showcase chunk，不进主包**）+ IntersectionObserver / CSS。
 
 > 重要：所有技术亮点已按当前 HEAD 真实代码核对（见 §11 核对记录）。git 历史中已废弃的特性（如旧"插件化/manifest 自动发现"框架）**不得**作为亮点。
 
@@ -18,7 +18,7 @@
 
 ### 非目标（明确排除）
 - 不做严肃 SEO / SSR / 预渲染（CSR 路由即可）。
-- **不引入新依赖**：动效用 CSS 原生 `animation-timeline` (`scroll()` / `view()`) + IntersectionObserver，**不加 GSAP / Motion / 新字体 / 新图标库**。
+- **仅新增 `gsap` 一个依赖**（用户批准，用于跨浏览器顺滑滚动 pin / scrub）：通过 `import` 进入懒加载的 showcase chunk，**不污染主包**；不加 Motion / 新图标库；显示字体复用已有 `@fontsource-variable/geist`。
 - 不改后端、不改 API、不需 `api:update`。
 - 暗色模式独立适配非必需（用语义 token 自然继承，不单独投入）。
 - 真实系统截图本期不交付——使用**用户授权的占位符**，后续替换。
@@ -81,22 +81,22 @@ React 19 / FastAPI / PostgreSQL / SQLAlchemy / Alembic / DeepSeek / 火山引擎
 - **单一圆角尺度**：统一 `rounded-2xl`（与 Login 卡片一致），按钮可全圆，全页遵循同一规则。
 
 ### 字体与图标
-- 不引入新字体，沿用项目默认字体栈。标题 `tracking-tight` + 大字阶，正文 `leading-relaxed` / `max-w-[65ch]`。
+- 显示标题用**已有的 Geist**（`@fontsource-variable/geist`，taste skill 首选，零新成本），`tracking-tight` + 大字阶；正文沿用默认栈，`leading-relaxed` / `max-w-[65ch]`。不引入新字体。
 - 沿用 **`lucide-react`**（已依赖），统一 `strokeWidth={1.5}`，单一图标家族，不手绘 SVG。
 
-### 动效系统（MOTION 7，CSS 原生，零新依赖，渐进增强）
-所有动效遵循 taste skill"motion must be motivated"——每个动效服务于层级 / 叙事 / 反馈之一，信息性区块保持安静。
-- **Hero 视差**：多层 `transform: translateY` 视差，用 CSS `animation-timeline: scroll()` 驱动（背景 / 中景 / 前景不同速率）。
-- **滚动揭示**：IntersectionObserver 触发 `opacity / translateY` 进入，分段 `--index` 延迟级联 stagger。
-- **粘性段落转场**：关键亮点段用 `position: sticky` + `animation-timeline: view()` 做 scale / opacity 交替，CSS 驱动，**非 JS 逐帧**。
-- **数字 count-up**：概览数字进入视口时计数一次（IntersectionObserver + 一次性 rAF，不常驻）。
-- **品牌微动**：`primary` 的克制呼吸光晕，全页**最多一处**。
+### 动效系统（MOTION 7，GSAP ScrollTrigger，限懒加载 chunk）
+所有动效遵循 taste skill"motion must be motivated"——每个动效服务于层级 / 叙事 / 反馈之一，信息性区块保持安静。**已选定 GSAP** 实现跨浏览器顺滑的 pin / scrub / 视差。
+- **集成方式**：在 showcase 组件内 `import { gsap } from "gsap"` + `import { ScrollTrigger } from "gsap/ScrollTrigger"`，`gsap.registerPlugin(ScrollTrigger)`；每个动效组件 `'use client'` 叶子，`useEffect` 内 `gsap.context()` 装配并在卸载 `ctx.revert()` 清理。因 `ShowcasePage` 经 `React.lazy` 懒加载，GSAP 仅进入 showcase chunk，不污染主包。
+- **Hero 视差**：多层 `transform: translateY` 视差，ScrollTrigger `scrub` 驱动（背景 / 中景 / 前景不同速率）。
+- **粘性段落转场（亮点 5）**：sticky-stack —— `start:"top top"`、`pin:true`、`pinSpacing:false`，后一卡进入时前一卡 `scale/opacity` 由 `scrub` 衰减（参照 taste skill §5.A 骨架）。
+- **滚动揭示**：进入视口的分段 `opacity/translateY` stagger —— 轻量揭示可用 IntersectionObserver / CSS（不必动用 GSAP），pin/scrub 才用 GSAP（taste skill：把 GSAP 留给真正的 pin/scrub）。
+- **数字 count-up**：概览数字进入视口计数一次（GSAP `ScrollTrigger.batch` 或 IntersectionObserver + 一次性 rAF）。
+- **品牌微动**：`primary` 克制呼吸光晕，全页**最多一处**。
 - **Marquee ≤ 1**：技术栈横向滚动若用，全页仅此一处。
 - **触感反馈**：CTA / 卡片 `:hover` `transition` + `:active` `-translate-y-[1px]` / `scale-[0.98]`。
-- **降级（强制）**：`@media (prefers-reduced-motion: reduce)` 全部静态、无位移；浏览器不支持 `animation-timeline` 时回退为 IntersectionObserver 揭示或静态（渐进增强，不破版）。
-- **性能（强制）**：仅动画 `transform` / `opacity`；**禁止** `window.addEventListener("scroll")` 逐帧监听；grain 若用，置于固定 `pointer-events-none` 层。
-
-> **待定的一个权衡**：纯 CSS `animation-timeline` 在部分浏览器（Safari / 旧 Firefox）支持有限，已用渐进增强兜底（退化为揭示动画，不破版）。若要求所有浏览器都有顺滑的滚动 scrub / pin，需引入 GSAP（违背"零依赖"）——默认走 CSS 原生方案。
+- **降级（强制）**：用 `gsap.matchMedia()` —— `(prefers-reduced-motion: reduce)` 分支不注册任何 ScrollTrigger、内容静态呈现；同时按 `(min-width: 768px)` 在窄屏关闭视差 / pin。组件卸载 `ctx.revert()` 彻底清理，路由切换无残留。
+- **性能（强制）**：仅动画 `transform` / `opacity`；**禁止** `window.addEventListener("scroll")` 逐帧监听；`invalidateOnRefresh:true` 适配 resize；grain 若用，置于固定 `pointer-events-none` 层。
+- **许可**：GSAP 及 ScrollTrigger 现为免费（含商用），无授权风险。
 
 ---
 
@@ -142,7 +142,11 @@ taste skill 默认禁止"假截图 / 占位 div"。本期经**用户明确授权
 - `components/Reveal.tsx` —— IntersectionObserver 滚动揭示，`prefers-reduced-motion` 感知。
 - `sections/TopBar.tsx` / `Hero.tsx` / `Overview.tsx` / 亮点段组件 / `EngineeringBand.tsx` / `TechStack.tsx` / `FinalCta.tsx` / `Footer.tsx`。
 - `data.ts` —— 亮点文案 / 图标 / 配置集中存放。
-- `showcase.css`（或 Tailwind `@utility`）—— scroll-driven 关键帧与 `animation-timeline` 定义。
+- `lib/gsap.ts` —— 集中 `registerPlugin(ScrollTrigger)` 与 `gsap.matchMedia()` 辅助，供各动效组件复用。
+
+### 依赖
+- 新增 `gsap`（root 执行 `pnpm --filter frontend add gsap`，更新 `frontend/package.json` + `pnpm-lock.yaml`；Dockerfile 的 `pnpm install --frozen-lockfile` 自动生效）。
+- 经 `React.lazy` 懒加载，`gsap` 落在 showcase chunk，不进主包；如需可在 `vite.config.ts` `manualChunks` 单列 `gsap` chunk（可选）。
 
 ### 修改
 - `frontend/src/App.tsx` ——
@@ -156,7 +160,7 @@ taste skill 默认禁止"假截图 / 占位 div"。本期经**用户明确授权
 - CTA 文本对比度 ≥ WCAG AA，不换行（"进入系统" 单行）。
 - Hero 在初始视口内可见（标题 ≤2 行、副文 ≤20 字、CTA 不需滚动即可见）。
 - 全页单一主题、单一强调色、单一圆角尺度。
-- `prefers-reduced-motion: reduce` 下全部动效降级为静态；`animation-timeline` 不支持时渐进降级不破版。
+- `prefers-reduced-motion: reduce` 下经 `gsap.matchMedia()` 不注册任何动效、内容静态可读；组件卸载 `ctx.revert()` 无残留。
 - 移动端每个多列布局显式声明 `<768px` 单列回退；视差 / 粘性在窄屏酌情关闭。
 - 文案中文，发布前做一次 copy 自审（无语病、无 AI 味生造词、无编造精确数字）。
 
@@ -183,7 +187,7 @@ npx biome check
 - 真实截图采集与替换（后续单独进行）。
 - 暗色模式专项打磨、多语言 / i18n。
 - 任何 nginx / Docker / CICD / 后端改动。
-- 引入 GSAP / Motion 等动画库（除非后续明确要求跨浏览器滚动 scrub）。
+- 引入 Motion / Lottie 等其它动画库（动效统一用已选定的 GSAP）。
 
 ---
 
