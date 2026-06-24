@@ -15,9 +15,9 @@ export default function ScreenshotPlaceholder({
 	return (
 		<div
 			style={{ aspectRatio: `${width} / ${height}` }}
-			className={`flex w-full items-center justify-center rounded-2xl border border-border bg-muted ${className ?? ""}`}
+			className={`flex w-full items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted ${className ?? ""}`}
 		>
-			<span className="select-none text-center text-sm font-medium text-black">
+			<span className="select-none text-center text-sm font-medium text-muted-foreground">
 				系统截图 · {label ?? `${width}×${height}`}
 			</span>
 		</div>

@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { buttonVariants } from "@/components/ui/Button";
 import ScreenshotPlaceholder from "../components/ScreenshotPlaceholder";
 import { CTA_HREF, CTA_LABEL, HERO_SUBTITLE, HERO_TITLE, PRODUCT_NAME } from "../data";
 import { ensureGsap, prefersReducedMotion } from "../lib/gsap";
 
 export default function Hero() {
 	const root = useRef<HTMLElement>(null);
-	const glow = useRef<HTMLDivElement>(null);
 	const shot = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -15,11 +15,6 @@ export default function Hero() {
 		const ctx = gsap.context(() => {
 			const mm = gsap.matchMedia();
 			mm.add("(min-width: 768px)", () => {
-				gsap.to(glow.current, {
-					yPercent: 30,
-					ease: "none",
-					scrollTrigger: { trigger: root.current, start: "top top", end: "bottom top", scrub: true },
-				});
 				gsap.to(shot.current, {
 					yPercent: -12,
 					ease: "none",
@@ -35,10 +30,6 @@ export default function Hero() {
 			ref={root}
 			className="relative flex min-h-[100dvh] items-center overflow-hidden pt-24"
 		>
-			<div
-				ref={glow}
-				className="pointer-events-none absolute -top-32 left-1/4 size-[40rem] rounded-full bg-primary/15 blur-3xl"
-			/>
 			<div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-12 px-6 md:grid-cols-2">
 				<div className="flex flex-col gap-6">
 					<span className="text-sm font-medium text-primary">{PRODUCT_NAME}</span>
@@ -49,10 +40,7 @@ export default function Hero() {
 						{HERO_SUBTITLE}
 					</p>
 					<div>
-						<Link
-							to={CTA_HREF}
-							className="inline-flex h-12 items-center rounded-full bg-primary px-7 font-medium text-primary-foreground transition active:scale-[0.98] hover:-translate-y-px"
-						>
+						<Link to={CTA_HREF} className={buttonVariants({ size: "lg" })}>
 							{CTA_LABEL}
 						</Link>
 					</div>

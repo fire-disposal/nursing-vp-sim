@@ -13,6 +13,7 @@ function Stat({ stat }: { stat: OverviewStat }) {
 		}
 		const el = ref.current;
 		if (!el) return;
+		let raf = 0;
 		const io = new IntersectionObserver((entries) => {
 			for (const e of entries) {
 				if (!e.isIntersecting) continue;
@@ -22,13 +23,16 @@ function Stat({ stat }: { stat: OverviewStat }) {
 				const tick = (t: number) => {
 					const p = Math.min(1, (t - start) / dur);
 					setN(Math.round(stat.value * (1 - (1 - p) ** 3)));
-					if (p < 1) requestAnimationFrame(tick);
+					if (p < 1) raf = requestAnimationFrame(tick);
 				};
-				requestAnimationFrame(tick);
+				raf = requestAnimationFrame(tick);
 			}
 		}, { threshold: 0.5 });
 		io.observe(el);
-		return () => io.disconnect();
+		return () => {
+			io.disconnect();
+			cancelAnimationFrame(raf);
+		};
 	}, [stat.value]);
 
 	return (

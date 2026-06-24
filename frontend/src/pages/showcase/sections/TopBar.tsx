@@ -1,5 +1,6 @@
 import { Stethoscope } from "lucide-react";
 import { Link } from "react-router-dom";
+import { buttonVariants } from "@/components/ui/Button";
 import { CTA_HREF, CTA_LABEL, PRODUCT_NAME } from "../data";
 
 export default function TopBar() {
@@ -12,10 +13,7 @@ export default function TopBar() {
 					</div>
 					<span className="font-semibold tracking-tight">{PRODUCT_NAME}</span>
 				</div>
-				<Link
-					to={CTA_HREF}
-					className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition active:scale-[0.98]"
-				>
+				<Link to={CTA_HREF} className={buttonVariants({ size: "default" })}>
 					{CTA_LABEL}
 				</Link>
 			</div>

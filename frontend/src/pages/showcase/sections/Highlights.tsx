@@ -3,6 +3,7 @@ import FeatureFull from "../components/layouts/FeatureFull";
 import FeatureSplit from "../components/layouts/FeatureSplit";
 import Reveal from "../components/Reveal";
 import ScreenshotPlaceholder from "../components/ScreenshotPlaceholder";
+import SectionHeading from "../components/SectionHeading";
 import { HIGHLIGHTS, type Highlight } from "../data";
 import { ensureGsap, prefersReducedMotion } from "../lib/gsap";
 
@@ -102,6 +103,11 @@ export default function Highlights() {
 	const bentos = HIGHLIGHTS.filter((h) => h.layout === "bento");
 	return (
 		<div className="mx-auto flex max-w-7xl flex-col gap-28 px-6 py-12">
+			<SectionHeading
+				eyebrow="核心能力"
+				title="六大技术亮点"
+				className="mb-4"
+			/>
 			{HIGHLIGHTS.map((h) => {
 				if (h.layout === "full")
 					return <FeatureFull key={h.id} icon={h.icon} title={h.title} body={h.body} points={h.points} visual={shot(h)} />;
