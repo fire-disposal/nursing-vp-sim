@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
-from core.capabilities import ALL_CAPABILITIES, resolve_features
+from core.capabilities import effective_features, resolve_features
 from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
@@ -169,21 +169,6 @@ def _build_config(practice=None, features: dict | None = None, time_limit_minute
     }
 
 
-def _resolve_features(case_data: dict, config: dict) -> dict:
-    supported = case_data.get("supported_plugins", [])
-    if not supported:
-        return config
-    if "features" not in config:
-        return config
-    features = config["features"]
-    for pid in supported:
-        if pid in ALL_CAPABILITIES:
-            features.setdefault(pid, True)
-    if "patient_initiative" in features and "emotion" not in features:
-        features.setdefault("emotion", True)
-    return config
-
-
 def _create_record(
     db: Session,
     user_id: int,
@@ -199,7 +184,7 @@ def _create_record(
     time_limit = case_data.get("time_limit", 20)
     time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
 
-    config = _resolve_features(case_data, config)
+    config["features"] = effective_features(config.get("features") or {}, case_data.get("supported_plugins"))
     validate_case_data(case_data, strict=False)
 
     record = TrainingRecord(

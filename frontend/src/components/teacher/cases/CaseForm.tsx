@@ -1,11 +1,4 @@
-import {
-	ChevronDown,
-	ChevronUp,
-	MonitorCog,
-	Sparkles,
-	Upload,
-	Wand2,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, Upload, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { generateCase, getCaseDetail } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
@@ -33,39 +26,6 @@ interface CaseFormProps {
 	onClose: () => void;
 	onSaved: () => void;
 }
-
-const PLUGIN_OPTIONS = [
-	{
-		id: "emotion",
-		label: "情绪状态机",
-		desc: "5态情绪模型，根据学生用语动态变化患者情绪反应",
-	},
-	{
-		id: "physical_exam",
-		label: "护理查体",
-		desc: "支持 /bp /temp /hr /rr /spo2 /auscultation /skin 等查体命令",
-	},
-	{
-		id: "patient_initiative",
-		label: "患者追问",
-		desc: "患者根据性格/情绪/等待时长主动发言（需同时启用情绪状态机）",
-	},
-	{
-		id: "questionnaire",
-		label: "问卷评估",
-		desc: "训练结束后弹出评估问卷供学生填写",
-	},
-	{
-		id: "exam_emotion_bridge",
-		label: "查体-情绪联动",
-		desc: "查体结果联动影响患者情绪状态",
-	},
-	{
-		id: "allow_pause",
-		label: "允许暂停",
-		desc: "允许学生在训练中暂停倒计时",
-	},
-];
 
 export default function CaseFormModal({
 	open,
@@ -439,47 +399,6 @@ export default function CaseFormModal({
 							placeholder="一句话描述此病例的训练目标"
 							className={inputClass}
 						/>
-					</div>
-				</fieldset>
-				<fieldset className="border border-border rounded-lg p-4">
-					<legend className="text-sm font-semibold text-foreground px-1">
-						<MonitorCog size={14} className="inline mr-1" />
-						支持插件
-					</legend>
-					<p className="text-xs text-muted-foreground mb-3">
-						选择此病例启用哪些训练特性，训练中也可临时开关
-					</p>
-					<div className="flex flex-col gap-2">
-						{PLUGIN_OPTIONS.map((opt) => {
-							const checked = caseForm.supported_plugins.includes(opt.id);
-							return (
-								<label
-									key={opt.id}
-									className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-								>
-									<input
-										type="checkbox"
-										checked={checked}
-										onChange={() => {
-											const next = checked
-												? caseForm.supported_plugins.filter((p) => p !== opt.id)
-												: [...caseForm.supported_plugins, opt.id];
-											updateField(
-												"supported_plugins",
-												next as unknown as string,
-											);
-										}}
-										className="mt-0.5 shrink-0"
-									/>
-									<div className="min-w-0">
-										<div className="text-sm font-medium">{opt.label}</div>
-										<div className="text-xs text-muted-foreground">
-											{opt.desc}
-										</div>
-									</div>
-								</label>
-							);
-						})}
 					</div>
 				</fieldset>
 				<fieldset className="border border-border rounded-lg p-4">
