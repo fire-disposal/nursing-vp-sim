@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
+import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import EmptyState from "@/components/ui/empty-state";
-import Pagination from "@/components/ui/pagination";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { tdClass, thClass } from "@/lib/styles";
+import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 function truncate(text: string, maxLen: number): string {
@@ -67,18 +66,50 @@ export default function QARecordsTab() {
 		setShowPreview(true);
 	};
 
-	if (isLoading && offset === 0) {
-		return (
-			<div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-				<MessageCircle size={48} />
-				<p className="mt-3 text-muted-foreground">加载中...</p>
-			</div>
-		);
-	}
-
-	if (records.length === 0 && offset === 0) {
-		return <EmptyState icon={MessageCircle} title="暂无问答记录" />;
-	}
+	const columns: DataTableColumn<(typeof records)[number]>[] = [
+		{
+			key: "student",
+			header: "学生",
+			cellClassName: "font-semibold",
+			render: (r) => r.student_name || r.student_code,
+		},
+		{
+			key: "student_code",
+			header: "学号",
+			render: (r) => r.student_code || "-",
+		},
+		{
+			key: "title",
+			header: "会话标题",
+			cellClassName:
+				"max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap",
+			render: (r) => truncate(r.title, 40),
+		},
+		{
+			key: "message_count",
+			header: "消息数",
+			render: (r) => r.message_count,
+		},
+		{
+			key: "updated_at",
+			header: "最后活跃",
+			cellClassName: "whitespace-nowrap text-sm text-muted-foreground",
+			render: (r) => formatDateTime(r.updated_at),
+		},
+		{
+			key: "actions",
+			header: "操作",
+			render: (r) => (
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={() => handlePreview(r.id, r.title)}
+				>
+					<Eye size={14} /> 查看
+				</Button>
+			),
+		},
+	];
 
 	return (
 		<div className="rounded-xl border border-border bg-card shadow-sm p-6">
@@ -100,61 +131,18 @@ export default function QARecordsTab() {
 					共 {total} 条问答会话
 				</span>
 			</div>
-			<div className="overflow-x-auto">
-				<table className="w-full border-collapse text-sm">
-					<thead>
-						<tr>
-							<th className={thClass}>学生</th>
-							<th className={thClass}>学号</th>
-							<th className={thClass}>会话标题</th>
-							<th className={thClass}>消息数</th>
-							<th className={thClass}>最后活跃</th>
-							<th className={thClass}>操作</th>
-						</tr>
-					</thead>
-					<tbody>
-						{records.map((r) => (
-							<tr key={r.id} className="hover:bg-muted">
-								<td className={cn(tdClass, "font-semibold")}>
-									{r.student_name || r.student_code}
-								</td>
-								<td className={tdClass}>{r.student_code || "-"}</td>
-								<td
-									className={cn(
-										tdClass,
-										"max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap",
-									)}
-								>
-									{truncate(r.title, 40)}
-								</td>
-								<td className={tdClass}>{r.message_count}</td>
-								<td
-									className={cn(
-										tdClass,
-										"whitespace-nowrap text-sm text-muted-foreground",
-									)}
-								>
-									{new Date(r.updated_at).toLocaleString("zh-CN")}
-								</td>
-								<td className={tdClass}>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => handlePreview(r.id, r.title)}
-									>
-										<Eye size={14} /> 查看
-									</Button>
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-			<Pagination
+			<DataTable
+				columns={columns}
+				rows={records}
+				rowKey={(r) => r.id}
+				loading={isLoading}
+				emptyIcon={MessageCircle}
+				emptyTitle="暂无问答记录"
+				total={total}
 				offset={offset}
 				limit={LIMIT}
-				total={total}
-				onChange={setOffset}
+				onOffsetChange={setOffset}
+				bare
 			/>
 
 			<Dialog

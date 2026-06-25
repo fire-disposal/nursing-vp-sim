@@ -35,6 +35,8 @@ export interface DataTableProps<T> {
 	offset?: number;
 	limit?: number;
 	onOffsetChange?: (offset: number) => void;
+	/** Omit the card chrome (border/bg/shadow) when nested inside an existing card. */
+	bare?: boolean;
 	className?: string;
 }
 
@@ -59,10 +61,11 @@ export default function DataTable<T>({
 	offset,
 	limit,
 	onOffsetChange,
+	bare,
 	className,
 }: DataTableProps<T>) {
 	const wrapper = cn(
-		"rounded-xl border border-border bg-card shadow-sm overflow-hidden",
+		!bare && "rounded-xl border border-border bg-card shadow-sm overflow-hidden",
 		className,
 	);
 

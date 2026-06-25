@@ -1,78 +1,93 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-	Building2,
-	ExternalLink,
-	Plus,
-	Trash2,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Building2, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { createSchool, deleteSchool, getSchools } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import EmptyState from "@/components/ui/empty-state";
+import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import {
+	Dialog,
+	DialogCancel,
+	DialogContent,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import {
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
-import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useAdminList } from "@/hooks/useAdminList";
+import { formatDate } from "@/lib/date";
+import { type SchoolCreateValues, schoolCreateSchema } from "@/schemas/school";
+
+type SchoolRow = Awaited<
+	ReturnType<typeof getSchools>
+>["data"]["items"][number];
+
+const LIMIT = 50;
 
 export default function SchoolsPage() {
 	const toast = useToast();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const [showCreate, setShowCreate] = useState(false);
-	const [name, setName] = useState("");
-	const [adminUsername, setAdminUsername] = useState("");
-	const [adminPassword, setAdminPassword] = useState("");
-	const [adminDisplayName, setAdminDisplayName] = useState("");
-	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
-	const [offset, setOffset] = useState(0);
-	const LIMIT = 50;
 	const { confirm } = useConfirm();
 
-	useEffect(() => {
-		setOffset(0);
-	}, [search]);
-
-	const { data, isLoading } = useQuery({
-		queryKey: queryKeys.admin.schools.list(search, offset),
-		queryFn: () =>
+	const {
+		items: schools,
+		total,
+		isLoading,
+		searchInput,
+		handleSearchChange,
+		offset,
+		limit,
+		setOffset,
+		showModal,
+		openCreate,
+		closeModal,
+	} = useAdminList<SchoolRow>({
+		queryKey: (p) => queryKeys.admin.schools.list(p.search, p.offset),
+		queryFn: (p) =>
 			getSchools({
-				search: search || undefined,
-				limit: LIMIT,
-				offset,
+				search: p.search || undefined,
+				limit: p.limit,
+				offset: p.offset,
 			}).then((r) => r.data),
+		limit: LIMIT,
 		staleTime: 2 * 60_000,
 	});
 
-	const schools = data?.items ?? [];
-	const total = data?.total ?? 0;
-
-	const resetForm = () => {
-		setName("");
-		setAdminUsername("");
-		setAdminPassword("");
-		setAdminDisplayName("");
-	};
+	const form = useForm<SchoolCreateValues>({
+		resolver: zodResolver(schoolCreateSchema),
+		defaultValues: {
+			name: "",
+			adminUsername: "",
+			adminPassword: "",
+			adminDisplayName: "",
+		},
+	});
 
 	const createMutation = useMutation({
-		mutationFn: () =>
+		mutationFn: (values: SchoolCreateValues) =>
 			createSchool({
-				name,
-				admin_username: adminUsername,
-				admin_password: adminPassword,
-				admin_display_name: adminDisplayName,
+				name: values.name,
+				admin_username: values.adminUsername,
+				admin_password: values.adminPassword,
+				admin_display_name: values.adminDisplayName,
 			}),
 		onSuccess: () => {
 			toast.success("学校创建成功");
-			resetForm();
-			setShowCreate(false);
+			form.reset();
+			closeModal();
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.schools.all });
 		},
 		onError: (e: unknown) => {
@@ -100,13 +115,62 @@ export default function SchoolsPage() {
 		deleteMutation.mutate(id);
 	};
 
-	const handleCreate = () => {
-		if (!name.trim() || !adminUsername.trim() || !adminPassword.trim()) {
-			toast.error("请填写所有必填项");
-			return;
+	const onSubmit = async (values: SchoolCreateValues) => {
+		try {
+			await createMutation.mutateAsync(values);
+		} catch {
+			// error surfaced via createMutation.onError
 		}
-		createMutation.mutate();
 	};
+
+	const columns: DataTableColumn<SchoolRow>[] = [
+		{
+			key: "name",
+			header: "学校名称",
+			cellClassName: "font-medium",
+			render: (s) => s.name,
+		},
+		{ key: "teacher_count", header: "教师数", render: (s) => s.teacher_count },
+		{ key: "student_count", header: "学生数", render: (s) => s.student_count },
+		{
+			key: "created_at",
+			header: "创建时间",
+			cellClassName: "text-muted-foreground",
+			render: (s) => formatDate(s.created_at),
+		},
+		{
+			key: "actions",
+			header: "操作",
+			render: (s) => (
+				<div className="flex items-center gap-1">
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-8 text-xs"
+						onClick={(e) => {
+							e.stopPropagation();
+							navigate("/home");
+						}}
+						title="进入此学校管理"
+					>
+						<ExternalLink size={14} className="mr-1" />
+						进入管理
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="text-destructive h-8"
+						onClick={(e) => {
+							e.stopPropagation();
+							handleDelete(s.id, s.name);
+						}}
+					>
+						<Trash2 size={14} />
+					</Button>
+				</div>
+			),
+		},
+	];
 
 	return (
 		<div className="space-y-6">
@@ -114,7 +178,12 @@ export default function SchoolsPage() {
 				title="学校管理"
 				subtitle="管理所有入驻学校及其管理员"
 				actions={
-					<Button onClick={() => setShowCreate(true)}>
+					<Button
+						onClick={() => {
+							form.reset();
+							openCreate();
+						}}
+					>
 						<Plus size={16} /> 新建学校
 					</Button>
 				}
@@ -130,129 +199,95 @@ export default function SchoolsPage() {
 				</div>
 			</div>
 
-			<div className="rounded-xl border bg-card">
-				{isLoading ? (
-					<LoadingSkeleton variant="table" />
-				) : schools.length === 0 ? (
-					<EmptyState
-						icon={Building2}
-						title="暂无学校"
-						description="创建第一个学校后这里会显示"
-					/>
-				) : (
-					<table className="w-full">
-						<thead>
-							<tr className="border-b text-left text-sm text-muted-foreground">
-								<th className="px-4 py-3">学校名称</th>
-								<th className="px-4 py-3">教师数</th>
-								<th className="px-4 py-3">学生数</th>
-								<th className="px-4 py-3">创建时间</th>
-								<th className="px-4 py-3">操作</th>
-							</tr>
-						</thead>
-						<tbody>
-							{schools.map((s) => (
-								<tr key={s.id} className="border-b last:border-0 text-sm">
-									<td className="px-4 py-3 font-medium">{s.name}</td>
-									<td className="px-4 py-3">{s.teacher_count}</td>
-									<td className="px-4 py-3">{s.student_count}</td>
-									<td className="px-4 py-3 text-muted-foreground">
-										{s.created_at
-											? new Date(s.created_at).toLocaleDateString()
-											: ""}
-									</td>
-									<td className="px-4 py-3">
-										<div className="flex items-center gap-1">
-											<Button
-												variant="ghost"
-												size="sm"
-												className="h-8 text-xs"
-												onClick={() => navigate("/home")}
-												title="进入此学校管理"
-											>
-												<ExternalLink size={14} className="mr-1" />
-												进入管理
-											</Button>
-											<Button
-												variant="ghost"
-												size="sm"
-												className="text-destructive h-8"
-												onClick={() => handleDelete(s.id, s.name)}
-											>
-												<Trash2 size={14} />
-											</Button>
-										</div>
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				)}
-			</div>
-
-			{total > LIMIT && (
-				<div className="mt-4 flex justify-center">
-					<Pagination
-						offset={offset}
-						limit={LIMIT}
-						total={total}
-						onChange={(v) => setOffset(v)}
-					/>
-				</div>
-			)}
+			<DataTable
+				columns={columns}
+				rows={schools}
+				rowKey={(s) => s.id}
+				loading={isLoading}
+				emptyIcon={Building2}
+				emptyTitle="暂无学校"
+				emptyDescription="创建第一个学校后这里会显示"
+				total={total}
+				offset={offset}
+				limit={limit}
+				onOffsetChange={setOffset}
+			/>
 
 			<Dialog
-				open={showCreate}
+				open={showModal}
 				onOpenChange={(o) => {
 					if (!o) {
-						resetForm();
-						setShowCreate(false);
+						form.reset();
+						closeModal();
 					}
 				}}
 			>
 				<DialogContent title="新建学校" maxWidth={560}>
-				<div className="space-y-4 py-2">
-					<div>
-						<Label>学校名称</Label>
-						<Input
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							placeholder="例如：北京护理学院"
-						/>
-					</div>
-					<div>
-						<Label>管理员用户名</Label>
-						<Input
-							value={adminUsername}
-							onChange={(e) => setAdminUsername(e.target.value)}
-							placeholder="学校管理员账号"
-						/>
-					</div>
-					<div>
-						<Label>管理员密码</Label>
-						<Input
-							type="password"
-							value={adminPassword}
-							onChange={(e) => setAdminPassword(e.target.value)}
-							placeholder="至少6位"
-						/>
-					</div>
-					<div>
-						<Label>管理员显示名</Label>
-						<Input
-							value={adminDisplayName}
-							onChange={(e) => setAdminDisplayName(e.target.value)}
-							placeholder="管理员姓名"
-						/>
-					</div>
-					<Button
-						className="w-full"
-						onClick={handleCreate}
-						disabled={createMutation.isPending}
-					>
-						{createMutation.isPending ? "创建中..." : "创建学校"}
-					</Button>
-				</div>
+					<Form {...form}>
+						<form
+							onSubmit={form.handleSubmit(onSubmit)}
+							className="space-y-4 py-2"
+						>
+							<FormField
+								control={form.control}
+								name="name"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>学校名称</FormLabel>
+										<FormControl>
+											<Input placeholder="例如：北京护理学院" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="adminUsername"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>管理员用户名</FormLabel>
+										<FormControl>
+											<Input placeholder="学校管理员账号" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="adminPassword"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>管理员密码</FormLabel>
+										<FormControl>
+											<Input type="password" placeholder="至少6位" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="adminDisplayName"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>管理员显示名</FormLabel>
+										<FormControl>
+											<Input placeholder="管理员姓名" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<DialogFooter>
+								<DialogCancel type="button">取消</DialogCancel>
+								<Button type="submit" disabled={form.formState.isSubmitting}>
+									{form.formState.isSubmitting ? "创建中..." : "创建学校"}
+								</Button>
+							</DialogFooter>
+						</form>
+					</Form>
 				</DialogContent>
 			</Dialog>
 		</div>

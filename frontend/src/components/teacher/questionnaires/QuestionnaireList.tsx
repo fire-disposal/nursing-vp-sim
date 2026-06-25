@@ -14,9 +14,7 @@ import {
 } from "@/components/teacher/questionnaires/types";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import EmptyState from "@/components/ui/empty-state";
-import LoadingState from "@/components/ui/loading-state";
-import Pagination from "@/components/ui/pagination";
+import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 
 interface QuestionnaireListProps {
@@ -50,6 +48,104 @@ export default function QuestionnaireList({
 	onAssign,
 	onViewStats,
 }: QuestionnaireListProps) {
+	const columns: DataTableColumn<TemplateListItem>[] = [
+		{
+			key: "title",
+			header: "标题",
+			cellClassName: "font-medium",
+			render: (t) => (
+				<>
+					{t.title}
+					{t.description && (
+						<div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[300px]">
+							{t.description}
+						</div>
+					)}
+				</>
+			),
+		},
+		{
+			key: "type",
+			header: "类型",
+			render: (t) => (
+				<Badge variant={t.type === "pre" ? "info" : "success"}>
+					{TYPE_LABEL[t.type] || t.type}
+				</Badge>
+			),
+		},
+		{
+			key: "status",
+			header: "状态",
+			render: (t) => (
+				<Badge variant={t.is_active ? "success" : "neutral"}>
+					{t.is_active ? "启用" : "禁用"}
+				</Badge>
+			),
+		},
+		{
+			key: "question_count",
+			header: "题目数",
+			cellClassName: "text-muted-foreground",
+			render: (t) => t.question_count,
+		},
+		{
+			key: "response_count",
+			header: "回收数",
+			render: (t) => (
+				<span
+					className={cn(
+						"font-medium",
+						t.response_count > 0
+							? "text-primary"
+							: "text-muted-foreground/70",
+					)}
+				>
+					{t.response_count}
+				</span>
+			),
+		},
+		{
+			key: "actions",
+			header: "操作",
+			render: (t) => (
+				<div className="flex gap-2">
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() => onEdit(t)}
+						title="编辑"
+					>
+						<Edit3 size={14} />
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() => onAssign(t)}
+						title="分配病例"
+					>
+						<FileText size={14} />
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() => onViewStats(t)}
+						title="查看数据"
+					>
+						<BarChart3 size={14} />
+					</Button>
+					<Button
+						size="sm"
+						variant="danger"
+						onClick={() => onDelete(t)}
+						title="删除"
+					>
+						<Trash2 size={14} />
+					</Button>
+				</div>
+			),
+		},
+	];
+
 	return (
 		<>
 			<div className="mb-4 flex gap-3">
@@ -87,121 +183,19 @@ export default function QuestionnaireList({
 					<span className="text-sm text-muted-foreground">共 {total} 条</span>
 				</div>
 
-				{isLoading ? (
-					<LoadingState />
-				) : templates.length === 0 ? (
-					<EmptyState
-						icon={ClipboardCheck}
-						title="暂无问卷模板"
-						description="点击上方按钮创建第一个问卷模板"
-					/>
-				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full border-collapse text-sm">
-							<thead>
-								<tr>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										标题
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										类型
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										状态
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										题目数
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										回收数
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										操作
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{templates.map((t) => (
-									<tr key={t.id} className="hover:bg-muted">
-										<td className="px-4 py-3 border-b border-border font-medium">
-											{t.title}
-											{t.description && (
-												<div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[300px]">
-													{t.description}
-												</div>
-											)}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<Badge variant={t.type === "pre" ? "info" : "success"}>
-												{TYPE_LABEL[t.type] || t.type}
-											</Badge>
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<Badge variant={t.is_active ? "success" : "neutral"}>
-												{t.is_active ? "启用" : "禁用"}
-											</Badge>
-										</td>
-										<td className="px-4 py-3 border-b border-border text-muted-foreground">
-											{t.question_count}
-										</td>
-										<td
-											className={cn(
-												"px-4 py-3 border-b border-border font-medium",
-												t.response_count > 0
-													? "text-primary"
-													: "text-muted-foreground/70",
-											)}
-										>
-											{t.response_count}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<div className="flex gap-2">
-												<Button
-													size="sm"
-													variant="ghost"
-													onClick={() => onEdit(t)}
-													title="编辑"
-												>
-													<Edit3 size={14} />
-												</Button>
-												<Button
-													size="sm"
-													variant="ghost"
-													onClick={() => onAssign(t)}
-													title="分配病例"
-												>
-													<FileText size={14} />
-												</Button>
-												<Button
-													size="sm"
-													variant="ghost"
-													onClick={() => onViewStats(t)}
-													title="查看数据"
-												>
-													<BarChart3 size={14} />
-												</Button>
-												<Button
-													size="sm"
-													variant="danger"
-													onClick={() => onDelete(t)}
-													title="删除"
-												>
-													<Trash2 size={14} />
-												</Button>
-											</div>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				)}
-
-				<Pagination
+				<DataTable
+					columns={columns}
+					rows={templates}
+					rowKey={(t) => t.id}
+					loading={isLoading}
+					emptyIcon={ClipboardCheck}
+					emptyTitle="暂无问卷模板"
+					emptyDescription="点击上方按钮创建第一个问卷模板"
 					total={total}
 					offset={offset}
 					limit={limit}
-					onChange={onOffsetChange}
+					onOffsetChange={onOffsetChange}
+					bare
 				/>
 			</div>
 		</>
