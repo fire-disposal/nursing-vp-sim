@@ -1,12 +1,13 @@
 import { GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import FormField from "@/components/ui/form-field";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
@@ -63,7 +64,21 @@ export default function GradesClassesPage() {
 		createClass,
 		updateClass,
 		deleteClass,
-	} = useGradesClassesStore();
+	} = useGradesClassesStore(
+		useShallow((s) => ({
+			grades: s.grades,
+			classes: s.classes,
+			loading: s.loading,
+			fetchGrades: s.fetchGrades,
+			fetchClasses: s.fetchClasses,
+			createGrade: s.createGrade,
+			updateGrade: s.updateGrade,
+			deleteGrade: s.deleteGrade,
+			createClass: s.createClass,
+			updateClass: s.updateClass,
+			deleteClass: s.deleteClass,
+		})),
+	);
 
 	useEffect(() => {
 		fetchGrades();

@@ -1,4 +1,10 @@
-import { createContext, type ReactNode, useContext, useState } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+	useMemo,
+	useState,
+} from "react";
 
 export type EmotionState =
 	| "withdrawn"
@@ -54,11 +60,8 @@ const EmotionCtx = createContext<EmotionContextValue>({
 
 export function EmotionProvider({ children }: { children: ReactNode }) {
 	const [emotion, setEmotion] = useState<EmotionState>("neutral");
-	return (
-		<EmotionCtx.Provider value={{ emotion, setEmotion }}>
-			{children}
-		</EmotionCtx.Provider>
-	);
+	const value = useMemo(() => ({ emotion, setEmotion }), [emotion]);
+	return <EmotionCtx.Provider value={value}>{children}</EmotionCtx.Provider>;
 }
 
 export function useEmotion() {
@@ -76,10 +79,12 @@ const PortraitCtx = createContext<PortraitContextValue>({
 
 export function PortraitProvider({ children }: { children: ReactNode }) {
 	const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
+	const value = useMemo(
+		() => ({ portraitUrl, setPortraitUrl }),
+		[portraitUrl],
+	);
 	return (
-		<PortraitCtx.Provider value={{ portraitUrl, setPortraitUrl }}>
-			{children}
-		</PortraitCtx.Provider>
+		<PortraitCtx.Provider value={value}>{children}</PortraitCtx.Provider>
 	);
 }
 

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 
@@ -23,38 +24,36 @@ export default function ClassFilter({
 	onChange,
 	className = "",
 }: ClassFilterProps) {
-	const { grades, classes, fetchGrades, fetchClasses } =
-		useGradesClassesStore();
+	const { grades, classes, fetchGrades, fetchClasses } = useGradesClassesStore(
+		useShallow((s) => ({
+			grades: s.grades,
+			classes: s.classes,
+			fetchGrades: s.fetchGrades,
+			fetchClasses: s.fetchClasses,
+		})),
+	);
 	const [selGrade, setSelGrade] = useState<string>(
 		gradeId != null ? String(gradeId) : "",
 	);
 	const [selClass, setSelClass] = useState<string>(
 		classId != null ? String(classId) : "",
 	);
-	const firstRun = useRef(true);
 
 	useEffect(() => {
 		fetchGrades();
 	}, [fetchGrades]);
 
-	useEffect(() => {
-		if (firstRun.current) {
-			firstRun.current = false;
-			return;
-		}
-		onChange?.({
-			grade_id: selGrade ? Number(selGrade) : null,
-			class_id: null,
-		});
-		setSelClass("");
-	}, [selGrade, onChange]);
-
 	const handleGradeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 		const gid = e.target.value;
 		setSelGrade(gid);
+		setSelClass("");
 		if (gid) {
 			fetchClasses(Number(gid));
 		}
+		onChange?.({
+			grade_id: gid ? Number(gid) : null,
+			class_id: null,
+		});
 	};
 
 	const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

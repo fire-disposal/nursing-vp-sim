@@ -1,9 +1,11 @@
 import { Plus, Users } from "lucide-react";
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { getClasses } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
+import { btnPrimary, btnSecondary } from "@/lib/styles";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem } from "@/types/store";
 import BatchImport from "./users/BatchImport";
@@ -16,7 +18,6 @@ import type {
 import UserForm from "./users/UserForm";
 import UserList from "./users/UserList";
 import { useRolesQuery, useUserList } from "./users/useUserList";
-import { btnPrimary, btnSecondary } from "@/lib/styles";
 import {
 	useBatchCreateUsersMutation,
 	useDeleteUserMutation,
@@ -48,7 +49,9 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	const { confirm } = useConfirm();
 	const toast = useToast();
-	const { grades, fetchGrades } = useGradesClassesStore();
+	const { grades, fetchGrades } = useGradesClassesStore(
+		useShallow((s) => ({ grades: s.grades, fetchGrades: s.fetchGrades })),
+	);
 
 	const params: Record<string, unknown> = { limit: LIMIT };
 	if (search) params.search = search;

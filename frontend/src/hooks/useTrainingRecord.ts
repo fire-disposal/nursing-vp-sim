@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { getRecordDetail } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
 import type { ChatMessage, PatientData } from "@/engine/types";
@@ -31,10 +32,8 @@ export function useTrainingRecord(recordId: string) {
 
 	const record = query.data;
 
-	let transformedData: TrainingRecordData | null = null;
-	let error: string | null = null;
-
-	if (record) {
+	const data = useMemo<TrainingRecordData | null>(() => {
+		if (!record) return null;
 		const d = record as {
 			patient_name?: string;
 			patient_age?: number;
@@ -50,13 +49,24 @@ export function useTrainingRecord(recordId: string) {
 			messages?: Array<{ id: number; role: string; content: string }>;
 			time_limit?: number;
 			remaining_seconds?: number | null;
+			case?: {
+				name?: string;
+				age?: number;
+				title?: string;
+				chief_complaint?: string;
+				personality?: string;
+			};
 		};
 
 		const rawGender = d.patient_gender || d.patient_info?.gender || "male";
 		const gender: "male" | "female" =
-			rawGender === "男" ? "male" :
-			rawGender === "女" ? "female" :
-			rawGender === "male" ? "male" : "female";
+			rawGender === "男"
+				? "male"
+				: rawGender === "女"
+					? "female"
+					: rawGender === "male"
+						? "male"
+						: "female";
 
 		const patient: PatientData = {
 			name: d.patient_name ?? d.case?.name ?? "患者",
@@ -81,7 +91,7 @@ export function useTrainingRecord(recordId: string) {
 			content: m.content,
 		}));
 
-		transformedData = {
+		return {
 			patient,
 			features: d.features ?? {},
 			fromAssignment: d.from_assignment ?? false,
@@ -89,16 +99,19 @@ export function useTrainingRecord(recordId: string) {
 			timeLimit: d.time_limit ?? 20,
 			remainingSeconds: d.remaining_seconds ?? null,
 		};
-	}
+	}, [record]);
 
-	if (query.isError) {
-		error = (query.error as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail ||
+	const error = query.isError
+		? (query.error as {
+				response?: { data?: { detail?: string } };
+				message?: string;
+			})?.response?.data?.detail ||
 			(query.error as Error)?.message ||
-			"加载患者信息失败";
-	}
+			"加载患者信息失败"
+		: null;
 
 	return {
-		data: transformedData,
+		data,
 		loading: query.isLoading || query.isFetching,
 		error,
 	};

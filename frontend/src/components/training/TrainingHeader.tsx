@@ -15,8 +15,8 @@ import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { usePortrait } from "@/engine/PluginContext";
-import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingContext } from "@/engine/TrainingContext";
+import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { cn } from "@/lib/utils";
 import { getPatientAvatar } from "@/utils/avatar";
@@ -29,28 +29,23 @@ const FEATURE_META: Record<string, { label: string; desc: string }> = {
 };
 
 /**
- * Props are zero — TrainingHeader reads all state from TrainingContext.
+ * Zero props — TrainingHeader reads all state from TrainingContext.
  * This avoids the prop-explosion problem that accumulated 13+ props.
  */
-interface TrainingHeaderProps {
-	dummy?: never;
-}
-
-export function TrainingHeader({
-	recordId,
-	patient,
-	features,
-	onToggleFeature,
-	ttsAutoPlay,
-	onTtsToggle,
-	onEnd,
-	sending: _sending,
-	featuresLocked = false,
-	fromAssignment: _fromAssignment = false,
-	timeLimitMinutes,
-	remainingSeconds,
-	voiceStatus,
-}: TrainingHeaderProps) {
+export function TrainingHeader() {
+	const {
+		recordId,
+		patient,
+		features,
+		toggleFeature: onToggleFeature,
+		ttsAutoPlay,
+		toggleTts: onTtsToggle,
+		endTraining: onEnd,
+		featuresLocked,
+		timeLimitMinutes,
+		remainingSeconds,
+		voiceStatus,
+	} = useTrainingContext();
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();
 	const [featuresOpen, setFeaturesOpen] = useState(false);

@@ -41,7 +41,7 @@ export function useScoringNotifications() {
 				});
 			}
 			if (eventType === "scoring_progress") {
-				notifySSEProgress(payload);
+				notifySSEProgress(data as Parameters<typeof notifySSEProgress>[0]);
 			}
 		},
 		onError: (msg) => {

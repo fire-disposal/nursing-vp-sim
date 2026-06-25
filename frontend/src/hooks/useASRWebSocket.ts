@@ -1,6 +1,5 @@
 import { useCallback, useRef } from "react";
 import useAuthStore from "@/stores/authStore";
-import type { Int16Array } from "type-fest";
 
 interface ServerMsg {
 	type: "partial" | "final" | "error" | "unavailable";
