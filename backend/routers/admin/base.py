@@ -352,6 +352,10 @@ def batch_create_users(
             errors.append(f"第{i}行跳过 {u.username}: 班级ID {u.class_id} 不存在")
             skipped += 1
             continue
+        if u.role not in ("student", "teacher"):
+            errors.append(f"第{i}行跳过 {u.username}: 仅支持创建 student/teacher 角色")
+            skipped += 1
+            continue
         role_obj = db.query(Role).filter(Role.name == u.role, Role.school_id == current_user.school_id).first()
         if not role_obj:
             errors.append(f"第{i}行跳过 {u.username}: 角色 {u.role} 不存在")

@@ -82,6 +82,8 @@ def get_practice(
     p = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
+    if current_user.school_id is not None and p.school_id is not None and p.school_id != current_user.school_id:
+        raise HTTPException(status_code=404, detail="练习模板不存在")
     return _to_item(p)
 
 

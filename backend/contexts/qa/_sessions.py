@@ -154,5 +154,13 @@ def get_session_messages_admin(
     current_user: Annotated[User, Depends(require_permission("stats_view"))],
     db: Annotated[Session, Depends(get_db)],
 ):
+    session = db.query(QASession).filter(QASession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    effective_school = resolve_school_filter(current_user, None)
+    if effective_school is not None:
+        owner = db.query(User).filter(User.id == session.user_id).first()
+        if owner is None or owner.school_id != effective_school:
+            raise HTTPException(status_code=404, detail="会话不存在")
     records = db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
     return [_enrich_message(r) for r in records]
