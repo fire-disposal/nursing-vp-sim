@@ -1,6 +1,8 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { Edit, Eye, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import {
 	createAssignment,
@@ -15,24 +17,47 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import EmptyState from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import PageHeader from "@/components/ui/page-header";
+import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import PageHeader from "@/components/ui/page-header";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { fromDatetimeLocal, toDatetimeLocal } from "@/lib/date";
+import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 
-function formatDateTime(iso: string) {
+interface AssignmentRow {
+	id: string;
+	title: string;
+	practice_name?: string;
+	class_name?: string;
+	start_time: string;
+	end_time: string;
+	student_count?: number;
+	completed_count?: number;
+}
+
+interface PracticeOption {
+	id: number;
+	name: string;
+	case?: { name?: string };
+}
+
+interface ClassOption {
+	id: number;
+	name: string;
+}
+
+/** Compact list-window display (M/D H:M) — distinct from lib/date's full locale. */
+function formatWindow(iso: string) {
 	const d = new Date(iso);
 	const m = (d.getMonth() + 1).toString().padStart(2, "0");
 	const day = d.getDate().toString().padStart(2, "0");
@@ -54,6 +79,15 @@ function statusBadge(item: { start_time: string; end_time: string }) {
 	);
 }
 
+const DEFAULT_VALUES: AssignmentValues = {
+	title: "",
+	desc: "",
+	practiceId: 0,
+	classId: 0,
+	startTime: "",
+	endTime: "",
+};
+
 export default function AssignmentsPage() {
 	const toast = useToast();
 	const navigate = useNavigate();
@@ -61,24 +95,12 @@ export default function AssignmentsPage() {
 
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
 	const { confirm } = useConfirm();
 
-	const emptyForm = useMemo(
-		() => ({
-			title: "",
-			desc: "",
-			practiceId: 0,
-			classId: 0,
-			startTime: "",
-			endTime: "",
-		}),
-		[],
-	);
-	const [form, setForm] = useState(emptyForm);
-	const resetForm = () => setForm(emptyForm);
-	const updateForm = (patch: Partial<typeof emptyForm>) =>
-		setForm((f) => ({ ...f, ...patch }));
+	const form = useForm<AssignmentValues>({
+		resolver: zodResolver(assignmentSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	const { data: listData, isLoading } = useApiQuery({
 		queryKey: queryKeys.assignments.all,
@@ -96,13 +118,13 @@ export default function AssignmentsPage() {
 		staleTime: 5 * 60_000,
 	});
 
-	const assignments = listData?.items ?? [];
-	const practices = practicesData?.items ?? [];
-	const classes = classesData ?? [];
+	const assignments = (listData?.items ?? []) as unknown as AssignmentRow[];
+	const practices = (practicesData?.items ?? []) as unknown as PracticeOption[];
+	const classes = (classesData ?? []) as unknown as ClassOption[];
 
 	const openCreate = () => {
 		setEditingId(null);
-		resetForm();
+		form.reset(DEFAULT_VALUES);
 		setModalOpen(true);
 	};
 
@@ -110,19 +132,14 @@ export default function AssignmentsPage() {
 		try {
 			const res = await fetchAssignment(id);
 			const d = res.data;
-			const toLocalDatetime = (iso: string) => {
-				const date = new Date(iso);
-				const pad = (n: number) => String(n).padStart(2, "0");
-				return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-			};
 			setEditingId(id);
-			setForm({
+			form.reset({
 				title: d.title,
 				desc: d.description || "",
 				practiceId: d.practice_id,
 				classId: d.class_id,
-				startTime: toLocalDatetime(d.start_time),
-				endTime: toLocalDatetime(d.end_time),
+				startTime: toDatetimeLocal(d.start_time),
+				endTime: toDatetimeLocal(d.end_time),
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
@@ -130,21 +147,15 @@ export default function AssignmentsPage() {
 		}
 	};
 
-	const handleSave = async () => {
-		const { title, desc, practiceId, classId, startTime, endTime } = form;
-		if (!title.trim() || !practiceId || !classId || !startTime || !endTime) {
-			toast.warning("请填写完整信息");
-			return;
-		}
+	const onSubmit = async (values: AssignmentValues) => {
 		const payload = {
-			title: title.trim(),
-			description: desc.trim() || null,
-			practice_id: practiceId,
-			class_id: classId,
-			start_time: new Date(startTime).toISOString(),
-			end_time: new Date(endTime).toISOString(),
+			title: values.title.trim(),
+			description: values.desc.trim() || null,
+			practice_id: values.practiceId,
+			class_id: values.classId,
+			start_time: fromDatetimeLocal(values.startTime) ?? "",
+			end_time: fromDatetimeLocal(values.endTime) ?? "",
 		};
-		setSaving(true);
 		try {
 			if (editingId) {
 				await updateAssignment(editingId, payload);
@@ -157,8 +168,6 @@ export default function AssignmentsPage() {
 			setModalOpen(false);
 		} catch (e: unknown) {
 			toast.apiError(e, "操作失败");
-		} finally {
-			setSaving(false);
 		}
 	};
 
@@ -177,6 +186,68 @@ export default function AssignmentsPage() {
 		}
 	};
 
+	const columns: DataTableColumn<AssignmentRow>[] = [
+		{
+			key: "title",
+			header: "标题",
+			cellClassName: "font-medium max-w-[160px] truncate",
+		},
+		{
+			key: "practice_name",
+			header: "练习",
+			cellClassName: "text-sm text-muted-foreground",
+		},
+		{ key: "class_name", header: "班级", cellClassName: "text-sm" },
+		{
+			key: "window",
+			header: "时间窗口",
+			cellClassName: "text-xs text-muted-foreground",
+			render: (a) => `${formatWindow(a.start_time)} ~ ${formatWindow(a.end_time)}`,
+		},
+		{
+			key: "completed",
+			header: "完成",
+			cellClassName: "text-sm",
+			render: (a) =>
+				(a.student_count ?? 0) > 0
+					? `${a.completed_count}/${a.student_count}`
+					: "-",
+		},
+		{ key: "status", header: "状态", render: (a) => statusBadge(a) },
+		{
+			key: "actions",
+			header: "操作",
+			render: (a) => (
+				<div className="flex gap-0.5">
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => navigate(`/admin/assignments/${a.id}`)}
+						title="详情"
+					>
+						<Eye size={15} />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => openEdit(a.id)}
+						title="编辑"
+					>
+						<Edit size={15} />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => handleDelete(a.id)}
+						title="删除"
+					>
+						<Trash2 size={15} className="text-destructive" />
+					</Button>
+				</div>
+			),
+		},
+	];
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
@@ -190,168 +261,147 @@ export default function AssignmentsPage() {
 				}
 			/>
 
-			{isLoading ? (
-				<LoadingSkeleton />
-			) : assignments.length === 0 ? (
-				<EmptyState
-					icon={Plus}
-					title="暂无练习发布"
-					description="点击上方按钮创建第一次练习发布"
-				/>
-			) : (
-				<Card className="overflow-hidden">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>标题</TableHead>
-								<TableHead>练习</TableHead>
-								<TableHead>班级</TableHead>
-								<TableHead>时间窗口</TableHead>
-								<TableHead>完成</TableHead>
-								<TableHead>状态</TableHead>
-								<TableHead>操作</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{assignments.map((a: any) => (
-								<TableRow key={a.id}>
-									<TableCell className="font-medium max-w-[160px] truncate">
-										{a.title}
-									</TableCell>
-									<TableCell className="text-sm text-muted-foreground">
-										{a.practice_name}
-									</TableCell>
-									<TableCell className="text-sm">{a.class_name}</TableCell>
-									<TableCell className="text-xs text-muted-foreground">
-										{formatDateTime(a.start_time)} ~{" "}
-										{formatDateTime(a.end_time)}
-									</TableCell>
-									<TableCell className="text-sm">
-										{a.student_count > 0
-											? `${a.completed_count}/${a.student_count}`
-											: "-"}
-									</TableCell>
-									<TableCell>{statusBadge(a)}</TableCell>
-									<TableCell>
-										<div className="flex gap-0.5">
-											<Button
-												variant="ghost"
-												size="icon"
-												onClick={() => navigate(`/admin/assignments/${a.id}`)}
-												title="详情"
-											>
-												<Eye size={15} />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												onClick={() => openEdit(a.id)}
-												title="编辑"
-											>
-												<Edit size={15} />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												onClick={() => handleDelete(a.id)}
-												title="删除"
-											>
-												<Trash2 size={15} className="text-destructive" />
-											</Button>
-										</div>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</Card>
-			)}
+			<DataTable<AssignmentRow>
+				columns={columns}
+				rows={assignments}
+				rowKey={(a) => a.id}
+				loading={isLoading}
+				emptyIcon={Plus}
+				emptyTitle="暂无练习发布"
+				emptyDescription="点击上方按钮创建第一次练习发布"
+			/>
 
-			<Dialog
-				open={modalOpen}
-				onOpenChange={(o) => !o && setModalOpen(false)}
-			>
+			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
 				<DialogContent
 					title={editingId ? "编辑练习发布" : "创建练习发布"}
 					maxWidth={560}
 				>
-				<div className="flex flex-col gap-4">
-					<div>
-						<label className="text-sm font-medium">标题</label>
-						<Input
-							value={form.title}
-							onChange={(e) => updateForm({ title: e.target.value })}
-							placeholder="练习标题"
-						/>
-					</div>
-					<div>
-						<label className="text-sm font-medium">说明（可选）</label>
-						<Input
-							value={form.desc}
-							onChange={(e) => updateForm({ desc: e.target.value })}
-							placeholder="补充说明"
-						/>
-					</div>
-					<div>
-						<label className="text-sm font-medium">练习</label>
-						<select
-							className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-							value={form.practiceId || ""}
-							onChange={(e) =>
-								updateForm({ practiceId: Number(e.target.value) })
-							}
+					<Form {...form}>
+						<form
+							onSubmit={form.handleSubmit(onSubmit)}
+							className="flex flex-col gap-4"
 						>
-							<option value="">选择练习...</option>
-							{practices.map((p: any) => (
-								<option key={p.id} value={p.id}>
-									{p.name}
-									{p.case?.name ? ` (${p.case.name})` : ""}
-								</option>
-							))}
-						</select>
-					</div>
-					<div>
-						<label className="text-sm font-medium">班级</label>
-						<select
-							className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-							value={form.classId || ""}
-							onChange={(e) => updateForm({ classId: Number(e.target.value) })}
-						>
-							<option value="">选择班级...</option>
-							{classes.map((c: any) => (
-								<option key={c.id} value={c.id}>
-									{c.name}
-								</option>
-							))}
-						</select>
-					</div>
-					<div className="grid grid-cols-2 gap-3">
-						<div>
-							<label className="text-sm font-medium">开始时间</label>
-							<Input
-								type="datetime-local"
-								value={form.startTime}
-								onChange={(e) => updateForm({ startTime: e.target.value })}
+							<FormField
+								control={form.control}
+								name="title"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>标题</FormLabel>
+										<FormControl>
+											<Input placeholder="练习标题" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
 							/>
-						</div>
-						<div>
-							<label className="text-sm font-medium">截止时间</label>
-							<Input
-								type="datetime-local"
-								value={form.endTime}
-								onChange={(e) => updateForm({ endTime: e.target.value })}
+							<FormField
+								control={form.control}
+								name="desc"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>说明（可选）</FormLabel>
+										<FormControl>
+											<Input placeholder="补充说明" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
 							/>
-						</div>
-					</div>
-					<div className="flex justify-end gap-2 pt-2">
-						<Button variant="outline" onClick={() => setModalOpen(false)}>
-							取消
-						</Button>
-						<Button onClick={handleSave} disabled={saving}>
-							{editingId ? "保存" : "发布"}
-						</Button>
-					</div>
-				</div>
+							<FormField
+								control={form.control}
+								name="practiceId"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>练习</FormLabel>
+										<FormControl>
+											<select
+												className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+												name={field.name}
+												onBlur={field.onBlur}
+												value={field.value || ""}
+												onChange={(e) => field.onChange(Number(e.target.value))}
+											>
+												<option value="">选择练习...</option>
+												{practices.map((p) => (
+													<option key={p.id} value={p.id}>
+														{p.name}
+														{p.case?.name ? ` (${p.case.name})` : ""}
+													</option>
+												))}
+											</select>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="classId"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>班级</FormLabel>
+										<FormControl>
+											<select
+												className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+												name={field.name}
+												onBlur={field.onBlur}
+												value={field.value || ""}
+												onChange={(e) => field.onChange(Number(e.target.value))}
+											>
+												<option value="">选择班级...</option>
+												{classes.map((c) => (
+													<option key={c.id} value={c.id}>
+														{c.name}
+													</option>
+												))}
+											</select>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<div className="grid grid-cols-2 gap-3">
+								<FormField
+									control={form.control}
+									name="startTime"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>开始时间</FormLabel>
+											<FormControl>
+												<Input type="datetime-local" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="endTime"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>截止时间</FormLabel>
+											<FormControl>
+												<Input type="datetime-local" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</div>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setModalOpen(false)}
+								>
+									取消
+								</Button>
+								<Button type="submit" disabled={form.formState.isSubmitting}>
+									{editingId ? "保存" : "发布"}
+								</Button>
+							</DialogFooter>
+						</form>
+					</Form>
 				</DialogContent>
 			</Dialog>
 		</div>
