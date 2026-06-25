@@ -18,7 +18,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.case_schema import CaseDataSchema
 from core.database import Base
+from core.jsonb import PydanticJSONB
 
 
 def _now_utc() -> datetime:
@@ -149,7 +151,7 @@ class Case(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    case_data: Mapped[dict] = mapped_column(JSONB)
+    case_data: Mapped[dict] = mapped_column(PydanticJSONB(CaseDataSchema))
     school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
 
     school: Mapped["School | None"] = relationship()

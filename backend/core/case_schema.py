@@ -13,6 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from core.capabilities import ALL_CAPABILITY_KEYS
+from core.jsonb import JsonbModel
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class PhaseConfig(BaseModel):
     transition: PhaseTransition = PhaseTransition()
 
 
-class CaseDataSchema(BaseModel):
+class CaseDataSchema(JsonbModel):
     model_config = ConfigDict(extra="ignore")
 
     name: str = Field(min_length=1, max_length=100)
