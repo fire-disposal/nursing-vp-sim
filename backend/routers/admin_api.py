@@ -127,6 +127,8 @@ def update_secret(
     s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="档案不存在")
+    if data.base_url and not re.match(r"^https?://", data.base_url):
+        raise HTTPException(status_code=422, detail="base_url 必须以 http:// 或 https:// 开头")
     for field in ("label", "base_url", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit"):
         val = getattr(data, field, None)
         if val is not None:

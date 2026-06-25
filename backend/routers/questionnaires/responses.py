@@ -92,7 +92,7 @@ def check_questionnaire(
             raise HTTPException(status_code=404, detail="训练记录不存在")
         case_id = record.case_id
 
-    cq = (
+    cq_query = (
         db.query(CaseQuestionnaire)
         .join(QuestionnaireTemplate, CaseQuestionnaire.template_id == QuestionnaireTemplate.id)
         .filter(
@@ -101,46 +101,46 @@ def check_questionnaire(
         )
     )
     if trigger:
-        cq = cq.filter(CaseQuestionnaire.trigger_event == trigger)
-    cq = cq.order_by(CaseQuestionnaire.id).first()
+        cq_query = cq_query.filter(CaseQuestionnaire.trigger_event == trigger)
+    cqs = cq_query.order_by(CaseQuestionnaire.id).all()
 
-    if not cq:
-        return QuestionnaireCheckResponse(has_pending=False)
-
-    existing = (
-        db.query(QuestionnaireResponse)
-        .filter(
-            QuestionnaireResponse.user_id == current_user.id,
-            QuestionnaireResponse.template_id == cq.template_id,
-            QuestionnaireResponse.case_id == case_id,
-            QuestionnaireResponse.status == "completed",
+    # Return the first questionnaire the user has not yet completed (supports
+    # multiple questionnaires per case, e.g. pre-test + post-test).
+    for cq in cqs:
+        existing = (
+            db.query(QuestionnaireResponse)
+            .filter(
+                QuestionnaireResponse.user_id == current_user.id,
+                QuestionnaireResponse.template_id == cq.template_id,
+                QuestionnaireResponse.case_id == case_id,
+                QuestionnaireResponse.status == "completed",
+            )
+            .first()
         )
-        .first()
-    )
-    if existing:
-        return QuestionnaireCheckResponse(has_pending=False)
+        if existing:
+            continue
 
-    partial = (
-        db.query(QuestionnaireResponse)
-        .filter(
-            QuestionnaireResponse.user_id == current_user.id,
-            QuestionnaireResponse.template_id == cq.template_id,
-            QuestionnaireResponse.case_id == case_id,
-            QuestionnaireResponse.status == "pending",
+        partial = (
+            db.query(QuestionnaireResponse)
+            .filter(
+                QuestionnaireResponse.user_id == current_user.id,
+                QuestionnaireResponse.template_id == cq.template_id,
+                QuestionnaireResponse.case_id == case_id,
+                QuestionnaireResponse.status == "pending",
+            )
+            .first()
         )
-        .first()
-    )
+        t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == cq.template_id).first()
+        return QuestionnaireCheckResponse(
+            has_pending=True,
+            template_id=cq.template_id,
+            response_id=partial.id if partial else None,
+            template=_template_to_detail(t) if t else None,
+            is_required=cq.is_required,
+            trigger_event=cq.trigger_event or "before_training",
+        )
 
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == cq.template_id).first()
-
-    return QuestionnaireCheckResponse(
-        has_pending=True,
-        template_id=cq.template_id,
-        response_id=partial.id if partial else None,
-        template=_template_to_detail(t) if t else None,
-        is_required=cq.is_required,
-        trigger_event=cq.trigger_event or "before_training",
-    )
+    return QuestionnaireCheckResponse(has_pending=False)
 
 
 @router.post("/questionnaires/responses", response_model=QuestionnaireResponseItem)

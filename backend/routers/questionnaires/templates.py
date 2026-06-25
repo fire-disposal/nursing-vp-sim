@@ -15,6 +15,7 @@ from models import (
     CaseQuestionnaire,
     QuestionnaireAnswer,
     QuestionnaireQuestion,
+    QuestionnaireResponse,
     QuestionnaireTemplate,
     User,
 )
@@ -35,7 +36,7 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _template_to_response(t: QuestionnaireTemplate) -> QuestionnaireTemplateResponse:
+def _template_to_response(t: QuestionnaireTemplate, response_count: int = 0) -> QuestionnaireTemplateResponse:
     return QuestionnaireTemplateResponse(
         id=t.id,
         title=t.title,
@@ -43,7 +44,7 @@ def _template_to_response(t: QuestionnaireTemplate) -> QuestionnaireTemplateResp
         description=t.description,
         is_active=t.is_active,
         question_count=len(t.questions) if t.questions else 0,
-        response_count=0,
+        response_count=response_count,
         school_id=t.school_id,
         created_at=t.created_at,
         updated_at=t.updated_at,
@@ -97,7 +98,20 @@ def list_templates(
     query = query.order_by(QuestionnaireTemplate.updated_at.desc())
 
     rows, total = paginate(query, offset, limit)
-    items = [_template_to_response(r) for r in rows]
+    template_ids = [r.id for r in rows]
+    counts: dict[int, int] = {}
+    if template_ids:
+        count_rows = (
+            db.query(QuestionnaireResponse.template_id, func.count(QuestionnaireResponse.id))
+            .filter(
+                QuestionnaireResponse.template_id.in_(template_ids),
+                QuestionnaireResponse.status == "completed",
+            )
+            .group_by(QuestionnaireResponse.template_id)
+            .all()
+        )
+        counts = {tid: cnt for tid, cnt in count_rows}
+    items = [_template_to_response(r, counts.get(r.id, 0)) for r in rows]
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 

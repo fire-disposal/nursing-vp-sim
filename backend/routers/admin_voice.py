@@ -47,7 +47,7 @@ def _mask_api_key(vc: VoiceConfig) -> str:
         return "***error***"
     if len(raw) <= 8:
         return "***...***"
-    return f"{raw[:3]}{'*' * 8}{raw[-3:]}"
+    return f"{'*' * 8}{raw[-4:]}"
 
 
 def _build_voice_config_response(vc: VoiceConfig | None) -> VoiceConfigResponse | None:
@@ -82,9 +82,9 @@ def get_config(
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    vc = db.query(VoiceConfig).order_by(VoiceConfig.id.desc()).first()
     if not vc:
-        raise HTTPException(status_code=404, detail="未找到激活的语音配置")
+        raise HTTPException(status_code=404, detail="未找到语音配置")
     return _build_voice_config_response(vc)
 
 
@@ -94,7 +94,7 @@ def update_config(
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    vc = db.query(VoiceConfig).order_by(VoiceConfig.id.desc()).first()
 
     if vc:
         if req.provider:
