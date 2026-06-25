@@ -18,9 +18,11 @@ export function useSavePrompt() {
 		mutationFn: ({
 			editingId,
 			form,
+			variables,
 		}: {
 			editingId: number | "new";
 			form: PromptForm;
+			variables?: { [key: string]: unknown }[] | null;
 		}) => {
 			if (editingId !== "new") {
 				return updatePrompt(editingId, {
@@ -28,6 +30,7 @@ export function useSavePrompt() {
 					system_prompt: form.system_prompt,
 					user_prompt: form.user_prompt || null,
 					remark: form.remark,
+					...(variables != null ? { variables } : {}),
 				});
 			}
 			return createPrompt(form);

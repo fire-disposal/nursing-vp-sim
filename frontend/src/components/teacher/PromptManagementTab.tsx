@@ -130,7 +130,7 @@ export default function PromptManagementTab() {
 	const handleSave = () => {
 		if (editing == null) return;
 		saveMutation.mutate(
-			{ editingId: editing, form },
+			{ editingId: editing, form, variables: editedPrompt?.variables },
 			{
 				onSuccess: () => {
 					setEditing(null);

@@ -41,7 +41,7 @@ export default function RubricEditor({
 	const addDim = () => {
 		onChange([
 			...dimensions,
-			{ name: "", max: 10, description: "", items: [] },
+			{ id: crypto.randomUUID(), name: "", max: 10, description: "", items: [] },
 		]);
 	};
 
@@ -51,7 +51,11 @@ export default function RubricEditor({
 			...next[dimIdx],
 			items: [
 				...next[dimIdx].items,
-				{ name: "", anchors: { "1": "", "2": "", "3": "" } },
+				{
+					id: crypto.randomUUID(),
+					name: "",
+					anchors: { "1": "", "2": "", "3": "" },
+				},
 			],
 		};
 		onChange(next);

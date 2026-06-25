@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { Megaphone, Plus, Trash2 } from "lucide-react";
+import { Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { api } from "@/api/axios-instance";
@@ -171,13 +171,27 @@ export default function SystemNotificationsPage() {
 									<span>创建于 {n.created_at.slice(0, 10)}</span>
 								</div>
 							</div>
-							<button
-								type="button"
-								onClick={() => setDeleteId(n.id)}
-								className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-							>
-								<Trash2 className="size-4" />
-							</button>
+							<div className="flex items-center gap-1 shrink-0">
+								<button
+									type="button"
+									onClick={() => {
+										setEditing(n);
+										setModalOpen(true);
+									}}
+									className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+									title="编辑"
+								>
+									<Pencil className="size-4" />
+								</button>
+								<button
+									type="button"
+									onClick={() => setDeleteId(n.id)}
+									className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+									title="删除"
+								>
+									<Trash2 className="size-4" />
+								</button>
+							</div>
 						</div>
 					))}
 				</div>
