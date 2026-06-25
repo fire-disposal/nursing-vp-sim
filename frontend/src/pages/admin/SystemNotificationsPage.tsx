@@ -1,18 +1,32 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
+import {
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { fromDatetimeLocal, toDatetimeLocal } from "@/lib/date";
+import {
+	type NotificationValues,
+	notificationSchema,
+} from "@/schemas/notification";
 
 interface SystemNotification {
 	id: number;
@@ -42,14 +56,24 @@ function toLocalDateTime(s: string): string {
 	return new Date(iso).toLocaleString("zh-CN");
 }
 
+const DEFAULT_VALUES: NotificationValues = {
+	title: "",
+	content: "",
+	level: "info",
+	published_at: "",
+};
+
 export default function SystemNotificationsPage() {
 	const qc = useQueryClient();
 	const toast = useToast();
 	const [modalOpen, setModalOpen] = useState(false);
-	const [editingId, setEditingId] = useState<number | null>(null);
-	const [form, setForm] = useState({ title: "", content: "", level: "info", published_at: "" });
-	const [saving, setSaving] = useState(false);
+	const [editing, setEditing] = useState<SystemNotification | null>(null);
 	const [deleteId, setDeleteId] = useState<number | null>(null);
+
+	const form = useForm<NotificationValues>({
+		resolver: zodResolver(notificationSchema),
+		defaultValues: DEFAULT_VALUES,
+	});
 
 	const { data, isLoading } = useApiQuery({
 		queryKey: ["system-notifications"],
@@ -58,41 +82,48 @@ export default function SystemNotificationsPage() {
 
 	const notifications = data ?? [];
 
+	useEffect(() => {
+		if (!modalOpen) return;
+		form.reset(
+			editing
+				? {
+						title: editing.title,
+						content: editing.content,
+						level: editing.level as NotificationValues["level"],
+						published_at: toDatetimeLocal(editing.published_at),
+					}
+				: DEFAULT_VALUES,
+		);
+	}, [modalOpen, editing, form]);
+
 	const openCreate = () => {
-		setEditingId(null);
-		setForm({ title: "", content: "", level: "info", published_at: "" });
+		setEditing(null);
 		setModalOpen(true);
 	};
 
-	const handleSubmit = async () => {
-		if (!form.title.trim() || !form.content.trim()) {
-			toast.warning("标题和内容不能为空");
-			return;
-		}
-		setSaving(true);
+	const onSubmit = async (values: NotificationValues) => {
 		try {
+			const publishedAt = fromDatetimeLocal(values.published_at);
 			const body: Record<string, unknown> = {
-				title: form.title,
-				content: form.content,
-				level: form.level,
+				title: values.title,
+				content: values.content,
+				level: values.level,
 				is_active: true,
 			};
-			if (form.published_at) {
-				body.published_at = new Date(form.published_at).toISOString();
+			if (publishedAt) {
+				body.published_at = publishedAt;
 			}
-			if (editingId) {
-				await api.put(`/admin/system-notifications/${editingId}`, body);
+			if (editing) {
+				await api.put(`/admin/system-notifications/${editing.id}`, body);
 				toast.success("已更新");
 			} else {
 				await api.post("/admin/system-notifications", body);
-				toast.success(form.published_at ? "已创建定时通知" : "已发送");
+				toast.success(publishedAt ? "已创建定时通知" : "已发送");
 			}
 			qc.invalidateQueries({ queryKey: ["system-notifications"] });
 			setModalOpen(false);
 		} catch (e) {
 			toast.apiError(e);
-		} finally {
-			setSaving(false);
 		}
 	};
 
@@ -153,37 +184,98 @@ export default function SystemNotificationsPage() {
 			)}
 			<Dialog open={modalOpen} onOpenChange={(o) => !o && setModalOpen(false)}>
 				<DialogContent maxWidth={560}>
-				<div className="space-y-4">
-					<h3 className="text-lg font-semibold">{editingId ? "编辑通知" : "新建通知"}</h3>
-					<div>
-						<Label>标题</Label>
-						<Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="通知标题" />
-					</div>
-					<div>
-						<Label>内容</Label>
-						<Textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} placeholder="通知正文，支持多行" rows={4} />
-					</div>
-					<div>
-						<Label>级别</Label>
-						<select
-							value={form.level}
-							onChange={(e) => setForm((f) => ({ ...f, level: e.target.value }))}
-							className="w-full px-3 py-2 border rounded-lg text-sm"
+					<Form {...form}>
+						<form
+							onSubmit={form.handleSubmit(onSubmit)}
+							className="space-y-4"
 						>
-							<option value="info">通知</option>
-							<option value="warning">警告</option>
-							<option value="success">成功</option>
-						</select>
-					</div>
-					<div>
-						<Label>定时发布（留空即立即发布）</Label>
-						<Input type="datetime-local" value={form.published_at} onChange={(e) => setForm((f) => ({ ...f, published_at: e.target.value }))} />
-					</div>
-					<div className="flex justify-end gap-2 pt-2">
-						<Button variant="outline" onClick={() => setModalOpen(false)}>取消</Button>
-						<Button onClick={handleSubmit} disabled={saving}>{saving ? "保存中..." : editingId ? "更新" : "创建"}</Button>
-					</div>
-				</div>
+							<h3 className="text-lg font-semibold">
+								{editing ? "编辑通知" : "新建通知"}
+							</h3>
+							<FormField
+								control={form.control}
+								name="title"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>标题</FormLabel>
+										<FormControl>
+											<Input placeholder="通知标题" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="content"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>内容</FormLabel>
+										<FormControl>
+											<Textarea
+												placeholder="通知正文，支持多行"
+												rows={4}
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="level"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>级别</FormLabel>
+										<FormControl>
+											<select
+												className="w-full px-3 py-2 border rounded-lg text-sm"
+												{...field}
+											>
+												<option value="info">通知</option>
+												<option value="warning">警告</option>
+												<option value="success">成功</option>
+											</select>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="published_at"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>定时发布（留空即立即发布）</FormLabel>
+										<FormControl>
+											<Input type="datetime-local" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setModalOpen(false)}
+								>
+									取消
+								</Button>
+								<Button
+									type="submit"
+									disabled={form.formState.isSubmitting}
+								>
+									{form.formState.isSubmitting
+										? "保存中..."
+										: editing
+											? "更新"
+											: "创建"}
+								</Button>
+							</DialogFooter>
+						</form>
+					</Form>
 				</DialogContent>
 			</Dialog>
 			<ConfirmDialog

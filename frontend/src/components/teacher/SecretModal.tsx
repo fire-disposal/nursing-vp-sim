@@ -1,9 +1,20 @@
-import { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { createSecret, updateSecret } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import {
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from "@/components/ui/form";
+import { type SecretFormValues, secretFormSchema } from "@/schemas/secret";
 
 type Schemas = components["schemas"];
 type ApiSecretResponse = Schemas["ApiSecretResponse"];
@@ -24,53 +35,57 @@ export default function SecretModal({
 	onClose,
 	onSaved,
 }: SecretModalProps) {
-	const [label, setLabel] = useState("");
-	const [baseUrl, setBaseUrl] = useState("");
-	const [rawKey, setRawKey] = useState("");
-	const [priceInput, setPriceInput] = useState("0.5");
-	const [priceOutput, setPriceOutput] = useState("0.5");
-	const [monthlyLimit, setMonthlyLimit] = useState("");
-	const [saving, setSaving] = useState(false);
 	const { success, apiError } = useToast();
 	const isEdit = secret != null;
 
+	const form = useForm<SecretFormValues>({
+		resolver: zodResolver(secretFormSchema),
+		defaultValues: {
+			label: "",
+			baseUrl: "",
+			rawKey: "",
+			priceInput: 0.5,
+			priceOutput: 0.5,
+			monthlyLimit: null,
+		},
+	});
+
 	useEffect(() => {
 		if (open) {
-			setLabel(secret?.label || "");
-			setBaseUrl(secret?.base_url || "");
-			setRawKey("");
-			setPriceInput(String(secret?.price_input_per_1m ?? 0.5));
-			setPriceOutput(String(secret?.price_output_per_1m ?? 0.5));
-			setMonthlyLimit(
-				secret?.monthly_cost_limit != null
-					? String(secret.monthly_cost_limit)
-					: "",
-			);
+			form.reset({
+				label: secret?.label ?? "",
+				baseUrl: secret?.base_url ?? "",
+				rawKey: "",
+				priceInput: secret?.price_input_per_1m ?? 0.5,
+				priceOutput: secret?.price_output_per_1m ?? 0.5,
+				monthlyLimit: secret?.monthly_cost_limit ?? null,
+			});
 		}
-	}, [open, secret]);
+	}, [open, secret, form]);
 
-	const handleSave = async () => {
-		if (!label.trim()) return;
-		if (!isEdit && !rawKey.trim()) return;
-		setSaving(true);
+	const onSubmit = async (values: SecretFormValues) => {
+		if (!isEdit && !values.rawKey?.trim()) {
+			form.setError("rawKey", { message: "创建时必须填写 API Key" });
+			return;
+		}
 		try {
 			const pricing = {
-				price_input_per_1m: parseFloat(priceInput) || 0,
-				price_output_per_1m: parseFloat(priceOutput) || 0,
-				monthly_cost_limit: monthlyLimit ? parseFloat(monthlyLimit) : null,
+				price_input_per_1m: values.priceInput,
+				price_output_per_1m: values.priceOutput,
+				monthly_cost_limit: values.monthlyLimit,
 			};
 			if (isEdit) {
 				await updateSecret(secret.id, {
-					label: label.trim(),
-					base_url: baseUrl.trim(),
+					label: values.label.trim(),
+					base_url: values.baseUrl?.trim() ?? "",
 					...pricing,
 				});
 				success("密钥已更新");
 			} else {
 				await createSecret({
-					label: label.trim(),
-					raw_key: rawKey.trim(),
-					base_url: baseUrl.trim() || undefined,
+					label: values.label.trim(),
+					raw_key: values.rawKey?.trim() ?? "",
+					base_url: values.baseUrl?.trim() || undefined,
 					...pricing,
 				});
 				success("密钥已创建");
@@ -79,8 +94,6 @@ export default function SecretModal({
 			onClose();
 		} catch (e: unknown) {
 			apiError(e, "保存失败");
-		} finally {
-			setSaving(false);
 		}
 	};
 
@@ -90,88 +103,168 @@ export default function SecretModal({
 				title={isEdit ? "编辑密钥凭证" : "添加密钥凭证"}
 				maxWidth={560}
 			>
-			<div className="flex flex-col gap-3">
-				<label>
-					<div className="mb-1 font-semibold text-sm">标签</div>
-					<input
-						value={label}
-						onChange={(e) => setLabel(e.target.value)}
-						placeholder="如: DeepSeek 个人账号"
-						className={inputClass}
-					/>
-				</label>
-				<label>
-					<div className="mb-1 font-semibold text-sm">API 端点 (Base URL)</div>
-					<input
-						value={baseUrl}
-						onChange={(e) => setBaseUrl(e.target.value)}
-						placeholder="https://api.deepseek.com"
-						className={`${inputClass} font-mono`}
-					/>
-				</label>
-				{!isEdit && (
-					<label>
-						<div className="mb-1 font-semibold text-sm">API Key</div>
-						<input
-							type="password"
-							value={rawKey}
-							onChange={(e) => setRawKey(e.target.value)}
-							placeholder="sk-..."
-							className={inputClass}
-						/>
-					</label>
-				)}
-				<div className="grid grid-cols-2 gap-3">
-					<label>
-						<div className="mb-1 font-semibold text-sm">
-							输入价格 (¥/1M tokens)
+				<Form {...form}>
+					<form onSubmit={form.handleSubmit(onSubmit)}>
+						<div className="flex flex-col gap-3">
+							<FormField
+								control={form.control}
+								name="label"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="mb-1 font-semibold text-sm">
+											标签
+										</FormLabel>
+										<FormControl>
+											<input
+												placeholder="如: DeepSeek 个人账号"
+												className={inputClass}
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="baseUrl"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="mb-1 font-semibold text-sm">
+											API 端点 (Base URL)
+										</FormLabel>
+										<FormControl>
+											<input
+												placeholder="https://api.deepseek.com"
+												className={`${inputClass} font-mono`}
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							{!isEdit && (
+								<FormField
+									control={form.control}
+									name="rawKey"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="mb-1 font-semibold text-sm">
+												API Key
+											</FormLabel>
+											<FormControl>
+												<input
+													type="password"
+													placeholder="sk-..."
+													className={inputClass}
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							)}
+							<div className="grid grid-cols-2 gap-3">
+								<FormField
+									control={form.control}
+									name="priceInput"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="mb-1 font-semibold text-sm">
+												输入价格 (¥/1M tokens)
+											</FormLabel>
+											<FormControl>
+											<input
+												type="number"
+												step="0.01"
+												min="0"
+												className={inputClass}
+												{...field}
+												value={Number.isNaN(field.value) ? "" : field.value}
+												onChange={(e) =>
+													field.onChange(
+														e.target.value === ""
+															? Number.NaN
+															: e.target.valueAsNumber,
+													)
+												}
+											/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="priceOutput"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="mb-1 font-semibold text-sm">
+												输出价格 (¥/1M tokens)
+											</FormLabel>
+											<FormControl>
+											<input
+												type="number"
+												step="0.01"
+												min="0"
+												className={inputClass}
+												{...field}
+												value={Number.isNaN(field.value) ? "" : field.value}
+												onChange={(e) =>
+													field.onChange(
+														e.target.value === ""
+															? Number.NaN
+															: e.target.valueAsNumber,
+													)
+												}
+											/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</div>
+							<FormField
+								control={form.control}
+								name="monthlyLimit"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="mb-1 font-semibold text-sm">
+											月度预算上限 (¥, 留空不限制)
+										</FormLabel>
+										<FormControl>
+											<input
+												type="number"
+												step="0.01"
+												min="0"
+												placeholder="如: 100.00"
+												className={inputClass}
+												{...field}
+												value={field.value ?? ""}
+												onChange={(e) =>
+													field.onChange(
+														e.target.value === "" ? null : e.target.valueAsNumber,
+													)
+												}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 						</div>
-						<input
-							type="number"
-							step="0.01"
-							min="0"
-							value={priceInput}
-							onChange={(e) => setPriceInput(e.target.value)}
-							className={inputClass}
-						/>
-					</label>
-					<label>
-						<div className="mb-1 font-semibold text-sm">
-							输出价格 (¥/1M tokens)
-						</div>
-						<input
-							type="number"
-							step="0.01"
-							min="0"
-							value={priceOutput}
-							onChange={(e) => setPriceOutput(e.target.value)}
-							className={inputClass}
-						/>
-					</label>
-				</div>
-				<label>
-					<div className="mb-1 font-semibold text-sm">
-						月度预算上限 (¥, 留空不限制)
-					</div>
-					<input
-						type="number"
-						step="0.01"
-						min="0"
-						value={monthlyLimit}
-						onChange={(e) => setMonthlyLimit(e.target.value)}
-						placeholder="如: 100.00"
-						className={inputClass}
-					/>
-				</label>
-				<div className="flex justify-end gap-2">
-					<Button variant="outline" onClick={onClose}>
-						取消
-					</Button>
-					<Button onClick={handleSave} disabled={saving}>
-						{saving ? "保存中..." : "保存"}
-					</Button>
-				</div>
-			</div>
+						<DialogFooter className="mt-4">
+							<Button variant="outline" type="button" onClick={onClose}>
+								取消
+							</Button>
+							<Button type="submit" disabled={form.formState.isSubmitting}>
+								{form.formState.isSubmitting ? "保存中..." : "保存"}
+							</Button>
+						</DialogFooter>
+					</form>
+				</Form>
 			</DialogContent>
 		</Dialog>
 	);
