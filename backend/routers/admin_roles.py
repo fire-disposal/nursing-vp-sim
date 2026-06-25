@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import require_permission
+from core.security import require_permission, tenant_scope
 from models import Role, RolePermission, User
 from schemas import (
     DeleteResponse,
@@ -28,7 +28,10 @@ def list_roles(
     db: Session = Depends(get_db),
     search: Annotated[str, Query()] = "",
 ):
-    query = db.query(Role).filter(Role.school_id == current_user.school_id)
+    scope = tenant_scope(current_user)
+    query = db.query(Role)
+    if scope is not None:
+        query = query.filter(Role.school_id == scope)
     if search:
         query = query.filter(Role.display_name.ilike(f"%{search}%"))
     roles = query.order_by(Role.id).all()
@@ -70,7 +73,11 @@ def create_role(
     current_user: User = Depends(require_permission("role_manage")),
     db: Session = Depends(get_db),
 ):
-    if db.query(Role).filter(Role.name == req.name, Role.school_id == current_user.school_id).first():
+    scope = tenant_scope(current_user)
+    q = db.query(Role).filter(Role.name == req.name)
+    if scope is not None:
+        q = q.filter(Role.school_id == scope)
+    if q.first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="角色名已存在")
 
     role = Role(name=req.name, display_name=req.display_name, school_id=current_user.school_id, is_system=False)
@@ -109,8 +116,11 @@ def update_role(
     current_user: User = Depends(require_permission("role_manage")),
     db: Session = Depends(get_db),
 ):
-    role = db.query(Role).filter(Role.id == role_id, Role.school_id == current_user.school_id).first()
+    role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    scope = tenant_scope(current_user)
+    if scope is not None and role.school_id != scope:
         raise HTTPException(status_code=404, detail="角色不存在")
 
     if role.is_system:
@@ -156,8 +166,11 @@ def delete_role(
     current_user: User = Depends(require_permission("role_manage")),
     db: Session = Depends(get_db),
 ):
-    role = db.query(Role).filter(Role.id == role_id, Role.school_id == current_user.school_id).first()
+    role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
+        raise HTTPException(status_code=404, detail="角色不存在")
+    scope = tenant_scope(current_user)
+    if scope is not None and role.school_id != scope:
         raise HTTPException(status_code=404, detail="角色不存在")
 
     if role.is_system:

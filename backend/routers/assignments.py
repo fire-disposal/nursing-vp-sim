@@ -131,7 +131,11 @@ def create_assignment(
     practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
     if not practice:
         raise HTTPException(status_code=404, detail="练习不存在")
-    if practice.case.school_id is not None and practice.case.school_id != current_user.school_id:
+    if (
+        not current_user.is_super_admin
+        and practice.case.school_id is not None
+        and practice.case.school_id != current_user.school_id
+    ):
         raise HTTPException(status_code=403, detail="无权使用该校病例")
 
     if req.end_time <= req.start_time:
@@ -243,7 +247,11 @@ def update_assignment(
         practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
         if not practice:
             raise HTTPException(status_code=404, detail="练习不存在")
-        if practice.case.school_id is not None and practice.case.school_id != current_user.school_id:
+        if (
+            not current_user.is_super_admin
+            and practice.case.school_id is not None
+            and practice.case.school_id != current_user.school_id
+        ):
             raise HTTPException(status_code=403, detail="无权使用该校病例")
         assignment.practice_id = req.practice_id
     if req.class_id is not None:

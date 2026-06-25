@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.config import BATCH_USER_LIMIT
 from core.database import get_db
-from core.security import hash_password, require_permission
+from core.security import hash_password, require_permission, tenant_scope
 from models import Class, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
     AdminStats,
@@ -38,7 +38,10 @@ def list_users(
     current_user: User = Depends(require_permission("user_manage")),
     db: Session = Depends(get_db),
 ):
-    q = db.query(User).filter(User.school_id == current_user.school_id)
+    scope = tenant_scope(current_user)
+    q = db.query(User)
+    if scope is not None:
+        q = q.filter(User.school_id == scope)
     if class_id is not None or grade_id is not None:
         q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
         if class_id is not None:
@@ -110,7 +113,7 @@ def update_user(
     )
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-    if current_user.school_id is not None and user.school_id != current_user.school_id:
+    if not current_user.is_super_admin and user.school_id is not None and user.school_id != current_user.school_id:
         raise HTTPException(status_code=404, detail="用户不存在")
 
     if req.display_name is not None:
@@ -180,13 +183,11 @@ def get_user_detail(
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    user = (
-        db.query(User)
-        .options(joinedload(User.role))
-        .filter(User.id == user_id, User.school_id == current_user.school_id)
-        .first()
-    )
+    scope = tenant_scope(current_user)
+    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
     if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if scope is not None and user.school_id != scope:
         raise HTTPException(status_code=404, detail="用户不存在")
 
     now = datetime.now(UTC)
@@ -298,7 +299,7 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-    if current_user.school_id is not None and user.school_id != current_user.school_id:
+    if not current_user.is_super_admin and user.school_id is not None and user.school_id != current_user.school_id:
         raise HTTPException(status_code=404, detail="用户不存在")
 
     record_count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.user_id == user_id).scalar() or 0
@@ -388,52 +389,60 @@ def batch_create_users(
 def get_stats(
     current_user: Annotated[User, Depends(require_permission("stats_view"))], db: Annotated[Session, Depends(get_db)]
 ):
+    scope = tenant_scope(current_user)
     student_role_id = None
     student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
     if student_role:
         student_role_id = student_role.id
-    total_students = (
-        db.query(User).filter(User.role_id == student_role_id, User.school_id == current_user.school_id).count()
-        if student_role_id
-        else 0
-    )
-    total_records = db.query(TrainingRecord).join(User).filter(User.school_id == current_user.school_id).count()
-    completed_records = (
-        db.query(TrainingRecord)
-        .join(User)
-        .filter(User.school_id == current_user.school_id, TrainingRecord.status == "completed")
-        .count()
-    )
-    avg_score = (
+    if student_role_id:
+        q = db.query(User).filter(User.role_id == student_role_id)
+        if scope is not None:
+            q = q.filter(User.school_id == scope)
+        total_students = q.count()
+    else:
+        total_students = 0
+
+    q = db.query(TrainingRecord).join(User)
+    if scope is not None:
+        q = q.filter(User.school_id == scope)
+    total_records = q.count()
+
+    q = db.query(TrainingRecord).join(User).filter(TrainingRecord.status == "completed")
+    if scope is not None:
+        q = q.filter(User.school_id == scope)
+    completed_records = q.count()
+
+    q = (
         db.query(func.avg(Score.total_score))
         .join(TrainingRecord, Score.record_id == TrainingRecord.id)
         .join(User, TrainingRecord.user_id == User.id)
-        .filter(User.school_id == current_user.school_id)
-        .scalar()
     )
+    if scope is not None:
+        q = q.filter(User.school_id == scope)
+    avg_score = q.scalar()
 
-    avg_duration = (
+    q = (
         db.query(func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60))
         .join(User, TrainingRecord.user_id == User.id)
         .filter(
             TrainingRecord.status == "completed",
             TrainingRecord.end_time.isnot(None),
             TrainingRecord.start_time.isnot(None),
-            User.school_id == current_user.school_id,
         )
-        .scalar()
     )
+    if scope is not None:
+        q = q.filter(User.school_id == scope)
+    avg_duration = q.scalar()
 
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    today_records = (
+    q = (
         db.query(func.count(TrainingRecord.id))
         .join(User, TrainingRecord.user_id == User.id)
-        .filter(
-            TrainingRecord.start_time >= today_start,
-            User.school_id == current_user.school_id,
-        )
-        .scalar()
-    ) or 0
+        .filter(TrainingRecord.start_time >= today_start)
+    )
+    if scope is not None:
+        q = q.filter(User.school_id == scope)
+    today_records = q.scalar() or 0
 
     return AdminStats(
         total_students=total_students,

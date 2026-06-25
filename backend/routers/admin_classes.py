@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.security import require_permission
+from core.security import require_permission, tenant_scope
 from models import Assignment, Class, Grade, User, UserClass
 from schemas import ClassCreate, ClassResponse, ClassUpdate, DeleteResponse
 
@@ -20,7 +20,9 @@ def list_classes(
 ):
     q = db.query(Class, Grade.name.label("grade_name"))
     q = q.join(Grade, Grade.id == Class.grade_id)
-    q = q.filter(Grade.school_id == current_user.school_id)
+    scope = tenant_scope(current_user)
+    if scope is not None:
+        q = q.filter(Grade.school_id == scope)
     if grade_id is not None:
         q = q.filter(Class.grade_id == grade_id)
     rows = q.order_by(Grade.name, Class.name).all()
@@ -55,8 +57,11 @@ def create_class(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    grade = db.query(Grade).filter(Grade.id == body.grade_id, Grade.school_id == current_user.school_id).first()
+    grade = db.query(Grade).filter(Grade.id == body.grade_id).first()
     if not grade:
+        raise HTTPException(status_code=404, detail="年级不存在")
+    scope = tenant_scope(current_user)
+    if scope is not None and grade.school_id != scope:
         raise HTTPException(status_code=404, detail="年级不存在")
     dup = db.query(Class).filter(Class.grade_id == body.grade_id, Class.name == body.name).first()
     if dup:
@@ -82,12 +87,18 @@ def update_class(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    cls = db.query(Class).join(Grade).filter(Class.id == class_id, Grade.school_id == current_user.school_id).first()
+    scope = tenant_scope(current_user)
+    cls_q = db.query(Class).join(Grade).filter(Class.id == class_id)
+    if scope is not None:
+        cls_q = cls_q.filter(Grade.school_id == scope)
+    cls = cls_q.first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
     if body.grade_id is not None:
-        grade = db.query(Grade).filter(Grade.id == body.grade_id, Grade.school_id == current_user.school_id).first()
+        grade = db.query(Grade).filter(Grade.id == body.grade_id).first()
         if not grade:
+            raise HTTPException(status_code=404, detail="年级不存在")
+        if scope is not None and grade.school_id != scope:
             raise HTTPException(status_code=404, detail="年级不存在")
         cls.grade_id = body.grade_id
     if body.name is not None:
@@ -123,7 +134,11 @@ def delete_class(
     current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    cls = db.query(Class).join(Grade).filter(Class.id == class_id, Grade.school_id == current_user.school_id).first()
+    scope = tenant_scope(current_user)
+    cls_q = db.query(Class).join(Grade).filter(Class.id == class_id)
+    if scope is not None:
+        cls_q = cls_q.filter(Grade.school_id == scope)
+    cls = cls_q.first()
     if not cls:
         raise HTTPException(status_code=404, detail="班级不存在")
 

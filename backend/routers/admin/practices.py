@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.capabilities import ALL_CAPABILITIES
 from core.database import get_db
 from core.pagination import paginate
-from core.security import require_permission
+from core.security import require_permission, tenant_scope
 from models import Assignment, Case, Practice, TrainingRecord, User
 from schemas import (
     DeleteResponse,
@@ -50,8 +50,9 @@ def list_practices(
     db: Session = Depends(get_db),
 ):
     query = db.query(Practice).options(joinedload(Practice.case)).order_by(Practice.created_at.desc())
-    if current_user.school_id is not None:
-        query = query.filter((Practice.school_id == current_user.school_id) | (Practice.school_id.is_(None)))
+    scope = tenant_scope(current_user)
+    if scope is not None:
+        query = query.filter((Practice.school_id == scope) | (Practice.school_id.is_(None)))
     practices, total = paginate(query, offset, limit)
 
     practice_ids = [p.id for p in practices]

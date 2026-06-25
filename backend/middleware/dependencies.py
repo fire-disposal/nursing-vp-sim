@@ -9,12 +9,6 @@ from middleware.rate_limits import PgRateLimiter
 log = logging.getLogger(__name__)
 
 
-def resolve_school_filter(source_user, school_id_param: int | None = None) -> int | None:
-    if source_user is None:
-        return school_id_param
-    return source_user.school_id
-
-
 def get_rate_limiter(request: Request) -> PgRateLimiter:
     return request.app.state.rate_limiter
 
