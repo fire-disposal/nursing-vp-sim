@@ -1,17 +1,27 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Save, Shield, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
+import {
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { type RoleCreateValues, roleCreateSchema } from "@/schemas/role";
 
 interface RoleItem {
 	id: number;
@@ -47,10 +57,13 @@ export default function RolesPage() {
 	const [editId, setEditId] = useState<number | null>(null);
 	const [editPerms, setEditPerms] = useState<string[]>([]);
 	const [showCreate, setShowCreate] = useState(false);
-	const [newName, setNewName] = useState("");
-	const [newDisplayName, setNewDisplayName] = useState("");
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
 	const { confirm } = useConfirm();
+
+	const form = useForm<RoleCreateValues>({
+		resolver: zodResolver(roleCreateSchema),
+		defaultValues: { name: "", displayName: "" },
+	});
 
 	const loadRoles = useCallback(async () => {
 		setLoading(true);
@@ -93,16 +106,15 @@ export default function RolesPage() {
 		}
 	};
 
-	const handleCreate = async () => {
-		if (!newName.trim() || !newDisplayName.trim()) {
-			toast.error("请填写角色名和显示名");
-			return;
-		}
+	const onSubmit = async (values: RoleCreateValues) => {
 		try {
-			await createRole({ name: newName, display_name: newDisplayName, permissions: [] });
+			await createRole({
+				name: values.name,
+				display_name: values.displayName,
+				permissions: [],
+			});
 			toast.success("角色已创建，请编辑权限");
-			setNewName("");
-			setNewDisplayName("");
+			form.reset();
 			setShowCreate(false);
 			loadRoles();
 		} catch (e: unknown) {
@@ -131,7 +143,12 @@ export default function RolesPage() {
 					title="角色管理"
 					subtitle="管理用户角色与权限"
 					actions={
-						<Button onClick={() => setShowCreate(true)}>
+						<Button
+							onClick={() => {
+								form.reset();
+								setShowCreate(true);
+							}}
+						>
 							<Plus size={16} /> 新建角色
 						</Button>
 					}
@@ -258,34 +275,66 @@ export default function RolesPage() {
 					open={showCreate}
 					onOpenChange={(o) => {
 						if (!o) {
-							setNewName("");
-							setNewDisplayName("");
+							form.reset();
 							setShowCreate(false);
 						}
 					}}
 				>
 					<DialogContent title="新建角色" maxWidth={560}>
-					<div className="space-y-4 py-2">
-						<div>
-							<Label>角色标识</Label>
-							<Input
-								value={newName}
-								onChange={(e) => setNewName(e.target.value)}
-								placeholder="英文标识，如：intern_teacher"
-							/>
-						</div>
-						<div>
-							<Label>显示名称</Label>
-							<Input
-								value={newDisplayName}
-								onChange={(e) => setNewDisplayName(e.target.value)}
-								placeholder="如：见习教师"
-							/>
-						</div>
-						<Button className="w-full" onClick={handleCreate}>
-							创建角色
-						</Button>
-					</div>
+						<Form {...form}>
+							<form
+								onSubmit={form.handleSubmit(onSubmit)}
+								className="space-y-4 py-2"
+							>
+								<FormField
+									control={form.control}
+									name="name"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>角色标识</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="英文标识，如：intern_teacher"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="displayName"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>显示名称</FormLabel>
+											<FormControl>
+												<Input placeholder="如：见习教师" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<DialogFooter>
+									<Button
+										type="button"
+										variant="outline"
+										onClick={() => {
+											form.reset();
+											setShowCreate(false);
+										}}
+									>
+										取消
+									</Button>
+									<Button
+										type="submit"
+										disabled={form.formState.isSubmitting}
+									>
+										{form.formState.isSubmitting ? "创建中..." : "创建角色"}
+									</Button>
+								</DialogFooter>
+							</form>
+						</Form>
 					</DialogContent>
 				</Dialog>
 			</div>

@@ -1,11 +1,12 @@
 import { ClipboardList, Edit3, Plus, Trash2, Wand2 } from "lucide-react";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import EmptyState from "@/components/ui/empty-state";
+import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import { DifficultyBadge } from "@/components/ui/difficulty-badge";
 import Pagination from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import type { CaseManageItem } from "./types";
-import { difficultyLabel, inputClass } from "./types";
+import { inputClass } from "./types";
 
 interface CaseListProps {
 	cases: CaseManageItem[];
@@ -38,6 +39,81 @@ export default function CaseList({
 	onEdit,
 	onDelete,
 }: CaseListProps) {
+	const columns: DataTableColumn<CaseManageItem>[] = [
+		{
+			key: "name",
+			header: "病例名称",
+			cellClassName: "font-medium",
+			render: (c) => c.name,
+		},
+		{
+			key: "difficulty",
+			header: "难度",
+			render: (c) => <DifficultyBadge level={c.difficulty} />,
+		},
+		{
+			key: "patient",
+			header: "患者",
+			render: (c) =>
+				c.patient_name
+					? `${c.patient_name}${c.patient_age ? ` · ${c.patient_age}岁` : ""}${c.patient_gender ? ` · ${c.patient_gender}` : ""}`
+					: "-",
+		},
+		{
+			key: "chief_complaint",
+			header: "主诉",
+			cellClassName:
+				"max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap",
+			render: (c) => c.chief_complaint || "-",
+		},
+		{
+			key: "time_limit",
+			header: "时限",
+			render: (c) => <Badge variant="info">{c.time_limit || 20} 分钟</Badge>,
+		},
+		{
+			key: "training_count",
+			header: "训练次数",
+			render: (c) => (
+				<span
+					className={cn(
+						"font-medium",
+						c.training_count > 0
+							? "text-primary"
+							: "text-muted-foreground/70",
+					)}
+				>
+					{c.training_count}
+				</span>
+			),
+		},
+		{
+			key: "actions",
+			header: "操作",
+			render: (c) => (
+				<div className="flex gap-2">
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() => onEdit(c)}
+						title="编辑"
+					>
+						<Edit3 size={14} />
+					</Button>
+					<Button
+						size="sm"
+						variant="danger"
+						onClick={() => onDelete(c)}
+						disabled={c.training_count > 0}
+						title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}
+					>
+						<Trash2 size={14} />
+					</Button>
+				</div>
+			),
+		},
+	];
+
 	return (
 		<>
 			<div className="mb-4 flex gap-3">
@@ -90,97 +166,16 @@ export default function CaseList({
 				<div className="mb-4 flex items-center justify-between">
 					<span className="text-sm text-muted-foreground">共 {total} 条</span>
 				</div>
-				{cases.length === 0 ? (
-					<EmptyState icon={ClipboardList} title="暂无病例，点击上方按钮添加" />
-				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full border-collapse text-sm">
-							<thead>
-								<tr>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										病例名称
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										难度
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										患者
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										主诉
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										时限
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										训练次数
-									</th>
-									<th className="sticky top-0 z-10 text-left px-4 py-2.5 bg-muted text-muted-foreground font-semibold text-xs uppercase tracking-wider border-b border-border">
-										操作
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{cases.map((c) => (
-									<tr key={c.id} className="hover:bg-muted">
-										<td className="px-4 py-3 border-b border-border font-medium">
-											{c.name}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											{difficultyLabel(c.difficulty)}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											{c.patient_name
-												? `${c.patient_name}${c.patient_age ? ` · ${c.patient_age}岁` : ""}${c.patient_gender ? ` · ${c.patient_gender}` : ""}`
-												: "-"}
-										</td>
-										<td className="px-4 py-3 border-b border-border max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
-											{c.chief_complaint || "-"}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<Badge variant="info">{c.time_limit || 20} 分钟</Badge>
-										</td>
-										<td
-											className={cn(
-												"px-4 py-3 border-b border-border font-medium",
-												c.training_count > 0
-													? "text-primary"
-													: "text-muted-foreground/70",
-											)}
-										>
-											{c.training_count}
-										</td>
-										<td className="px-4 py-3 border-b border-border">
-											<div className="flex gap-2">
-												<Button
-													size="sm"
-													variant="ghost"
-													onClick={() => onEdit(c)}
-													title="编辑"
-												>
-													<Edit3 size={14} />
-												</Button>
-												<Button
-													size="sm"
-													variant="danger"
-													onClick={() => onDelete(c)}
-													disabled={c.training_count > 0}
-													title={
-														c.training_count > 0
-															? "有训练记录，无法删除"
-															: "删除"
-													}
-												>
-													<Trash2 size={14} />
-												</Button>
-											</div>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				)}
+
+				<DataTable
+					bare
+					columns={columns}
+					rows={cases}
+					rowKey={(c) => c.id}
+					emptyIcon={ClipboardList}
+					emptyTitle="暂无病例，点击上方按钮添加"
+				/>
+
 				<Pagination
 					total={total}
 					offset={offset}
