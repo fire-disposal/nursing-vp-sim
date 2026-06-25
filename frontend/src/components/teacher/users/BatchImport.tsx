@@ -1,6 +1,7 @@
 import { AlertCircle, Download, FileText, Upload, Users } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { RoleBadge } from "@/components/ui/role-badge";
 import { btnPrimary, btnSecondary } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import type { BatchUser, RoleOption } from "./types";
@@ -217,19 +218,13 @@ export default function BatchImport({
 											{u.display_name}
 										</td>
 										<td className="px-4 py-3 border-b border-border">
-											<span
-												className={cn(
-													"inline-block px-2.5 py-0.5 rounded-xl text-xs font-semibold",
-													u.role === "super_admin" || u.role === "school_admin"
-														? "bg-danger text-danger-foreground"
-														: u.role === "teacher"
-															? "bg-info text-info-foreground"
-															: "bg-success text-success-foreground",
-												)}
-											>
-												{roles.find((r) => r.name === u.role)?.display_name ||
-													u.role}
-											</span>
+											<RoleBadge
+												role={u.role}
+												label={
+													roles.find((r) => r.name === u.role)?.display_name ||
+													u.role
+												}
+											/>
 										</td>
 										<td className="px-4 py-3 border-b border-border text-muted-foreground">
 											{u.student_id || "-"}
