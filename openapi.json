@@ -13412,6 +13412,65 @@
         ],
         "title": "QuestionnaireQuestionResponse"
       },
+      "QuestionnaireQuestionSync": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "question_type": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Question Type"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "default": 0
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content",
+          "question_type"
+        ],
+        "title": "QuestionnaireQuestionSync",
+        "description": "Question payload for template update — id present = update existing, absent = create new."
+      },
       "QuestionnaireQuestionUpdate": {
         "properties": {
           "content": {
@@ -13904,6 +13963,20 @@
               }
             ],
             "title": "Is Active"
+          },
+          "questions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/QuestionnaireQuestionSync"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions"
           }
         },
         "additionalProperties": false,

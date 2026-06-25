@@ -4228,6 +4228,30 @@ export interface components {
             /** Options */
             options?: string[] | null;
         };
+        /**
+         * QuestionnaireQuestionSync
+         * @description Question payload for template update — id present = update existing, absent = create new.
+         */
+        QuestionnaireQuestionSync: {
+            /** Id */
+            id?: number | null;
+            /** Content */
+            content: string;
+            /** Question Type */
+            question_type: string;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+            /** Options */
+            options?: string[] | null;
+        };
         /** QuestionnaireQuestionUpdate */
         QuestionnaireQuestionUpdate: {
             /** Content */
@@ -4428,6 +4452,8 @@ export interface components {
             description?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Questions */
+            questions?: components["schemas"]["QuestionnaireQuestionSync"][] | null;
         };
         /** RankingItem */
         RankingItem: {

@@ -34,6 +34,18 @@ class QuestionnaireQuestionResponse(BaseModel):
     options: list[str] | None = None
 
 
+class QuestionnaireQuestionSync(BaseModel):
+    """Question payload for template update — id present = update existing, absent = create new."""
+
+    model_config = _REQ_CFG
+    id: int | None = None
+    content: str = Field(min_length=1, max_length=2000)
+    question_type: str = Field(min_length=1, max_length=20)
+    required: bool = True
+    sort_order: int = 0
+    options: list[str] | None = None
+
+
 class QuestionnaireTemplateCreate(BaseModel):
     model_config = _REQ_CFG
     title: str = Field(min_length=1, max_length=120)
@@ -49,6 +61,7 @@ class QuestionnaireTemplateUpdate(BaseModel):
     type: str | None = Field(default=None, max_length=20)
     description: str | None = None
     is_active: bool | None = None
+    questions: list["QuestionnaireQuestionSync"] | None = None
 
 
 class QuestionnaireTemplateResponse(BaseModel):

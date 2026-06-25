@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -12,6 +13,7 @@ from middleware.dependencies import resolve_school_filter
 from models import (
     Case,
     CaseQuestionnaire,
+    QuestionnaireAnswer,
     QuestionnaireQuestion,
     QuestionnaireTemplate,
     User,
@@ -172,6 +174,39 @@ def update_template(
         t.description = req.description
     if req.is_active is not None:
         t.is_active = req.is_active
+    if req.questions is not None:
+        existing = {q.id: q for q in (t.questions or [])}
+        seen_ids: set[int] = set()
+        for i, qin in enumerate(req.questions):
+            if qin.id is not None and qin.id in existing:
+                q = existing[qin.id]
+                q.content = qin.content
+                q.question_type = qin.question_type
+                q.required = qin.required
+                q.sort_order = qin.sort_order or i
+                q.options = qin.options
+                seen_ids.add(qin.id)
+            else:
+                db.add(
+                    QuestionnaireQuestion(
+                        template_id=t.id,
+                        content=qin.content,
+                        question_type=qin.question_type,
+                        required=qin.required,
+                        sort_order=qin.sort_order or i,
+                        options=qin.options,
+                    )
+                )
+        # Delete removed questions, but preserve any that already have submitted answers.
+        for qid, q in existing.items():
+            if qid in seen_ids:
+                continue
+            answered = (
+                db.query(func.count(QuestionnaireAnswer.id)).filter(QuestionnaireAnswer.question_id == qid).scalar()
+                or 0
+            )
+            if answered == 0:
+                db.delete(q)
     t.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(t)

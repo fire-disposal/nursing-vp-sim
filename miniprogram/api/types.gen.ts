@@ -827,6 +827,15 @@ export interface QuestionnaireQuestionResponse {
   options?: string[] | null
 }
 
+export interface QuestionnaireQuestionSync {
+  id?: number | null
+  content: string
+  question_type: string
+  required?: boolean
+  sort_order?: number
+  options?: string[] | null
+}
+
 export interface QuestionnaireQuestionUpdate {
   content?: string | null
   question_type?: string | null
@@ -906,6 +915,7 @@ export interface QuestionnaireTemplateUpdate {
   type?: string | null
   description?: string | null
   is_active?: boolean | null
+  questions?: QuestionnaireQuestionSync[] | null
 }
 
 export interface RankingItem {
