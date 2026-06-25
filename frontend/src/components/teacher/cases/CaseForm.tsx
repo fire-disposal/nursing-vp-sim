@@ -37,7 +37,7 @@ interface CaseFormProps {
 const PLUGIN_OPTIONS = [
 	{
 		id: "emotion",
-		label: "患者情绪状态机",
+		label: "情绪状态机",
 		desc: "5态情绪模型，根据学生用语动态变化患者情绪反应",
 	},
 	{
@@ -47,14 +47,23 @@ const PLUGIN_OPTIONS = [
 	},
 	{
 		id: "patient_initiative",
-		label: "患者自主反应",
+		label: "患者追问",
 		desc: "患者根据性格/情绪/等待时长主动发言（需同时启用情绪状态机）",
 	},
-
 	{
 		id: "questionnaire",
 		label: "问卷评估",
 		desc: "训练结束后弹出评估问卷供学生填写",
+	},
+	{
+		id: "exam_emotion_bridge",
+		label: "查体-情绪联动",
+		desc: "查体结果联动影响患者情绪状态",
+	},
+	{
+		id: "allow_pause",
+		label: "允许暂停",
+		desc: "允许学生在训练中暂停倒计时",
 	},
 ];
 

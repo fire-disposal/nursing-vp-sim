@@ -21,12 +21,12 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
-import EmptyState from "@/components/ui/empty-state";
 import {
 	Dialog,
 	DialogContent,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import EmptyState from "@/components/ui/empty-state";
 import RubricEditor from "./RubricEditor";
 
 type Schemas = components["schemas"];
@@ -421,6 +421,7 @@ export default function RubricTab() {
 							<RubricEditor
 								dimensions={formDims}
 								onChange={applyStructuredDims}
+								rawScale={formRawScale}
 							/>
 						) : (
 							<div>

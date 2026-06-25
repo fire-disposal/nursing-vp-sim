@@ -126,21 +126,41 @@ export default function App() {
 												<Route path="/admin/costs" element={<CostManagement />} />
 												<Route path="/admin/cases" element={<AdminCases />} />
 												<Route path="/admin/practices" element={<PracticesPage />} />
-												<Route path="/admin/users" element={<AdminUsers />} />
+												<Route path="/admin/users" element={
+													<PermissionGuard permission="user_manage">
+														<AdminUsers />
+													</PermissionGuard>
+												} />
 												<Route
 													path="/admin/users/:userId"
-													element={<AdminUserDetail />}
+													element={
+													<PermissionGuard permission="user_manage">
+														<AdminUserDetail />
+													</PermissionGuard>
+												}
 												/>
 												<Route
 													path="/admin/grades-classes"
-													element={<AdminGradesClasses />}
+													element={
+													<PermissionGuard permission="grade_class_manage">
+														<AdminGradesClasses />
+													</PermissionGuard>
+												}
 												/>
 												<Route
 													path="/admin/feedback"
 													element={<AdminFeedback />}
 												/>
-												<Route path="/admin/schools" element={<AdminSchools />} />
-												<Route path="/admin/roles" element={<AdminRoles />} />
+												<Route path="/admin/schools" element={
+													<PermissionGuard permission="school_manage">
+														<AdminSchools />
+													</PermissionGuard>
+												} />
+												<Route path="/admin/roles" element={
+													<PermissionGuard permission="role_manage">
+														<AdminRoles />
+													</PermissionGuard>
+												} />
 												<Route
 													path="/admin/questionnaires"
 													element={<AdminQuestionnaires />}

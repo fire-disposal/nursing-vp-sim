@@ -19,6 +19,7 @@ interface RubricDimension {
 interface RubricEditorProps {
 	dimensions: RubricDimension[];
 	onChange: (dims: RubricDimension[]) => void;
+	rawScale?: number;
 }
 
 const inputClass =
@@ -27,7 +28,10 @@ const inputClass =
 export default function RubricEditor({
 	dimensions,
 	onChange,
+	rawScale = 3,
 }: RubricEditorProps) {
+	const scores = Array.from({ length: rawScale }, (_, i) => String(i + 1));
+
 	const updateDim = (idx: number, patch: Partial<RubricDimension>) => {
 		const next = [...dimensions];
 		next[idx] = { ...next[idx], ...patch };
@@ -54,7 +58,7 @@ export default function RubricEditor({
 				{
 					id: crypto.randomUUID(),
 					name: "",
-					anchors: { "1": "", "2": "", "3": "" },
+					anchors: Object.fromEntries(scores.map((s) => [s, ""])),
 				},
 			],
 		};
@@ -171,7 +175,7 @@ export default function RubricEditor({
 										<Trash2 size={11} />
 									</Button>
 								</div>
-								{["1", "2", "3"].map((score) => (
+								{scores.map((score) => (
 									<div key={score} className="flex gap-1.5 mb-0.5 items-center">
 										<span className="text-[0.625rem] text-muted-foreground/70 w-7 text-right">
 											{score}分
