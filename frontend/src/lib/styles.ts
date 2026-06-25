@@ -20,6 +20,12 @@ export const tdClass = "px-4 py-3 border-b border-border";
 export const selectClass =
 	"px-2.5 py-1.5 border border-border rounded-md text-sm bg-card";
 
+export const inputClass =
+	"w-full px-2.5 py-1.5 border border-border rounded-md text-sm bg-card text-foreground focus-ring";
+
+export const inputClassMd =
+	"w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus-ring";
+
 export const DIFFICULTY_LABELS: Record<number, string> = {
 	1: "初级",
 	2: "中级",
