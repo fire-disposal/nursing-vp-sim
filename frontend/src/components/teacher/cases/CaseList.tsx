@@ -1,5 +1,4 @@
 import { ClipboardList, Edit3, Plus, Trash2, Wand2 } from "lucide-react";
-import { useRef } from "react";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
@@ -14,7 +13,7 @@ interface CaseListProps {
 	offset: number;
 	limit: number;
 	filters: { name: string; difficulty: string };
-	searchText: string;
+	searchInput: string;
 	onSearchChange: (value: string) => void;
 	onFilterChange: (filters: { name: string; difficulty: string }) => void;
 	onOffsetChange: (offset: number) => void;
@@ -30,7 +29,7 @@ export default function CaseList({
 	offset,
 	limit,
 	filters,
-	searchText,
+	searchInput,
 	onSearchChange,
 	onFilterChange,
 	onOffsetChange,
@@ -39,16 +38,6 @@ export default function CaseList({
 	onEdit,
 	onDelete,
 }: CaseListProps) {
-	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const handleSearchChange = (value: string) => {
-		onSearchChange(value);
-		if (debounceRef.current) clearTimeout(debounceRef.current);
-		debounceRef.current = setTimeout(() => {
-			onFilterChange({ ...filters, name: value });
-		}, 300);
-	};
-
 	return (
 		<>
 			<div className="mb-4 flex gap-3">
@@ -73,8 +62,8 @@ export default function CaseList({
 							</span>
 							<input
 								placeholder="模糊搜索..."
-								value={searchText || ""}
-								onChange={(e) => handleSearchChange(e.target.value)}
+								value={searchInput}
+								onChange={(e) => onSearchChange(e.target.value)}
 								className={inputClass}
 							/>
 						</label>

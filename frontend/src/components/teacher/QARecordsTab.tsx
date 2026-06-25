@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle, Search } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import EmptyState from "@/components/ui/empty-state";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import { thClass, tdClass } from "@/lib/styles";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { tdClass, thClass } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 
 function truncate(text: string, maxLen: number): string {
@@ -20,9 +21,10 @@ function truncate(text: string, maxLen: number): string {
 
 export default function QARecordsTab() {
 	const [offset, setOffset] = useState(0);
-	const [search, setSearch] = useState("");
-	const [searchInput, setSearchInput] = useState("");
-	const searchTimer = useRef<ReturnType<typeof setTimeout>>(null);
+	const { searchInput, debouncedValue, handleSearchChange } = useDebouncedSearch(
+		"",
+		200,
+	);
 	const [previewSessionId, setPreviewSessionId] = useState<number | null>(null);
 	const [previewTitle, setPreviewTitle] = useState("");
 	const [showPreview, setShowPreview] = useState(false);
@@ -30,22 +32,17 @@ export default function QARecordsTab() {
 
 	const _toast = useToast();
 
-	const handleSearchChange = (value: string) => {
-		setSearchInput(value);
-		if (searchTimer.current) clearTimeout(searchTimer.current);
-		searchTimer.current = setTimeout(() => {
-			setSearch(value);
-			setOffset(0);
-		}, 200);
-	};
+	useEffect(() => {
+		setOffset(0);
+	}, [debouncedValue]);
 
 	const { data: recordsData, isLoading } = useQuery({
-		queryKey: ["qaHistory", offset, search],
+		queryKey: ["qaHistory", offset, debouncedValue],
 		queryFn: () =>
 			getQAHistoryAll({
 				offset,
 				limit: LIMIT,
-				search: search || undefined,
+				search: debouncedValue || undefined,
 			}).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 2 * 60_000,

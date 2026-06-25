@@ -1,6 +1,7 @@
 import { AlertCircle, Download, FileText, Upload, Users } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { btnPrimary, btnSecondary } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import type { BatchUser, RoleOption } from "./types";
 
@@ -11,12 +12,6 @@ interface BatchImportProps {
 	isImporting: boolean;
 	onImport: (users: BatchUser[]) => void;
 }
-
-const btnPrimary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors border-none cursor-pointer";
-
-const btnSecondary =
-	"inline-flex items-center justify-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors border-none cursor-pointer";
 
 export default function BatchImport({
 	open,

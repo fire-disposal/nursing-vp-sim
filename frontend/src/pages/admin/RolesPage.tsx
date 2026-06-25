@@ -4,15 +4,14 @@ import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles"
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { getApiErrorMessage } from "@/lib/error-utils";
 
 interface RoleItem {
 	id: number;
@@ -90,7 +89,7 @@ export default function RolesPage() {
 			setEditId(null);
 			loadRoles();
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "保存失败"));
+			toast.apiError(e, "保存失败");
 		}
 	};
 
@@ -107,7 +106,7 @@ export default function RolesPage() {
 			setShowCreate(false);
 			loadRoles();
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "创建失败"));
+			toast.apiError(e, "创建失败");
 		}
 	};
 
@@ -122,7 +121,7 @@ export default function RolesPage() {
 			toast.success("角色已删除");
 			loadRoles();
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "删除失败"));
+			toast.apiError(e, "删除失败");
 		}
 	};
 

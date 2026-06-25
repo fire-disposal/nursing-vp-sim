@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { getManageCases } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import CaseFormModal from "./cases/CaseForm";
 import CaseList from "./cases/CaseList";
 import type { CaseManageItem } from "./cases/types";
@@ -18,7 +19,10 @@ export default function CasesTab() {
 	const [startWithAiPanel, setStartWithAiPanel] = useState(false);
 	const [offset, setOffset] = useState(0);
 	const [filters, setFilters] = useState({ name: "", difficulty: "" });
-	const [searchText, setSearchText] = useState("");
+	const { searchInput, debouncedValue, handleSearchChange } = useDebouncedSearch(
+		"",
+		300,
+	);
 
 	const params: Record<string, unknown> = { offset, limit: LIMIT };
 	if (filters.name) params.name = filters.name;
@@ -36,6 +40,11 @@ export default function CasesTab() {
 			toast.error("加载病例列表失败，请检查网络后重试");
 		}
 	}, [isError, toast.error]);
+
+	useEffect(() => {
+		setFilters((f) => ({ ...f, name: debouncedValue }));
+		setOffset(0);
+	}, [debouncedValue]);
 
 	const cases = caseData?.items ?? [];
 	const total = caseData?.total ?? 0;
@@ -83,8 +92,8 @@ export default function CasesTab() {
 				offset={offset}
 				limit={LIMIT}
 				filters={filters}
-				searchText={searchText}
-				onSearchChange={(v) => setSearchText(v)}
+				searchInput={searchInput}
+				onSearchChange={handleSearchChange}
 				onFilterChange={handleFilterChange}
 				onOffsetChange={setOffset}
 				onAdd={handleAdd}

@@ -15,12 +15,12 @@ import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/confirm";
 import { Card } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import {
 	Table,
@@ -31,7 +31,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { getApiErrorMessage } from "@/lib/error-utils";
 
 function formatDateTime(iso: string) {
 	const d = new Date(iso);
@@ -127,7 +126,7 @@ export default function AssignmentsPage() {
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "加载失败"));
+			toast.apiError(e, "加载失败");
 		}
 	};
 
@@ -157,7 +156,7 @@ export default function AssignmentsPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 			setModalOpen(false);
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "操作失败"));
+			toast.apiError(e, "操作失败");
 		} finally {
 			setSaving(false);
 		}
@@ -174,7 +173,7 @@ export default function AssignmentsPage() {
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "删除失败"));
+			toast.apiError(e, "删除失败");
 		}
 	};
 

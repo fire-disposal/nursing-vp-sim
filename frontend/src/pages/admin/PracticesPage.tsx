@@ -4,15 +4,14 @@ import { useState } from "react";
 import { getCases } from "@/api/cases";
 import { createPractice, deletePractice, getPractice, getPractices, updatePractice } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/confirm";
 import { Card } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import PageHeader from "@/components/ui/page-header";
 import {
 	Table,
@@ -22,7 +21,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { getApiErrorMessage } from "@/lib/error-utils";
+import { useApiQuery } from "@/hooks/useApiQuery";
 
 interface PracticeForm {
 	name: string;
@@ -90,7 +89,7 @@ export default function PracticesPage() {
 			});
 			setModalOpen(true);
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "加载失败"));
+			toast.apiError(e, "加载失败");
 		}
 	};
 
@@ -119,7 +118,7 @@ export default function PracticesPage() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 			setModalOpen(false);
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "操作失败"));
+			toast.apiError(e, "操作失败");
 		} finally {
 			setSaving(false);
 		}
@@ -136,7 +135,7 @@ export default function PracticesPage() {
 			toast.success("已删除");
 			queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 		} catch (e: unknown) {
-			toast.error(getApiErrorMessage(e, "删除失败"));
+			toast.apiError(e, "删除失败");
 		}
 	};
 

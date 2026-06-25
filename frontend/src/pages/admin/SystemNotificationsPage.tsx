@@ -5,15 +5,14 @@ import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { getApiErrorMessage } from "@/lib/error-utils";
 
 interface SystemNotification {
 	id: number;
@@ -91,7 +90,7 @@ export default function SystemNotificationsPage() {
 			qc.invalidateQueries({ queryKey: ["system-notifications"] });
 			setModalOpen(false);
 		} catch (e) {
-			toast.error(getApiErrorMessage(e));
+			toast.apiError(e);
 		} finally {
 			setSaving(false);
 		}
@@ -103,7 +102,7 @@ export default function SystemNotificationsPage() {
 			toast.success("已删除");
 			qc.invalidateQueries({ queryKey: ["system-notifications"] });
 		} catch (e) {
-			toast.error(getApiErrorMessage(e));
+			toast.apiError(e);
 		}
 	};
 
