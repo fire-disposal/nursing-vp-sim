@@ -257,11 +257,11 @@ async def activate_prompt(
         db.query(PT).filter(PT.purpose == purpose).update({"is_active": False})
         db.commit()
         await request.app.state.prompt_manager.reload()
-    return OkResponse(ok=True)
+        return OkResponse(ok=True)
 
     await _activate(prompt_id, db)
     await request.app.state.prompt_manager.reload()
-    return {"ok": True}
+    return OkResponse(ok=True)
 
 
 async def _activate(prompt_id: int, db: Session):

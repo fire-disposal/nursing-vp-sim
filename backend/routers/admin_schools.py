@@ -33,7 +33,8 @@ def list_schools(
     db: Session = Depends(get_db),
 ):
     q = db.query(School)
-    if current_user.school_id is not None:
+    is_super_admin = current_user.role is not None and current_user.role.name == "super_admin"
+    if not is_super_admin:
         q = q.filter(School.id == current_user.school_id)
     if search:
         q = q.filter(School.name.ilike(f"%{search}%"))
@@ -139,7 +140,8 @@ def delete_school(
     current_user: User = Depends(require_permission("school_manage")),
     db: Session = Depends(get_db),
 ):
-    if current_user.school_id is not None and school_id != current_user.school_id:
+    is_super_admin = current_user.role is not None and current_user.role.name == "super_admin"
+    if not is_super_admin and school_id != current_user.school_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权操作其他学校的数据",
