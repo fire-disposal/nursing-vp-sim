@@ -2458,12 +2458,12 @@ export interface components {
             base_url?: string | null;
             /**
              * Price Input Per 1M
-             * @default 0
+             * @default 0.5
              */
             price_input_per_1m: number;
             /**
              * Price Output Per 1M
-             * @default 0
+             * @default 0.5
              */
             price_output_per_1m: number;
             /** Monthly Cost Limit */
@@ -10039,6 +10039,8 @@ export interface operations {
                 offset?: number;
                 /** @description super_admin 按学校筛选 */
                 school_id?: number | null;
+                /** @description 搜索学生姓名/学号/会话标题 */
+                search?: string | null;
             };
             header?: never;
             path?: never;

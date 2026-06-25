@@ -2,7 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -111,6 +111,7 @@ def get_all_qa_history(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
+    search: Annotated[str | None, Query(description="搜索学生姓名/学号/会话标题")] = None,
 ):
     effective_school = resolve_school_filter(current_user, school_id)
     base = (
@@ -129,6 +130,15 @@ def get_all_qa_history(
     )
     if effective_school is not None:
         base = base.filter(User.school_id == effective_school)
+    if search:
+        term = f"%{search}%"
+        base = base.filter(
+            or_(
+                User.display_name.ilike(term),
+                User.student_id.ilike(term),
+                QASession.title.ilike(term),
+            )
+        )
     base = base.group_by(QASession.id, User.display_name, User.student_id).order_by(QASession.updated_at.desc())
 
     rows, total = paginate(base, offset, limit)

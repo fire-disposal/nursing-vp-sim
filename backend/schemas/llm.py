@@ -10,8 +10,8 @@ class ApiSecretCreate(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     raw_key: str = Field(min_length=10, max_length=500)
     base_url: str | None = Field(default=None, max_length=200)
-    price_input_per_1m: float = Field(default=0, ge=0)
-    price_output_per_1m: float = Field(default=0, ge=0)
+    price_input_per_1m: float = Field(default=0.5, ge=0)
+    price_output_per_1m: float = Field(default=0.5, ge=0)
     monthly_cost_limit: float | None = Field(default=None, ge=0)
 
 

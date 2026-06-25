@@ -7667,6 +7667,24 @@
               "title": "School Id"
             },
             "description": "super_admin 按学校筛选"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "搜索学生姓名/学号/会话标题",
+              "title": "Search"
+            },
+            "description": "搜索学生姓名/学号/会话标题"
           }
         ],
         "responses": {
@@ -9087,13 +9105,13 @@
             "type": "number",
             "minimum": 0.0,
             "title": "Price Input Per 1M",
-            "default": 0
+            "default": 0.5
           },
           "price_output_per_1m": {
             "type": "number",
             "minimum": 0.0,
             "title": "Price Output Per 1M",
-            "default": 0
+            "default": 0.5
           },
           "monthly_cost_limit": {
             "anyOf": [
