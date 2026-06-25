@@ -13,11 +13,11 @@ import {
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Separator } from "@/components/ui/separator";
 
 const TTS_MODELS = ["seed-tts-2.0-standard", "seed-tts-2.0-expressive"];
@@ -270,7 +270,9 @@ export default function VoiceTokenCard({
 	const [form, setForm] = useState({ ...DEFAULT_FORM });
 	const [testPending, setTestPending] = useState(false);
 
-	useRefFlag(config, isLoading, (c) => setForm(formFromConfig(c)));
+	useEffect(() => {
+		if (!isLoading && config) setForm(formFromConfig(config));
+	}, [config, isLoading]);
 
 	const setField = (patch: Partial<typeof form>) =>
 		setForm((f) => ({ ...f, ...patch }));
@@ -520,16 +522,4 @@ export default function VoiceTokenCard({
 			/>
 		</>
 	);
-}
-
-function useRefFlag<T>(
-	value: T | undefined,
-	loading: boolean,
-	onFirst: (v: T | undefined) => void,
-) {
-	const [done, setDone] = useState(false);
-	if (!done && value && !loading) {
-		setDone(true);
-		onFirst(value);
-	}
 }
