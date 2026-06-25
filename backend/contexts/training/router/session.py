@@ -14,10 +14,9 @@ from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
-from core.security import get_current_user, require_permission
+from core.security import get_current_user, require_permission, tenant_scope
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.prompt import PromptManager
-from middleware.dependencies import resolve_school_filter
 from models import (
     Assignment,
     Case,
@@ -240,7 +239,7 @@ def start_training(
     db: Annotated[Session, Depends(get_db)],
     request: Request,
 ):
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     case_query = db.query(Case).filter(Case.id == req.case_id)
     if effective_school is not None:
         case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
@@ -383,7 +382,7 @@ def get_records(
     class_id: Annotated[int | None, Query()] = None,
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     base = db.query(TrainingRecord)
 
     if effective_school is not None:
@@ -464,7 +463,7 @@ def get_record_detail(
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise AuthError(detail="无权查看此记录", status_code=403)
 
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     if effective_school is not None and (not record.user or record.user.school_id != effective_school):
         raise NotFoundError(detail="记录不存在")
 
@@ -519,7 +518,7 @@ def delete_record(
         raise AuthError(detail="无权删除此记录", status_code=403)
 
     record_user = db.query(User).filter(User.id == record.user_id).first()
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     if effective_school is not None and (not record_user or record_user.school_id != effective_school):
         raise NotFoundError(detail="训练记录不存在")
 

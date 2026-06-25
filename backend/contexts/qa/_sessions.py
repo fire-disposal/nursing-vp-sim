@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import get_current_user, require_permission
-from middleware.dependencies import resolve_school_filter
+from core.security import get_current_user, require_permission, tenant_scope
 from models import QARecord, QASession, User
 from schemas import (
     DeleteResponse,
@@ -113,7 +112,7 @@ def get_all_qa_history(
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     search: Annotated[str | None, Query(description="搜索学生姓名/学号/会话标题")] = None,
 ):
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     base = (
         db.query(
             QASession.id,
@@ -167,7 +166,7 @@ def get_session_messages_admin(
     session = db.query(QASession).filter(QASession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
-    effective_school = resolve_school_filter(current_user, None)
+    effective_school = tenant_scope(current_user, None)
     if effective_school is not None:
         owner = db.query(User).filter(User.id == session.user_id).first()
         if owner is None or owner.school_id != effective_school:

@@ -6,9 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from core.security import require_permission
+from core.security import require_permission, tenant_scope
 from infrastructure.export import Column, buffered_response
-from middleware.dependencies import resolve_school_filter
 from models import (
     CaseQuestionnaire,
     QuestionnaireAnswer,
@@ -36,7 +35,7 @@ def response_stats(
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
 
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     resp_query = db.query(QuestionnaireResponse).filter(
         QuestionnaireResponse.template_id == template_id,
         QuestionnaireResponse.status == "completed",
@@ -124,7 +123,7 @@ def export_responses(
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
 
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     resp_query = (
         db.query(QuestionnaireResponse)
         .options(

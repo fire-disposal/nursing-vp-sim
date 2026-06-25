@@ -7,9 +7,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.database import get_db
-from core.security import get_current_user, require_permission
+from core.security import get_current_user, require_permission, tenant_scope
 from infrastructure.export import Column, stream_response
-from middleware.dependencies import resolve_school_filter
 from models import Message, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
@@ -22,7 +21,7 @@ def export_records(
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
 
     query = db.query(TrainingRecord).options(
         selectinload(TrainingRecord.user),

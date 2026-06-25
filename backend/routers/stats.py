@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import get_current_user, require_permission
-from middleware.dependencies import resolve_school_filter
+from core.security import get_current_user, require_permission, tenant_scope
 from models import Class, Grade, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
     ClassSummaryItemSchema,
@@ -30,7 +29,7 @@ def get_duration_stats(
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     now = datetime.now(UTC)
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     if period == "week":
         since = now - timedelta(days=7)
     elif period == "month":
@@ -69,7 +68,7 @@ def get_trends(
     school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     now = datetime.now(UTC)
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     if period == "week":
         since = now - timedelta(days=7)
     elif period == "month":
@@ -221,7 +220,7 @@ def class_summary(
     current_user: User = Depends(require_permission("stats_view")),
     db: Session = Depends(get_db),
 ):
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     q = db.query(Class, Grade.name.label("grade_name"))
     q = q.join(Grade, Grade.id == Class.grade_id)
     if effective_school is not None:

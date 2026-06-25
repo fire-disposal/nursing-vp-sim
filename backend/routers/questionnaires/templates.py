@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import require_permission
-from middleware.dependencies import resolve_school_filter
+from core.security import require_permission, tenant_scope
 from models import (
     Case,
     CaseQuestionnaire,
@@ -89,7 +88,7 @@ def list_templates(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     school_id: Annotated[int | None, Query()] = None,
 ):
-    effective_school = resolve_school_filter(current_user, school_id)
+    effective_school = tenant_scope(current_user, school_id)
     query = db.query(QuestionnaireTemplate)
     if effective_school is not None:
         query = query.filter(QuestionnaireTemplate.school_id == effective_school)
@@ -154,7 +153,7 @@ def get_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
     if effective_school is not None:
         t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
@@ -173,7 +172,7 @@ def update_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
     if effective_school is not None:
         t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
@@ -235,7 +234,7 @@ def delete_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
     if effective_school is not None:
         t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
@@ -254,7 +253,7 @@ def assign_cases(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = resolve_school_filter(current_user)
+    effective_school = tenant_scope(current_user)
     t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
     if effective_school is not None:
         t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
