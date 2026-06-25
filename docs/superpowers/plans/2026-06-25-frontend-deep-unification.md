@@ -441,3 +441,25 @@ export const inputClassMd =
 - **Placeholder scan:** Foundation files have full code. Page tasks reference canonical patterns P1-P7 + instruct reading the target file (refactor of existing code, not greenfield) — acceptable since exact current code lives in the files.
 - **Type consistency:** `DataTableColumn`/`DataTableProps`, `useAdminList` return shape, and RHF pattern names are consistent across tasks. `useAdminList.queryFn` returns `{items,total}`; callers unwrap Axios via `.then(r => r.data)`.
 - **Parallel safety:** Each wave's tasks own disjoint files; cross-wave re-touch (SchoolsPage, SystemNotificationsPage) sequenced across waves. Only Task 0 edits `lib/styles.ts`; schemas are per-file (no shared barrel).
+
+---
+
+## Addendum — Reuse Primitives (foundation-2) + standing rules
+
+After a reuse audit, these LOW-risk shared primitives were added (pure additions, zero consumers at creation):
+- `lib/date.ts` — `formatDate` / `formatDateTime` / `toDatetimeLocal` / `fromDatetimeLocal`. Replace the 22+ inline `new Date().toLocale*("zh-CN")` sites and the bespoke datetime-local conversions during page/form migrations.
+- `components/ui/role-badge.tsx` (`RoleBadge`) + `components/ui/difficulty-badge.tsx` (`DifficultyBadge`) — thin wrappers over `ui/badge`. Replace the duplicated role-color block (UserList/BatchImport) and the 3 difficulty definitions. Minor visual normalization to the design-system Badge is accepted/intended.
+- `lib/useApiMutation.ts` (`useApiMutation`) — standardizes `invalidate + success toast / apiError`. Apply to the cleanest dedicated mutation hooks (useUserMutations, useQuestionnaireMutations) with the `onSuccess` escape hatch; leave complex ones (usePromptMutations array validation) as-is.
+
+**Standing rules for ALL migration tasks (fold in, don't make separate tasks):**
+- Forms adopt the existing `DialogFooter` + `FormMessageBanner` instead of bespoke footers/inline banners.
+- Replace inline date formatting with `lib/date` helpers in any file you touch.
+- Replace role/difficulty badges with `RoleBadge`/`DifficultyBadge` in any file you touch.
+- Opportunistically replace byte-identical local `inputClass`/`selectClass`/button consts with `lib/styles` imports (skip divergent ones — visual risk).
+
+**Deferred (decided NOT to force — weigh value vs risk):**
+- Confirm-then-delete hook (destructive ops + varied guards; confirm dialog already shared).
+- `useApiQuery` 37-site sweep (cosmetic unwrap, large churn, medium value).
+- Generic `<Select>` + 45-site sweep (divergent styles, large churn).
+- `StatusBadge` (too varied; only Role/Difficulty done).
+- `useGradeClassCascade` is built/applied within Wave 5 (UserForm), not as a standalone foundation.
