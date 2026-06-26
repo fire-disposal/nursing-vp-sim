@@ -219,7 +219,7 @@ cd backend && uv sync && uv run uvicorn main:app --host 127.0.0.1 --port 8000 --
 cd frontend && pnpm install && pnpm run dev
 ```
 
-默认账号: 教师 admin/admin123 | 学生 student1/123456 ~ student5/123456
+首次启动后 seed 脚本自动创建测试账号（密码在 .env 中配置）
 
 ### Docker 部署
 

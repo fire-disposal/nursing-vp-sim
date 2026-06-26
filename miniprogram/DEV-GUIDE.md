@@ -44,7 +44,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:8000
 
 1. **启动后端**：`npm run dev:backend`（项目根目录）
 2. **打开小程序**：微信开发者工具 → 打开 `miniprogram/` 目录
-3. **登录测试**：使用教师预先创建的账号（`admin/admin123` 或 `student1/123456`）
+3. **登录测试**：使用教师预先创建的账号（教师或学生测试账号（由 .env 中配置的密码创建））
 
 ## 注意事项
 

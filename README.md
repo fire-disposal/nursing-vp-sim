@@ -13,7 +13,6 @@ pnpm run dev
 
 - 后端: http://localhost:8000（Swagger: `/docs`）
 - 前端: http://localhost:3000
-- 默认账号: 教师 `admin`/`admin123` · 学生 `student1~5`/`123456`
 
 > 完整搭建流程见 **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)**
 
@@ -45,7 +44,7 @@ pnpm run dev
 │   ├── routers/              # API 路由
 │   ├── contexts/             # 业务上下文（training / patient / qa）
 │   ├── infrastructure/       # 基础设施（LLM、缓存、队列）
-│   ├── models.py / schemas.py # ORM 模型 / Pydantic schema
+│   ├── models/               # ORM 模型（按域拆分）
 │   └── tests/
 ├── frontend/                 # React SPA
 │   ├── src/pages/ / src/components/ / src/engine/ / src/plugins/
@@ -59,15 +58,15 @@ pnpm run dev
 
 | 文档 | 说明 |
 |------|------|
-| **[00-dev-onboarding](docs/00-dev-onboarding.md)** | 零基础入口 |
-| [01-系统架构](docs/01-architecture.md) | 技术栈与架构 |
-| [03-数据库设计](docs/03-database.md) | 表结构与字段 |
-| [04-前端设计](docs/04-frontend.md) | 组件与路由 |
-| [05-LLM与评分](docs/05-llm-design.md) | Prompt 与评分 |
-| [09-运维指南](docs/09-operations.md) | 部署、备份、应急预案 |
+| **[00-dev-onboarding](docs/00-dev-onboarding.md)** | 零基础环境搭建与流程 |
+| [01-系统架构](docs/01-architecture.md) | 技术栈、路由、目录结构 |
+| [03-数据库设计](docs/03-database.md) | 表结构、字段、索引 |
+| [04-前端设计](docs/04-frontend.md) | 组件架构、路由、状态管理 |
+| [05-LLM与评分](docs/05-llm-design.md) | LLM 路由、Prompt 管理、评分 |
+| [09-运维指南](docs/09-operations.md) | 部署、备份、监控、应急预案 |
 | [10-功能审计](docs/10-functional-audit.md) | 功能矩阵、缺口、未来方向 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 分支模型、PR 规范 |
-| [plans/](docs/plans/) | 待完成功能计划 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 分支模型、PR 规范、Feature Flag |
+| [plans/](docs/plans/) | 待完成功能计划与文档索引 |
 
 ## 提交规范
 
