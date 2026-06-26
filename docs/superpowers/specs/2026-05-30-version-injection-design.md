@@ -19,7 +19,7 @@ Eliminate hardcoded version strings in both backend and frontend. Instead, injec
 git tag v2026.05.30
     │
     ▼
-cd.yml: docker/metadata-action extracts → "2026.05.30"
+deploy-production.yml: docker/metadata-action extracts → "2026.05.30"
     │
     ├─► docker build --build-arg APP_VERSION=2026.05.30 Dockerfile.backend
     │       │
@@ -63,7 +63,7 @@ ENV VITE_APP_VERSION=${APP_VERSION}
 
 Place in the `builder` stage, before `RUN npm run build` (Vite reads `VITE_*` env vars at build time and inlines them).
 
-### 3. `cd.yml` — Pass build arg
+### 3. `deploy-production.yml` — Pass build arg
 
 Add `build-args: APP_VERSION=${{ steps.meta.outputs.version }}` to both `build-push-action` steps (backend + frontend).
 

@@ -13,8 +13,8 @@
 | Workflow | 触发方式 | 目标 | 域名 |
 |----------|---------|------|------|
 | `auto-tag.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
-| `staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
-| `cd.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
+| `deploy-staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
+| `deploy-production.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
 | `rollback.yml` | `workflow_dispatch`（手动） | 回滚 | — |
 | `maintenance.yml` | `workflow_dispatch`（手动） | 维护模式 | — |
 
@@ -23,14 +23,14 @@
 ```
 pnpm run tag → v2026.06.02-N
     │
-    ▼ staging.yml 自动触发
+    ▼ deploy-staging.yml 自动触发
   构建镜像 → 部署到测试服（60s）
     │
     ▼ 你验证通过
   Actions → Deploy to Production
   输入: 2026.06.02-N
     │
-    ▼ cd.yml
+    ▼ deploy-production.yml
   检查: staging 正跑着同一版本吗？
     ├─ ✗ 不匹配 → 拒绝（必须先经过测试服）
     └─ ✓ 匹配 → 备份DB → 拉镜像 → 部署 → 健康检查
@@ -40,15 +40,15 @@ pnpm run tag → v2026.06.02-N
 
 ### 部署前检查清单
 
-- [ ] `JWT_SECRET_KEY` 已手动设置为 ≥32 字符随机字符串（cd.yml **不**自动生成，须手动写入 `.env`；可用 `python -c "import secrets; print(secrets.token_urlsafe(32))"` 生成）
+- [ ] `JWT_SECRET_KEY` 已手动设置为 ≥32 字符随机字符串（deploy-production.yml **不**自动生成，须手动写入 `.env`；可用 `python -c "import secrets; print(secrets.token_urlsafe(32))"` 生成）
 - [ ] `CORS_ORIGINS` 已改为实际生产域名（默认模板为 `http://localhost`）
 - [ ] `DEEPSEEK_API_KEY` 已填入有效的 API Key
-- [ ] `POSTGRES_PASSWORD` 不为默认值（cd.yml 自动生成 `openssl rand -hex 16`）
+- [ ] `POSTGRES_PASSWORD` 不为默认值（deploy-production.yml 自动生成 `openssl rand -hex 16`）
 - [ ] 服务器上 `/opt/nursing-vp-sim/.env` 已编辑非模板值
 
 ### 首次部署
 
-首次部署时 cd.yml 自动执行：
+首次部署时 deploy-production.yml 自动执行：
 
 1. `sudo mkdir -p /opt/nursing-vp-sim/backups`
 2. 生成 `.env` 模板（含随机 `POSTGRES_PASSWORD`；`JWT_SECRET_KEY` / `FERNET_KEY` 不自动生成，须手动写入）
@@ -246,17 +246,17 @@ SELECT pid, usename, application_name, state FROM pg_stat_activity WHERE datname
 
 | 事项 | 操作 |
 |------|------|
-| JWT_SECRET_KEY | 须手动写入 `.env`，确保 ≥32 字符随机串。cd.yml **不**自动生成 |
+| JWT_SECRET_KEY | 须手动写入 `.env`，确保 ≥32 字符随机串。deploy-production.yml **不**自动生成 |
 | CORS_ORIGINS | 改为精确的生产域名，不要用 `*` |
 | 禁用种子数据 | 生产环境设置 `ENV=production`（plan）或确保首次部署后不再重建空 DB |
-| PostgreSQL 密码 | cd.yml 自动生成随机密码，不使用默认 `postgres` |
+| PostgreSQL 密码 | deploy-production.yml 自动生成随机密码，不使用默认 `postgres` |
 
 ### 建议加固
 
 | 事项 | 说明 | 影响 |
 |------|------|------|
 | 固定 SSH host key | 将服务器指纹存入 GitHub Secret，替换 `ssh-keyscan` TOFU 模式 | 防 MITM |
-| 启用 SLSA 溯源 | cd.yml 中 `provenance: false` → `provenance: true` | 供应链安全 |
+| 启用 SLSA 溯源 | deploy-production.yml 中 `provenance: false` → `provenance: true` | 供应链安全 |
 | 测试数据库端口绑定 | `docker-compose.test.yml` 端口改为 `127.0.0.1:5432:5432` | 防局域网暴露 |
 | 备份端点环境隔离 | 缩小 `pg_dump` 子进程的环境变量传递 | 防密钥泄露 |
 

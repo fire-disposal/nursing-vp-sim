@@ -127,7 +127,7 @@ volumes:
 
 ## 6. CD 部署改动
 
-### 6.1 cd.yml
+### 6.1 deploy-production.yml
 
 无需改动 GitHub Actions 文件。部署 compose 由 `deploy.sh` 动态生成。
 

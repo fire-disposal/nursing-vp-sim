@@ -155,7 +155,7 @@ Ask opencode in this repo — it will:
 
 ### Staging (`test.205716.xyz`)
 
-Triggered by tag push → `.github/workflows/staging.yml`.
+Triggered by tag push → `.github/workflows/deploy-staging.yml`.
 
 | Service | Port |
 |---------|------|
@@ -165,7 +165,7 @@ Triggered by tag push → `.github/workflows/staging.yml`.
 
 ### Production (`iomt.205716.xyz`)
 
-Manual trigger: `gh workflow run cd.yml -f version=v2026.06.20-X`
+Manual trigger: `gh workflow run deploy-production.yml -f version=v2026.06.20-X`
 
 | Service | Port |
 |---------|------|

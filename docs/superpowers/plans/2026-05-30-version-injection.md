@@ -4,7 +4,7 @@
 
 **Goal:** Eliminate hardcoded version strings and inject version from git tag via Docker build args in CD pipeline.
 
-**Architecture:** CD workflow (`cd.yml`) already extracts tag version via `docker/metadata-action`. We pass it as `--build-arg APP_VERSION` to both Dockerfiles, which set it as an env var. Backend reads via `os.getenv("APP_VERSION")`, frontend via Vite's `import.meta.env.VITE_APP_VERSION` at build time.
+**Architecture:** CD workflow (`deploy-production.yml`) already extracts tag version via `docker/metadata-action`. We pass it as `--build-arg APP_VERSION` to both Dockerfiles, which set it as an env var. Backend reads via `os.getenv("APP_VERSION")`, frontend via Vite's `import.meta.env.VITE_APP_VERSION` at build time.
 
 **Tech Stack:** Docker build args, Vite env vars (`VITE_*` prefix), FastAPI config, GitHub Actions
 
@@ -142,7 +142,7 @@ git commit -m "feat: accept APP_VERSION build arg in frontend Dockerfile"
 ### Task 3: Pass build arg in CD workflow
 
 **Files:**
-- Modify: `.github/workflows/cd.yml`
+- Modify: `.github/workflows/deploy-production.yml`
 
 - [ ] **Step 1: Add build-args to backend build-push-action**
 
@@ -199,7 +199,7 @@ The frontend build-push-action block becomes:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .github/workflows/cd.yml
+git add .github/workflows/deploy-production.yml
 git commit -m "feat: pass APP_VERSION build arg in CD workflow"
 ```
 

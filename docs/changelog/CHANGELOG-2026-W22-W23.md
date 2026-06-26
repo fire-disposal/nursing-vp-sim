@@ -16,7 +16,7 @@
 ### CI/CD
 - 生产 compose 新增 PostgreSQL service 和 `ai_vp_pg_data` 数据卷
 - `deploy.sh` 动态 compose 生成包含 PostgreSQL service
-- `cd.yml` backend 移除冗余 `DATABASE_URL`，内联 compose 同步新增 PG service
+- `deploy-production.yml` backend 移除冗余 `DATABASE_URL`，内联 compose 同步新增 PG service
 - CD docker meta 改用 match 正则匹配，兼容日期风格版本号 `2026.05.29`
 
 ### 文档 & 规范
