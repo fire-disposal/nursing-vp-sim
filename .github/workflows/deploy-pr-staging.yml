@@ -10,7 +10,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  actions: write
   contents: write
 
 jobs:
@@ -30,20 +29,3 @@ jobs:
 
       - name: Create and push tag
         run: node .husky/_/auto-tag.mjs --push
-
-      - name: Extract tag
-        id: tag
-        run: |
-          TAG=$(git describe --tags --abbrev=0)
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Created tag: $TAG"
-
-      - name: Trigger staging deploy
-        run: |
-          gh workflow run deploy-staging.yml \
-            --ref master \
-            -f version="${{ steps.tag.outputs.version }}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
