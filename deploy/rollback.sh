@@ -88,6 +88,11 @@ rollback_to() {
     sed -i "s|image: .*nursing-vp-sim-frontend:.*|image: ${frontend_img}|" docker-compose.yml
 
     msg_ok "回滚数据库迁移 (alembic downgrade -1)..."
+    # NOTE: downgrade -1 only reverts the most recent migration.  If rolling
+    # back across multiple versions with multiple migrations, additional
+    # manual downgrades may be needed.  Cross-version rollback is rare —
+    # the automatic rollback in deploy-production.yml handles single-version
+    # cases.  For safety, a DB backup is taken before every production deploy.
     docker compose --env-file .env exec -T backend alembic downgrade -1 2>/dev/null \
         || msg_warn "迁移回滚失败（可能无需回滚或首次部署），继续"
 

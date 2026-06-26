@@ -242,7 +242,7 @@ nursing-vp-sim/
 ├── .github/workflows/                          # CI/CD
 │   ├── deploy-staging.yml                      # Staging部署 (v* tag 触发)
 │   ├── deploy-production.yml                   # Production 部署 (手动触发)
-│   └── rollback.yml                            # 紧急回滚
+│   └── rollback-production.yml                 # 紧急回滚
 │
 ├── scripts/                                    # 辅助脚本
 ├── docs/                                       # 项目文档
