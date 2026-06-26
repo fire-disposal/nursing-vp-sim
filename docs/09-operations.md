@@ -12,7 +12,7 @@
 
 | Workflow | 触发方式 | 目标 | 域名 |
 |----------|---------|------|------|
-| `auto-tag.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
+| `deploy-pr-staging.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
 | `deploy-staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
 | `deploy-production.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
 | `rollback.yml` | `workflow_dispatch`（手动） | 回滚 | — |

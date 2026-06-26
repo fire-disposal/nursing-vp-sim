@@ -1,4 +1,4 @@
-name: Auto Tag & Deploy to Staging
+name: PR Merge → Deploy Staging
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [master]
 
 concurrency:
-  group: auto-tag
+  group: deploy-pr-staging
   cancel-in-progress: false
 
 permissions:
@@ -42,7 +42,7 @@ jobs:
 
       - name: Trigger staging deploy
         run: |
-          gh workflow run "Build & Deploy to Staging" \
+          gh workflow run deploy-staging.yml \
             --ref master \
             -f version="${{ steps.tag.outputs.version }}"
         env:
