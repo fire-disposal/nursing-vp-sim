@@ -87,7 +87,9 @@ jobs:
         id: resolve_version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            RAW="${{ inputs.version }}"
+            CLEAN="${RAW#v}"
+            echo "version=$CLEAN" >> "$GITHUB_OUTPUT"
           else
             echo "version=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
