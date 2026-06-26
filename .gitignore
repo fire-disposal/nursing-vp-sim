@@ -67,3 +67,19 @@ dev-report*.html
 # 本地技能（个人化，不入仓库）
 .agents/skills/
 skills-lock.json
+
+# OpenClaw workspace (agent config, not project files)
+SOUL.md
+HEARTBEAT.md
+IDENTITY.md
+TOOLS.md
+USER.md
+AGENTS.md
+sync-log.txt
+
+# npm cache (created by npm install in workspace)
+.npm/
+.local/
+
+# OpenClaw agent temp files
+.openclaw/

@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, CheckCircle2, Cpu, RefreshCw, Server, Timer } from "lucide-react";
 import { useState } from "react";
-import { fetchOpsDashboard, fetchOpsErrors, type OpsDashboard, type OpsErrors } from "@/api/admin/ops";
+import { fetchDiagnose, type DiagnoseResponse } from "@/api/admin/ops";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -16,10 +16,11 @@ import {
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { cn } from "@/utils/cn";
 
-function StatGrid({ data }: { data: OpsDashboard }) {
+function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const successRate = data.llm.success_rate;
 	const rateColor =
 		successRate >= 95 ? "green" : successRate >= 90 ? "amber" : "red";
+	const activeSessions = data.metrics?.active_sessions ?? 0;
 
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -43,7 +44,7 @@ function StatGrid({ data }: { data: OpsDashboard }) {
 			/>
 			<StatCard
 				icon={Server}
-				value={data.sessions.active}
+				value={activeSessions}
 				label="活跃会话"
 				color="teal"
 			/>
@@ -51,7 +52,7 @@ function StatGrid({ data }: { data: OpsDashboard }) {
 	);
 }
 
-function LLMDetailCard({ data }: { data: OpsDashboard }) {
+function LLMDetailCard({ data }: { data: DiagnoseResponse }) {
 	return (
 		<Card>
 			<CardHeader>
@@ -81,10 +82,7 @@ function LLMDetailCard({ data }: { data: OpsDashboard }) {
 						<div className="text-xs text-muted-foreground mb-2">Top 错误类型</div>
 						<div className="space-y-1">
 							{data.llm.recent_errors.map((e) => (
-								<div
-									key={e.type}
-									className="flex justify-between text-xs"
-								>
+								<div key={e.type} className="flex justify-between text-xs">
 									<span className="text-muted-foreground font-mono">
 										{e.type || "unknown"}
 									</span>
@@ -99,7 +97,11 @@ function LLMDetailCard({ data }: { data: OpsDashboard }) {
 	);
 }
 
-function ScoringSessionsCard({ data }: { data: OpsDashboard }) {
+function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
+	const uptimeSeconds = data.metrics?.uptime_seconds ?? 0;
+	const uptimeHours = (uptimeSeconds / 3600).toFixed(1);
+	const activeSessions = data.metrics?.active_sessions ?? 0;
+
 	return (
 		<Card>
 			<CardHeader>
@@ -110,6 +112,10 @@ function ScoringSessionsCard({ data }: { data: OpsDashboard }) {
 					<span className="text-muted-foreground">评分待处理</span>
 					<span className="text-right tabular-nums font-medium">
 						{data.scoring.pending}
+					</span>
+					<span className="text-muted-foreground">评分进行中</span>
+					<span className="text-right tabular-nums font-medium text-blue-600">
+						{data.scoring.in_progress}
 					</span>
 					<span className="text-muted-foreground">卡住 &gt;24h</span>
 					<span
@@ -122,19 +128,15 @@ function ScoringSessionsCard({ data }: { data: OpsDashboard }) {
 					</span>
 					<span className="text-muted-foreground">活跃会话</span>
 					<span className="text-right tabular-nums">
-						{data.sessions.active}
-					</span>
-					<span className="text-muted-foreground">未读通知</span>
-					<span className="text-right tabular-nums">
-						{data.notifications.unread}
+						{activeSessions}
 					</span>
 					<span className="text-muted-foreground">运行时长</span>
 					<span className="text-right tabular-nums">
-						{data.uptime_hours.toFixed(1)} h
+						{uptimeHours} h
 					</span>
 					<span className="text-muted-foreground">版本</span>
 					<span className="text-right font-mono text-xs">
-						{data.health.version}
+						{data.version}
 					</span>
 				</div>
 			</CardContent>
@@ -142,7 +144,8 @@ function ScoringSessionsCard({ data }: { data: OpsDashboard }) {
 	);
 }
 
-function AlertsCard({ alerts }: { alerts: string[] }) {
+function AlertsCard({ data }: { data: DiagnoseResponse }) {
+	const alerts = data.alerts || [];
 	return (
 		<Card
 			className={cn(
@@ -178,14 +181,14 @@ function AlertsCard({ alerts }: { alerts: string[] }) {
 	);
 }
 
-function ErrorLogTable({ data }: { data: OpsErrors }) {
-	const entries = data.recent || [];
+function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
+	const entries = data.errors?.recent || [];
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between">
 				<CardTitle>最近系统错误</CardTitle>
 				<span className="text-xs text-muted-foreground">
-					5min: {data.count.last_5min} · 1h: {data.count.last_hour} · 总计: {data.count.total_captured}
+					5min: {data.errors.count.last_5min} · 1h: {data.errors.count.last_hour} · 总计: {data.errors.count.total_captured}
 				</span>
 			</CardHeader>
 			<CardContent>
@@ -199,14 +202,14 @@ function ErrorLogTable({ data }: { data: OpsErrors }) {
 									<TableHead className="w-36">时间</TableHead>
 									<TableHead>来源</TableHead>
 									<TableHead>消息</TableHead>
-									<TableHead className="w-36">位置</TableHead>
+									<TableHead className="w-24">级别</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{entries.map((e, i) => (
 									<TableRow key={i}>
 										<TableCell className="font-mono text-xs whitespace-nowrap">
-											{e.timestamp?.slice(0, 19) ?? "-"}
+											{e.time?.slice(0, 19) ?? "-"}
 										</TableCell>
 										<TableCell className="font-mono text-xs">
 											{e.logger ?? "-"}
@@ -214,8 +217,8 @@ function ErrorLogTable({ data }: { data: OpsErrors }) {
 										<TableCell className="text-xs max-w-[300px] truncate">
 											{e.message ?? "-"}
 										</TableCell>
-										<TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-											{e.pathname}:{e.lineno}
+										<TableCell className="font-mono text-xs text-muted-foreground">
+											{e.level ?? "-"}
 										</TableCell>
 									</TableRow>
 								))}
@@ -231,44 +234,19 @@ function ErrorLogTable({ data }: { data: OpsErrors }) {
 export default function SystemOpsPage() {
 	const [autoRefresh, setAutoRefresh] = useState(false);
 
-	const { data: dashboard, isLoading: dashLoading, refetch: refetchDash } = useApiQuery({
-		queryKey: ["admin", "ops", "dashboard"],
-		queryFn: () => fetchOpsDashboard(),
+	const { data, isLoading, refetch } = useApiQuery({
+		queryKey: ["admin", "diagnose"],
+		queryFn: () => fetchDiagnose(),
 		staleTime: 15_000,
 		refetchInterval: autoRefresh ? 30_000 : false,
 	});
-
-	const { data: errors, isLoading: errorsLoading } = useApiQuery({
-		queryKey: ["admin", "ops", "errors"],
-		queryFn: () => fetchOpsErrors(20),
-		staleTime: 15_000,
-		refetchInterval: autoRefresh ? 30_000 : false,
-	});
-
-	const isLoading = dashLoading || errorsLoading;
 
 	const handleRefresh = () => {
-		refetchDash();
+		refetch();
 	};
 
 	if (isLoading) return <LoadingSkeleton variant="card" />;
-
-	const alerts: string[] = [];
-
-	if (dashboard) {
-		if (dashboard.llm.success_rate < 90) {
-			alerts.push(`LLM 成功率 ${dashboard.llm.success_rate}% 低于 90%`);
-		}
-		if (dashboard.llm.error_count_24h > 50) {
-			alerts.push(`近 24h LLM 错误 ${dashboard.llm.error_count_24h} 次`);
-		}
-		if (dashboard.scoring.stuck > 5) {
-			alerts.push(`卡住评分 ${dashboard.scoring.stuck} 条`);
-		}
-		if (dashboard.sessions.active > 50) {
-			alerts.push(`活跃会话 ${dashboard.sessions.active} 个`);
-		}
-	}
+	if (!data) return <p className="text-muted-foreground text-center py-8">诊断数据不可用</p>;
 
 	return (
 		<div className="space-y-6 mt-4">
@@ -297,18 +275,16 @@ export default function SystemOpsPage() {
 				}
 			/>
 
-			{dashboard && <StatGrid data={dashboard} />}
+			<StatGrid data={data} />
 
-			{dashboard && (
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<LLMDetailCard data={dashboard} />
-					<ScoringSessionsCard data={dashboard} />
-				</div>
-			)}
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+				<LLMDetailCard data={data} />
+				<ScoringSessionsCard data={data} />
+			</div>
 
-			<AlertsCard alerts={alerts} />
+			<AlertsCard data={data} />
 
-			{errors && <ErrorLogTable data={errors} />}
+			<ErrorLogTable data={data} />
 		</div>
 	);
 }

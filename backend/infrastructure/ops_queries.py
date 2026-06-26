@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from models import LLMCallLog, Notification, TrainingRecord, VoiceCallLog, VoiceConfig
+from models import LLMCallLog, TrainingRecord, VoiceCallLog, VoiceConfig
 
 
 def query_llm(db: Session, since: datetime) -> dict:
@@ -65,13 +65,6 @@ def query_scoring(db: Session, day_ago: datetime) -> dict:
 
 def query_sessions(db: Session) -> int:
     return db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.status == "in_progress").scalar() or 0
-
-
-def query_notifications(db: Session, since: datetime | None = None) -> int:
-    q = db.query(func.count(Notification.id)).filter(Notification.is_read == False)
-    if since is not None:
-        q = q.filter(Notification.created_at >= since)
-    return q.scalar() or 0
 
 
 def query_voice(db: Session, day_ago: datetime) -> dict:
@@ -136,7 +129,6 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
     errors = query_llm_errors(db, day_ago)
     scoring = query_scoring(db, day_ago)
     active = query_sessions(db)
-    unread = query_notifications(db, now - timedelta(days=30))
     voice = query_voice(db, day_ago)
     voice_budget = query_voice_budget(db)
 

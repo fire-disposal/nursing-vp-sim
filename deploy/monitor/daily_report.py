@@ -104,10 +104,10 @@ def build_report() -> str:
     <tr><th></th><th class="r">正式服</th><th class="r">测试服</th></tr>"""
     overview += f"<tr><td>状态</td><td class='r'>{tags['prod']}</td><td class='r'>{tags['staging']}</td></tr>"
 
-    for label, key in [("运行时长", "uptime_hours")]:
-        pv = prod.get("summary", {}).get(key, 0)
-        sv = stag.get("summary", {}).get(key, 0)
-        overview += f"<tr><td>{label}</td><td class='r'>{pv:.1f}h</td><td class='r'>{sv:.1f}h</td></tr>"
+    for label, key in [("运行时长", "uptime_seconds")]:
+        pv = prod.get("metrics", {}).get(key, 0)
+        sv = stag.get("metrics", {}).get(key, 0)
+        overview += f"<tr><td>{label}</td><td class='r'>{pv/3600:.1f}h</td><td class='r'>{sv/3600:.1f}h</td></tr>"
 
     overview += "</table></div>"
 
@@ -186,12 +186,7 @@ def build_report() -> str:
     scoring += f"<tr><td>卡住(&gt;24h)</td>{_td(str(psc.get('stuck', 0)), 'var(--c-err)' if psc.get('stuck') else '')}{_td(str(ssc.get('stuck', 0)), 'var(--c-err)' if ssc.get('stuck') else '')}</tr>"
     scoring += "</table></div>"
 
-    # ── Sessions ──
-    pse = prod.get("sessions", {})
-    sse = stag.get("sessions", {})
-    sessions = _card("活跃会话") + "<table><tr><th></th><th class='r'>正式服</th><th class='r'>测试服</th></tr>"
-    sessions += f"<tr><td>进行中</td>{_td(str(pse.get('active', 0)))}{_td(str(sse.get('active', 0)))}</tr>"
-    sessions += "</table></div>"
+    
 
     # ── Alerts ──
     pa = prod.get("alerts", [])
@@ -203,7 +198,7 @@ def build_report() -> str:
     else:
         errlog = _card("异常摘要", "h-ok") + '<div class="status-ok">当前运行正常，无异常</div></div>'
 
-    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__VOICE__", voice_section).replace("__SCORING__", scoring).replace("__SESSIONS__", sessions).replace("__ERRLOG__", errlog)
+    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__VOICE__", voice_section).replace("__SCORING__", scoring).replace("", sessions).replace("__ERRLOG__", errlog)
 
 
 CSS = """\
@@ -254,9 +249,9 @@ WRAPPER = (
     '<!DOCTYPE html><html><head><meta charset="utf-8">'
     '<meta name="color-scheme" content="light dark">'
     f"<style>{CSS}</style></head><body><div class='container'>"
-    "__HEADER____OVERVIEW____ERRLOG____LLM____VOICE____SCORING____SESSIONS__"
+    "__HEADER____OVERVIEW____ERRLOG____LLM____VOICE____SCORING__"
     '<div class="footer">由 daily_report.py 自动生成 · 每日 09:00 · '
-    "数据来自 /api/ops/report</div></div></body></html>"
+    "数据来自 /api/diagnose</div></div></body></html>"
 )
 
 

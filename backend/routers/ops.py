@@ -92,9 +92,9 @@ def _empty_metrics(error: str = "") -> dict:
 
 @router.get("/api/diagnose")
 async def diagnose(request: Request, token: str = Query("", description="诊断令牌")):
-    """综合诊断快照 —— OpenClaw Agent / 日报脚本统一入口。
+    """综合诊断快照 —— 运维监控统一入口。
 
-    一次调用返回：健康状态、LLM 统计、评分队列、会话数、通知数、
+    一次调用返回：系统版本、健康状态、LLM 统计、评分队列、
     语音服务 (TTS/ASR) 统计、系统错误日志、指标快照、告警列表。
     """
     _check_token(token)
@@ -102,7 +102,6 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
     db = SessionLocal()
     try:
         now = datetime.now(UTC)
-        day_ago = now - timedelta(hours=24)
 
         # DB-backed snapshot
         dashboard = build_dashboard(db, now)
@@ -116,14 +115,6 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
             except Exception:
                 pass
         dashboard["scoring"]["in_progress"] = scoring_in_progress
-
-        # SSE stats
-        sse_stats = {}
-        if hasattr(request.app.state, "sse_manager"):
-            try:
-                sse_stats = request.app.state.sse_manager.stats
-            except Exception:
-                pass
 
         # Metrics snapshot
         metrics_snapshot = {}
@@ -145,17 +136,12 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
 
         return {
             "version": APP_VERSION,
-            "health": {"status": "ok", "version": APP_VERSION},
-            "time": dashboard["time"],
-            "uptime_hours": metrics_snapshot.get("uptime_seconds", 0) / 3600 if metrics_snapshot else 0,
+            "health": {"status": "ok"},
             "summary": {"status": "degraded" if alerts else "healthy"},
             "llm": dashboard["llm"],
             "scoring": dashboard["scoring"],
-            "sessions": dashboard["sessions"],
-            "notifications": dashboard["notifications"],
             "voice": dashboard["voice"],
             "voice_budget": dashboard["voice_budget"],
-            "sse": sse_stats,
             "metrics": metrics_snapshot,
             "errors": {
                 "count": {
@@ -169,3 +155,4 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
         }
     finally:
         db.close()
+
