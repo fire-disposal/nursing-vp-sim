@@ -6,7 +6,7 @@ import {
 	useEmotion,
 } from "@/engine/PluginContext";
 import type { MessageBus } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface EmotionIndicatorProps {
 	bus: MessageBus;

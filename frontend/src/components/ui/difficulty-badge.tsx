@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { DIFFICULTY_LABELS } from "@/lib/styles";
+import { DIFFICULTY_LABELS } from "@/utils/styles";
 
 type DifficultyVariant = "success" | "warning" | "danger" | "neutral";
 

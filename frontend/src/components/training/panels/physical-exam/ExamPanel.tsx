@@ -2,7 +2,7 @@ import { Activity, Check, Copy, Heart, Loader2, Stethoscope } from "lucide-react
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/api/axios-instance";
 import type { PanelTabProps } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface ExamOp {
 	id: string;

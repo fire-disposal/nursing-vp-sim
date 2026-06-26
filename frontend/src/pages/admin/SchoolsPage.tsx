@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useAdminList } from "@/hooks/useAdminList";
-import { formatDate } from "@/lib/date";
+import { formatDate } from "@/utils/date";
 import { type SchoolCreateValues, schoolCreateSchema } from "@/schemas/school";
 
 type SchoolRow = Awaited<

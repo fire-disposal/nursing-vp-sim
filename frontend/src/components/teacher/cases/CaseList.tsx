@@ -4,7 +4,7 @@ import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { DifficultyBadge } from "@/components/ui/difficulty-badge";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type { CaseManageItem } from "./types";
 import { inputClass } from "./types";
 

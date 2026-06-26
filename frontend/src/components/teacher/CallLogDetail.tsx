@@ -11,7 +11,7 @@ import {
 import { getLogDetail } from "@/api/api-client";
 import Badge from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface CallLogDetailProps {
 	logId: number | null;

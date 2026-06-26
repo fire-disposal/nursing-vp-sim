@@ -8,7 +8,7 @@ import {
 } from "@/components/teacher/questionnaires/types";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface QuestionnaireAssignProps {
 	open: boolean;

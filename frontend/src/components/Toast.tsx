@@ -1,5 +1,5 @@
 import { toast as sonnerToast } from "sonner";
-import { getApiErrorMessage } from "@/lib/error-utils";
+import { getApiErrorMessage } from "@/utils/error";
 
 type ToastType = "success" | "error" | "warning" | "info";
 

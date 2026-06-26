@@ -139,26 +139,4 @@ export interface ManifestAction {
 	type: string;
 	op_type?: string;
 }
-// ── Frontend Plugin (local definition) ──
 
-export interface FrontendPluginDef {
-	id: string;
-	meta: { name: string; description?: string };
-	tab?: {
-		icon: ComponentType<{ size?: number }>;
-		label: string;
-		priority?: number;
-		badge?: (ctx: PluginContext) => BadgeInfo | null;
-	};
-	component?: ComponentType<PanelTabProps>;
-	hooks?: PluginHooks;
-	overlayComponent?: ComponentType<{
-		recordId: string;
-		bus: MessageBus;
-		features: Record<string, boolean>;
-	}>;
-}
-
-export function definePlugin(def: FrontendPluginDef): FrontendPluginDef {
-	return def;
-}

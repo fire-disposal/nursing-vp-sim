@@ -10,8 +10,9 @@ export {
 	useEmotion,
 	usePortrait,
 } from "./PluginContext";
-export { ScoreManager } from "./ScoreManager";
+export { notifySSEProgress, ScoreManager } from "./ScoreManager";
 export { StreamManager } from "./StreamManager";
+export { useTrainingContext } from "./TrainingContext";
 export { TrainingEngine } from "./TrainingEngine";
 export type {
 	BadgeInfo,

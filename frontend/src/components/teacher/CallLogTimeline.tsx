@@ -7,7 +7,7 @@ import CallLogDetail from "@/components/teacher/CallLogDetail";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 type LLMCallLogItem = components["schemas"]["LLMCallLogItem"];
 

@@ -20,7 +20,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import useAuthStore from "@/stores/authStore";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];

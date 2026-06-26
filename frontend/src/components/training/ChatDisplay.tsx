@@ -7,7 +7,7 @@ import {
 	usePortrait,
 } from "@/engine/PluginContext";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import { getPatientAvatar } from "@/utils/avatar";
 
 interface ChatDisplayProps {

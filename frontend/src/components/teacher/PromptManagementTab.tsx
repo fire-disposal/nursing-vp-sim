@@ -11,7 +11,7 @@ import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import PromptForm from "./prompts/PromptForm";
 import PromptList from "./prompts/PromptList";
 import type {

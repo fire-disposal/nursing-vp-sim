@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Brain, Loader2 } from "lucide-react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 const phaseLabels: Record<string, string> = {
 	loading: "正在加载对话记录...",

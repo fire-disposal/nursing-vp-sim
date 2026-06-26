@@ -15,7 +15,7 @@ import {
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface QuestionnaireListProps {
 	templates: TemplateListItem[];

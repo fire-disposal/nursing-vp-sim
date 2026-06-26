@@ -3,7 +3,7 @@ import { useState } from "react";
 import { submitFeedback } from "@/api/api-client";
 import { useToast } from "@/components/Toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface Mood {
 	value: number;

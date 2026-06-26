@@ -29,7 +29,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 function BudgetProgress({
 	label,

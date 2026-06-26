@@ -44,7 +44,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
 

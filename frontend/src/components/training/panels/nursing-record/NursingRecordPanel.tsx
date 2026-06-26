@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PanelTabProps } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import { NURSING_RECORD_SHEET_CONFIG } from "./config";
 import { ITEM_COMPONENTS } from "./index";
 import type { RecordSheetItem, RecordSheetSection } from "./types";

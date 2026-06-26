@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import { EXAMPLE_CONVERSATIONS } from "../data";
 
 export default function ConversationSnippets() {

@@ -19,7 +19,7 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 

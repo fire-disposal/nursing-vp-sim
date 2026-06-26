@@ -29,7 +29,7 @@ import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";
 import Pagination from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 type Schemas = components["schemas"];
 type FeedbackDailyItem = Schemas["FeedbackDailyItem"];

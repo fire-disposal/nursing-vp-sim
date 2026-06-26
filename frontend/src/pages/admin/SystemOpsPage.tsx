@@ -14,7 +14,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 function StatGrid({ data }: { data: OpsDashboard }) {
 	const successRate = data.llm.success_rate;

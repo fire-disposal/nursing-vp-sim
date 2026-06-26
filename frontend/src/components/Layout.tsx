@@ -33,7 +33,7 @@ import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useScoringNotifications } from "@/hooks/useScoringNotifications";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 import { APP_VERSION } from "@/version";

@@ -5,7 +5,7 @@ import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type { CaseForm, CaseManageItem, ScoringDimension } from "./types";
 import {
 	buildCaseData,

@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { PanelPlugin, PluginContext } from "@/engine/types";
 import { useIsMobile } from "@/hooks/useLayoutMode";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface FloatingPanelHostProps {
 	ctx: PluginContext;

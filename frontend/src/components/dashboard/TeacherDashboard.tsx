@@ -32,7 +32,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type { ScoreData } from "@/types/score";
 
 type AdminStats = components["schemas"]["AdminStats"];

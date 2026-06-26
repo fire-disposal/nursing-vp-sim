@@ -2,7 +2,7 @@ import { Loader2, Mic, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import useVoice from "@/hooks/useVoice";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface ChatInputProps {
 	onSend: (text: string) => void;

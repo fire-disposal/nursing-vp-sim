@@ -7,8 +7,8 @@ import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { formatDateTime } from "@/lib/date";
-import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/utils/date";
+import { cn } from "@/utils/cn";
 
 function truncate(text: string, maxLen: number): string {
 	if (!text) return "";

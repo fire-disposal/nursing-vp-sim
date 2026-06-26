@@ -1,7 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import type { ElementType, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface PageHeaderProps {
 	title: string;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 const SCENE = [
 	{ role: "nurse" as const, text: "您好，我是您的责任护士。请问您今天哪里不舒服？", delay: 1200 },

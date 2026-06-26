@@ -1,5 +1,5 @@
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type { InputItem } from "../types";
 
 interface InputItemProps {

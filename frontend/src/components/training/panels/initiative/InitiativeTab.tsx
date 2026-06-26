@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { PanelTabProps } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface InitiativeState {
 	elapsed_seconds?: number;

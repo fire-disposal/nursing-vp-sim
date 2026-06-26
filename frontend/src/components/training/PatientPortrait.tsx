@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EmotionState } from "@/engine/PluginContext";
 import { EMOTION_LABELS, getEmotionBorder } from "@/engine/PluginContext";
 import type { PatientData } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 
 interface PatientPortraitProps {

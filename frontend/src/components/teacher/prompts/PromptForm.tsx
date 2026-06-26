@@ -1,7 +1,7 @@
 import { CheckCircle, Hash, Play } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import Button from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type {
 	PromptForm as PromptFormType,
 	PromptTemplateResponse,

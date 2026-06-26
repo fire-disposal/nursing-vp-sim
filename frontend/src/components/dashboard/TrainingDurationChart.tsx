@@ -14,7 +14,7 @@ import { getTrends } from "@/api/api-client";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface DayItem {
 	date?: string;

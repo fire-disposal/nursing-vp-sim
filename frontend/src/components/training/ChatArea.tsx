@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";

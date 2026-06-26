@@ -1,7 +1,7 @@
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo } from "react";
 import type { PanelTabProps } from "@/engine/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 export function InquiryTab({ ctx }: PanelTabProps) {
 	const inquiries = ctx.patient.requiredInquiries ?? [];

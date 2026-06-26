@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type { ScoreItemData } from "@/types/score";
 
 interface ReviewItemProps {

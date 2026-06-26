@@ -13,8 +13,8 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 import type { ScoreData } from "@/types/score";
-import StudentDashboard from "./StudentDashboard";
-import TeacherDashboard from "./TeacherDashboard";
+import StudentDashboard from "@/components/dashboard/StudentDashboard";
+import TeacherDashboard from "@/components/dashboard/TeacherDashboard";
 
 interface RecordExtended {
 	id: number;

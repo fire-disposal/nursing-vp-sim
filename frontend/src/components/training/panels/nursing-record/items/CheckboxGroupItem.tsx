@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import type { CheckboxGroupItem } from "../types";
 
 interface CheckboxGroupItemProps {

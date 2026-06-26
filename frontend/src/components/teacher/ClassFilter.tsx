@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 
 interface ClassFilterParams {

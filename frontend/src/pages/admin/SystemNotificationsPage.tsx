@@ -22,7 +22,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { fromDatetimeLocal, toDatetimeLocal } from "@/lib/date";
+import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 import {
 	type NotificationValues,
 	notificationSchema,

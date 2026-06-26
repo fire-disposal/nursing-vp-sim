@@ -20,7 +20,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Tooltip from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 import SecretModal from "./SecretModal";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];

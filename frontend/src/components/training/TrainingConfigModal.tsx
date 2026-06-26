@@ -2,7 +2,7 @@ import { Clock, MessageCircle, Minus, Pause, Plus, Smile, Star, Stethoscope, Use
 import { useCallback, useState } from "react";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface PatientInfo {
     name: string;
