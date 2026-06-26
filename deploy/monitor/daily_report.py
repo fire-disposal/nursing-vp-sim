@@ -40,7 +40,7 @@ if not SMTP_HOST:
 
 
 def fetch_report(port: int) -> dict | None:
-    url = f"http://127.0.0.1:{port}/api/ops/report"
+    url = f"http://127.0.0.1:{port}/api/diagnose"
     if DIAGNOSE_TOKEN:
         url += f"?token={DIAGNOSE_TOKEN}"
     try:
@@ -50,7 +50,7 @@ def fetch_report(port: int) -> dict | None:
         )
         if r.returncode != 0:
             return None
-        # /api/ops/report 已改为直接返回数据体（无 {"data": ...} 信封包装）
+        # /api/diagnose returns data body directly (no envelope wrapper)
         data = json.loads(r.stdout)
         return data if isinstance(data, dict) else None
     except Exception:
@@ -129,8 +129,8 @@ def build_report() -> str:
             llm_section += f"<tr><td>{label}</td>{_td(str(pv))}{_td(str(sv))}</tr>"
 
     # Top errors
-    pe = pl.get("top_errors", [])
-    se = sl.get("top_errors", [])
+    pe = pl.get("recent_errors", [])
+    se = sl.get("recent_errors", [])
     if pe or se:
         llm_section += '<tr><td colspan="3" style="padding-top:8px;font-size:11px;color:var(--c-dim)">'
         if pe:

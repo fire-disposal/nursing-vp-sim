@@ -136,6 +136,13 @@ jobs:
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
           scp deploy/docker-compose.staging.yml "$USER@$HOST":/opt/nursing-vp-sim/docker-compose.staging.yml
 
+          echo ">> Deploy monitor scripts"
+          ssh "$USER@$HOST" "mkdir -p /opt/monitor"
+          scp deploy/monitor/monitor.py "$USER@$HOST":/opt/monitor/
+          scp deploy/monitor/daily_report.py "$USER@$HOST":/opt/monitor/
+          scp deploy/monitor/weekly_report.py "$USER@$HOST":/opt/monitor/
+          scp deploy/monitor/_env.py "$USER@$HOST":/opt/monitor/
+
           echo ">> Deploy nginx config"
           scp deploy/nginx/test.205716.xyz.conf "$USER@$HOST":/etc/nginx/sites-enabled/test.205716.xyz.conf
           scp deploy/nginx/snippets/block-scanners.conf "$USER@$HOST":/etc/nginx/snippets/block-scanners.conf
