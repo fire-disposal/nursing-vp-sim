@@ -9,7 +9,7 @@
 | 工具 | 用途 | 安装 |
 |------|------|------|
 | uv | Python 环境 + 包管理（自动装 Python 3.13） | [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/) |
-| Node.js ≥18 LTS | 前端 + pnpm scripts | [nodejs.org](https://nodejs.org/) |
+| Node.js ≥20 LTS | 前端 + pnpm scripts | [nodejs.org](https://nodejs.org/) |
 | PostgreSQL 15 | 数据库 | [EDB Installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads) (Windows) |
 | Git ≥2.40 | 版本控制 | [git-scm.com](https://git-scm.com/) |
 | DBeaver | 数据库 GUI（推荐） | [dbeaver.io](https://dbeaver.io/download/) |

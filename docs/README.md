@@ -8,7 +8,7 @@
 |------|------|
 | **[👉 从这里开始](00-dev-onboarding.md)** | **零基础入口**：工具安装、提交规范、Git 工作流、CI/CD、OpenCode 用法 |
 | [01-系统架构](01-architecture.md) | 技术栈、项目结构、架构设计 |
-| [API 文档](../README.md#api-文档) | Swagger UI（`/docs`）或 OpenAPI 自动生成的前端类型 |
+| [API 文档](../README.md) | Swagger UI（`/docs`）或 OpenAPI 自动生成的前端类型 |
 | [03-数据库设计](03-database.md) | 表结构、字段说明、关系映射 |
 | [04-前端设计](04-frontend.md) | 页面组件、路由设计、两种布局系统 |
 | [05-LLM与评分设计](05-llm-design.md) | 虚拟患者Prompt、评分Prompt、病例结构 |

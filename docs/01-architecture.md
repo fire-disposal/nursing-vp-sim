@@ -153,7 +153,7 @@ nursing-vp-sim/
 │   │   ├── main.tsx                            # React入口
 │   │   ├── version.ts                          # 版本标记 (构建时注入)
 │   │   ├── api/                                # API 客户端层
-│   │   │   ├── axios-instance.ts               # axios实例 + auth/retry 拦截器
+│   │   │   ├── client.ts                       # axios实例 + auth/retry 拦截器
 │   │   │   ├── api-client.ts                   # 统一API客户端
 │   │   │   ├── api-types.gen.ts                # 自动生成的类型定义
 │   │   │   ├── query-keys.ts                   # TanStack Query key 管理
@@ -177,7 +177,7 @@ nursing-vp-sim/
 │   │   │   ├── index.ts                        # 引擎导出
 │   │   │   ├── TrainingEngine.tsx              # 训练引擎主组件
 │   │   │   ├── MessageBus.ts                   # 消息总线（组件通信）
-│   │   │   ├── PluginContext.tsx               # 插件上下文Provider
+│   │   │   ├── PanelContext.tsx               # 插件上下文Provider
 │   │   │   ├── PatientProvider.tsx             # 患者数据Provider
 │   │   │   ├── StreamManager.ts                # SSE流管理器
 │   │   │   ├── ScoreManager.ts                 # 评分状态管理器
@@ -258,7 +258,7 @@ nursing-vp-sim/
 | **Sidebar (AppShell/Layout)** | Dashboard、Practice选择、QA、统计、历史、管理后台 | 响应式侧边栏 + 主内容区 |
 | **TrainingEngine 全屏** | 训练对话页 | 全屏训练界面 + 插件面板 (患者信息、问诊进度、体格检查、护理记录等) |
 
-TrainingEngine 采用插件化架构，通过 PluginContext 动态注册功能面板，支持 emotion、inquiry、physical-exam、nursing-record 等面板并行运行。
+TrainingEngine 采用插件化架构，通过 PanelContext 动态注册功能面板，支持 emotion、inquiry、physical-exam、nursing-record 等面板并行运行。
 
 ## 架构设计原则
 
