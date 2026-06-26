@@ -1,20 +1,26 @@
-"""
-运维 API —— 统一系统诊断与日报数据出口
+"""系统端点 — 健康检查、指标、综合诊断。
 
-专为 OpenClaw Agent 和内部监控设计，一个端点即可获取全部运维信息。
-认证方式与 /api/diagnose 一致：DIAGNOSE_TOKEN 查询参数。
+* ``/api/health``    — 数据库连通性检查（公开，无认证）
+* ``/api/metrics``   — Prometheus 格式指标快照（公开，无认证）
+* ``/api/diagnose``  — 综合诊断快照（token 认证，OpenClaw Agent / 日报脚本统一入口）
+
+``/api/diagnose`` 取代了原有的 ``/api/ops/*`` 三元组（dashboard / errors / report），
+将运维面板、错误日志、告警计算合并为一个综合响应，一次调用获取全部运维信息。
 """
 
 import logging
+import os
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlalchemy import case, func
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from core.config import APP_VERSION, DIAGNOSE_TOKEN
-from core.database import SessionLocal
+from core.database import SessionLocal, engine
 from core.diagnose import get_diagnose_service
-from models import LLMCallLog, Notification, TrainingRecord, VoiceCallLog, VoiceConfig
+from infrastructure.ops_queries import build_dashboard, compute_alerts
+from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)
 
@@ -28,12 +34,69 @@ def _check_token(token: str) -> None:
         raise HTTPException(status_code=403, detail="invalid token")
 
 
-@router.get("/api/ops/dashboard")
-async def ops_dashboard(
-    request: Request,
-    token: str = Query("", description="诊断令牌"),
-):
-    """统一运维面板 —— OpenClaw Agent 专用入口，一次调用获取全部状态。"""
+# ── Health ──────────────────────────────────────────────────────────────────
+
+
+@router.get("/api/health", response_model=HealthResponse)
+def health():
+    """数据库连通性检查 —— 负载均衡器健康探针。"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(status_code=503, content={"detail": "database unreachable"})
+    return {"status": "ok", "version": APP_VERSION}
+
+
+# ── Metrics ─────────────────────────────────────────────────────────────────
+
+
+@router.get("/api/metrics")
+def metrics(request: Request):
+    """指标快照 —— 内部监控消费。"""
+    m = getattr(request.app.state, "metrics", None)
+    if m is None:
+        return JSONResponse(status_code=503, content=_empty_metrics("metrics not initialized"))
+    try:
+        return m.snapshot()
+    except Exception as e:
+        log.warning("/api/metrics snapshot failed: %s", e)
+        return JSONResponse(status_code=500, content=_empty_metrics(str(e)[:200]))
+
+
+def _empty_metrics(error: str = "") -> dict:
+    return {
+        "uptime_seconds": 0,
+        "version": os.getenv("APP_VERSION", "dev"),
+        "requests": {"total": 0, "by_status": {}, "latency_ms": {"p50": 0, "p95": 0, "p99": 0, "avg": 0}},
+        "active_sessions": 0,
+        "llm": {
+            "calls_total": 0,
+            "calls_success": 0,
+            "calls_error": 0,
+            "tokens_used": 0,
+            "estimated_cost": 0,
+            "latency_ms": {"avg": 0, "p95": 0},
+            "degraded_providers": 0,
+            "global_degraded": False,
+        },
+        "db": {"pool_size": 0, "checked_out": 0, "overflow": 0, "connections_in_use": 0},
+        "queue": {"task_queue": 0, "log_queue": 0},
+        "memory_mb": 0.0,
+        **({"error": error} if error else {}),
+    }
+
+
+# ── Diagnose (comprehensive) ────────────────────────────────────────────────
+
+
+@router.get("/api/diagnose")
+async def diagnose(request: Request, token: str = Query("", description="诊断令牌")):
+    """综合诊断快照 —— OpenClaw Agent / 日报脚本统一入口。
+
+    一次调用返回：健康状态、LLM 统计、评分队列、会话数、通知数、
+    语音服务 (TTS/ASR) 统计、系统错误日志、指标快照、告警列表。
+    """
     _check_token(token)
 
     db = SessionLocal()
@@ -41,291 +104,68 @@ async def ops_dashboard(
         now = datetime.now(UTC)
         day_ago = now - timedelta(hours=24)
 
-        # ── 基础健康 ──
-        health_data = {"status": "ok", "version": APP_VERSION}
+        # DB-backed snapshot
+        dashboard = build_dashboard(db, now)
+        alerts = compute_alerts(dashboard)
 
-        # ── LLM 调用统计（近 24h） ──
-        llm_stats = (
-            db.query(
-                func.count(LLMCallLog.id).label("total"),
-                func.sum(case((LLMCallLog.status == "success", 1), else_=0)).label("success"),
-                func.sum(case((LLMCallLog.status == "error", 1), else_=0)).label("error"),
-                func.avg(LLMCallLog.latency_ms).label("avg_latency_ms"),
-            )
-            .filter(LLMCallLog.created_at >= day_ago)
-            .one()
-        )
-        llm_total = llm_stats.total or 0
-        llm_success = llm_stats.success or 0
-        llm_error = llm_stats.error or 0
-
-        # ── 评分队列 ──
-        scoring_pending = (
-            db.query(func.count(TrainingRecord.id))
-            .filter(
-                TrainingRecord.scoring_status == "pending",
-                TrainingRecord.end_time >= day_ago,
-            )
-            .scalar()
-            or 0
-        )
-        scoring_stuck = (
-            db.query(func.count(TrainingRecord.id))
-            .filter(
-                TrainingRecord.scoring_status.in_(["pending", "processing"]),
-                TrainingRecord.end_time < day_ago,
-            )
-            .scalar()
-            or 0
-        )
-
-        # ── 活跃会话 ──
-        active_sessions = (
-            db.query(func.count(TrainingRecord.id))
-            .filter(
-                TrainingRecord.status == "in_progress",
-            )
-            .scalar()
-            or 0
-        )
-
-        # ── 近期异常 ──
-        recent_errors = (
-            db.query(LLMCallLog.error_type, func.count(LLMCallLog.id).label("cnt"))
-            .filter(
-                LLMCallLog.status == "error",
-                LLMCallLog.created_at >= day_ago,
-            )
-            .group_by(LLMCallLog.error_type)
-            .order_by(func.count(LLMCallLog.id).desc())
-            .limit(5)
-            .all()
-        )
-
-        # ── 后端诊断快照 ──
-        try:
-            service = get_diagnose_service()
-            diagnostic = await service.get_diagnose()
-            system_errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
-        except Exception:
-            diagnostic = {"error": "diagnose service unavailable"}
-            system_errors = {}
-
-        # ── 指标快照 ──
-        metrics_snapshot = {}
-        if request and hasattr(request.app.state, "metrics"):
+        # Scoring in-progress count (from app state, not DB)
+        scoring_in_progress = 0
+        if hasattr(request.app.state, "scoring_tracker"):
             try:
-                metrics_snapshot = request.app.state.metrics.snapshot()
+                scoring_in_progress = len(request.app.state.scoring_tracker._store)
             except Exception:
                 pass
+        dashboard["scoring"]["in_progress"] = scoring_in_progress
 
-        # ── 通知统计（近 30 天未读） ──
-        unread_notifications = (
-            db.query(func.count(Notification.id))
-            .filter(
-                Notification.is_read == False,
-                Notification.created_at >= now - timedelta(days=30),
-            )
-            .scalar()
-            or 0
-        )
-
-        # ── 语音服务统计（近 24h） ──
-        voice_stats = _query_voice_stats(db, day_ago)
-
-        # ── SSE 连接统计 ──
+        # SSE stats
         sse_stats = {}
-        if request and hasattr(request.app.state, "sse_manager"):
+        if hasattr(request.app.state, "sse_manager"):
             try:
                 sse_stats = request.app.state.sse_manager.stats
             except Exception:
                 pass
 
-        # ── 评分进行中 ──
-        scoring_in_progress = 0
-        if request and hasattr(request.app.state, "scoring_tracker"):
+        # Metrics snapshot
+        metrics_snapshot = {}
+        if hasattr(request.app.state, "metrics"):
             try:
-                scoring_in_progress = len(request.app.state.scoring_tracker._store)
+                metrics_snapshot = request.app.state.metrics.snapshot()
             except Exception:
                 pass
 
-        # ── 语音月度预算 ──
-        voice_budget = _query_voice_budget(db)
+        # Diagnose service errors
+        system_errors = {}
+        try:
+            diag_svc = get_diagnose_service()
+            diagnostic = await diag_svc.get_diagnose()
+            errors = (diagnostic.get("errors") or {}) if isinstance(diagnostic, dict) else {}
+            system_errors = errors
+        except Exception:
+            diagnostic = {"error": "diagnose service unavailable"}
 
         return {
-            "health": health_data,
-            "time": now.isoformat(),
+            "version": APP_VERSION,
+            "health": {"status": "ok", "version": APP_VERSION},
+            "time": dashboard["time"],
             "uptime_hours": metrics_snapshot.get("uptime_seconds", 0) / 3600 if metrics_snapshot else 0,
-            "llm": {
-                "total_calls_24h": llm_total,
-                "success_rate": round(llm_success / max(llm_total, 1) * 100, 1),
-                "error_count_24h": llm_error,
-                "avg_latency_ms": round(llm_stats.avg_latency_ms or 0, 0),
-                "recent_errors": [{"type": r.error_type, "count": r.cnt} for r in recent_errors],
-            },
-            "scoring": {
-                "pending": scoring_pending,
-                "stuck": scoring_stuck,
-                "in_progress": scoring_in_progress,
-            },
-            "sessions": {
-                "active": active_sessions,
-            },
-            "notifications": {
-                "unread": unread_notifications,
-            },
-            "voice": voice_stats,
-            "voice_budget": voice_budget,
+            "summary": {"status": "degraded" if alerts else "healthy"},
+            "llm": dashboard["llm"],
+            "scoring": dashboard["scoring"],
+            "sessions": dashboard["sessions"],
+            "notifications": dashboard["notifications"],
+            "voice": dashboard["voice"],
+            "voice_budget": dashboard["voice_budget"],
             "sse": sse_stats,
             "metrics": metrics_snapshot,
-            "diagnostic": diagnostic,
-            "system_errors": system_errors,
+            "errors": {
+                "count": {
+                    "last_5min": system_errors.get("last_5min", 0),
+                    "last_hour": system_errors.get("last_hour", 0),
+                    "total_captured": system_errors.get("total_captured", 0),
+                },
+                "recent": (system_errors.get("recent") or []),
+            },
+            "alerts": alerts,
         }
     finally:
         db.close()
-
-
-@router.get("/api/ops/errors")
-async def ops_errors(
-    token: str = Query("", description="诊断令牌"),
-    n: int = Query(20, description="返回条数"),
-):
-    """系统错误日志 —— ErrorCaptureHandler 环缓冲内容。"""
-    _check_token(token)
-    try:
-        service = get_diagnose_service()
-        diagnostic = await service.get_diagnose()
-        errors = diagnostic.get("errors") or {}
-        return {
-            "count": {
-                "last_5min": errors.get("last_5min", 0),
-                "last_hour": errors.get("last_hour", 0),
-                "total_captured": errors.get("total_captured", 0),
-            },
-            "recent": (errors.get("recent") or [])[:n],
-        }
-    except Exception:
-        return {"count": {}, "recent": []}
-
-
-@router.get("/api/ops/report")
-async def ops_report(
-    request: Request,
-    token: str = Query("", description="诊断令牌"),
-):
-    """运维日报 —— 返回纯数据的日报摘要，OpenClaw Agent 或外部 cron 可消费。"""
-    _check_token(token)
-
-    dashboard = await ops_dashboard(request=request, token=token)
-    data = dashboard
-
-    # 提取关键指标，生成日报摘要
-    llm = data.get("llm", {})
-    scoring = data.get("scoring", {})
-    sessions = data.get("sessions", {})
-    voice = data.get("voice", {})
-
-    alerts = []
-    if llm.get("total_calls_24h", 0) > 0 and llm.get("success_rate", 100) < 90:
-        alerts.append(f"LLM 成功率 {llm['success_rate']}% 低于 90%")
-    if llm.get("error_count_24h", 0) > 50:
-        alerts.append(f"近 24h LLM 错误 {llm['error_count_24h']} 次")
-    if scoring.get("stuck", 0) > 5:
-        alerts.append(f"卡住评分 {scoring['stuck']} 条")
-    if sessions.get("active", 0) > 50:
-        alerts.append(f"活跃会话 {sessions['active']} 个")
-    tts = voice.get("tts", {})
-    asr_ = voice.get("asr", {})
-    if tts.get("calls_24h", 0) > 0 and tts.get("success_rate", 100) < 90:
-        alerts.append(f"TTS 成功率 {tts['success_rate']}% 低于 90%")
-    if asr_.get("calls_24h", 0) > 0 and asr_.get("success_rate", 100) < 80:
-        alerts.append(f"ASR 成功率 {asr_['success_rate']}% 低于 80%")
-    if tts.get("error_count_24h", 0) > 20:
-        alerts.append(f"近 24h TTS 错误 {tts['error_count_24h']} 次")
-
-    return {
-        "summary": {
-            "time": data.get("time"),
-            "uptime_hours": data.get("uptime_hours", 0),
-            "status": "degraded" if alerts else "healthy",
-        },
-        "llm": {
-            "total_calls_24h": llm.get("total_calls_24h", 0),
-            "success_rate": llm.get("success_rate", 100),
-            "error_count_24h": llm.get("error_count_24h", 0),
-            "avg_latency_ms": llm.get("avg_latency_ms", 0),
-            "top_errors": llm.get("recent_errors", []),
-        },
-        "scoring": {
-            "pending": scoring.get("pending", 0),
-            "stuck": scoring.get("stuck", 0),
-        },
-        "sessions": {
-            "active": sessions.get("active", 0),
-        },
-        "notifications": {
-            "unread": data.get("notifications", {}).get("unread", 0),
-        },
-        "voice": data.get("voice", {}),
-        "voice_budget": data.get("voice_budget", {}),
-        "alerts": alerts,
-    }
-
-
-# ── Helper queries ──
-
-
-def _query_voice_stats(db, day_ago) -> dict:
-    """Voice (TTS/ASR) stats for the past 24h — single aggregation query per direction."""
-    rows = (
-        db.query(
-            VoiceCallLog.direction,
-            func.count(VoiceCallLog.id).label("total"),
-            func.sum(case((VoiceCallLog.status == "success", 1), else_=0)).label("success"),
-            func.sum(case((VoiceCallLog.status == "error", 1), else_=0)).label("error"),
-            func.avg(VoiceCallLog.latency_ms).label("avg_latency_ms"),
-            func.sum(VoiceCallLog.cost_estimated).label("cost"),
-        )
-        .filter(VoiceCallLog.created_at >= day_ago)
-        .group_by(VoiceCallLog.direction)
-        .all()
-    )
-
-    result: dict = {"tts": {}, "asr": {}}
-    for r in rows:
-        total = r.total or 0
-        success = r.success or 0
-        section = {
-            "calls_24h": total,
-            "success_rate": round(success / max(total, 1) * 100, 1),
-            "error_count_24h": r.error or 0,
-            "avg_latency_ms": round(r.avg_latency_ms or 0, 0),
-            "cost_24h": round(float(r.cost or 0), 4),
-        }
-        if r.direction == "tts":
-            result["tts"] = section
-        elif r.direction == "asr":
-            result["asr"] = section
-    return result
-
-
-def _query_voice_budget(db) -> dict:
-    """Monthly voice budget vs consumption."""
-    cfg = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-    if not cfg:
-        return {"monthly_budget": 0, "monthly_cost": 0, "usage_pct": 0}
-
-    now = datetime.now(UTC)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    monthly_cost = (
-        db.query(func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0))
-        .filter(VoiceCallLog.created_at >= month_start)
-        .scalar()
-        or 0
-    )
-    budget = float(cfg.monthly_budget or 0)
-    return {
-        "monthly_budget": budget,
-        "monthly_cost": round(float(monthly_cost), 4),
-        "usage_pct": round(float(monthly_cost) / max(budget, 1) * 100, 1),
-    }

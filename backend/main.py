@@ -13,7 +13,6 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
 
 from contexts.training.router.session import set_training_infra, stop_background_loop
 from core.config import (
@@ -56,7 +55,6 @@ from infrastructure.tts.client import VolcTTSClient
 from middleware.rate_limits import PgRateLimiter
 from models import VoiceConfig
 from repositories.training import TrainingRepository
-from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)
 
@@ -416,7 +414,7 @@ async def _log_requests(request: Request, call_next):
     elif response.status_code >= 400:
         log.warning("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
     metrics = getattr(request.app.state, "metrics", None)
-    if metrics and request.url.path not in ("/api/metrics", "/api/health", "/api/diagnose"):
+    if metrics and request.url.path not in ("/api/metrics", "/api/health"):
         metrics.record_request(response.status_code, ms)
     return response
 
@@ -461,98 +459,6 @@ app.add_middleware(
 # EnvelopeMiddleware removed — API now returns standard JSON with HTTP status codes.
 
 # Route registration
-from contexts.qa import router as qa_router
-from contexts.training import chat_router, nursing_router, training_router
-from routers import (
-    admin,
-    admin_classes,
-    admin_grades,
-    auth,
-    cases,
-    export,
-    feedback,
-    notes,
-    questionnaires,
-    stats,
-)
-from routers.admin.practices import router as admin_practices_router
-from routers.admin_api import router as admin_api_router
-from routers.admin_prompts import router as admin_prompts_router
-from routers.admin_roles import router as admin_roles_router
-from routers.admin_schools import router as admin_schools_router
-from routers.admin_voice import router as admin_voice_router
-from routers.asr import router as asr_router
-from routers.assignments import router as assignments_router
-from routers.assignments import student_router as student_assignments_router
-from routers.diagnose import router as diagnose_router
-from routers.ops import router as ops_router
-from routers.tts import router as tts_router
+from routers import register_routers
 
-for mod in [auth, admin, admin_classes, admin_grades, cases, export, feedback, notes, questionnaires, stats]:
-    app.include_router(mod.router)
-app.include_router(admin_api_router)
-app.include_router(admin_prompts_router)
-app.include_router(admin_practices_router)
-app.include_router(admin_schools_router)
-app.include_router(admin_roles_router)
-app.include_router(training_router)
-app.include_router(chat_router)
-app.include_router(nursing_router)
-app.include_router(qa_router)
-app.include_router(assignments_router)
-app.include_router(diagnose_router)
-app.include_router(student_assignments_router)
-app.include_router(ops_router)
-app.include_router(admin_voice_router)
-app.include_router(asr_router)
-app.include_router(tts_router)
-
-
-@app.get("/api/health", response_model=HealthResponse)
-def health():
-    from core.database import engine
-
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except Exception:
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "database unreachable"},
-        )
-    return {"status": "ok", "version": APP_VERSION}
-
-
-@app.get("/api/metrics")
-async def metrics(request: Request):
-    m = getattr(request.app.state, "metrics", None)
-    if m is None:
-        return JSONResponse(status_code=503, content=_empty_metrics("metrics not initialized"))
-    try:
-        return m.snapshot()
-    except Exception as e:
-        log.warning("/api/metrics snapshot failed: %s", e)
-        return JSONResponse(status_code=500, content=_empty_metrics(str(e)[:200]))
-
-
-def _empty_metrics(error: str = "") -> dict:
-    return {
-        "uptime_seconds": 0,
-        "version": os.getenv("APP_VERSION", "dev"),
-        "requests": {"total": 0, "by_status": {}, "latency_ms": {"p50": 0, "p95": 0, "p99": 0, "avg": 0}},
-        "active_sessions": 0,
-        "llm": {
-            "calls_total": 0,
-            "calls_success": 0,
-            "calls_error": 0,
-            "tokens_used": 0,
-            "estimated_cost": 0,
-            "latency_ms": {"avg": 0, "p95": 0},
-            "degraded_providers": 0,
-            "global_degraded": False,
-        },
-        "db": {"pool_size": 0, "checked_out": 0, "overflow": 0, "connections_in_use": 0},
-        "queue": {"task_queue": 0, "log_queue": 0},
-        "memory_mb": 0.0,
-        **({"error": error} if error else {}),
-    }
+register_routers(app)

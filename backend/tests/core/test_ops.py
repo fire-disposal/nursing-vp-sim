@@ -1,32 +1,33 @@
-"""Tests for Ops API dashboard and errors endpoints."""
+"""Tests for the comprehensive /api/diagnose endpoint."""
 
 from unittest.mock import patch
 
 
-def test_ops_dashboard_hidden_without_token(client):
-    resp = client.get("/api/ops/dashboard")
+def test_diagnose_hidden_without_token(client):
+    resp = client.get("/api/diagnose")
     assert resp.status_code in (403, 404)
 
 
-def test_ops_dashboard_with_valid_token(client):
+def test_diagnose_with_valid_token(client):
     with patch("routers.ops.DIAGNOSE_TOKEN", "test-token"):
-        resp = client.get("/api/ops/dashboard?token=test-token")
+        resp = client.get("/api/diagnose?token=test-token")
         assert resp.status_code == 200
         data = resp.json()
+        assert "version" in data
         assert "health" in data
         assert "llm" in data
+        assert "scoring" in data
+        assert "sessions" in data
+        assert "voice" in data
+        assert "errors" in data
+        assert "alerts" in data
+        assert "summary" in data
+        # errors sub-structure
+        assert "count" in data["errors"]
+        assert "recent" in data["errors"]
 
 
-def test_ops_dashboard_invalid_token(client):
+def test_diagnose_invalid_token(client):
     with patch("routers.ops.DIAGNOSE_TOKEN", "test-token"):
-        resp = client.get("/api/ops/dashboard?token=wrong-token")
+        resp = client.get("/api/diagnose?token=wrong-token")
         assert resp.status_code == 403
-
-
-def test_ops_errors_with_valid_token(client):
-    with patch("routers.ops.DIAGNOSE_TOKEN", "test-token"):
-        resp = client.get("/api/ops/errors?token=test-token")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "count" in data
-        assert "recent" in data

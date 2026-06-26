@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from contexts.patient.emotion import get_emotion
+from contexts.patient import get_emotion
 from core.database import get_db
 from core.security import get_current_user
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
