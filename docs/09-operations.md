@@ -50,7 +50,7 @@ pnpm run tag → v2026.06.02-N
 首次部署时 deploy-production.yml 自动执行：
 
 1. `sudo mkdir -p /opt/nursing-vp-sim/backups`
-2. 生成 `.env` 模板（含随机 `POSTGRES_PASSWORD`；`JWT_SECRET_KEY` / `FERNET_KEY` 不自动生成，须手动写入）
+2. 编辑 `.env`（`POSTGRES_PASSWORD` 须改为强密码；`JWT_SECRET_KEY` / `FERNET_KEY` 须手动生成写入）
 3. 生成 `docker-compose.yml`
 4. 拉取镜像并启动
 

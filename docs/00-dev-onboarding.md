@@ -27,7 +27,7 @@ cd frontend && pnpm install && cd ..
 
 ### PostgreSQL（Windows 快速版）
 
-1. 安装 PostgreSQL 15，组件勾选 **Server + Command Line Tools**，密码设为 `postgres`（与默认配置一致）
+1. 安装 PostgreSQL 15，组件勾选 **Server + Command Line Tools**
 2. 创建数据库：`& "C:\Program Files\PostgreSQL\15\bin\createdb.exe" -U postgres vptest`
 3. DBeaver 连接：Host=`localhost` / Port=`5432` / Database=`vptest` / User=`postgres`
 
@@ -49,7 +49,7 @@ TEST_DB_URL=postgresql://postgres:postgres@localhost:5432/nursing_test
 pnpm run dev            # :8000 (backend) + :3000 (frontend)
 ```
 
-默认账号：教师 `admin`/`admin123` · 学生 `student1~5`/`123456`
+首次启动后 seed 脚本会自动创建测试账号（密码在 `.env` 中配置）
 
 ### 常见问题
 
@@ -60,15 +60,6 @@ pnpm run dev            # :8000 (backend) + :3000 (frontend)
 | `uv` 未找到 | 安装 uv → 重启终端 |
 | 想清空数据库 | DBeaver 执行 `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` → 重启后端 |
 
-## OpenCode + Superpowers
-
-```bash
-pnpm install -g @anthropic/opencode
-# 启动后输入以下指令安装 Skills：
-# Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md
-```
-
-OpenCode 在本项目中自动遵循 Emoji 提交格式、`/api/` 路径前缀、ruff/Biome 风格。
 
 ## 提交与发版
 
