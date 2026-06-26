@@ -108,8 +108,6 @@ jobs:
           echo ">> Deploy nginx config"
           scp deploy/nginx/iomt.205716.xyz.conf "$USER@$HOST":/etc/nginx/sites-enabled/iomt.205716.xyz.conf
           scp deploy/nginx/snippets/block-scanners.conf "$USER@$HOST":/etc/nginx/snippets/block-scanners.conf
-          scp deploy/nginx/snippets/maintenance.nginx.conf "$USER@$HOST":/etc/nginx/snippets/maintenance.nginx.conf
-          scp deploy/nginx/maintenance.html "$USER@$HOST":$DEPLOY_DIR/maintenance.html
           ssh "$USER@$HOST" "sudo nginx -t && sudo nginx -s reload || echo 'nginx reload skipped (config test failed)'"
 
           ssh "$USER@$HOST" << DEPLOY

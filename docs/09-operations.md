@@ -16,7 +16,6 @@
 | `deploy-staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
 | `deploy-production.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
 | `rollback.yml` | `workflow_dispatch`（手动） | 回滚 | — |
-| `maintenance.yml` | `workflow_dispatch`（手动） | 维护模式 | — |
 
 ### 日常发布流程
 
@@ -392,24 +391,6 @@ sudo nginx -s reload
 ```
 
 ---
-
-### 需要紧急维护通知
-
-**开启维护模式** (通过 GitHub Actions):
-Actions → "Maintenance Mode Toggle" → 选择环境 + enable → Run workflow
-
-**手动开启** (如果 Action 不可用):
-```bash
-ssh user@<server_ip>
-# 开启生产维护
-sudo touch /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s reload
-# 开启预发布维护
-sudo touch /opt/nursing-vp-sim/maintenance.staging.on && sudo nginx -t && sudo nginx -s reload
-# 关闭维护
-sudo rm -f /opt/nursing-vp-sim/maintenance.on && sudo nginx -t && sudo nginx -s reload
-```
-
-**维护页面**: `/opt/nursing-vp-sim/maintenance.html`（自包含 HTML，无外部依赖）
 
 ---
 

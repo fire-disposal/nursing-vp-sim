@@ -237,13 +237,11 @@ nursing-vp-sim/
 │   ├── nginx/                                  # nginx 配置
 │   │   ├── sites-enabled/
 │   │   ├── snippets/
-│   │   └── maintenance/
 │   └── monitor/                                # 监控配置
 │
 ├── .github/workflows/                          # CI/CD
 │   ├── deploy-staging.yml                      # Staging部署 (v* tag 触发)
 │   ├── deploy-production.yml                   # Production 部署 (手动触发)
-│   ├── maintenance.yml                         # 维护模式
 │   └── rollback.yml                            # 紧急回滚
 │
 ├── scripts/                                    # 辅助脚本
