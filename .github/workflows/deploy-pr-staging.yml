@@ -1,4 +1,6 @@
-name: PR Merge → Deploy Staging
+name: PR Merge — Tag & Deploy
+
+run-name: "[PR-Staging] Auto tag → deploy"
 
 on:
   pull_request:

@@ -1,5 +1,7 @@
 name: Emergency Rollback (Production)
 
+run-name: "[Production] Rollback to v${{ inputs.version }}"
+
 on:
   workflow_dispatch:
     inputs:

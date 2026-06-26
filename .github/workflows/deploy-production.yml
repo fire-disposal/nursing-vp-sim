@@ -1,5 +1,7 @@
 name: Deploy to Production
 
+run-name: "[Production] Deploy ${{ inputs.version }}"
+
 on:
   workflow_dispatch:
     inputs:
@@ -19,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
@@ -86,6 +90,31 @@ jobs:
           CLEAN="${RAW#v}"
           echo "value=$CLEAN" >> $GITHUB_OUTPUT
           echo ">> version: $CLEAN"
+
+      - name: Write change summary
+        run: |
+          VER="${{ steps.version.outputs.value }}"
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          PROD_VER=""
+          if [ -n "$HOST" ] && [ -n "$USER" ]; then
+            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
+          fi
+          {
+            echo "# Production Deploy v$VER"
+            echo ""
+            echo "**Previous**: v$PROD_VER  |  **Target**: v$VER"
+            echo ""
+            echo "## Changes"
+            echo '```'
+            if [ -n "$PROD_VER" ]; then
+              git log "v$PROD_VER..v$VER" --oneline --no-merges 2>/dev/null || echo "(no tags found)"
+            else
+              echo "(first deploy or no version history)"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy to Production
         run: |
