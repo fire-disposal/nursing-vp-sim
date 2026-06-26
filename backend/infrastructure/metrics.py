@@ -169,9 +169,12 @@ class MetricsSnapshot:
             active_sessions=_safe(self.active_sessions_supplier, 0),
             llm=_safe(self._llm_stats, {}),
             db=_safe(self._db_stats, {}),
-            queue=_safe(lambda: dict(
-                task_queue=self.task_queue_size_supplier(),
-                log_queue=self.log_queue_size_supplier(),
-            ), {}),
+            queue=_safe(
+                lambda: dict(
+                    task_queue=self.task_queue_size_supplier(),
+                    log_queue=self.log_queue_size_supplier(),
+                ),
+                {},
+            ),
             memory_mb=_safe(self._memory_mb, 0.0),
         )

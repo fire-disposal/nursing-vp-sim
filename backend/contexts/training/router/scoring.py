@@ -17,6 +17,7 @@ from infrastructure.llm.client import LLMClient
 from infrastructure.prompt import PromptManager
 from infrastructure.queue import QueueFullError
 from infrastructure.scoring_progress import ScoringProgressTracker
+
 # NOTE: ScoringProgressTracker 是内存 dict — 仅适合作业内暂存。
 # 多 worker 下会各自独立，不影响功能（UI 轮询走当前 worker）。
 from models import Case, Message, Notification, Score, ScoreReview, TrainingRecord, User
@@ -135,7 +136,6 @@ def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
         record.is_overdue = True
 
 
-
 def _handle_scoring_failure(
     record_id: int,
     gen: int,
@@ -147,6 +147,7 @@ def _handle_scoring_failure(
     """Shared error handling — updates DB status, creates notification, publishes SSE."""
     try:
         from core.database import SessionLocal
+
         db = SessionLocal()
         try:
             db.expire_all()
@@ -166,7 +167,8 @@ def _handle_scoring_failure(
                 )
                 if sse_manager:
                     import asyncio
-                    asyncio.ensure_future(
+
+                    asyncio.ensure_future(  # noqa: RUF006
                         _publish_scoring_event(
                             sse_manager,
                             actual_user_id,
@@ -259,8 +261,11 @@ async def _run_scoring_background(
         if tracker:
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         _handle_scoring_failure(
-            record_id, gen, "评分超时（超过5分钟）",
-            tracker=tracker, sse_manager=sse_manager,
+            record_id,
+            gen,
+            "评分超时（超过5分钟）",
+            tracker=tracker,
+            sse_manager=sse_manager,
         )
     except Exception as e:
         msg = str(e)[:200]
@@ -268,8 +273,11 @@ async def _run_scoring_background(
         if tracker:
             tracker.update(record_id, "failed", 0, msg)
         _handle_scoring_failure(
-            record_id, gen, str(e)[:2000] or type(e).__name__,
-            tracker=tracker, sse_manager=sse_manager,
+            record_id,
+            gen,
+            str(e)[:2000] or type(e).__name__,
+            tracker=tracker,
+            sse_manager=sse_manager,
         )
     finally:
         db.close()

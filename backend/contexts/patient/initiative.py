@@ -142,10 +142,7 @@ async def generate_initiative_llm(
     mood = _describe_mood(trust, comfort)
     traits = _describe_traits(personality)
 
-    common_prompt = (
-        f"病例：{case_name}。{traits}\n"
-        f"当前情绪状态：{mood}（信任度{trust}/100，舒适度{comfort}/100）。\n"
-    )
+    common_prompt = f"病例：{case_name}。{traits}\n当前情绪状态：{mood}（信任度{trust}/100，舒适度{comfort}/100）。\n"
 
     # ── Attempt 1: full context ──
     try:
