@@ -20,7 +20,6 @@ from core.config import APP_VERSION, DIAGNOSE_TOKEN
 from core.database import SessionLocal, engine
 from core.diagnose import get_diagnose_service
 from infrastructure.ops_queries import build_dashboard, compute_alerts
-from schemas.ops import HealthResponse
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ def _check_token(token: str) -> None:
 # ── Health ──────────────────────────────────────────────────────────────────
 
 
-@router.get("/api/health", response_model=HealthResponse)
+@router.get("/api/health")
 def health():
     """数据库连通性检查 —— 负载均衡器健康探针。"""
     try:

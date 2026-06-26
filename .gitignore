@@ -67,3 +67,4 @@ dev-report*.html
 # 本地技能（个人化，不入仓库）
 .agents/skills/
 skills-lock.json
+.npm/
