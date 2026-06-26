@@ -1,9 +1,9 @@
 import { api } from "@/api/client";
 
-export interface OpsDashboard {
-	health: { status: string; version: string };
-	time: string;
-	uptime_hours: number;
+export interface DiagnoseResponse {
+	version: string;
+	health: { status: "ok" };
+	summary: { status: "healthy" | "degraded" };
 	llm: {
 		total_calls_24h: number;
 		success_rate: number;
@@ -11,45 +11,23 @@ export interface OpsDashboard {
 		avg_latency_ms: number;
 		recent_errors: { type: string; count: number }[];
 	};
-	scoring: { pending: number; stuck: number };
-	sessions: { active: number };
-	notifications: { unread: number };
-	system_errors: Record<string, number>;
-}
-
-export interface OpsErrorEntry {
-	timestamp: string;
-	logger: string;
-	message: string;
-	pathname: string;
-	lineno: number;
-}
-
-export interface OpsErrors {
-	count: { last_5min: number; last_hour: number; total_captured: number };
-	recent: OpsErrorEntry[];
-}
-
-export interface OpsReport {
-	summary: { time: string; uptime_hours: number; status: "healthy" | "degraded" };
-	llm: {
-		total_calls_24h: number;
-		success_rate: number;
-		error_count_24h: number;
-		avg_latency_ms: number;
-		top_errors: { type: string; count: number }[];
+	scoring: { pending: number; stuck: number; in_progress: number };
+	voice: {
+		tts: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
+		asr: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
 	};
-	scoring: { pending: number; stuck: number };
-	sessions: { active: number };
-	notifications: { unread: number };
+	voice_budget: { monthly_budget: number; monthly_cost: number; usage_pct: number };
+	metrics: {
+		active_sessions: number;
+		uptime_seconds: number;
+		version: string;
+	} & Record<string, unknown>;
+	errors: {
+		count: { last_5min: number; last_hour: number; total_captured: number };
+		recent: { time: string; level: string; logger: string; message: string }[];
+	};
 	alerts: string[];
 }
 
-export const fetchOpsDashboard = () =>
-	api.get<OpsDashboard>("/admin/ops/dashboard");
-
-export const fetchOpsErrors = (n = 20) =>
-	api.get<OpsErrors>("/admin/ops/errors", { params: { n } });
-
-export const fetchOpsReport = () =>
-	api.get<OpsReport>("/admin/ops/report");
+export const fetchDiagnose = () =>
+	api.get<DiagnoseResponse>("/diagnose");

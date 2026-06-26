@@ -15,13 +15,21 @@ def test_diagnose_with_valid_token(client):
         data = resp.json()
         assert "version" in data
         assert "health" in data
+        assert data["health"] == {"status": "ok"}
+        assert "summary" in data
         assert "llm" in data
         assert "scoring" in data
-        assert "sessions" in data
         assert "voice" in data
+        assert "voice_budget" in data
         assert "errors" in data
         assert "alerts" in data
-        assert "summary" in data
+        assert "metrics" in data
+        # Removed fields should not be present
+        assert "notifications" not in data
+        assert "sessions" not in data
+        assert "sse" not in data
+        assert "time" not in data
+        assert "uptime_hours" not in data
         # errors sub-structure
         assert "count" in data["errors"]
         assert "recent" in data["errors"]
