@@ -164,7 +164,7 @@ jobs:
 
             if [ "\$STAGING_VER" = "none" ]; then
               echo "⚠ no staging running, allowing direct deploy"
-            elif [ "\$STAGING_VER" != "$VER" ]; then
+            elif [ "\${STAGING_VER#v}" != "$VER" ]; then
               echo "✗ v$VER ≠ staging (v\$STAGING_VER). Must match exactly. Deploy to Staging first."
               exit 1
             fi
