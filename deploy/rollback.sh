@@ -49,7 +49,7 @@ rollback_to() {
     local line_num=$1
     local entry
     entry=$(sed -n "${line_num}p" "$HISTORY_FILE")
-    IFS='|' read -r ver ts backend_img frontend_img <<< "$entry"
+    IFS='|' read -r ver ts backend_img frontend_img target_rev <<< "$entry"
 
     if [[ -z "$backend_img" ]]; then
         backend_img="ghcr.io/fire-disposal/nursing-vp-sim-backend:${ver}"
@@ -64,6 +64,9 @@ rollback_to() {
     echo "    时间:   ${ts}"
     echo "    后端:   ${backend_img}"
     echo "    前端:   ${frontend_img}"
+    if [[ -n "$target_rev" ]]; then
+        echo "    迁移:   ${target_rev}"
+    fi
     echo ""
 
     local confirm=""
@@ -87,14 +90,15 @@ rollback_to() {
     sed -i "s|image: .*nursing-vp-sim-backend:.*|image: ${backend_img}|" docker-compose.yml
     sed -i "s|image: .*nursing-vp-sim-frontend:.*|image: ${frontend_img}|" docker-compose.yml
 
-    msg_ok "回滚数据库迁移 (alembic downgrade -1)..."
-    # NOTE: downgrade -1 only reverts the most recent migration.  If rolling
-    # back across multiple versions with multiple migrations, additional
-    # manual downgrades may be needed.  Cross-version rollback is rare —
-    # the automatic rollback in deploy-production.yml handles single-version
-    # cases.  For safety, a DB backup is taken before every production deploy.
-    docker compose --env-file .env exec -T backend alembic downgrade -1 2>/dev/null \
-        || msg_warn "迁移回滚失败（可能无需回滚或首次部署），继续"
+    if [[ -n "$target_rev" ]]; then
+        msg_ok "回滚数据库迁移 → ${target_rev} ..."
+        docker compose --env-file .env exec -T backend alembic downgrade "$target_rev" 2>/dev/null \
+            || msg_warn "迁移回滚失败，继续"
+    else
+        msg_warn "未记录目标版本迁移 revision，回退到 downgrade -1（仅回滚最近一次迁移）"
+        docker compose --env-file .env exec -T backend alembic downgrade -1 2>/dev/null \
+            || msg_warn "迁移回滚失败（可能无需回滚或首次部署），继续"
+    fi
 
     msg_ok "重启服务..."
     docker compose --env-file .env up -d --remove-orphans

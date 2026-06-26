@@ -138,11 +138,13 @@ bash rollback.sh --list
 
 ### 版本历史文件
 
-服务器上 `/opt/nursing-vp-sim/.version-history`，格式为：
+服务器上 `/opt/nursing-vp-sim/.version-history`，字段格式（`|` 分隔）：
 
 ```
-2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:v2026.06.02-3|ghcr.io/owner/nursing-vp-sim-frontend:v2026.06.02-3
+2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:...|ghcr.io/owner/nursing-vp-sim-frontend:...|abc123def
 ```
+
+字段含义：`版本号 | 部署时间 | 后端镜像 | 前端镜像 | alembic revision`（第 5 字段为可选，用于精确多版本回滚）
 
 每次成功部署追加一行，保留最近 10 次记录。
 
