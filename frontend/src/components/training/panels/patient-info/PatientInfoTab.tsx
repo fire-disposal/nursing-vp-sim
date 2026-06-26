@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { PatientPortrait } from "@/components/training/PatientPortrait";
-import { useEmotion } from "@/engine/PluginContext";
+import { useEmotion } from "@/engine";
 import type { PanelTabProps } from "@/engine/types";
 
 export function PatientInfoTab({ ctx, features }: PanelTabProps) {

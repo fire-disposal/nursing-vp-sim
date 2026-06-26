@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { EmotionState } from "@/engine/PluginContext";
-import { EMOTION_LABELS, getEmotionBorder } from "@/engine/PluginContext";
+import type { EmotionState } from "@/engine";
+import { EMOTION_LABELS, getEmotionBorder } from "@/engine";
 import type { PatientData } from "@/engine/types";
 import { cn } from "@/utils/cn";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";

@@ -130,6 +130,8 @@ export const queryKeys = {
 		}) => [...queryKeys.questionnaires.all, "check", params] as const,
 		myResponses: (params?: Record<string, unknown>) =>
 			[...queryKeys.questionnaires.all, "myResponses", params] as const,
+		training: (recordId: number | string, type: "pre" | "post") =>
+			[...queryKeys.questionnaires.all, recordId, type] as const,
 	},
 	practices: {
 		all: ["practices"] as const,

@@ -8,14 +8,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type { PanelPlugin, PluginContext } from "@/engine/types";
+import type { PanelDef, PanelContext } from "@/engine/types";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { cn } from "@/utils/cn";
 
 interface FloatingPanelHostProps {
-	ctx: PluginContext;
+	ctx: PanelContext;
 	features: Record<string, boolean>;
-	plugins: PanelPlugin[];
+	panels: PanelDef[];
 }
 
 /* ── Auto-hide idle timer — bar fades after 8s idle ── */
@@ -38,11 +38,11 @@ function useBarAutoHide() {
 }
 
 /* ── FloatingPanelHost ── */
-export function FloatingPanelHost({ ctx, features, plugins }: FloatingPanelHostProps) {
+export function FloatingPanelHost({ ctx, features, panels }: FloatingPanelHostProps) {
 	const [activePanelId, setActivePanelId] = useState<string | null>(null);
 	const isMobile = useIsMobile();
 
-	const activePlugin = plugins.find((p) => p.id === activePanelId);
+	const activePanel = panels.find((p) => p.id === activePanelId);
 
 	/* Auto-hide the icon bar when idle */
 	const { visible, poke } = useBarAutoHide();
@@ -66,7 +66,7 @@ export function FloatingPanelHost({ ctx, features, plugins }: FloatingPanelHostP
 		poke();
 	}, [poke]);
 
-	if (plugins.length === 0) return null;
+	if (panels.length === 0) return null;
 
 	return (
 		<>
@@ -76,22 +76,22 @@ export function FloatingPanelHost({ ctx, features, plugins }: FloatingPanelHostP
 				style={{ opacity: visible ? 1 : 0.2 }}
 				onMouseEnter={poke}
 			>
-				{plugins.map((plugin) => {
-					const badge = plugin.tab.badge?.(ctx);
+				{panels.map((panel) => {
+					const badge = panel.tab.badge?.(ctx);
 					return (
 						<button
-							key={plugin.id}
-							onClick={() => openPanel(plugin.id)}
+							key={panel.id}
+							onClick={() => openPanel(panel.id)}
 							className={cn(
 								"relative flex size-10 items-center justify-center rounded-full shadow-lg border transition-all duration-200",
 								"hover:scale-110 active:scale-95",
-								activePanelId === plugin.id
+								activePanelId === panel.id
 									? "bg-primary text-primary-foreground border-primary shadow-primary/30"
 									: "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
 							)}
-							title={plugin.tab.label}
+							title={panel.tab.label}
 						>
-							<plugin.tab.icon size={18} />
+							<panel.tab.icon size={18} />
 							{badge && (
 								<span
 									className={cn(
@@ -110,13 +110,13 @@ export function FloatingPanelHost({ ctx, features, plugins }: FloatingPanelHostP
 			</div>
 
 			{/* Panel modal overlay */}
-			{activePanelId && activePlugin && (
+			{activePanelId && activePanel && (
 				<PanelOverlay
 					isMobile={isMobile}
-					label={activePlugin.tab.label}
+					label={activePanel.tab.label}
 					onClose={closePanel}
 				>
-					<activePlugin.component
+					<activePanel.component
 						ctx={ctx}
 						features={features}
 						isCollapsed={false}

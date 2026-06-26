@@ -1,4 +1,4 @@
-﻿import lottie from "lottie-web";
+import lottie from "lottie-web";
 import { useEffect, useRef } from "react";
 import placeholderAnimation from "@/assets/lottie/animation.json";
 import { useMediaQuery } from "@/hooks/useMediaQuery";

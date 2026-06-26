@@ -1,6 +1,6 @@
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
-import { api } from "./axios-instance";
+import { api } from "./client";
 
 type Schemas = components["schemas"];
 
@@ -40,4 +40,9 @@ export const submitScoreReview = (
 	api.post<Schemas["ScoreReviewResponse"]>(
 		`/training/records/${recordId}/review` as ApiPath,
 		data,
+	);
+
+export const performExam = (recordId: number | string, opType: string) =>
+	api.post<Schemas["ExamOperationResponse"]>(
+		`/training/${recordId}/exam/${opType}` as ApiPath,
 	);

@@ -1,9 +1,9 @@
 ﻿import { Activity, Award, BarChart3, Cpu, Palette } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import ApiManagementTab from "@/components/teacher/ApiManagementTab";
-import MonitorTab from "@/components/teacher/MonitorTab";
-import PromptManagementTab from "@/components/teacher/PromptManagementTab";
-import RubricTab from "@/components/teacher/RubricTab";
+import ApiManagementTab from "@/components/admin/ApiManagementTab";
+import MonitorTab from "@/components/admin/MonitorTab";
+import PromptManagementTab from "@/components/admin/PromptManagementTab";
+import RubricTab from "@/components/admin/RubricTab";
 import PageHeader from "@/components/ui/page-header";
 import Tabs from "@/components/ui/tabs";
 

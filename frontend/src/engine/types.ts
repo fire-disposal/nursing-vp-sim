@@ -61,7 +61,7 @@ export interface MessageBus {
 	listEvents(): string[];
 }
 
-export interface PluginContext {
+export interface PanelContext {
 	recordId: string;
 	bus: MessageBus;
 	patient: PatientData;
@@ -80,40 +80,40 @@ export interface BadgeInfo {
 	variant: "default" | "destructive";
 }
 
-export interface PluginHooks {
-	onInit?: (ctx: PluginContext) => undefined | (() => void);
+export interface PanelHooks {
+	onInit?: (ctx: PanelContext) => undefined | (() => void);
 	onDestroy?: () => void;
-	beforeSend?: (text: string, ctx: PluginContext) => string | Promise<string>;
+	beforeSend?: (text: string, ctx: PanelContext) => string | Promise<string>;
 	afterReceive?: (
 		msg: ChatMessage,
-		ctx: PluginContext,
+		ctx: PanelContext,
 	) => ChatMessage | null | Promise<ChatMessage | null>;
-	onPhaseChange?: (from: string, to: string, ctx: PluginContext) => void;
-	onEnd?: (reason: "manual" | "timeout", ctx: PluginContext) => void;
+	onPhaseChange?: (from: string, to: string, ctx: PanelContext) => void;
+	onEnd?: (reason: "manual" | "timeout", ctx: PanelContext) => void;
 }
 
 export interface PanelTabProps {
-	ctx: PluginContext;
+	ctx: PanelContext;
 	features: Record<string, boolean>;
 	isCollapsed: boolean;
 }
 
-export interface PanelPlugin {
+export interface PanelDef {
 	id: string;
 	meta: { name: string; description?: string };
 	tab: {
 		icon: ComponentType<{ size?: number }>;
 		label: string;
-		badge?: (ctx: PluginContext) => BadgeInfo | null;
+		badge?: (ctx: PanelContext) => BadgeInfo | null;
 		priority?: number;
 	};
 	component: ComponentType<PanelTabProps>;
-	hooks?: PluginHooks;
+	hooks?: PanelHooks;
 }
 
 // ── Backend Manifest types ──
 
-export interface ManifestPlugin {
+export interface ManifestFeature {
 	id: string;
 	name: string;
 	description?: string;

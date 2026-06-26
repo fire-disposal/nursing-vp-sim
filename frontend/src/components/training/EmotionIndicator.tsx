@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { EmotionState } from "@/engine/PluginContext";
+import type { EmotionState } from "@/engine";
 import {
 	EMOTION_LABELS,
 	getEmotionColor,
 	useEmotion,
-} from "@/engine/PluginContext";
+} from "@/engine";
 import type { MessageBus } from "@/engine/types";
 import { cn } from "@/utils/cn";
 

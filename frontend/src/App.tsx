@@ -24,7 +24,7 @@ const queryClient = new QueryClient({
 });
 
 const Login = lazy(() => import("@/pages/Login"));
-const Showcase = lazy(() => import("@/pages/showcase/ShowcasePage"));
+const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 const CaseSelect = lazy(() => import("@/pages/CaseSelect"));
 const ChatTraining = lazy(() => import("@/pages/ChatTraining"));
@@ -50,7 +50,6 @@ const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
 const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
-const PluginDashboard = lazy(() => import("@/pages/admin/PluginDashboard"));
 const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
 const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
@@ -116,7 +115,6 @@ export default function App() {
 												 */}
 												<Route path="/admin" element={<Admin />} />
 												<Route path="/admin/debug" element={<AdminDebug />} />
-												<Route path="/admin/plugins" element={<PluginDashboard />} />
 												<Route path="/admin/system-ops" element={<SystemOpsPage />} />
 												<Route
 													path="/admin/system-notifications"

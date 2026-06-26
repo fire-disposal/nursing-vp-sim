@@ -1,5 +1,5 @@
 // frontend/src/engine/ScoreManager.ts
-import { api } from "@/api/axios-instance";
+import { api } from "@/api/client";
 import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types";
 
 /** Per-record handlers for SSE scoring progress — avoids single-global overwrite when multiple ScoreManagers coexist */

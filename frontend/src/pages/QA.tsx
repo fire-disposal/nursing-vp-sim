@@ -12,7 +12,7 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import CitationCard from "@/components/qa/CitationCard";
+import CitationCard from "./CitationCard";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";

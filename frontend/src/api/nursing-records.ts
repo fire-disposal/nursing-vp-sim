@@ -1,5 +1,5 @@
 import type { ApiPath } from "./api-path";
-import { api } from "./axios-instance";
+import { api } from "./client";
 
 export const getNursingRecord = (recordId: number) =>
 	api.get<Record<string, unknown>>(`/nursing-records/${recordId}` as ApiPath);

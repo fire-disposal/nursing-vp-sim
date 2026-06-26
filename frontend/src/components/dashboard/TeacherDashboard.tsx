@@ -33,23 +33,9 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/utils/cn";
-import type { ScoreData } from "@/types/score";
+import type { RecordExtended } from "@/types/record";
 
 type AdminStats = components["schemas"]["AdminStats"];
-
-interface RecordExtended {
-	id: number;
-	case_id: number;
-	case_name: string;
-	user_display_name?: string;
-	start_time: string;
-	end_time: string | null;
-	status: string;
-	score_total?: number | null;
-	scoring_status?: string | null;
-	scoring_error?: string | null;
-	score?: ScoreData | null;
-}
 
 export default function TeacherDashboard({
 	stats,

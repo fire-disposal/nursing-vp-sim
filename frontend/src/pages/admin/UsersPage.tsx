@@ -1,5 +1,5 @@
 ﻿import { Users } from "lucide-react";
-import UsersTab from "@/components/teacher/UsersTab";
+import UsersTab from "@/components/admin/UsersTab";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 

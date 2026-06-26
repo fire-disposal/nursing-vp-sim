@@ -1,6 +1,6 @@
 import { Activity, Check, Copy, Heart, Loader2, Stethoscope } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "@/api/axios-instance";
+import { performExam } from "@/api/training";
 import type { PanelTabProps } from "@/engine/types";
 import { cn } from "@/utils/cn";
 
@@ -103,13 +103,13 @@ export function ExamPanel({ ctx }: PanelTabProps) {
 		return () => clearTimeout(id);
 	}, [copiedId]);
 
-	const performExam = useCallback(
+	const handleExam = useCallback(
 		async (opId: string) => {
 			if (ctx.loading || loading) return;
 			setLoading(opId);
 			setError(null);
 			try {
-				const res = await api.post(`/training/${ctx.recordId}/exam/${opId}`);
+				const res = await performExam(ctx.recordId, opId);
 				const data = res.data as {
 					type: string;
 					data: ExamResultItem;
@@ -156,7 +156,7 @@ export function ExamPanel({ ctx }: PanelTabProps) {
 									<button
 										type="button"
 										key={op.id}
-										onClick={() => performExam(op.id)}
+										onClick={() => handleExam(op.id)}
 										disabled={!!loading || ctx.loading}
 										className={cn(
 											"rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 text-left flex items-center gap-1.5",

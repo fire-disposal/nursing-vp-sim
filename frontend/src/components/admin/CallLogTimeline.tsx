@@ -3,7 +3,7 @@ import { ArrowRight, Clock, Eye, Hash, Zap } from "lucide-react";
 import { useState } from "react";
 import { getRecordLogs } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import CallLogDetail from "@/components/teacher/CallLogDetail";
+import CallLogDetail from "@/components/admin/CallLogDetail";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingState from "@/components/ui/loading-state";

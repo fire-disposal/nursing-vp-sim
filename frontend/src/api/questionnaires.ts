@@ -1,5 +1,5 @@
 import type { components } from "./api-types.gen";
-import { api } from "./axios-instance";
+import { api } from "./client";
 
 type Schemas = components["schemas"];
 
@@ -75,3 +75,32 @@ export const exportQuestionnaireCSV = (templateId: number) =>
 	api.get(`/questionnaires/responses/${templateId}/export`, {
 		responseType: "blob",
 	});
+
+export const assignCaseQuestionnaire = (
+	templateId: number,
+	payload: { case_ids: number[]; is_required: boolean; trigger_event: string },
+) =>
+	api.put<Schemas["OkResponse"]>(
+		`/questionnaires/templates/${templateId}/case-assignments`,
+		payload,
+	);
+
+export const getTrainingQuestionnaire = (
+	trainingId: number | string,
+	type: "pre" | "post",
+) =>
+	api.get<{
+		id: number;
+		title: string;
+		questions: Array<{
+			id: number;
+			text: string;
+			type: string;
+			options?: string[];
+		}>;
+	}>(`/questionnaires/training/${trainingId}/${type}`);
+
+export const submitTrainingQuestionnaire = (
+	id: number,
+	data: { record_id: number; answers: Record<number, string> },
+) => api.post(`/questionnaires/${id}/submit`, data);

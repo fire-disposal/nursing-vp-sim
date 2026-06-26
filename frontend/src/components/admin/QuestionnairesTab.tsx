@@ -1,10 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api } from "@/api/axios-instance";
-import QuestionnaireAssign from "@/components/teacher/questionnaires/QuestionnaireAssign";
-import QuestionnaireEditor from "@/components/teacher/questionnaires/QuestionnaireEditor";
-import QuestionnaireList from "@/components/teacher/questionnaires/QuestionnaireList";
-import QuestionnaireStats from "@/components/teacher/questionnaires/QuestionnaireStats";
+import { getCases } from "@/api/cases";
+import {
+	getQuestionnaireStats,
+	getQuestionnairesTemplates,
+	getQuestionnaireTemplate,
+} from "@/api/questionnaires";
+import QuestionnaireAssign from "@/components/admin/questionnaires/QuestionnaireAssign";
+import QuestionnaireEditor from "@/components/admin/questionnaires/QuestionnaireEditor";
+import QuestionnaireList from "@/components/admin/questionnaires/QuestionnaireList";
+import QuestionnaireStats from "@/components/admin/questionnaires/QuestionnaireStats";
 import type {
 	AssignForm,
 	CaseBrief,
@@ -13,13 +18,13 @@ import type {
 	TemplateForm,
 	TemplateListItem,
 	ViewMode,
-} from "@/components/teacher/questionnaires/types";
-import { emptyForm } from "@/components/teacher/questionnaires/types";
+} from "@/components/admin/questionnaires/types";
+import { emptyForm } from "@/components/admin/questionnaires/types";
 import {
 	useAssignTemplateMutation,
 	useDeleteTemplateMutation,
 	useSaveTemplateMutation,
-} from "@/components/teacher/questionnaires/useQuestionnaireMutations";
+} from "@/components/admin/questionnaires/useQuestionnaireMutations";
 import { useConfirm } from "@/components/ui/confirm";
 
 export default function QuestionnairesTab() {
@@ -55,8 +60,7 @@ export default function QuestionnairesTab() {
 
 	const { data: templatesData, isLoading } = useQuery({
 		queryKey: ["questionnaireTemplates", offset, typeFilter],
-		queryFn: () =>
-			api.get("/questionnaires/templates", { params }).then((r) => r.data),
+		queryFn: () => getQuestionnairesTemplates(params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 5 * 60_000,
 	});
@@ -67,7 +71,7 @@ export default function QuestionnairesTab() {
 	const { data: casesData } = useQuery({
 		queryKey: ["cases", "all"],
 		queryFn: () =>
-			api.get("/cases", { params: { limit: 1000 } }).then((r) => r.data),
+			getCases({ limit: 1000 }).then((r) => r.data),
 		enabled: showAssign,
 		staleTime: 5 * 60_000,
 	});
@@ -77,9 +81,7 @@ export default function QuestionnairesTab() {
 	const { data: templateDetail, isLoading: isLoadingDetail } = useQuery({
 		queryKey: ["questionnaireTemplateDetail", editingId],
 		queryFn: () =>
-			api
-				.get(`/questionnaires/templates/${editingId}`)
-				.then((r) => r.data as TemplateDetail),
+			getQuestionnaireTemplate(editingId!).then((r) => r.data as TemplateDetail),
 		enabled: editingId !== null && showEditor,
 		staleTime: 5 * 60_000,
 	});
@@ -87,9 +89,7 @@ export default function QuestionnairesTab() {
 	const { data: statsData, isLoading: isLoadingStats } = useQuery({
 		queryKey: ["questionnaireStats", statsTemplate?.id],
 		queryFn: () =>
-			api
-				.get(`/questionnaires/responses/${statsTemplate?.id}/stats`)
-				.then((r) => r.data),
+			getQuestionnaireStats(statsTemplate!.id).then((r) => r.data),
 		enabled: view === "stats" && statsTemplate !== null,
 		staleTime: 2 * 60_000,
 	});
@@ -185,9 +185,9 @@ export default function QuestionnairesTab() {
 	const openAssign = async (t: TemplateListItem) => {
 		setAssignTemplate(t);
 		try {
-			const detail: TemplateDetail = await api
-				.get(`/questionnaires/templates/${t.id}`)
-				.then((r) => r.data);
+			const detail: TemplateDetail = await getQuestionnaireTemplate(t.id).then(
+				(r) => r.data,
+			);
 			setAssignForm({
 				case_ids: detail.case_ids || [],
 				is_required: true,

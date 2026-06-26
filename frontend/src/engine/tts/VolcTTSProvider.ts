@@ -1,4 +1,4 @@
-import { api } from "@/api/axios-instance";
+import { api } from "@/api/client";
 
 export interface VolcTTSRequest {
 	text: string;

@@ -2,7 +2,7 @@ import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
-import { api } from "./axios-instance";
+import { api } from "./client";
 import { readSSEStream } from "./sse";
 
 type Schemas = components["schemas"];

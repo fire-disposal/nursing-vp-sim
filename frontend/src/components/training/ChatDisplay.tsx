@@ -1,11 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChatBubble } from "@/components/ChatBubble";
+import { ChatBubble } from "@/components/training/ChatBubble";
 import { ExamCard } from "@/components/training/ExamCard";
 import {
 	getEmotionBorder,
 	useEmotion,
 	usePortrait,
-} from "@/engine/PluginContext";
+} from "@/engine";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import { cn } from "@/utils/cn";
 import { getPatientAvatar } from "@/utils/avatar";

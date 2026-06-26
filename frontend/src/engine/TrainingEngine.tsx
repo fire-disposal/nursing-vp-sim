@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
 import { FloatingPanelHost } from "@/components/training/FloatingPanelHost";
-import { PluginErrorBoundary } from "@/components/training/PluginErrorBoundary";
+import { PanelErrorBoundary } from "@/components/training/PanelErrorBoundary";
 import { getActivePanels } from "@/components/training/panels";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
@@ -10,20 +10,20 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { createMessageBus } from "./MessageBus";
 import TrainingContext from "./TrainingContext";
 import { PatientProvider, usePatient } from "./PatientProvider";
-import type { EmotionState } from "./PluginContext";
+import type { EmotionState } from "./PanelContext";
 import {
 	EmotionProvider,
 	PortraitProvider,
 	useEmotion,
 	usePortrait,
-} from "./PluginContext";
+} from "./PanelContext";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
 	PanelTabProps,
-	PluginContext,
+	PanelContext,
 } from "./types";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 
@@ -133,16 +133,16 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		}
 	}, [patient, setPortraitUrl]);
 
-	const panelPluginsWrapped = useMemo(
+	const panelDefsWrapped = useMemo(
 		() =>
 			activePanels.map((p) => ({
 				id: p.id,
 				meta: { name: p.label },
 				tab: { icon: p.icon, label: p.label, badge: p.badge },
 				component: (props: PanelTabProps) => (
-					<PluginErrorBoundary pluginName={p.label}>
+					<PanelErrorBoundary panelName={p.label}>
 						<p.component {...props} />
-					</PluginErrorBoundary>
+					</PanelErrorBoundary>
 				),
 			})),
 		[activePanels],
@@ -195,7 +195,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		busRef.current.emit("training:ended");
 	}, []);
 
-	const ctx: PluginContext = useMemo(
+	const ctx: PanelContext = useMemo(
 		() => ({
 			recordId,
 			bus: busRef.current,
@@ -320,7 +320,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 				<FloatingPanelHost
 					ctx={ctx}
 					features={features}
-					plugins={panelPluginsWrapped}
+					panels={panelDefsWrapped}
 				/>
 			</div>
 		</TrainingContext.Provider>

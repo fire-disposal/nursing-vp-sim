@@ -1,5 +1,5 @@
 import type { MessageBus } from "../types";
-import type { EmotionState } from "../PluginContext";
+import type { EmotionState } from "../PanelContext";
 import { createBrowserTTS } from "./browser-tts";
 import type { TTSProvider, TTSManagerConfig } from "./types";
 import { VolcTTSProvider } from "./VolcTTSProvider";

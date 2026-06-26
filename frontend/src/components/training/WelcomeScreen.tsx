@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { usePortrait } from "@/engine/PluginContext";
+import { usePortrait } from "@/engine";
 import type { PatientData } from "@/engine/types";
 import { getPatientAvatar } from "@/utils/avatar";
 

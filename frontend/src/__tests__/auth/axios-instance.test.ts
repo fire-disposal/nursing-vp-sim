@@ -31,7 +31,7 @@ describe("API axios instance", () => {
 	});
 
 	it("creates axios instance with /api baseURL and 120s timeout", async () => {
-		await import("@/api/axios-instance");
+		await import("@/api/client");
 		expect(mockAxiosCreate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				baseURL: "/api",
@@ -61,7 +61,7 @@ describe("API axios instance", () => {
 			delete: vi.fn(),
 		});
 
-		await import("@/api/axios-instance");
+		await import("@/api/client");
 		expect(capturedConfig).not.toBeNull();
 		expect(capturedConfig!.headers).toEqual(
 			expect.objectContaining({ Authorization: "Bearer test-token-abc" }),
@@ -87,7 +87,7 @@ describe("API axios instance", () => {
 			delete: vi.fn(),
 		});
 
-		await import("@/api/axios-instance");
+		await import("@/api/client");
 		expect(capturedConfig).not.toBeNull();
 		expect(capturedConfig!.headers).toEqual({});
 	});

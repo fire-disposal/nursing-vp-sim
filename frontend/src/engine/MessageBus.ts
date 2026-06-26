@@ -21,7 +21,6 @@ export interface BusEvents {
 	];
 	"initiative:triggered": [{ content: string }];
 	"exam:result": [{ type: string; data: Record<string, unknown> }];
-	"plugins:updated": [];
 	"portrait:changed": [{ url: string }];
 	"tts:provider-status": [{ provider: string; latencyMs: number }];
 	"tts:prebuffer": [{ text: string }];

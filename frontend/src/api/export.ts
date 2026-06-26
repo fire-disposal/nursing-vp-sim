@@ -1,4 +1,4 @@
-import { api } from "./axios-instance";
+import { api } from "./client";
 
 export const exportRecords = () =>
 	api.get<Blob>("/export/records", { responseType: "blob" });

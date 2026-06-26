@@ -2,11 +2,11 @@ export interface TemplateListItem {
 	id: number;
 	title: string;
 	type: string;
-	description?: string;
+	description?: string | null;
 	is_active: boolean;
 	question_count: number;
 	response_count: number;
-	school_id?: number;
+	school_id?: number | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -17,7 +17,7 @@ export interface QuestionItem {
 	question_type: string;
 	required: boolean;
 	sort_order: number;
-	options?: string[];
+	options?: string[] | null;
 }
 
 export interface TemplateDetail extends TemplateListItem {

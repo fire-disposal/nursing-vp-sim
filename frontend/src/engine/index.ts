@@ -1,6 +1,6 @@
 export { createMessageBus } from "./MessageBus";
 export { PatientProvider, usePatient } from "./PatientProvider";
-export type { EmotionState } from "./PluginContext";
+export type { EmotionState } from "./PanelContext";
 export {
 	EMOTION_LABELS,
 	EmotionProvider,
@@ -9,7 +9,7 @@ export {
 	PortraitProvider,
 	useEmotion,
 	usePortrait,
-} from "./PluginContext";
+} from "./PanelContext";
 export { notifySSEProgress, ScoreManager } from "./ScoreManager";
 export { StreamManager } from "./StreamManager";
 export { useTrainingContext } from "./TrainingContext";
@@ -18,9 +18,9 @@ export type {
 	BadgeInfo,
 	ChatMessage,
 	MessageBus,
-	PanelPlugin,
+	PanelDef,
 	PanelTabProps,
 	PatientData,
-	PluginContext,
+	PanelContext,
 	ScoreData,
 } from "./types";

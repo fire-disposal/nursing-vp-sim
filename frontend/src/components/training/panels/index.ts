@@ -1,6 +1,6 @@
 import { ClipboardList, ListChecks, MessageCircle, Stethoscope, User } from "lucide-react";
 import type { ComponentType } from "react";
-import type { BadgeInfo, PanelTabProps, PluginContext } from "@/engine/types";
+import type { BadgeInfo, PanelTabProps, PanelContext } from "@/engine/types";
 import { InitiativeTab } from "./initiative/InitiativeTab";
 import { InquiryTab } from "./inquiry/InquiryTab";
 import { NURSING_RECORD_SHEET_CONFIG } from "./nursing-record/config";
@@ -14,11 +14,11 @@ export interface PanelConfig {
   label: string;
   priority: number;
   component: ComponentType<PanelTabProps>;
-  badge?: (ctx: PluginContext) => BadgeInfo | null;
+  badge?: (ctx: PanelContext) => BadgeInfo | null;
   featureFlag?: string;
 }
 
-function inquiryBadge(ctx: PluginContext): BadgeInfo | null {
+function inquiryBadge(ctx: PanelContext): BadgeInfo | null {
   const inquiries = ctx.patient.requiredInquiries ?? [];
   if (inquiries.length === 0) return null;
   const studentMsgs = ctx.messages.filter((m) => m.role === "student");
@@ -31,7 +31,7 @@ function inquiryBadge(ctx: PluginContext): BadgeInfo | null {
 
 const NR_TOTAL_ITEMS = NURSING_RECORD_SHEET_CONFIG.sections.reduce((sum, s) => sum + s.items.length, 0);
 
-function nursingRecordBadge(ctx: PluginContext): BadgeInfo | null {
+function nursingRecordBadge(ctx: PanelContext): BadgeInfo | null {
   try {
     const raw = localStorage.getItem(`nursing_record_sheet_${ctx.recordId}`);
     const data = raw ? JSON.parse(raw) : {};
@@ -61,7 +61,7 @@ function countTotalOps(anchors: Record<string, unknown> | undefined): number {
   return total;
 }
 
-function examBadge(ctx: PluginContext): BadgeInfo | null {
+function examBadge(ctx: PanelContext): BadgeInfo | null {
   const totalOps = countTotalOps(ctx.patient?.examAnchors);
   if (totalOps === 0) return null;
   let count = 0;

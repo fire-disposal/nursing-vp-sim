@@ -1,6 +1,6 @@
 import { Edit3, Loader2, Search, Trash2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import ClassFilter from "@/components/teacher/ClassFilter";
+import ClassFilter from "@/components/admin/ClassFilter";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import { cn } from "@/utils/cn";

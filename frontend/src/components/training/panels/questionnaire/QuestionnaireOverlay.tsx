@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { api } from "@/api/axios-instance";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	getTrainingQuestionnaire,
+	submitTrainingQuestionnaire,
+} from "@/api/questionnaires";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus } from "@/engine/types";
 
@@ -51,47 +55,47 @@ function QuestionnaireOverlayInner({
 
 	useEffect(() => {
 		const unsubEnd = bus.on("training:ended", () => setPhase("post"));
-		checkPreQuestionnaire();
 		return unsubEnd;
 	}, []);
 
-	async function checkPreQuestionnaire() {
-		try {
-			const res = await api.get(`/questionnaires/training/${recordId}/pre`);
-			if (cancelled.current) return;
-			if (res.data && (res.data as Questionnaire).questions?.length) {
-				setQuestionnaire(res.data as Questionnaire);
-				setPhase("pre");
-			}
-		} catch {
-			/* no pre-questionnaire */
-		}
-	}
+	const { data: preQuestionnaire } = useQuery({
+		queryKey: ["questionnaire", recordId, "pre"],
+		queryFn: async () => {
+			const res = await getTrainingQuestionnaire(recordId, "pre");
+			return res.data as Questionnaire | null;
+		},
+		enabled: true,
+		staleTime: Infinity,
+	});
 
 	useEffect(() => {
-		if (phase === "post") {
-			(async () => {
-				try {
-					const res = await api.get(
-						`/questionnaires/training/${recordId}/post`,
-					);
-					if (cancelled.current) return;
-					if (res.data && (res.data as Questionnaire).questions?.length) {
-						setQuestionnaire(res.data as Questionnaire);
-						setAnswers({});
-					}
-				} catch {
-					/* no post-questionnaire */
-				}
-			})();
+		if (preQuestionnaire?.questions?.length && !cancelled.current) {
+			setQuestionnaire(preQuestionnaire);
+			setPhase("pre");
 		}
-	}, [phase]);
+	}, [preQuestionnaire]);
 
-	if (!phase || !questionnaire) return null;
+	const { data: postQuestionnaire } = useQuery({
+		queryKey: ["questionnaire", recordId, "post"],
+		queryFn: async () => {
+			const res = await getTrainingQuestionnaire(recordId, "post");
+			return res.data as Questionnaire | null;
+		},
+		enabled: phase === "post",
+		staleTime: Infinity,
+	});
 
-	const submit = async () => {
+	useEffect(() => {
+		if (postQuestionnaire?.questions?.length && !cancelled.current) {
+			setQuestionnaire(postQuestionnaire);
+			setAnswers({});
+		}
+	}, [postQuestionnaire]);
+
+	const submit = useCallback(async () => {
+		if (!questionnaire) return;
 		try {
-			await api.post(`/questionnaires/${questionnaire.id}/submit`, {
+			await submitTrainingQuestionnaire(questionnaire.id, {
 				record_id: Number(recordId),
 				answers,
 			});
@@ -101,7 +105,9 @@ function QuestionnaireOverlayInner({
 		} catch (e: unknown) {
 			console.error("问卷提交失败", e);
 		}
-	};
+	}, [questionnaire, recordId, answers]);
+
+	if (!phase || !questionnaire) return null;
 
 	return (
 		<Dialog

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
-import type { ScoreData } from "@/types/score";
+import type { RecordExtended } from "@/types/record";
 import AssignmentCardList from "./AssignmentCardList";
 import RecentTrainingTable from "./RecentTrainingTable";
 import RecommendedCaseList from "./RecommendedCaseList";
@@ -24,20 +24,6 @@ import StudentStatCards from "./StudentStatCards";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type DurationStats = components["schemas"]["DurationStats"];
-
-interface RecordExtended {
-	id: number;
-	case_id: number;
-	case_name: string;
-	user_display_name?: string;
-	start_time: string;
-	end_time: string | null;
-	status: string;
-	score_total?: number | null;
-	scoring_status?: string | null;
-	scoring_error?: string | null;
-	score?: ScoreData | null;
-}
 
 export default function StudentDashboard({
 	cases,

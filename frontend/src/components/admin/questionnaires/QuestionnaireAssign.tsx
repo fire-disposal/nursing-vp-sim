@@ -1,11 +1,11 @@
 import type {
 	AssignForm as AssignFormType,
 	CaseBrief,
-} from "@/components/teacher/questionnaires/types";
+} from "@/components/admin/questionnaires/types";
 import {
 	inputClass,
 	TRIGGER_EVENT_OPTIONS,
-} from "@/components/teacher/questionnaires/types";
+} from "@/components/admin/questionnaires/types";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/utils/cn";

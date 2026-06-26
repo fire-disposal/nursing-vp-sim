@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
-import CallLogTimeline from "@/components/teacher/CallLogTimeline";
+import CallLogTimeline from "@/components/admin/CallLogTimeline";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";

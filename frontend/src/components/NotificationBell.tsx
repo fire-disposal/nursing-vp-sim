@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
-import { api } from "@/api/axios-instance";
+import {
+	getNotifications,
+	markAllNotificationsRead,
+	markNotificationRead,
+	markNotificationUnread,
+} from "@/api/notifications";
 import { useToast } from "@/components/Toast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 
@@ -24,9 +29,7 @@ export default function NotificationBell() {
 	const { data, isLoading, isError } = useApiQuery({
 		queryKey: ["notifications", { offset }],
 		queryFn: () =>
-			api.get<TrainingNotificationItem[]>("/training/notifications", {
-				params: { unread_only: false, limit: LIMIT, offset },
-			}),
+			getNotifications({ unread_only: false, limit: LIMIT, offset }),
 		refetchInterval: 60_000,
 	});
 
@@ -51,7 +54,7 @@ export default function NotificationBell() {
 	}, []);
 
 	const markOneReadMutation = useMutation({
-		mutationFn: (id: number) => api.put(`/training/notifications/${id}/read`),
+		mutationFn: (id: number) => markNotificationRead(id),
 		onMutate: (id) => {
 			if (mutationLockRef.current) return;
 			updateItemInList(id, true);
@@ -64,7 +67,7 @@ export default function NotificationBell() {
 	});
 
 	const markOneUnreadMutation = useMutation({
-		mutationFn: (id: number) => api.put(`/training/notifications/${id}/unread`),
+		mutationFn: (id: number) => markNotificationUnread(id),
 		onMutate: (id) => {
 			updateItemInList(id, false);
 		},
@@ -76,7 +79,7 @@ export default function NotificationBell() {
 	});
 
 	const markAllReadMutation = useMutation({
-		mutationFn: () => api.put("/training/notifications/read-all"),
+		mutationFn: () => markAllNotificationsRead(),
 		onMutate: () => {
 			mutationLockRef.current = true;
 			setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));

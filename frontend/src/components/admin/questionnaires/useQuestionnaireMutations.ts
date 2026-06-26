@@ -1,8 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/api/axios-instance";
 import { queryKeys } from "@/api/query-keys";
+import {
+	assignCaseQuestionnaire,
+	createQuestionnaireTemplate,
+	deleteQuestionnaireTemplate,
+	updateQuestionnaireTemplate,
+} from "@/api/questionnaires";
+import type { TemplateForm } from "@/components/admin/questionnaires/types";
 import { toast } from "@/components/Toast";
-import type { TemplateForm } from "@/components/teacher/questionnaires/types";
 
 export function useSaveTemplateMutation() {
 	const queryClient = useQueryClient();
@@ -33,9 +38,9 @@ export function useSaveTemplateMutation() {
 				})),
 			};
 			if (editingId) {
-				return api.put(`/questionnaires/templates/${editingId}`, payload);
+				return updateQuestionnaireTemplate(editingId, payload as any);
 			}
-			return api.post("/questionnaires/templates", payload);
+			return createQuestionnaireTemplate(payload as any);
 		},
 		onSuccess: (_data, { editingId }) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.questionnaires.all });
@@ -51,7 +56,7 @@ export function useDeleteTemplateMutation() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (id: number) => api.delete(`/questionnaires/templates/${id}`),
+		mutationFn: (id: number) => deleteQuestionnaireTemplate(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.questionnaires.all });
 			toast.success("问卷模板已删除");
@@ -77,10 +82,7 @@ export function useAssignTemplateMutation() {
 				trigger_event: string;
 			};
 		}) =>
-			api.put(
-				`/questionnaires/templates/${templateId}/case-assignments`,
-				payload,
-			),
+			assignCaseQuestionnaire(templateId, payload),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.questionnaires.all });
 			toast.success("病例分配已更新");

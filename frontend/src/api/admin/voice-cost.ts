@@ -1,4 +1,4 @@
-import { api } from "../axios-instance";
+import { api } from "../client";
 
 // ── Voice Config ──
 

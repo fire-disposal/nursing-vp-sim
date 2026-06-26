@@ -3,7 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { api } from "@/api/axios-instance";
+import {
+	createSystemNotification,
+	deleteSystemNotification,
+	getSystemNotifications,
+	updateSystemNotification,
+} from "@/api/admin/system-notifications";
+import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -22,21 +28,13 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 import {
 	type NotificationValues,
 	notificationSchema,
 } from "@/schemas/notification";
+import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 
-interface SystemNotification {
-	id: number;
-	title: string;
-	content: string;
-	level: string;
-	is_active: boolean;
-	published_at: string | null;
-	created_at: string;
-}
+type SystemNotification = components["schemas"]["SystemNotificationResponse"];
 
 const LEVEL_LABELS: Record<string, string> = {
 	info: "通知",
@@ -50,8 +48,8 @@ const LEVEL_CLASSES: Record<string, string> = {
 	success: "bg-success text-success-foreground",
 };
 
-function toLocalDateTime(s: string): string {
-	// Backend stores naive UTC datetimes; append Z so the browser renders local time.
+function toLocalDateTime(s: string | null | undefined): string {
+	if (!s) return "";
 	const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`;
 	return new Date(iso).toLocaleString("zh-CN");
 }
@@ -77,7 +75,7 @@ export default function SystemNotificationsPage() {
 
 	const { data, isLoading } = useApiQuery({
 		queryKey: ["system-notifications"],
-		queryFn: () => api.get<SystemNotification[]>("/admin/system-notifications"),
+		queryFn: () => getSystemNotifications(),
 	});
 
 	const notifications = data ?? [];
@@ -114,10 +112,10 @@ export default function SystemNotificationsPage() {
 				body.published_at = publishedAt;
 			}
 			if (editing) {
-				await api.put(`/admin/system-notifications/${editing.id}`, body);
+				await updateSystemNotification(editing.id, body as any);
 				toast.success("已更新");
 			} else {
-				await api.post("/admin/system-notifications", body);
+				await createSystemNotification(body as any);
 				toast.success(publishedAt ? "已创建定时通知" : "已发送");
 			}
 			qc.invalidateQueries({ queryKey: ["system-notifications"] });
@@ -129,7 +127,7 @@ export default function SystemNotificationsPage() {
 
 	const handleDelete = async (id: number) => {
 		try {
-			await api.delete(`/admin/system-notifications/${id}`);
+			await deleteSystemNotification(id);
 			toast.success("已删除");
 			qc.invalidateQueries({ queryKey: ["system-notifications"] });
 		} catch (e) {

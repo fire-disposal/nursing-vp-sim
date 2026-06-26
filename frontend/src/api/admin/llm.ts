@@ -1,5 +1,5 @@
 import type { components } from "../api-types.gen";
-import { api } from "../axios-instance";
+import { api } from "../client";
 
 type Schemas = components["schemas"];
 type LLMCallLogItem = Schemas["LLMCallLogItem"];
