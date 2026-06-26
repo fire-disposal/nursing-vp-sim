@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/components/Toast";
 import { notifySSEProgress } from "@/engine/ScoreManager";
 import { useSSEStream } from "@/hooks/useSSEStream";
 import useAuthStore from "@/stores/authStore";

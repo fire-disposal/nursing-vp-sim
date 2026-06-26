@@ -20,7 +20,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
 			expand
 			visibleToasts={5}
 			gap={8}
+			richColors
 			closeButton
+			duration={6000}
+			swipeDirections={[]}
 			className="toaster group"
 			icons={{
 				success: <CircleCheckIcon className="size-4" />,
@@ -37,11 +40,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
 					"--border-radius": "var(--radius)",
 				} as React.CSSProperties
 			}
-			toastOptions={{
-				classNames: {
-					toast: "cn-toast",
-				},
-			}}
 			{...props}
 		/>
 	);

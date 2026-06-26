@@ -428,7 +428,7 @@ def get_notifications(
     ]
 
 
-@router.patch("/notifications/read-all", response_model=OkResponse)
+@router.put("/notifications/read-all", response_model=OkResponse)
 def mark_all_notifications_read(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -441,7 +441,7 @@ def mark_all_notifications_read(
     return OkResponse(message="ok")
 
 
-@router.patch("/notifications/{notif_id}", response_model=OkResponse)
+@router.put("/notifications/{notif_id}/read", response_model=OkResponse)
 def mark_notification_read(
     notif_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -451,6 +451,20 @@ def mark_notification_read(
     if not notif:
         raise HTTPException(status_code=404, detail="通知不存在")
     notif.is_read = True
+    db.commit()
+    return OkResponse(message="ok")
+
+
+@router.put("/notifications/{notif_id}/unread", response_model=OkResponse)
+def mark_notification_unread(
+    notif_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    notif = db.query(Notification).filter(Notification.id == notif_id, Notification.user_id == current_user.id).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    notif.is_read = False
     db.commit()
     return OkResponse(message="ok")
 

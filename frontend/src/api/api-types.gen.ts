@@ -1636,16 +1636,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Mark All Notifications Read */
+        put: operations["mark_all_notifications_read_api_training_notifications_read_all_put"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Mark All Notifications Read */
-        patch: operations["mark_all_notifications_read_api_training_notifications_read_all_patch"];
+        patch?: never;
         trace?: never;
     };
-    "/api/training/notifications/{notif_id}": {
+    "/api/training/notifications/{notif_id}/read": {
         parameters: {
             query?: never;
             header?: never;
@@ -1653,13 +1653,30 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Mark Notification Read */
+        put: operations["mark_notification_read_api_training_notifications__notif_id__read_put"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Mark Notification Read */
-        patch: operations["mark_notification_read_api_training_notifications__notif_id__patch"];
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/notifications/{notif_id}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark Notification Unread */
+        put: operations["mark_notification_unread_api_training_notifications__notif_id__unread_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/training/notifications/stream": {
@@ -9408,7 +9425,7 @@ export interface operations {
             };
         };
     };
-    mark_all_notifications_read_api_training_notifications_read_all_patch: {
+    mark_all_notifications_read_api_training_notifications_read_all_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -9428,7 +9445,38 @@ export interface operations {
             };
         };
     };
-    mark_notification_read_api_training_notifications__notif_id__patch: {
+    mark_notification_read_api_training_notifications__notif_id__read_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notif_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_notification_unread_api_training_notifications__notif_id__unread_put: {
         parameters: {
             query?: never;
             header?: never;

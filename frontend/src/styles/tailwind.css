@@ -254,3 +254,24 @@
 		transform: translateY(0);
 	}
 }
+
+@keyframes toast-shrink {
+	from { width: 100%; }
+	to { width: 0%; }
+}
+
+[data-sonner-toaster] [data-sonner-toast]::after {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	height: 3px;
+	border-radius: 0 0 var(--radius) var(--radius);
+	background: currentColor;
+	opacity: 0.3;
+	animation: toast-shrink var(--toast-duration, 4000ms) linear forwards;
+}
+
+[data-sonner-toaster] [data-sonner-toast] {
+	user-select: text;
+}

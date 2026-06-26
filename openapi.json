@@ -6645,12 +6645,12 @@
       }
     },
     "/api/training/notifications/read-all": {
-      "patch": {
+      "put": {
         "tags": [
           "训练"
         ],
         "summary": "Mark All Notifications Read",
-        "operationId": "mark_all_notifications_read_api_training_notifications_read_all_patch",
+        "operationId": "mark_all_notifications_read_api_training_notifications_read_all_put",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6670,13 +6670,60 @@
         ]
       }
     },
-    "/api/training/notifications/{notif_id}": {
-      "patch": {
+    "/api/training/notifications/{notif_id}/read": {
+      "put": {
         "tags": [
           "训练"
         ],
         "summary": "Mark Notification Read",
-        "operationId": "mark_notification_read_api_training_notifications__notif_id__patch",
+        "operationId": "mark_notification_read_api_training_notifications__notif_id__read_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notif_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Notif Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/notifications/{notif_id}/unread": {
+      "put": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Mark Notification Unread",
+        "operationId": "mark_notification_unread_api_training_notifications__notif_id__unread_put",
         "security": [
           {
             "HTTPBearer": []

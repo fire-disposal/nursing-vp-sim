@@ -1,63 +1,88 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { Bell, EyeOff, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import type { components } from "@/api/api-types.gen";
 import { api } from "@/api/axios-instance";
 import { useToast } from "@/components/Toast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 
-interface Notification {
-	id: number;
-	type: string;
-	title: string;
-	body: string | null;
-	record_id?: number;
-	is_read?: boolean;
-	created_at: string;
-}
+type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
+
+const LIMIT = 20;
 
 export default function NotificationBell() {
 	const [open, setOpen] = useState(false);
+	const [offset, setOffset] = useState(0);
+	const [items, setItems] = useState<TrainingNotificationItem[]>([]);
 	const qc = useQueryClient();
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
 	const mutationLockRef = useRef(false);
 
 	const { data, isLoading, isError } = useApiQuery({
-		queryKey: ["notifications"],
-		queryFn: () => api.get<Notification[]>("/training/notifications"),
+		queryKey: ["notifications", { offset }],
+		queryFn: () =>
+			api.get<TrainingNotificationItem[]>("/training/notifications", {
+				params: { unread_only: false, limit: LIMIT, offset },
+			}),
 		refetchInterval: 60_000,
 	});
 
+	useEffect(() => {
+		if (!data) return;
+		if (offset === 0) {
+			setItems(data);
+		} else {
+			setItems((prev) => {
+				const existing = new Set(prev.map((n) => n.id));
+				const fresh = data.filter((n) => !existing.has(n.id));
+				return [...prev, ...fresh];
+			});
+		}
+	}, [data, offset]);
+
+	const hasMore = (data?.length ?? 0) >= LIMIT;
+	const unreadCount = items.filter((n) => !n.is_read).length;
+
+	const updateItemInList = useCallback((id: number, is_read: boolean) => {
+		setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read } : n)));
+	}, []);
+
 	const markOneReadMutation = useMutation({
-		mutationFn: (id: number) => api.patch(`/training/notifications/${id}`),
+		mutationFn: (id: number) => api.put(`/training/notifications/${id}/read`),
 		onMutate: (id) => {
 			if (mutationLockRef.current) return;
-			qc.setQueryData<Notification[]>(["notifications"], (prev) =>
-				(prev ?? []).filter((n) => n.id !== id),
-			);
+			updateItemInList(id, true);
 		},
-		onSuccess: () => {
+		onError: (_err, id) => {
+			toastError("标记已读失败");
+			updateItemInList(id, false);
 			qc.invalidateQueries({ queryKey: ["notifications"] });
 		},
-		onError: () => {
-			toastError("标记已读失败");
+	});
+
+	const markOneUnreadMutation = useMutation({
+		mutationFn: (id: number) => api.put(`/training/notifications/${id}/unread`),
+		onMutate: (id) => {
+			updateItemInList(id, false);
+		},
+		onError: (_err, id) => {
+			toastError("标记未读失败");
+			updateItemInList(id, true);
 			qc.invalidateQueries({ queryKey: ["notifications"] });
 		},
 	});
 
 	const markAllReadMutation = useMutation({
-		mutationFn: () => api.patch("/training/notifications/read-all"),
+		mutationFn: () => api.put("/training/notifications/read-all"),
 		onMutate: () => {
 			mutationLockRef.current = true;
-			qc.setQueryData<Notification[]>(["notifications"], []);
-		},
-		onSuccess: () => {
-			qc.invalidateQueries({ queryKey: ["notifications"] });
+			setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
 		},
 		onError: () => {
-			toastError("标记已读失败");
+			toastError("全部已读失败");
 			qc.invalidateQueries({ queryKey: ["notifications"] });
 		},
 		onSettled: () => {
@@ -65,13 +90,12 @@ export default function NotificationBell() {
 		},
 	});
 
-	const notifications: Notification[] = data ?? [];
-	const unread = notifications.length;
-
 	const handleClick = useCallback(
-		(n: Notification) => {
+		(n: TrainingNotificationItem) => {
 			if (mutationLockRef.current) return;
-			markOneReadMutation.mutate(n.id);
+			if (!n.is_read) {
+				markOneReadMutation.mutate(n.id);
+			}
 			setOpen(false);
 			if (n.record_id) {
 				navigate(`/record/${n.record_id}`);
@@ -88,12 +112,12 @@ export default function NotificationBell() {
 				type="button"
 				onClick={() => setOpen(true)}
 				className="relative h-8 p-2 rounded-lg hover:bg-muted transition-colors"
-				aria-label={`通知${unread > 0 ? `（${unread} 条未读）` : ""}`}
+				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
 			>
 				<Bell size={16} />
-				{unread > 0 && (
+				{unreadCount > 0 && (
 					<span className="absolute -top-0.5 -right-0.5 flex items-center justify-center size-4 text-[10px] font-bold text-white bg-destructive rounded-full">
-						{unread > 99 ? "99+" : unread}
+						{unreadCount > 99 ? "99+" : unreadCount}
 					</span>
 				)}
 			</button>
@@ -111,7 +135,7 @@ export default function NotificationBell() {
 							<div className="flex items-center justify-between px-4 py-3 border-b">
 								<span className="font-semibold text-sm">通知</span>
 								<div className="flex items-center gap-2">
-									{unread > 0 && (
+									{unreadCount > 0 && (
 										<button
 											type="button"
 											onClick={() => markAllReadMutation.mutate()}
@@ -133,21 +157,62 @@ export default function NotificationBell() {
 							<div className="max-h-80 overflow-y-auto">
 								{isError ? (
 									<div className="px-4 py-8 text-center text-sm text-destructive">加载失败，请稍后重试</div>
-								) : isLoading ? (
+								) : isLoading && items.length === 0 ? (
 									<div className="px-4 py-8 text-center text-sm text-muted-foreground">加载中…</div>
-								) : notifications.length > 0 ? (
-									notifications.map((n) => (
-										<button
-											type="button"
-											key={n.id}
-											className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50 transition-colors"
-											onClick={() => handleClick(n)}
-										>
-											<div className="text-sm font-medium">{n.title}</div>
-											{n.body && <div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>}
-											<div className="text-[10px] text-muted-foreground mt-1">{n.created_at.slice(0, 16).replace("T", " ")}</div>
-										</button>
-									))
+								) : items.length > 0 ? (
+									<>
+										{items.map((n) => (
+											<div
+												key={n.id}
+												className={`border-b last:border-0 transition-colors ${
+													n.is_read ? "opacity-60" : ""
+												}`}
+											>
+												<button
+													type="button"
+													className="w-full text-left p-3 hover:bg-muted/50 transition-colors"
+													onClick={() => handleClick(n)}
+												>
+													<div className="flex items-center gap-2">
+														{!n.is_read && (
+															<span className="size-2 rounded-full bg-destructive shrink-0" />
+														)}
+														<span className="text-sm font-medium flex-1">{n.title}</span>
+													</div>
+													{n.body && (
+														<div className="text-xs text-muted-foreground mt-0.5">{n.body}</div>
+													)}
+													<div className="text-[10px] text-muted-foreground mt-1">
+														{n.created_at.slice(0, 16).replace("T", " ")}
+													</div>
+												</button>
+												{n.is_read && (
+													<div className="px-3 pb-2">
+														<button
+															type="button"
+															className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+															onClick={(e) => {
+																e.stopPropagation();
+																markOneUnreadMutation.mutate(n.id);
+															}}
+														>
+															<EyeOff size={10} />
+															标记未读
+														</button>
+													</div>
+												)}
+											</div>
+										))}
+										{hasMore && (
+											<button
+												type="button"
+												className="w-full px-4 py-2.5 text-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+												onClick={() => setOffset((prev) => prev + LIMIT)}
+											>
+												加载更多
+											</button>
+										)}
+									</>
 								) : (
 									<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
 								)}
