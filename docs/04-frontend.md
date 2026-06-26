@@ -36,7 +36,7 @@ frontend/src/
 │   ├── api-client.ts          # 后端 API 封装函数
 │   ├── api-types.gen.ts       # OpenAPI 自动生成类型
 │   ├── api-path.ts            # ApiPath 联合类型 (编译时路径校验)
-│   ├── axios-instance.ts      # axios 实例 + auth/retry 拦截器
+│   ├── client.ts      # axios 实例 + auth/retry 拦截器
 │   ├── sse.ts                 # SSE 流式请求封装
 │   ├── auth.ts                # 认证
 │   ├── training.ts            # 训练记录
@@ -117,7 +117,7 @@ frontend/src/
 │   ├── index.ts               # 统一导出
 │   ├── TrainingEngine.tsx     # 训练循环编排
 │   ├── MessageBus.ts          # 插件间消息总线 (发布/订阅)
-│   ├── PluginContext.tsx      # 共享上下文 (Emotion Provider)
+│   ├── PanelContext.tsx      # 共享上下文 (Emotion Provider)
 │   ├── PatientProvider.tsx    # 患者数据上下文
 │   ├── StreamManager.ts       # SSE 流式响应管理
 │   ├── ScoreManager.ts        # 评分流程管理
@@ -338,7 +338,7 @@ frontend/src/
 |------|------|
 | `TrainingEngine.tsx` | 训练循环编排 — 初始化、暂停、结束、评分触发 |
 | `MessageBus.ts` | 发布/订阅消息总线，插件间解耦通信 |
-| `PluginContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) + 插件注册 |
+| `PanelContext.tsx` | 共享上下文 Provider — EmotionProvider (情绪状态) + 插件注册 |
 | `PatientProvider.tsx` | 患者数据上下文，提供患者信息给所有插件 |
 | `StreamManager.ts` | SSE 流式响应管理，处理 LLM 消息流 |
 | `ScoreManager.ts` | 评分流程管理 — 触发评分、轮询状态、获取结果 |
