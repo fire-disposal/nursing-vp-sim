@@ -54,6 +54,24 @@ if (isCI) {
   console.log(`Created: ${checklistFile}`);
 }
 
+// ── Local checklist (pre-tag) ───────────────────────────────────────────
+// Creating the checklist BEFORE pushing the tag means the pre-push hook
+// finds it already present and skips amend — avoiding the recursive
+// push-in-hook pitfall that causes local/remote divergence.
+if (!isCI && doPush) {
+  const checklistDir = path.resolve(process.cwd(), "docs/testing");
+  const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
+  if (!fs.existsSync(checklistFile)) {
+    if (!fs.existsSync(checklistDir)) {
+      fs.mkdirSync(checklistDir, { recursive: true });
+    }
+    fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
+    execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
+    execSync("git commit --amend --no-edit", { stdio: "ignore" });
+    console.log(`Created: ${checklistFile}`);
+  }
+}
+
 // ── Sync with origin/master (CI only) ───────────────────────────────────
 // CI checkout may be a stale ref; rebase ensures tag points at real master.
 if (doPush && isCI) {
