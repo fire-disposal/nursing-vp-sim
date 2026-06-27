@@ -208,8 +208,7 @@ jobs:
             [ "\$OK" = true ] || { echo "  ✗ timeout (unhealthy?)"; exit 1; }
 
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
-            REV=\$(docker compose --env-file .env exec -T backend alembic current 2>/dev/null | head -1 | awk '{print \$1}' || echo "")
-            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$REV" >> .version-history
+            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history
             tail -50 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
             echo ">> Production v$VER ✓"
             docker image prune -f
