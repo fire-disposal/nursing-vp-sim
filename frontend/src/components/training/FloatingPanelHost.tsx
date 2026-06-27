@@ -1,6 +1,9 @@
-/* FloatingPanelHost — floating icon bar + modal-based panel overlay.
- * Replaces the old side-panel PanelHost. Chat area gets full width;
- * panels are accessed via floating icons and open as centered modals. */
+/* FloatingPanelHost — floating mini sidebar + modal-based panel overlay.
+ *
+ * Replaces the old floating-icon-only design. Shows icon + label in a
+ * compact vertical bar at the bottom-right. No auto-hide — always visible.
+ * Hover expands the bar slightly; panel labels are always shown.
+ */
 
 import {
 	useCallback,
@@ -18,34 +21,13 @@ interface FloatingPanelHostProps {
 	panels: PanelDef[];
 }
 
-/* ── Auto-hide idle timer — bar fades after 8s idle ── */
-function useBarAutoHide() {
-	const [visible, setVisible] = useState(true);
-	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-	const poke = useCallback(() => {
-		setVisible(true);
-		clearTimeout(timer.current);
-		timer.current = setTimeout(() => setVisible(false), 8_000);
-	}, []);
-
-	useEffect(() => {
-		poke();
-		return () => clearTimeout(timer.current);
-	}, [poke]);
-
-	return { visible, poke };
-}
-
 /* ── FloatingPanelHost ── */
 export function FloatingPanelHost({ ctx, features, panels }: FloatingPanelHostProps) {
 	const [activePanelId, setActivePanelId] = useState<string | null>(null);
+	const [hoveredPanel, setHoveredPanel] = useState<string | null>(null);
 	const isMobile = useIsMobile();
 
 	const activePanel = panels.find((p) => p.id === activePanelId);
-
-	/* Auto-hide the icon bar when idle */
-	const { visible, poke } = useBarAutoHide();
 
 	/* Close modal when user sends a message */
 	const wasSending = useRef(ctx.loading);
@@ -58,52 +40,92 @@ export function FloatingPanelHost({ ctx, features, panels }: FloatingPanelHostPr
 
 	const openPanel = useCallback((id: string) => {
 		setActivePanelId((prev) => (prev === id ? null : id));
-		poke();
-	}, [poke]);
+	}, []);
 
 	const closePanel = useCallback(() => {
 		setActivePanelId(null);
-		poke();
-	}, [poke]);
+	}, []);
 
 	if (panels.length === 0) return null;
 
 	return (
 		<>
-			{/* Floating icon bar — bottom-right, auto-fades when idle */}
+			{/* Floating mini sidebar — bottom-right, always visible */}
 			<div
-				className="fixed bottom-24 right-3 z-40 flex flex-col gap-1.5 transition-opacity duration-500"
-				style={{ opacity: visible ? 1 : 0.2 }}
-				onMouseEnter={poke}
+				className="fixed bottom-24 right-3 z-40 flex flex-col gap-0.5"
 			>
+				{/* Label header */}
+				<div className="hidden md:block text-[10px] uppercase tracking-wider text-muted-foreground/60 text-center mb-1 select-none">
+					面板
+				</div>
 				{panels.map((panel) => {
 					const badge = panel.tab.badge?.(ctx);
+					const isHovered = hoveredPanel === panel.id;
+					const isActive = activePanelId === panel.id;
+
 					return (
-						<button
+						<button type="button"
 							key={panel.id}
-							onClick={() => openPanel(panel.id)}
 							className={cn(
-								"relative flex size-10 items-center justify-center rounded-full shadow-lg border transition-all duration-200",
-								"hover:scale-110 active:scale-95",
-								activePanelId === panel.id
-									? "bg-primary text-primary-foreground border-primary shadow-primary/30"
-									: "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+								"relative flex items-center gap-2 rounded-lg transition-all duration-200 cursor-pointer select-none",
+								"hover:bg-accent/60",
+								isActive && "bg-accent",
 							)}
-							title={panel.tab.label}
+							onMouseEnter={() => setHoveredPanel(panel.id)}
+							onMouseLeave={() => setHoveredPanel(null)}
+							onClick={() => openPanel(panel.id)}
+							aria-label={panel.tab.label}
 						>
-							<panel.tab.icon size={18} />
-							{badge && (
-								<span
-									className={cn(
-										"absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 leading-none shadow-sm",
-										badge.variant === "destructive"
-											? "bg-destructive text-destructive-foreground"
-											: "bg-primary text-primary-foreground",
-									)}
-								>
-									{badge.text}
-								</span>
-							)}
+							{/* Icon circle */}
+							<div
+								className={cn(
+									"relative flex size-10 shrink-0 items-center justify-center rounded-full shadow-lg border transition-all duration-200",
+									"hover:scale-110 active:scale-95",
+									isActive
+										? "bg-primary text-primary-foreground border-primary shadow-primary/30"
+										: "bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40",
+								)}
+							>
+								<panel.tab.icon size={18} />
+								{badge && (
+									<span
+										className={cn(
+											"absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold px-1 leading-none shadow-sm",
+											badge.variant === "destructive"
+												? "bg-destructive text-destructive-foreground"
+												: "bg-primary text-primary-foreground",
+										)}
+									>
+										{badge.text}
+									</span>
+								)}
+							</div>
+
+							{/* Label — always visible on desktop */}
+							<span
+								className={cn(
+									"text-xs font-medium transition-all duration-200 select-none",
+									"hidden md:block",
+									isActive
+										? "text-foreground"
+										: "text-muted-foreground",
+								)}
+							>
+								{panel.tab.label}
+							</span>
+
+							{/* Tooltip for mobile */}
+							<span
+								className={cn(
+									"absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap",
+									"rounded-md bg-popover px-2.5 py-1.5 text-xs font-medium text-popover-foreground shadow-lg border border-border",
+									"md:hidden",
+									"transition-opacity duration-150 pointer-events-none",
+									isHovered ? "opacity-100" : "opacity-0",
+								)}
+							>
+								{panel.tab.label}
+							</span>
 						</button>
 					);
 				})}
