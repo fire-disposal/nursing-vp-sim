@@ -1,13 +1,13 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 
 from core.config import BATCH_USER_LIMIT
-from core.database import get_db
+from core.deps import DbSession
+from core.exceptions import ValidationError
 from core.security import hash_password, require_permission
 from models import Class, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
@@ -21,285 +21,100 @@ from schemas import (
     UserBrief,
     UserUpdateRequest,
 )
+from services.user import StudentDetailView, UserBriefView, UserService
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_Manager = Annotated[User, Depends(require_permission("user_manage"))]
+
+
+def _brief(v: UserBriefView) -> UserBrief:
+    return UserBrief(
+        id=v.id,
+        username=v.username,
+        role=v.role,
+        role_display_name=v.role_display_name,
+        display_name=v.display_name,
+        student_id=v.student_id,
+        gender=v.gender,
+        avatar=v.avatar,
+        created_at=v.created_at,
+        class_id=v.class_id,
+        class_name=v.class_name,
+        grade_name=v.grade_name,
+    )
+
+
+def _detail(v: StudentDetailView) -> StudentDetail:
+    return StudentDetail(
+        id=v.id,
+        username=v.username,
+        role=v.role,
+        display_name=v.display_name,
+        student_id=v.student_id,
+        created_at=v.created_at,
+        total_sessions=v.total_sessions,
+        total_minutes=v.total_minutes,
+        avg_score=v.avg_score,
+        recent_records=[
+            TrainingRecordBrief(
+                id=r.id,
+                case_id=r.case_id,
+                case_name=r.case_name,
+                user_display_name=r.user_display_name,
+                user_student_id=r.user_student_id,
+                status=r.status,
+                scoring_status=r.scoring_status,
+                scoring_error=r.scoring_error,
+                start_time=r.start_time,
+                end_time=r.end_time,
+                score_total=r.score_total,
+            )
+            for r in v.recent_records
+        ],
+        daily=v.daily,
+    )
+
 
 @router.get("/users", response_model=PaginatedResponse[UserBrief])
 def list_users(
+    current_user: _Manager,
+    db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None,
     role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None,
     class_id: Annotated[int | None, Query()] = None,
     grade_id: Annotated[int | None, Query()] = None,
-    current_user: User = Depends(require_permission("user_manage")),
-    db: Session = Depends(get_db),
 ):
-    q = db.query(User)
-    if class_id is not None or grade_id is not None:
-        q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
-        if class_id is not None:
-            q = q.filter(UserClass.class_id == class_id)
-        elif grade_id is not None:
-            q = q.join(Class, Class.id == UserClass.class_id)
-            q = q.filter(Class.grade_id == grade_id)
-    if search:
-        search_term = f"%{search}%"
-        q = q.filter(
-            or_(
-                User.username.ilike(search_term),
-                User.display_name.ilike(search_term),
-                User.student_id.ilike(search_term),
-            )
-        )
-    if role:
-        role_obj = db.query(Role).filter(Role.name == role).first()
-        q = q.filter(User.role_id == role_obj.id) if role_obj else q.filter(User.role_id == -1)
-    total = q.count()
-    users = (
-        q.options(
-            joinedload(User.role), joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade)
-        )
-        .order_by(User.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
+    view = UserService(db).list(
+        offset=offset, limit=limit, search=search, role=role, class_id=class_id, grade_id=grade_id
     )
-
-    items = []
-    for u in users:
-        ucs = u.user_classes
-        uc = ucs[0] if ucs else None
-        cls = uc.class_ if uc else None
-        items.append(
-            UserBrief(
-                id=u.id,
-                username=u.username,
-                role=u.role.name if u.role else "",
-                role_display_name=u.role.display_name if u.role else "",
-                display_name=u.display_name,
-                student_id=u.student_id,
-                gender=u.gender,
-                avatar=u.avatar,
-                created_at=u.created_at,
-                class_id=cls.id if cls else None,
-                class_name=cls.name if cls else None,
-                grade_name=cls.grade.name if (cls and cls.grade) else None,
-            )
-        )
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[_brief(v) for v in view.items], total=view.total, offset=view.offset, limit=view.limit
+    )
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)
-def update_user(
-    user_id: int,
-    req: UserUpdateRequest,
-    current_user: Annotated[User, Depends(require_permission("user_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    user = (
-        db.query(User)
-        .options(
-            joinedload(User.role), joinedload(User.user_classes).joinedload(UserClass.class_).joinedload(Class.grade)
-        )
-        .filter(User.id == user_id)
-        .first()
-    )
-    if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
-    if req.display_name is not None:
-        user.display_name = req.display_name
-    if req.student_id is not None:
-        user.student_id = req.student_id or None
-    if req.role is not None:
-        role_obj = db.query(Role).filter(Role.name == req.role).first()
-        if not role_obj:
-            raise HTTPException(status_code=400, detail="角色不存在")
-        user.role_id = role_obj.id
-    if req.password is not None and req.password:
-        if len(req.password) < 6:
-            raise HTTPException(status_code=400, detail="密码长度不能少于6位")
-        user.password_hash = hash_password(req.password)
-    if req.gender is not None:
-        user.gender = req.gender or None
-    if req.avatar is not None:
-        user.avatar = req.avatar or None
-
-    # class_id: pass 0 to remove user from their current class (sentinel value)
-    if req.class_id is not None:
-        if req.class_id != 0:
-            cls = db.query(Class).filter(Class.id == req.class_id).first()
-            if not cls:
-                raise HTTPException(status_code=400, detail="班级不存在")
-        uc = db.query(UserClass).filter(UserClass.user_id == user_id).first()
-        if req.class_id == 0:
-            if uc:
-                db.delete(uc)
-        else:
-            if not uc:
-                uc = UserClass(user_id=user_id)
-                db.add(uc)
-            uc.class_id = req.class_id
-
-    db.commit()
-    db.refresh(user)
-
-    ucs = user.user_classes if user else []
-    uc = ucs[0] if ucs else None
-    cls = uc.class_ if uc else None
-
+def update_user(user_id: int, req: UserUpdateRequest, current_user: _Manager, db: DbSession):
+    view = UserService(db).update(user_id, req)
     log.info(
-        f"用户更新: target_id={user_id} target_name={user.username}",
+        f"用户更新: target_id={user_id} target_name={view.username}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return UserBrief(
-        id=user.id,
-        username=user.username,
-        role=user.role.name if user.role else "",
-        role_display_name=user.role.display_name if user.role else "",
-        display_name=user.display_name,
-        student_id=user.student_id,
-        gender=user.gender,
-        avatar=user.avatar,
-        created_at=user.created_at,
-        class_id=cls.id if cls else None,
-        class_name=cls.name if cls else None,
-        grade_name=cls.grade.name if (cls and cls.grade) else None,
-    )
+    return _brief(view)
 
 
 @router.get("/users/{user_id}", response_model=StudentDetail)
-def get_user_detail(
-    user_id: int,
-    current_user: Annotated[User, Depends(require_permission("user_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
-
-    now = datetime.now(UTC)
-    since = now - timedelta(days=30)
-
-    stats = (
-        db.query(
-            func.count(TrainingRecord.id).label("total_sessions"),
-            func.coalesce(
-                func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
-                0,
-            ).label("total_minutes"),
-            func.coalesce(func.avg(Score.total_score), 0).label("avg_score"),
-        )
-        .outerjoin(Score, Score.record_id == TrainingRecord.id)
-        .filter(
-            TrainingRecord.user_id == user_id,
-            TrainingRecord.status == "completed",
-        )
-        .first()
-    )
-    total_sessions = int(stats.total_sessions or 0) if stats else 0
-    total_minutes = round(float(stats.total_minutes or 0)) if stats else 0
-    avg_score = round(float(stats.avg_score), 1) if stats and stats.avg_score else None
-
-    daily_rows = (
-        db.query(
-            func.date(TrainingRecord.start_time).label("d"),
-            func.count().label("sessions"),
-            func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60).label("minutes"),
-            func.avg(Score.total_score).label("avg_score"),
-        )
-        .outerjoin(Score, Score.record_id == TrainingRecord.id)
-        .filter(
-            TrainingRecord.user_id == user_id,
-            TrainingRecord.status == "completed",
-            TrainingRecord.start_time >= since,
-        )
-        .group_by(func.date(TrainingRecord.start_time))
-        .order_by("d")
-        .all()
-    )
-
-    daily = [
-        {
-            "date": str(r.d),
-            "sessions": r.sessions,
-            "minutes": round(float(r.minutes or 0), 1),
-            "avg_score": round(float(r.avg_score), 1) if r.avg_score is not None else None,
-        }
-        for r in daily_rows
-    ]
-
-    recent = (
-        db.query(TrainingRecord)
-        .options(
-            joinedload(TrainingRecord.case),
-            joinedload(TrainingRecord.score),
-        )
-        .filter(
-            TrainingRecord.user_id == user_id,
-        )
-        .order_by(TrainingRecord.start_time.desc())
-        .limit(20)
-        .all()
-    )
-
-    recent_records = [
-        TrainingRecordBrief(
-            id=r.id,
-            case_id=r.case_id,
-            case_name=r.case.name if r.case else "",
-            user_display_name=user.display_name,
-            user_student_id=user.student_id,
-            status=r.status,
-            scoring_status=r.scoring_status,
-            scoring_error=r.scoring_error,
-            start_time=r.start_time,
-            end_time=r.end_time,
-            score_total=r.score.total_score if r.score else None,
-        )
-        for r in recent
-    ]
-
-    return StudentDetail(
-        id=user.id,
-        username=user.username,
-        role=user.role.name if user.role else "",
-        display_name=user.display_name,
-        student_id=user.student_id,
-        created_at=user.created_at,
-        total_sessions=total_sessions,
-        total_minutes=total_minutes,
-        avg_score=avg_score,
-        recent_records=recent_records,
-        daily=daily,
-    )
+def get_user_detail(user_id: int, current_user: _Manager, db: DbSession):
+    return _detail(UserService(db).get_detail(user_id))
 
 
 @router.delete("/users/{user_id}", response_model=DeleteResponse)
-def delete_user(
-    user_id: int,
-    current_user: Annotated[User, Depends(require_permission("user_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    if user_id == current_user.id:
-        raise HTTPException(status_code=400, detail="不能删除自己")
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
-    record_count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.user_id == user_id).scalar() or 0
-    if record_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"该用户有 {record_count} 条训练记录，无法删除。请先删除相关训练记录。",
-        )
-
-    target_name = user.username
-    db.delete(user)
-    db.commit()
+def delete_user(user_id: int, current_user: _Manager, db: DbSession):
+    target_name = UserService(db).delete(user_id, current_user.id)
     log.info(
         f"用户删除: target_id={user_id} target_name={target_name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -307,18 +122,17 @@ def delete_user(
     return {"message": "用户已删除"}
 
 
+# ── Non-CRUD endpoints (kept inline: distinct shapes) ──
+
+
 @router.post("/users/batch", response_model=BatchCreateResult)
-def batch_create_users(
-    users: list[BatchUserItem],
-    current_user: Annotated[User, Depends(require_permission("user_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
+def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: DbSession):
     created = 0
     skipped = 0
     errors = []
 
     if len(users) > BATCH_USER_LIMIT:
-        raise HTTPException(status_code=400, detail=f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users)} 个")
+        raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users)} 个")
 
     class_ids = {u.class_id for u in users if u.class_id}
     valid_class_ids = {c.id for c in db.query(Class).filter(Class.id.in_(class_ids)).all()} if class_ids else set()
@@ -373,9 +187,7 @@ def batch_create_users(
 
 
 @router.get("/stats", response_model=AdminStats)
-def get_stats(
-    current_user: Annotated[User, Depends(require_permission("stats_view"))], db: Annotated[Session, Depends(get_db)]
-):
+def get_stats(current_user: Annotated[User, Depends(require_permission("stats_view"))], db: DbSession):
     student_role_id = None
     student_role = db.query(Role).filter(Role.name == "student").first()
     if student_role:
