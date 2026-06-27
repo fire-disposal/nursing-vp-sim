@@ -20,10 +20,9 @@ jobs:
         run: |
           node -e '
           const { execSync } = require("child_process");
-          const base = process.env.GITHUB_BASE_REF || "origin/master";
-          const head = process.env.GITHUB_HEAD_REF || "HEAD";
+          const base = process.env.GITHUB_BASE_REF || "master";
           execSync(`git fetch origin ${base} --depth=1`, { stdio: "ignore" });
-          const range = `origin/${base}..${head}`;
+          const range = `origin/${base}..HEAD`;
           const log = execSync(`git log ${range} --no-merges --format="%H %s"`, { encoding: "utf-8" });
           const EMOJI_TYPES = {
             "✨": "feat","🐛": "fix","📝": "docs","♻️": "refactor",
@@ -160,11 +159,10 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
