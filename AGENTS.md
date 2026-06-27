@@ -29,19 +29,13 @@ All run from monorepo root.
 | `pnpm run dev` | Backend (:8000) + frontend (:3000) concurrently |
 | `pnpm run check` | ruff + ty + biome + tsc (no pytest) |
 | `pnpm run check:full` | check + pytest (pre-push full gate) |
-| `pnpm run check:api` | Regenerate API clients + `git diff --exit-code` |
 | `pnpm run db:migrate` | `alembic upgrade head` |
 | `pnpm run db:downgrade` | `alembic downgrade -1` |
 | `pnpm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
 | `pnpm run db:data -- "name"` | Scaffold data-only migration (`scripts/create-data-migration.js`) |
-| `pnpm run api:spec` | Dump `openapi.json` — imports app module, no running server needed |
-| `pnpm run api:generate` | Generate `frontend/src/api/api-types.gen.ts` |
-| `pnpm run api:generate:miniapp` | Generate `miniprogram/api/types.gen.ts` |
 | `pnpm run api:update` | `api:spec` + `api:generate` |
 | `pnpm run api:update:all` | `api:spec` + `api:generate` + `api:generate:miniapp` |
 | `pnpm run tag` | Auto-generate date-based tag + push → triggers staging deploy |
-| `pnpm run gen:checklist` | Combine prod→staging checklists |
-| `pnpm run gen:checklist -- --feishu` | Same + publish to Feishu sheet |
 
 > **After any backend schema/route change, run `pnpm run api:update:all` from monorepo root.** Never manually edit `.gen.ts` files. Never dump openapi.json via curl/SSH.
 
