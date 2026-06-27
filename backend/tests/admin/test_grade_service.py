@@ -1,6 +1,6 @@
 import pytest
 
-from core.exceptions import ConflictError, NotFoundError, ValidationError
+from core.exceptions import NotFoundError, ValidationError
 from services.grade import GradeService
 
 SCHOOL_ID = 1  # conftest 已插入 id=1 的默认学校
@@ -9,7 +9,8 @@ SCHOOL_ID = 1  # conftest 已插入 id=1 的默认学校
 def test_create_list_update(db_session):
     svc = GradeService(db_session)
     v = svc.create("2024级", school_id=SCHOOL_ID)
-    assert v.name == "2024级" and v.class_count == 0
+    assert v.name == "2024级"
+    assert v.class_count == 0
     assert any(g.name == "2024级" for g in svc.list())
     v2 = svc.update(v.id, "2025级")
     assert v2.name == "2025级"

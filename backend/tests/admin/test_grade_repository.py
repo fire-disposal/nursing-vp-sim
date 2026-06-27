@@ -1,5 +1,4 @@
 from models import Grade
-
 from repositories.grade import GradeRepository
 
 

@@ -21,20 +21,20 @@ def test_commits_on_success():
     db = _FakeSession()
     with unit_of_work(db):
         pass
-    assert db.committed and not db.rolled_back
+    assert db.committed
+    assert not db.rolled_back
 
 
 def test_rolls_back_and_reraises_on_error():
     db = _FakeSession()
-    with pytest.raises(RuntimeError):
-        with unit_of_work(db):
-            raise RuntimeError("boom")
-    assert db.rolled_back and not db.committed
+    with pytest.raises(RuntimeError), unit_of_work(db):
+        raise RuntimeError("boom")
+    assert db.rolled_back
+    assert not db.committed
 
 
 def test_maps_integrity_error_to_conflict():
     db = _FakeSession()
-    with pytest.raises(ConflictError):
-        with unit_of_work(db, conflict_detail="dup"):
-            raise IntegrityError("stmt", {}, Exception("orig"))
+    with pytest.raises(ConflictError), unit_of_work(db, conflict_detail="dup"):
+        raise IntegrityError("stmt", {}, Exception("orig"))
     assert db.rolled_back
