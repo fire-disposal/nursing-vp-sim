@@ -7,43 +7,18 @@
 ## Hook Chain
 
 ```
-git add → git commit → git push
-           │              │
-           ▼              ▼
-      pre-commit      pre-push
-      ├─ commit-msg format check (emoji + type)
-      ├─ check-migration-autogen.js (ddl/data separation)
-      ├─ ruff format --check (backend)
-      ├─ ruff check (backend)
-      ├─ biome lint --staged (frontend) [via lint-staged]
-      └─ tsc --noEmit (frontend) [via lint-staged]
-                          │
-                          ▼
-                      pre-push
-                      ├─ tag format check (if pushing a tag)
-                      ├─ checklist-{tag}.md existence + content validation
-                      ├─ alembic upgrade → downgrade → upgrade roundtrip
-                      └─ biome lint --max-diagnostics 50 (frontend)
+git commit → commit-msg 格式校验 + migration autogen 检查 + ruff format+check (backend) + biome lint+tsc (frontend, via lint-staged)
+git push   → tag 格式校验 + checklist 验证 + alembic roundtrip + biome lint (frontend)
 ```
 
-- **lint-staged**: `tsc` + `biome lint` run ONLY on staged frontend files
-- **Migration check**: ONLY on staged files under `backend/migrations/versions/`
-- **Alembic roundtrip**: temp DB → upgrade → downgrade → upgrade → drop
-- **Checklist**: "无需测试" only for pure refactor/docs/ci/test/chore/build versions; any `feat`/`fix` commit requires a real checklist
-- Rejected commits print the emoji format table
+- **lint-staged**: `tsc` + `biome lint` 只跑 staged frontend；迁移检查只跑 staged `migrations/versions/`
+- **Alembic roundtrip**: 临时库 → upgrade → downgrade → upgrade → drop（验证所有迁移可逆）
+- **Checklist**: 仅 `feat`/`fix` 版本需要；refactor/docs/ci/test/chore/build 无需
+- 驳回的提交打印 emoji 格式表
 
 ## Cloud CI Gate (PR → master)
 
-在线 PR 门禁 `.github/workflows/commit-format.yml`，**与本地 Husky 行为精确对齐**（仅检查 changed files）：
-
-| Job | 检查项 | 对齐本地 |
-|-----|--------|----------|
-| `commit-format` | 所有非 merge 提交遵循 emoji 格式 | `commit-msg` |
-| `migration` | alembic 单 head + DDL/Data 分离 | `pre-commit` |
-| `backend` | ruff format + ruff check + ty（仅 changed *.py）| `pre-commit` |
-| `frontend` | biome lint（仅 changed *.ts/.tsx）+ tsc 全量 | `pre-commit` |
-
-额外校验：`api:spec` + `api:generate` diff 检查（openapi.json / api-types.gen.ts 同步）。**本地通过则云端必过**。
+在线 PR 门禁 `.github/workflows/commit-format.yml` 与本地 Husky 行为精确对齐（仅检查 changed files）。本地通过则云端必过。额外校验：`api:spec` + `api:generate` diff 检查（openapi.json / api-types.gen.ts 同步）。
 
 ## pnpm Scripts
 
