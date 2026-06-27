@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import require_permission, tenant_scope
+from core.security import require_permission
 from models import (
     Case,
     CaseQuestionnaire,
@@ -86,12 +86,8 @@ def list_templates(
     type: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    school_id: Annotated[int | None, Query()] = None,
 ):
-    effective_school = tenant_scope(current_user, school_id)
     query = db.query(QuestionnaireTemplate)
-    if effective_school is not None:
-        query = query.filter(QuestionnaireTemplate.school_id == effective_school)
     if type:
         query = query.filter(QuestionnaireTemplate.type == type)
     query = query.order_by(QuestionnaireTemplate.updated_at.desc())
@@ -153,11 +149,7 @@ def get_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = tenant_scope(current_user)
-    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
-    if effective_school is not None:
-        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
-    t = t_query.first()
+    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
@@ -172,11 +164,7 @@ def update_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = tenant_scope(current_user)
-    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
-    if effective_school is not None:
-        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
-    t = t_query.first()
+    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     if req.title is not None:
@@ -234,11 +222,7 @@ def delete_template(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = tenant_scope(current_user)
-    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
-    if effective_school is not None:
-        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
-    t = t_query.first()
+    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
     db.delete(t)
@@ -253,21 +237,14 @@ def assign_cases(
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    effective_school = tenant_scope(current_user)
-    t_query = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id)
-    if effective_school is not None:
-        t_query = t_query.filter(QuestionnaireTemplate.school_id == effective_school)
-    t = t_query.first()
+    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
 
     db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).delete()
 
     for cid in req.case_ids:
-        case_query = db.query(Case).filter(Case.id == cid)
-        if effective_school is not None:
-            case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
-        c = case_query.first()
+        c = db.query(Case).filter(Case.id == cid).first()
         if not c:
             raise HTTPException(status_code=400, detail=f"病例 {cid} 不存在")
         db.add(

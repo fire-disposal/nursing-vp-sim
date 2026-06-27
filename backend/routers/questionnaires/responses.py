@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import get_current_user, require_permission, tenant_scope
+from core.security import get_current_user, require_permission
 from models import (
     CaseQuestionnaire,
     QuestionnaireAnswer,
@@ -231,16 +231,12 @@ def list_responses(
     db: Annotated[Session, Depends(get_db)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    school_id: Annotated[int | None, Query()] = None,
 ):
-    effective_school = tenant_scope(current_user, school_id)
     query = (
         db.query(QuestionnaireResponse)
         .options(joinedload(QuestionnaireResponse.template), joinedload(QuestionnaireResponse.user))
         .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
     )
-    if effective_school is not None:
-        query = query.join(User, QuestionnaireResponse.user_id == User.id).filter(User.school_id == effective_school)
     query = query.order_by(QuestionnaireResponse.created_at.desc())
 
     rows, total = paginate(query, offset, limit)

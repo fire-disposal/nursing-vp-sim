@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import get_current_user, require_permission, tenant_scope
+from core.security import get_current_user, require_permission
 from models import QARecord, QASession, User
 from schemas import (
     DeleteResponse,
@@ -109,10 +109,8 @@ def get_all_qa_history(
     db: Annotated[Session, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     search: Annotated[str | None, Query(description="搜索学生姓名/学号/会话标题")] = None,
 ):
-    effective_school = tenant_scope(current_user, school_id)
     base = (
         db.query(
             QASession.id,
@@ -127,8 +125,6 @@ def get_all_qa_history(
         .outerjoin(User, QASession.user_id == User.id)
         .outerjoin(QARecord, QARecord.session_id == QASession.id)
     )
-    if effective_school is not None:
-        base = base.filter(User.school_id == effective_school)
     if search:
         term = f"%{search}%"
         base = base.filter(
@@ -166,10 +162,5 @@ def get_session_messages_admin(
     session = db.query(QASession).filter(QASession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
-    effective_school = tenant_scope(current_user, None)
-    if effective_school is not None:
-        owner = db.query(User).filter(User.id == session.user_id).first()
-        if owner is None or owner.school_id != effective_school:
-            raise HTTPException(status_code=404, detail="会话不存在")
     records = db.query(QARecord).filter(QARecord.session_id == session_id).order_by(QARecord.created_at.asc()).all()
     return [_enrich_message(r) for r in records]

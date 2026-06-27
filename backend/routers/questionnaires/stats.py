@@ -2,11 +2,11 @@ from collections import Counter
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from core.security import require_permission, tenant_scope
+from core.security import require_permission
 from infrastructure.export import Column, buffered_response
 from models import (
     CaseQuestionnaire,
@@ -29,21 +29,15 @@ def response_stats(
     template_id: int,
     current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: Annotated[Session, Depends(get_db)],
-    school_id: Annotated[int | None, Query()] = None,
 ):
     t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
 
-    effective_school = tenant_scope(current_user, school_id)
     resp_query = db.query(QuestionnaireResponse).filter(
         QuestionnaireResponse.template_id == template_id,
         QuestionnaireResponse.status == "completed",
     )
-    if effective_school is not None:
-        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(
-            User.school_id == effective_school
-        )
 
     completed_responses = resp_query.all()
     total_completed = len(completed_responses)
@@ -117,13 +111,11 @@ def export_responses(
     template_id: int,
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
-    school_id: Annotated[int | None, Query()] = None,
 ):
     t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="问卷模板不存在")
 
-    effective_school = tenant_scope(current_user, school_id)
     resp_query = (
         db.query(QuestionnaireResponse)
         .options(
@@ -132,10 +124,6 @@ def export_responses(
         )
         .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
     )
-    if effective_school is not None:
-        resp_query = resp_query.join(User, QuestionnaireResponse.user_id == User.id).filter(
-            User.school_id == effective_school
-        )
     resp_query = resp_query.order_by(QuestionnaireResponse.completed_at.desc())
 
     responses = resp_query.all()

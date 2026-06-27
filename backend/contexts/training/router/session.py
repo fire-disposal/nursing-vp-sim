@@ -14,7 +14,7 @@ from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
 from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
-from core.security import get_current_user, require_permission, tenant_scope
+from core.security import get_current_user, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.prompt import PromptManager
 from models import (
@@ -241,11 +241,7 @@ def start_training(
     db: Annotated[Session, Depends(get_db)],
     request: Request,
 ):
-    effective_school = tenant_scope(current_user)
-    case_query = db.query(Case).filter(Case.id == req.case_id)
-    if effective_school is not None:
-        case_query = case_query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
-    case = case_query.first()
+    case = db.query(Case).filter(Case.id == req.case_id).first()
     if not case:
         raise NotFoundError(detail="病例不存在")
 
@@ -382,13 +378,8 @@ def get_records(
     date_from: Annotated[str | None, Query(description="开始日期 ISO 格式 (含)")] = None,
     date_to: Annotated[str | None, Query(description="结束日期 ISO 格式 (含)")] = None,
     class_id: Annotated[int | None, Query()] = None,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
-    effective_school = tenant_scope(current_user, school_id)
     base = db.query(TrainingRecord)
-
-    if effective_school is not None:
-        base = base.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
 
     if not current_user.has_permission("score_review"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
@@ -465,10 +456,6 @@ def get_record_detail(
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise AuthError(detail="无权查看此记录", status_code=403)
 
-    effective_school = tenant_scope(current_user)
-    if effective_school is not None and (not record.user or record.user.school_id != effective_school):
-        raise NotFoundError(detail="记录不存在")
-
     case = record.case
     user = record.user
     score = record.score
@@ -518,11 +505,6 @@ def delete_record(
 
     if not current_user.has_permission("score_review") and record.user_id != current_user.id:
         raise AuthError(detail="无权删除此记录", status_code=403)
-
-    record_user = db.query(User).filter(User.id == record.user_id).first()
-    effective_school = tenant_scope(current_user)
-    if effective_school is not None and (not record_user or record_user.school_id != effective_school):
-        raise NotFoundError(detail="训练记录不存在")
 
     try:
         db.query(Message).filter(Message.record_id == record_id).delete()
