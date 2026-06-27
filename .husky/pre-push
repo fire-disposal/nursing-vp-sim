@@ -148,55 +148,41 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         continue
       fi
 
-      # 4. Testing checklist must exist (auto-generate for non-feat/fix versions)
+      # 4. Testing checklist (only required for feat/fix versions)
       checklist="docs/testing/checklist-${tag}.md"
 
-      # Determine if there are user-facing changes (shared by both branches)
       prev_tag=$(git tag --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | grep -B1 "^${tag}$" | head -1 || echo "")
       has_feat_or_fix=false
       if [ -n "$prev_tag" ] && [ "$prev_tag" != "$tag" ]; then
-        if git log "${prev_tag}..HEAD" --oneline --no-merges 2>/dev/null | grep -qE '^[a-f0-9]+ (✨ feat|🐛 fix)'; then
+        # Reliably detect feat/fix via Python (handles Unicode emoji on all platforms)
+        if uv run python -c "
+import subprocess, sys
+log = subprocess.check_output(['git','log','${prev_tag}..HEAD','--oneline','--no-merges'], text=True)
+sys.exit(0 if '\u2728 feat:' in log or '\U0001f41b fix:' in log else 1)
+" 2>/dev/null; then
           has_feat_or_fix=true
         fi
       fi
 
-      if [ ! -f "$ROOT/$checklist" ]; then
-        if $has_feat_or_fix; then
+      if $has_feat_or_fix; then
+        # User-facing changes — require a real checklist (>30 chars of content)
+        if [ ! -f "$ROOT/$checklist" ]; then
           echo ""
-          echo "PUSH BLOCKED: missing $checklist (user-facing changes detected)"
-          echo "→ generate a real checklist: docs/testing/checklist-${tag}.md"
+          echo "PUSH BLOCKED: missing $checklist (feat/fix commits detected)"
+          echo "→ generate the checklist, commit it, and re-run 'pnpm run tag'"
           echo ""
-          fail "testing checklist missing — user-facing changes need a real checklist"
+          fail "testing checklist required for feat/fix versions"
         else
-          echo "无需测试" > "$ROOT/$checklist"
-          git add "$checklist" 2>/dev/null || true
-          git commit -m "📝 docs: auto-generate testing checklist for ${tag}" 2>/dev/null || true
-          # Push the new commit so local/remote stay in sync.
-          # The recursive pre-push (for this master push) only runs migration
-          # checks — no tag ref involved, no infinite loop.
-          git push origin HEAD:master 2>/dev/null || true
-          ok "testing checklist auto-generated (no user-facing changes)"
-        fi
-      else
-        content=$(cat "$ROOT/$checklist" 2>/dev/null | tr -d '[:space:]')
-        if [ "$content" = "无需测试" ]; then
-          if $has_feat_or_fix; then
+          content=$(cat "$ROOT/$checklist" 2>/dev/null | tr -d '[:space:]')
+          if [ ${#content} -lt 30 ]; then
             echo ""
-            echo "PUSH BLOCKED: $checklist says '无需测试' but user-facing changes detected"
-            echo "→ generate a real checklist: docs/testing/checklist-${tag}.md"
+            echo "PUSH BLOCKED: $checklist is too short (${#content} chars — stub or '无需测试')"
+            echo "→ generate a real checklist with scene-level test steps"
             echo ""
-            fail "checklist '无需测试' invalid — feat/fix commits require a real checklist"
+            fail "checklist too short for feat/fix version"
+          else
+            ok "testing checklist for $tag"
           fi
-          ok "testing checklist for $tag (no user-facing changes)"
-        elif [ ${#content} -lt 30 ]; then
-          echo ""
-          echo "PUSH BLOCKED: $checklist is too short (${#content} chars)"
-          echo "If no user-facing changes, use: 无需测试"
-          echo "Use a real checklist (${#content} chars is too short)"
-          echo ""
-          fail "checklist too short"
-        else
-          ok "testing checklist for $tag"
         fi
       fi
 
