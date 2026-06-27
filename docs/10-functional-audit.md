@@ -40,7 +40,7 @@
 | 模块 | 覆盖度 | 状态 |
 |------|--------|------|
 | 用户认证 (JWT) | 密码登录、微信登录、Token 刷新、密码修改、登出 | 完整 |
-| RBAC 多租户 | School->Role->Permission->User，SuperAdmin/SchoolAdmin 分级 | 完整 |
+| RBAC 权限控制 | Role->Permission->User，super_admin/school_admin/teacher/student 四级角色 | 完整 |
 | 年级/班级管理 | CRUD，学生归属，级联删除 | 完整 |
 | 病例管理 | CRUD + JSON 导入 + AI 生成辅助 + 难度分级 | 完整 |
 | 练习管理 (Practice) | CRUD + Plugin 配置 + ScoreReview 关联 | 完整 |

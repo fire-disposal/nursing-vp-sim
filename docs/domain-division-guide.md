@@ -17,7 +17,7 @@ cases/ ───── routers/cases.py, admin/cases.py, admin/practices.py ─�
 
 | 文件 | 规则 |
 |------|------|
-| `models.py` / `schemas.py` | 全域可读，修改需通知各域 |
+| `models/` / `schemas.py` | 全域可读，修改需通知各域 |
 | `session.py` | training + scoring 共享，其余域只读 |
 | `feature_flags.py` | training 可写，其余域只读 |
 | `core/config.py` | 全域只读 |

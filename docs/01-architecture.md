@@ -39,11 +39,14 @@
 nursing-vp-sim/
 ├── backend/                                    # 后端服务
 │   ├── main.py                                 # FastAPI入口 + lifespan生命周期 + 种子数据
-│   ├── models.py                               # SQLAlchemy ORM模型 (30+张表)
+│   ├── models/                                 # SQLAlchemy ORM模型 (按域分文件的包，30+张表)
 │   ├── schemas.py                              # Pydantic请求/响应模型
 │   ├── core/                                   # 核心基础设施
 │   │   ├── database.py                         # 数据库引擎 + 会话工厂
 │   │   ├── config.py                           # 全局配置 (SCORING_TIMEOUT_SECONDS 等)
+│   │   ├── deps.py                             # DI 依赖 (DbSession, CurrentUser)
+│   │   ├── exceptions.py                       # 标准错误词汇 (AuthError/NotFoundError/ConflictError/ValidationError)
+│   │   ├── unit_of_work.py                     # 事务管理 (commit/rollback + IntegrityError→ConflictError)
 │   │   ├── security.py                         # JWT认证 + 权限验证
 │   │   ├── pagination.py                       # 分页工具
 │   │   └── login_strategies/                   # 登录策略 (密码/微信/OAuth2/CAS)
@@ -108,7 +111,8 @@ nursing-vp-sim/
 │   │       ├── registry.py                     # Prompt注册表
 │   │       └── static.py                       # 静态Prompt管理
 │   ├── middleware/                              # FastAPI 中间件
-│   ├── repositories/                           # 数据访问层
+│   ├── repositories/                           # 数据访问层 (Repository[T] 基类)
+│   ├── services/                               # 业务逻辑层 (事务 + 规则校验)
 │   ├── routers/                                # API路由 (通用)
 │   │   ├── auth.py                             # 登录 / 注册 / Token刷新
 │   │   ├── cases.py                            # 病例列表 / 详情
@@ -127,7 +131,6 @@ nursing-vp-sim/
 │   │   │   └── export.py                       # 管理导出
 │   │   ├── admin_api.py                        # API Secret/Config 管理
 │   │   ├── admin_prompts.py                    # Prompt 模板管理
-│   │   ├── admin_schools.py                    # 学校管理
 │   │   ├── admin_roles.py                      # 角色权限管理
 │   │   ├── admin_grades.py                     # 年级管理
 │   │   ├── admin_classes.py                    # 班级管理
@@ -270,7 +273,7 @@ TrainingEngine 采用插件化架构，通过 PanelContext 动态注册功能面
 4. **管道架构 (Pipeline)**：训练流程采用中间件链：phase_guard → prompt_builder → llm_caller → persister → phase_transition → side_effects，每轮对话经过完整管道处理
 5. **JWT无状态认证**：登录颁发Token，前端存储到localStorage，每次请求携带。支持 token_version 强制过期
 6. **角色权限控制 (RBAC)**：Role → RolePermission 模型，API层和前端路由层双重守卫
-7. **多租户数据隔离**：School 模型实现学校级数据隔离，Grade/Class 层级管理学生
+7. **分层后端架构**：thin router → service (业务规则 + 事务) → repository (Repository[T] 基类，只 flush 不 commit)，跨切面使用 `core/exceptions` (AuthError/NotFoundError/ConflictError/ValidationError) + `core/unit_of_work` (commit/rollback) + `core/deps` (DbSession/CurrentUser DI)。analytics/流式/导出路由保持胖路由
 8. **LLM服务封装**：统一通过 infrastructure/llm/ 进行调用，支持多Provider优先级加权路由、熔断、健康检查
 9. **Practice/Scenario 分离**：Practice 从 Case 中独立出来，支持训练(training)、考核(assessment)、自由练习(free_play)三种模式
 

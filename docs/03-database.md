@@ -24,11 +24,6 @@
 ## ER 关系
 
 ```
-School (1) ──→ (N) User
-School (1) ──→ (N) Grade
-School (1) ──→ (N) Case
-School (1) ──→ (N) Practice
-
 Role (1) ──→ (N) RolePermission
 Role (1) ──→ (N) User
 
@@ -62,25 +57,16 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 
 ## 表结构
 
-### schools — 学校表
-
-| 字段 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| id | INTEGER | PK, 自增 | 学校ID |
-| name | VARCHAR(80) | UNIQUE | 学校名称 |
-| created_at | DATETIME (UTC) | DEFAULT NOW | 创建时间 |
-
 ### roles — 角色表
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | id | INTEGER | PK, 自增 | 角色ID |
-| name | VARCHAR(20) | NOT NULL | 角色标识 (如 student, teacher, admin) |
+| name | VARCHAR(20) | NOT NULL | 角色标识 (如 super_admin, school_admin, teacher, student) |
 | display_name | VARCHAR(40) | NOT NULL | 显示名称 |
-| school_id | INTEGER | FK→schools.id, NULLABLE | 所属学校 (NULL=系统角色) |
 | is_system | BOOLEAN | DEFAULT FALSE | 是否系统预置角色 |
 
-唯一约束: `(school_id, name)`
+唯一约束: `(name)`
 
 ### role_permissions — 角色权限表
 
@@ -100,7 +86,6 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 | username | VARCHAR(50) | UNIQUE, INDEX, NOT NULL | 登录账号 |
 | password_hash | VARCHAR(255) | NOT NULL | bcrypt哈希密码 |
 | role_id | INTEGER | FK→roles.id, RESTRICT | 角色ID |
-| school_id | INTEGER | FK→schools.id, RESTRICT | 学校ID |
 | display_name | VARCHAR(50) | NOT NULL | 显示姓名 |
 | student_id | VARCHAR(30) | INDEX, NULLABLE | 学号 |
 | email | VARCHAR(120) | NULLABLE | 邮箱 |
@@ -113,7 +98,7 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 | created_at | DATETIME (UTC) | DEFAULT NOW | 创建时间 |
 | updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | 更新时间 |
 
-索引: `ix_users_school_id`, `ix_users_student_id`
+索引: `ix_users_student_id`
 
 ### grades — 年级表
 
@@ -122,10 +107,9 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 | id | INTEGER | PK, 自增 | 年级ID |
 | name | VARCHAR(40) | NOT NULL | 年级名称 |
 | academic_year | VARCHAR(9) | NULLABLE | 学年 (如 "2025-2026") |
-| school_id | INTEGER | FK→schools.id, CASCADE | 学校ID |
 | created_at | DATETIME (UTC) | DEFAULT NOW | 创建时间 |
 
-唯一约束: `(school_id, name)` — 同一学校年级名唯一
+唯一约束: `(name)`
 关联: `classes` (一对多)
 
 ### classes — 班级表
@@ -160,11 +144,10 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 | name | VARCHAR(100) | NOT NULL | 病例名称 |
 | description | TEXT | NULLABLE | 病例简介 |
 | case_data | JSONB | NOT NULL | 完整病例数据（患者信息/病史/难度/时限等） |
-| school_id | INTEGER | FK→schools.id, SET NULL, NULLABLE | 所属学校 |
 | created_at | DATETIME (UTC) | DEFAULT NOW | |
 | updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
 
-关联: `practices` (一对多), `school`
+关联: `practices` (一对多)
 
 ### practices — 练习表
 
@@ -174,15 +157,14 @@ Case (N) ──→ (N) QuestionnaireTemplate  (via CaseQuestionnaire)
 | name | VARCHAR(100) | NOT NULL | 练习名称 |
 | description | TEXT | NULLABLE | 练习说明 |
 | case_id | INTEGER | FK→cases.id, RESTRICT | 所属病例 |
-| school_id | INTEGER | FK→schools.id, SET NULL, NULLABLE | 所属学校 |
 | features | JSONB | DEFAULT {} | 功能开关配置 (如启用体检、护理记录等) |
 | behavior | JSONB | DEFAULT {} | 行为配置 (时限、患者行为等) |
 | is_active | BOOLEAN | DEFAULT TRUE | 是否启用 |
 | created_at | DATETIME (UTC) | DEFAULT NOW | |
 | updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
 
-索引: `ix_practices_case_id`, `ix_practices_school_id`
-关联: `case`, `school`, `assignments`, `training_records`
+索引: `ix_practices_case_id`
+关联: `case`, `assignments`, `training_records`
 
 ### assignments — 作业表
 
@@ -477,7 +459,6 @@ detail_scores 结构（100分制）：
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | id | INTEGER | PK, 自增 | 模板ID |
-| school_id | INTEGER | FK→schools.id, SET NULL, NULLABLE, INDEX | 学校ID |
 | title | VARCHAR(120) | NOT NULL | 问卷标题 |
 | type | VARCHAR(20) | NOT NULL | 问卷类型 |
 | description | TEXT | NULLABLE | 问卷说明 |
@@ -485,7 +466,7 @@ detail_scores 结构（100分制）：
 | created_at | DATETIME (UTC) | DEFAULT NOW | |
 | updated_at | DATETIME (UTC) | DEFAULT NOW, ON UPDATE | |
 
-关联: `questions`, `school`
+关联: `questions`
 
 ### questionnaire_questions — 问卷题目表
 
@@ -681,8 +662,7 @@ CheckConstraint: `level IN ('info', 'warning', 'success')`
 | 步骤 | 操作 | 数据源 |
 |------|------|--------|
 | Alembic | `alembic upgrade head` | 迁移版本文件 |
-| School | 创建默认学校 | 硬编码 |
-| Role | 创建 admin/teacher/student | 硬编码 |
+| Role | 创建 super_admin/school_admin/teacher/student | 硬编码 |
 | User | 默认管理员 + 测试学生 | 空表时创建 |
 | Grade/Class | 默认年级班级 | 硬编码 |
 | Case | Upsert | `data/cases/*.json` |
