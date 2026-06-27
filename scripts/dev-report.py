@@ -18,6 +18,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+_CHART_JS_VERSION = "4.4.7"
+_CHART_JS_FILE = ROOT / "frontend" / "public" / f"chart.umd.{_CHART_JS_VERSION}.min.js"
+_CHART_JS_CDN_FALLBACK = f"https://cdn.jsdelivr.net/npm/chart.js@{_CHART_JS_VERSION}/dist/chart.umd.min.js"
+
+
+def _get_chart_js() -> str:
+    """Return chart.js UMD source from the committed local copy."""
+    if _CHART_JS_FILE.is_file():
+        return _CHART_JS_FILE.read_text(encoding="utf-8")
+    return ""
 
 _EMOJI_TYPE = {
     "\u2728": "feat",
@@ -290,13 +300,21 @@ def render_html(data: dict) -> str:
 
     dow_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
+    chart_js_inline = _get_chart_js()
+    chart_tag = (
+        f"<script>{chart_js_inline}</script>"
+        if chart_js_inline
+        else f'<script src="{_CHART_JS_CDN_FALLBACK}"></script>'
+    )
+
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
 <title>Nursing VP Sim · Dev Report {data["first_date"]} → {data["last_date"]}</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{chart_tag}
 <style>
 *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
 :root{{--bg:#0f1117;--card:#161b22;--border:#30363d;--text:#e1e4e8;--dim:#8b949e;--muted:#484f58}}
