@@ -141,7 +141,7 @@
     "health_literacy": "medium",
     "verbosity": "verbose",
     "anxiety_trait": "normal",
-    "patience": "patient"
+    "patience": "high"
   },
   "example_dialogues": [
     {

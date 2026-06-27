@@ -128,7 +128,7 @@
     "health_literacy": "medium",
     "verbosity": "verbose",
     "anxiety_trait": "anxious",
-    "patience": "impatient"
+    "patience": "low"
   },
   "example_dialogues": [
     {
