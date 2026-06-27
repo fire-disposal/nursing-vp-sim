@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from core.case_schema import normalize_gender
 from core.database import get_db
 from core.exceptions import ConflictError, NotFoundError
-from core.security import get_current_user, require_permission, tenant_scope
+from core.security import get_current_user, require_permission
 from models import Case, Practice, TrainingRecord, User
 from schemas import (
     CaseBrief,
@@ -80,14 +80,10 @@ def _to_manage_item(case: Case, training_count: int = 0) -> CaseManageItem:
 def list_cases(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     query = db.query(Case).order_by(Case.id)
-    effective_school = tenant_scope(current_user, school_id)
-    if effective_school is not None:
-        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     items, total = paginate(query, offset, limit)
     return PaginatedResponse(
         items=[
@@ -115,15 +111,11 @@ def list_cases_manage(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
     difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("case_manage")),
 ):
     """教师查看所有病例（含训练次数统计）"""
     query = db.query(Case).order_by(Case.created_at.desc())
-    effective_school = tenant_scope(current_user, school_id)
-    if effective_school is not None:
-        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     if name:
         query = query.filter(Case.name.ilike(f"%{name}%"))
     if difficulty is not None:
@@ -224,10 +216,7 @@ def list_case_practices(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    effective_school = tenant_scope(current_user)
     query = db.query(Practice).filter(Practice.case_id == case_id, Practice.is_active == True)
-    if effective_school is not None:
-        query = query.filter((Practice.school_id == effective_school) | (Practice.school_id.is_(None)))
     return query.order_by(Practice.name).all()
 
 
@@ -237,10 +226,7 @@ def get_case(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    effective_school = tenant_scope(current_user)
     query = db.query(Case).filter(Case.id == case_id)
-    if effective_school is not None:
-        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
         raise NotFoundError(detail="病例不存在")
@@ -283,10 +269,7 @@ def update_case(
     current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """编辑病例"""
-    effective_school = tenant_scope(current_user)
     query = db.query(Case).filter(Case.id == case_id)
-    if effective_school is not None:
-        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
         raise NotFoundError(detail="病例不存在")
@@ -315,10 +298,7 @@ def delete_case(
     current_user: Annotated[User, Depends(require_permission("case_manage"))],
 ):
     """删除病例（仅当无训练记录时允许）"""
-    effective_school = tenant_scope(current_user)
     query = db.query(Case).filter(Case.id == case_id)
-    if effective_school is not None:
-        query = query.filter((Case.school_id == effective_school) | (Case.school_id.is_(None)))
     case = query.first()
     if not case:
         raise NotFoundError(detail="病例不存在")

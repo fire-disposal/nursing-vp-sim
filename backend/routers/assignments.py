@@ -13,7 +13,7 @@ from core.datetime_utils import ensure_utc
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from infrastructure.export import Column, buffered_response
-from models import Assignment, Class, Practice, TrainingRecord, User, UserClass
+from models import Assignment, Practice, TrainingRecord, User, UserClass
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -28,15 +28,6 @@ from schemas import (
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
-
-
-def _check_teacher_school(db: Session, teacher: User, class_id: int):
-    cls = db.query(Class).options(joinedload(Class.grade)).filter(Class.id == class_id).first()
-    if not cls:
-        raise HTTPException(status_code=404, detail="班级不存在")
-    if not cls.grade or cls.grade.school_id != teacher.school_id:
-        raise HTTPException(status_code=403, detail="无权操作该校班级")
-    return cls
 
 
 def _build_assignment_list_item(a: Assignment, student_count: int = 0, completed_count: int = 0) -> AssignmentListItem:
@@ -126,17 +117,9 @@ def create_assignment(
     current_user: Annotated[User, Depends(require_permission("score_review"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    _check_teacher_school(db, current_user, req.class_id)
-
     practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
     if not practice:
         raise HTTPException(status_code=404, detail="练习不存在")
-    if (
-        not current_user.is_super_admin
-        and practice.case.school_id is not None
-        and practice.case.school_id != current_user.school_id
-    ):
-        raise HTTPException(status_code=403, detail="无权使用该校病例")
 
     if req.end_time <= req.start_time:
         raise HTTPException(status_code=400, detail="截止时间必须晚于开始时间")
@@ -247,15 +230,8 @@ def update_assignment(
         practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
         if not practice:
             raise HTTPException(status_code=404, detail="练习不存在")
-        if (
-            not current_user.is_super_admin
-            and practice.case.school_id is not None
-            and practice.case.school_id != current_user.school_id
-        ):
-            raise HTTPException(status_code=403, detail="无权使用该校病例")
         assignment.practice_id = req.practice_id
     if req.class_id is not None:
-        _check_teacher_school(db, current_user, req.class_id)
         assignment.class_id = req.class_id
     if req.title is not None:
         assignment.title = req.title

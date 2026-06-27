@@ -1,13 +1,13 @@
 import io
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.database import get_db
-from core.security import get_current_user, require_permission, tenant_scope
+from core.security import get_current_user, require_permission
 from infrastructure.export import Column, stream_response
 from models import Message, TrainingRecord, User
 
@@ -18,18 +18,13 @@ router = APIRouter(prefix="/api/export", tags=["导出"])
 def export_records(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
-    effective_school = tenant_scope(current_user, school_id)
-
     query = db.query(TrainingRecord).options(
         selectinload(TrainingRecord.user),
         selectinload(TrainingRecord.case),
         selectinload(TrainingRecord.score),
     )
-    if effective_school is not None:
-        query = query.join(User, TrainingRecord.user_id == User.id).filter(User.school_id == effective_school)
     records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100).all()
 
     record_ids = [r.id for r in records]

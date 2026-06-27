@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
 from core.pagination import paginate
-from core.security import get_current_user, require_permission, tenant_scope
+from core.security import get_current_user, require_permission
 from models import Feedback, User
 from schemas import (
     FeedbackDailyItem,
@@ -47,9 +47,7 @@ def admin_list_feedback(
     date_to: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
-    effective_school = tenant_scope(current_user, school_id)
     query = db.query(
         Feedback.id,
         Feedback.user_id,
@@ -59,8 +57,6 @@ def admin_list_feedback(
         Feedback.created_at,
         User.display_name.label("user_name"),
     ).join(User, Feedback.user_id == User.id)
-    if effective_school is not None:
-        query = query.filter(User.school_id == effective_school)
     query = query.order_by(Feedback.created_at.desc())
 
     if tag:
@@ -101,13 +97,9 @@ def feedback_stats(
     db: Annotated[Session, Depends(get_db)],
     date_from: Annotated[str | None, Query()] = None,
     date_to: Annotated[str | None, Query()] = None,
-    school_id: Annotated[int | None, Query(description="super_admin 按学校筛选")] = None,
 ):
     """Return daily count of feedback by rating level, for stacked bar chart."""
-    effective_school = tenant_scope(current_user, school_id)
     base = db.query(Feedback)
-    if effective_school is not None:
-        base = base.join(User, Feedback.user_id == User.id).filter(User.school_id == effective_school)
     if date_from:
         try:
             df = parse_iso_datetime(date_from)
