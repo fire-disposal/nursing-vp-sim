@@ -267,7 +267,7 @@ API Key 有效？ → LLM API Tab → 查看 secret 状态（active/degraded）
     ↓
 余额不足？ → 登录 DeepSeek Platform 查看余额
     ↓
-健康检查？ → ssh yecaoyun "curl -sf 'http://127.0.0.1:9081/api/ops/report?token=...'"
+健康检查？ → ssh yecaoyun "curl -sf 'http://127.0.0.1:9081/api/diagnose?token=...'"
     查看 LLM 成功率
 ```
 

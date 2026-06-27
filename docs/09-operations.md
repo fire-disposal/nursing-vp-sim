@@ -427,7 +427,7 @@ sudo nginx -s reload
 | 脚本 | 频率 | 用途 |
 |------|------|------|
 | `monitor.py` | `*/15 * * * *` | 系统监控：Docker 容器状态、磁盘/CPU/内存、HTTP 端点健康、异常告警邮件 |
-| `daily_report.py` | `0 9 * * *` | 每日运维报告：调用 `/api/ops/report` 汇总两环境数据，HTML 邮件 |
+| `daily_report.py` | `0 9 * * *` | 每日运维报告：调用 `/api/diagnose` 汇总两环境数据，HTML 邮件 |
 | `weekly_report.py` | `0 9 * * 1` | 周报：赛博朋克主题 HTML 邮件，含容器/资源/告警汇总 |
 
 **配置方式：** 所有 SMTP 和端口配置通过环境变量读取（不再使用 `config.py`），从 `/opt/nursing-vp-sim/.env` 中读取：
@@ -463,29 +463,25 @@ curl "https://test.205716.xyz/api/diagnose?token=***"
 
 | 字段 | 说明 |
 |------|------|
-| `server.version` | 当前部署版本 |
-| `server.uptime_seconds` | 后端进程已运行时间 |
-| `database` | DB 连接池状态（pool_size / checked_out / connected） |
-| `llm` | LLM Provider 降级状态 |
-| `errors.last_5min` | 过去 5 分钟错误数 |
-| `errors.last_hour` | 过去 1 小时错误数 |
-| `errors.recent` | 最近 20 条 ERROR+ 日志（含时间/日志名/消息） |
-| `active_sessions` | 当前活跃训练会话数 |
+| `version` | 当前部署版本 |
+| `health` | 健康状态 |
+| `summary` | 汇总状态（healthy / degraded）|
+| `llm` | LLM 调用统计（24h 调用量/成功率/错误数/延迟/top错误） |
+| `scoring` | 评分队列状态（pending / stuck / in_progress） |
+| `voice` | 语音服务 TTS/ASR 统计 |
+| `voice_budget` | 语音月度预算使用 |
+| `metrics` | 系统指标快照（uptime/请求/活跃会话/内存/队列） |
+| `errors` | 错误计数（last_5min / last_hour / total）及最近错误列表 |
+| `alerts` | 自动告警列表 |
 
 **安全配置：** 在 `.env` 中设置 `DIAGNOSE_TOKEN` 为随机字符串。未设置时端点自动隐藏（返回 404）。
+### 运维诊断端点
 
-### 运维 API 端点
+综合诊断快照 `/api/diagnose`，单端点聚合，使用 `DIAGNOSE_TOKEN` query 参数认证（如 `?token=***`）。
 
-共四个运维端点，均用 `DIAGNOSE_TOKEN` query 参数认证（如 `?token=***`）；另有 admin 端 `/admin/ops/*` 系列，改用登录态 + `api_manage` 权限。
+返回字段: `version`, `health`, `summary`, `llm`, `scoring`, `voice`, `voice_budget`, `metrics`, `errors`, `alerts`。
 
-| 端点 | 用途 | 主要内容 |
-|------|------|----------|
-| `/api/diagnose` | 低层诊断快照 | server / DB / LLM / errors / active_sessions |
-| `/api/ops/dashboard` | 统一运维面板 | LLM 24h 统计 / 评分队列 / 活跃会话 / 语音统计 / SSE / 指标 / 通知 / 预算 |
-| `/api/ops/errors` | 错误环缓冲 | 错误计数 + 最近错误列表 |
-| `/api/ops/report` | 运维日报 | 汇总摘要 + 自动告警 |
-
-`/api/ops/report` 自动告警阈值：
+`/api/diagnose` 自动告警阈值：
 
 | 指标 | 触发阈值 |
 |------|----------|

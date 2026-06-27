@@ -61,7 +61,7 @@
 | 速率限制 | 登录/注册/聊天/问答，内存滑动窗口 | 完整 |
 | 语音交互 | 火山引擎 TTS 情感合成 + ASR 语音识别 + VoiceConfig 管理 + 成本仪表盘 + ops 统计 | 完整 |
 | 患者自主追问 (Patient Initiative) | 指数退避 + SSE 推送 + 独立面板 | 完整 |
-| 运维 API | `/api/ops/dashboard` + `/errors` + `/report`（DIAGNOSE_TOKEN）+ admin 系统运维面板 | 完整 |
+| 运维 API | `/api/diagnose`（DIAGNOSE_TOKEN）+ `/api/admin/ops/*`（admin 面板） | 完整 |
 | 系统通知 / 成本管理 / 暗色模式 | 系统通知 + 成本管理 + 暗色模式 (next-themes) | 完整 |
 
 ### 功能缺口（按优先级）
