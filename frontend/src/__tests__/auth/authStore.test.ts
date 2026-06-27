@@ -76,8 +76,6 @@ describe("authStore", () => {
 			role_display_name: "student",
 			gender: null,
 			avatar: null,
-			school_id: undefined,
-			school_name: undefined,
 		});
 		const persisted = JSON.parse(
 			localStorage.getItem("nursing-auth") || "{}",

@@ -58,8 +58,6 @@ const useAuthStore = create<ExtendedAuthState>()(
 					display_name: data.display_name,
 					gender: data.gender ?? null,
 					avatar: data.avatar ?? null,
-					school_id: data.school_id ?? undefined,
-					school_name: data.school_name ?? undefined,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
 
@@ -112,8 +110,6 @@ const useAuthStore = create<ExtendedAuthState>()(
 						avatar: data.avatar ?? null,
 						grade: data.grade_name ?? current?.grade ?? "",
 						className: data.class_name ?? current?.className ?? "",
-						school_id: current?.school_id,
-						school_name: current?.school_name,
 					};
 					set({ user });
 				} catch {

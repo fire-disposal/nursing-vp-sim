@@ -203,18 +203,6 @@ export default function Profile() {
 									className="h-10 bg-muted/50"
 								/>
 							</div>
-							{storeUser?.school_name && (
-								<div>
-									<label className="block text-sm font-medium mb-1.5">
-										学校
-									</label>
-									<Input
-										value={storeUser.school_name}
-										disabled
-										className="h-10 bg-muted/50"
-									/>
-								</div>
-							)}
 						</div>
 					</div>
 

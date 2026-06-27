@@ -9,16 +9,6 @@ export interface User {
 	avatar?: string | null;
 	grade?: string;
 	className?: string;
-	school_id?: number;
-	school_name?: string;
-}
-
-export interface School {
-	id: number;
-	name: string;
-	teacher_count: number;
-	student_count: number;
-	created_at: string;
 }
 
 export interface RoleItem {
