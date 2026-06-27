@@ -164,7 +164,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         if $has_feat_or_fix; then
           echo ""
           echo "PUSH BLOCKED: missing $checklist (user-facing changes detected)"
-          echo "→ ask opencode: 'generate the testing checklist for ${tag}'"
+          echo "→ generate a real checklist: docs/testing/checklist-${tag}.md"
           echo ""
           fail "testing checklist missing — user-facing changes need a real checklist"
         else
@@ -186,7 +186,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
           if $has_feat_or_fix; then
             echo ""
             echo "PUSH BLOCKED: $checklist says '无需测试' but user-facing changes detected"
-            echo "→ ask opencode: 'generate the testing checklist for ${tag}'"
+            echo "→ generate a real checklist: docs/testing/checklist-${tag}.md"
             echo ""
             fail "checklist '无需测试' invalid — feat/fix commits require a real checklist"
           fi
@@ -195,7 +195,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
           echo ""
           echo "PUSH BLOCKED: $checklist is too short (${#content} chars)"
           echo "If no user-facing changes, use: 无需测试"
-          echo "Otherwise ask opencode to generate a real checklist."
+          echo "Use a real checklist (${#content} chars is too short)"
           echo ""
           fail "checklist too short"
         else
