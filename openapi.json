@@ -13268,17 +13268,6 @@
             "title": "Response Count",
             "default": 0
           },
-          "school_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Id"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -13355,17 +13344,6 @@
             "type": "integer",
             "title": "Response Count",
             "default": 0
-          },
-          "school_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Id"
           },
           "created_at": {
             "type": "string",
@@ -13673,17 +13651,6 @@
             "type": "boolean",
             "title": "Is System",
             "default": false
-          },
-          "school_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Id"
           },
           "permissions": {
             "items": {

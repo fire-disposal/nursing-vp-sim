@@ -883,7 +883,6 @@ export interface QuestionnaireTemplateDetailResponse {
   is_active: boolean
   question_count?: number
   response_count?: number
-  school_id?: number | null
   created_at: string
   updated_at: string
   questions?: QuestionnaireQuestionResponse[]
@@ -898,7 +897,6 @@ export interface QuestionnaireTemplateResponse {
   is_active: boolean
   question_count?: number
   response_count?: number
-  school_id?: number | null
   created_at: string
   updated_at: string
 }
@@ -951,7 +949,6 @@ export interface RoleResponse {
   name: string
   display_name: string
   is_system?: boolean
-  school_id?: number | null
   permissions?: string[]
   user_count?: number
 }

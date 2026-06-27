@@ -4307,8 +4307,6 @@ export interface components {
              * @default 0
              */
             response_count: number;
-            /** School Id */
-            school_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -4352,8 +4350,6 @@ export interface components {
              * @default 0
              */
             response_count: number;
-            /** School Id */
-            school_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -4464,8 +4460,6 @@ export interface components {
              * @default false
              */
             is_system: boolean;
-            /** School Id */
-            school_id?: number | null;
             /**
              * Permissions
              * @default []
