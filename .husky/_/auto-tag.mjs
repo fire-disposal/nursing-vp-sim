@@ -45,37 +45,29 @@ function hasFeatOrFix() {
 }
 
 // ── Checklist (only for feat/fix versions) ──────────────────────────────
-// Non-feat/fix versions don't need a checklist file — the pre-push hook
-// gate only activates when user-facing changes are detected.
 const needChecklist = doPush && hasFeatOrFix();
 if (needChecklist) {
-  const month = tag.substring(1, 8); // "2026.06" from "v2026.06.27-8"
+  if (isCI) {
+    // In CI, feat/fix commits require a real checklist committed in the PR
+    // before merging.  Fail loudly — do NOT push anything to master.
+    console.log("BLOCKED: feat/fix commits detected without a real checklist.");
+    console.log("→ commit the checklist to the PR before merging, then re-run.");
+    process.exit(1);
+  }
+
+  // Local: leave a short stub so pre-push blocks tag push.
+  const month = tag.substring(1, 8);
   const checklistDir = path.resolve(process.cwd(), "docs/testing", month);
   const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
 
   if (!fs.existsSync(checklistFile)) {
-    // Create a stub so the pre-push hook finds the file and checks length.
-    // The stub is intentionally too short (<30 chars); pre-push will block
-    // until a real checklist is written.
-    const stub = "TODO: write real checklist for ${tag}\n";
     if (!fs.existsSync(checklistDir)) {
       fs.mkdirSync(checklistDir, { recursive: true });
     }
-    fs.writeFileSync(checklistFile, stub, "utf-8");
+    fs.writeFileSync(checklistFile, "TODO\n", "utf-8");
     console.log(`Created stub: ${checklistFile} (real checklist needed — feat/fix commits detected)`);
-
-    if (isCI) {
-      // In CI, commit the stub so it's part of the push.
-      // Pre-push will block because stub is too short — intentional:
-      // CI should not pass with an auto-generated placeholder for feat/fix.
-      execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
-      execSync(`git commit -m "📝 docs: stub checklist for ${tag} (real checklist needed)"`, { stdio: "inherit" });
-    } else {
-      // Local: leave the stub in the working tree.  User writes the real
-      // checklist, commits it, then re-runs `pnpm run tag`.
-      console.log("→ generate a real checklist and commit it, then re-run: pnpm run tag");
-      process.exit(0);
-    }
+    console.log("→ generate a real checklist and commit it, then re-run: pnpm run tag");
+    process.exit(0);
   }
 }
 
