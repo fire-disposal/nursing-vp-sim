@@ -215,6 +215,34 @@ jobs:
             docker image prune -f
           DEPLOY
 
+      - name: Publish dev report (non-blocking)
+        continue-on-error: true
+        run: |
+          HOST="${{ secrets.SSH_HOST }}"
+          USER="${{ secrets.SSH_USER }}"
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # Generate report from full git history on CI runner
+          cd backend
+          python -m ensurepip --upgrade 2>/dev/null || true
+          pip install -q uv 2>/dev/null || true
+          python -m uv run python ../scripts/dev-report.py --output ../frontend/public/report.html 2>&1 || {
+            echo "⚠ Report generation failed — skipping publish"
+            exit 0
+          }
+
+          # SCP to staging server and inject into frontend container
+          scp ../frontend/public/report.html "$USER@$HOST":/tmp/report.html 2>/dev/null || {
+            echo "⚠ SCP failed — skipping publish"
+            exit 0
+          }
+          ssh "$USER@$HOST" "
+            docker cp /tmp/report.html nursing-frontend-staging:/usr/share/nginx/html/report.html 2>/dev/null && \
+            rm -f /tmp/report.html && \
+            echo '✓ report.html published to container' || echo '⚠ docker cp failed'
+          " 2>/dev/null
+          echo "✓ → https://test.205716.xyz/report.html"
+
       - name: Publish checklist to Feishu
         if: vars.FEISHU_APP_ID != ''
         env:
