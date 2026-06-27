@@ -8,13 +8,13 @@ standalone HTML report with Chart.js visualisations.
 Usage: python scripts/dev-report.py [--output report.html] [--weeks N] [--open]
 """
 
-import subprocess
-import re
 import json
+import re
+import subprocess  # nosec
 import sys
 import webbrowser
-from datetime import datetime, timedelta
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -101,7 +101,7 @@ def git_log() -> list[dict]:
         try:
             dt = datetime.fromisoformat(date_str.replace(" ", "T"))
         except ValueError:
-            dt = datetime.strptime(date_str[:19], "%Y-%m-%dT%H:%M:%S")
+            dt = datetime.strptime(date_str[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=UTC)
 
         subject = subject.lstrip("\ufeff")
         merge_pr = _MERGE_PR_RE.match(subject)
@@ -141,7 +141,7 @@ def build_report_data(commits: list[dict], weeks: int = 0) -> dict:
         return {}
 
     if weeks > 0:
-        cutoff = datetime.now() - timedelta(weeks=weeks)
+        cutoff = datetime.now(UTC) - timedelta(weeks=weeks)
         commits = [c for c in commits if c["date"] >= cutoff]
         if not commits:
             return {}
@@ -367,7 +367,7 @@ tr:hover td{{background:var(--border);opacity:.4}}
   <div class="commit-table"><table><tr><th>SHA</th><th>Type</th><th>Message</th><th style="text-align:right">Author</th><th>Date</th></tr>{commit_rows}</table></div>
 </div>
 
-<p class="footer">Generated {datetime.now().strftime("%Y-%m-%d %H:%M")} &middot; <code>python scripts/dev-report.py</code></p>
+<p class="footer">Generated {datetime.now(UTC).strftime("%Y-%m-%d %H:%M")} UTC &middot; <code>python scripts/dev-report.py</code></p>
 
 <script>
 const cs=getComputedStyle(document.body),C=cs.getPropertyValue("--dim"),G=cs.getPropertyValue("--border"),K=cs.getPropertyValue("--card");
@@ -397,7 +397,7 @@ new Chart(document.getElementById("authorType"),{{type:"bar",data:{{labels:atL,d
 
 
 def main():
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     out = ROOT / f"dev-report-{ts}.html"
     weeks = 0
     auto_open = False
@@ -408,11 +408,13 @@ def main():
         if a.startswith("--output="):
             out = Path(a.split("=", 1)[1])
         elif a == "--output" and i + 1 < len(args):
-            i += 1; out = Path(args[i])
+            i += 1
+            out = Path(args[i])
         elif a.startswith("--weeks="):
             weeks = int(a.split("=", 1)[1])
         elif a == "--weeks" and i + 1 < len(args):
-            i += 1; weeks = int(args[i])
+            i += 1
+            weeks = int(args[i])
         elif a == "--open":
             auto_open = True
         i += 1

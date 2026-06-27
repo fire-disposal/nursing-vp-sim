@@ -49,7 +49,7 @@ try:
     if db_rev not in script.revision_map._revision_map:
         print(f"WARN: DB is at {db_rev} which is NOT in current migration chain")
         print(f"  Head: {heads[0]}")
-        print(f"  If this is intentional (switched branches), stamp the DB:")
+        print("  If this is intentional (switched branches), stamp the DB:")
         print(f"    alembic stamp {heads[0]}")
     else:
         print(f"ok  DB revision {db_rev} exists in chain")
