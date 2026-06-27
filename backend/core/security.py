@@ -95,16 +95,3 @@ def require_permission(permission: str):
         return current_user
 
     return checker
-
-
-def tenant_scope(user: User, requested_school_id: int | None = None) -> int | None:
-    """
-    Single authority for school-isolation across all endpoints.
-
-    Super-admin: respects *requested_school_id* (narrows to that school),
-    or returns ``None`` when omitted (see all schools).
-    Everyone else: locked to their own school.
-    """
-    if user.is_super_admin:
-        return requested_school_id
-    return user.school_id

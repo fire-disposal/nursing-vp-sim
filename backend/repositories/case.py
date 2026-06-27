@@ -12,18 +12,6 @@ class CaseRepository:
     def get_by_id(self, case_id: int) -> Case | None:
         return self.db.query(Case).filter(Case.id == case_id).first()
 
-    def list_by_school(self, school_id: int | None, offset: int = 0, limit: int = 50):
-        q = self.db.query(Case)
-        if school_id is not None:
-            q = q.filter((Case.school_id == school_id) | (Case.school_id.is_(None)))
-        return q.offset(offset).limit(limit).all()
-
-    def count_by_school(self, school_id: int | None) -> int:
-        q = self.db.query(Case)
-        if school_id is not None:
-            q = q.filter((Case.school_id == school_id) | (Case.school_id.is_(None)))
-        return q.count()
-
     def create(self, **kwargs) -> Case:
         case = Case(**kwargs)
         self.db.add(case)
