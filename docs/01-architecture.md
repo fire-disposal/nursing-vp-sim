@@ -31,7 +31,7 @@
 | 速率限制 | 内存滑动窗口（infrastructure/cache） | 无需 Redis，线程安全 |
 | 审计日志 | infrastructure/llm/logging.py | JSON 格式，控制台+文件，请求ID追踪 |
 | 容器化 | Docker + docker compose | 前后端 + 数据库 + nginx |
-| CI/CD | GitHub Actions | deploy-staging.yml (tag触发) + deploy-production.yml (手动生产部署) |
+| CI/CD | GitHub Actions | commit-format.yml (PR门禁) + deploy-staging.yml (tag触发) + deploy-production.yml (手动) |
 
 ## 项目结构（当前）
 
@@ -240,6 +240,8 @@ nursing-vp-sim/
 │   └── monitor/                                # 监控配置
 │
 ├── .github/workflows/                          # CI/CD
+│   ├── commit-format.yml                       # PR门禁: commit格式+ruff+ty+biome+tsc
+│   ├── deploy-pr-staging.yml                   # PR合并后自动打tag
 │   ├── deploy-staging.yml                      # Staging部署 (v* tag 触发)
 │   ├── deploy-production.yml                   # Production 部署 (手动触发)
 │   └── rollback-production.yml                 # 紧急回滚

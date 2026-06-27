@@ -8,10 +8,11 @@
 
 ## CD 部署流程
 
-### 两个流水线
+### 流水线一览
 
 | Workflow | 触发方式 | 目标 | 域名 |
 |----------|---------|------|------|
+| `commit-format.yml` | PR → master（自动） | 提交格式 + 代码质量门禁 | — |
 | `deploy-pr-staging.yml` | PR 合并到 master（自动） | 自动打 date tag → 触发 staging | — |
 | `deploy-staging.yml` | 推送 `v*` tag（自动） | 测试服 | `test.205716.xyz` |
 | `deploy-production.yml` | `workflow_dispatch`（手动） | 正式服 | `iomt.205716.xyz` |
@@ -20,21 +21,28 @@
 ### 日常发布流程
 
 ```
-pnpm run tag → v2026.06.02-N
-    │
-    ▼ deploy-staging.yml 自动触发
-  构建镜像 → 部署到测试服（60s）
-    │
-    ▼ 你验证通过
+PR 创建 → commit-format.yml 门禁
+  ├─ commit-msg 格式检查
+  ├─ migration 完整性
+  ├─ ruff + ty (backend)
+  └─ biome + tsc (frontend)
+     │
+     ▼ 通过后合并 PR
+deploy-pr-staging.yml 自动打 tag
+     │
+     ▼ deploy-staging.yml 自动触发
+   构建镜像 → 部署到测试服（~3min）
+     │
+     ▼ 验证通过
   Actions → Deploy to Production
-  输入: 2026.06.02-N
-    │
-    ▼ deploy-production.yml
+  输入: 2026.06.27-N
+     │
+     ▼ deploy-production.yml
   检查: staging 正跑着同一版本吗？
-    ├─ ✗ 不匹配 → 拒绝（必须先经过测试服）
-    └─ ✓ 匹配 → 备份DB → 拉镜像 → 部署 → 健康检查
-                  ├─ healthy  → 完成
-                  └─ unhealthy → 自动回滚旧版本
+     ├─ ✗ 不匹配 → 拒绝（必须先经过测试服）
+     └─ ✓ 匹配 → 备份DB → 拉镜像 → 部署 → 健康检查
+                   ├─ healthy  → 完成
+                   └─ unhealthy → 自动回滚旧版本
 ```
 
 ### 部署前检查清单

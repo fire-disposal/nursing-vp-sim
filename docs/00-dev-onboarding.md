@@ -65,7 +65,7 @@ pnpm run dev            # :8000 (backend) + :3000 (frontend)
 
 | 操作 | 命令 |
 |------|------|
-| 提交 | `<emoji> <type>: <描述>`（Husky 强制校验） |
+| 提交 | `<emoji> <type>: <描述>`（Husky 强制校验 + PR Gate 云端复核） |
 | 发版 | `pnpm run tag`（自动 tag + push → Staging 部署） |
 | 正式服 | GitHub Actions → Deploy to Production（手动触发） |
 | 回滚 | Actions → Emergency Rollback |
@@ -86,6 +86,8 @@ cd frontend && pnpm vitest run           # 前端
 | Staging | `test.205716.xyz` | 推送 `v*` tag | 5434 |
 | Production | `iomt.205716.xyz` | `workflow_dispatch` | 5433 |
 
+PR → master 时 `commit-format.yml` 自动运行提交格式 + 代码质量门禁。
+
 部署详情与运维见 [09-运维安全指南](09-operations.md)。
 
 ## 快速参考
@@ -102,7 +104,6 @@ cd frontend && pnpm vitest run           # 前端
 │  GitHub Actions → Deploy to Production       │
 ├─ 应急 ─────────────────────────────────────┤
 │  Actions → Emergency Rollback                │
-│  Actions → Maintenance Mode                  │
 └─────────────────────────────────────────────┘
 ```
 
