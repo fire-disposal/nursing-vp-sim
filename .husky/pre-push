@@ -110,6 +110,11 @@ fi
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
     refs/tags/*)
+      # Skip tag deletions (local_sha is all zeros)
+      case "$local_sha" in
+        0000000000000000000000000000000000000000) continue ;;
+      esac
+
       tag="${remote_ref#refs/tags/}"
 
       # 1. Pattern match
