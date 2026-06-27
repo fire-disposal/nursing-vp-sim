@@ -39,7 +39,7 @@ jobs:
           if [ -n "$HOST" ] && [ -n "$USER" ]; then
             mkdir -p ~/.ssh
             ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
+            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
           fi
 
           if [ -z "$PROD_VER" ]; then
@@ -102,7 +102,7 @@ jobs:
           PROD_VER=""
           if [ -n "$HOST" ] && [ -n "$USER" ]; then
             ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
+            PROD_VER=$(ssh "$USER@$HOST" "tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1" 2>/dev/null || echo "")
           fi
           {
             echo "# Production Deploy v$VER"
@@ -208,8 +208,8 @@ jobs:
             [ "\$OK" = true ] || { echo "  ✗ timeout (unhealthy?)"; exit 1; }
 
             docker exec nursing-vp-sim-backend-1 curl -sf http://localhost:8000/api/health
-            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history
-            tail -50 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
+            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-vp-sim-backend-1 alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-prod
+            tail -50 .version-history-prod > .version-history-prod.tmp && mv .version-history-prod.tmp .version-history-prod
             echo ">> Production v$VER ✓"
             docker image prune -f
           DEPLOY

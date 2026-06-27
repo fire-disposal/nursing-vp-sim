@@ -209,8 +209,8 @@ jobs:
             done
             [ "\$OK" = true ] || { echo "  ✗ timeout"; exit 1; }
             curl -sf http://127.0.0.1:9081/api/health && echo ">> Staging v$VER ✓"
-            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-backend-staging alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history
-            tail -50 .version-history > .version-history.tmp && mv .version-history.tmp .version-history
+            echo "$VER|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-backend:$VER|ghcr.io/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:$VER|\$(docker exec nursing-backend-staging alembic current 2>/dev/null | head -1 | awk '{print \$1}')" >> .version-history-staging
+            tail -50 .version-history-staging > .version-history-staging.tmp && mv .version-history-staging.tmp .version-history-staging
             docker image prune -f
           DEPLOY
 

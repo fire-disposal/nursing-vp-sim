@@ -92,8 +92,8 @@ do_backup() {
 
   # 读取当前部署版本（如果存在）
   local version="unknown"
-  if [ -f "${DEPLOY_DIR}/.version-history" ]; then
-    version=$(tail -1 "${DEPLOY_DIR}/.version-history" | cut -d'|' -f1)
+  if [ -f "${DEPLOY_DIR}/.version-history-${ENV}" ]; then
+    version=$(tail -1 "${DEPLOY_DIR}/.version-history-${ENV}" | cut -d'|' -f1)
   fi
 
   # pg_dump + gzip

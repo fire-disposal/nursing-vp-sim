@@ -143,7 +143,7 @@ Every tag push needs `docs/testing/{YYYY-MM}/checklist-{tag}.md` (pre-push hook 
 
 Ask opencode in this repo — it will:
 
-1. `ssh yecaoyun` fetch current prod version from `.version-history`
+1. `ssh yecaoyun` fetch current prod version from `.version-history-prod`
 2. `git log prod_ver..staging_ver` extract user-visible commits (feat, fix)
 3. Analyze the diff and write a scene-level checklist to `docs/testing/{YYYY-MM}/checklist-{tag}.md`
 

@@ -146,22 +146,28 @@ bash rollback.sh --list
 
 ### 版本历史文件
 
-服务器上 `/opt/nursing-vp-sim/.version-history`，字段格式（`|` 分隔）：
+staging 和 production 各自独立文件，统一格式（`|` 分隔）：
+
+| 文件 | 用途 |
+|------|------|
+| `.version-history-prod` | 正式服部署记录 |
+| `.version-history-staging` | 测试服部署记录 |
 
 ```
 2026.06.02-3|2026-06-02T14:30:00Z|ghcr.io/owner/nursing-vp-sim-backend:...|ghcr.io/owner/nursing-vp-sim-frontend:...|abc123def
 ```
 
-字段含义：`版本号 | 部署时间 | 后端镜像 | 前端镜像 | alembic revision`（第 5 字段为可选，用于精确多版本回滚）
+字段含义：`版本号 | 部署时间 | 后端镜像 | 前端镜像 | alembic revision`（第 5 字段用于精确多版本回滚）
 
 每次成功部署追加一行，保留最近 50 次记录。
 
 ```bash
 # 查看历史
-cat /opt/nursing-vp-sim/.version-history
+cat /opt/nursing-vp-sim/.version-history-prod
+cat /opt/nursing-vp-sim/.version-history-staging
 
 # 清空重置
-rm /opt/nursing-vp-sim/.version-history
+: > /opt/nursing-vp-sim/.version-history-staging
 ```
 
 ---
@@ -316,7 +322,7 @@ docker compose -f docker-compose.staging.yml --env-file .env -p nursing-vp-stagi
 docker restart nursing-vp-sim-backend-1
 
 # 方案 C: 回滚到最近的稳定版本
-cat .version-history
+cat .version-history-prod
 bash rollback.sh --yes <上一个版本号>
 ```
 
