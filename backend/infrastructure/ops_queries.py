@@ -143,7 +143,6 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
         },
         "scoring": scoring,
         "sessions": {"active": active},
-
         "voice": voice,
         "voice_budget": voice_budget,
     }

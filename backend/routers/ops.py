@@ -10,7 +10,7 @@
 
 import logging
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -155,4 +155,3 @@ async def diagnose(request: Request, token: str = Query("", description="诊断�
         }
     finally:
         db.close()
-
