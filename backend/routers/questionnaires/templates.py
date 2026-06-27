@@ -1,23 +1,10 @@
-import logging
-from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query
 
-from core.database import get_db
-from core.pagination import paginate
+from core.deps import DbSession
 from core.security import require_permission
-from models import (
-    Case,
-    CaseQuestionnaire,
-    QuestionnaireAnswer,
-    QuestionnaireQuestion,
-    QuestionnaireResponse,
-    QuestionnaireTemplate,
-    User,
-)
+from models import QuestionnaireTemplate, User
 from schemas import (
     CaseAssignmentRequest,
     DeleteResponse,
@@ -29,28 +16,63 @@ from schemas import (
     QuestionnaireTemplateResponse,
     QuestionnaireTemplateUpdate,
 )
-
-log = logging.getLogger(__name__)
+from services.questionnaire import (
+    QuestionnaireTemplateService,
+    QuestionView,
+    TemplateDetailView,
+    TemplateView,
+)
 
 router = APIRouter()
 
+_Manager = Annotated[User, Depends(require_permission("questionnaire_manage"))]
 
-def _template_to_response(t: QuestionnaireTemplate, response_count: int = 0) -> QuestionnaireTemplateResponse:
-    return QuestionnaireTemplateResponse(
-        id=t.id,
-        title=t.title,
-        type=t.type,
-        description=t.description,
-        is_active=t.is_active,
-        question_count=len(t.questions) if t.questions else 0,
-        response_count=response_count,
-        created_at=t.created_at,
-        updated_at=t.updated_at,
+
+def _q_resp(view: QuestionView) -> QuestionnaireQuestionResponse:
+    return QuestionnaireQuestionResponse(
+        id=view.id,
+        template_id=view.template_id,
+        content=view.content,
+        question_type=view.question_type,
+        required=view.required,
+        sort_order=view.sort_order,
+        options=view.options,
     )
 
 
-def _template_to_detail(t: QuestionnaireTemplate) -> QuestionnaireTemplateDetailResponse:
-    case_ids = [cq.case_id for cq in getattr(t, "case_links", [])]
+def _resp(view: TemplateView) -> QuestionnaireTemplateResponse:
+    return QuestionnaireTemplateResponse(
+        id=view.id,
+        title=view.title,
+        type=view.type,
+        description=view.description,
+        is_active=view.is_active,
+        question_count=view.question_count,
+        response_count=view.response_count,
+        created_at=view.created_at,
+        updated_at=view.updated_at,
+    )
+
+
+def _resp_detail(view: TemplateDetailView) -> QuestionnaireTemplateDetailResponse:
+    return QuestionnaireTemplateDetailResponse(
+        id=view.id,
+        title=view.title,
+        type=view.type,
+        description=view.description,
+        is_active=view.is_active,
+        question_count=view.question_count,
+        response_count=view.response_count,
+        created_at=view.created_at,
+        updated_at=view.updated_at,
+        questions=[_q_resp(q) for q in view.questions],
+        case_ids=view.case_ids,
+    )
+
+
+def _template_to_detail(t: QuestionnaireTemplate | None) -> QuestionnaireTemplateDetailResponse | None:
+    if t is None:
+        return None
     return QuestionnaireTemplateDetailResponse(
         id=t.id,
         title=t.title,
@@ -58,7 +80,6 @@ def _template_to_detail(t: QuestionnaireTemplate) -> QuestionnaireTemplateDetail
         description=t.description,
         is_active=t.is_active,
         question_count=len(t.questions) if t.questions else 0,
-        response_count=getattr(t, "response_count", 0),
         created_at=t.created_at,
         updated_at=t.updated_at,
         questions=[
@@ -73,157 +94,74 @@ def _template_to_detail(t: QuestionnaireTemplate) -> QuestionnaireTemplateDetail
             )
             for q in (t.questions or [])
         ],
-        case_ids=case_ids,
+        case_ids=[cq.case_id for cq in getattr(t, "case_links", [])],
     )
 
 
 @router.get("/questionnaires/templates", response_model=PaginatedResponse[QuestionnaireTemplateResponse])
 def list_templates(
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
     type: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    query = db.query(QuestionnaireTemplate)
-    if type:
-        query = query.filter(QuestionnaireTemplate.type == type)
-    query = query.order_by(QuestionnaireTemplate.updated_at.desc())
-
-    rows, total = paginate(query, offset, limit)
-    template_ids = [r.id for r in rows]
-    counts: dict[int, int] = {}
-    if template_ids:
-        count_rows = (
-            db.query(QuestionnaireResponse.template_id, func.count(QuestionnaireResponse.id))
-            .filter(
-                QuestionnaireResponse.template_id.in_(template_ids),
-                QuestionnaireResponse.status == "completed",
-            )
-            .group_by(QuestionnaireResponse.template_id)
-            .all()
-        )
-        counts = {tid: cnt for tid, cnt in count_rows}
-    items = [_template_to_response(r, counts.get(r.id, 0)) for r in rows]
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    views, total = QuestionnaireTemplateService(db).list(type, offset, limit)
+    return PaginatedResponse(items=[_resp(v) for v in views], total=total, offset=offset, limit=limit)
 
 
 @router.post("/questionnaires/templates", response_model=QuestionnaireTemplateDetailResponse)
 def create_template(
     req: QuestionnaireTemplateCreate,
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
 ):
-    t = QuestionnaireTemplate(
-        title=req.title,
-        type=req.type,
-        description=req.description,
-        is_active=req.is_active,
-    )
-    db.add(t)
-    db.flush()
-
-    for i, q in enumerate(req.questions):
-        db.add(
-            QuestionnaireQuestion(
-                template_id=t.id,
-                sort_order=q.sort_order or i,
-                content=q.content,
-                question_type=q.question_type,
-                required=q.required,
-                options=q.options,
-            )
+    return _resp_detail(
+        QuestionnaireTemplateService(db).create(
+            title=req.title,
+            type_=req.type,
+            description=req.description,
+            is_active=req.is_active,
+            questions=[q.model_dump() for q in req.questions],
         )
-
-    db.commit()
-    db.refresh(t)
-    return _template_to_detail(t)
+    )
 
 
 @router.get("/questionnaires/templates/{template_id}", response_model=QuestionnaireTemplateDetailResponse)
 def get_template(
     template_id: int,
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="问卷模板不存在")
-    cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
-    t.case_links = cq_rows  # ty: ignore[invalid-assignment]
-    return _template_to_detail(t)
+    return _resp_detail(QuestionnaireTemplateService(db).get_detail(template_id))
 
 
 @router.put("/questionnaires/templates/{template_id}", response_model=QuestionnaireTemplateDetailResponse)
 def update_template(
     template_id: int,
     req: QuestionnaireTemplateUpdate,
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="问卷模板不存在")
-    if req.title is not None:
-        t.title = req.title
-    if req.type is not None:
-        t.type = req.type
-    if req.description is not None:
-        t.description = req.description
-    if req.is_active is not None:
-        t.is_active = req.is_active
-    if req.questions is not None:
-        existing = {q.id: q for q in (t.questions or [])}
-        seen_ids: set[int] = set()
-        for i, qin in enumerate(req.questions):
-            if qin.id is not None and qin.id in existing:
-                q = existing[qin.id]
-                q.content = qin.content
-                q.question_type = qin.question_type
-                q.required = qin.required
-                q.sort_order = qin.sort_order or i
-                q.options = qin.options
-                seen_ids.add(qin.id)
-            else:
-                db.add(
-                    QuestionnaireQuestion(
-                        template_id=t.id,
-                        content=qin.content,
-                        question_type=qin.question_type,
-                        required=qin.required,
-                        sort_order=qin.sort_order or i,
-                        options=qin.options,
-                    )
-                )
-        # Delete removed questions, but preserve any that already have submitted answers.
-        for qid, q in existing.items():
-            if qid in seen_ids:
-                continue
-            answered = (
-                db.query(func.count(QuestionnaireAnswer.id)).filter(QuestionnaireAnswer.question_id == qid).scalar()
-                or 0
-            )
-            if answered == 0:
-                db.delete(q)
-    t.updated_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(t)
-    cq_rows = db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).all()
-    t.case_links = cq_rows  # ty: ignore[invalid-assignment]
-    return _template_to_detail(t)
+    return _resp_detail(
+        QuestionnaireTemplateService(db).update(
+            template_id=template_id,
+            title=req.title,
+            type_=req.type,
+            description=req.description,
+            is_active=req.is_active,
+            questions=[q.model_dump() for q in req.questions] if req.questions is not None else None,
+        )
+    )
 
 
 @router.delete("/questionnaires/templates/{template_id}", response_model=DeleteResponse)
 def delete_template(
     template_id: int,
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="问卷模板不存在")
-    db.delete(t)
-    db.commit()
+    QuestionnaireTemplateService(db).delete(template_id)
     return {"ok": True}
 
 
@@ -231,27 +169,13 @@ def delete_template(
 def assign_cases(
     template_id: int,
     req: CaseAssignmentRequest,
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == template_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="问卷模板不存在")
-
-    db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).delete()
-
-    for cid in req.case_ids:
-        c = db.query(Case).filter(Case.id == cid).first()
-        if not c:
-            raise HTTPException(status_code=400, detail=f"病例 {cid} 不存在")
-        db.add(
-            CaseQuestionnaire(
-                case_id=cid,
-                template_id=template_id,
-                is_required=req.is_required,
-                trigger_event=req.trigger_event,
-            )
-        )
-
-    db.commit()
+    QuestionnaireTemplateService(db).assign_cases(
+        template_id=template_id,
+        case_ids=req.case_ids,
+        is_required=req.is_required,
+        trigger_event=req.trigger_event,
+    )
     return {"ok": True}
