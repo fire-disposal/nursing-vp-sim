@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
-from core.security import require_permission, tenant_scope
+from core.security import require_permission
 from infrastructure.export import Column, _sanitize_csv, buffered_response
 from models import Case as CaseModel
 from models import LLMCallLog, TrainingRecord, User
@@ -143,7 +143,6 @@ def get_llm_logs(
     current_user: User = Depends(require_permission("llm_monitor")),
     db: Session = Depends(get_db),
 ):
-    effective_school = tenant_scope(current_user)
     do_agg = aggregate_patient_chat and (purpose is None or purpose == "patient_chat")
     need_raw = (not aggregate_patient_chat) or (purpose != "patient_chat")
 
@@ -181,8 +180,6 @@ def get_llm_logs(
                 LLMCallLog.record_id.isnot(None),
             )
         )
-        if effective_school is not None:
-            agg_q = agg_q.filter(User.school_id == effective_school)
         if record_id is not None:
             agg_q = agg_q.filter(LLMCallLog.record_id == record_id)
 
@@ -203,12 +200,6 @@ def get_llm_logs(
 
     if need_raw:
         q = db.query(LLMCallLog)
-        if effective_school is not None:
-            q = (
-                q.join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id)
-                .join(User, TrainingRecord.user_id == User.id)
-                .filter(User.school_id == effective_school)
-            )
         if record_id is not None:
             q = q.filter(LLMCallLog.record_id == record_id)
         if aggregate_patient_chat and purpose is None:
@@ -296,14 +287,7 @@ def export_llm_logs_csv(
     current_user: User = Depends(require_permission("llm_monitor")),
     db: Session = Depends(get_db),
 ):
-    effective_school = tenant_scope(current_user)
     q = db.query(LLMCallLog)
-    if effective_school is not None:
-        q = (
-            q.join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id)
-            .join(User, TrainingRecord.user_id == User.id)
-            .filter(User.school_id == effective_school)
-        )
     if date_from:
         q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
     if date_to:
@@ -373,7 +357,6 @@ def export_records_excel(
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
 
-    effective_school = tenant_scope(current_user)
     query = (
         db.query(TrainingRecord)
         .join(User, TrainingRecord.user_id == User.id)
@@ -384,8 +367,6 @@ def export_records_excel(
         .limit(EXCEL_EXPORT_ROW_LIMIT)
         .yield_per(100)
     )
-    if effective_school is not None:
-        query = query.filter(User.school_id == effective_school)
 
     for row_idx, record in enumerate(query, 2):
         ws.cell(row=row_idx, column=1, value=record.id)

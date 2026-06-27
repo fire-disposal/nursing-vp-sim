@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.capabilities import ALL_CAPABILITIES
 from core.database import get_db
 from core.pagination import paginate
-from core.security import require_permission, tenant_scope
+from core.security import require_permission
 from models import Assignment, Case, Practice, TrainingRecord, User
 from schemas import (
     DeleteResponse,
@@ -50,9 +50,6 @@ def list_practices(
     db: Session = Depends(get_db),
 ):
     query = db.query(Practice).options(joinedload(Practice.case)).order_by(Practice.created_at.desc())
-    scope = tenant_scope(current_user)
-    if scope is not None:
-        query = query.filter((Practice.school_id == scope) | (Practice.school_id.is_(None)))
     practices, total = paginate(query, offset, limit)
 
     practice_ids = [p.id for p in practices]
@@ -83,8 +80,6 @@ def get_practice(
     p = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
-    if current_user.school_id is not None and p.school_id is not None and p.school_id != current_user.school_id:
-        raise HTTPException(status_code=404, detail="练习模板不存在")
     return _to_item(p)
 
 
@@ -97,8 +92,6 @@ def create_practice(
     case = db.query(Case).filter(Case.id == data.case_id).first()
     if not case:
         raise HTTPException(status_code=404, detail="病例不存在")
-    if case.school_id is not None and case.school_id != current_user.school_id:
-        raise HTTPException(status_code=403, detail="无权使用该校病例")
 
     features = data.features or {}
     valid_keys = set(ALL_CAPABILITIES.keys())
@@ -128,7 +121,7 @@ def update_practice(
     current_user: User = Depends(require_permission("case_manage")),
     db: Session = Depends(get_db),
 ):
-    p = db.query(Practice).filter(Practice.id == practice_id, Practice.school_id == current_user.school_id).first()
+    p = db.query(Practice).filter(Practice.id == practice_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
 
@@ -157,7 +150,7 @@ def delete_practice(
     current_user: User = Depends(require_permission("case_manage")),
     db: Session = Depends(get_db),
 ):
-    p = db.query(Practice).filter(Practice.id == practice_id, Practice.school_id == current_user.school_id).first()
+    p = db.query(Practice).filter(Practice.id == practice_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="练习模板不存在")
 

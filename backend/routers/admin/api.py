@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.exceptions import AuthError
 from core.security import require_permission
 from infrastructure.llm import (
     decrypt_api_key,
@@ -42,9 +43,9 @@ router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 
 def _require_system_admin(current_user: User) -> None:
     """ApiSecret is a system-level resource with no per-school scope.
-    Only users without a school_id (super admins) may manage secrets."""
-    if current_user.school_id is not None:
-        raise HTTPException(status_code=403, detail="仅系统管理员可管理API密钥")
+    Only super admins may manage secrets."""
+    if not current_user.is_super_admin:
+        raise AuthError("仅系统管理员可管理API密钥", status_code=403)
 
 
 # ── ApiSecret (API 档案) CRUD ──
