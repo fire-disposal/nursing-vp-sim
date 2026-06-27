@@ -1,7 +1,6 @@
 ﻿import {
 	Activity,
 	BarChart3,
-	Bug,
 	Building2,
 	ClipboardCheck,
 	ClipboardList,
@@ -128,12 +127,6 @@ const allLinks: NavLinkItem[] = [
 		icon: ClipboardCheck,
 		label: "问卷管理",
 		permission: "questionnaire_manage",
-	},
-	{
-		to: "/admin/debug",
-		icon: Bug,
-		label: "调试工坊",
-		permission: "score_review",
 	},
 	{
 		to: "/admin/system-ops",

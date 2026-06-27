@@ -48,7 +48,6 @@ const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
 const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
 const Profile = lazy(() => import("@/pages/Profile"));
-const AdminDebug = lazy(() => import("@/pages/AdminDebugPage"));
 const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
@@ -114,7 +113,6 @@ export default function App() {
 												 * based on user permissions.
 												 */}
 												<Route path="/admin" element={<Admin />} />
-												<Route path="/admin/debug/:recordId" element={<AdminDebug />} />
 												<Route path="/admin/system-ops" element={<SystemOpsPage />} />
 												<Route
 													path="/admin/system-notifications"
