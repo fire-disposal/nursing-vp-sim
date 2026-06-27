@@ -1,161 +1,44 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends
 
-from core.database import get_db
-from core.security import require_permission, tenant_scope
-from models import Assignment, Class, Grade, User, UserClass
+from core.deps import DbSession
+from core.security import require_permission
+from models import User
 from schemas import DeleteResponse, GradeCreate, GradeResponse, GradeUpdate
+from services.grade import GradeService
 
 router = APIRouter(prefix="/api/admin/grades", tags=["年级管理"])
 
+_Manager = Annotated[User, Depends(require_permission("grade_class_manage"))]
+
+
+def _resp(view) -> GradeResponse:
+    return GradeResponse(
+        id=view.id,
+        name=view.name,
+        class_count=view.class_count,
+        student_count=view.student_count,
+        created_at=view.created_at,
+    )
+
 
 @router.get("", response_model=list[GradeResponse])
-def list_grades(
-    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    scope = tenant_scope(current_user)
-    q = db.query(Grade)
-    if scope is not None:
-        q = q.filter(Grade.school_id == scope)
-    grades = q.order_by(Grade.name).all()
-    grade_ids = [g.id for g in grades]
-
-    class_counts = (
-        db.query(Class.grade_id, func.count(Class.id))
-        .filter(Class.grade_id.in_(grade_ids))
-        .group_by(Class.grade_id)
-        .all()
-    )
-    class_count_lookup = {grade_id: count for grade_id, count in class_counts}
-
-    student_counts = (
-        db.query(Class.grade_id, func.count(UserClass.user_id))
-        .join(UserClass, Class.id == UserClass.class_id)
-        .filter(Class.grade_id.in_(grade_ids))
-        .group_by(Class.grade_id)
-        .all()
-    )
-    student_count_lookup = {grade_id: count for grade_id, count in student_counts}
-
-    result = []
-    for g in grades:
-        result.append(
-            GradeResponse(
-                id=g.id,
-                name=g.name,
-                class_count=class_count_lookup.get(g.id, 0),
-                student_count=student_count_lookup.get(g.id, 0),
-                created_at=g.created_at,
-            )
-        )
-    return result
+def list_grades(current_user: _Manager, db: DbSession):
+    return [_resp(v) for v in GradeService(db).list()]
 
 
 @router.post("", response_model=GradeResponse)
-def create_grade(
-    body: GradeCreate,
-    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    scope = tenant_scope(current_user)
-    q = db.query(Grade).filter(Grade.name == body.name)
-    if scope is not None:
-        q = q.filter(Grade.school_id == scope)
-    existing = q.first()
-    if existing:
-        raise HTTPException(status_code=400, detail="年级已存在")
-    grade = Grade(name=body.name, school_id=current_user.school_id)
-    db.add(grade)
-    db.commit()
-    db.refresh(grade)
-    return GradeResponse(
-        id=grade.id,
-        name=grade.name,
-        class_count=0,
-        student_count=0,
-        created_at=grade.created_at,
-    )
+def create_grade(body: GradeCreate, current_user: _Manager, db: DbSession):
+    return _resp(GradeService(db).create(body.name, school_id=current_user.school_id))
 
 
 @router.put("/{grade_id}", response_model=GradeResponse)
-def update_grade(
-    grade_id: int,
-    body: GradeUpdate,
-    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    grade = db.query(Grade).filter(Grade.id == grade_id).first()
-    if not grade:
-        raise HTTPException(status_code=404, detail="年级不存在")
-    scope = tenant_scope(current_user)
-    if scope is not None and grade.school_id != scope:
-        raise HTTPException(status_code=404, detail="年级不存在")
-    if body.name != grade.name:
-        q = db.query(Grade).filter(Grade.name == body.name)
-        if scope is not None:
-            q = q.filter(Grade.school_id == scope)
-        dup = q.first()
-        if dup:
-            raise HTTPException(status_code=400, detail="年级名称重复")
-    grade.name = body.name
-    db.commit()
-    db.refresh(grade)
-    class_count = db.query(func.count(Class.id)).filter(Class.grade_id == grade.id).scalar() or 0
-    student_count = (
-        db.query(func.count(UserClass.user_id))
-        .join(Class, Class.id == UserClass.class_id)
-        .filter(Class.grade_id == grade.id)
-        .scalar()
-    ) or 0
-    return GradeResponse(
-        id=grade.id,
-        name=grade.name,
-        class_count=class_count,
-        student_count=student_count,
-        created_at=grade.created_at,
-    )
+def update_grade(grade_id: int, body: GradeUpdate, current_user: _Manager, db: DbSession):
+    return _resp(GradeService(db).update(grade_id, body.name))
 
 
 @router.delete("/{grade_id}", response_model=DeleteResponse)
-def delete_grade(
-    grade_id: int,
-    current_user: Annotated[User, Depends(require_permission("grade_class_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    grade = db.query(Grade).filter(Grade.id == grade_id).first()
-    if not grade:
-        raise HTTPException(status_code=404, detail="年级不存在")
-    scope = tenant_scope(current_user)
-    if scope is not None and grade.school_id != scope:
-        raise HTTPException(status_code=404, detail="年级不存在")
-    class_count = db.query(func.count(Class.id)).filter(Class.grade_id == grade_id).scalar() or 0
-    class_ids = [row[0] for row in db.query(Class.id).filter(Class.grade_id == grade_id).all()]
-
-    assignment_count = (
-        db.query(func.count(Assignment.id)).filter(Assignment.class_id.in_(class_ids)).scalar() if class_ids else 0
-    )
-    if assignment_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"该年级下有 {assignment_count} 个作业引用，无法删除。请先删除相关作业。",
-        )
-
-    from sqlalchemy import update as sa_update
-    from sqlalchemy.exc import IntegrityError
-
-    if class_ids:
-        db.execute(sa_update(UserClass).where(UserClass.class_id.in_(class_ids)).values(class_id=None))
-    db.delete(grade)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="操作冲突：该年级下在删除过程中新增了关联资源，请刷新后重试。",
-        )
+def delete_grade(grade_id: int, current_user: _Manager, db: DbSession):
+    class_count = GradeService(db).delete(grade_id)
     return {"message": f"已删除年级及其下 {class_count} 个班级"}
