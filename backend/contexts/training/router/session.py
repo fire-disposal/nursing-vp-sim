@@ -522,17 +522,24 @@ def delete_record(
     if effective_school is not None and (not record_user or record_user.school_id != effective_school):
         raise NotFoundError(detail="训练记录不存在")
 
-    db.query(Message).filter(Message.record_id == record_id).delete()
-    db.query(Score).filter(Score.record_id == record_id).delete()
-    db.query(Note).filter(Note.record_id == record_id).delete()
-    db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
-    db.query(NursingRecord).filter(NursingRecord.record_id == record_id).delete()
-    db.query(VoiceCallLog).filter(VoiceCallLog.record_id == record_id).delete()
-    db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).update(
-        {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
-    )
-    db.delete(record)
-    db.commit()
+    try:
+        db.query(Message).filter(Message.record_id == record_id).delete()
+        db.query(Score).filter(Score.record_id == record_id).delete()
+        db.query(Note).filter(Note.record_id == record_id).delete()
+        db.query(LLMCallLog).filter(LLMCallLog.record_id == record_id).delete()
+        db.query(NursingRecord).filter(NursingRecord.record_id == record_id).delete()
+        db.query(VoiceCallLog).filter(VoiceCallLog.record_id == record_id).delete()
+        db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).delete()
+        db.query(ScoringProgress).filter(ScoringProgress.record_id == record_id).delete()
+        db.query(QuestionnaireResponse).filter(QuestionnaireResponse.record_id == record_id).update(
+            {QuestionnaireResponse.record_id: None}, synchronize_session="fetch"
+        )
+        db.delete(record)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        log.error(f"删除训练记录失败: record_id={record_id} error={e}")
+        raise HTTPException(status_code=500, detail="删除训练记录失败，请稍后重试")
 
     log.info(
         f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
