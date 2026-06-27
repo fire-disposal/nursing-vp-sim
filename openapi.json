@@ -424,24 +424,6 @@
               "default": 50,
               "title": "Limit"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -587,24 +569,6 @@
               "title": "Difficulty"
             },
             "description": "困难程度 1=初级 2=中级 3=高级"
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -885,31 +849,6 @@
         "summary": "Export Records",
         "description": "导出所有训练记录为CSV（流式写入，避免全量加载内存）",
         "operationId": "export_records_api_export_records_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -918,18 +857,13 @@
                 "schema": {}
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/export/record/{record_id}": {
@@ -1107,24 +1041,6 @@
               "default": 20,
               "title": "Limit"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -1196,24 +1112,6 @@
               ],
               "title": "Date To"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -1502,22 +1400,6 @@
               "minimum": 1,
               "default": 20,
               "title": "Limit"
-            }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "School Id"
             }
           }
         ],
@@ -2209,22 +2091,6 @@
               "default": 20,
               "title": "Limit"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "School Id"
-            }
           }
         ],
         "responses": {
@@ -2272,22 +2138,6 @@
               "type": "integer",
               "title": "Template Id"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "School Id"
-            }
           }
         ],
         "responses": {
@@ -2334,22 +2184,6 @@
             "schema": {
               "type": "integer",
               "title": "Template Id"
-            }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "School Id"
             }
           }
         ],
@@ -2399,24 +2233,6 @@
               "title": "Period"
             },
             "description": "统计周期: week / month / all"
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2467,24 +2283,6 @@
               "title": "Period"
             },
             "description": "统计周期: week / month / all"
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -2693,24 +2491,6 @@
               ],
               "title": "Grade Id"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -6504,24 +6284,6 @@
               ],
               "title": "Class Id"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           }
         ],
         "responses": {
@@ -7908,24 +7670,6 @@
               "default": 0,
               "title": "Offset"
             }
-          },
-          {
-            "name": "school_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "super_admin 按学校筛选",
-              "title": "School Id"
-            },
-            "description": "super_admin 按学校筛选"
           },
           {
             "name": "search",

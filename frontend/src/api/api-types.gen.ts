@@ -5703,8 +5703,6 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -5774,8 +5772,6 @@ export interface operations {
                 name?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -5966,10 +5962,7 @@ export interface operations {
     };
     export_records_api_export_records_get: {
         parameters: {
-            query?: {
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -5983,15 +5976,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -6068,8 +6052,6 @@ export interface operations {
                 date_to?: string | null;
                 offset?: number;
                 limit?: number;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6102,8 +6084,6 @@ export interface operations {
             query?: {
                 date_from?: string | null;
                 date_to?: string | null;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6269,7 +6249,6 @@ export interface operations {
                 type?: string | null;
                 offset?: number;
                 limit?: number;
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6669,7 +6648,6 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
-                school_id?: number | null;
             };
             header?: never;
             path: {
@@ -6701,9 +6679,7 @@ export interface operations {
     };
     response_stats_api_questionnaires_responses__template_id__stats_get: {
         parameters: {
-            query?: {
-                school_id?: number | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 template_id: number;
@@ -6734,9 +6710,7 @@ export interface operations {
     };
     export_responses_api_questionnaires_responses__template_id__export_get: {
         parameters: {
-            query?: {
-                school_id?: number | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 template_id: number;
@@ -6770,8 +6744,6 @@ export interface operations {
             query?: {
                 /** @description 统计周期: week / month / all */
                 period?: string;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6804,8 +6776,6 @@ export interface operations {
             query?: {
                 /** @description 统计周期: week / month / all */
                 period?: string;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6903,8 +6873,6 @@ export interface operations {
         parameters: {
             query?: {
                 grade_id?: number | null;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -9236,8 +9204,6 @@ export interface operations {
                 /** @description 结束日期 ISO 格式 (含) */
                 date_to?: string | null;
                 class_id?: number | null;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -10113,8 +10079,6 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                /** @description super_admin 按学校筛选 */
-                school_id?: number | null;
                 /** @description 搜索学生姓名/学号/会话标题 */
                 search?: string | null;
             };
