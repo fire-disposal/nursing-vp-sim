@@ -107,12 +107,12 @@ def git_log() -> list[dict]:
         merge_pr = _MERGE_PR_RE.match(subject)
         merge_branch = _MERGE_BRANCH_RE.match(subject)
 
-        if merge_pr or merge_branch:
+        if merge_pr:
             ctype = "merge"
-            if merge_pr:
-                subject = f"PR #{merge_pr.group('pr')} — {merge_pr.group('branch')}"
-            else:
-                subject = f"Merge: {merge_branch.group('branch')} → {merge_branch.group('into') or 'current'}"
+            subject = f"PR #{merge_pr.group('pr')} — {merge_pr.group('branch')}"
+        elif merge_branch:
+            ctype = "merge"
+            subject = f"Merge: {merge_branch.group('branch')} → {merge_branch.group('into') or 'current'}"
         elif _REVERT_RE.match(subject):
             ctype = "revert"
         else:
