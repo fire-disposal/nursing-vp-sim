@@ -3,15 +3,11 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Depends, Query
 
-from core.capabilities import ALL_CAPABILITIES
-from core.database import get_db
-from core.pagination import paginate
+from core.deps import DbSession
 from core.security import require_permission
-from models import Assignment, Case, Practice, TrainingRecord, User
+from models import User
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
@@ -20,51 +16,41 @@ from schemas import (
     PracticeResponse,
     PracticeUpdate,
 )
+from services.practice import PracticeService
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin/practices", tags=["练习管理"])
 
+_Manager = Annotated[User, Depends(require_permission("case_manage"))]
 
-def _to_item(p: Practice, training_count: int = 0) -> PracticeItem:
-    return PracticeItem(
-        id=p.id,
-        name=p.name,
-        description=p.description,
-        case_id=p.case_id,
-        case_name=p.case.name if p.case else "",
-        features=p.features or {},
-        behavior=p.behavior or {},
-        is_active=p.is_active,
-        training_count=training_count,
-        created_at=p.created_at,
-        updated_at=p.updated_at,
+
+def _resp(view) -> PracticeResponse:
+    return PracticeResponse(
+        id=view.id,
+        name=view.name,
+        description=view.description,
+        case_id=view.case_id,
+        case_name=view.case_name,
+        features=view.features,
+        behavior=view.behavior,
+        is_active=view.is_active,
+        training_count=view.training_count,
+        created_at=view.created_at,
+        updated_at=view.updated_at,
     )
 
 
 @router.get("", response_model=PaginatedResponse[PracticeItem])
 def list_practices(
+    current_user: _Manager,
+    db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    current_user: User = Depends(require_permission("case_manage")),
-    db: Session = Depends(get_db),
 ):
-    query = db.query(Practice).options(joinedload(Practice.case)).order_by(Practice.created_at.desc())
-    practices, total = paginate(query, offset, limit)
-
-    practice_ids = [p.id for p in practices]
-    training_counts: dict[int, int] = {}
-    if practice_ids:
-        rows = (
-            db.query(TrainingRecord.practice_id, func.count(TrainingRecord.id))
-            .filter(TrainingRecord.practice_id.in_(practice_ids))
-            .group_by(TrainingRecord.practice_id)
-            .all()
-        )
-        training_counts = {pid: cnt for pid, cnt in rows}
-
+    views, total = PracticeService(db).list(offset, limit)
     return PaginatedResponse(
-        items=[_to_item(p, training_counts.get(p.id, 0)) for p in practices],
+        items=[_resp(v) for v in views],
         total=total,
         offset=offset,
         limit=limit,
@@ -74,94 +60,50 @@ def list_practices(
 @router.get("/{practice_id}", response_model=PracticeResponse)
 def get_practice(
     practice_id: int,
-    current_user: User = Depends(require_permission("case_manage")),
-    db: Session = Depends(get_db),
+    current_user: _Manager,
+    db: DbSession,
 ):
-    p = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="练习模板不存在")
-    return _to_item(p)
+    return _resp(PracticeService(db).get(practice_id))
 
 
 @router.post("", status_code=201, response_model=PracticeResponse)
 def create_practice(
-    data: PracticeCreate,
-    current_user: User = Depends(require_permission("case_manage")),
-    db: Session = Depends(get_db),
+    body: PracticeCreate,
+    current_user: _Manager,
+    db: DbSession,
 ):
-    case = db.query(Case).filter(Case.id == data.case_id).first()
-    if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
-
-    features = data.features or {}
-    valid_keys = set(ALL_CAPABILITIES.keys())
-    for k in features:
-        if k not in valid_keys:
-            raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
-
-    p = Practice(
-        name=data.name,
-        description=data.description,
-        case_id=data.case_id,
-        features=features,
-        behavior=data.behavior or {},
+    view = PracticeService(db).create(body)
+    log.info(
+        "Practice created: id=%d name=%s", view.id, view.name,
+        extra={"user_id": current_user.id},
     )
-    db.add(p)
-    db.commit()
-    db.refresh(p)
-    log.info("Practice created: id=%d name=%s", p.id, p.name, extra={"user_id": current_user.id})
-    return _to_item(p)
+    return _resp(view)
 
 
 @router.put("/{practice_id}", response_model=PracticeResponse)
 def update_practice(
     practice_id: int,
-    data: PracticeUpdate,
-    current_user: User = Depends(require_permission("case_manage")),
-    db: Session = Depends(get_db),
+    body: PracticeUpdate,
+    current_user: _Manager,
+    db: DbSession,
 ):
-    p = db.query(Practice).filter(Practice.id == practice_id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="练习模板不存在")
-
-    for field in ("name", "description", "case_id", "is_active"):
-        val = getattr(data, field, None)
-        if val is not None:
-            setattr(p, field, val)
-    if data.features is not None:
-        valid_keys = set(ALL_CAPABILITIES.keys())
-        for k in data.features:
-            if k not in valid_keys:
-                raise HTTPException(status_code=400, detail=f"未知功能开关: {k}")
-        p.features = data.features
-    if data.behavior is not None:
-        p.behavior = data.behavior
-
-    db.commit()
-    db.refresh(p)
-    log.info("Practice updated: id=%d name=%s", p.id, p.name, extra={"user_id": current_user.id})
-    return _to_item(p)
+    view = PracticeService(db).update(practice_id, body)
+    log.info(
+        "Practice updated: id=%d name=%s", view.id, view.name,
+        extra={"user_id": current_user.id},
+    )
+    return _resp(view)
 
 
 @router.delete("/{practice_id}", response_model=DeleteResponse)
 def delete_practice(
     practice_id: int,
-    current_user: User = Depends(require_permission("case_manage")),
-    db: Session = Depends(get_db),
+    current_user: _Manager,
+    db: DbSession,
 ):
-    p = db.query(Practice).filter(Practice.id == practice_id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="练习模板不存在")
-
-    existing_assignment = db.query(Assignment).filter(Assignment.practice_id == practice_id).first()
-    if existing_assignment:
-        raise HTTPException(status_code=400, detail="该练习存在关联的作业，无法删除")
-
-    count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.practice_id == practice_id).scalar() or 0
-    if count > 0:
-        raise HTTPException(status_code=400, detail=f"该练习已有 {count} 条训练记录，无法删除")
-
-    db.delete(p)
-    db.commit()
-    log.info("Practice deleted: id=%d name=%s", practice_id, p.name, extra={"user_id": current_user.id})
-    return {"ok": True}
+    PracticeService(db).delete(practice_id)
+    log.info(
+        "Practice deleted: id=%d", practice_id,
+        extra={"user_id": current_user.id},
+    )
+    return DeleteResponse(ok=True)
