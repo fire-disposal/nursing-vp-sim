@@ -66,7 +66,10 @@ jobs:
           echo ""
 
           for TAG in v$PROD_VER $TAGS v$VER; do
-            FILE="docs/testing/checklist-${TAG}.md"
+            MONTH=$(echo "${TAG#v}" | cut -d. -f1-2)
+            MONTHLY_FILE="docs/testing/${MONTH}/checklist-${TAG}.md"
+            FLAT_FILE="docs/testing/checklist-${TAG}.md"
+            FILE=$( [ -f "$MONTHLY_FILE" ] && echo "$MONTHLY_FILE" || echo "$FLAT_FILE" )
             if [ -f "$FILE" ]; then
               BODY=$(grep -v '^#' "$FILE" | grep -v '^\*\*版本\*\*' | grep -v '^\*\*环境\*\*' | grep -v '^$' | tr -d '[:space:]')
               if [ -n "$BODY" ] && [ "$BODY" != "无需测试" ]; then

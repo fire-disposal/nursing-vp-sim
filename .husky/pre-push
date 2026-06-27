@@ -149,7 +149,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       fi
 
       # 4. Testing checklist (only required for feat/fix versions)
-      checklist="docs/testing/checklist-${tag}.md"
+      month=$(echo "${tag#v}" | cut -d. -f1-2)
+      checklist="docs/testing/${month}/checklist-${tag}.md"
 
       prev_tag=$(git tag --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | grep -B1 "^${tag}$" | head -1 || echo "")
       has_feat_or_fix=false

@@ -137,7 +137,7 @@ uv run python -m pytest -x -q
 
 ## Testing Checklist
 
-Every tag push needs `docs/testing/checklist-{tag}.md` (pre-push hook enforces).
+Every tag push needs `docs/testing/{YYYY-MM}/checklist-{tag}.md` (pre-push hook enforces).
 
 **"无需测试" only if all commits are non-user-facing** (refactor/docs/ci/test/chore/build). Any `feat` or `fix` commit requires a real checklist.
 
@@ -145,7 +145,7 @@ Ask opencode in this repo — it will:
 
 1. `ssh yecaoyun` fetch current prod version from `.version-history`
 2. `git log prod_ver..staging_ver` extract user-visible commits (feat, fix)
-3. Analyze the diff and write a scene-level checklist to `docs/testing/checklist-{tag}.md`
+3. Analyze the diff and write a scene-level checklist to `docs/testing/{YYYY-MM}/checklist-{tag}.md`
 
 ## Deployment
 

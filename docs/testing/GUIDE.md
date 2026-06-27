@@ -27,7 +27,7 @@
 
 ## 二、统一用语
 
-- feat/fix 版本必须包含核对单文件 (`docs/testing/checklist-{tag}.md`)，否则 tag push 被阻断
+- feat/fix 版本必须包含核对单文件 (`docs/testing/{YYYY-MM}/checklist-{tag}.md`)，否则 tag push 被阻断
 - 非 feat/fix 版本无需生成核对单文件，pre-push 直接放行
 
 ---

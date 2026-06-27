@@ -49,7 +49,8 @@ function hasFeatOrFix() {
 // gate only activates when user-facing changes are detected.
 const needChecklist = doPush && hasFeatOrFix();
 if (needChecklist) {
-  const checklistDir = path.resolve(process.cwd(), "docs/testing");
+  const month = tag.substring(1, 8); // "2026.06" from "v2026.06.27-8"
+  const checklistDir = path.resolve(process.cwd(), "docs/testing", month);
   const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
 
   if (!fs.existsSync(checklistFile)) {

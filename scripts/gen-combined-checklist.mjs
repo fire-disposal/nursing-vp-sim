@@ -71,7 +71,11 @@ const range = allTags.slice(Math.max(0, prodIdx), targetIdx + 1);
 const items = [];
 
 for (const tag of range) {
-  const file = path.join(ROOT, "docs", "testing", `checklist-${tag}.md`);
+  // Tag format: vYYYY.MM.DD-N → month YYYY.MM
+  const month = tag.substring(1, 8);
+  const monthlyFile = path.join(ROOT, "docs", "testing", month, `checklist-${tag}.md`);
+  const flatFile = path.join(ROOT, "docs", "testing", `checklist-${tag}.md`);
+  const file = fs.existsSync(monthlyFile) ? monthlyFile : flatFile;
   if (!fs.existsSync(file)) continue;
 
   const content = fs.readFileSync(file, "utf-8").trim();
