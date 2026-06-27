@@ -20,13 +20,26 @@ const next = nums.length ? Math.max(...nums) + 1 : 1;
 const tag = `${prefix}-${next}`;
 
 const isCI = !!process.env.CI || !!process.env.GITHUB_ACTIONS;
-
 const doPush = process.argv.includes("--push");
 
-// In CI, auto-create a placeholder checklist before tagging so the commit
-// passes the pre-push hook's checklist gate.  In local mode, the pre-push
-// hook itself validates and auto-generates the checklist — creating it here
-// would leave an untracked file polluting the working tree.
+// ── Redundancy gate ─────────────────────────────────────────────────────
+// When two PRs merge in quick succession, both merges land on master before
+// either auto-tag runs.  The first tag already covers the combined HEAD —
+// skip creating a redundant tag to avoid a wasteful duplicate staging deploy.
+const allSorted = execSync("git tag --sort=-creatordate -l 'v*'", { encoding: "utf-8" }).split("\n").filter(Boolean);
+const latestTag = allSorted[0];
+if (latestTag && doPush) {
+  execSync("git fetch origin master --quiet", { stdio: "ignore" });
+  try {
+    execSync(`git diff --quiet "${latestTag}" origin/master`, { stdio: "ignore" });
+    console.log(`origin/master unchanged since ${latestTag} — skipping redundant tag`);
+    process.exit(0);
+  } catch {
+    // diff exits non-zero when there are changes — proceed normally
+  }
+}
+
+// ── CI checklist placeholder ────────────────────────────────────────────
 if (isCI) {
   const checklistDir = path.resolve(process.cwd(), "docs/testing");
   const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
@@ -41,14 +54,14 @@ if (isCI) {
   console.log(`Created: ${checklistFile}`);
 }
 
-// Queued auto-tag runs check out a stale master (the SHA from their own trigger
-// event). Sync onto the latest remote master BEFORE tagging so the placeholder
-// commit fast-forwards and the tag points at a real master commit.
+// ── Sync with origin/master (CI only) ───────────────────────────────────
+// CI checkout may be a stale ref; rebase ensures tag points at real master.
 if (doPush && isCI) {
   execSync("git fetch origin master --quiet");
   execSync("git rebase origin/master", { stdio: "inherit" });
 }
 
+// ── Tag & push ──────────────────────────────────────────────────────────
 const msg = doPush ? `Creating and pushing: ${tag}` : `Creating: ${tag}`;
 console.log(msg);
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
