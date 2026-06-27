@@ -1,7 +1,6 @@
 ﻿import {
 	Activity,
 	BarChart3,
-	Building2,
 	ClipboardCheck,
 	ClipboardList,
 	Coins,
@@ -67,12 +66,6 @@ const allLinks: NavLinkItem[] = [
 		icon: Shield,
 		label: "角色管理",
 		permission: "role_manage",
-	},
-	{
-		to: "/admin/schools",
-		icon: Building2,
-		label: "学校管理",
-		permission: "school_manage",
 	},
 	{
 		to: "/admin/grades-classes",

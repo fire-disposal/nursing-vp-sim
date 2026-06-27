@@ -51,11 +51,6 @@ export const queryKeys = {
 		admin: () => [...queryKeys.stats.all, "admin"] as const,
 	},
 	admin: {
-		schools: {
-			all: ["admin", "schools"] as const,
-			list: (search: string, offset: number) =>
-				["admin", "schools", search, offset] as const,
-		},
 		users: {
 			all: ["admin", "users"] as const,
 			list: (params: Record<string, unknown>) =>

@@ -43,7 +43,6 @@ const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
 const AdminGradesClasses = lazy(
 	() => import("@/pages/admin/GradesClassesPage"),
 );
-const AdminSchools = lazy(() => import("@/pages/admin/SchoolsPage"));
 const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
 const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
 const MyResponses = lazy(() => import("@/pages/MyResponses"));
@@ -147,11 +146,6 @@ export default function App() {
 													path="/admin/feedback"
 													element={<AdminFeedback />}
 												/>
-												<Route path="/admin/schools" element={
-													<PermissionGuard permission="school_manage">
-														<AdminSchools />
-													</PermissionGuard>
-												} />
 												<Route path="/admin/roles" element={
 													<PermissionGuard permission="role_manage">
 														<AdminRoles />
