@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> **Agent 初始化**: 任何 AI 在开始工作前，必须执行 `git rev-parse --git-dir && npx husky --version` 确认 Husky 钩子可用。若不可用，执行 `pnpm install && npx husky install` 恢复。提交格式不合规会被 `pre-commit` 驳回。
+> **Agent 初始化**: 任何 AI 在开始工作前，用 `git rev-parse --git-dir` 确认在 Git 仓库内，并用 `git config core.hooksPath` 确认其值为 `.husky/_`（Husky v9 钩子目录）。若钩子失效，执行 `pnpm install`（其 `prepare` 脚本会运行 `husky` 正确重装钩子）恢复。**切勿执行 `npx husky --version` 或 `npx husky install`** —— Husky v9 会把首个参数当作 hooks 目录，从而把 `core.hooksPath` 写坏（如 `--version/_`）导致全部钩子失效。提交格式不合规会被 `pre-commit` 驳回。
 
 > **硬约束**: 禁止主动执行 `git tag` / `git push --tags` / `git push origin v*`。新建标签和推送标签必须在用户明确指示后才能执行。打标签使用 `pnpm run tag`。
 
