@@ -15,40 +15,90 @@ log = logging.getLogger(__name__)
 
 # ── 患者动作关键词 → 情绪衰减映射 ──
 # AI 在对话中可能输出括号动作描述，如（无奈地摇头）（皱着眉叹气）
+# 元组: (关键词, trust_delta, comfort_delta)
+# 注意：第一条匹配优先，较强烈的情绪动作应排在同类前面
 ACTION_EMOTION_DELTAS: list[tuple[str, int, int]] = [
+    # 强烈负面
+    ("愤怒", -8, -12),
+    ("发火", -8, -12),
+    ("生气", -6, -10),
+    ("抗拒", -6, -10),
+    ("挣扎", -6, -8),
+    ("激动", -4, -8),
     ("痛苦", -5, -8),
+    ("哭泣", -4, -8),
+    ("哭了", -4, -8),
+    ("流泪", -3, -6),
     ("难受", -4, -6),
     ("不耐烦", -3, -6),
+    ("烦躁", -3, -6),
     ("无奈", -2, -5),
     ("叹气", -2, -4),
+    ("摇头", -2, -4),
     ("不安", -2, -4),
     ("紧张", -1, -4),
     ("皱眉", -1, -3),
     ("勉强", -1, -3),
     ("尴尬", -1, -2),
     ("犹豫", -1, -2),
+    ("低头", -1, -2),
+    ("回避", -2, -4),
+    # 中性 / 正面
     ("微笑", 0, 2),
-    ("放松", 1, 3),
     ("点头", 1, 2),
+    ("放松", 1, 3),
+    ("笑了", 1, 3),
+    ("感激", 3, 5),
+    ("信任", 3, 4),
 ]
 
 
 def _analyze_response_emotion(reply: str) -> tuple[int, int, str]:
-    """Analyze LLM patient response for emotional cues. Returns (trust_delta, comfort_delta, label)."""
-    positive = ["谢谢", "好多了", "舒服", "放心", "明白", "好的", "可以", "没事"]
-    negative = ["痛", "难受", "担心", "害怕", "紧张", "不安", "不舒服", "不好"]
-    resistant = ["不想", "不要", "不愿", "随便", "算了", "不知道", "别问了"]
+    """Analyze LLM patient response for emotional cues. Returns (trust_delta, comfort_delta, label).
 
-    pos = sum(1 for s in positive if s in reply)
-    neg = sum(1 for s in negative if s in reply)
-    res = sum(1 for s in resistant if s in reply)
+    Uses weighted keyword matching across multiple emotional categories.
+    Negative and resistant keywords outweigh positive to capture subtle distress.
+    """
+    # 扩展关键词集，按严重程度分组
+    strong_negative = ["痛死了", "受不了", "太痛", "疼死", "烦死了", "烦人", "讨厌", "别碰", "走开"]
+    mild_negative = ["痛", "疼", "难受", "担心", "害怕", "紧张", "不安", "不舒服", "不好",
+                     "累", "困了", "无聊", "焦虑", "担心", "失望", "烦", "没精神", "头晕",
+                     "恶心", "吃不下", "睡不好", "没胃口"]
+    resistant = ["不想", "不要", "不愿", "随便", "算了", "别问了", "别管", "不知道"]
+    strong_positive = ["谢谢", "好多了", "放心了", "太好了", "舒服多了", "感激", "信任"]
+    mild_positive = ["好的", "可以", "没事", "还行", "还好", "明白了", "嗯嗯", "好"]
 
-    if res > 0 and neg > 0:
-        return (-6, -10, "response:抗拒")
-    if neg > pos:
-        return (-4, -6, "response:消极")
-    if pos > neg:
-        return (4, 6, "response:积极")
+    # 计算权重：强烈情绪加倍
+    sn = sum(3 for s in strong_negative if s in reply)
+    mn = sum(1 for s in mild_negative if s in reply)
+    res = sum(2 for s in resistant if s in reply)
+    sp = sum(2 for s in strong_positive if s in reply)
+    mp = sum(1 for s in mild_positive if s in reply)
+
+    # 防守性回答 → 信任下降为主
+    if res > 0 and (sn + mn) > 0:
+        return (-8, -12, "response:抗拒")
+    if res >= 2:
+        return (-5, -8, "response:退缩")
+
+    # 强烈负面
+    if sn >= 3 or (sn > 0 and mn >= 2):
+        return (-8, -10, "response:强烈负面")
+
+    # 负面占优
+    neg_weight = sn + mn + res
+    pos_weight = sp + mp
+    if neg_weight > pos_weight * 1.5:
+        return (-5, -7, "response:消极")
+    if neg_weight > pos_weight:
+        return (-3, -4, "response:略消极")
+
+    # 积极占优
+    if pos_weight > neg_weight * 2:
+        return (5, 7, "response:积极")
+    if pos_weight > neg_weight:
+        return (2, 3, "response:略积极")
+
     return (0, 0, "")
 
 
@@ -56,26 +106,40 @@ _ACTION_RE = re.compile(r"[（(][^）)]*[）)]")
 
 
 def _apply_action_emotion(reply: str) -> tuple[int, int, str]:
-    """Extract action-based emotion deltas from reply. Returns (trust_delta, comfort_delta, label)."""
+    """Extract action-based emotion deltas from reply. Returns (trust_delta, comfort_delta, label).
+
+    For each matched action text, picks the MOST negative (or most positive) delta
+    among matched keywords, then returns the worst overall.
+    """
     matches = _ACTION_RE.findall(reply)
     if not matches:
         return (0, 0, "")
 
-    best_dt = 0
-    best_dc = 0
-    best_keyword = None
+    worst_dt = 0
+    worst_dc = 0
+    worst_keyword = None
     for action_text in matches:
+        best_neg_dt = 0
+        best_neg_dc = 0
+        best_neg_kw = None
         for keyword, t_delta, c_delta in ACTION_EMOTION_DELTAS:
             if keyword in action_text:
-                if t_delta < best_dt or (t_delta == best_dt and c_delta < best_dc):
-                    best_dt = t_delta
-                    best_dc = c_delta
-                    best_keyword = keyword
-                break
+                # Pick the most negative for this action
+                if t_delta < best_neg_dt or (t_delta == best_neg_dt and c_delta < best_neg_dc):
+                    best_neg_dt = t_delta
+                    best_neg_dc = c_delta
+                    best_neg_kw = keyword
 
-    if best_dt == 0 and best_dc == 0:
+        if best_neg_kw:
+            # Accumulate the worst delta across all actions
+            if best_neg_dt < worst_dt or (best_neg_dt == worst_dt and best_neg_dc < worst_dc):
+                worst_dt = best_neg_dt
+                worst_dc = best_neg_dc
+                worst_keyword = best_neg_kw
+
+    if worst_dt == 0 and worst_dc == 0:
         return (0, 0, "")
-    return (best_dt, best_dc, f"动作:{best_keyword or '未知'}")
+    return (worst_dt, worst_dc, f"动作:{worst_keyword or '未知'}")
 
 
 async def side_effects(ctx: PipelineContext, next_mw) -> None:

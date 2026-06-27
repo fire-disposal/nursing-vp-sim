@@ -56,7 +56,7 @@ export function TrainingHeader() {
 	const autoEndTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const initialRemaining =
-		remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : 30 * 60);
+		remainingSeconds ?? (timeLimitMinutes ? timeLimitMinutes * 60 : null);
 
 	const {
 		remaining,
