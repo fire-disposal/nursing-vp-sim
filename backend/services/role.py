@@ -55,7 +55,9 @@ class RoleService:
                 self.db.add(RolePermission(role_id=role.id, permission=perm))
         return self._view(role, list(permissions), 0)
 
-    def update(self, role_id: int, *, display_name: str | None = None, permissions: list[str] | None = None) -> RoleView:
+    def update(
+        self, role_id: int, *, display_name: str | None = None, permissions: list[str] | None = None
+    ) -> RoleView:
         role = self.repo.get_or_404(role_id, "角色不存在")
         if role.is_system:
             raise AuthError("系统角色不可修改", status_code=403)
