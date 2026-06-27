@@ -1,77 +1,93 @@
-# 虚拟患者训练系统
+# Nursing VP Sim
 
-基于大语言模型的护理学生病史采集训练平台。
+> 基于 LLM 的护理学生虚拟患者训练平台 — 自然语言病史采集 · 自动评分 · 教师复核
 
-学生与 LLM 驱动的虚拟患者进行自然语言对话，模拟真实病史采集。系统自动评分（19 项细粒度，100 分制），提供证据化反馈。教师可复核修改评分，管理用户和病例，监控 LLM 调用与成本。
+📦 **Staging** [test.205716.xyz](https://test.205716.xyz) · 🚀 **Production** [iomt.205716.xyz](https://iomt.205716.xyz) · 📊 [开发报告](https://test.205716.xyz/report.html)
 
-## 快速开始
+---
+
+### ✨ 核心能力
+
+- **虚拟患者对话** — LLM 角色扮演，隐藏信息关键词触发逐步披露，SSE 流式逐字显示
+- **自动评分** — 19 项细粒度标准（100 分制），每项附带对话证据 + 评分理由
+- **教师复核** — 逐项修改 AI 评分，复核徽章区分初评/已复核
+- **情感追踪** — 实时情绪模型 + 轨迹可视化 + AI 行为驱动
+- **语音交互** — 火山引擎 TTS/ASR，情感语音合成
+- **护理记录** — 6 种可配置记录项，本地草稿 + 持久化
+- **成本管理** — LLM + Voice 分项追踪，趋势图，预算对比
+- **多 Provider 路由** — 优先级加权、熔断、限流、健康检查
+- **Bounded Contexts** — `contexts/training/` `contexts/patient/` `contexts/qa/`
+
+---
+
+### 🚀 快速开始
 
 ```bash
-pnpm install && cd backend && uv sync && cd .. && cd frontend && pnpm install && cd ..
-pnpm run dev
+pnpm install && cd backend && uv sync && cd ../frontend && pnpm install && cd ..
+cp .env.example .env   # 填入 DEEPSEEK_API_KEY 等配置
+pnpm run dev            # 后端 :8000 + 前端 :3000
 ```
 
-- 后端: http://localhost:8000（Swagger: `/docs`）
-- 前端: http://localhost:3000
+> 详细搭建见 **[开发入门指南](docs/00-dev-onboarding.md)**
 
-> 完整搭建流程见 **[docs/00-dev-onboarding.md](docs/00-dev-onboarding.md)**
+---
 
-## 技术栈
+### 🛠 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 后端 | Python 3.13 / FastAPI / SQLAlchemy 2.0 / PostgreSQL |
-| 前端 | React 19 / Vite / react-router-dom v7 / Tailwind CSS v4 |
-| LLM | 多 Provider 路由（DeepSeek / OpenAI 兼容），流式 SSE |
-| 认证 | JWT + bcrypt · 加密: Fernet（SECRET_KEY 派生） |
-| 测试 | pytest + Vitest |
+| 层 | 技术 |
+|---|------|
+| 后端 | Python 3.13 · FastAPI · SQLAlchemy 2.0 · PostgreSQL 15 |
+| 前端 | React 19 · TypeScript · Vite · Tailwind CSS v4 · shadcn/ui |
+| LLM | DeepSeek / OpenAI 兼容 · 多 Provider 路由 · SSE 流式 |
+| 认证 | JWT + bcrypt · Fernet 加密 · 角色权限 (RBAC) |
+| 测试 | pytest · Vitest |
 | CI/CD | GitHub Actions → Docker → GHCR → VPS |
 
-## 核心功能
+---
 
-- **虚拟患者对话** — LLM 角色扮演，隐藏信息按关键词触发逐步披露
-- **自动评分** — 19 项标准，每项附带对话证据 + 评分理由
-- **教师复核** — 逐项修改 AI 评分 + 复核备注 + 复核徽章
-- **流式 SSE** — 逐字显示，支持重试与故障转移
-- **多 Provider 管理** — 优先级加权路由、熔断、限流、健康检查
-- **Prompt 管理** — 数据库模板化，变量渲染、版本激活、热重载
-- **LLM 监控** — 调用日志、费用估算、趋势图、CSV 导出
-
-## 项目结构
+### 📂 项目结构
 
 ```
-├── backend/                  # FastAPI
-│   ├── routers/              # API 路由
-│   ├── contexts/             # 业务上下文（training / patient / qa）
-│   ├── infrastructure/       # 基础设施（LLM、缓存、队列）
-│   ├── models/               # ORM 模型（按域拆分）
-│   └── tests/
-├── frontend/                 # React SPA
-│   ├── src/pages/ / src/components/ / src/engine/ / src/plugins/
-│   └── src/api/              # API 客户端
-├── docs/ / .github/workflows/ / deploy/
-├── docker-compose.yml / Dockerfile.*
-└── package.json              # 根 pnpm scripts
+├── backend/               # FastAPI (routers / contexts / infrastructure)
+├── frontend/              # React SPA (pages / components / engine / plugins)
+├── docs/                  # 项目文档
+├── deploy/                # Docker Compose · Nginx · 监控脚本
+├── .github/workflows/     # PR 门禁 · Staging · Production · 回滚
+└── scripts/               # 迁移模板 · API 生成 · 开发报告
 ```
 
-## 文档导航
+---
 
-| 文档 | 说明 |
-|------|------|
-| **[00-dev-onboarding](docs/00-dev-onboarding.md)** | 零基础环境搭建与流程 |
-| [01-系统架构](docs/01-architecture.md) | 技术栈、路由、目录结构 |
-| [03-数据库设计](docs/03-database.md) | 表结构、字段、索引 |
-| [04-前端设计](docs/04-frontend.md) | 组件架构、路由、状态管理 |
-| [05-LLM与评分](docs/05-llm-design.md) | LLM 路由、Prompt 管理、评分 |
-| [09-运维指南](docs/09-operations.md) | 部署、备份、监控、应急预案 |
-| [10-功能审计](docs/10-functional-audit.md) | 功能矩阵、缺口、未来方向 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 分支模型、PR 规范、Feature Flag |
-| [plans/](docs/plans/) | 待完成功能计划与文档索引 |
+### 📖 文档
 
-## 提交规范
+| | |
+|---|---|
+| **[开发入门](docs/00-dev-onboarding.md)** | 环境搭建 · 提交规范 · 发版流程 |
+| [系统架构](docs/01-architecture.md) | 技术栈 · 路由 · 目录结构 |
+| [数据库设计](docs/03-database.md) | 表结构 · 字段 · 索引 |
+| [前端设计](docs/04-frontend.md) | 组件 · 路由 · 状态管理 |
+| [LLM 与评分](docs/05-llm-design.md) | Prompt · Provider · 评分标准 |
+| [运维指南](docs/09-operations.md) | 部署 · 备份 · 监控 · 回滚 |
+| [功能审计](docs/10-functional-audit.md) | 功能矩阵 · 缺口 · 未来计划 |
 
-`<emoji> <type>: <描述>`，Husky 强制校验。格式表见 [AGENTS.md](AGENTS.md#commit-format)。
+---
 
-## 许可
+### 📝 提交规范
+
+`<emoji> <type>: <描述>` — Husky 校验 + PR Gate 云端复核
+
+`✨ feat` `🐛 fix` `♻️ refactor` `📝 docs` `🚀 ci` `🔧 chore` … 详见 [AGENTS.md](AGENTS.md#commit-format)
+
+---
+
+### 🔗 在线环境
+
+| 环境 | 地址 | 部署 |
+|------|------|------|
+| Staging | [test.205716.xyz](https://test.205716.xyz) | Tag push 自动 |
+| Production | [iomt.205716.xyz](https://iomt.205716.xyz) | 手动触发 |
+| Dev Report | [test.205716.xyz/report.html](https://test.205716.xyz/report.html) | Staging 部署后自动生成 |
+
+---
 
 MIT
