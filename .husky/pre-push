@@ -170,12 +170,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         else
           echo "无需测试" > "$ROOT/$checklist"
           git add "$checklist" 2>/dev/null || true
-          if git diff --cached --quiet; then
-            # already staged elsewhere, skip
-            :
-          else
-            git commit --amend --no-edit 2>/dev/null || true
-          fi
+          git commit -m "📝 docs: auto-generate testing checklist for ${tag}" 2>/dev/null || true
+          # Push the new commit so local/remote stay in sync.
+          # The recursive pre-push (for this master push) only runs migration
+          # checks — no tag ref involved, no infinite loop.
+          git push origin HEAD:master 2>/dev/null || true
           ok "testing checklist auto-generated (no user-facing changes)"
         fi
       else

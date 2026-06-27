@@ -23,9 +23,6 @@ const isCI = !!process.env.CI || !!process.env.GITHUB_ACTIONS;
 const doPush = process.argv.includes("--push");
 
 // ── Redundancy gate ─────────────────────────────────────────────────────
-// When two PRs merge in quick succession, both merges land on master before
-// either auto-tag runs.  The first tag already covers the combined HEAD —
-// skip creating a redundant tag to avoid a wasteful duplicate staging deploy.
 const allSorted = execSync("git tag --sort=-creatordate -l 'v*'", { encoding: "utf-8" }).split("\n").filter(Boolean);
 const latestTag = allSorted[0];
 if (latestTag && doPush) {
@@ -35,61 +32,47 @@ if (latestTag && doPush) {
     console.log(`origin/master unchanged since ${latestTag} — skipping redundant tag`);
     process.exit(0);
   } catch {
-    // diff exits non-zero when there are changes — proceed normally
+    // diff exits non-zero — proceed
   }
 }
 
-// ── CI checklist placeholder ────────────────────────────────────────────
-if (isCI) {
-  const checklistDir = path.resolve(process.cwd(), "docs/testing");
-  const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
+// ── Checklist (always created as a NEW commit, never amend) ─────────────
+// Amending a published commit and force-pushing causes divergence and
+// non-fast-forward rejections.  A dedicated commit keeps history linear.
+const checklistDir = path.resolve(process.cwd(), "docs/testing");
+const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
+
+function ensureChecklist() {
+  if (fs.existsSync(checklistFile)) return;
   if (!fs.existsSync(checklistDir)) {
     fs.mkdirSync(checklistDir, { recursive: true });
   }
-  if (!fs.existsSync(checklistFile)) {
-    fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
-    execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
-    execSync(`git commit -m "📝 docs: add testing checklist placeholder for ${tag}"`, { stdio: "inherit" });
-  }
+  fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
+  execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
+  execSync(`git commit -m "📝 docs: add testing checklist for ${tag}"`, { stdio: "inherit" });
   console.log(`Created: ${checklistFile}`);
 }
 
-// ── Local checklist (pre-tag) ───────────────────────────────────────────
-// Creating the checklist BEFORE pushing the tag means the pre-push hook
-// finds it already present and skips amend — avoiding the recursive
-// push-in-hook pitfall that causes local/remote divergence.
-if (!isCI && doPush) {
-  const checklistDir = path.resolve(process.cwd(), "docs/testing");
-  const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
-  if (!fs.existsSync(checklistFile)) {
-    if (!fs.existsSync(checklistDir)) {
-      fs.mkdirSync(checklistDir, { recursive: true });
-    }
-    fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
-    execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
-    execSync("git commit --amend --no-edit", { stdio: "ignore" });
-    console.log(`Created: ${checklistFile}`);
-  }
+if (doPush) {
+  ensureChecklist();
 }
 
-// ── Sync with origin/master (CI only) ───────────────────────────────────
-// CI checkout may be a stale ref; rebase ensures tag points at real master.
+// ── Sync with origin/master (CI only) ──────────────────────────────────
 if (doPush && isCI) {
   execSync("git fetch origin master --quiet");
   execSync("git rebase origin/master", { stdio: "inherit" });
 }
 
-// ── Tag & push ──────────────────────────────────────────────────────────
+// ── Tag & push ─────────────────────────────────────────────────────────
 const msg = doPush ? `Creating and pushing: ${tag}` : `Creating: ${tag}`;
 console.log(msg);
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
 
 if (doPush) {
-  // Push master first so the amended commit (with checklist) is synced.
-  // Pre-push hook only validates tags, not branches — no recursion risk.
   execSync(`git push origin HEAD:master`, { stdio: "inherit" });
   execSync(`git push origin "${tag}"`, { stdio: "inherit" });
   console.log(`Pushed: ${tag}`);
 } else {
-  console.log(`Tag created locally. Push with: git push origin ${tag}`);
+  console.log(`Tag created: ${tag}`);
+  console.log(`Push with: git push origin HEAD:master && git push origin ${tag}`);
 }
