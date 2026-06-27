@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.config import BATCH_USER_LIMIT
 from core.database import get_db
-from core.security import hash_password, require_permission, tenant_scope
+from core.security import hash_password, require_permission
 from models import Class, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
     AdminStats,
@@ -38,10 +38,7 @@ def list_users(
     current_user: User = Depends(require_permission("user_manage")),
     db: Session = Depends(get_db),
 ):
-    scope = tenant_scope(current_user)
     q = db.query(User)
-    if scope is not None:
-        q = q.filter(User.school_id == scope)
     if class_id is not None or grade_id is not None:
         q = q.join(UserClass, UserClass.user_id == User.id, isouter=True)
         if class_id is not None:
@@ -59,7 +56,7 @@ def list_users(
             )
         )
     if role:
-        role_obj = db.query(Role).filter(Role.name == role, Role.school_id == current_user.school_id).first()
+        role_obj = db.query(Role).filter(Role.name == role).first()
         q = q.filter(User.role_id == role_obj.id) if role_obj else q.filter(User.role_id == -1)
     total = q.count()
     users = (
@@ -113,15 +110,12 @@ def update_user(
     )
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-    if not current_user.is_super_admin and user.school_id is not None and user.school_id != current_user.school_id:
-        raise HTTPException(status_code=404, detail="用户不存在")
-
     if req.display_name is not None:
         user.display_name = req.display_name
     if req.student_id is not None:
         user.student_id = req.student_id or None
     if req.role is not None:
-        role_obj = db.query(Role).filter(Role.name == req.role, Role.school_id == current_user.school_id).first()
+        role_obj = db.query(Role).filter(Role.name == req.role).first()
         if not role_obj:
             raise HTTPException(status_code=400, detail="角色不存在")
         user.role_id = role_obj.id
@@ -183,11 +177,8 @@ def get_user_detail(
     current_user: Annotated[User, Depends(require_permission("user_manage"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    scope = tenant_scope(current_user)
     user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="用户不存在")
-    if scope is not None and user.school_id != scope:
         raise HTTPException(status_code=404, detail="用户不存在")
 
     now = datetime.now(UTC)
@@ -299,9 +290,6 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
-    if not current_user.is_super_admin and user.school_id is not None and user.school_id != current_user.school_id:
-        raise HTTPException(status_code=404, detail="用户不存在")
-
     record_count = db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.user_id == user_id).scalar() or 0
     if record_count > 0:
         raise HTTPException(
@@ -357,7 +345,7 @@ def batch_create_users(
             errors.append(f"第{i}行跳过 {u.username}: 仅支持创建 student/teacher 角色")
             skipped += 1
             continue
-        role_obj = db.query(Role).filter(Role.name == u.role, Role.school_id == current_user.school_id).first()
+        role_obj = db.query(Role).filter(Role.name == u.role).first()
         if not role_obj:
             errors.append(f"第{i}行跳过 {u.username}: 角色 {u.role} 不存在")
             skipped += 1
@@ -389,27 +377,20 @@ def batch_create_users(
 def get_stats(
     current_user: Annotated[User, Depends(require_permission("stats_view"))], db: Annotated[Session, Depends(get_db)]
 ):
-    scope = tenant_scope(current_user)
     student_role_id = None
-    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == current_user.school_id).first()
+    student_role = db.query(Role).filter(Role.name == "student").first()
     if student_role:
         student_role_id = student_role.id
     if student_role_id:
         q = db.query(User).filter(User.role_id == student_role_id)
-        if scope is not None:
-            q = q.filter(User.school_id == scope)
         total_students = q.count()
     else:
         total_students = 0
 
     q = db.query(TrainingRecord).join(User)
-    if scope is not None:
-        q = q.filter(User.school_id == scope)
     total_records = q.count()
 
     q = db.query(TrainingRecord).join(User).filter(TrainingRecord.status == "completed")
-    if scope is not None:
-        q = q.filter(User.school_id == scope)
     completed_records = q.count()
 
     q = (
@@ -417,8 +398,6 @@ def get_stats(
         .join(TrainingRecord, Score.record_id == TrainingRecord.id)
         .join(User, TrainingRecord.user_id == User.id)
     )
-    if scope is not None:
-        q = q.filter(User.school_id == scope)
     avg_score = q.scalar()
 
     q = (
@@ -430,8 +409,6 @@ def get_stats(
             TrainingRecord.start_time.isnot(None),
         )
     )
-    if scope is not None:
-        q = q.filter(User.school_id == scope)
     avg_duration = q.scalar()
 
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -440,8 +417,6 @@ def get_stats(
         .join(User, TrainingRecord.user_id == User.id)
         .filter(TrainingRecord.start_time >= today_start)
     )
-    if scope is not None:
-        q = q.filter(User.school_id == scope)
     today_records = q.scalar() or 0
 
     return AdminStats(
