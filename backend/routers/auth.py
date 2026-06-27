@@ -58,8 +58,6 @@ def _build_token_response(user: User, db: Session) -> TokenResponse:
         role=user.role.name if user.role else "",
         display_name=user.display_name,
         user_id=user.id,
-        school_id=user.school_id,
-        school_name=user.school.name if user.school else None,
         permissions=permissions,
         gender=user.gender,
         avatar=user.avatar,
@@ -186,8 +184,6 @@ async def wechat_login(
         role=user.role.name if user.role else "",
         display_name=user.display_name,
         user_id=user.id,
-        school_id=user.school_id,
-        school_name=user.school.name if user.school else None,
         permissions=permissions,
     )
 
@@ -334,8 +330,6 @@ def refresh_token(
         role=current_user.role.name if current_user.role else "",
         display_name=current_user.display_name,
         user_id=current_user.id,
-        school_id=current_user.school_id,
-        school_name=current_user.school.name if current_user.school else None,
         permissions=permissions,
     )
 

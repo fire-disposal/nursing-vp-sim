@@ -144,23 +144,6 @@ class ClassResponse(BaseModel):
     created_at: datetime
 
 
-class SchoolCreate(BaseModel):
-    model_config = _REQ_CFG
-    name: str = Field(min_length=1, max_length=80)
-    admin_username: str = Field(min_length=1, max_length=50)
-    admin_password: str = Field(min_length=6)
-    admin_display_name: str = Field(min_length=1, max_length=50)
-
-
-class SchoolResponse(BaseModel):
-    model_config = _RESP_CFG
-    id: int
-    name: str
-    teacher_count: int = 0
-    student_count: int = 0
-    created_at: datetime
-
-
 class RoleCreateRequest(BaseModel):
     model_config = _REQ_CFG
     name: str = Field(min_length=1, max_length=20)
