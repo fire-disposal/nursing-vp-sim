@@ -50,7 +50,7 @@ if (!allTags.includes(targetTag)) {
 // Production version: from arg, server, or tag before target
 let prodVer = arg("f", "from").replace(/^v/, "");
 if (!prodVer) {
-  prodVer = ssh("tail -1 /opt/nursing-vp-sim/.version-history 2>/dev/null | cut -d'|' -f1");
+  prodVer = ssh("tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1");
 }
 if (!prodVer) {
   const idx = allTags.indexOf(targetTag);
