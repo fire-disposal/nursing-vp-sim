@@ -21,6 +21,7 @@
     "db:check": "cd backend && uv run python ../scripts/check-migration-chain.py",
     "dev:report": "cd backend && uv run python ../scripts/dev-report.py --open",
     "dev:report:weeks": "cd backend && uv run python ../scripts/dev-report.py --open --weeks 4",
+    "dev:report:publish": "cd backend && uv run python ../scripts/dev-report.py --output ../frontend/public/report.html && echo '→ https://test.205716.xyz/report.html'",
     "tag": "node .husky/_/auto-tag.mjs --push",
     "tag:local": "node .husky/_/auto-tag.mjs",
     "api:spec": "cd backend && uv run python -c \"from main import app; import json; json.dump(app.openapi(), open('../openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2); print('spec written')\"",
