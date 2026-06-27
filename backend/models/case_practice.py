@@ -23,7 +23,6 @@ from models._base import TimestampMixin
 if TYPE_CHECKING:
     from models.auth import User
     from models.org import Class
-    from models.tenant import School
     from models.training import TrainingRecord
 
 
@@ -34,9 +33,7 @@ class Case(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     case_data: Mapped[dict] = mapped_column(PydanticJSONB(CaseDataSchema))
-    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
 
-    school: Mapped[School | None] = relationship()
     practices: Mapped[list[Practice]] = relationship(back_populates="case")
 
 
@@ -44,20 +41,17 @@ class Practice(Base, TimestampMixin):
     __tablename__ = "practices"
     __table_args__ = (
         Index("ix_practices_case_id", "case_id"),
-        Index("ix_practices_school_id", "school_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
-    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True)
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
     behavior: Mapped[dict] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
 
     case: Mapped[Case] = relationship(back_populates="practices")
-    school: Mapped[School | None] = relationship()
     assignments: Mapped[list[Assignment]] = relationship(back_populates="practice")
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="practice")
 

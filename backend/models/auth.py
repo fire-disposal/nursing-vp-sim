@@ -11,21 +11,17 @@ from models._base import TimestampMixin
 
 if TYPE_CHECKING:
     from models.org import UserClass
-    from models.tenant import School
     from models.training import TrainingRecord
 
 
 class Role(Base):
     __tablename__ = "roles"
-    __table_args__ = (UniqueConstraint("school_id", "name"),)
+    __table_args__ = (UniqueConstraint("name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(20))
     display_name: Mapped[str] = mapped_column(String(40))
-    school_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), nullable=True)
     is_system: Mapped[bool] = mapped_column(default=False)
-
-    school: Mapped[School | None] = relationship()
 
 
 class RolePermission(Base):
@@ -39,13 +35,12 @@ class RolePermission(Base):
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
-    __table_args__ = (Index("ix_users_school_id", "school_id"), Index("ix_users_student_id", "student_id"))
+    __table_args__ = (Index("ix_users_student_id", "student_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id", ondelete="RESTRICT"))
-    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"))
     display_name: Mapped[str] = mapped_column(String(50))
     student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -59,7 +54,6 @@ class User(Base, TimestampMixin):
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="user")
     user_classes: Mapped[list[UserClass]] = relationship(back_populates="user", cascade="all, delete-orphan")
     role: Mapped[Role] = relationship()
-    school: Mapped[School] = relationship()
 
     def has_permission(self, permission: str) -> bool:
         cache = getattr(self, "_permissions_cache", None)

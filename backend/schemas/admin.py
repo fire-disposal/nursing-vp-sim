@@ -163,6 +163,5 @@ class RoleResponse(BaseModel):
     name: str
     display_name: str
     is_system: bool = False
-    school_id: int | None = None
     permissions: list[str] = []
     user_count: int = 0

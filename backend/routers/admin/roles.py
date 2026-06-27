@@ -19,7 +19,6 @@ def _resp(view) -> RoleResponse:
         name=view.name,
         display_name=view.display_name,
         is_system=view.is_system,
-        school_id=view.school_id,
         permissions=view.permissions,
         user_count=view.user_count,
     )
@@ -36,7 +35,7 @@ def list_roles(
 
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession):
-    return _resp(RoleService(db).create(req.name, req.display_name, req.permissions, school_id=current_user.school_id))
+    return _resp(RoleService(db).create(req.name, req.display_name, req.permissions))
 
 
 @router.put("/{role_id}", response_model=RoleResponse)

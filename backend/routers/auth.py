@@ -20,7 +20,7 @@ from core.security import (
 )
 from infrastructure.wechat import code2session
 from middleware.rate_limits import login_rate_limit, register_rate_limit, reset_login_limit
-from models import Class, Role, RolePermission, School, User, UserClass
+from models import Class, Role, RolePermission, User, UserClass
 from schemas import (
     ChangePasswordRequest,
     LoginRequest,
@@ -46,7 +46,6 @@ def _build_token_response(user: User, db: Session) -> TokenResponse:
         {
             "user_id": user.id,
             "role_id": user.role_id,
-            "school_id": user.school_id,
             "role": user.role.name if user.role else "",
             "tv": user.token_version,
         }
@@ -100,7 +99,7 @@ def register(
     if req.role not in ("student", "teacher"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="角色必须为 student 或 teacher")
 
-    role_obj = db.query(Role).filter(Role.name == req.role, Role.school_id == current_user.school_id).first()
+    role_obj = db.query(Role).filter(Role.name == req.role).first()
     if not role_obj:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="角色不存在")
 
@@ -113,7 +112,6 @@ def register(
         username=req.username,
         password_hash=hash_password(req.password),
         role_id=role_obj.id,
-        school_id=current_user.school_id,
         display_name=req.display_name,
         student_id=req.student_id,
         gender=req.gender,
@@ -171,7 +169,6 @@ async def wechat_login(
         {
             "user_id": user.id,
             "role_id": user.role_id,
-            "school_id": user.school_id,
             "role": user.role.name if user.role else "",
             "tv": user.token_version,
         }
@@ -242,17 +239,13 @@ async def wechat_register(
         username = f"wx_{suffix}"
 
     random_password = secrets.token_urlsafe(16)
-    default_school = db.query(School).filter(School.name == "默认学校").first()
-    if not default_school:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="默认学校不存在")
-    student_role = db.query(Role).filter(Role.name == "student", Role.school_id == default_school.id).first()
+    student_role = db.query(Role).filter(Role.name == "student").first()
     if not student_role:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="学生角色不存在")
     user = User(
         username=username,
         password_hash=hash_password(random_password),
         role_id=student_role.id,
-        school_id=default_school.id,
         display_name=req.display_name,
         wechat_openid=openid,
     )
@@ -317,7 +310,6 @@ def refresh_token(
         {
             "user_id": current_user.id,
             "role_id": current_user.role_id,
-            "school_id": current_user.school_id,
             "role": current_user.role.name if current_user.role else "",
             "tv": current_user.token_version,
         }

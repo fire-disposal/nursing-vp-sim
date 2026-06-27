@@ -73,7 +73,6 @@ class QuestionnaireTemplateResponse(BaseModel):
     is_active: bool
     question_count: int = 0
     response_count: int = 0
-    school_id: int | None = None
     created_at: datetime
     updated_at: datetime
 

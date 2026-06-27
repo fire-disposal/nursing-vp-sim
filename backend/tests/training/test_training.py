@@ -93,7 +93,6 @@ class TestEndTraining:
             username="other_student",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="Other",
         )
         db_session.add(other)
@@ -164,7 +163,6 @@ class TestRecords:
             username="s2",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="S2",
         )
         db_session.add(other)

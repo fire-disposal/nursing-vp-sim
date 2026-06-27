@@ -11,21 +11,18 @@ from models._base import _now_utc
 
 if TYPE_CHECKING:
     from models.auth import User
-    from models.tenant import School
 
 
 class Grade(Base):
     __tablename__ = "grades"
-    __table_args__ = (UniqueConstraint("school_id", "name"),)
+    __table_args__ = (UniqueConstraint("name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(40))
     academic_year: Mapped[str | None] = mapped_column(String(9), nullable=True)
-    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)
 
     classes: Mapped[list[Class]] = relationship(back_populates="grade", cascade="all, delete-orphan")
-    school: Mapped[School] = relationship()
 
 
 class Class(Base):

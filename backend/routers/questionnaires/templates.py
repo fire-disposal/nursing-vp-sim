@@ -44,7 +44,6 @@ def _template_to_response(t: QuestionnaireTemplate, response_count: int = 0) -> 
         is_active=t.is_active,
         question_count=len(t.questions) if t.questions else 0,
         response_count=response_count,
-        school_id=t.school_id,
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
@@ -60,7 +59,6 @@ def _template_to_detail(t: QuestionnaireTemplate) -> QuestionnaireTemplateDetail
         is_active=t.is_active,
         question_count=len(t.questions) if t.questions else 0,
         response_count=getattr(t, "response_count", 0),
-        school_id=t.school_id,
         created_at=t.created_at,
         updated_at=t.updated_at,
         questions=[
@@ -121,7 +119,6 @@ def create_template(
         type=req.type,
         description=req.description,
         is_active=req.is_active,
-        school_id=current_user.school_id,
     )
     db.add(t)
     db.flush()

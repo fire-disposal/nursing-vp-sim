@@ -11,7 +11,6 @@ def test_case(db_session):
     case = Case(
         name="测试病例",
         description="测试",
-        school_id=1,
         case_data={"name": "测试"},
     )
     db_session.add(case)
@@ -26,7 +25,6 @@ def test_training_record(db_session, test_case):
         username="test-user-sp",
         password_hash="x",
         role_id=1,
-        school_id=1,
         display_name="Test",
     )
     db_session.add(user)
@@ -85,7 +83,6 @@ class TestScoringProgressTracker:
             username="test-user-multi",
             password_hash="x",
             role_id=1,
-            school_id=1,
             display_name="Test",
         )
         db_session.add(user)

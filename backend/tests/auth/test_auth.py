@@ -11,7 +11,6 @@ class TestLogin:
             username="testuser",
             password_hash=hash_password("pass123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="测试",
         )
         db_session.add(user)
@@ -33,7 +32,6 @@ class TestLogin:
             username="testuser2",
             password_hash=hash_password("pass123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="测试",
         )
         db_session.add(user)
@@ -79,7 +77,6 @@ class TestRegister:
                 username="dup",
                 password_hash=hash_password("x"),
                 role_id=student_role.id,
-                school_id=1,
                 display_name="Dup",
             )
         )

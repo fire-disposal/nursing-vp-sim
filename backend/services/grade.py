@@ -34,12 +34,11 @@ class GradeService:
         sc = self.repo.student_counts(ids)
         return [self._view(g, cc.get(g.id, 0), sc.get(g.id, 0)) for g in grades]
 
-    def create(self, name: str, *, school_id: int) -> GradeView:
-        # school_id 为 P3 前的过渡参数（grades.school_id 仍 NOT NULL）
+    def create(self, name: str) -> GradeView:
         if self.repo.name_exists(name):
             raise ValidationError("年级已存在")
         with unit_of_work(self.db, conflict_detail="年级已存在"):
-            grade = self.repo.add(Grade(name=name, school_id=school_id))
+            grade = self.repo.add(Grade(name=name))
         return self._view(grade)
 
     def update(self, grade_id: int, name: str) -> GradeView:

@@ -35,14 +35,13 @@ def engine():
     Base.metadata.create_all(bind=eng)
 
     with eng.connect() as conn:
-        conn.execute(Base.metadata.tables["schools"].insert().values([{"name": "默认学校"}]))
         conn.execute(
             Base.metadata.tables["roles"]
             .insert()
             .values(
                 [
-                    {"name": "teacher", "display_name": "教师", "is_system": True, "school_id": 1},
-                    {"name": "student", "display_name": "学生", "is_system": True, "school_id": 1},
+                    {"name": "teacher", "display_name": "教师", "is_system": True},
+                    {"name": "student", "display_name": "学生", "is_system": True},
                 ]
             )
         )
@@ -91,7 +90,6 @@ def db_session(engine):
                 display_name="Seed Test User",
                 password_hash=hash_password("testpass"),
                 role_id=1,
-                school_id=1,
             )
             session.add(user)
             session.flush()
@@ -101,7 +99,6 @@ def db_session(engine):
             case = Case(
                 name="__seed_test_case__",
                 description="Seed test case for unit tests",
-                school_id=1,
                 case_data={},
             )
             session.add(case)
@@ -193,7 +190,6 @@ def teacher(client, db_session):
         username="teacher1",
         password_hash=hash_password("teacher123"),
         role_id=teacher_role.id,
-        school_id=1,
         display_name="\u5f20\u8001\u5e08",
     )
     db_session.add(user)
@@ -212,7 +208,6 @@ def student(client, db_session):
         username="student1",
         password_hash=hash_password("student123"),
         role_id=student_role.id,
-        school_id=1,
         display_name="\u674e\u660e",
         student_id="20240001",
     )
@@ -228,7 +223,6 @@ def test_case(db_session):
     case = Case(
         name="\u6d4b\u8bd5\u75c5\u4f8b-\u9ad8\u8840\u538b",
         description="\u9ad8\u8840\u538b\u75c5\u53f2\u91c7\u96c6\u7ec3\u4e60",
-        school_id=1,
         case_data={
             "name": "\u6d4b\u8bd5\u75c5\u4f8b-\u9ad8\u8840\u538b",
             "time_limit": 20,
@@ -253,7 +247,7 @@ def test_case(db_session):
 def test_grade(db_session):
     from models import Grade
 
-    grade = Grade(name="2024级", school_id=1)
+    grade = Grade(name="2024级")
     db_session.add(grade)
     db_session.commit()
     db_session.refresh(grade)

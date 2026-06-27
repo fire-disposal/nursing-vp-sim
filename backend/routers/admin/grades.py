@@ -30,7 +30,7 @@ def list_grades(current_user: _Manager, db: DbSession):
 
 @router.post("", response_model=GradeResponse)
 def create_grade(body: GradeCreate, current_user: _Manager, db: DbSession):
-    return _resp(GradeService(db).create(body.name, school_id=current_user.school_id))
+    return _resp(GradeService(db).create(body.name))
 
 
 @router.put("/{grade_id}", response_model=GradeResponse)

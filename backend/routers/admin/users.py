@@ -355,7 +355,6 @@ def batch_create_users(
             password_hash=hash_password(u.password),
             display_name=u.display_name,
             role_id=role_obj.id,
-            school_id=current_user.school_id,
             student_id=u.student_id or None,
         )
         db.add(user)

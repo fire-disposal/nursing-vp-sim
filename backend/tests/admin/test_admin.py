@@ -167,7 +167,6 @@ class TestLLMLogs:
             username="aggtest",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="聚合测试",
         )
         db_session.add(student)
@@ -242,7 +241,6 @@ class TestLLMLogs:
             username="zerocost",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="零费用",
         )
         db_session.add(student)
@@ -336,7 +334,6 @@ class TestUserManagement:
             username="editme",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="旧名字",
         )
         db_session.add(u)
@@ -360,7 +357,6 @@ class TestUserManagement:
             username="deleteme",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="待删除",
         )
         db_session.add(u)
@@ -386,7 +382,6 @@ class TestUserManagement:
                 username="zhangsan",
                 password_hash=hash_password("123"),
                 role_id=student_role.id,
-                school_id=1,
                 display_name="张三",
                 student_id="202401",
             )
@@ -396,7 +391,6 @@ class TestUserManagement:
                 username="lisi",
                 password_hash=hash_password("123"),
                 role_id=teacher_role.id,
-                school_id=1,
                 display_name="李四",
                 student_id="202402",
             )
@@ -406,7 +400,6 @@ class TestUserManagement:
                 username="wangwu",
                 password_hash=hash_password("123"),
                 role_id=student_role.id,
-                school_id=1,
                 display_name="王五",
                 student_id="202403",
             )
@@ -449,7 +442,6 @@ class TestStudentDetail:
             username="emptystudent",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="空学生",
             student_id="S000",
         )
@@ -478,7 +470,6 @@ class TestStudentDetail:
             username="activestudent",
             password_hash=hash_password("123"),
             role_id=student_role.id,
-            school_id=1,
             display_name="学霸",
             student_id="TOP001",
         )

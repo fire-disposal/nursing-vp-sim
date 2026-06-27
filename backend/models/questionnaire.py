@@ -20,7 +20,6 @@ from models._base import TimestampMixin, _now_utc
 if TYPE_CHECKING:
     from models.auth import User
     from models.case_practice import Case
-    from models.tenant import School
     from models.training import TrainingRecord
 
 
@@ -28,9 +27,6 @@ class QuestionnaireTemplate(Base, TimestampMixin):
     __tablename__ = "questionnaire_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    school_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("schools.id", ondelete="SET NULL"), nullable=True, index=True
-    )
     title: Mapped[str] = mapped_column(String(120))
     type: Mapped[str] = mapped_column(String(20))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -39,7 +35,6 @@ class QuestionnaireTemplate(Base, TimestampMixin):
     questions: Mapped[list[QuestionnaireQuestion]] = relationship(
         back_populates="template", order_by="QuestionnaireQuestion.sort_order", cascade="all, delete-orphan"
     )
-    school: Mapped[School | None] = relationship()
 
 
 class QuestionnaireQuestion(Base):

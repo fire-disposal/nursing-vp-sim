@@ -103,7 +103,6 @@ def create_practice(
         name=data.name,
         description=data.description,
         case_id=data.case_id,
-        school_id=current_user.school_id,
         features=features,
         behavior=data.behavior or {},
     )

@@ -41,7 +41,7 @@ def get_current_user(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
 
-    user = db.query(User).options(joinedload(User.role), joinedload(User.school)).filter(User.id == user_id).first()
+    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
 
@@ -75,7 +75,7 @@ def _decode_token_allow_expired(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的凭证")
 
-    user = db.query(User).options(joinedload(User.role), joinedload(User.school)).filter(User.id == user_id).first()
+    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
 

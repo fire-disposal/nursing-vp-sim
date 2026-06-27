@@ -12,7 +12,6 @@ from models.questionnaire import (
     QuestionnaireResponse,
     QuestionnaireTemplate,
 )
-from models.tenant import School
 from models.training import (
     Message,
     Note,
@@ -53,7 +52,6 @@ __all__ = [
     "Role",
     "RolePermission",
     "Rubric",
-    "School",
     "Score",
     "ScoreReview",
     "ScoringProgress",

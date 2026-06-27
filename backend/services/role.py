@@ -18,7 +18,6 @@ class RoleView:
     name: str
     display_name: str
     is_system: bool
-    school_id: int | None
     permissions: list[str]
     user_count: int
 
@@ -34,7 +33,6 @@ class RoleService:
             name=role.name,
             display_name=role.display_name,
             is_system=role.is_system,
-            school_id=role.school_id,
             permissions=permissions,
             user_count=user_count,
         )
@@ -46,11 +44,11 @@ class RoleService:
         counts = self.repo.user_counts(role_ids)
         return [self._view(r, perms_map.get(r.id, []), counts.get(r.id, 0)) for r in roles]
 
-    def create(self, name: str, display_name: str, permissions: list[str], *, school_id: int) -> RoleView:
+    def create(self, name: str, display_name: str, permissions: list[str]) -> RoleView:
         if self.repo.name_exists(name):
             raise ValidationError("角色名已存在")
         with unit_of_work(self.db, conflict_detail="角色名已存在"):
-            role = self.repo.add(Role(name=name, display_name=display_name, school_id=school_id, is_system=False))
+            role = self.repo.add(Role(name=name, display_name=display_name, is_system=False))
             for perm in permissions:
                 self.db.add(RolePermission(role_id=role.id, permission=perm))
         return self._view(role, list(permissions), 0)

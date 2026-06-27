@@ -249,7 +249,6 @@ def create_case(
         name=cd["name"],
         description=cd.get("description", ""),
         case_data=cd,
-        school_id=current_user.school_id,
     )
     db.add(case)
     db.commit()

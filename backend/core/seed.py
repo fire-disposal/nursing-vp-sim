@@ -1,4 +1,4 @@
-"""Database seeding — default school, roles, admin user, test data, LLM config.
+"""Database seeding — roles, admin user, test data, LLM config.
 
 Extracted from main.py to keep the application entrypoint thin.
 Called once during app startup (lifespan).
@@ -14,7 +14,7 @@ from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from infrastructure.llm import encrypt_api_key
-from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, School, User, VoiceConfig
+from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, User, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -31,54 +31,23 @@ def seed_all() -> None:
 def _seed_data() -> None:
     db = SessionLocal()
     try:
-        if db.query(School).count() > 0:
+        if db.query(Role).count() > 0:
             return
 
-        # 1. 确保默认学校存在
-        school = db.query(School).filter(School.name == "默认学校").first()
-        if not school:
-            school = School(name="默认学校")
-            db.add(school)
-            db.flush()
-            log.debug("默认学校已创建")
-
-        # 2. 确保系统模板角色存在，并同步权限 (school_id=NULL)
-        template_roles = {}
+        # 1. 创建系统角色（无 school_id），并同步权限
+        role_ids = {}
         for name, display_name in SYSTEM_ROLES:
-            template = db.query(Role).filter(Role.name == name, Role.school_id.is_(None)).first()
-            if not template:
-                template = Role(name=name, display_name=display_name, school_id=None, is_system=True)
-                db.add(template)
-                db.flush()
-            template_roles[name] = template.id
-        db.commit()
-
-        # 清理并重建模板角色的权限
-        for role_name, perms in SYSTEM_PERMISSIONS.items():
-            rid = template_roles.get(role_name)
-            if not rid:
-                continue
-            existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == rid).all()}
-            target = set(perms)
-            for p in existing - target:
-                db.query(RolePermission).filter(RolePermission.role_id == rid, RolePermission.permission == p).delete()
-            for p in target - existing:
-                db.add(RolePermission(role_id=rid, permission=p))
-        db.commit()
-
-        # 3. 确保默认学校的角色存在，并同步权限
-        school_role_ids = {}
-        for name, display_name in SYSTEM_ROLES:
-            role = db.query(Role).filter(Role.name == name, Role.school_id == school.id).first()
+            role = db.query(Role).filter(Role.name == name).first()
             if not role:
-                role = Role(name=name, display_name=display_name, school_id=school.id, is_system=True)
+                role = Role(name=name, display_name=display_name, is_system=True)
                 db.add(role)
                 db.flush()
-            school_role_ids[name] = role.id
+            role_ids[name] = role.id
         db.commit()
 
+        # 清理并重建角色权限
         for role_name, perms in SYSTEM_PERMISSIONS.items():
-            rid = school_role_ids.get(role_name)
+            rid = role_ids.get(role_name)
             if not rid:
                 continue
             existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == rid).all()}
@@ -89,7 +58,7 @@ def _seed_data() -> None:
                 db.add(RolePermission(role_id=rid, permission=p))
         db.commit()
 
-        # 4. 评分标准
+        # 2. 评分标准
         if db.query(Rubric).count() == 0:
             rubric_path = _PROJECT_ROOT / "data" / "rubrics" / "nursing_history_v1.json"
             if rubric_path.exists():
@@ -113,17 +82,16 @@ def _seed_data() -> None:
                 db.commit()
                 log.debug("评分标准已导入")
 
-        # 5. 超级管理员
+        # 3. 超级管理员
         username = os.getenv("SEED_ADMIN_USERNAME", "admin")
         password = os.getenv("SEED_ADMIN_PASSWORD")
         if not password:
             raise RuntimeError("SEED_ADMIN_PASSWORD 环境变量未设置")
-        sa_role_id = school_role_ids.get("super_admin")
+        sa_role_id = role_ids.get("super_admin")
         admin_user = db.query(User).filter(User.username == username).first()
         if admin_user:
-            if sa_role_id is not None and (admin_user.role_id != sa_role_id or admin_user.school_id != school.id):
+            if sa_role_id is not None and admin_user.role_id != sa_role_id:
                 admin_user.role_id = sa_role_id
-                admin_user.school_id = school.id
                 db.commit()
                 log.debug("超级管理员角色已修正 (%s → super_admin)", username)
         else:
@@ -132,16 +100,15 @@ def _seed_data() -> None:
                     username=username,
                     password_hash=hash_password(password),
                     role_id=sa_role_id,
-                    school_id=school.id,
                     display_name="超级管理员",
                 )
             )
             db.commit()
             log.debug("超级管理员已创建 (%s)", username)
 
-        # 6. 测试学生和病例 (仅首次初始化)
+        # 4. 测试学生和病例 (仅首次初始化)
         if db.query(User).filter(User.username != username).count() == 0:
-            student_role_id = school_role_ids.get("student")
+            student_role_id = role_ids.get("student")
             test_genders = ["男", "女", "男", "女", "男"]
             for i in range(1, 6):
                 db.add(
@@ -149,7 +116,6 @@ def _seed_data() -> None:
                         username=f"student{i}",
                         password_hash=hash_password("123456"),
                         role_id=student_role_id,
-                        school_id=school.id,
                         display_name=f"学生{i}",
                         student_id=f"202400{i:02d}",
                         gender=test_genders[i - 1],
@@ -167,7 +133,6 @@ def _seed_data() -> None:
                             name=d.get("name", fpath.stem),
                             description=d.get("description", ""),
                             case_data=d,
-                            school_id=None,
                         )
                     )
                     case_count += 1
