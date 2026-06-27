@@ -4,7 +4,6 @@ import Button from "@/components/ui/button";
 import {
 	Card,
 	CardAction,
-	CardContent,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
@@ -17,7 +16,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/utils/cn";
-import type { ScoreData } from "@/types/score";
 
 interface RecordBrief {
 	id: number;

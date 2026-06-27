@@ -53,7 +53,7 @@ function visualFor(h: Highlight) {
 	return null;
 }
 
-function BentoHighlight({ h }: { h: Highlight }) {
+function _BentoHighlight({ h }: { h: Highlight }) {
 	const Icon = h.icon;
 	return (
 		<Reveal>

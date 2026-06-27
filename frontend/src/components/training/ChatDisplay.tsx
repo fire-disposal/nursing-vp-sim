@@ -7,7 +7,6 @@ import {
 	usePortrait,
 } from "@/engine";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import { cn } from "@/utils/cn";
 import { getPatientAvatar } from "@/utils/avatar";
 
 interface ChatDisplayProps {
@@ -23,11 +22,10 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	patient,
 	bus,
 	initiativeMsgs,
-	hasStreaming,
 }: ChatDisplayProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
-	const [isNearBottom, setIsNearBottom] = useState(true);
+	const [_isNearBottom, setIsNearBottom] = useState(true);
 	const isNearBottomRef = useRef(true);
 	const prevCountRef = useRef(0);
 	const { portraitUrl } = usePortrait();

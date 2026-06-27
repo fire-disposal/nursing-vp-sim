@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Brain, CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
 const SCORE_ITEMS = [
@@ -113,7 +113,7 @@ export default function ScoreStream() {
 	const scoreLines = useLoopingQueue(SCORE_ITEMS, phase === "scoring", 900);
 	const feedbackLines = useLoopingQueue(FEEDBACK_ITEMS, phase !== "scoring", 1400);
 
-	const phaseText = phase === "scoring" ? "正在评分维度分析" : phase === "feedback" ? "正在生成反馈建议" : "评分完成";
+	const _phaseText = phase === "scoring" ? "正在评分维度分析" : phase === "feedback" ? "正在生成反馈建议" : "评分完成";
 	const scoreProgress = phase === "complete" ? 100 : Math.round(percentage);
 
 		return (

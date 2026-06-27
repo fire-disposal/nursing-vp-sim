@@ -225,7 +225,7 @@ export class ScoreManager {
 		// Always update per-stage thought fields (even if phase/percentage is regressive).
 		// Scoring and feedback run in parallel via asyncio.gather — either may finish first.
 		// We must allow cross-phase thought updates so both panels show streaming content.
-		let merged = { ...this._progress };
+		const merged = { ...this._progress };
 		if (data.stage === "scoring" && data.thought) {
 			merged.score_thought = data.thought;
 		}

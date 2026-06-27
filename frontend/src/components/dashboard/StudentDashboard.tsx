@@ -10,8 +10,6 @@ import Button from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
-	CardHeader,
-	CardTitle,
 } from "@/components/ui/card";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";

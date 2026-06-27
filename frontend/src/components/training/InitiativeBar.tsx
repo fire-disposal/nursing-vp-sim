@@ -11,7 +11,7 @@ interface InitiativeBarProps {
 
 export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 	const [percent, setPercent] = useState(0);
-	const [maxReached, setMaxReached] = useState(false);
+	const [_maxReached, setMaxReached] = useState(false);
 	const elapsedRef = useRef(0);
 	const thresholdRef = useRef(30);
 	const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);

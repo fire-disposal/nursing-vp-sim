@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, } from "react";
 import { Brain, Loader2 } from "lucide-react";
 import type { MessageBus, ScorePhase } from "@/engine/types";
 import { cn } from "@/utils/cn";
