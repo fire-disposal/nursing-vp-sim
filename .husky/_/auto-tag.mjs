@@ -85,9 +85,9 @@ console.log(msg);
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
 
 if (doPush) {
-  if (isCI) {
-    execSync(`git push origin HEAD:master`, { stdio: "inherit" });
-  }
+  // Push master first so the amended commit (with checklist) is synced.
+  // Pre-push hook only validates tags, not branches — no recursion risk.
+  execSync(`git push origin HEAD:master`, { stdio: "inherit" });
   execSync(`git push origin "${tag}"`, { stdio: "inherit" });
   console.log(`Pushed: ${tag}`);
 } else {
