@@ -6,13 +6,15 @@ the single event loop.
 
 import asyncio
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
+from core.exceptions import NotFoundError
 
 T = TypeVar("T")
+TModel = TypeVar("TModel")
 
 
 class SyncRepository:
@@ -36,3 +38,49 @@ class SyncRepository:
                 session.close()
 
         return await self._run(_do)
+
+
+class Repository(Generic[TModel]):
+    """Synchronous request-path repository base.
+
+    Subclasses set ``model`` and receive a request-scoped ``Session``.
+    Methods ``flush`` (never ``commit``) — committing is the caller's
+    ``unit_of_work`` responsibility.
+    """
+
+    model: type[TModel]
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get(self, id_: int) -> TModel | None:
+        return self.db.get(self.model, id_)
+
+    def get_or_404(self, id_: int, detail: str = "资源不存在") -> TModel:
+        obj = self.get(id_)
+        if obj is None:
+            raise NotFoundError(detail)
+        return obj
+
+    def query(self):
+        return self.db.query(self.model)
+
+    def list(self, *criteria, order_by=None) -> list[TModel]:
+        q = self.query()
+        if criteria:
+            q = q.filter(*criteria)
+        if order_by is not None:
+            q = q.order_by(order_by)
+        return q.all()
+
+    def exists(self, *criteria) -> bool:
+        return bool(self.db.query(self.query().filter(*criteria).exists()).scalar())
+
+    def add(self, obj: TModel) -> TModel:
+        self.db.add(obj)
+        self.db.flush()
+        return obj
+
+    def delete(self, obj: TModel) -> None:
+        self.db.delete(obj)
+        self.db.flush()
