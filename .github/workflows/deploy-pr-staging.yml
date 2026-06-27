@@ -29,5 +29,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Format merge commit message
+        run: |
+          HEAD_MSG=$(git log -1 --format="%s" HEAD)
+          if echo "$HEAD_MSG" | grep -qE "^(Merge pull request|Merge branch)"; then
+            echo "Formatting merge commit..."
+            git commit --amend -m "🔀 merge: $HEAD_MSG" --no-verify
+            git push --force-with-lease origin master
+            echo "✓ Merge commit formatted"
+          else
+            echo "Not a merge commit — skipping"
+          fi
+
       - name: Create and push tag
         run: node .husky/_/auto-tag.mjs --push
