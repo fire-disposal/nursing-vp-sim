@@ -114,7 +114,7 @@ export default function App() {
 												 * based on user permissions.
 												 */}
 												<Route path="/admin" element={<Admin />} />
-												<Route path="/admin/debug" element={<AdminDebug />} />
+												<Route path="/admin/debug/:recordId" element={<AdminDebug />} />
 												<Route path="/admin/system-ops" element={<SystemOpsPage />} />
 												<Route
 													path="/admin/system-notifications"
