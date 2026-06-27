@@ -1,0 +1,242 @@
+import logging
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+
+from sqlalchemy.orm import Session, joinedload
+
+from core.exceptions import AuthError, NotFoundError, ValidationError
+from core.unit_of_work import unit_of_work
+from models import Assignment, Practice, TrainingRecord
+from repositories.assignment import AssignmentRepository
+
+log = logging.getLogger(__name__)
+
+
+@dataclass
+class AssignmentListView:
+    id: str
+    title: str
+    practice_name: str
+    class_name: str
+    start_time: datetime
+    end_time: datetime
+    student_count: int
+    completed_count: int
+    created_at: datetime
+
+
+@dataclass
+class AssignmentStudentItemView:
+    user_id: int
+    display_name: str
+    student_id: str | None = None
+    record_id: int | None = None
+    status: str = "not_started"
+    score_total: float | None = None
+    scoring_status: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    is_overdue: bool = False
+
+
+@dataclass
+class AssignmentDetailView:
+    id: str
+    title: str
+    description: str | None
+    practice_id: int
+    practice_name: str
+    class_id: int
+    class_name: str
+    start_time: datetime
+    end_time: datetime
+    created_at: datetime
+    updated_at: datetime
+    student_count: int
+    completed_count: int
+    scored_count: int
+    students: list[AssignmentStudentItemView] = field(default_factory=list)
+
+
+class AssignmentService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.repo = AssignmentRepository(db)
+
+    def _build_detail_view(self, assignment: Assignment) -> AssignmentDetailView:
+        students_in_class = self.repo.get_students_in_class(assignment.class_id)
+        training_records = self.repo.get_records_for_assignment(assignment.id)
+        record_by_user: dict[int, TrainingRecord] = {r.user_id: r for r in training_records}
+
+        student_items: list[AssignmentStudentItemView] = []
+        for student in students_in_class:
+            record = record_by_user.get(student.id)
+            if record:
+                student_items.append(
+                    AssignmentStudentItemView(
+                        user_id=student.id,
+                        display_name=student.display_name,
+                        student_id=student.student_id,
+                        record_id=record.id,
+                        status=record.status,
+                        score_total=record.score.total_score if record.score else None,
+                        scoring_status=record.scoring_status,
+                        start_time=record.start_time,
+                        end_time=record.end_time,
+                        is_overdue=record.is_overdue,
+                    )
+                )
+            else:
+                student_items.append(
+                    AssignmentStudentItemView(
+                        user_id=student.id,
+                        display_name=student.display_name,
+                        student_id=student.student_id,
+                    )
+                )
+
+        completed_count = sum(1 for s in student_items if s.status == "completed")
+        scored_count = sum(1 for s in student_items if s.scoring_status == "completed")
+
+        return AssignmentDetailView(
+            id=assignment.id,
+            title=assignment.title,
+            description=assignment.description,
+            practice_id=assignment.practice_id,
+            practice_name=assignment.practice.name if assignment.practice else "",
+            class_id=assignment.class_id,
+            class_name=assignment.class_.name if assignment.class_ else "",
+            start_time=assignment.start_time,
+            end_time=assignment.end_time,
+            created_at=assignment.created_at,
+            updated_at=assignment.updated_at,
+            student_count=len(students_in_class),
+            completed_count=completed_count,
+            scored_count=scored_count,
+            students=student_items,
+        )
+
+    def create(
+        self,
+        practice_id: int,
+        class_id: int,
+        title: str,
+        description: str | None,
+        start_time: datetime,
+        end_time: datetime,
+        teacher_id: int,
+    ) -> AssignmentDetailView:
+        practice = self.db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
+        if not practice:
+            raise NotFoundError("练习不存在")
+
+        if end_time <= start_time:
+            raise ValidationError("截止时间必须晚于开始时间")
+
+        with unit_of_work(self.db, conflict_detail="创建失败，请重试"):
+            assignment = self.repo.add(
+                Assignment(
+                    practice_id=practice_id,
+                    class_id=class_id,
+                    teacher_id=teacher_id,
+                    title=title,
+                    description=description,
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+            )
+        self.db.refresh(assignment)
+        log.info(f"Assignment created: id={assignment.id} title={assignment.title}", extra={"user_id": teacher_id})
+        return self._build_detail_view(assignment)
+
+    def list(
+        self,
+        teacher_id: int,
+        class_id: int | None,
+        status: str | None,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[AssignmentListView], int]:
+        rows, total = self.repo.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
+        items = [
+            AssignmentListView(
+                id=r[0].id,
+                title=r[0].title,
+                practice_name=r[0].practice.name if r[0].practice else "",
+                class_name=r[0].class_.name if r[0].class_ else "",
+                start_time=r[0].start_time,
+                end_time=r[0].end_time,
+                student_count=r[1],
+                completed_count=r[2],
+                created_at=r[0].created_at,
+            )
+            for r in rows
+        ]
+        return items, total
+
+    def get(self, assignment_id: str, teacher_id: int) -> AssignmentDetailView:
+        assignment = self.repo.get_with_relations(assignment_id)
+        if not assignment:
+            raise NotFoundError("练习发布不存在")
+        if assignment.teacher_id != teacher_id:
+            raise AuthError("无权查看", status_code=403)
+        return self._build_detail_view(assignment)
+
+    def update(
+        self,
+        assignment_id: str,
+        teacher_id: int,
+        practice_id: int | None,
+        class_id: int | None,
+        title: str | None,
+        description: str | None,
+        start_time: datetime | None,
+        end_time: datetime | None,
+    ) -> AssignmentDetailView:
+        assignment = self.repo.get_with_relations(assignment_id)
+        if not assignment:
+            raise NotFoundError("练习发布不存在")
+        if assignment.teacher_id != teacher_id:
+            raise AuthError("无权修改", status_code=403)
+
+        if practice_id is not None:
+            practice = (
+                self.db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == practice_id).first()
+            )
+            if not practice:
+                raise NotFoundError("练习不存在")
+            assignment.practice_id = practice_id
+        if class_id is not None:
+            assignment.class_id = class_id
+        if title is not None:
+            assignment.title = title
+        if description is not None:
+            assignment.description = description
+        if start_time is not None:
+            assignment.start_time = start_time
+        if end_time is not None:
+            assignment.end_time = end_time
+
+        if assignment.end_time <= assignment.start_time:
+            raise ValidationError("截止时间必须晚于开始时间")
+
+        assignment.updated_at = datetime.now(UTC)
+        with unit_of_work(self.db, conflict_detail="更新失败，请刷新后重试"):
+            self.db.flush()
+        self.db.refresh(assignment)
+        return self._build_detail_view(assignment)
+
+    def delete(self, assignment_id: str, teacher_id: int) -> dict:
+        assignment = self.db.query(Assignment).filter(Assignment.id == assignment_id).with_for_update().first()
+        if not assignment:
+            raise NotFoundError("练习发布不存在")
+        if assignment.teacher_id != teacher_id:
+            raise AuthError("无权删除", status_code=403)
+
+        if self.repo.has_any_records(assignment_id):
+            raise ValidationError("已有学生开始练习，无法删除")
+
+        with unit_of_work(self.db, conflict_detail="删除失败，请刷新后重试"):
+            self.repo.delete(assignment)
+
+        return {"message": "练习发布已删除"}

@@ -4,16 +4,16 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.datetime_utils import ensure_utc
-from core.pagination import paginate
+from core.deps import DbSession
+from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, require_permission
 from infrastructure.export import Column, buffered_response
-from models import Assignment, Practice, TrainingRecord, User, UserClass
+from models import Assignment, TrainingRecord, User, UserClass
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -24,252 +24,125 @@ from schemas import (
     PaginatedResponse,
     StudentAssignmentItem,
 )
+from services.assignment import AssignmentService
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 
+_Teacher = Annotated[User, Depends(require_permission("score_review"))]
 
-def _build_assignment_list_item(a: Assignment, student_count: int = 0, completed_count: int = 0) -> AssignmentListItem:
+
+def _list_resp(view) -> AssignmentListItem:
     return AssignmentListItem(
-        id=a.id,
-        title=a.title,
-        practice_name=a.practice.name if a.practice else "",
-        class_name=a.class_.name if a.class_ else "",
-        start_time=a.start_time,
-        end_time=a.end_time,
-        student_count=student_count,
-        completed_count=completed_count,
-        created_at=a.created_at,
+        id=view.id,
+        title=view.title,
+        practice_name=view.practice_name,
+        class_name=view.class_name,
+        start_time=view.start_time,
+        end_time=view.end_time,
+        student_count=view.student_count,
+        completed_count=view.completed_count,
+        created_at=view.created_at,
     )
 
 
-def _build_detail(db: Session, assignment: Assignment) -> AssignmentDetail:
-    students_in_class = (
-        db.query(User)
-        .join(UserClass, UserClass.user_id == User.id)
-        .filter(UserClass.class_id == assignment.class_id)
-        .all()
+def _student_resp(view) -> AssignmentStudentItem:
+    return AssignmentStudentItem(
+        user_id=view.user_id,
+        display_name=view.display_name,
+        student_id=view.student_id,
+        record_id=view.record_id,
+        status=view.status,
+        score_total=view.score_total,
+        scoring_status=view.scoring_status,
+        start_time=view.start_time,
+        end_time=view.end_time,
+        is_overdue=view.is_overdue,
     )
 
-    training_records = (
-        db.query(TrainingRecord)
-        .options(joinedload(TrainingRecord.score))
-        .filter(TrainingRecord.assignment_id == assignment.id)
-        .all()
-    )
-    record_by_user: dict[int, TrainingRecord] = {r.user_id: r for r in training_records}
 
-    now = datetime.now(UTC)
-    student_items: list[AssignmentStudentItem] = []
-    for student in students_in_class:
-        record = record_by_user.get(student.id)
-        if record:
-            student_items.append(
-                AssignmentStudentItem(
-                    user_id=student.id,
-                    display_name=student.display_name,
-                    student_id=student.student_id,
-                    record_id=record.id,
-                    status=record.status,
-                    score_total=record.score.total_score if record.score else None,
-                    scoring_status=record.scoring_status,
-                    start_time=record.start_time,
-                    end_time=record.end_time,
-                    is_overdue=record.is_overdue,
-                )
-            )
-        else:
-            student_items.append(
-                AssignmentStudentItem(
-                    user_id=student.id,
-                    display_name=student.display_name,
-                    student_id=student.student_id,
-                    status="not_started",
-                )
-            )
-
-    completed_count = sum(1 for s in student_items if s.status == "completed")
-    scored_count = sum(1 for s in student_items if s.scoring_status == "completed")
-
+def _detail_resp(view) -> AssignmentDetail:
     return AssignmentDetail(
-        id=assignment.id,
-        title=assignment.title,
-        description=assignment.description,
-        practice_id=assignment.practice_id,
-        practice_name=assignment.practice.name if assignment.practice else "",
-        class_id=assignment.class_id,
-        class_name=assignment.class_.name if assignment.class_ else "",
-        start_time=assignment.start_time,
-        end_time=assignment.end_time,
-        created_at=assignment.created_at,
-        updated_at=assignment.updated_at,
-        student_count=len(students_in_class),
-        completed_count=completed_count,
-        scored_count=scored_count,
-        students=student_items,
+        id=view.id,
+        title=view.title,
+        description=view.description,
+        practice_id=view.practice_id,
+        practice_name=view.practice_name,
+        class_id=view.class_id,
+        class_name=view.class_name,
+        start_time=view.start_time,
+        end_time=view.end_time,
+        created_at=view.created_at,
+        updated_at=view.updated_at,
+        student_count=view.student_count,
+        completed_count=view.completed_count,
+        scored_count=view.scored_count,
+        students=[_student_resp(s) for s in view.students],
     )
 
 
 @router.post("", response_model=AssignmentDetail)
-def create_assignment(
-    req: AssignmentCreateRequest,
-    current_user: Annotated[User, Depends(require_permission("score_review"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
-    if not practice:
-        raise HTTPException(status_code=404, detail="练习不存在")
-
-    if req.end_time <= req.start_time:
-        raise HTTPException(status_code=400, detail="截止时间必须晚于开始时间")
-
-    assignment = Assignment(
-        practice_id=req.practice_id,
-        class_id=req.class_id,
-        teacher_id=current_user.id,
-        title=req.title,
-        description=req.description,
-        start_time=req.start_time,
-        end_time=req.end_time,
+def create_assignment(req: AssignmentCreateRequest, current_user: _Teacher, db: DbSession):
+    return _detail_resp(
+        AssignmentService(db).create(
+            practice_id=req.practice_id,
+            class_id=req.class_id,
+            title=req.title,
+            description=req.description,
+            start_time=req.start_time,
+            end_time=req.end_time,
+            teacher_id=current_user.id,
+        )
     )
-    db.add(assignment)
-    db.commit()
-    db.refresh(assignment)
-
-    log.info(f"Assignment created: id={assignment.id} title={assignment.title}", extra={"user_id": current_user.id})
-    return _build_detail(db, assignment)
 
 
 @router.get("", response_model=PaginatedResponse[AssignmentListItem])
 def list_assignments(
-    current_user: Annotated[User, Depends(require_permission("score_review"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Teacher,
+    db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     class_id: Annotated[int | None, Query()] = None,
     status: Annotated[str | None, Query(description="active|ended")] = None,
 ):
-    student_sub = (
-        db.query(func.count(TrainingRecord.id))
-        .filter(TrainingRecord.assignment_id == Assignment.id)
-        .correlate(Assignment)
-        .scalar_subquery()
+    items, total = AssignmentService(db).list(
+        teacher_id=current_user.id,
+        class_id=class_id,
+        status=status,
+        offset=offset,
+        limit=limit,
     )
-    completed_sub = (
-        db.query(func.count(TrainingRecord.id))
-        .filter(TrainingRecord.assignment_id == Assignment.id, TrainingRecord.status == "completed")
-        .correlate(Assignment)
-        .scalar_subquery()
-    )
-
-    q = (
-        db.query(
-            Assignment,
-            student_sub.label("student_count"),
-            completed_sub.label("completed_count"),
-        )
-        .options(
-            joinedload(Assignment.practice),
-            joinedload(Assignment.class_),
-        )
-        .filter(Assignment.teacher_id == current_user.id)
-    )
-
-    if class_id is not None:
-        q = q.filter(Assignment.class_id == class_id)
-
-    now = datetime.now(UTC)
-    if status == "active":
-        q = q.filter(Assignment.end_time >= now)
-    elif status == "ended":
-        q = q.filter(Assignment.end_time < now)
-
-    q = q.order_by(Assignment.created_at.desc())
-    rows, total = paginate(q, offset, limit)
-    items = [_build_assignment_list_item(r[0], student_count=r[1], completed_count=r[2]) for r in rows]
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(items=[_list_resp(v) for v in items], total=total, offset=offset, limit=limit)
 
 
 @router.get("/{assignment_id}", response_model=AssignmentDetail)
-def get_assignment(
-    assignment_id: str,
-    current_user: Annotated[User, Depends(require_permission("score_review"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    assignment = (
-        db.query(Assignment)
-        .options(
-            joinedload(Assignment.practice),
-            joinedload(Assignment.class_),
-        )
-        .filter(Assignment.id == assignment_id)
-        .first()
-    )
-    if not assignment:
-        raise HTTPException(status_code=404, detail="练习发布不存在")
-    if assignment.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权查看")
-    return _build_detail(db, assignment)
+def get_assignment(assignment_id: str, current_user: _Teacher, db: DbSession):
+    return _detail_resp(AssignmentService(db).get(assignment_id, current_user.id))
 
 
 @router.put("/{assignment_id}", response_model=AssignmentDetail)
-def update_assignment(
-    assignment_id: str,
-    req: AssignmentUpdateRequest,
-    current_user: Annotated[User, Depends(require_permission("score_review"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).first()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="练习发布不存在")
-    if assignment.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权修改")
-
-    if req.practice_id is not None:
-        practice = db.query(Practice).options(joinedload(Practice.case)).filter(Practice.id == req.practice_id).first()
-        if not practice:
-            raise HTTPException(status_code=404, detail="练习不存在")
-        assignment.practice_id = req.practice_id
-    if req.class_id is not None:
-        assignment.class_id = req.class_id
-    if req.title is not None:
-        assignment.title = req.title
-    if req.description is not None:
-        assignment.description = req.description
-    if req.start_time is not None:
-        assignment.start_time = req.start_time
-    if req.end_time is not None:
-        assignment.end_time = req.end_time
-
-    if assignment.end_time <= assignment.start_time:
-        raise HTTPException(status_code=400, detail="截止时间必须晚于开始时间")
-
-    assignment.updated_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(assignment)
-    return _build_detail(db, assignment)
+def update_assignment(assignment_id: str, req: AssignmentUpdateRequest, current_user: _Teacher, db: DbSession):
+    return _detail_resp(
+        AssignmentService(db).update(
+            assignment_id=assignment_id,
+            teacher_id=current_user.id,
+            practice_id=req.practice_id,
+            class_id=req.class_id,
+            title=req.title,
+            description=req.description,
+            start_time=req.start_time,
+            end_time=req.end_time,
+        )
+    )
 
 
 @router.delete("/{assignment_id}", response_model=DeleteResponse)
-def delete_assignment(
-    assignment_id: str,
-    current_user: Annotated[User, Depends(require_permission("score_review"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    assignment = db.query(Assignment).filter(Assignment.id == assignment_id).with_for_update().first()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="练习发布不存在")
-    if assignment.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权删除")
+def delete_assignment(assignment_id: str, current_user: _Teacher, db: DbSession):
+    return AssignmentService(db).delete(assignment_id, current_user.id)
 
-    started = db.query(TrainingRecord).filter(TrainingRecord.assignment_id == assignment_id).with_for_update().first()
-    if started:
-        raise HTTPException(status_code=400, detail="已有学生开始练习，无法删除")
 
-    db.delete(assignment)
-    db.commit()
-    return {"message": "练习发布已删除"}
+# ── Export (non-CRUD, kept inline) ──
 
 
 @router.get("/{assignment_id}/export")
@@ -285,9 +158,9 @@ def export_assignment(
         .first()
     )
     if not assignment:
-        raise HTTPException(status_code=404, detail="练习发布不存在")
+        raise NotFoundError("练习发布不存在")
     if assignment.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权导出")
+        raise AuthError("无权导出", status_code=403)
 
     records = (
         db.query(TrainingRecord)
@@ -334,7 +207,7 @@ def export_assignment(
     return buffered_response(records, columns, f"assignment_{safe_title}_{assignment.id[:8]}.csv")
 
 
-# ── Student endpoints ──
+# ── Student endpoints (non-CRUD, different audience, kept inline) ──
 
 student_router = APIRouter(prefix="/api/students/assignments", tags=["学生练习"])
 
