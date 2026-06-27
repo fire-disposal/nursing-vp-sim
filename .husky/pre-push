@@ -150,14 +150,17 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
       # 4. Testing checklist must exist (auto-generate for non-feat/fix versions)
       checklist="docs/testing/checklist-${tag}.md"
-      if [ ! -f "$ROOT/$checklist" ]; then
-        prev_tag=$(git tag --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | grep -B1 "^${tag}$" | head -1 || echo "")
-        has_feat_or_fix=false
-        if [ -n "$prev_tag" ] && [ "$prev_tag" != "$tag" ]; then
-          if git log "${prev_tag}..HEAD" --oneline --no-merges 2>/dev/null | grep -qE '^[a-f0-9]+ (✨ feat|🐛 fix)'; then
-            has_feat_or_fix=true
-          fi
+
+      # Determine if there are user-facing changes (shared by both branches)
+      prev_tag=$(git tag --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | grep -B1 "^${tag}$" | head -1 || echo "")
+      has_feat_or_fix=false
+      if [ -n "$prev_tag" ] && [ "$prev_tag" != "$tag" ]; then
+        if git log "${prev_tag}..HEAD" --oneline --no-merges 2>/dev/null | grep -qE '^[a-f0-9]+ (✨ feat|🐛 fix)'; then
+          has_feat_or_fix=true
         fi
+      fi
+
+      if [ ! -f "$ROOT/$checklist" ]; then
         if $has_feat_or_fix; then
           echo ""
           echo "PUSH BLOCKED: missing $checklist (user-facing changes detected)"
@@ -172,12 +175,21 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             :
           else
             git commit --amend --no-edit 2>/dev/null || true
+            # Push the amended commit so local HEAD stays in sync with remote
+            git push origin HEAD:master 2>/dev/null || true
           fi
           ok "testing checklist auto-generated (no user-facing changes)"
         fi
       else
         content=$(cat "$ROOT/$checklist" 2>/dev/null | tr -d '[:space:]')
         if [ "$content" = "无需测试" ]; then
+          if $has_feat_or_fix; then
+            echo ""
+            echo "PUSH BLOCKED: $checklist says '无需测试' but user-facing changes detected"
+            echo "→ ask opencode: 'generate the testing checklist for ${tag}'"
+            echo ""
+            fail "checklist '无需测试' invalid — feat/fix commits require a real checklist"
+          fi
           ok "testing checklist for $tag (no user-facing changes)"
         elif [ ${#content} -lt 30 ]; then
           echo ""
