@@ -35,11 +35,13 @@ from core.exceptions import (
     LLMError,
     NotFoundError,
     ScoringError,
+    ValidationError,
     auth_error_handler,
     conflict_handler,
     llm_error_handler,
     not_found_handler,
     scoring_error_handler,
+    validation_error_handler,
 )
 from core.logging_setup import setup_logging
 from core.seed import seed_all
@@ -387,6 +389,7 @@ app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=li
 app.add_exception_handler(AuthError, auth_error_handler)  # ty: ignore[invalid-argument-type]
 app.add_exception_handler(NotFoundError, not_found_handler)  # ty: ignore[invalid-argument-type]
 app.add_exception_handler(ConflictError, conflict_handler)  # ty: ignore[invalid-argument-type]
+app.add_exception_handler(ValidationError, validation_error_handler)  # ty: ignore[invalid-argument-type]
 app.add_exception_handler(LLMError, llm_error_handler)  # ty: ignore[invalid-argument-type]
 app.add_exception_handler(ScoringError, scoring_error_handler)  # ty: ignore[invalid-argument-type]
 

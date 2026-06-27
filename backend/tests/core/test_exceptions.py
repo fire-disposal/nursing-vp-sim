@@ -59,3 +59,10 @@ class TestExceptionHierarchy:
 
     def test_conflict_has_default_detail(self):
         assert ConflictError().detail == "资源冲突"
+
+    def test_validation_error_is_400(self):
+        from core.exceptions import ValidationError
+
+        err = ValidationError("名称重复")
+        assert err.status_code == 400
+        assert err.detail == "名称重复"

@@ -36,6 +36,13 @@ class ConflictError(HTTPException):
         super().__init__(status_code=409, detail=detail)
 
 
+class ValidationError(HTTPException):
+    """Business-rule validation failure (400)."""
+
+    def __init__(self, detail: str = "请求无效"):
+        super().__init__(status_code=400, detail=detail)
+
+
 # ── LLM ──
 
 
@@ -91,6 +98,10 @@ async def not_found_handler(request: Request, exc: NotFoundError):
 
 
 async def conflict_handler(request: Request, exc: ConflictError):
+    return await _log_and_respond(request, exc.status_code, exc.detail)
+
+
+async def validation_error_handler(request: Request, exc: ValidationError):
     return await _log_and_respond(request, exc.status_code, exc.detail)
 
 
