@@ -175,8 +175,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             :
           else
             git commit --amend --no-edit 2>/dev/null || true
-            # Push the amended commit so local HEAD stays in sync with remote
-            git push origin HEAD:master 2>/dev/null || true
           fi
           ok "testing checklist auto-generated (no user-facing changes)"
         fi
