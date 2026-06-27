@@ -5888,176 +5888,6 @@
         }
       }
     },
-    "/api/admin/schools": {
-      "get": {
-        "tags": [
-          "学校管理"
-        ],
-        "summary": "List Schools",
-        "operationId": "list_schools_api_admin_schools_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "搜索学校名称",
-              "title": "Search"
-            },
-            "description": "搜索学校名称"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_SchoolResponse_"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "学校管理"
-        ],
-        "summary": "Create School",
-        "operationId": "create_school_api_admin_schools_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SchoolCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SchoolResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/schools/{school_id}": {
-      "delete": {
-        "tags": [
-          "学校管理"
-        ],
-        "summary": "Delete School",
-        "operationId": "delete_school_api_admin_schools__school_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "school_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "School Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/voice/config": {
       "get": {
         "tags": [
@@ -12081,37 +11911,6 @@
         ],
         "title": "PaginatedResponse[RankingItem]"
       },
-      "PaginatedResponse_SchoolResponse_": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/SchoolResponse"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "offset",
-          "limit"
-        ],
-        "title": "PaginatedResponse[SchoolResponse]"
-      },
       "PaginatedResponse_TeacherSummaryItem_": {
         "properties": {
           "items": {
@@ -14349,76 +14148,6 @@
         ],
         "title": "SampleVarsResponse"
       },
-      "SchoolCreate": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Name"
-          },
-          "admin_username": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Admin Username"
-          },
-          "admin_password": {
-            "type": "string",
-            "minLength": 6,
-            "title": "Admin Password"
-          },
-          "admin_display_name": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Admin Display Name"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "admin_username",
-          "admin_password",
-          "admin_display_name"
-        ],
-        "title": "SchoolCreate"
-      },
-      "SchoolResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "teacher_count": {
-            "type": "integer",
-            "title": "Teacher Count",
-            "default": 0
-          },
-          "student_count": {
-            "type": "integer",
-            "title": "Student Count",
-            "default": 0
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "created_at"
-        ],
-        "title": "SchoolResponse"
-      },
       "ScoreItem": {
         "properties": {
           "id": {
@@ -15320,28 +15049,6 @@
           "user_id": {
             "type": "integer",
             "title": "User Id"
-          },
-          "school_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Id"
-          },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
           },
           "permissions": {
             "items": {
@@ -16653,28 +16360,6 @@
               }
             ],
             "title": "User Id"
-          },
-          "school_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Id"
-          },
-          "school_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "School Name"
           },
           "permissions": {
             "items": {

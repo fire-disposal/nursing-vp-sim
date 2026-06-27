@@ -606,13 +606,6 @@ export interface PaginatedResponse_RankingItem_ {
   limit: number
 }
 
-export interface PaginatedResponse_SchoolResponse_ {
-  items: SchoolResponse[]
-  total: number
-  offset: number
-  limit: number
-}
-
 export interface PaginatedResponse_TeacherSummaryItem_ {
   items: TeacherSummaryItem[]
   total: number
@@ -997,21 +990,6 @@ export interface SampleVarsResponse {
   vars: Record<string, unknown>
 }
 
-export interface SchoolCreate {
-  name: string
-  admin_username: string
-  admin_password: string
-  admin_display_name: string
-}
-
-export interface SchoolResponse {
-  id: number
-  name: string
-  teacher_count?: number
-  student_count?: number
-  created_at: string
-}
-
 export interface ScoreItem {
   id: number
   total_score: number
@@ -1160,8 +1138,6 @@ export interface TokenResponse {
   role: string
   display_name: string
   user_id: number
-  school_id?: number | null
-  school_name?: string | null
   permissions?: string[]
   gender?: string | null
   avatar?: string | null
@@ -1381,8 +1357,6 @@ export interface WechatLoginResponse {
   role?: string | null
   display_name?: string | null
   user_id?: number | null
-  school_id?: number | null
-  school_name?: string | null
   permissions?: string[]
   need_bind?: boolean
 }

@@ -1456,41 +1456,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/schools": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Schools */
-        get: operations["list_schools_api_admin_schools_get"];
-        put?: never;
-        /** Create School */
-        post: operations["create_school_api_admin_schools_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/schools/{school_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete School */
-        delete: operations["delete_school_api_admin_schools__school_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/voice/config": {
         parameters: {
             query?: never;
@@ -3713,17 +3678,6 @@ export interface components {
             /** Limit */
             limit: number;
         };
-        /** PaginatedResponse[SchoolResponse] */
-        PaginatedResponse_SchoolResponse_: {
-            /** Items */
-            items: components["schemas"]["SchoolResponse"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-        };
         /** PaginatedResponse[TeacherSummaryItem] */
         PaginatedResponse_TeacherSummaryItem_: {
             /** Items */
@@ -4624,39 +4578,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** SchoolCreate */
-        SchoolCreate: {
-            /** Name */
-            name: string;
-            /** Admin Username */
-            admin_username: string;
-            /** Admin Password */
-            admin_password: string;
-            /** Admin Display Name */
-            admin_display_name: string;
-        };
-        /** SchoolResponse */
-        SchoolResponse: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /**
-             * Teacher Count
-             * @default 0
-             */
-            teacher_count: number;
-            /**
-             * Student Count
-             * @default 0
-             */
-            student_count: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
         /** ScoreItem */
         ScoreItem: {
             /** Id */
@@ -4965,10 +4886,6 @@ export interface components {
             display_name: string;
             /** User Id */
             user_id: number;
-            /** School Id */
-            school_id?: number | null;
-            /** School Name */
-            school_name?: string | null;
             /**
              * Permissions
              * @default []
@@ -5463,10 +5380,6 @@ export interface components {
             display_name?: string | null;
             /** User Id */
             user_id?: number | null;
-            /** School Id */
-            school_id?: number | null;
-            /** School Name */
-            school_name?: string | null;
             /**
              * Permissions
              * @default []
@@ -8957,104 +8870,6 @@ export interface operations {
             header?: never;
             path: {
                 role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_schools_api_admin_schools_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                /** @description 搜索学校名称 */
-                search?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse_SchoolResponse_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_school_api_admin_schools_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SchoolCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_school_api_admin_schools__school_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                school_id: number;
             };
             cookie?: never;
         };
