@@ -62,7 +62,6 @@ frontend/src/
 │       ├── feedback.ts
 │       ├── api-management.ts
 │       ├── ops.ts
-│       ├── schools.ts
 │       └── voice-cost.ts
 ├── assets/avatars/            # 患者/护士头像 PNG
 ├── components/
@@ -178,7 +177,6 @@ frontend/src/
 │       ├── PluginDashboard.tsx
 │       ├── PracticesPage.tsx
 │       ├── RolesPage.tsx
-│       ├── SchoolsPage.tsx
 │       ├── SystemOpsPage.tsx
 │       ├── SystemNotificationsPage.tsx
 │       └── CostManagementPage.tsx
@@ -223,7 +221,6 @@ frontend/src/
 | `/admin/users/:userId` | UserDetailPage | user_manage | Layout | 用户详情 |
 | `/admin/grades-classes` | GradesClassesPage | grade_class_manage | Layout | 年级班级管理 |
 | `/admin/feedback` | FeedbackPage | feedback_review | Layout | 反馈管理 |
-| `/admin/schools` | SchoolsPage | school_manage | Layout | 学校管理 |
 | `/admin/roles` | RolesPage | role_manage | Layout | 角色管理 |
 | `/admin/questionnaires` | AdminQuestionnaires | questionnaire_manage | Layout | 问卷管理 |
 | `/admin/assignments` | AssignmentsPage | score_review | Layout | 作业管理 |

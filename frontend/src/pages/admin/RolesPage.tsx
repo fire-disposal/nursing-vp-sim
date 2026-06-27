@@ -47,7 +47,6 @@ const ALL_PERMISSIONS = [
 	{ key: "feedback_review", label: "反馈管理" },
 	{ key: "export_data", label: "数据导出" },
 	{ key: "record_notes", label: "训练批注" },
-	{ key: "school_manage", label: "学校管理" },
 ];
 
 export default function RolesPage() {

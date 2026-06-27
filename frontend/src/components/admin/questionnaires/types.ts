@@ -6,7 +6,6 @@ export interface TemplateListItem {
 	is_active: boolean;
 	question_count: number;
 	response_count: number;
-	school_id?: number | null;
 	created_at: string;
 	updated_at: string;
 }

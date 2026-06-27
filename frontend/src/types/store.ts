@@ -16,7 +16,6 @@ export interface RoleItem {
 	name: string;
 	display_name: string;
 	is_system: boolean;
-	school_id: number | null;
 	permissions: string[];
 	user_count: number;
 }

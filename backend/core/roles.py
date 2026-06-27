@@ -14,7 +14,6 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "feedback_review",
         "export_data",
         "record_notes",
-        "school_manage",
         "questionnaire_manage",
     ],
     "school_admin": [
