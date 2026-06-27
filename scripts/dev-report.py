@@ -140,16 +140,14 @@ def build_report_data(commits: list[dict], weeks: int = 0) -> dict:
     if not commits:
         return {}
 
-    first = commits[0]["date"]
-    last = commits[-1]["date"]
-
     if weeks > 0:
         cutoff = datetime.now() - timedelta(weeks=weeks)
         commits = [c for c in commits if c["date"] >= cutoff]
-        if commits:
-            first = commits[0]["date"]
-            last = commits[-1]["date"]
+        if not commits:
+            return {}
 
+    first = commits[0]["date"]
+    last = commits[-1]["date"]
     total = len(commits)
     total_days = max((last - first).days, 1)
 
@@ -168,13 +166,47 @@ def build_report_data(commits: list[dict], weeks: int = 0) -> dict:
     if "other" in type_counts:
         types_in_use.append("other")
 
-    # Weekly breakdown
+    # Cumulative commits over time
+    cumulative = []
+    running = 0
+    for d in day_labels:
+        running += sum(daily[d].values())
+        cumulative.append(running)
+
+    # Weekly trend
     weekly = defaultdict(int)
     for c in commits:
         week = c["date"].strftime("%Y-W%U")
         weekly[week] += 1
+    week_labels = sorted(weekly.keys())
+    week_values = [weekly[w] for w in week_labels]
     top_weeks = sorted(weekly.items(), key=lambda x: x[1], reverse=True)[:5]
     avg_weekly = round(total / max(len(weekly), 1), 1)
+
+    # Hourly distribution
+    hourly = [0] * 24
+    for c in commits:
+        hourly[c["date"].hour] += 1
+
+    # Author × type matrix
+    author_types: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for c in commits:
+        if c["author"] in [a[0] for a in top_authors]:
+            author_types[c["author"]][c["type"]] += 1
+
+    at_labels = [a for a, _ in top_authors]
+    at_datasets = []
+    for t in types_in_use:
+        at_datasets.append({
+            "label": _TYPE_LABEL.get(t, t),
+            "data": [author_types[a].get(t, 0) for a in at_labels],
+            "backgroundColor": _TYPE_COLOR.get(t, "#6b7280"),
+        })
+
+    # Day-of-week distribution (0=Mon..6=Sun)
+    dow = [0] * 7
+    for c in commits:
+        dow[c["date"].weekday()] += 1
 
     return {
         "first_date": first.strftime("%Y-%m-%d"),
@@ -190,8 +222,15 @@ def build_report_data(commits: list[dict], weeks: int = 0) -> dict:
         "types": types_in_use,
         "days": day_labels,
         "daily_data": {d: {t: daily[d].get(t, 0) for t in types_in_use} for d in day_labels},
+        "cumulative": cumulative,
+        "week_labels": week_labels,
+        "week_values": week_values,
+        "hourly": hourly,
+        "dow": dow,
         "top_authors": [{"name": a, "count": c, "pct": round(c / total * 100, 1)} for a, c in top_authors],
         "top_weeks": [{"week": w, "count": c} for w, c in top_weeks],
+        "at_labels": at_labels,
+        "at_datasets": json.dumps(at_datasets),
         "commit_list": commits[-80:],
         "total_authors": len(author_counts),
     }
@@ -219,16 +258,16 @@ def render_html(data: dict) -> str:
     if not data:
         return "<html><body>No commits found.</body></html>"
 
-    chart_datasets = []
+    daily_datasets = []
     for t in data["types"]:
         values = [data["daily_data"][d].get(t, 0) for d in data["days"]]
-        chart_datasets.append({
+        daily_datasets.append({
             "label": _TYPE_LABEL.get(t, t),
             "data": values,
             "backgroundColor": _TYPE_COLOR.get(t, "#6b7280"),
         })
 
-    doughnut_data = [
+    doughnut_items = [
         {"label": _TYPE_LABEL.get(t, t), "value": data["type_counts"][t], "color": _TYPE_COLOR.get(t, "#6b7280")}
         for t in data["types"]
     ]
@@ -249,6 +288,8 @@ def render_html(data: dict) -> str:
 
     commit_rows = "".join(_commit_row(c) for c in reversed(data["commit_list"]))
 
+    dow_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -259,33 +300,32 @@ def render_html(data: dict) -> str:
 <style>
 *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
 :root{{--bg:#0f1117;--card:#161b22;--border:#30363d;--text:#e1e4e8;--dim:#8b949e;--muted:#484f58}}
-@media(prefers-color-scheme:light){{
-  :root{{--bg:#ffffff;--card:#f6f8fa;--border:#d0d7de;--text:#1f2328;--dim:#656d76;--muted:#afb8c1}}
-}}
-body{{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:32px 20px 60px;max-width:1024px;margin:0 auto;font-size:14px}}
-h1{{font-size:1.4rem;font-weight:600;margin-bottom:2px}}
-.subtitle{{color:var(--dim);font-size:.85rem;margin-bottom:32px}}
-.stats{{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px}}
-.card{{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 20px;flex:1;min-width:130px}}
-.card .label{{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}}
-.card .value{{font-size:1.4rem;font-weight:700;margin-top:4px}}
-.grid{{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:28px}}
-@media(max-width:750px){{.grid{{grid-template-columns:1fr}}}}
-.box{{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px}}
-.box h2{{font-size:.8rem;color:var(--dim);margin-bottom:16px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}}
+@media(prefers-color-scheme:light){{:root{{--bg:#fff;--card:#f6f8fa;--border:#d0d7de;--text:#1f2328;--dim:#656d76;--muted:#afb8c1}}}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:28px 18px 60px;max-width:1100px;margin:0 auto;font-size:14px}}
+h1{{font-size:1.35rem;font-weight:600;margin-bottom:2px}}
+.subtitle{{color:var(--dim);font-size:.82rem;margin-bottom:28px}}
+.stats{{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}}
+.card{{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;flex:1;min-width:120px}}
+.card .label{{font-size:.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}}
+.card .value{{font-size:1.3rem;font-weight:700;margin-top:3px}}
+.grid2{{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px}}
+.grid3{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px}}
+@media(max-width:800px){{.grid2,.grid3{{grid-template-columns:1fr}}}}
+.box{{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px}}
+.box h2{{font-size:.75rem;color:var(--dim);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}}
 canvas{{width:100%!important}}
-.author-bar{{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);position:relative}}
+.author-bar{{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);position:relative}}
 .author-bar:last-child{{border-bottom:none}}
-.author-name{{font-weight:500;font-size:.8rem;flex:0 0 100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-.author-count{{font-size:.75rem;color:var(--dim);flex:0 0 60px;text-align:right}}
-.author-fill{{height:4px;border-radius:2px;position:absolute;bottom:0;left:0;opacity:.3;transition:width .3s}}
-table{{width:100%;border-collapse:collapse;font-size:.8rem}}
-th{{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);font-size:.7rem;color:var(--dim);text-transform:uppercase;font-weight:500}}
-td{{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}}
+.author-name{{font-weight:500;font-size:.78rem;flex:0 0 100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.author-count{{font-size:.7rem;color:var(--dim);flex:0 0 55px;text-align:right}}
+.author-fill{{height:3px;border-radius:2px;position:absolute;bottom:0;left:0;opacity:.25}}
+table{{width:100%;border-collapse:collapse;font-size:.78rem}}
+th{{text-align:left;padding:7px 10px;border-bottom:2px solid var(--border);font-size:.68rem;color:var(--dim);text-transform:uppercase;font-weight:500}}
+td{{padding:5px 10px;border-bottom:1px solid var(--border)}}
 td.r{{text-align:right}}
-tr:hover td{{background:var(--border);opacity:.5}}
-.commit-table{{max-height:500px;overflow-y:auto}}
-.footer{{text-align:center;color:var(--muted);font-size:.7rem;margin-top:36px}}
+tr:hover td{{background:var(--border);opacity:.4}}
+.commit-table{{max-height:480px;overflow-y:auto}}
+.footer{{text-align:center;color:var(--muted);font-size:.68rem;margin-top:32px}}
 </style>
 </head>
 <body>
@@ -293,75 +333,64 @@ tr:hover td{{background:var(--border);opacity:.5}}
 <p class="subtitle">{data["first_date"]} → {data["last_date"]} &middot; {data["total"]} commits &middot; {data["total_days"]} days &middot; {data["total_authors"]} authors</p>
 
 <div class="stats">
-  {_card("Total Commits", str(data["total"]))}
-  {_card("Avg / Day", str(data["avg_daily"]))}
-  {_card("Avg / Week", str(data["avg_weekly"]))}
+  {_card("Commits", str(data["total"]))}
+  {_card("Avg/Day", str(data["avg_daily"]))}
+  {_card("Avg/Week", str(data["avg_weekly"]))}
   {_card("Active Days", str(data["active_days"]))}
   {_card("Top Type", _TYPE_LABEL.get(data["top_type"], data["top_type"]), _TYPE_COLOR.get(data["top_type"], ""))}
   {_card("Authors", str(data["total_authors"]))}
 </div>
 
-<div class="grid">
-  <div class="box">
-    <h2>Daily Commit Trend</h2>
-    <canvas id="trendChart"></canvas>
-  </div>
-  <div class="box">
-    <h2>Type Distribution</h2>
-    <canvas id="doughnutChart"></canvas>
-  </div>
+<div class="grid2">
+  <div class="box"><h2>Daily Commits (Stacked by Type)</h2><canvas id="dailyBar"></canvas></div>
+  <div class="box"><h2>Commit Types</h2><canvas id="doughnut"></canvas></div>
 </div>
 
-<div class="grid">
-  <div class="box">
-    <h2>Top Contributors</h2>
-    {authors_html}
-  </div>
-  <div class="box">
-    <h2>Busiest Weeks</h2>
-    <table>
-      <tr><th>Week</th><th class="r">Commits</th></tr>
-      {week_rows}
-    </table>
-  </div>
+<div class="grid2">
+  <div class="box"><h2>Cumulative Growth</h2><canvas id="cumulative"></canvas></div>
+  <div class="box"><h2>Weekly Trend</h2><canvas id="weeklyLine"></canvas></div>
 </div>
 
-<div class="box" style="margin-bottom:28px">
+<div class="grid3">
+  <div class="box"><h2>Hourly Activity</h2><canvas id="hourlyBar"></canvas></div>
+  <div class="box"><h2>Day of Week</h2><canvas id="dowBar"></canvas></div>
+  <div class="box"><h2>Author × Type</h2><canvas id="authorType"></canvas></div>
+</div>
+
+<div class="grid2">
+  <div class="box"><h2>Top Contributors</h2>{authors_html}</div>
+  <div class="box"><h2>Busiest Weeks</h2><table><tr><th>Week</th><th class="r">Commits</th></tr>{week_rows}</table></div>
+</div>
+
+<div class="box" style="margin-bottom:24px">
   <h2>Recent Commits</h2>
-  <div class="commit-table">
-    <table>
-      <tr><th>SHA</th><th>Type</th><th>Message</th><th style="text-align:right">Author</th><th>Date</th></tr>
-      {commit_rows}
-    </table>
-  </div>
+  <div class="commit-table"><table><tr><th>SHA</th><th>Type</th><th>Message</th><th style="text-align:right">Author</th><th>Date</th></tr>{commit_rows}</table></div>
 </div>
 
 <p class="footer">Generated {datetime.now().strftime("%Y-%m-%d %H:%M")} &middot; <code>python scripts/dev-report.py</code></p>
 
 <script>
-const weeks = {json.dumps(data["days"])};
-const datasets = {json.dumps(chart_datasets)};
-const doughnutData = {json.dumps(doughnut_data)};
+const cs=getComputedStyle(document.body),C=cs.getPropertyValue("--dim"),G=cs.getPropertyValue("--border"),K=cs.getPropertyValue("--card");
+const days={json.dumps(data["days"])},daySets={json.dumps(daily_datasets)};
+const dough={json.dumps(doughnut_items)};
+const cumu={json.dumps(data["cumulative"])},wL={json.dumps(data["week_labels"])},wV={json.dumps(data["week_values"])};
+const hr={json.dumps(data["hourly"])},dow={json.dumps(data["dow"])},atL={json.dumps(data["at_labels"])};
+const atD={data["at_datasets"]};
+const dowL={json.dumps(dow_labels)};
 
-new Chart(document.getElementById("trendChart"), {{
-  type: "bar",
-  data: {{ labels: weeks, datasets }},
-  options: {{
-    responsive: true,
-    plugins: {{ legend: {{ labels: {{ color: getComputedStyle(document.body).getPropertyValue("--dim"), boxWidth: 12, padding: 12, font: {{ size: 11 }} }} }} }},
-    scales: {{
-      x: {{ stacked: true, ticks: {{ color: getComputedStyle(document.body).getPropertyValue("--dim"), font: {{ size: 9 }}, maxTicksLimit: 30, maxRotation: 45 }}, grid: {{ color: getComputedStyle(document.body).getPropertyValue("--border") }} }},
-      y: {{ stacked: true, ticks: {{ color: getComputedStyle(document.body).getPropertyValue("--dim"), font: {{ size: 10 }} }}, grid: {{ color: getComputedStyle(document.body).getPropertyValue("--border") }} }}
-    }},
-    interaction: {{ mode: "index" }}
-  }}
-}});
+new Chart(document.getElementById("dailyBar"),{{type:"bar",data:{{labels:days,datasets:daySets}},options:{{responsive:!0,plugins:{{legend:{{labels:{{color:C,boxWidth:10,padding:10,font:{{size:10}}}}}}}},scales:{{x:{{stacked:!0,ticks:{{color:C,font:{{size:8}},maxTicksLimit:24,maxRotation:45}},grid:{{color:G}}}},y:{{stacked:!0,ticks:{{color:C,font:{{size:9}}}},grid:{{color:G}}}}}},interaction:{{mode:"index"}}}}}});
 
-new Chart(document.getElementById("doughnutChart"), {{
-  type: "doughnut",
-  data: {{ labels: doughnutData.map(d => d.label), datasets: [{{ data: doughnutData.map(d => d.value), backgroundColor: doughnutData.map(d => d.color), borderColor: getComputedStyle(document.body).getPropertyValue("--card"), borderWidth: 2 }}] }},
-  options: {{ responsive: true, plugins: {{ legend: {{ position: "bottom", labels: {{ color: getComputedStyle(document.body).getPropertyValue("--dim"), boxWidth: 10, padding: 10, font: {{ size: 10 }} }} }} }} }}
-}});
+new Chart(document.getElementById("doughnut"),{{type:"doughnut",data:{{labels:dough.map(d=>d.label),datasets:[{{data:dough.map(d=>d.value),backgroundColor:dough.map(d=>d.color),borderColor:K,borderWidth:2}}]}},options:{{responsive:!0,plugins:{{legend:{{position:"bottom",labels:{{color:C,boxWidth:8,padding:8,font:{{size:9}}}}}}}}}}}});
+
+new Chart(document.getElementById("cumulative"),{{type:"line",data:{{labels:days,datasets:[{{label:"Commits",data:cumu,borderColor:"#4ade80",backgroundColor:"rgba(74,222,128,.1)",fill:!0,tension:.3,pointRadius:0,borderWidth:2}}]}},options:{{responsive:!0,plugins:{{legend:{{display:!1}}}},scales:{{x:{{ticks:{{color:C,font:{{size:8}},maxTicksLimit:20,maxRotation:45}},grid:{{color:G}}}},y:{{ticks:{{color:C,font:{{size:9}}}},grid:{{color:G}}}}}}}}}});
+
+new Chart(document.getElementById("weeklyLine"),{{type:"line",data:{{labels:wL,datasets:[{{label:"Commits/week",data:wV,borderColor:"#60a5fa",backgroundColor:"rgba(96,165,250,.1)",fill:!0,tension:.3,pointRadius:2,pointBackgroundColor:"#60a5fa",borderWidth:2}}]}},options:{{responsive:!0,plugins:{{legend:{{display:!1}}}},scales:{{x:{{ticks:{{color:C,font:{{size:8}},maxTicksLimit:12,maxRotation:45}},grid:{{color:G}}}},y:{{ticks:{{color:C,font:{{size:9}}}},grid:{{color:G}}}}}}}}}});
+
+new Chart(document.getElementById("hourlyBar"),{{type:"bar",data:{{labels:["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"],datasets:[{{data:hr,backgroundColor:"#a78bfa",borderRadius:2}}]}},options:{{responsive:!0,plugins:{{legend:{{display:!1}}}},scales:{{x:{{ticks:{{color:C,font:{{size:7}}}},grid:{{display:!1}}}},y:{{ticks:{{color:C,font:{{size:8}}}},grid:{{color:G}}}}}}}}}});
+
+new Chart(document.getElementById("dowBar"),{{type:"bar",data:{{labels:dowL,datasets:[{{data:dow,backgroundColor:["#f87171","#fb923c","#facc15","#4ade80","#2dd4bf","#60a5fa","#c084fc"],borderRadius:2}}]}},options:{{responsive:!0,plugins:{{legend:{{display:!1}}}},scales:{{x:{{ticks:{{color:C,font:{{size:8}}}},grid:{{display:!1}}}},y:{{ticks:{{color:C,font:{{size:8}}}},grid:{{color:G}}}}}}}}}});
+
+new Chart(document.getElementById("authorType"),{{type:"bar",data:{{labels:atL,datasets:atD}},options:{{indexAxis:"y",responsive:!0,plugins:{{legend:{{labels:{{color:C,boxWidth:8,padding:6,font:{{size:8}}}}}}}},scales:{{x:{{stacked:!0,ticks:{{color:C,font:{{size:8}}}},grid:{{color:G}}}},y:{{stacked:!0,ticks:{{color:C,font:{{size:9}}}},grid:{{display:!1}}}}}}}}}});
 </script>
 </body>
 </html>"""
