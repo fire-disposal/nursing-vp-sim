@@ -32,9 +32,13 @@ jobs:
       - name: Format merge commit message
         run: |
           HEAD_MSG=$(git log -1 --format="%s" HEAD)
-          if echo "$HEAD_MSG" | grep -qE "^(Merge pull request|Merge branch)"; then
-            echo "Formatting merge commit..."
-            git commit --amend -m "🔀 merge: $HEAD_MSG" --no-verify
+          if echo "$HEAD_MSG" | grep -q "^Merge pull request"; then
+            # "Merge pull request #32 from fire-disposal/fix/bug-fixes" → "#32 — fix/bug-fixes-and-diagnose"
+            PR_ID=$(echo "$HEAD_MSG" | sed -n 's/^Merge pull request #\([0-9]*\) .*/\1/p')
+            BRANCH=$(echo "$HEAD_MSG" | sed -n 's/^Merge pull request #[0-9]* from [^/]*\/\(.*\)/\1/p')
+            NEW_MSG="🔀 merge: #${PR_ID} — ${BRANCH}"
+            echo "Formatting: $HEAD_MSG → $NEW_MSG"
+            git commit --amend -m "$NEW_MSG" --no-verify
             git push --force-with-lease origin master
             echo "✓ Merge commit formatted"
           else
