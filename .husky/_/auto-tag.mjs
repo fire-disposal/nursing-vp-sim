@@ -21,23 +21,25 @@ const tag = `${prefix}-${next}`;
 
 const isCI = !!process.env.CI || !!process.env.GITHUB_ACTIONS;
 
-const checklistDir = path.resolve(process.cwd(), "docs/testing");
-const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
+const doPush = process.argv.includes("--push");
 
-if (!fs.existsSync(checklistDir)) {
-  fs.mkdirSync(checklistDir, { recursive: true });
-}
-
-if (!fs.existsSync(checklistFile)) {
-  fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
-  if (isCI) {
+// In CI, auto-create a placeholder checklist before tagging so the commit
+// passes the pre-push hook's checklist gate.  In local mode, the pre-push
+// hook itself validates and auto-generates the checklist — creating it here
+// would leave an untracked file polluting the working tree.
+if (isCI) {
+  const checklistDir = path.resolve(process.cwd(), "docs/testing");
+  const checklistFile = path.join(checklistDir, `checklist-${tag}.md`);
+  if (!fs.existsSync(checklistDir)) {
+    fs.mkdirSync(checklistDir, { recursive: true });
+  }
+  if (!fs.existsSync(checklistFile)) {
+    fs.writeFileSync(checklistFile, "无需测试\n", "utf-8");
     execSync(`git add "${checklistFile}"`, { stdio: "ignore" });
     execSync(`git commit -m "📝 docs: add testing checklist placeholder for ${tag}"`, { stdio: "inherit" });
   }
   console.log(`Created: ${checklistFile}`);
 }
-
-const doPush = process.argv.includes("--push");
 
 // Queued auto-tag runs check out a stale master (the SHA from their own trigger
 // event). Sync onto the latest remote master BEFORE tagging so the placeholder
