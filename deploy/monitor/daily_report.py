@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Daily report — calls /api/ops/report and sends HTML email.
+"""Daily report — calls /api/diagnose and sends HTML email.
 
 Cron: 0 9 * * * cd /opt/monitor && /usr/bin/python3 daily_report.py
 """
@@ -198,7 +198,7 @@ def build_report() -> str:
     else:
         errlog = _card("异常摘要", "h-ok") + '<div class="status-ok">当前运行正常，无异常</div></div>'
 
-    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__VOICE__", voice_section).replace("__SCORING__", scoring).replace("", sessions).replace("__ERRLOG__", errlog)
+    return WRAPPER.replace("__HEADER__", header).replace("__OVERVIEW__", overview).replace("__LLM__", llm_section).replace("__VOICE__", voice_section).replace("__SCORING__", scoring).replace("__ERRLOG__", errlog)
 
 
 CSS = """\
