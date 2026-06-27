@@ -129,6 +129,7 @@ jobs:
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
           scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
           scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
+          scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
 
           echo ">> Deploy monitor scripts"
           ssh "$USER@$HOST" "mkdir -p /opt/monitor"

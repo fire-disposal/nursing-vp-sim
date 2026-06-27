@@ -156,6 +156,7 @@ jobs:
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
           scp deploy/docker-compose.staging.yml "$USER@$HOST":/opt/nursing-vp-sim/docker-compose.staging.yml
+          scp deploy/db-backup.sh "$USER@$HOST":/opt/nursing-vp-sim/deploy/db-backup.sh
 
           echo ">> Deploy monitor scripts"
           ssh "$USER@$HOST" "mkdir -p /opt/monitor"
