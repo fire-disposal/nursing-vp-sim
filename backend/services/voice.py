@@ -191,3 +191,26 @@ class VoiceConfigService:
                 last_error=str(e)[:500],
                 last_error_at=datetime.now(UTC).isoformat(),
             )
+
+    def export_config(self) -> dict:
+        from datetime import UTC, datetime
+
+        vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+        if not vc:
+            from core.exceptions import NotFoundError
+
+            raise NotFoundError("未找到激活的语音配置")
+        return {
+            "provider": vc.provider,
+            "tts_resource_id": vc.tts_resource_id,
+            "tts_speaker": vc.tts_speaker,
+            "tts_model": vc.tts_model,
+            "tts_sample_rate": vc.tts_sample_rate,
+            "tts_format": vc.tts_format,
+            "tts_timeout": vc.tts_timeout,
+            "asr_resource_id": vc.asr_resource_id,
+            "asr_sample_rate": vc.asr_sample_rate,
+            "asr_endpoint_mode": vc.asr_endpoint_mode,
+            "monthly_budget": vc.monthly_budget,
+            "exported_at": datetime.now(UTC).isoformat(),
+        }

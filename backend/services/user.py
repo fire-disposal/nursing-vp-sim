@@ -3,10 +3,11 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from core.config import BATCH_USER_LIMIT
 from core.exceptions import NotFoundError, ValidationError
 from core.security import hash_password
 from core.unit_of_work import unit_of_work
-from models import User, UserClass
+from models import Class, Role, Score, TrainingRecord, User, UserClass
 from repositories.user import UserRepository
 from schemas import UserUpdateRequest
 
@@ -69,6 +70,116 @@ class StudentDetailView:
 
 
 class UserService:
+    def batch_create(self, users_data: list[dict]) -> dict:
+        if len(users_data) > BATCH_USER_LIMIT:
+            raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")
+
+        class_ids = {u.get("class_id") for u in users_data if u.get("class_id")}
+        valid_class_ids = (
+            {c.id for c in self.db.query(Class).filter(Class.id.in_(class_ids)).all()} if class_ids else set()
+        )
+
+        created = 0
+        skipped = 0
+        errors = []
+
+        for i, u in enumerate(users_data, 1):
+            username = (u.get("username") or "").strip()
+            password = u.get("password") or ""
+            display_name = (u.get("display_name") or "").strip()
+
+            if not username or not password or not display_name:
+                errors.append(f"第{i}行跳过: 用户名/密码/姓名不能为空")
+                skipped += 1
+                continue
+            if len(password) < 6:
+                errors.append(f"第{i}行跳过 {username}: 密码长度不能少于6位")
+                skipped += 1
+                continue
+            existing = self.db.query(User).filter(User.username == username).first()
+            if existing:
+                errors.append(f"第{i}行跳过 {username}: 用户名已存在")
+                skipped += 1
+                continue
+            class_id = u.get("class_id")
+            if class_id and class_id not in valid_class_ids:
+                errors.append(f"第{i}行跳过 {username}: 班级ID {class_id} 不存在")
+                skipped += 1
+                continue
+            role_name = u.get("role", "")
+            if role_name not in ("student", "teacher"):
+                errors.append(f"第{i}行跳过 {username}: 仅支持创建 student/teacher 角色")
+                skipped += 1
+                continue
+            role_obj = self.db.query(Role).filter(Role.name == role_name).first()
+            if not role_obj:
+                errors.append(f"第{i}行跳过 {username}: 角色 {role_name} 不存在")
+                skipped += 1
+                continue
+            user = User(
+                username=username,
+                password_hash=hash_password(password),
+                display_name=display_name,
+                role_id=role_obj.id,
+                student_id=u.get("student_id") or None,
+            )
+            self.db.add(user)
+            self.db.flush()
+            if class_id:
+                self.db.add(UserClass(user_id=user.id, class_id=class_id))
+            created += 1
+            if created % 50 == 0:
+                self.db.commit()
+        self.db.commit()
+        return {"created": created, "skipped": skipped, "errors": errors}
+
+    def get_stats(self) -> dict:
+        student_role = self.db.query(Role).filter(Role.name == "student").first()
+        total_students = 0
+        if student_role:
+            total_students = self.db.query(User).filter(User.role_id == student_role.id).count()
+
+        from sqlalchemy import func as sa_func
+
+        base = self.db.query(TrainingRecord).join(User)
+        total_records = base.count()
+        completed_records = base.filter(TrainingRecord.status == "completed").count()
+        avg_score = (
+            self.db.query(sa_func.avg(Score.total_score))
+            .join(TrainingRecord, Score.record_id == TrainingRecord.id)
+            .join(User, TrainingRecord.user_id == User.id)
+            .scalar()
+        )
+        avg_duration = (
+            self.db.query(
+                sa_func.avg(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60)
+            )
+            .join(User, TrainingRecord.user_id == User.id)
+            .filter(
+                TrainingRecord.status == "completed",
+                TrainingRecord.end_time.isnot(None),
+                TrainingRecord.start_time.isnot(None),
+            )
+            .scalar()
+        )
+        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_records = (
+            self.db.query(sa_func.count(TrainingRecord.id))
+            .join(User, TrainingRecord.user_id == User.id)
+            .filter(TrainingRecord.start_time >= today_start)
+            .scalar()
+            or 0
+        )
+
+        return {
+            "total_students": total_students,
+            "total_records": total_records,
+            "completed_records": completed_records,
+            "average_score": round(float(avg_score), 1) if avg_score else None,
+            "avg_duration_min": round(float(avg_duration), 1) if avg_duration else None,
+            "today_records": today_records,
+        }
+
     def __init__(self, db: Session):
         self.db = db
         self.repo = UserRepository(db)

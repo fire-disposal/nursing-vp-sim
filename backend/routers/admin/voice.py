@@ -16,7 +16,6 @@ from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
 from infrastructure.tts.client import VolcTTSClient
 from models import User, VoiceConfig
 from schemas.voice import (
-    VoiceConfigExportResponse,
     VoiceConfigResponse,
     VoiceConfigUpdateRequest,
     VoiceStatusResponse,
@@ -235,25 +234,10 @@ def export_voice_config(
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-    if not vc:
-        raise HTTPException(status_code=404, detail="未找到激活的语音配置")
+    from services.voice import VoiceConfigService
 
-    payload = VoiceConfigExportResponse(
-        provider=vc.provider,
-        tts_resource_id=vc.tts_resource_id,
-        tts_speaker=vc.tts_speaker,
-        tts_model=vc.tts_model,
-        tts_sample_rate=vc.tts_sample_rate,
-        tts_format=vc.tts_format,
-        tts_timeout=vc.tts_timeout,
-        asr_resource_id=vc.asr_resource_id,
-        asr_sample_rate=vc.asr_sample_rate,
-        asr_endpoint_mode=vc.asr_endpoint_mode,
-        monthly_budget=vc.monthly_budget,
-        exported_at=datetime.now(UTC).isoformat(),
-    )
-    json_bytes = json.dumps(payload.model_dump(), ensure_ascii=False, indent=2).encode("utf-8")
+    payload = VoiceConfigService(db).export_config()
+    json_bytes = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
     return Response(
         content=json_bytes,
         media_type="application/json",

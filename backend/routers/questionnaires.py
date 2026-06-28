@@ -29,12 +29,12 @@ from schemas import (
 )
 from services.questionnaire import (
     QuestionnaireQuestionService,
-    QuestionnaireResponseService,
     QuestionnaireTemplateService,
     QuestionView,
     TemplateDetailView,
     TemplateView,
 )
+from services.questionnaire_response import QuestionnaireResponseService
 
 router = APIRouter(prefix="/api", tags=["问卷"])
 _Manager = Annotated[User, Depends(require_permission("questionnaire_manage"))]

@@ -1,16 +1,12 @@
 import logging
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
 
-from core.config import BATCH_USER_LIMIT
 from core.deps import DbSession
-from core.exceptions import ValidationError
-from core.security import hash_password, require_permission
+from core.security import require_permission
 from infrastructure.exporter import ColumnDef, export_response
-from models import Class, Role, Score, TrainingRecord, User, UserClass
+from models import User
 from schemas import (
     AdminStats,
     BatchCreateResult,
@@ -144,114 +140,14 @@ def delete_user(user_id: int, current_user: _Manager, db: DbSession):
 
 @router.post("/users/batch", response_model=BatchCreateResult)
 def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: DbSession):
-    created = 0
-    skipped = 0
-    errors = []
-
-    if len(users) > BATCH_USER_LIMIT:
-        raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users)} 个")
-
-    class_ids = {u.class_id for u in users if u.class_id}
-    valid_class_ids = {c.id for c in db.query(Class).filter(Class.id.in_(class_ids)).all()} if class_ids else set()
-
-    for i, u in enumerate(users, 1):
-        if not u.username.strip() or not u.password or not u.display_name.strip():
-            errors.append(f"第{i}行跳过: 用户名/密码/姓名不能为空")
-            skipped += 1
-            continue
-        if len(u.password) < 6:
-            errors.append(f"第{i}行跳过 {u.username}: 密码长度不能少于6位")
-            skipped += 1
-            continue
-        existing = db.query(User).filter(User.username == u.username).first()
-        if existing:
-            errors.append(f"第{i}行跳过 {u.username}: 用户名已存在")
-            skipped += 1
-            continue
-        if u.class_id and u.class_id not in valid_class_ids:
-            errors.append(f"第{i}行跳过 {u.username}: 班级ID {u.class_id} 不存在")
-            skipped += 1
-            continue
-        if u.role not in ("student", "teacher"):
-            errors.append(f"第{i}行跳过 {u.username}: 仅支持创建 student/teacher 角色")
-            skipped += 1
-            continue
-        role_obj = db.query(Role).filter(Role.name == u.role).first()
-        if not role_obj:
-            errors.append(f"第{i}行跳过 {u.username}: 角色 {u.role} 不存在")
-            skipped += 1
-            continue
-        user = User(
-            username=u.username,
-            password_hash=hash_password(u.password),
-            display_name=u.display_name,
-            role_id=role_obj.id,
-            student_id=u.student_id or None,
-        )
-        db.add(user)
-        db.flush()
-        if u.class_id:
-            db.add(UserClass(user_id=user.id, class_id=u.class_id))
-        created += 1
-        if created % 50 == 0:
-            db.commit()
-    db.commit()
+    result = UserService(db).batch_create([u.model_dump() for u in users])
     log.info(
-        f"批量导入: created={created} skipped={skipped}",
+        f"批量导入: created={result['created']} skipped={result['skipped']}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
-    return {"created": created, "skipped": skipped, "errors": errors}
+    return result
 
 
 @router.get("/stats", response_model=AdminStats)
 def get_stats(current_user: Annotated[User, Depends(require_permission("stats_view"))], db: DbSession):
-    student_role_id = None
-    student_role = db.query(Role).filter(Role.name == "student").first()
-    if student_role:
-        student_role_id = student_role.id
-    if student_role_id:
-        q = db.query(User).filter(User.role_id == student_role_id)
-        total_students = q.count()
-    else:
-        total_students = 0
-
-    q = db.query(TrainingRecord).join(User)
-    total_records = q.count()
-
-    q = db.query(TrainingRecord).join(User).filter(TrainingRecord.status == "completed")
-    completed_records = q.count()
-
-    q = (
-        db.query(func.avg(Score.total_score))
-        .join(TrainingRecord, Score.record_id == TrainingRecord.id)
-        .join(User, TrainingRecord.user_id == User.id)
-    )
-    avg_score = q.scalar()
-
-    q = (
-        db.query(func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60))
-        .join(User, TrainingRecord.user_id == User.id)
-        .filter(
-            TrainingRecord.status == "completed",
-            TrainingRecord.end_time.isnot(None),
-            TrainingRecord.start_time.isnot(None),
-        )
-    )
-    avg_duration = q.scalar()
-
-    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    q = (
-        db.query(func.count(TrainingRecord.id))
-        .join(User, TrainingRecord.user_id == User.id)
-        .filter(TrainingRecord.start_time >= today_start)
-    )
-    today_records = q.scalar() or 0
-
-    return AdminStats(
-        total_students=total_students,
-        total_records=total_records,
-        completed_records=completed_records,
-        average_score=round(float(avg_score), 1) if avg_score else None,
-        avg_duration_min=round(float(avg_duration), 1) if avg_duration else None,
-        today_records=today_records,
-    )
+    return UserService(db).get_stats()
