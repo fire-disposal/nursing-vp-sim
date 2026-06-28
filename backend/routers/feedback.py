@@ -63,7 +63,7 @@ def admin_list_feedback(
     )
 
 
-@router.get("/admin/feedback/export")
+@router.post("/admin/feedback/export")
 def export_feedback(
     current_user: _FeedbackReviewer,
     db: DbSession,

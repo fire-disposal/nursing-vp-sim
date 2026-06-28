@@ -44,7 +44,7 @@ def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db
     return _resp(RoleService(db).update(role_id, display_name=req.display_name, permissions=req.permissions))
 
 
-@router.get("/export")
+@router.post("/export")
 def export_roles(
     current_user: _Manager,
     db: DbSession,

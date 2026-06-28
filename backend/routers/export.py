@@ -14,7 +14,7 @@ from models import Message, TrainingRecord, User
 router = APIRouter(prefix="/api/export", tags=["导出"])
 
 
-@router.get("/records")
+@router.post("/records")
 def export_records(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
@@ -57,7 +57,7 @@ def export_records(
     return export_response(records, columns, "training_records", "训练记录", format)
 
 
-@router.get("/record/{record_id}")
+@router.post("/record/{record_id}")
 def export_record_detail(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
 ):

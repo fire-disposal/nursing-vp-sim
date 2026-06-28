@@ -100,7 +100,7 @@ def update_practice(
     return _resp(view)
 
 
-@router.get("/export")
+@router.post("/export")
 def export_practices(
     current_user: _Manager,
     db: DbSession,

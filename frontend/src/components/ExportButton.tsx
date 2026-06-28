@@ -15,10 +15,10 @@ export default function ExportButton({ endpoint, filename, params }: ExportButto
 
 	const doExport = async (fmt: string) => {
 		setOpen(false);
-		const q = new URLSearchParams();
-		if (params) for (const [k, v] of Object.entries(params)) q.set(k, String(v));
-		q.set("format", fmt);
-		const resp = await api.get<Blob>(`${endpoint}?${q}`, { responseType: "blob" });
+		const params = new URLSearchParams();
+		if (params) for (const [k, v] of Object.entries(params)) params.set(k, String(v));
+		params.set("format", fmt);
+		const resp = await api.post<Blob>(endpoint, null, { params, responseType: "blob" });
 		const contentType = resp.headers["content-type"];
 		const blob = new Blob([resp.data], { type: typeof contentType === "string" ? contentType : "application/octet-stream" });
 		const url = URL.createObjectURL(blob);

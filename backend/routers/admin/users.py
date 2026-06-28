@@ -98,7 +98,7 @@ def list_users(
     )
 
 
-@router.get("/export")
+@router.post("/export")
 def export_users(
     current_user: _Manager,
     db: DbSession,

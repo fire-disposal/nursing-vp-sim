@@ -244,7 +244,7 @@ def delete_case(
     return {"message": "病例已删除"}
 
 
-@router.get("/export")
+@router.post("/export")
 def export_cases(
     current_user: _CaseManager,
     db: DbSession,

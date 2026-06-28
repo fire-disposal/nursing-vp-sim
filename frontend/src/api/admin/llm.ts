@@ -29,8 +29,5 @@ export const exportLLMLogs = (dateFrom?: string, dateTo?: string) => {
 	const params: Record<string, string> = {};
 	if (dateFrom) params.date_from = dateFrom;
 	if (dateTo) params.date_to = dateTo;
-	return api.get<Blob>("/admin/llm-logs/export", {
-		params,
-		responseType: "blob",
-	});
+	return api.post<Blob>("/admin/llm-logs/export", null, { params, responseType: "blob" });
 };

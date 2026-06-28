@@ -279,7 +279,7 @@ def get_llm_logs(
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
-@router.get("/llm-logs/export")
+@router.post("/llm-logs/export")
 def export_llm_logs_csv(
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
     date_from: str | None = None,
@@ -334,7 +334,7 @@ def get_llm_log_detail(
 EXCEL_EXPORT_ROW_LIMIT = 10000
 
 
-@router.post("/records/excel")
+@router.post("/records/export")
 def export_records_excel(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],

@@ -1,7 +1,7 @@
 import { api } from "./client";
 
 export const exportRecords = () =>
-	api.get<Blob>("/export/records", { responseType: "blob" });
+	api.post<Blob>("/export/records", null, { responseType: "blob" });
 
 export const exportRecordDetail = (id: number | string) =>
-	api.get<Blob>(`/export/record/${id}`, { responseType: "blob" });
+	api.post<Blob>(`/export/record/${id}`, null, { responseType: "blob" });
