@@ -114,13 +114,14 @@ class XLSXExporter(Exporter[T]):
 
 def export_response(items: Sequence[T], columns: list[ColumnDef[T]], filename: str, title: str = "", format: str = "csv") -> Response:
     """Build a FastAPI Response exporting *items* in the given *format* (csv|xlsx)."""
+    ext = format
+    encoded = quote(filename)
+    disposition = f"attachment; filename*=UTF-8''{encoded}.{ext}"
+
     if format == "xlsx":
         content = XLSXExporter().export(items, columns, title or filename)
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        disposition = f'attachment; filename="{filename}.xlsx"'
     else:
         content = CSVExporter().export(items, columns, title or filename)
         media_type = "text/csv; charset=utf-8-sig"
-        encoded = quote(filename)
-        disposition = f"attachment; filename*=UTF-8''{encoded}.csv"
     return Response(content=content, media_type=media_type, headers={"Content-Disposition": disposition})
