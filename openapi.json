@@ -5434,13 +5434,13 @@
         }
       }
     },
-    "/api/admin/api/secrets": {
+    "/api/admin/secrets": {
       "get": {
         "tags": [
           "API管理"
         ],
         "summary": "List Secrets",
-        "operationId": "list_secrets_api_admin_api_secrets_get",
+        "operationId": "list_secrets_api_admin_secrets_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5451,7 +5451,7 @@
                     "$ref": "#/components/schemas/ApiSecretResponse"
                   },
                   "type": "array",
-                  "title": "Response List Secrets Api Admin Api Secrets Get"
+                  "title": "Response List Secrets Api Admin Secrets Get"
                 }
               }
             }
@@ -5468,7 +5468,7 @@
           "API管理"
         ],
         "summary": "Create Secret",
-        "operationId": "create_secret_api_admin_api_secrets_post",
+        "operationId": "create_secret_api_admin_secrets_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5508,13 +5508,13 @@
         ]
       }
     },
-    "/api/admin/api/secrets/{secret_id}": {
+    "/api/admin/secrets/{secret_id}": {
       "put": {
         "tags": [
           "API管理"
         ],
         "summary": "Update Secret",
-        "operationId": "update_secret_api_admin_api_secrets__secret_id__put",
+        "operationId": "update_secret_api_admin_secrets__secret_id__put",
         "security": [
           {
             "HTTPBearer": []
@@ -5569,7 +5569,7 @@
           "API管理"
         ],
         "summary": "Delete Secret",
-        "operationId": "delete_secret_api_admin_api_secrets__secret_id__delete",
+        "operationId": "delete_secret_api_admin_secrets__secret_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -5610,13 +5610,13 @@
         }
       }
     },
-    "/api/admin/api/configs": {
+    "/api/admin/configs": {
       "get": {
         "tags": [
           "API管理"
         ],
         "summary": "List Configs",
-        "operationId": "list_configs_api_admin_api_configs_get",
+        "operationId": "list_configs_api_admin_configs_get",
         "security": [
           {
             "HTTPBearer": []
@@ -5650,7 +5650,7 @@
                   "items": {
                     "$ref": "#/components/schemas/LLMConfigResponse"
                   },
-                  "title": "Response List Configs Api Admin Api Configs Get"
+                  "title": "Response List Configs Api Admin Configs Get"
                 }
               }
             }
@@ -5672,7 +5672,7 @@
           "API管理"
         ],
         "summary": "Create Config",
-        "operationId": "create_config_api_admin_api_configs_post",
+        "operationId": "create_config_api_admin_configs_post",
         "security": [
           {
             "HTTPBearer": []
@@ -5712,13 +5712,13 @@
         }
       }
     },
-    "/api/admin/api/configs/{config_id}": {
+    "/api/admin/configs/{config_id}": {
       "put": {
         "tags": [
           "API管理"
         ],
         "summary": "Update Config",
-        "operationId": "update_config_api_admin_api_configs__config_id__put",
+        "operationId": "update_config_api_admin_configs__config_id__put",
         "security": [
           {
             "HTTPBearer": []
@@ -5773,7 +5773,7 @@
           "API管理"
         ],
         "summary": "Delete Config",
-        "operationId": "delete_config_api_admin_api_configs__config_id__delete",
+        "operationId": "delete_config_api_admin_configs__config_id__delete",
         "security": [
           {
             "HTTPBearer": []
@@ -5814,13 +5814,13 @@
         }
       }
     },
-    "/api/admin/api/configs/{config_id}/toggle": {
+    "/api/admin/configs/{config_id}/toggle": {
       "post": {
         "tags": [
           "API管理"
         ],
         "summary": "Toggle Config",
-        "operationId": "toggle_config_api_admin_api_configs__config_id__toggle_post",
+        "operationId": "toggle_config_api_admin_configs__config_id__toggle_post",
         "security": [
           {
             "HTTPBearer": []
@@ -5861,13 +5861,13 @@
         }
       }
     },
-    "/api/admin/api/configs/{config_id}/reset": {
+    "/api/admin/configs/{config_id}/reset": {
       "post": {
         "tags": [
           "API管理"
         ],
         "summary": "Reset Profile",
-        "operationId": "reset_profile_api_admin_api_configs__config_id__reset_post",
+        "operationId": "reset_profile_api_admin_configs__config_id__reset_post",
         "security": [
           {
             "HTTPBearer": []
@@ -5908,13 +5908,13 @@
         }
       }
     },
-    "/api/admin/api/configs/{config_id}/test": {
+    "/api/admin/configs/{config_id}/test": {
       "post": {
         "tags": [
           "API管理"
         ],
         "summary": "Test Config",
-        "operationId": "test_config_api_admin_api_configs__config_id__test_post",
+        "operationId": "test_config_api_admin_configs__config_id__test_post",
         "security": [
           {
             "HTTPBearer": []
@@ -5955,13 +5955,13 @@
         }
       }
     },
-    "/api/admin/api/configs/test-all": {
+    "/api/admin/configs/test-all": {
       "post": {
         "tags": [
           "API管理"
         ],
         "summary": "Test All Configs",
-        "operationId": "test_all_configs_api_admin_api_configs_test_all_post",
+        "operationId": "test_all_configs_api_admin_configs_test_all_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5981,13 +5981,13 @@
         ]
       }
     },
-    "/api/admin/api/reload": {
+    "/api/admin/reload": {
       "post": {
         "tags": [
           "API管理"
         ],
         "summary": "Reload Router",
-        "operationId": "reload_router_api_admin_api_reload_post",
+        "operationId": "reload_router_api_admin_reload_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6007,13 +6007,13 @@
         ]
       }
     },
-    "/api/admin/api/health": {
+    "/api/admin/health": {
       "get": {
         "tags": [
           "API管理"
         ],
         "summary": "Health Check",
-        "operationId": "health_check_api_admin_api_health_get",
+        "operationId": "health_check_api_admin_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6024,7 +6024,7 @@
                     "$ref": "#/components/schemas/HealthCheckItem"
                   },
                   "type": "array",
-                  "title": "Response Health Check Api Admin Api Health Get"
+                  "title": "Response Health Check Api Admin Health Get"
                 }
               }
             }
@@ -6037,13 +6037,13 @@
         ]
       }
     },
-    "/api/admin/api/fallback": {
+    "/api/admin/fallback": {
       "get": {
         "tags": [
           "API管理"
         ],
         "summary": "Get Env Fallback",
-        "operationId": "get_env_fallback_api_admin_api_fallback_get",
+        "operationId": "get_env_fallback_api_admin_fallback_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6063,13 +6063,13 @@
         ]
       }
     },
-    "/api/admin/api/fallback/test": {
+    "/api/admin/fallback/test": {
       "post": {
         "tags": [
           "API管理"
         ],
         "summary": "Test Env Fallback",
-        "operationId": "test_env_fallback_api_admin_api_fallback_test_post",
+        "operationId": "test_env_fallback_api_admin_fallback_test_post",
         "responses": {
           "200": {
             "description": "Successful Response",

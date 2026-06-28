@@ -1357,7 +1357,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/secrets": {
+    "/api/admin/secrets": {
         parameters: {
             query?: never;
             header?: never;
@@ -1365,17 +1365,17 @@ export interface paths {
             cookie?: never;
         };
         /** List Secrets */
-        get: operations["list_secrets_api_admin_api_secrets_get"];
+        get: operations["list_secrets_api_admin_secrets_get"];
         put?: never;
         /** Create Secret */
-        post: operations["create_secret_api_admin_api_secrets_post"];
+        post: operations["create_secret_api_admin_secrets_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/secrets/{secret_id}": {
+    "/api/admin/secrets/{secret_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1384,16 +1384,16 @@ export interface paths {
         };
         get?: never;
         /** Update Secret */
-        put: operations["update_secret_api_admin_api_secrets__secret_id__put"];
+        put: operations["update_secret_api_admin_secrets__secret_id__put"];
         post?: never;
         /** Delete Secret */
-        delete: operations["delete_secret_api_admin_api_secrets__secret_id__delete"];
+        delete: operations["delete_secret_api_admin_secrets__secret_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/configs": {
+    "/api/admin/configs": {
         parameters: {
             query?: never;
             header?: never;
@@ -1401,17 +1401,17 @@ export interface paths {
             cookie?: never;
         };
         /** List Configs */
-        get: operations["list_configs_api_admin_api_configs_get"];
+        get: operations["list_configs_api_admin_configs_get"];
         put?: never;
         /** Create Config */
-        post: operations["create_config_api_admin_api_configs_post"];
+        post: operations["create_config_api_admin_configs_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/configs/{config_id}": {
+    "/api/admin/configs/{config_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1420,16 +1420,16 @@ export interface paths {
         };
         get?: never;
         /** Update Config */
-        put: operations["update_config_api_admin_api_configs__config_id__put"];
+        put: operations["update_config_api_admin_configs__config_id__put"];
         post?: never;
         /** Delete Config */
-        delete: operations["delete_config_api_admin_api_configs__config_id__delete"];
+        delete: operations["delete_config_api_admin_configs__config_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/configs/{config_id}/toggle": {
+    "/api/admin/configs/{config_id}/toggle": {
         parameters: {
             query?: never;
             header?: never;
@@ -1439,14 +1439,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Toggle Config */
-        post: operations["toggle_config_api_admin_api_configs__config_id__toggle_post"];
+        post: operations["toggle_config_api_admin_configs__config_id__toggle_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/configs/{config_id}/reset": {
+    "/api/admin/configs/{config_id}/reset": {
         parameters: {
             query?: never;
             header?: never;
@@ -1456,14 +1456,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Reset Profile */
-        post: operations["reset_profile_api_admin_api_configs__config_id__reset_post"];
+        post: operations["reset_profile_api_admin_configs__config_id__reset_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/configs/{config_id}/test": {
+    "/api/admin/configs/{config_id}/test": {
         parameters: {
             query?: never;
             header?: never;
@@ -1473,14 +1473,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Test Config */
-        post: operations["test_config_api_admin_api_configs__config_id__test_post"];
+        post: operations["test_config_api_admin_configs__config_id__test_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/configs/test-all": {
+    "/api/admin/configs/test-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -1490,14 +1490,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Test All Configs */
-        post: operations["test_all_configs_api_admin_api_configs_test_all_post"];
+        post: operations["test_all_configs_api_admin_configs_test_all_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/reload": {
+    "/api/admin/reload": {
         parameters: {
             query?: never;
             header?: never;
@@ -1507,14 +1507,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Reload Router */
-        post: operations["reload_router_api_admin_api_reload_post"];
+        post: operations["reload_router_api_admin_reload_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/health": {
+    "/api/admin/health": {
         parameters: {
             query?: never;
             header?: never;
@@ -1522,7 +1522,7 @@ export interface paths {
             cookie?: never;
         };
         /** Health Check */
-        get: operations["health_check_api_admin_api_health_get"];
+        get: operations["health_check_api_admin_health_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1531,7 +1531,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/fallback": {
+    "/api/admin/fallback": {
         parameters: {
             query?: never;
             header?: never;
@@ -1539,7 +1539,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Env Fallback */
-        get: operations["get_env_fallback_api_admin_api_fallback_get"];
+        get: operations["get_env_fallback_api_admin_fallback_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1548,7 +1548,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/api/fallback/test": {
+    "/api/admin/fallback/test": {
         parameters: {
             query?: never;
             header?: never;
@@ -1558,7 +1558,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Test Env Fallback */
-        post: operations["test_env_fallback_api_admin_api_fallback_test_post"];
+        post: operations["test_env_fallback_api_admin_fallback_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8615,7 +8615,7 @@ export interface operations {
             };
         };
     };
-    list_secrets_api_admin_api_secrets_get: {
+    list_secrets_api_admin_secrets_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -8635,7 +8635,7 @@ export interface operations {
             };
         };
     };
-    create_secret_api_admin_api_secrets_post: {
+    create_secret_api_admin_secrets_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8668,7 +8668,7 @@ export interface operations {
             };
         };
     };
-    update_secret_api_admin_api_secrets__secret_id__put: {
+    update_secret_api_admin_secrets__secret_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -8703,7 +8703,7 @@ export interface operations {
             };
         };
     };
-    delete_secret_api_admin_api_secrets__secret_id__delete: {
+    delete_secret_api_admin_secrets__secret_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -8734,7 +8734,7 @@ export interface operations {
             };
         };
     };
-    list_configs_api_admin_api_configs_get: {
+    list_configs_api_admin_configs_get: {
         parameters: {
             query?: {
                 purpose?: string | null;
@@ -8765,7 +8765,7 @@ export interface operations {
             };
         };
     };
-    create_config_api_admin_api_configs_post: {
+    create_config_api_admin_configs_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8798,7 +8798,7 @@ export interface operations {
             };
         };
     };
-    update_config_api_admin_api_configs__config_id__put: {
+    update_config_api_admin_configs__config_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -8833,7 +8833,7 @@ export interface operations {
             };
         };
     };
-    delete_config_api_admin_api_configs__config_id__delete: {
+    delete_config_api_admin_configs__config_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -8864,7 +8864,7 @@ export interface operations {
             };
         };
     };
-    toggle_config_api_admin_api_configs__config_id__toggle_post: {
+    toggle_config_api_admin_configs__config_id__toggle_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8895,7 +8895,7 @@ export interface operations {
             };
         };
     };
-    reset_profile_api_admin_api_configs__config_id__reset_post: {
+    reset_profile_api_admin_configs__config_id__reset_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8926,7 +8926,7 @@ export interface operations {
             };
         };
     };
-    test_config_api_admin_api_configs__config_id__test_post: {
+    test_config_api_admin_configs__config_id__test_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8957,7 +8957,7 @@ export interface operations {
             };
         };
     };
-    test_all_configs_api_admin_api_configs_test_all_post: {
+    test_all_configs_api_admin_configs_test_all_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8977,7 +8977,7 @@ export interface operations {
             };
         };
     };
-    reload_router_api_admin_api_reload_post: {
+    reload_router_api_admin_reload_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -8997,7 +8997,7 @@ export interface operations {
             };
         };
     };
-    health_check_api_admin_api_health_get: {
+    health_check_api_admin_health_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -9017,7 +9017,7 @@ export interface operations {
             };
         };
     };
-    get_env_fallback_api_admin_api_fallback_get: {
+    get_env_fallback_api_admin_fallback_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -9037,7 +9037,7 @@ export interface operations {
             };
         };
     };
-    test_env_fallback_api_admin_api_fallback_test_post: {
+    test_env_fallback_api_admin_fallback_test_post: {
         parameters: {
             query?: never;
             header?: never;
