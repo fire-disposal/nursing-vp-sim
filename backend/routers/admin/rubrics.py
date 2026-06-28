@@ -1,113 +1,52 @@
-"""Rubric CRUD"""
+"""Rubric CRUD — thin router."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends
 
-from core.database import get_db
+from core.deps import DbSession
+from core.exceptions import NotFoundError
 from core.security import require_permission
-from models import Rubric, User
+from models import User
+from repositories.rubric import load_active_rubric
 from schemas import DeleteResponse, OkResponse, RubricCreateRequest, RubricResponse
+from services.rubric import RubricService
 
 router = APIRouter()
 
+_Manager = Annotated[User, Depends(require_permission("api_manage"))]
+
 
 @router.get("/rubrics", response_model=list[RubricResponse])
-def list_rubrics(
-    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
-):
-    return db.query(Rubric).order_by(Rubric.created_at.desc()).all()
+def list_rubrics(current_user: _Manager, db: DbSession):
+    return RubricService(db).list()
 
 
 @router.get("/rubrics/active", response_model=RubricResponse)
-def get_active_rubric(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
-    from repositories.rubric import load_active_rubric
-
+def get_active_rubric(current_user: _Manager):
     active = load_active_rubric()
     if not active:
-        raise HTTPException(status_code=404, detail="没有激活的评分标准")
+        raise NotFoundError("没有激活的评分标准")
     return active
 
 
 @router.post("/rubrics", status_code=201, response_model=RubricResponse)
-def create_rubric(
-    data: RubricCreateRequest,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    from repositories.rubric import validate_dimensions
-
-    errors = validate_dimensions(data.dimensions)
-    if errors:
-        raise HTTPException(status_code=400, detail="; ".join(errors))
-    rubric = Rubric(
-        name=data.name,
-        version=data.version,
-        description=data.description,
-        total_max=data.total_max,
-        raw_max=data.raw_max,
-        raw_scale=data.raw_scale,
-        dimensions=data.dimensions,
-    )
-    db.add(rubric)
-    db.commit()
-    db.refresh(rubric)
-    return rubric
+def create_rubric(data: RubricCreateRequest, current_user: _Manager, db: DbSession):
+    return RubricService(db).create(data.model_dump())
 
 
 @router.put("/rubrics/{rubric_id}", response_model=RubricResponse)
-def update_rubric(
-    rubric_id: int,
-    data: RubricCreateRequest,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    from repositories.rubric import validate_dimensions
-
-    rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
-    if not rubric:
-        raise HTTPException(status_code=404, detail="评分标准不存在")
-    errors = validate_dimensions(data.dimensions)
-    if errors:
-        raise HTTPException(status_code=400, detail="; ".join(errors))
-    rubric.dimensions = data.dimensions
-    rubric.name = data.name
-    rubric.version = data.version
-    rubric.description = data.description
-    rubric.total_max = data.total_max
-    rubric.raw_max = data.raw_max
-    rubric.raw_scale = data.raw_scale
-    db.commit()
-    return rubric
+def update_rubric(rubric_id: int, data: RubricCreateRequest, current_user: _Manager, db: DbSession):
+    return RubricService(db).update(rubric_id, data.model_dump())
 
 
 @router.delete("/rubrics/{rubric_id}", response_model=DeleteResponse)
-def delete_rubric(
-    rubric_id: int,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
-    if not rubric:
-        raise HTTPException(status_code=404, detail="评分标准不存在")
-    if rubric.is_active:
-        raise HTTPException(status_code=400, detail="不能删除当前激活的评分标准")
-    db.delete(rubric)
-    db.commit()
+def delete_rubric(rubric_id: int, current_user: _Manager, db: DbSession):
+    RubricService(db).delete(rubric_id)
     return {"ok": True}
 
 
 @router.post("/rubrics/{rubric_id}/activate", response_model=OkResponse)
-def activate_rubric(
-    rubric_id: int,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    rubric = db.query(Rubric).filter(Rubric.id == rubric_id).first()
-    if not rubric:
-        raise HTTPException(status_code=404, detail="评分标准不存在")
-    db.query(Rubric).update({"is_active": False})
-    rubric.is_active = True
-    db.commit()
+def activate_rubric(rubric_id: int, current_user: _Manager, db: DbSession):
+    RubricService(db).activate(rubric_id)
     return {"ok": True}

@@ -1,10 +1,11 @@
 # ruff: noqa: UP035, UP006
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import List
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
@@ -23,7 +24,9 @@ from repositories.questionnaire import (
 from schemas.questionnaire import (
     QuestionnaireCheckResponse,
     QuestionnaireQuestionResponse,
+    QuestionnaireStatsResponse,
     QuestionnaireTemplateDetailResponse,
+    QuestionStatsItem,
 )
 
 
@@ -509,3 +512,110 @@ class QuestionnaireResponseService:
         questions_map = self.repo.load_questions(template_ids)
         items = [self._build_response_item(r, answers_map, questions_map) for r in rows]
         return items, total
+
+    def get_stats(self, template_id: int) -> QuestionnaireStatsResponse:
+        t = self.repo.get_template(template_id)
+        if not t:
+            raise NotFoundError("问卷模板不存在")
+
+        completed = (
+            self.db.query(QuestionnaireResponse)
+            .filter(
+                QuestionnaireResponse.template_id == template_id,
+                QuestionnaireResponse.status == "completed",
+            )
+            .all()
+        )
+        total_completed = len(completed)
+
+        cq_count = self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).count()
+
+        questions = (
+            self.db.query(QuestionnaireQuestion)
+            .filter(QuestionnaireQuestion.template_id == template_id)
+            .order_by(QuestionnaireQuestion.sort_order)
+            .all()
+        )
+
+        question_ids = [qa.id for qa in questions]
+        response_ids = [r.id for r in completed]
+
+        all_answers = (
+            self.db.query(QuestionnaireAnswer.question_id, QuestionnaireAnswer.answer_value)
+            .filter(
+                QuestionnaireAnswer.question_id.in_(question_ids),
+                QuestionnaireAnswer.response_id.in_(response_ids),
+            )
+            .all()
+        )
+
+        answers_by_question: dict[int, list[str]] = {}
+        for qid, val in all_answers:
+            answers_by_question.setdefault(qid, []).append(val)
+
+        q_stats = []
+        for qa in questions:
+            ans_values = answers_by_question.get(qa.id, [])
+            vals = [v for v in ans_values if v is not None]
+            item = QuestionStatsItem(
+                question_id=qa.id,
+                content=qa.content,
+                question_type=qa.question_type,
+                response_count=len(vals),
+            )
+
+            if qa.question_type == "likert_5" and vals:
+                numeric = []
+                for v in vals:
+                    try:
+                        numeric.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+                if numeric:
+                    item.avg_likert = sum(numeric) / len(numeric)
+            elif qa.question_type == "multiple_choice":
+                item.choice_distribution = dict(Counter(vals))
+            elif qa.question_type == "short_text":
+                item.text_answers = vals
+
+            q_stats.append(item)
+
+        return QuestionnaireStatsResponse(
+            template_id=template_id,
+            template_title=t.title,
+            total_assigned=cq_count,
+            total_completed=total_completed,
+            completion_rate=(total_completed / cq_count * 100) if cq_count > 0 else 0.0,
+            questions=q_stats,
+        )
+
+    def export_data(
+        self, template_id: int
+    ) -> tuple[QuestionnaireTemplate, list[QuestionnaireResponse], list[QuestionnaireQuestion]]:
+        """Return (template, responses, questions) for export formatting."""
+        t = self.repo.get_template(template_id)
+        if not t:
+            raise NotFoundError("问卷模板不存在")
+
+        responses = (
+            self.db.query(QuestionnaireResponse)
+            .options(
+                joinedload(QuestionnaireResponse.user),
+                joinedload(QuestionnaireResponse.answers),
+            )
+            .filter(
+                QuestionnaireResponse.template_id == template_id,
+                QuestionnaireResponse.status == "completed",
+            )
+            .order_by(QuestionnaireResponse.completed_at.desc())
+            .all()
+        )
+
+        questions = (
+            self.db.query(QuestionnaireQuestion)
+            .filter(QuestionnaireQuestion.template_id == template_id)
+            .order_by(QuestionnaireQuestion.sort_order)
+            .all()
+        )
+
+        return t, responses, questions
