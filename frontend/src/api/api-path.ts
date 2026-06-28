@@ -9,3 +9,5 @@ type StripApi<T> = T extends `/api${infer Rest}` ? Rest : never;
 
 /** 所有有效 API 路径的联合类型（不含 /api 前缀），由 api-types.gen.ts 自动衍生 */
 export type ApiPath = StripApi<FullPath>;
+
+

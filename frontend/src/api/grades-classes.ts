@@ -31,7 +31,7 @@ export const updateClass = (
 ) => api.put<Schemas["ClassResponse"]>(`/admin/classes/${id}`, data);
 
 export const deleteClass = (id: number | string) =>
-	api.delete(`/admin/classes/${id}`);
+	api.delete(`/admin/classes/${id}` as ApiPath);
 
 export const getClassSummary = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["ClassSummaryItemSchema"][]>("/stats/class-summary", {
