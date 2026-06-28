@@ -27,10 +27,15 @@ router = APIRouter(prefix="/api/admin/voice", tags=["语音管理"])
 
 
 def _reload_tts_client(app_state) -> None:
-    """Reload app.state.tts_client from the active VoiceConfig in DB."""
+    """Reload app.state.tts_client + config cache from active VoiceConfig."""
     db = SessionLocal()
     try:
         vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+        app_state.tts_config = {
+            "model": vc.tts_model if vc else "seed-tts-2.0-standard",
+            "format": vc.tts_format if vc else "mp3",
+            "sample_rate": vc.tts_sample_rate if vc else 24000,
+        }
         if vc and vc.api_key_enc:
             try:
                 api_key = decrypt_api_key(vc.api_key_enc)

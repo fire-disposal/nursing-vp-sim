@@ -192,6 +192,15 @@ class VoiceConfigService:
                 last_error_at=datetime.now(UTC).isoformat(),
             )
 
+    def get_config_params(self) -> dict:
+        vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+        return {
+            "model": vc.tts_model if vc else "seed-tts-2.0-standard",
+            "format": vc.tts_format if vc else "mp3",
+            "sample_rate": vc.tts_sample_rate if vc else 24000,
+            "timeout": vc.tts_timeout if vc else 8,
+        }
+
     def export_config(self) -> dict:
         from datetime import UTC, datetime
 
