@@ -1262,21 +1262,6 @@ export interface ValidationError {
   ctx?: Record<string, unknown>
 }
 
-export interface VoiceConfigImportRequest {
-  provider?: string
-  api_key: string
-  tts_resource_id?: string
-  tts_speaker?: string
-  tts_model?: string
-  tts_sample_rate?: number
-  tts_format?: string
-  tts_timeout?: number
-  asr_resource_id?: string
-  asr_sample_rate?: number
-  asr_endpoint_mode?: string
-  monthly_budget?: number
-}
-
 export interface VoiceConfigResponse {
   id: number
   provider: string

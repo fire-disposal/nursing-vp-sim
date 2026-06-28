@@ -121,7 +121,7 @@ export const updateVoiceConfig = (data: VoiceConfigUpdateRequest) =>
 	api.put<VoiceConfigResponse>("/admin/voice/config", data);
 
 export const fetchVoiceUsage = () =>
-	api.get<VoiceUsageResponse>("/admin/voice/usage");
+	api.get<VoiceUsageResponse>("/admin/costs/usage");
 
 export interface VoiceStatusResponse {
 	provider: string;
@@ -144,10 +144,10 @@ export interface ASRStatusResponse {
 export const fetchASRStatus = () => api.get<ASRStatusResponse>("/asr/status");
 
 export const fetchCostDashboard = () =>
-	api.get<CostDashboardResponse>("/admin/voice/costs/dashboard");
+	api.get<CostDashboardResponse>("/admin/costs/dashboard");
 
 export const fetchCostExport = (params: CostExportParams) =>
-	api.get<CostExportResponse>("/admin/voice/costs/export", { params });
+	api.get<CostExportResponse>("/admin/costs/export", { params });
 
 // ── Voice Config Import / Export ──
 

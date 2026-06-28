@@ -20,12 +20,11 @@ def register_routers(app: FastAPI) -> None:
     for mod in (auth, cases, feedback, notes, questionnaires, records, stats):
         app.include_router(mod.router)
 
-    # ── composite admin router (sub-routers via admin/__init__.py) ──
+    # ── composite + direct admin routers ──
     from routers import admin
 
     app.include_router(admin.router)
 
-    # ── admin routers with full prefix (registered directly) ──
     from routers.admin.classes import router as _classes
     from routers.admin.costs import router as _costs
     from routers.admin.grades import router as _grades
@@ -35,7 +34,7 @@ def register_routers(app: FastAPI) -> None:
     from routers.admin.secrets import router as _secrets
     from routers.admin.voice import router as _voice
 
-    for r in (_secrets, _classes, _grades, _practices, _prompts, _roles, _voice, _costs):
+    for r in (_classes, _costs, _grades, _practices, _prompts, _roles, _secrets, _voice):
         app.include_router(r)
 
     # ── training context routers ──

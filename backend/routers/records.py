@@ -1,43 +1,22 @@
 import io
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload, selectinload
 
-from core.database import get_db
-from core.security import get_current_user, require_permission
+from core.deps import CurrentUser, DbSession
 from infrastructure.exporter import ColumnDef, export_response
-from models import Message, TrainingRecord, User
+from services.record import RecordService
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
 
 
 @router.post("/records")
 def export_records(
-    current_user: Annotated[User, Depends(require_permission("export_data"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: CurrentUser,
+    db: DbSession,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
-    """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
-    query = db.query(TrainingRecord).options(
-        selectinload(TrainingRecord.user),
-        selectinload(TrainingRecord.case),
-        selectinload(TrainingRecord.score),
-    )
-    records = query.order_by(TrainingRecord.start_time.desc()).yield_per(100).all()
-
-    record_ids = [r.id for r in records]
-    msg_counts = {}
-    if record_ids:
-        msg_counts = {
-            rid: count
-            for rid, count in db.query(Message.record_id, func.count(Message.id))
-            .filter(Message.record_id.in_(record_ids))
-            .group_by(Message.record_id)
-            .all()
-        }
+    records, msg_counts = RecordService(db).get_records_for_export(current_user)
 
     columns = [
         ColumnDef("记录ID", key="id", fmt=str),
@@ -63,40 +42,27 @@ def export_records(
 
 @router.post("/record/{record_id}")
 def export_record_detail(
-    record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+    record_id: int,
+    current_user: CurrentUser,
+    db: DbSession,
 ):
-    """导出单条训练记录详情（含完整对话）为文本"""
-    record = (
-        db.query(TrainingRecord)
-        .options(
-            joinedload(TrainingRecord.user),
-            joinedload(TrainingRecord.case),
-            joinedload(TrainingRecord.score),
-            joinedload(TrainingRecord.messages),
-        )
-        .filter(TrainingRecord.id == record_id)
-        .first()
-    )
-    if not record:
-        raise HTTPException(status_code=404, detail="记录不存在")
-    if not current_user.has_permission("export_data") and record.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权导出此记录")
-
-    lines = []
+    record = RecordService(db).get_record_detail(record_id, current_user)
     user = record.user
     case = record.case
     score = record.score
     messages = record.messages
 
-    lines.append("=" * 60)
-    lines.append(f"训练记录 #{record.id}")
-    lines.append(f"学生：{user.display_name if user else ''} (学号：{user.student_id if user else ''})")
-    lines.append(f"病例：{case.name if case else ''}")
-    lines.append(f"时间：{record.start_time} ~ {record.end_time}")
-    lines.append("=" * 60)
-    lines.append("")
-    lines.append("【对话记录】")
-    lines.append("-" * 40)
+    lines = [
+        "=" * 60,
+        f"训练记录 #{record.id}",
+        f"学生：{user.display_name if user else ''} (学号：{user.student_id if user else ''})",
+        f"病例：{case.name if case else ''}",
+        f"时间：{record.start_time} ~ {record.end_time}",
+        "=" * 60,
+        "",
+        "【对话记录】",
+        "-" * 40,
+    ]
     for msg in messages:
         role_label = "学生" if msg.role == "student" else "患者"
         lines.append(f"[{msg.created_at.strftime('%H:%M:%S')}] {role_label}：{msg.content}")
