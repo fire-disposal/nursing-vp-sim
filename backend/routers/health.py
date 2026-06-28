@@ -9,7 +9,6 @@
 """
 
 import logging
-import os
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -56,35 +55,12 @@ def metrics(request: Request):
     """指标快照 —— 内部监控消费。"""
     m = getattr(request.app.state, "metrics", None)
     if m is None:
-        return JSONResponse(status_code=503, content=_empty_metrics("metrics not initialized"))
+        return JSONResponse(status_code=503, content={"error": "metrics not initialized"})
     try:
         return m.snapshot()
     except Exception as e:
         log.warning("/api/metrics snapshot failed: %s", e)
-        return JSONResponse(status_code=500, content=_empty_metrics(str(e)[:200]))
-
-
-def _empty_metrics(error: str = "") -> dict:
-    return {
-        "uptime_seconds": 0,
-        "version": os.getenv("APP_VERSION", "dev"),
-        "requests": {"total": 0, "by_status": {}, "latency_ms": {"p50": 0, "p95": 0, "p99": 0, "avg": 0}},
-        "active_sessions": 0,
-        "llm": {
-            "calls_total": 0,
-            "calls_success": 0,
-            "calls_error": 0,
-            "tokens_used": 0,
-            "estimated_cost": 0,
-            "latency_ms": {"avg": 0, "p95": 0},
-            "degraded_providers": 0,
-            "global_degraded": False,
-        },
-        "db": {"pool_size": 0, "checked_out": 0, "overflow": 0, "connections_in_use": 0},
-        "queue": {"task_queue": 0, "log_queue": 0},
-        "memory_mb": 0.0,
-        **({"error": error} if error else {}),
-    }
+        return JSONResponse(status_code=500, content={"error": str(e)[:200]})
 
 
 # ── Diagnose (comprehensive) ────────────────────────────────────────────────
