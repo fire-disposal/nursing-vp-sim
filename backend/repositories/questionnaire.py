@@ -10,7 +10,6 @@ from models import (
     QuestionnaireResponse,
     QuestionnaireTemplate,
     TrainingRecord,
-    User,
 )
 from repositories.base import Repository
 

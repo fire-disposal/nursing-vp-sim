@@ -6,10 +6,20 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-from core.exceptions import ValidationError, NotFoundError
+from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from models import CaseQuestionnaire, QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireResponse, QuestionnaireTemplate, TrainingRecord, User
-from repositories.questionnaire import QuestionnaireQuestionRepository, QuestionnaireResponseRepository, QuestionnaireTemplateRepository
+from models import (
+    CaseQuestionnaire,
+    QuestionnaireAnswer,
+    QuestionnaireQuestion,
+    QuestionnaireResponse,
+    QuestionnaireTemplate,
+)
+from repositories.questionnaire import (
+    QuestionnaireQuestionRepository,
+    QuestionnaireResponseRepository,
+    QuestionnaireTemplateRepository,
+)
 from schemas.questionnaire import (
     QuestionnaireCheckResponse,
     QuestionnaireQuestionResponse,

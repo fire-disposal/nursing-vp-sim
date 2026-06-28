@@ -21,7 +21,6 @@ from services.questionnaire import (
     QuestionView,
     TemplateDetailView,
     TemplateView,
-    _template_to_detail,
 )
 
 router = APIRouter()
