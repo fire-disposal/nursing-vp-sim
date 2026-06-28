@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.deps import DbSession
 from core.security import require_permission
+from infrastructure.exporter import ColumnDef, export_response
 from models import User
 from schemas import (
     DeleteResponse,
@@ -74,7 +75,9 @@ def create_practice(
 ):
     view = PracticeService(db).create(body)
     log.info(
-        "Practice created: id=%d name=%s", view.id, view.name,
+        "Practice created: id=%d name=%s",
+        view.id,
+        view.name,
         extra={"user_id": current_user.id},
     )
     return _resp(view)
@@ -89,10 +92,38 @@ def update_practice(
 ):
     view = PracticeService(db).update(practice_id, body)
     log.info(
-        "Practice updated: id=%d name=%s", view.id, view.name,
+        "Practice updated: id=%d name=%s",
+        view.id,
+        view.name,
         extra={"user_id": current_user.id},
     )
     return _resp(view)
+
+
+@router.get("/export")
+def export_practices(
+    current_user: _Manager,
+    db: DbSession,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+):
+    from sqlalchemy import func
+
+    from models import Practice, TrainingRecord
+
+    practices = (
+        db.query(Practice, func.count(Practice.id).label("training_count"))
+        .outerjoin(TrainingRecord, TrainingRecord.practice_id == Practice.id)
+        .group_by(Practice.id)
+        .order_by(Practice.name)
+        .all()
+    )
+    columns = [
+        ColumnDef("名称", key="name"),
+        ColumnDef("说明", key="description"),
+        ColumnDef("功能", value=lambda r: "、".join(k for k, v in (r.features or {}).items() if v) or "—"),
+        ColumnDef("训练次数", key="training_count"),
+    ]
+    return export_response(practices, columns, "练习模板列表", "练习模板列表", format)
 
 
 @router.delete("/{practice_id}", response_model=DeleteResponse)
@@ -103,7 +134,8 @@ def delete_practice(
 ):
     PracticeService(db).delete(practice_id)
     log.info(
-        "Practice deleted: id=%d", practice_id,
+        "Practice deleted: id=%d",
+        practice_id,
         extra={"user_id": current_user.id},
     )
     return DeleteResponse(ok=True)

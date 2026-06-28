@@ -1,14 +1,14 @@
 import io
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
-from infrastructure.exporter import ColumnDef, CSVExporter
+from infrastructure.exporter import ColumnDef, export_response
 from models import Message, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/export", tags=["导出"])
 def export_records(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     """导出所有训练记录为CSV（流式写入，避免全量加载内存）"""
     query = db.query(TrainingRecord).options(
@@ -53,8 +54,7 @@ def export_records(
         ColumnDef("改进建议", value=lambda r: r.score.suggestions if r.score else ""),
         ColumnDef("对话轮数", value=lambda r: str(msg_counts.get(r.id, 0))),
     ]
-    content = CSVExporter().export(records, columns, "训练记录")
-    return Response(content=content, media_type="text/csv; charset=utf-8-sig", headers={"Content-Disposition": "attachment; filename*=UTF-8''training_records.csv"})
+    return export_response(records, columns, "training_records", "训练记录", format)
 
 
 @router.get("/record/{record_id}")

@@ -9,6 +9,7 @@ from core.config import BATCH_USER_LIMIT
 from core.deps import DbSession
 from core.exceptions import ValidationError
 from core.security import hash_password, require_permission
+from infrastructure.exporter import ColumnDef, export_response
 from models import Class, Role, Score, TrainingRecord, User, UserClass
 from schemas import (
     AdminStats,
@@ -95,6 +96,22 @@ def list_users(
     return PaginatedResponse(
         items=[_brief(v) for v in view.items], total=view.total, offset=view.offset, limit=view.limit
     )
+
+
+@router.get("/export")
+def export_users(
+    current_user: _Manager,
+    db: DbSession,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+):
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    columns = [
+        ColumnDef("用户名", key="username"),
+        ColumnDef("姓名", key="display_name"),
+        ColumnDef("学号", key="student_id"),
+        ColumnDef("角色", value=lambda u: u.role.name if u.role else ""),
+    ]
+    return export_response(users, columns, "用户列表", "用户列表", format)
 
 
 @router.put("/users/{user_id}", response_model=UserBrief)

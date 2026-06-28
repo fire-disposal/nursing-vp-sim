@@ -3,6 +3,7 @@ import { Plus, Save, Shield, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { createRole, deleteRole, getRoles, updateRole } from "@/api/admin/roles";
+import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
@@ -142,14 +143,17 @@ export default function RolesPage() {
 					title="角色管理"
 					subtitle="管理用户角色与权限"
 					actions={
-						<Button
-							onClick={() => {
-								form.reset();
-								setShowCreate(true);
-							}}
-						>
-							<Plus size={16} /> 新建角色
-						</Button>
+						<>
+							<ExportButton endpoint="/api/admin/roles/export" filename="角色列表" />
+							<Button
+								onClick={() => {
+									form.reset();
+									setShowCreate(true);
+								}}
+							>
+								<Plus size={16} /> 新建角色
+							</Button>
+						</>
 					}
 				/>
 

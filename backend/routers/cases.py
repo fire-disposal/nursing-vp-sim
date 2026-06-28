@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 from contexts.patient import format_case_for_prompt
 from core.case_schema import assert_valid_case_data
 from core.llm_profile import get_llm_config
+from infrastructure.exporter import ColumnDef, export_response
 from infrastructure.llm.client import CallContext
 from infrastructure.prompt import get_registry
 
@@ -241,3 +242,19 @@ def delete_case(
         case_id, current_user.id, current_user.role.name if current_user.role else ""
     )
     return {"message": "病例已删除"}
+
+
+@router.get("/export")
+def export_cases(
+    current_user: _CaseManager,
+    db: DbSession,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+):
+    from models import Case
+
+    cases = db.query(Case).order_by(Case.name).all()
+    columns = [
+        ColumnDef("病例名称", key="name"),
+        ColumnDef("描述", key="description"),
+    ]
+    return export_response(cases, columns, "病例列表", "病例列表", format)

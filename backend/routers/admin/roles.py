@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from core.deps import DbSession
 from core.security import require_permission
+from infrastructure.exporter import ColumnDef, export_response
 from models import User
 from schemas import DeleteResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
 from services.role import RoleService
@@ -41,6 +42,22 @@ def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession):
 @router.put("/{role_id}", response_model=RoleResponse)
 def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db: DbSession):
     return _resp(RoleService(db).update(role_id, display_name=req.display_name, permissions=req.permissions))
+
+
+@router.get("/export")
+def export_roles(
+    current_user: _Manager,
+    db: DbSession,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+):
+    from models import Role
+
+    roles = db.query(Role).order_by(Role.id).all()
+    columns = [
+        ColumnDef("角色名", key="name"),
+        ColumnDef("显示名", key="display_name"),
+    ]
+    return export_response(roles, columns, "角色列表", "角色列表", format)
 
 
 @router.delete("/{role_id}", response_model=DeleteResponse)

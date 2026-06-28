@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
+from infrastructure.exporter import ColumnDef, export_response
 from models import User
 from schemas import (
     FeedbackDailyItem,
@@ -40,7 +41,9 @@ def admin_list_feedback(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    items, total = FeedbackService(db).list_admin(tag=tag, date_from=date_from, date_to=date_to, offset=offset, limit=limit)
+    items, total = FeedbackService(db).list_admin(
+        tag=tag, date_from=date_from, date_to=date_to, offset=offset, limit=limit
+    )
     return PaginatedResponse(
         items=[
             FeedbackItem(
@@ -58,6 +61,23 @@ def admin_list_feedback(
         offset=offset,
         limit=limit,
     )
+
+
+@router.get("/admin/feedback/export")
+def export_feedback(
+    current_user: _FeedbackReviewer,
+    db: DbSession,
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
+):
+    from models import Feedback
+
+    fb = db.query(Feedback).order_by(Feedback.created_at.desc()).all()
+    columns = [
+        ColumnDef("反馈内容", key="content"),
+        ColumnDef("评分", key="rating", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("创建时间", value=lambda r: r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else ""),
+    ]
+    return export_response(fb, columns, "用户反馈", "用户反馈", format)
 
 
 @router.get("/admin/feedback/stats", response_model=list[FeedbackDailyItem])

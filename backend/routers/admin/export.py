@@ -1,10 +1,8 @@
-import io
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -12,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
 from core.security import require_permission
-from infrastructure.exporter import ColumnDef, CSVExporter, XLSXExporter
+from infrastructure.exporter import ColumnDef, export_response
 from models import Case as CaseModel
 from models import LLMCallLog, TrainingRecord, User
 from schemas import (
@@ -283,6 +281,7 @@ def get_llm_logs(
 
 @router.get("/llm-logs/export")
 def export_llm_logs_csv(
+    format: str = Query("csv", pattern="^(csv|xlsx)$"),
     date_from: str | None = None,
     date_to: str | None = None,
     current_user: User = Depends(require_permission("llm_monitor")),
@@ -317,8 +316,7 @@ def export_llm_logs_csv(
         ColumnDef("响应字符数", key="response_chars", fmt=lambda v: str(v) if v else ""),
     ]
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    content = CSVExporter().export(entries, columns, "LLM日志")
-    return Response(content=content, media_type="text/csv; charset=utf-8-sig", headers={"Content-Disposition": f"attachment; filename*=UTF-8''llm_logs_{ts}.csv"})
+    return export_response(entries, columns, f"llm_logs_{ts}", "LLM日志", format)
 
 
 @router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
@@ -340,6 +338,7 @@ EXCEL_EXPORT_ROW_LIMIT = 10000
 def export_records_excel(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
+    format: str = Query("xlsx", pattern="^(csv|xlsx)$"),
 ):
     query = (
         db.query(TrainingRecord)
@@ -363,10 +362,5 @@ def export_records_excel(
         ColumnDef("开始时间", value=lambda r: str(r.start_time) if r.start_time else ""),
         ColumnDef("结束时间", value=lambda r: str(r.end_time) if r.end_time else ""),
     ]
-    filename = f"训练记录导出_{datetime.now(UTC).strftime('%Y%m%d_%H%M')}.xlsx"
-    content = XLSXExporter().export(records, columns, "训练记录")
-    return StreamingResponse(
-        io.BytesIO(content),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    filename = f"训练记录导出_{datetime.now(UTC).strftime('%Y%m%d_%H%M')}"
+    return export_response(records, columns, filename, "训练记录", format)
