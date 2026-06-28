@@ -1,5 +1,7 @@
 import { api } from "@/api/client";
 
+import type { ApiPath } from "../api-path";
+
 export interface DiagnoseResponse {
 	version: string;
 	health: { status: "ok" };

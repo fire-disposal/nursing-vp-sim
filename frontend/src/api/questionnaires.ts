@@ -1,6 +1,8 @@
 import type { components } from "./api-types.gen";
 import { api } from "./client";
 
+import type { ApiPath } from "./api-path";
+
 type Schemas = components["schemas"];
 
 export const getQuestionnairesTemplates = (params?: Record<string, unknown>) =>
@@ -72,7 +74,7 @@ export const getMyResponses = (params?: Record<string, unknown>) =>
 	);
 
 export const exportQuestionnaireCSV = (templateId: number) =>
-	api.post(`/questionnaires/responses/${templateId}/export`, null, { responseType: "blob" });
+	api.post(`/questionnaires/responses/${templateId}/export` as ApiPath, null, { responseType: "blob" });
 
 export const assignCaseQuestionnaire = (
 	templateId: number,
@@ -101,4 +103,4 @@ export const getTrainingQuestionnaire = (
 export const submitTrainingQuestionnaire = (
 	id: number,
 	data: { record_id: number; answers: Record<number, string> },
-) => api.post(`/questionnaires/${id}/submit`, data);
+) => api.post(`/questionnaires/${id}/submit` as ApiPath, data);

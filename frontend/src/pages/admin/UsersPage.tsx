@@ -12,7 +12,7 @@ export default function UsersPage() {
 				title="用户管理"
 				subtitle="搜索、注册、编辑和管理所有用户账号"
 				icon={Users}
-				actions={<ExportButton endpoint="/admin/users/export" filename="用户列表" />}
+				actions={<ExportButton endpoint="/admin/export" filename="用户列表" />}
 			/>
 			{userId != null && <UsersTab currentUserId={userId} />}
 		</>

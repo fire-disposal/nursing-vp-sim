@@ -1,6 +1,8 @@
 import type { components } from "./api-types.gen";
 import { api } from "./client";
 
+import type { ApiPath } from "./api-path";
+
 type Schemas = components["schemas"];
 
 export const getGrades = () =>
@@ -15,7 +17,7 @@ export const updateGrade = (
 ) => api.put<Schemas["GradeResponse"]>(`/admin/grades/${id}`, data);
 
 export const deleteGrade = (id: number | string) =>
-	api.delete(`/admin/grades/${id}`);
+	api.delete(`/admin/grades/${id}` as ApiPath);
 
 export const getClasses = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["ClassResponse"][]>("/admin/classes", { params });

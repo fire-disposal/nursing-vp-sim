@@ -1,6 +1,8 @@
 import type { components } from "../api-types.gen";
 import { api } from "../client";
 
+import type { ApiPath } from "../api-path";
+
 type Schemas = components["schemas"];
 
 export const fetchSecrets = () =>
@@ -54,7 +56,7 @@ export const reloadRouter = () =>
 export const checkHealth = () =>
 	api.get<Schemas["HealthCheckItem"][]>("/admin/health");
 
-export const fetchEnvFallback = () => api.get("/admin/fallback");
+export const fetchEnvFallback = () => api.get("/admin/fallback" satisfies ApiPath as string);
 
 export const testEnvFallback = () =>
 	api.post<Schemas["TestResultItem"]>("/admin/fallback/test");

@@ -1,5 +1,7 @@
 import { api } from "../client";
 
+import type { ApiPath } from "../api-path";
+
 // ── Voice Config ──
 
 export interface VoiceConfigResponse {
