@@ -1,24 +1,15 @@
-"""API 档案 + 用途指派 CRUD"""
+"""API 档案 + 用途指派 CRUD — thin router."""
 
-import logging
-import re
 import time
 from typing import Annotated
 
-log = logging.getLogger(__name__)
-
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query, Request
 
-from core.database import get_db
+from core.deps import DbSession
 from core.exceptions import AuthError
 from core.security import require_permission
-from infrastructure.llm import (
-    decrypt_api_key,
-    encrypt_api_key,
-    get_env_fallback_state,
-)
+from infrastructure.llm import decrypt_api_key, get_env_fallback_state
 from models import ApiSecret, LLMConfig, User
 from schemas import (
     ApiSecretCreate,
@@ -37,290 +28,113 @@ from schemas import (
     TestResultItem,
     ToggleStatusResponse,
 )
+from services.llm import ApiSecretService, LLMConfigService
 
 router = APIRouter(prefix="/api/admin/api", tags=["API管理"])
 
+_Manager = Annotated[User, Depends(require_permission("api_manage"))]
+
 
 def _require_system_admin(current_user: User) -> None:
-    """ApiSecret is a system-level resource with no per-school scope.
-    Only super admins may manage secrets."""
     if not current_user.is_super_admin:
         raise AuthError("仅系统管理员可管理API密钥", status_code=403)
 
 
-# ── ApiSecret (API 档案) CRUD ──
+def _secret_resp(s: dict) -> ApiSecretResponse:
+    return ApiSecretResponse(**s)
+
+
+# ── ApiSecret CRUD ──
 
 
 @router.get("/secrets", response_model=list[ApiSecretResponse])
-def list_secrets(
-    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
-):
+def list_secrets(current_user: _Manager, db: DbSession):
     _require_system_admin(current_user)
-    secrets = db.query(ApiSecret).order_by(ApiSecret.created_at.desc()).all()
-    result = []
-    for s in secrets:
-        config_count = db.query(LLMConfig).filter(LLMConfig.secret_id == s.id).count()
-        result.append(
-            ApiSecretResponse(
-                id=s.id,
-                label=s.label,
-                key_suffix=s.key_suffix,
-                base_url=s.base_url or "",
-                status=s.status,
-                degraded_reason=s.degraded_reason,
-                degraded_until=s.degraded_until,
-                price_input_per_1m=float(s.price_input_per_1m),
-                price_output_per_1m=float(s.price_output_per_1m),
-                monthly_cost_limit=float(s.monthly_cost_limit) if s.monthly_cost_limit else None,
-                call_count_today=s.call_count_today or 0,
-                total_tokens_today=s.total_tokens_today or 0,
-                total_cost_today=float(s.total_cost_today or 0),
-                monthly_cost_used=float(s.monthly_cost_used or 0),
-                config_count=config_count,
-                last_used_at=s.last_used_at,
-                created_at=s.created_at,
-                updated_at=s.updated_at,
-            )
-        )
-    return result
+    return [_secret_resp(s) for s in ApiSecretService(db).list_with_config_counts()]
 
 
 @router.post("/secrets", status_code=201, response_model=SecretCreateResponse)
-def create_secret(
-    data: ApiSecretCreate,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
+def create_secret(data: ApiSecretCreate, current_user: _Manager, db: DbSession):
     _require_system_admin(current_user)
-    if data.base_url and not re.match(r"^https?://", data.base_url):
-        raise HTTPException(status_code=422, detail="base_url 必须以 http:// 或 https:// 开头")
-    for existing in db.query(ApiSecret).all():
-        try:
-            if decrypt_api_key(existing.encrypted_key) == data.raw_key:
-                raise HTTPException(status_code=409, detail="该 API Key 已存在，请勿重复添加")
-        except Exception as exc:
-            log.debug("decrypt check skipped: %s", exc)
-            continue
-    suffix = data.raw_key[-4:] if len(data.raw_key) >= 4 else "****"
-    s = ApiSecret(
-        label=data.label,
-        encrypted_key=encrypt_api_key(data.raw_key),
-        key_suffix=suffix,
-        base_url=data.base_url or "",
-        price_input_per_1m=data.price_input_per_1m,
-        price_output_per_1m=data.price_output_per_1m,
-        monthly_cost_limit=data.monthly_cost_limit,
-    )
-    db.add(s)
-    db.commit()
-    db.refresh(s)
-    return {"id": s.id, "key_suffix": s.key_suffix}
+    return ApiSecretService(db).create(data.model_dump())
 
 
 @router.put("/secrets/{secret_id}", response_model=OkResponse)
-def update_secret(
-    secret_id: int,
-    data: ApiSecretUpdate,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
+def update_secret(secret_id: int, data: ApiSecretUpdate, current_user: _Manager, db: DbSession):
     _require_system_admin(current_user)
-    s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
-    if not s:
-        raise HTTPException(status_code=404, detail="档案不存在")
-    if data.base_url and not re.match(r"^https?://", data.base_url):
-        raise HTTPException(status_code=422, detail="base_url 必须以 http:// 或 https:// 开头")
-    for field in ("label", "base_url", "price_input_per_1m", "price_output_per_1m", "monthly_cost_limit"):
-        val = getattr(data, field, None)
-        if val is not None:
-            setattr(s, field, val)
-    db.commit()
+    ApiSecretService(db).update(secret_id, data.model_dump(exclude_unset=True))
     return {"ok": True}
 
 
 @router.delete("/secrets/{secret_id}", response_model=DeleteResponse)
-async def delete_secret(
-    secret_id: int,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
+async def delete_secret(secret_id: int, request: Request, current_user: _Manager, db: DbSession):
     _require_system_admin(current_user)
-    s = db.query(ApiSecret).filter(ApiSecret.id == secret_id).first()
-    if not s:
-        raise HTTPException(status_code=404, detail="档案不存在")
-    count = db.query(LLMConfig).filter(LLMConfig.secret_id == secret_id).count()
-    if count > 0:
-        raise HTTPException(status_code=400, detail=f"该档案有 {count} 个用途绑定，先解除")
-    db.delete(s)
-    db.commit()
+    ApiSecretService(db).delete(secret_id)
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
-# ── LLMConfig (用途指派) CRUD ──
+# ── LLMConfig CRUD ──
 
 
 @router.get("/configs", response_model=list[LLMConfigResponse])
 def list_configs(
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    db: DbSession,
     purpose: Annotated[str | None, Query()] = None,
-    current_user: User = Depends(require_permission("api_manage")),
-    db: Session = Depends(get_db),
 ):
-    q = db.query(LLMConfig)
-    if purpose:
-        q = q.filter(LLMConfig.purpose == purpose)
-    configs = q.order_by(LLMConfig.purpose).all()
-    secrets_map = {s.id: s for s in db.query(ApiSecret).all()}
-    result = []
-    for c in configs:
-        s = secrets_map.get(c.secret_id)
-        result.append(
-            LLMConfigResponse(
-                id=c.id,
-                secret_id=c.secret_id,
-                secret_label=s.label if s else "",
-                secret_suffix=s.key_suffix if s else "",
-                base_url=s.base_url or "" if s else "",
-                label=c.label or "",
-                purpose=c.purpose,
-                status=c.status,
-                created_at=c.created_at,
-                updated_at=c.updated_at,
-            )
-        )
-    return result
+    return [LLMConfigResponse(**c) for c in LLMConfigService(db).list(purpose)]
 
 
 @router.post("/configs", status_code=201, response_model=ConfigCreateResponse)
-async def create_config(
-    data: LLMConfigCreate,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    secret = db.query(ApiSecret).filter(ApiSecret.id == data.secret_id).first()
-    if not secret:
-        raise HTTPException(status_code=404, detail="档案不存在")
-
-    existing = (
-        db.query(LLMConfig)
-        .filter(
-            LLMConfig.secret_id == data.secret_id,
-            LLMConfig.purpose == data.purpose,
-        )
-        .first()
+async def create_config(data: LLMConfigCreate, request: Request, current_user: _Manager, db: DbSession):
+    cfg_id = LLMConfigService(db).create_or_reactivate(
+        secret_id=data.secret_id, purpose=data.purpose, label=data.label or ""
     )
-    if existing:
-        existing.label = data.label or ""
-        existing.status = "active"
-        db.commit()
-        await request.app.state.llm_router.load_from_db()
-        return {"id": existing.id}
-
-    cfg = LLMConfig(
-        secret_id=data.secret_id,
-        purpose=data.purpose,
-        label=data.label or "",
-    )
-    db.add(cfg)
-    db.commit()
-    db.refresh(cfg)
     await request.app.state.llm_router.load_from_db()
-    return {"id": cfg.id}
+    return {"id": cfg_id}
 
 
 @router.put("/configs/{config_id}", response_model=OkResponse)
-async def update_config(
-    config_id: int,
-    data: LLMConfigUpdate,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
-    if not cfg:
-        raise HTTPException(status_code=404, detail="指派不存在")
-    for f in (
-        "secret_id",
-        "purpose",
-        "status",
-        "label",
-    ):
-        val = getattr(data, f, None)
-        if val is not None:
-            setattr(cfg, f, val)
-    db.commit()
+async def update_config(config_id: int, data: LLMConfigUpdate, request: Request, current_user: _Manager, db: DbSession):
+    LLMConfigService(db).update(config_id, data.model_dump(exclude_unset=True))
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
 @router.delete("/configs/{config_id}", response_model=DeleteResponse)
-async def delete_config(
-    config_id: int,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
-    if not cfg:
-        raise HTTPException(status_code=404, detail="指派不存在")
-    db.delete(cfg)
-    db.commit()
+async def delete_config(config_id: int, request: Request, current_user: _Manager, db: DbSession):
+    LLMConfigService(db).delete(config_id)
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
 @router.post("/configs/{config_id}/toggle", response_model=ToggleStatusResponse)
-async def toggle_config(
-    config_id: int,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
-    if not cfg:
-        raise HTTPException(status_code=404, detail="指派不存在")
-    cfg.status = "active" if cfg.status == "disabled" else "disabled"
-    db.commit()
+async def toggle_config(config_id: int, request: Request, current_user: _Manager, db: DbSession):
+    status = LLMConfigService(db).toggle(config_id)
     await request.app.state.llm_router.load_from_db()
-    return {"ok": True, "status": cfg.status}
+    return {"ok": True, "status": status}
 
 
 @router.post("/configs/{config_id}/reset", response_model=OkResponse)
-async def reset_profile(
-    config_id: int,
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
-    if not cfg:
-        raise HTTPException(status_code=404, detail="指派不存在")
-    secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
-    if secret:
-        secret.status = "active"
-        secret.degraded_reason = None
-        secret.degraded_until = None
-        secret.consecutive_failures = 0
-    cfg.status = "active"
-    db.commit()
+async def reset_profile(config_id: int, request: Request, current_user: _Manager, db: DbSession):
+    LLMConfigService(db).reset(config_id)
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
 
 @router.post("/configs/{config_id}/test", response_model=TestResultItem)
-async def test_config(
-    config_id: int,
-    current_user: Annotated[User, Depends(require_permission("api_manage"))],
-    db: Annotated[Session, Depends(get_db)],
-):
+async def test_config(config_id: int, current_user: _Manager, db: DbSession):
     cfg = db.query(LLMConfig).filter(LLMConfig.id == config_id).first()
     if not cfg:
-        raise HTTPException(status_code=404, detail="指派不存在")
+        from core.exceptions import NotFoundError
+
+        raise NotFoundError("指派不存在")
     secret = db.query(ApiSecret).filter(ApiSecret.id == cfg.secret_id).first()
     if not secret:
-        raise HTTPException(status_code=404, detail="密钥不存在")
+        from core.exceptions import NotFoundError
+
+        raise NotFoundError("密钥不存在")
     api_key = decrypt_api_key(secret.encrypted_key)
     base_url = secret.base_url or ""
     try:
@@ -334,9 +148,7 @@ async def test_config(
 
 
 @router.post("/configs/test-all", response_model=TestAllResultsResponse)
-async def test_all_configs(
-    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
-):
+async def test_all_configs(current_user: _Manager, db: DbSession):
     secrets = db.query(ApiSecret).all()
     results = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(8)) as client:
@@ -364,7 +176,7 @@ async def test_all_configs(
 
 
 @router.post("/reload", response_model=OkResponse)
-async def reload_router(request: Request, current_user: Annotated[User, Depends(require_permission("api_manage"))]):
+async def reload_router(request: Request, current_user: _Manager):
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}
 
@@ -373,9 +185,7 @@ async def reload_router(request: Request, current_user: Annotated[User, Depends(
 
 
 @router.get("/health", response_model=list[HealthCheckItem])
-async def health_check(
-    current_user: Annotated[User, Depends(require_permission("api_manage"))], db: Annotated[Session, Depends(get_db)]
-):
+async def health_check(current_user: _Manager, db: DbSession):
     secrets = db.query(ApiSecret).all()
     results = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(5)) as client:
@@ -403,13 +213,12 @@ async def health_check(
 
 
 @router.get("/fallback", response_model=FallbackStateResponse)
-async def get_env_fallback(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
-
+async def get_env_fallback(current_user: _Manager):
     return await get_env_fallback_state()
 
 
 @router.post("/fallback/test", response_model=TestResultItem)
-async def test_env_fallback(current_user: Annotated[User, Depends(require_permission("api_manage"))]):
+async def test_env_fallback(current_user: _Manager):
     from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 
     if not DEEPSEEK_API_KEY:
