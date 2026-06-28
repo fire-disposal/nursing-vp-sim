@@ -162,7 +162,8 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 					});
 				},
 				onPatientDone: () => {
-					bus.emit("stream:done");
+					const text = patientAccRef.current;
+					bus.emit("stream:done", text);
 					patientAccRef.current = "";
 				},
 				onError: (err) => bus.emit("stream:error", err),

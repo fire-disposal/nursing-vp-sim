@@ -48,9 +48,12 @@ export class TTSManager {
 	attach(bus: MessageBus): void {
 		this.bus = bus;
 
-		const unsubDone = bus.on("stream:done", () => {
+		const unsubDone = bus.on("stream:done", (text?: string) => {
 			if (!this.autoPlay || this.fallbackProvider.speaking) return;
-			void this.playPrebufferedOrFetch();
+			if (text) {
+				this._pendingText = text;
+			}
+			void this.speakNext();
 		});
 
 		const unsubPrebuffer = bus.on("tts:prebuffer", (data: { text: string }) => {
@@ -71,6 +74,23 @@ export class TTSManager {
 		);
 
 		this.unsubs = [unsubDone, unsubPrebuffer, unsubBeforeSend, unsubEmotion];
+	}
+
+	private _pendingText: string | null = null;
+
+	private async speakNext(): Promise<void> {
+		const text = this._pendingText ?? this.extractLastPatientMessage();
+		this._pendingText = null;
+		if (!text) return;
+		if (text.length > 50) {
+			const [first, rest] = splitFirstSentence(text);
+			await this.speak(first);
+			if (rest) {
+				setTimeout(() => void this.speak(rest), 0);
+			}
+		} else {
+			await this.speak(text);
+		}
 	}
 
 	detach(): void {
@@ -150,23 +170,10 @@ export class TTSManager {
 				await this.playAudio(audio);
 				return;
 			} catch {
-				// fall through to DOM extraction fallback
+				// fall through to speak from pending text
 			}
 		}
-		const text = this.extractLastPatientMessage();
-		if (text) {
-			if (text.length > 50) {
-				const [first, rest] = splitFirstSentence(text);
-				await this.speak(first);
-				if (rest) {
-					setTimeout(() => {
-						void this.speak(rest);
-					}, 0);
-				}
-			} else {
-				await this.speak(text);
-			}
-		}
+		await this.speakNext();
 	}
 
 	private async playAudio(buffer: ArrayBuffer): Promise<void> {

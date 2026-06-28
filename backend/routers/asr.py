@@ -30,6 +30,9 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/asr", tags=["ASR"])
 
+_ASR_IDLE_TIMEOUT = 30  # seconds without audio before auto-close
+_ASR_COST_PER_CHAR = 0.00005  # CNY per character (Volcengine SAUC pricing)
+
 
 def _load_active_config(db: Session) -> tuple[str, VoiceConfig] | None:
     """Return (api_key, config) when ASR is usable, else None."""
@@ -110,11 +113,18 @@ async def asr_stream(websocket: WebSocket, token: str = Query(default="")) -> No
         t0 = time.perf_counter()
 
         async def browser_to_upstream() -> None:
+            last_audio = time.perf_counter()
             while True:
-                msg = await websocket.receive()
+                try:
+                    msg = await asyncio.wait_for(websocket.receive(), timeout=_ASR_IDLE_TIMEOUT)
+                except TimeoutError:
+                    log.info("ASR idle timeout (%ds) — closing", _ASR_IDLE_TIMEOUT)
+                    await client.send_audio(b"", is_last=True)
+                    break
                 if msg.get("type") == "websocket.disconnect":
                     raise WebSocketDisconnect
                 if (data := msg.get("bytes")) is not None:
+                    last_audio = time.perf_counter()
                     await client.send_audio(data)
                 elif (text := msg.get("text")) is not None:
                     try:
@@ -168,7 +178,7 @@ async def asr_stream(websocket: WebSocket, token: str = Query(default="")) -> No
                     text_length=len(final_text),
                     latency_ms=latency_ms,
                     status="success",
-                    cost_estimated=round(len(final_text) * 0.00005, 6),
+                    cost_estimated=round(len(final_text) * _ASR_COST_PER_CHAR, 6),
                 )
             )
             db.commit()
