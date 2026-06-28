@@ -144,7 +144,7 @@ export default function RolesPage() {
 					subtitle="管理用户角色与权限"
 					actions={
 						<>
-							<ExportButton endpoint="/api/admin/roles/export" filename="角色列表" />
+							<ExportButton endpoint="/admin/roles/export" filename="角色列表" />
 							<Button
 								onClick={() => {
 									form.reset();

@@ -10,7 +10,7 @@ export default function CasesPage() {
 				title="病例管理"
 				subtitle="创建、编辑和管理虚拟患者病例库"
 				icon={UserSearch}
-				actions={<ExportButton endpoint="/api/cases/export" filename="病例列表" />}
+				actions={<ExportButton endpoint="/cases/export" filename="病例列表" />}
 			/>
 			<CasesTab />
 		</>

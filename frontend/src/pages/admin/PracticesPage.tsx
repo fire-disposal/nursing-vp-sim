@@ -217,7 +217,7 @@ export default function PracticesPage() {
 				subtitle="管理练习模式、功能开关、时长限制等配置。创建作业时选择模板即可。"
 				actions={
 					<>
-						<ExportButton endpoint="/api/admin/practices/export" filename="练习模板列表" />
+    <ExportButton endpoint="/admin/practices/export" filename="练习模板列表" />
 						<Button onClick={openCreate}>
 							<Plus size={16} className="mr-1" />
 							新建模板
