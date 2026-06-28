@@ -72,9 +72,7 @@ export const getMyResponses = (params?: Record<string, unknown>) =>
 	);
 
 export const exportQuestionnaireCSV = (templateId: number) =>
-	api.get(`/questionnaires/responses/${templateId}/export`, {
-		responseType: "blob",
-	});
+	api.post(`/questionnaires/responses/${templateId}/export`, null, { responseType: "blob" });
 
 export const assignCaseQuestionnaire = (
 	templateId: number,

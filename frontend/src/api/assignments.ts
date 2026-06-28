@@ -25,7 +25,7 @@ export const deleteAssignment = (id: string) =>
 	api.delete(`/assignments/${id}` as ApiPath);
 
 export const exportAssignment = (id: string) =>
-	api.get(`/assignments/${id}/export` as ApiPath, { responseType: "blob" });
+	api.post(`/assignments/${id}/export` as ApiPath, null, { responseType: "blob" });
 
 export const getStudentAssignments = () =>
 	api.get<Schemas["StudentAssignmentItem"][]>("/students/assignments" satisfies ApiPath as string);

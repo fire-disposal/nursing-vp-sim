@@ -145,7 +145,7 @@ def delete_assignment(assignment_id: str, current_user: _Teacher, db: DbSession)
 # ── Export (non-CRUD, kept inline) ──
 
 
-@router.get("/{assignment_id}/export")
+@router.post("/{assignment_id}/export")
 def export_assignment(
     assignment_id: str,
     current_user: Annotated[User, Depends(require_permission("export_data"))],

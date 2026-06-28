@@ -106,7 +106,7 @@ def response_stats(
     )
 
 
-@router.get("/questionnaires/responses/{template_id}/export")
+@router.post("/questionnaires/responses/{template_id}/export")
 def export_responses(
     template_id: int,
     current_user: Annotated[User, Depends(require_permission("export_data"))],
