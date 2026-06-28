@@ -11,11 +11,7 @@ class PracticeRepository(Repository[Practice]):
     model = Practice
 
     def list_with_cases(self, offset: int, limit: int) -> tuple[list[Practice], int]:
-        q = (
-            self.db.query(Practice)
-            .options(joinedload(Practice.case))
-            .order_by(Practice.created_at.desc())
-        )
+        q = self.db.query(Practice).options(joinedload(Practice.case)).order_by(Practice.created_at.desc())
         total = q.order_by(None).count()
         items = q.offset(offset).limit(limit).all()
         return items, total
@@ -33,14 +29,8 @@ class PracticeRepository(Repository[Practice]):
 
     def training_record_count(self, practice_id: int) -> int:
         return (
-            self.db.query(func.count(TrainingRecord.id))
-            .filter(TrainingRecord.practice_id == practice_id)
-            .scalar()
+            self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.practice_id == practice_id).scalar()
         ) or 0
 
     def assignment_count(self, practice_id: int) -> int:
-        return (
-            self.db.query(func.count(Assignment.id))
-            .filter(Assignment.practice_id == practice_id)
-            .scalar()
-        ) or 0
+        return (self.db.query(func.count(Assignment.id)).filter(Assignment.practice_id == practice_id).scalar()) or 0

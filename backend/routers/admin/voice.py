@@ -186,14 +186,6 @@ async def test_tts(
     return await _do_test_tts(db)
 
 
-@router.post("/test/tts", response_model=VoiceStatusResponse)
-async def test_tts_v2(
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    return await _do_test_tts(db)
-
-
 async def _do_test_asr(db: Session, request: Request) -> VoiceStatusResponse:
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
     if not vc:
@@ -240,15 +232,6 @@ async def _do_test_asr(db: Session, request: Request) -> VoiceStatusResponse:
 
 @router.post("/config/test-asr", response_model=VoiceStatusResponse)
 async def test_asr(
-    request: Request,
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    return await _do_test_asr(db, request)
-
-
-@router.post("/test/asr", response_model=VoiceStatusResponse)
-async def test_asr_v2(
     request: Request,
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],

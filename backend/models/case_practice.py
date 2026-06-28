@@ -39,9 +39,7 @@ class Case(Base, TimestampMixin):
 
 class Practice(Base, TimestampMixin):
     __tablename__ = "practices"
-    __table_args__ = (
-        Index("ix_practices_case_id", "case_id"),
-    )
+    __table_args__ = (Index("ix_practices_case_id", "case_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100))

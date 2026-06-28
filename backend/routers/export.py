@@ -47,10 +47,14 @@ def export_records(
         ColumnDef("状态", key="status"),
         ColumnDef("开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
         ColumnDef("结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
-        ColumnDef("总分", value=lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""),
+        ColumnDef(
+            "总分", value=lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""
+        ),
         ColumnDef("优点", value=lambda r: "；".join(r.score.strengths) if r.score and r.score.strengths else ""),
         ColumnDef("不足", value=lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
-        ColumnDef("漏问内容", value=lambda r: "；".join(r.score.missed_content) if r.score and r.score.missed_content else ""),
+        ColumnDef(
+            "漏问内容", value=lambda r: "；".join(r.score.missed_content) if r.score and r.score.missed_content else ""
+        ),
         ColumnDef("改进建议", value=lambda r: r.score.suggestions if r.score else ""),
         ColumnDef("对话轮数", value=lambda r: str(msg_counts.get(r.id, 0))),
     ]

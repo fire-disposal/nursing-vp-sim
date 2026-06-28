@@ -12,7 +12,7 @@ from core.datetime_utils import ensure_utc
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, require_permission
-from infrastructure.export import Column, buffered_response
+from infrastructure.exporter import ColumnDef, export_response
 from models import Assignment, TrainingRecord, User, UserClass
 from schemas import (
     AssignmentCreateRequest,
@@ -174,14 +174,19 @@ def export_assignment(
     )
 
     columns = [
-        Column("学号", lambda r: r.user.student_id if r.user else ""),
-        Column("姓名", lambda r: r.user.display_name if r.user else ""),
-        Column("状态", lambda r: r.status),
-        Column("是否逾期", lambda r: "是" if r.is_overdue else "否"),
-        Column("开始时间", lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
-        Column("结束时间", lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
-        Column("总分", lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""),
-        Column("评分状态", lambda r: r.scoring_status or ""),
+        ColumnDef(header="学号", value=lambda r: r.user.student_id if r.user else ""),
+        ColumnDef(header="姓名", value=lambda r: r.user.display_name if r.user else ""),
+        ColumnDef(header="状态", value=lambda r: r.status),
+        ColumnDef(header="是否逾期", value=lambda r: "是" if r.is_overdue else "否"),
+        ColumnDef(
+            header="开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""
+        ),
+        ColumnDef(header="结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
+        ColumnDef(
+            header="总分",
+            value=lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else "",
+        ),
+        ColumnDef(header="评分状态", value=lambda r: r.scoring_status or ""),
     ]
 
     if any(r.score and r.score.detail_scores for r in records):
@@ -193,9 +198,9 @@ def export_assignment(
                         dim_names.append(dim_name)
         for dim_name in dim_names:
             columns.append(
-                Column(
-                    dim_name,
-                    lambda r, dn=dim_name: (
+                ColumnDef(
+                    header=dim_name,
+                    value=lambda r, dn=dim_name: (
                         str(r.score.detail_scores[dn].get("score", ""))
                         if r.score and r.score.detail_scores and dn in r.score.detail_scores
                         else ""
@@ -204,7 +209,7 @@ def export_assignment(
             )
 
     safe_title = assignment.title.replace(" ", "_")[:50]
-    return buffered_response(records, columns, f"assignment_{safe_title}_{assignment.id[:8]}.csv")
+    return export_response(records, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv")
 
 
 # ── Student endpoints (non-CRUD, different audience, kept inline) ──

@@ -207,9 +207,7 @@ def create_case(
 ):
     svc = CaseService(db)
     try:
-        view = svc.create(
-            req.case_data, current_user.id, current_user.role.name if current_user.role else ""
-        )
+        view = svc.create(req.case_data, current_user.id, current_user.role.name if current_user.role else "")
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return _to_manage_item(view)
@@ -224,9 +222,7 @@ def update_case(
 ):
     svc = CaseService(db)
     try:
-        view = svc.update(
-            case_id, req.case_data, current_user.id, current_user.role.name if current_user.role else ""
-        )
+        view = svc.update(case_id, req.case_data, current_user.id, current_user.role.name if current_user.role else "")
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return _to_manage_item(view)
@@ -238,9 +234,7 @@ def delete_case(
     db: DbSession,
     current_user: _CaseManager,
 ):
-    CaseService(db).delete(
-        case_id, current_user.id, current_user.role.name if current_user.role else ""
-    )
+    CaseService(db).delete(case_id, current_user.id, current_user.role.name if current_user.role else "")
     return {"message": "病例已删除"}
 
 

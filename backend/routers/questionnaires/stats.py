@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.security import require_permission
-from infrastructure.export import Column, buffered_response
+from infrastructure.exporter import ColumnDef, export_response
 from models import (
     CaseQuestionnaire,
     QuestionnaireAnswer,
@@ -142,14 +142,14 @@ def export_responses(
         ans_map_cache[r.id] = amap
 
     columns = [
-        Column("学生姓名", lambda r: r.user.display_name if r.user else ""),
-        Column("学号", lambda r: r.user.student_id if r.user else ""),
-        Column("提交时间", lambda r: r.completed_at.isoformat() if r.completed_at else ""),
+        ColumnDef(header="学生姓名", value=lambda r: r.user.display_name if r.user else ""),
+        ColumnDef(header="学号", value=lambda r: r.user.student_id if r.user else ""),
+        ColumnDef(header="提交时间", value=lambda r: r.completed_at.isoformat() if r.completed_at else ""),
     ]
     for q in questions:
         qid = q.id
         qcontent = q.content or ""
-        columns.append(Column(qcontent, lambda r, qid=qid: ans_map_cache[r.id].get(qid, "")))
+        columns.append(ColumnDef(header=qcontent, value=lambda r, qid=qid: ans_map_cache[r.id].get(qid, "")))
 
     safe_title = quote(t.title or f"问卷{template_id}")
-    return buffered_response(responses, columns, f"questionnaire_{template_id}_{safe_title}.csv")
+    return export_response(responses, columns, filename=f"questionnaire_{template_id}_{safe_title}", format="csv")

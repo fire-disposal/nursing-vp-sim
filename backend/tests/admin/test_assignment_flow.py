@@ -55,7 +55,7 @@ class TestAssignmentFlow:
         assert "students" in detail
 
         # Export CSV
-        resp = client.get(f"/api/assignments/{assignment_id}/export", headers=_auth_headers(token))
+        resp = client.post(f"/api/assignments/{assignment_id}/export", headers=_auth_headers(token))
         assert resp.status_code == 200
         assert "text/csv" in resp.headers.get("content-type", "")
         assert assignment_id

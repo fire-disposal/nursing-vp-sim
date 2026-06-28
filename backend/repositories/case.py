@@ -44,18 +44,10 @@ class CaseRepository(Repository[Case]):
         return {cid: cnt for cid, cnt in rows}
 
     def training_count(self, case_id: int) -> int:
-        return (
-            self.db.query(func.count(TrainingRecord.id))
-            .filter(TrainingRecord.case_id == case_id)
-            .scalar()
-        ) or 0
+        return (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
 
     def has_practices(self, case_id: int) -> bool:
-        return bool(
-            self.db.query(
-                self.db.query(Practice).filter(Practice.case_id == case_id).exists()
-            ).scalar()
-        )
+        return bool(self.db.query(self.db.query(Practice).filter(Practice.case_id == case_id).exists()).scalar())
 
     def list_active_practices(self, case_id: int) -> list[Practice]:
         return (

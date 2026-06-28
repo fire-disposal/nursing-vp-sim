@@ -485,7 +485,7 @@ class TestTeacherResponseView:
 
     def test_export_csv(self, client, template_with_response):
         tid, token = template_with_response
-        resp = client.get(
+        resp = client.post(
             f"/api/questionnaires/responses/{tid}/export",
             headers={"Authorization": f"Bearer {token}"},
         )
