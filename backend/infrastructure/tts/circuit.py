@@ -22,38 +22,42 @@ class TTSCircuitBreaker:
         self._failure_count = 0
         self._last_failure_time: float = 0.0
         self._state: str = "closed"  # closed | open | half_open
+        self._lock = asyncio.Lock()
 
     @property
     def state(self) -> str:
         return self._state
 
     async def call(self, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-        if self._state == "open":
-            if time.monotonic() - self._last_failure_time >= self._cooldown_seconds:
-                self._state = "half_open"
-                log.info("TTS circuit breaker: open → half_open (cooldown expired)")
-            else:
-                raise CircuitOpenError("TTS service temporarily unavailable, using browser fallback")
+        async with self._lock:
+            if self._state == "open":
+                if time.monotonic() - self._last_failure_time >= self._cooldown_seconds:
+                    self._state = "half_open"
+                    log.info("TTS circuit breaker: open → half_open (cooldown expired)")
+                else:
+                    raise CircuitOpenError("TTS service temporarily unavailable, using browser fallback")
 
         try:
             result = await fn(*args, **kwargs) if asyncio.iscoroutinefunction(fn) else fn(*args, **kwargs)
         except Exception as e:
-            self._failure_count += 1
-            self._last_failure_time = time.monotonic()
-            if self._state == "half_open":
-                self._state = "open"
-                log.warning("TTS circuit breaker: half_open → open (trial failed)")
-            elif self._failure_count >= self._failure_threshold:
-                self._state = "open"
-                log.warning(
-                    "TTS circuit breaker: closed → open (%d consecutive failures, threshold=%d)",
-                    self._failure_count,
-                    self._failure_threshold,
-                )
+            async with self._lock:
+                self._failure_count += 1
+                self._last_failure_time = time.monotonic()
+                if self._state == "half_open":
+                    self._state = "open"
+                    log.warning("TTS circuit breaker: half_open → open (trial failed)")
+                elif self._failure_count >= self._failure_threshold:
+                    self._state = "open"
+                    log.warning(
+                        "TTS circuit breaker: closed → open (%d consecutive failures, threshold=%d)",
+                        self._failure_count,
+                        self._failure_threshold,
+                    )
             raise
 
-        if self._state == "half_open":
-            self._state = "closed"
-            log.info("TTS circuit breaker: half_open → closed (trial succeeded)")
-        self._failure_count = 0
+        async with self._lock:
+            if self._state == "half_open":
+                self._state = "closed"
+                log.info("TTS circuit breaker: half_open → closed (trial succeeded)")
+            self._failure_count = 0
         return result

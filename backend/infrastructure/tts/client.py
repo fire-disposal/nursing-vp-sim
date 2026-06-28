@@ -7,6 +7,7 @@ back as newline-delimited JSON, each line carrying a base64 audio chunk.
 import base64
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 
 import httpx
@@ -46,13 +47,16 @@ class VolcTTSClient:
         self._resource_id = resource_id
         self._timeout = timeout
         self._http: httpx.AsyncClient | None = None
+        self._http_lock = threading.Lock()
 
     @property
     def http(self) -> httpx.AsyncClient:
         if self._http is None:
-            self._http = httpx.AsyncClient(
-                timeout=httpx.Timeout(self._timeout + 5, connect=10.0),
-            )
+            with self._http_lock:
+                if self._http is None:
+                    self._http = httpx.AsyncClient(
+                        timeout=httpx.Timeout(self._timeout + 5, connect=10.0),
+                    )
         return self._http
 
     async def close(self) -> None:
