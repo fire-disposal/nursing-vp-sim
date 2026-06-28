@@ -15,9 +15,9 @@ from fastapi import FastAPI
 
 def register_routers(app: FastAPI) -> None:
     # ── domain routers (flat module → .router) ──
-    from routers import auth, cases, export, feedback, notes, questionnaires, stats
+    from routers import auth, cases, feedback, notes, questionnaires, records, stats
 
-    for mod in (auth, cases, export, feedback, notes, questionnaires, stats):
+    for mod in (auth, cases, feedback, notes, questionnaires, records, stats):
         app.include_router(mod.router)
 
     # ── composite admin router (sub-routers via admin/__init__.py) ──
@@ -26,7 +26,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(admin.router)
 
     # ── admin routers with full prefix (registered directly) ──
-    from routers.admin.api import router as _api
+    from routers.admin.secrets import router as _secrets
     from routers.admin.classes import router as _classes
     from routers.admin.grades import router as _grades
     from routers.admin.practices import router as _practices
@@ -34,7 +34,7 @@ def register_routers(app: FastAPI) -> None:
     from routers.admin.roles import router as _roles
     from routers.admin.voice import router as _voice
 
-    for r in (_api, _classes, _grades, _practices, _prompts, _roles, _voice):
+    for r in (_secrets, _classes, _grades, _practices, _prompts, _roles, _voice):
         app.include_router(r)
 
     # ── training context routers ──
