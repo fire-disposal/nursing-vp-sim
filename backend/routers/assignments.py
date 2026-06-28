@@ -1,19 +1,17 @@
 """Assignment management — teacher publish exercises to classes."""
 
 import logging
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from core.datetime_utils import ensure_utc
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError
-from core.security import get_current_user, require_permission
+from core.security import require_permission
 from infrastructure.exporter import ColumnDef, export_response
-from models import Assignment, TrainingRecord, User, UserClass
+from models import Assignment, TrainingRecord, User
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -22,7 +20,6 @@ from schemas import (
     AssignmentUpdateRequest,
     DeleteResponse,
     PaginatedResponse,
-    StudentAssignmentItem,
 )
 from services.assignment import AssignmentService
 
@@ -210,76 +207,3 @@ def export_assignment(
 
     safe_title = assignment.title.replace(" ", "_")[:50]
     return export_response(records, columns, filename=f"assignment_{safe_title}_{assignment.id[:8]}", format="csv")
-
-
-# ── Student endpoints (non-CRUD, different audience, kept inline) ──
-
-student_router = APIRouter(prefix="/api/students/assignments", tags=["学生练习"])
-
-
-@student_router.get("", response_model=list[StudentAssignmentItem])
-def list_student_assignments(
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
-):
-    user_class = db.query(UserClass).filter(UserClass.user_id == current_user.id).first()
-    if not user_class or not user_class.class_id:
-        return []
-
-    now = datetime.now(UTC)
-    assignments = (
-        db.query(Assignment)
-        .options(joinedload(Assignment.practice))
-        .filter(
-            Assignment.class_id == user_class.class_id,
-            Assignment.start_time <= now,
-        )
-        .order_by(Assignment.end_time.desc())
-        .all()
-    )
-
-    assignment_ids = [a.id for a in assignments]
-    records = (
-        db.query(TrainingRecord)
-        .options(joinedload(TrainingRecord.score))
-        .filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.assignment_id.in_(assignment_ids),
-        )
-        .all()
-    )
-    record_by_assignment: dict[str, TrainingRecord] = {r.assignment_id: r for r in records if r.assignment_id}
-
-    items: list[StudentAssignmentItem] = []
-    for a in assignments:
-        record = record_by_assignment.get(a.id)
-        if record:
-            status = record.status
-            if status != "completed" and record.is_overdue:
-                status = "overdue"
-            items.append(
-                StudentAssignmentItem(
-                    id=a.id,
-                    title=a.title,
-                    practice_name=a.practice.name if a.practice else "",
-                    start_time=a.start_time,
-                    end_time=a.end_time,
-                    status=status,
-                    record_id=record.id,
-                    score_total=record.score.total_score if record.score else None,
-                )
-            )
-        else:
-            status = "overdue" if now > ensure_utc(a.end_time) else "pending"
-            items.append(
-                StudentAssignmentItem(
-                    id=a.id,
-                    title=a.title,
-                    practice_name=a.practice.name if a.practice else "",
-                    start_time=a.start_time,
-                    end_time=a.end_time,
-                    status=status,
-                )
-            )
-
-    return items

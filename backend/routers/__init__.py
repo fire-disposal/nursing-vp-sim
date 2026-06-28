@@ -52,8 +52,8 @@ def register_routers(app: FastAPI) -> None:
     # ── utility / infra routers ──
     from routers.asr import router as _asr
     from routers.assignments import router as _assignments
-    from routers.assignments import student_router as _student_assignments
     from routers.ops import router as _ops
+    from routers.students import router as _student_assignments
     from routers.tts import router as _tts
 
     for r in (_asr, _assignments, _student_assignments, _ops, _tts):
