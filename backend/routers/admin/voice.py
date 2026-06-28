@@ -23,7 +23,6 @@ from schemas.voice import (
     CostDashboardResponse,
     CostSeriesPoint,
     VoiceConfigExportResponse,
-    VoiceConfigImportRequest,
     VoiceConfigResponse,
     VoiceConfigUpdateRequest,
     VoiceStatusResponse,
@@ -699,52 +698,3 @@ def export_voice_config(
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=voice_config_export.json"},
     )
-
-
-@router.post("/config/import", response_model=VoiceConfigResponse)
-def import_voice_config(
-    data: VoiceConfigImportRequest,
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
-    db: Annotated[Session, Depends(get_db)],
-):
-    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-
-    api_key_enc = encrypt_api_key(data.api_key)
-    api_key_suffix = data.api_key[-8:] if len(data.api_key) >= 8 else data.api_key
-
-    if vc:
-        vc.provider = data.provider
-        vc.api_key_enc = api_key_enc
-        vc.api_key_suffix = api_key_suffix
-        vc.tts_resource_id = data.tts_resource_id
-        vc.tts_speaker = data.tts_speaker
-        vc.tts_model = data.tts_model
-        vc.tts_sample_rate = data.tts_sample_rate
-        vc.tts_format = data.tts_format
-        vc.tts_timeout = data.tts_timeout
-        vc.asr_resource_id = data.asr_resource_id
-        vc.asr_sample_rate = data.asr_sample_rate
-        vc.asr_endpoint_mode = data.asr_endpoint_mode
-        vc.monthly_budget = data.monthly_budget
-    else:
-        vc = VoiceConfig(
-            provider=data.provider,
-            api_key_enc=api_key_enc,
-            api_key_suffix=api_key_suffix,
-            tts_resource_id=data.tts_resource_id,
-            tts_speaker=data.tts_speaker,
-            tts_model=data.tts_model,
-            tts_sample_rate=data.tts_sample_rate,
-            tts_format=data.tts_format,
-            tts_timeout=data.tts_timeout,
-            asr_resource_id=data.asr_resource_id,
-            asr_sample_rate=data.asr_sample_rate,
-            asr_endpoint_mode=data.asr_endpoint_mode,
-            monthly_budget=data.monthly_budget,
-            is_active=True,
-        )
-        db.add(vc)
-
-    db.commit()
-    db.refresh(vc)
-    return _build_voice_config_response(vc)

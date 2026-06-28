@@ -134,12 +134,10 @@ class CostExportRequest(BaseModel):
     format: str = "json"  # "json" | "csv"
 
 
-# ── Voice Config Import/Export ──
+# ── Voice Config Export ──
 
 
 class VoiceConfigExportResponse(BaseModel):
-    """Voice config export — api_key is NOT included (must be re-entered on import)."""
-
     model_config = _RESP_CFG
     provider: str
     tts_resource_id: str
@@ -153,19 +151,3 @@ class VoiceConfigExportResponse(BaseModel):
     asr_endpoint_mode: str
     monthly_budget: float
     exported_at: str
-
-
-class VoiceConfigImportRequest(BaseModel):
-    model_config = _REQ_CFG
-    provider: str = "volcengine"
-    api_key: str = Field(min_length=1)  # required on import (not exported)
-    tts_resource_id: str = Field(default="seed-tts-2.0", max_length=64)
-    tts_speaker: str = Field(default="zh_female_vv_uranus_bigtts", max_length=64)
-    tts_model: str = Field(default="seed-tts-2.0-standard", max_length=40)
-    tts_sample_rate: int = Field(default=24000, ge=8000, le=48000)
-    tts_format: str = Field(default="mp3", max_length=16)
-    tts_timeout: int = Field(default=8, ge=3, le=30)
-    asr_resource_id: str = Field(default="volc.bigasr.sauc.duration", max_length=64)
-    asr_sample_rate: int = Field(default=16000, ge=8000, le=48000)
-    asr_endpoint_mode: str = Field(default="bigmodel_nostream", max_length=24)
-    monthly_budget: float = Field(default=200.0, ge=0)
