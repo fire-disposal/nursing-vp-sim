@@ -6,10 +6,43 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-from core.exceptions import ValidationError
+from core.exceptions import ValidationError, NotFoundError
 from core.unit_of_work import unit_of_work
-from models import CaseQuestionnaire, QuestionnaireQuestion, QuestionnaireTemplate
-from repositories.questionnaire import QuestionnaireQuestionRepository, QuestionnaireTemplateRepository
+from models import CaseQuestionnaire, QuestionnaireAnswer, QuestionnaireQuestion, QuestionnaireResponse, QuestionnaireTemplate, TrainingRecord, User
+from repositories.questionnaire import QuestionnaireQuestionRepository, QuestionnaireResponseRepository, QuestionnaireTemplateRepository
+from schemas.questionnaire import (
+    QuestionnaireCheckResponse,
+    QuestionnaireQuestionResponse,
+    QuestionnaireTemplateDetailResponse,
+)
+
+
+def _template_to_detail(t: QuestionnaireTemplate | None) -> QuestionnaireTemplateDetailResponse | None:
+    if t is None:
+        return None
+    return QuestionnaireTemplateDetailResponse(
+        id=t.id,
+        title=t.title,
+        type=t.type,
+        description=t.description,
+        is_active=t.is_active,
+        question_count=len(t.questions) if t.questions else 0,
+        created_at=t.created_at,
+        updated_at=t.updated_at,
+        questions=[
+            QuestionnaireQuestionResponse(
+                id=q.id,
+                template_id=q.template_id,
+                content=q.content,
+                question_type=q.question_type,
+                required=q.required,
+                sort_order=q.sort_order,
+                options=q.options,
+            )
+            for q in (t.questions or [])
+        ],
+        case_ids=[cq.case_id for cq in getattr(t, "case_links", [])],
+    )
 
 
 @dataclass
@@ -297,3 +330,172 @@ class QuestionnaireQuestionService:
         self.repo.get_or_404(q.template_id, "问卷模板不存在")
         with unit_of_work(self.db, conflict_detail="删除题目失败"):
             self.q_repo.delete(q)
+
+
+@dataclass
+class AnswerView:
+    question_id: int
+    question_content: str
+    question_type: str
+    options: list[str] | None = None
+    answer_value: str | None = None
+
+
+@dataclass
+class ResponseView:
+    id: int
+    template_id: int
+    template_title: str
+    user_id: int
+    user_name: str
+    case_id: int | None
+    record_id: int | None
+    status: str
+    answers: list[AnswerView]
+    completed_at: datetime | None
+    created_at: datetime
+
+
+class QuestionnaireResponseService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.repo = QuestionnaireResponseRepository(db)
+
+    def _build_response_item(
+        self,
+        response: QuestionnaireResponse,
+        answers_map: dict[int, list[QuestionnaireAnswer]] | None = None,
+        questions_map: dict[int, dict[int, QuestionnaireQuestion]] | None = None,
+    ) -> ResponseView:
+        if answers_map is not None:
+            answers = answers_map.get(response.id, [])
+        else:
+            answers = self.repo.load_answers([response.id]).get(response.id, [])
+
+        if questions_map is not None:
+            q_map = questions_map.get(response.template_id, {})
+        else:
+            q_map = self.repo.load_questions([response.template_id]).get(response.template_id, {})
+
+        return ResponseView(
+            id=response.id,
+            template_id=response.template_id,
+            template_title=response.template.title if response.template else "",
+            user_id=response.user_id,
+            user_name=response.user.display_name if response.user else "",
+            case_id=response.case_id,
+            record_id=response.record_id,
+            status=response.status,
+            answers=[
+                AnswerView(
+                    question_id=a.question_id,
+                    question_content=q_map[a.question_id].content if a.question_id in q_map else "",
+                    question_type=q_map[a.question_id].question_type if a.question_id in q_map else "",
+                    options=q_map[a.question_id].options if a.question_id in q_map else None,
+                    answer_value=a.answer_value,
+                )
+                for a in answers
+            ],
+            completed_at=response.completed_at,
+            created_at=response.created_at,
+        )
+
+    def check(
+        self,
+        user_id: int,
+        case_id: int | None,
+        record_id: int | None,
+        trigger: str | None,
+    ) -> QuestionnaireCheckResponse:
+        if not case_id and not record_id:
+            raise ValidationError("请提供 case_id 或 record_id")
+
+        if record_id:
+            record = self.repo.get_training_record(record_id, user_id)
+            if not record:
+                raise NotFoundError("训练记录不存在")
+            case_id = record.case_id
+
+        cqs = self.repo.case_questionnaires_for(case_id, trigger)
+
+        for cq in cqs:
+            existing = self.repo.find_completed(user_id, cq.template_id, case_id)
+            if existing:
+                continue
+
+            partial = self.repo.find_pending(user_id, cq.template_id, case_id)
+            t = self.repo.get_template(cq.template_id)
+            return QuestionnaireCheckResponse(
+                has_pending=True,
+                template_id=cq.template_id,
+                response_id=partial.id if partial else None,
+                template=_template_to_detail(t) if t else None,
+                is_required=cq.is_required,
+                trigger_event=cq.trigger_event or "before_training",
+            )
+
+        return QuestionnaireCheckResponse(has_pending=False)
+
+    def submit(
+        self,
+        user_id: int,
+        template_id: int,
+        case_id: int | None,
+        record_id: int | None,
+        answers_data: list[dict],
+    ) -> ResponseView:
+        t = self.repo.get_template(template_id)
+        if not t or not t.is_active:
+            raise NotFoundError("问卷模板不存在或已停用")
+
+        response = self.repo.find_pending(user_id, template_id, case_id)
+
+        with unit_of_work(self.db, conflict_detail="提交问卷失败"):
+            if response:
+                self.repo.delete_answers(response.id)
+            else:
+                response = QuestionnaireResponse(
+                    template_id=template_id,
+                    user_id=user_id,
+                    case_id=case_id,
+                    record_id=record_id,
+                    status="pending",
+                )
+                self.repo.add(response)
+
+            for ans in answers_data:
+                self.db.add(
+                    QuestionnaireAnswer(
+                        response_id=response.id,
+                        question_id=ans["question_id"],
+                        answer_value=ans.get("answer_value"),
+                    )
+                )
+
+            response.status = "completed"
+            response.completed_at = datetime.now(UTC)
+
+        self.db.refresh(response)
+        return self._build_response_item(response)
+
+    def list_my_responses(self, user_id: int, offset: int, limit: int) -> tuple[list[ResponseView], int]:
+        rows, total = self.repo.list_by_user(user_id, offset, limit)
+        response_ids = [r.id for r in rows]
+        template_ids = list({r.template_id for r in rows})
+        answers_map = self.repo.load_answers(response_ids)
+        questions_map = self.repo.load_questions(template_ids)
+        items = [self._build_response_item(r, answers_map, questions_map) for r in rows]
+        return items, total
+
+    def list_responses(self, template_id: int, offset: int, limit: int) -> tuple[list[ResponseView], int]:
+        t = self.repo.get_template(template_id)
+        if not t:
+            raise NotFoundError("问卷模板不存在")
+
+        rows, total = self.repo.list_by_template(template_id, offset, limit)
+        response_ids = [r.id for r in rows]
+        template_ids = [template_id]
+        answers_map = self.repo.load_answers(response_ids)
+        questions_map = self.repo.load_questions(template_ids)
+        items = [self._build_response_item(r, answers_map, questions_map) for r in rows]
+        return items, total

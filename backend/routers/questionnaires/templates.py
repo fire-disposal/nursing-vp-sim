@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.deps import DbSession
 from core.security import require_permission
-from models import QuestionnaireTemplate, User
+from models import User
 from schemas import (
     CaseAssignmentRequest,
     DeleteResponse,
@@ -21,6 +21,7 @@ from services.questionnaire import (
     QuestionView,
     TemplateDetailView,
     TemplateView,
+    _template_to_detail,
 )
 
 router = APIRouter()
@@ -67,34 +68,6 @@ def _resp_detail(view: TemplateDetailView) -> QuestionnaireTemplateDetailRespons
         updated_at=view.updated_at,
         questions=[_q_resp(q) for q in view.questions],
         case_ids=view.case_ids,
-    )
-
-
-def _template_to_detail(t: QuestionnaireTemplate | None) -> QuestionnaireTemplateDetailResponse | None:
-    if t is None:
-        return None
-    return QuestionnaireTemplateDetailResponse(
-        id=t.id,
-        title=t.title,
-        type=t.type,
-        description=t.description,
-        is_active=t.is_active,
-        question_count=len(t.questions) if t.questions else 0,
-        created_at=t.created_at,
-        updated_at=t.updated_at,
-        questions=[
-            QuestionnaireQuestionResponse(
-                id=q.id,
-                template_id=q.template_id,
-                content=q.content,
-                question_type=q.question_type,
-                required=q.required,
-                sort_order=q.sort_order,
-                options=q.options,
-            )
-            for q in (t.questions or [])
-        ],
-        case_ids=[cq.case_id for cq in getattr(t, "case_links", [])],
     )
 
 
