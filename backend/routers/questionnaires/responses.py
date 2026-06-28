@@ -1,21 +1,10 @@
-from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Depends, Query
 
-from core.database import get_db
-from core.pagination import paginate
+from core.deps import DbSession
 from core.security import get_current_user, require_permission
-from models import (
-    CaseQuestionnaire,
-    QuestionnaireAnswer,
-    QuestionnaireQuestion,
-    QuestionnaireResponse,
-    QuestionnaireTemplate,
-    TrainingRecord,
-    User,
-)
+from models import User
 from schemas import (
     PaginatedResponse,
     QuestionnaireAnswerItem,
@@ -23,236 +12,98 @@ from schemas import (
     QuestionnaireResponseItem,
     QuestionnaireSubmitRequest,
 )
-
-from .templates import _template_to_detail
+from services.questionnaire import QuestionnaireResponseService
 
 router = APIRouter()
 
+_Manager = Annotated[User, Depends(require_permission("questionnaire_manage"))]
 
-def _build_response_item(
-    response: QuestionnaireResponse, db: Session, answers_map=None, questions_map=None
-) -> QuestionnaireResponseItem:
-    if answers_map is not None:
-        answers = answers_map.get(response.id, [])
-    else:
-        answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response.id).all()
 
-    if questions_map is not None:
-        q_map = questions_map.get(response.template_id, {})
-    else:
-        q_map = {
-            q.id: q
-            for q in db.query(QuestionnaireQuestion)
-            .filter(QuestionnaireQuestion.template_id == response.template_id)
-            .all()
-        }
+def _answer_resp(v) -> QuestionnaireAnswerItem:
+    return QuestionnaireAnswerItem(
+        question_id=v.question_id,
+        question_content=v.question_content,
+        question_type=v.question_type,
+        options=v.options,
+        answer_value=v.answer_value,
+    )
+
+
+def _resp_item(v) -> QuestionnaireResponseItem:
     return QuestionnaireResponseItem(
-        id=response.id,
-        template_id=response.template_id,
-        template_title=response.template.title if response.template else "",
-        user_id=response.user_id,
-        user_name=response.user.display_name if response.user else "",
-        case_id=response.case_id,
-        record_id=response.record_id,
-        status=response.status,
-        answers=[
-            QuestionnaireAnswerItem(
-                question_id=a.question_id,
-                question_content=q_map[a.question_id].content if a.question_id in q_map else "",
-                question_type=q_map[a.question_id].question_type if a.question_id in q_map else "",
-                options=q_map[a.question_id].options if a.question_id in q_map else None,
-                answer_value=a.answer_value,
-            )
-            for a in answers
-        ],
-        completed_at=response.completed_at,
-        created_at=response.created_at,
+        id=v.id,
+        template_id=v.template_id,
+        template_title=v.template_title,
+        user_id=v.user_id,
+        user_name=v.user_name,
+        case_id=v.case_id,
+        record_id=v.record_id,
+        status=v.status,
+        answers=[_answer_resp(a) for a in v.answers],
+        completed_at=v.completed_at,
+        created_at=v.created_at,
     )
 
 
 @router.get("/questionnaires/check", response_model=QuestionnaireCheckResponse)
 def check_questionnaire(
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
     case_id: Annotated[int | None, Query()] = None,
     record_id: Annotated[int | None, Query()] = None,
     trigger: Annotated[str | None, Query(description="触发事件: before_training / after_scoring / manual")] = None,
 ):
-    if not case_id and not record_id:
-        raise HTTPException(status_code=400, detail="请提供 case_id 或 record_id")
-
-    if record_id:
-        record = (
-            db.query(TrainingRecord)
-            .filter(TrainingRecord.id == record_id, TrainingRecord.user_id == current_user.id)
-            .first()
-        )
-        if not record:
-            raise HTTPException(status_code=404, detail="训练记录不存在")
-        case_id = record.case_id
-
-    cq_query = (
-        db.query(CaseQuestionnaire)
-        .join(QuestionnaireTemplate, CaseQuestionnaire.template_id == QuestionnaireTemplate.id)
-        .filter(
-            CaseQuestionnaire.case_id == case_id,
-            QuestionnaireTemplate.is_active == True,
-        )
+    return QuestionnaireResponseService(db).check(
+        user_id=current_user.id,
+        case_id=case_id,
+        record_id=record_id,
+        trigger=trigger,
     )
-    if trigger:
-        cq_query = cq_query.filter(CaseQuestionnaire.trigger_event == trigger)
-    cqs = cq_query.order_by(CaseQuestionnaire.id).all()
-
-    # Return the first questionnaire the user has not yet completed (supports
-    # multiple questionnaires per case, e.g. pre-test + post-test).
-    for cq in cqs:
-        existing = (
-            db.query(QuestionnaireResponse)
-            .filter(
-                QuestionnaireResponse.user_id == current_user.id,
-                QuestionnaireResponse.template_id == cq.template_id,
-                QuestionnaireResponse.case_id == case_id,
-                QuestionnaireResponse.status == "completed",
-            )
-            .first()
-        )
-        if existing:
-            continue
-
-        partial = (
-            db.query(QuestionnaireResponse)
-            .filter(
-                QuestionnaireResponse.user_id == current_user.id,
-                QuestionnaireResponse.template_id == cq.template_id,
-                QuestionnaireResponse.case_id == case_id,
-                QuestionnaireResponse.status == "pending",
-            )
-            .first()
-        )
-        t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == cq.template_id).first()
-        return QuestionnaireCheckResponse(
-            has_pending=True,
-            template_id=cq.template_id,
-            response_id=partial.id if partial else None,
-            template=_template_to_detail(t) if t else None,
-            is_required=cq.is_required,
-            trigger_event=cq.trigger_event or "before_training",
-        )
-
-    return QuestionnaireCheckResponse(has_pending=False)
 
 
 @router.post("/questionnaires/responses", response_model=QuestionnaireResponseItem)
 def submit_questionnaire(
     req: QuestionnaireSubmitRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
 ):
-    t = db.query(QuestionnaireTemplate).filter(QuestionnaireTemplate.id == req.template_id).first()
-    if not t or not t.is_active:
-        raise HTTPException(status_code=404, detail="问卷模板不存在或已停用")
-
-    response = (
-        db.query(QuestionnaireResponse)
-        .filter(
-            QuestionnaireResponse.user_id == current_user.id,
-            QuestionnaireResponse.template_id == req.template_id,
-            QuestionnaireResponse.case_id == req.case_id,
-            QuestionnaireResponse.status == "pending",
-        )
-        .first()
-    )
-
-    if response:
-        db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response.id).delete()
-    else:
-        response = QuestionnaireResponse(
-            template_id=req.template_id,
+    return _resp_item(
+        QuestionnaireResponseService(db).submit(
             user_id=current_user.id,
+            template_id=req.template_id,
             case_id=req.case_id,
             record_id=req.record_id,
-            status="pending",
+            answers_data=[a.model_dump() for a in req.answers],
         )
-        db.add(response)
-        db.flush()
-
-    for ans in req.answers:
-        db.add(
-            QuestionnaireAnswer(
-                response_id=response.id,
-                question_id=ans.question_id,
-                answer_value=ans.answer_value,
-            )
-        )
-
-    response.status = "completed"
-    response.completed_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(response)
-
-    return _build_response_item(response, db)
+    )
 
 
 @router.get("/questionnaires/my-responses", response_model=PaginatedResponse[QuestionnaireResponseItem])
 def my_responses(
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
+    db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    query = (
-        db.query(QuestionnaireResponse)
-        .filter(QuestionnaireResponse.user_id == current_user.id)
-        .order_by(QuestionnaireResponse.created_at.desc())
+    items, total = QuestionnaireResponseService(db).list_my_responses(
+        user_id=current_user.id,
+        offset=offset,
+        limit=limit,
     )
-    rows, total = paginate(query, offset, limit)
-
-    response_ids = [r.id for r in rows]
-    template_ids = list(set(r.template_id for r in rows))
-
-    all_answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id.in_(response_ids)).all()
-    answers_map = {}
-    for a in all_answers:
-        answers_map.setdefault(a.response_id, []).append(a)
-
-    all_questions = db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.template_id.in_(template_ids)).all()
-    questions_map = {}
-    for q in all_questions:
-        questions_map.setdefault(q.template_id, {})[q.id] = q
-
-    items = [_build_response_item(r, db, answers_map, questions_map) for r in rows]
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(items=[_resp_item(v) for v in items], total=total, offset=offset, limit=limit)
 
 
 @router.get("/questionnaires/responses/{template_id}", response_model=PaginatedResponse[QuestionnaireResponseItem])
 def list_responses(
     template_id: int,
-    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
-    db: Annotated[Session, Depends(get_db)],
+    current_user: _Manager,
+    db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    query = (
-        db.query(QuestionnaireResponse)
-        .options(joinedload(QuestionnaireResponse.template), joinedload(QuestionnaireResponse.user))
-        .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
+    items, total = QuestionnaireResponseService(db).list_responses(
+        template_id=template_id,
+        offset=offset,
+        limit=limit,
     )
-    query = query.order_by(QuestionnaireResponse.created_at.desc())
-
-    rows, total = paginate(query, offset, limit)
-
-    response_ids = [r.id for r in rows]
-    template_ids = list(set(r.template_id for r in rows))
-
-    all_answers = db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id.in_(response_ids)).all()
-    answers_map = {}
-    for a in all_answers:
-        answers_map.setdefault(a.response_id, []).append(a)
-
-    all_questions = db.query(QuestionnaireQuestion).filter(QuestionnaireQuestion.template_id.in_(template_ids)).all()
-    questions_map = {}
-    for q in all_questions:
-        questions_map.setdefault(q.template_id, {})[q.id] = q
-
-    items = [_build_response_item(r, db, answers_map, questions_map) for r in rows]
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(items=[_resp_item(v) for v in items], total=total, offset=offset, limit=limit)
