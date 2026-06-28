@@ -2,13 +2,13 @@ import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
-from infrastructure.export import Column, stream_response
+from infrastructure.exporter import ColumnDef, CSVExporter
 from models import Message, TrainingRecord, User
 
 router = APIRouter(prefix="/api/export", tags=["导出"])
@@ -39,21 +39,22 @@ def export_records(
         }
 
     columns = [
-        Column("记录ID", lambda r: str(r.id)),
-        Column("学生姓名", lambda r: r.user.display_name if r.user else ""),
-        Column("学号", lambda r: r.user.student_id if r.user else ""),
-        Column("病例名称", lambda r: r.case.name if r.case else ""),
-        Column("状态", lambda r: r.status),
-        Column("开始时间", lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
-        Column("结束时间", lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
-        Column("总分", lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""),
-        Column("优点", lambda r: "；".join(r.score.strengths) if r.score and r.score.strengths else ""),
-        Column("不足", lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
-        Column("漏问内容", lambda r: "；".join(r.score.missed_content) if r.score and r.score.missed_content else ""),
-        Column("改进建议", lambda r: r.score.suggestions if r.score else ""),
-        Column("对话轮数", lambda r: str(msg_counts.get(r.id, 0))),
+        ColumnDef("记录ID", key="id", fmt=str),
+        ColumnDef("学生姓名", value=lambda r: r.user.display_name if r.user else ""),
+        ColumnDef("学号", value=lambda r: r.user.student_id if r.user else ""),
+        ColumnDef("病例名称", value=lambda r: r.case.name if r.case else ""),
+        ColumnDef("状态", key="status"),
+        ColumnDef("开始时间", value=lambda r: r.start_time.strftime("%Y-%m-%d %H:%M:%S") if r.start_time else ""),
+        ColumnDef("结束时间", value=lambda r: r.end_time.strftime("%Y-%m-%d %H:%M:%S") if r.end_time else ""),
+        ColumnDef("总分", value=lambda r: str(r.score.total_score) if r.score and r.score.total_score is not None else ""),
+        ColumnDef("优点", value=lambda r: "；".join(r.score.strengths) if r.score and r.score.strengths else ""),
+        ColumnDef("不足", value=lambda r: "；".join(r.score.weaknesses) if r.score and r.score.weaknesses else ""),
+        ColumnDef("漏问内容", value=lambda r: "；".join(r.score.missed_content) if r.score and r.score.missed_content else ""),
+        ColumnDef("改进建议", value=lambda r: r.score.suggestions if r.score else ""),
+        ColumnDef("对话轮数", value=lambda r: str(msg_counts.get(r.id, 0))),
     ]
-    return stream_response(records, columns, "training_records.csv")
+    content = CSVExporter().export(records, columns, "训练记录")
+    return Response(content=content, media_type="text/csv; charset=utf-8-sig", headers={"Content-Disposition": "attachment; filename*=UTF-8''training_records.csv"})
 
 
 @router.get("/record/{record_id}")

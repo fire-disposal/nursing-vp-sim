@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import Integer as SAInteger
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
 from core.security import require_permission
-from infrastructure.export import Column, _sanitize_csv, buffered_response
+from infrastructure.exporter import ColumnDef, CSVExporter, XLSXExporter
 from models import Case as CaseModel
 from models import LLMCallLog, TrainingRecord, User
 from schemas import (
@@ -295,28 +296,29 @@ def export_llm_logs_csv(
     entries = q.order_by(LLMCallLog.created_at.desc()).limit(50000).all()
 
     columns = [
-        Column("ID", lambda e: str(e.id)),
-        Column("时间", lambda e: e.created_at.isoformat() if e.created_at else ""),
-        Column("用户ID", lambda e: str(e.user_id) if e.user_id else ""),
-        Column("训练记录ID", lambda e: str(e.record_id) if e.record_id else ""),
-        Column("病例ID", lambda e: str(e.case_id) if e.case_id else ""),
-        Column("用途", lambda e: e.purpose or ""),
-        Column("Provider", lambda e: getattr(e, "provider_name", "") or ""),
-        Column("模型", lambda e: e.model or ""),
-        Column("状态", lambda e: e.status or ""),
-        Column("延迟(ms)", lambda e: str(e.latency_ms) if e.latency_ms else ""),
-        Column("PromptTokens", lambda e: str(e.prompt_tokens) if e.prompt_tokens else ""),
-        Column("CompletionTokens", lambda e: str(e.completion_tokens) if e.completion_tokens else ""),
-        Column("TotalTokens", lambda e: str(e.total_tokens) if e.total_tokens else ""),
-        Column("估算标记", lambda e: "是" if e.token_estimated else "否"),
-        Column("预估费用", lambda e: str(e.estimated_cost) if e.estimated_cost else ""),
-        Column("错误类型", lambda e: e.error_type or ""),
-        Column("错误信息", lambda e: (e.error_message or "")[:200]),
-        Column("请求字符数", lambda e: str(e.request_chars) if e.request_chars else ""),
-        Column("响应字符数", lambda e: str(e.response_chars) if e.response_chars else ""),
+        ColumnDef("ID", key="id", fmt=str),
+        ColumnDef("时间", value=lambda e: e.created_at.isoformat() if e.created_at else ""),
+        ColumnDef("用户ID", key="user_id", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("训练记录ID", key="record_id", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("病例ID", key="case_id", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("用途", key="purpose"),
+        ColumnDef("Provider", key="provider_name"),
+        ColumnDef("模型", key="model"),
+        ColumnDef("状态", key="status"),
+        ColumnDef("延迟(ms)", key="latency_ms", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("PromptTokens", key="prompt_tokens", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("CompletionTokens", key="completion_tokens", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("TotalTokens", key="total_tokens", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("估算标记", value=lambda e: "是" if e.token_estimated else "否"),
+        ColumnDef("预估费用", key="estimated_cost", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("错误类型", key="error_type"),
+        ColumnDef("错误信息", value=lambda e: (e.error_message or "")[:200]),
+        ColumnDef("请求字符数", key="request_chars", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("响应字符数", key="response_chars", fmt=lambda v: str(v) if v else ""),
     ]
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    return buffered_response(entries, columns, f"llm_logs_{ts}.csv")
+    content = CSVExporter().export(entries, columns, "LLM日志")
+    return Response(content=content, media_type="text/csv; charset=utf-8-sig", headers={"Content-Disposition": f"attachment; filename*=UTF-8''llm_logs_{ts}.csv"})
 
 
 @router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
@@ -339,24 +341,6 @@ def export_records_excel(
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
 ):
-    from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.utils import get_column_letter
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "训练记录"
-
-    headers = ["记录ID", "学生", "病例", "状态", "评分状态", "总分", "开始时间", "结束时间"]
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
-
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-
     query = (
         db.query(TrainingRecord)
         .join(User, TrainingRecord.user_id == User.id)
@@ -367,29 +351,22 @@ def export_records_excel(
         .limit(EXCEL_EXPORT_ROW_LIMIT)
         .yield_per(100)
     )
+    records = list(query)
 
-    for row_idx, record in enumerate(query, 2):
-        ws.cell(row=row_idx, column=1, value=record.id)
-        ws.cell(row=row_idx, column=2, value=_sanitize_csv(record.user.display_name if record.user else ""))
-        ws.cell(row=row_idx, column=3, value=_sanitize_csv(record.case.name if record.case else ""))
-        ws.cell(row=row_idx, column=4, value=_sanitize_csv(record.status))
-        ws.cell(row=row_idx, column=5, value=_sanitize_csv(record.scoring_status or ""))
-        ws.cell(row=row_idx, column=6, value=record.score.total_score if record.score else "")
-        ws.cell(row=row_idx, column=7, value=_sanitize_csv(str(record.start_time)))
-        ws.cell(row=row_idx, column=8, value=_sanitize_csv(str(record.end_time)) if record.end_time else "")
-
-    for col in range(1, len(headers) + 1):
-        ws.column_dimensions[get_column_letter(col)].width = 18
-
+    columns = [
+        ColumnDef("记录ID", key="id", fmt=str),
+        ColumnDef("学生", value=lambda r: r.user.display_name if r.user else ""),
+        ColumnDef("病例", value=lambda r: r.case.name if r.case else ""),
+        ColumnDef("状态", key="status"),
+        ColumnDef("评分状态", key="scoring_status"),
+        ColumnDef("总分", value=lambda r: r.score.total_score if r.score else None),
+        ColumnDef("开始时间", value=lambda r: str(r.start_time) if r.start_time else ""),
+        ColumnDef("结束时间", value=lambda r: str(r.end_time) if r.end_time else ""),
+    ]
     filename = f"训练记录导出_{datetime.now(UTC).strftime('%Y%m%d_%H%M')}.xlsx"
-    stream = io.BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-
-    from fastapi.responses import StreamingResponse
-
+    content = XLSXExporter().export(records, columns, "训练记录")
     return StreamingResponse(
-        stream,
+        io.BytesIO(content),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
