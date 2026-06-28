@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from core.database import get_db
+from core.database import SessionLocal, get_db
 from core.security import require_permission
 from infrastructure.asr.client import VolcASRClient
 from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
@@ -24,6 +24,31 @@ from schemas.voice import (
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin/voice", tags=["语音管理"])
+
+
+def _reload_tts_client(app_state) -> None:
+    """Reload app.state.tts_client from the active VoiceConfig in DB."""
+    db = SessionLocal()
+    try:
+        vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+        if vc and vc.api_key_enc:
+            try:
+                api_key = decrypt_api_key(vc.api_key_enc)
+            except Exception:
+                log.warning("TTS reload: decryption failed")
+                api_key = ""
+            if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
+                app_state.tts_client = VolcTTSClient(
+                    api_key=api_key,
+                    resource_id=vc.tts_resource_id,
+                    timeout=vc.tts_timeout,
+                )
+                log.info("TTS client reloaded (resource_id=%s)", vc.tts_resource_id)
+                return
+        app_state.tts_client = None
+        log.info("TTS client cleared (no active config)")
+    finally:
+        db.close()
 
 
 def _mask_api_key(vc: VoiceConfig) -> str:
@@ -81,6 +106,7 @@ def get_config(
 @router.put("/config", response_model=VoiceConfigResponse)
 def update_config(
     req: VoiceConfigUpdateRequest,
+    request: Request,
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -126,6 +152,7 @@ def update_config(
 
     db.commit()
     db.refresh(vc)
+    _reload_tts_client(request.app.state)
     return _build_voice_config_response(vc)
 
 
