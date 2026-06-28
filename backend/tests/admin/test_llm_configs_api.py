@@ -26,7 +26,7 @@ class TestLLMConfigCRUD:
         _, token = teacher
 
         resp = client.post(
-            "/api/admin/api/configs",
+            "/api/admin/configs",
             json={
                 "secret_id": secret_id,
                 "purpose": "qa",
@@ -37,7 +37,7 @@ class TestLLMConfigCRUD:
         first_id = resp.json()["id"]
 
         resp2 = client.post(
-            "/api/admin/api/configs",
+            "/api/admin/configs",
             json={
                 "secret_id": secret_id,
                 "purpose": "qa",

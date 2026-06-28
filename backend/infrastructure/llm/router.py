@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
-from core.datetime_utils import ensure_utc
 
 log = logging.getLogger(__name__)
 
@@ -91,44 +90,18 @@ class ProfileRouter:
         self._last_persist_ts: dict[int, float] = {}
 
     async def load_from_db(self):
-        from sqlalchemy.orm import joinedload
+        from services.llm import LLMDataService
 
-        from core.database import SessionLocal
-        from models import ApiSecret as AS
-        from models import LLMConfig as LC
-
-        db = SessionLocal()
         try:
-            now = datetime.now(UTC)
-            profiles = db.query(AS).all()
-            bindings = db.query(LC).options(joinedload(LC.secret)).all()
-
-            recovered = 0
-            for p in profiles:
-                if p.status == "degraded" and p.degraded_until:
-                    dt = ensure_utc(p.degraded_until)
-                    if dt <= now:
-                        p.status = "active"
-                        p.degraded_reason = None
-                        p.degraded_until = None
-                        p.consecutive_failures = 0
-                        recovered += 1
-            if recovered:
-                db.commit()
-
+            profiles, bindings = LLMDataService.load_all()
             with self._state_lock:
-                self._profiles = {p.id: p for p in profiles}
-                self._bindings = {}
-                for b in bindings:
-                    self._bindings[b.purpose] = b
+                self._profiles = profiles
+                self._bindings = bindings
                 self._global_degraded_until = None
-
             log.debug("ProfileRouter loaded: %d profiles, %d bindings", len(profiles), len(bindings))
         except Exception:
             log.exception("ProfileRouter load failed")
             raise
-        finally:
-            db.close()
 
     def select(self, purpose: str):
         now = datetime.now(UTC)
@@ -283,12 +256,10 @@ class ProfileRouter:
                 profile.degraded_until = next_month
 
     def _refresh_profile_from_db(self, profile) -> None:
-        from core.database import SessionLocal
-        from models import ApiSecret
+        from services.llm import LLMDataService
 
-        db = SessionLocal()
         try:
-            row = db.query(ApiSecret).filter(ApiSecret.id == profile.id).first()
+            row = LLMDataService.get_profile(profile.id)
             if row:
                 profile.status = row.status
                 profile.degraded_reason = row.degraded_reason
@@ -296,38 +267,25 @@ class ProfileRouter:
                 profile.consecutive_failures = row.consecutive_failures
         except Exception:
             log.debug("Failed to refresh profile %d from DB", profile.id, exc_info=True)
-        finally:
-            db.close()
 
     @staticmethod
     def _persist_stats(profile):
-        from core.database import SessionLocal
-        from models import ApiSecret as AS
+        from services.llm import LLMDataService
 
-        db = SessionLocal()
-        try:
-            db_p = db.query(AS).filter(AS.id == profile.id).first()
-            if db_p:
-                for field in (
-                    "call_count_today",
-                    "total_tokens_today",
-                    "total_cost_today",
-                    "monthly_cost_used",
-                    "stats_date",
-                    "stats_month",
-                    "last_used_at",
-                    "status",
-                    "degraded_reason",
-                    "degraded_until",
-                    "consecutive_failures",
-                ):
-                    setattr(db_p, field, getattr(profile, field))
-                db.commit()
-        except Exception:
-            log.exception("persist_stats failed for secret #%d", profile.id)
-            db.rollback()
-        finally:
-            db.close()
+        data = {
+            "call_count_today": getattr(profile, "call_count_today", None),
+            "total_tokens_today": getattr(profile, "total_tokens_today", None),
+            "total_cost_today": getattr(profile, "total_cost_today", None),
+            "monthly_cost_used": getattr(profile, "monthly_cost_used", None),
+            "stats_date": getattr(profile, "stats_date", None),
+            "stats_month": getattr(profile, "stats_month", None),
+            "last_used_at": getattr(profile, "last_used_at", None),
+            "status": getattr(profile, "status", None),
+            "degraded_reason": getattr(profile, "degraded_reason", None),
+            "degraded_until": getattr(profile, "degraded_until", None),
+            "consecutive_failures": getattr(profile, "consecutive_failures", None),
+        }
+        LLMDataService.persist_stats(profile.id, data)
 
     def degraded_count(self) -> int:
         with self._state_lock:
