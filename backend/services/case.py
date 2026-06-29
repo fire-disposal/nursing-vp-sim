@@ -37,6 +37,7 @@ class CaseManageView:
     id: int
     name: str
     description: str | None
+    training_type: str
     patient_name: str
     patient_age: int | None
     patient_gender: str
@@ -61,6 +62,7 @@ class CaseService:
             id=case.id,
             name=case.name,
             description=case.description,
+            training_type=case.training_type,
             patient_name=info.get("name", ""),
             patient_age=info.get("age"),
             patient_gender=normalize_gender(info.get("gender", "")),

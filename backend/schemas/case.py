@@ -13,6 +13,7 @@ class CaseBrief(BaseModel):
     name: str
     difficulty: int = 1
     description: str | None = None
+    training_type: str = "history_taking"
     patient_summary: dict[str, Any] | None = None
 
 
@@ -56,6 +57,7 @@ class CaseManageItem(BaseModel):
     id: int
     name: str
     description: str | None = None
+    training_type: str = "history_taking"
     patient_name: str = ""
     patient_age: int | None = None
     patient_gender: str = ""
@@ -70,6 +72,7 @@ class CaseManageItem(BaseModel):
 class CaseGenerateRequest(BaseModel):
     model_config = _REQ_CFG
     mode: str = Field(default="quick", pattern="^(quick|reference)$")
+    training_type: str = "history_taking"
     description: str = Field(min_length=1, max_length=4096)
     reference_case_ids: list[int] | None = None
     reference_text: str | None = Field(default=None, max_length=16384)

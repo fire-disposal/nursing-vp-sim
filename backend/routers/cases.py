@@ -25,7 +25,7 @@ from services.case import CaseManageView, CaseService
 log = logging.getLogger(__name__)
 
 from contexts.patient import format_case_for_prompt
-from core.case_schema import assert_valid_case_data
+from core.case_schema import validate_case_data
 from core.llm_profile import get_llm_config
 from infrastructure.exporter import ColumnDef, export_response
 from infrastructure.llm.client import CallContext
@@ -41,6 +41,7 @@ def _to_case_brief(c: Case) -> CaseBrief:
     return CaseBrief(
         id=c.id,
         name=c.name,
+        training_type=c.training_type,
         difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
         description=c.description,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
@@ -52,6 +53,7 @@ def _to_manage_item(v: CaseManageView) -> CaseManageItem:
         id=v.id,
         name=v.name,
         description=v.description,
+        training_type=v.training_type,
         patient_name=v.patient_name,
         patient_age=v.patient_age,
         patient_gender=v.patient_gender,
@@ -138,8 +140,16 @@ async def generate_case(
         if data.current_case_data:
             field_instruction += f"\n\n当前病例上下文：\n{format_case_for_prompt(data.current_case_data)}"
 
+    _TRAINING_TYPE_LABELS: dict[str, str] = {
+        "history_taking": "护理病史采集",
+        "physical_exam": "护理查体",
+        "nursing_operation": "护理操作",
+    }
+    training_type_label = _TRAINING_TYPE_LABELS.get(data.training_type, data.training_type)
+
     system_content = render_template(
         CASE_GENERATION_SYSTEM,
+        training_type_label=training_type_label,
         description=data.description or "生成一个护理病史采集训练病例",
         reference_material=reference_material or "无",
         field_instruction=field_instruction or "",
@@ -167,7 +177,7 @@ async def generate_case(
         return CaseGenerateResponse(field_value=field_value, field=data.field)
 
     try:
-        result = assert_valid_case_data(result)
+        result = validate_case_data(data.training_type, result, strict=True)
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return CaseGenerateResponse(case_data=result)
