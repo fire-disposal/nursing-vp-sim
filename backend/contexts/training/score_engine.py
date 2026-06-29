@@ -14,6 +14,7 @@ from infrastructure.llm import _safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
 from models import Message, Score, TrainingRecord
+from profiles.registry import get_profile
 from prompts.scoring import (
     FEEDBACK_RETRY_USER,
     SCORING_FEEDBACK_SYSTEM,
@@ -512,7 +513,13 @@ async def evaluate_training(
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
     await _sse_progress(sse_manager, user_id, record_id, "loading", 5, "正在加载对话记录...")
 
-    rubric = record.rubric_snapshot or load_rubric("nursing_history_v1")
+    rubric = record.rubric_snapshot
+    if not rubric:
+        try:
+            profile = get_profile(record.training_type or "history_taking")
+            rubric = profile.rubric
+        except KeyError:
+            rubric = load_rubric("nursing_history_v1")
     messages = await messages_task
 
     conversation_lines = []

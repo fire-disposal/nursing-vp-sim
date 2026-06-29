@@ -165,7 +165,6 @@ function TrainingEngineContent({ recordId, panels }: TrainingEngineProps) {
 					patientAccRef.current = "";
 				},
 				onError: (err) => bus.emit("stream:error", err),
-				onExamResult: (examResult) => bus.emit("exam:result", examResult),
 				onEmotionChange: (change) => bus.emit("emotion:changed", change),
 				onInitiative: (initiative) =>
 					bus.emit("initiative:triggered", { content: initiative }),

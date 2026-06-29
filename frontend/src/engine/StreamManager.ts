@@ -7,10 +7,6 @@ export interface StreamCallbacks {
 	onPatientDone?: (replyId?: number) => void;
 	onError?: (err: string) => void;
 	onSystem?: (text: string) => void;
-	onExamResult?: (result: {
-		type: string;
-		data: Record<string, unknown>;
-	}) => void;
 	onEmotionChange?: (change: {
 		state: string;
 		trust: number;
@@ -200,11 +196,6 @@ export class StreamManager {
 					callbacks.onSystem?.(sysMsg);
 				},
 				controller.signal,
-				(examResult) => {
-					callbacks.onExamResult?.(examResult);
-					const msg = this.findStreaming();
-					if (msg) msg.examResult = examResult;
-				},
 				(emotionChange) => callbacks.onEmotionChange?.(emotionChange),
 				(initiative) => {
 					if (initiative?.content) {

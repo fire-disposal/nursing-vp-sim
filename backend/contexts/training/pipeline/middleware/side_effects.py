@@ -186,7 +186,6 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
         if emotion_cache is None:
             return
         emotion = get_emotion(ctx.record.id, emotion_cache, ctx.db)
-        emotion.decay()
 
         action_dt, action_dc, action_label = _apply_action_emotion(ctx.llm_reply)
         resp_dt, resp_dc, resp_label = _analyze_response_emotion(ctx.llm_reply)

@@ -27,10 +27,6 @@ export async function sendMessageStream(
 	onError: (msg: string) => void,
 	onSystem?: (text: string) => void,
 	signal?: AbortSignal,
-	onExamResult?: (result: {
-		type: string;
-		data: Record<string, unknown>;
-	}) => void,
 	onEmotionChange?: (change: {
 		state: string;
 		trust: number;
@@ -100,7 +96,6 @@ export async function sendMessageStream(
 				onDone,
 				onError,
 				onSystem,
-				onExamResult,
 				onEmotionChange,
 				onInitiative,
 				onInitiativeState,
