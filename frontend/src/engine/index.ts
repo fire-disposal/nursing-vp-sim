@@ -18,7 +18,6 @@ export type {
 	BadgeInfo,
 	ChatMessage,
 	MessageBus,
-	PanelDef,
 	PanelTabProps,
 	PatientData,
 	PanelContext,

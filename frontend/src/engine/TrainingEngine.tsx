@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
-import { FloatingPanelHost } from "@/components/training/FloatingPanelHost";
-import { PanelErrorBoundary } from "@/components/training/PanelErrorBoundary";
-import type { PanelConfig } from "@/components/training/panels";
-import { getActivePanels } from "@/components/training/panels";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -25,12 +21,10 @@ import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
 	PanelContext,
-	PanelTabProps,
 } from "./types";
 
 interface TrainingEngineProps {
 	recordId: string;
-	panels?: PanelConfig[];
 }
 
 function useFeatureToggles(initialFeatures: Record<string, boolean>) {
@@ -54,7 +48,7 @@ function useFeatureToggles(initialFeatures: Record<string, boolean>) {
 	return { features, toggleFeature } as const;
 }
 
-function TrainingEngineContent({ recordId, panels }: TrainingEngineProps) {
+function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const {
 		patient,
 		loading,
@@ -94,7 +88,6 @@ function TrainingEngineContent({ recordId, panels }: TrainingEngineProps) {
 
 	const { features, toggleFeature } =
 		useFeatureToggles(initialFeatures);
-	const activePanels = panels ?? getActivePanels(features);
 
 	useEffect(() => {
 		if (initialMessages.length > 0 && !seededRef.current) {
@@ -131,20 +124,6 @@ function TrainingEngineContent({ recordId, panels }: TrainingEngineProps) {
 		}
 	}, [patient, setPortraitUrl]);
 
-	const panelDefsWrapped = useMemo(
-		() =>
-			activePanels.map((p) => ({
-				id: p.id,
-				meta: { name: p.label },
-				tab: { icon: p.icon, label: p.label, badge: p.badge },
-				component: (props: PanelTabProps) => (
-					<PanelErrorBoundary panelName={p.label}>
-						<p.component {...props} />
-					</PanelErrorBoundary>
-				),
-			})),
-		[activePanels],
-	);
 
 	const sendMessage = useCallback(
 		async (text: string) => {
@@ -315,11 +294,6 @@ function TrainingEngineContent({ recordId, panels }: TrainingEngineProps) {
 						recordId={recordNum}
 					/>
 				</div>
-				<FloatingPanelHost
-					ctx={ctx}
-					features={features}
-					panels={panelDefsWrapped}
-				/>
 			</div>
 		</TrainingContext.Provider>
 			<ScoringOverlay

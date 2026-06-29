@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getActivePanels, PANELS } from "@/components/training/panels";
+import { getActivePanels, PANELS } from "@/training/scenes/history-taking/panels";
 
 describe("PanelConfig", () => {
 	it("has panels defined", () => {
