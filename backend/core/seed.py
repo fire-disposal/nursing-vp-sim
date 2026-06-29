@@ -108,7 +108,7 @@ def _seed_data() -> None:
                         Case(
                             name=d.get("name", fpath.stem),
                             description=d.get("description", ""),
-                            training_type="history_taking",
+                            training_type=d.get("training_type", "history_taking"),
                             difficulty=d.get("difficulty", 1),
                             time_limit_minutes=d.get("time_limit", 20),
                             case_data=d,
@@ -117,69 +117,6 @@ def _seed_data() -> None:
                     case_count += 1
                 except (OSError, json.JSONDecodeError) as e:
                     log.warning("病例文件读取失败 %s: %s", fpath.name, e)
-
-            # 分诊训练病例
-            triage_cases = [
-                Case(
-                    name="急性胸痛",
-                    description="患者突发胸痛30分钟，伴有大汗淋漓",
-                    training_type="triage",
-                    difficulty=3,
-                    time_limit_minutes=10,
-                    case_data={
-                        "name": "急性胸痛",
-                        "patient_info": {"name": "张建国", "age": 58, "gender": "男"},
-                        "chief_complaint": "突发胸痛30分钟",
-                        "arrival_mode": "ambulance",
-                        "vitals": {
-                            "hr": 112,
-                            "bp_sys": 90,
-                            "bp_dia": 60,
-                            "rr": 24,
-                            "spo2": 93,
-                            "temp": 36.8,
-                            "consciousness": "alert",
-                        },
-                        "mews_score": 4,
-                        "triage_category": "red",
-                        "red_flags": ["胸痛伴大汗", "血压偏低", "心率偏快"],
-                        "description": "患者于30分钟前突发胸痛，位于胸骨后，呈压榨性，向左肩放射，伴有大汗淋漓、恶心。由家属呼叫120送至我院。",
-                        "time_limit_minutes": 10,
-                        "required_inquiries": ["胸痛性质", "放射部位", "伴随症状", "既往史"],
-                    },
-                ),
-                Case(
-                    name="高热伴意识模糊",
-                    description="患者发热3天，意识模糊1小时",
-                    training_type="triage",
-                    difficulty=2,
-                    time_limit_minutes=10,
-                    case_data={
-                        "name": "高热伴意识模糊",
-                        "patient_info": {"name": "李秀英", "age": 76, "gender": "女"},
-                        "chief_complaint": "发热3天，意识模糊1小时",
-                        "arrival_mode": "stretcher",
-                        "vitals": {
-                            "hr": 105,
-                            "bp_sys": 100,
-                            "bp_dia": 65,
-                            "rr": 28,
-                            "spo2": 95,
-                            "temp": 39.5,
-                            "consciousness": "verbal",
-                        },
-                        "mews_score": 5,
-                        "triage_category": "orange",
-                        "red_flags": ["高龄", "高热", "意识改变"],
-                        "description": "患者3天前受凉后出现发热，体温最高39.8°C，伴咳嗽咳痰。1小时前家人发现患者反应迟钝、呼之不应，紧急送医。既往有高血压、糖尿病史。",
-                        "time_limit_minutes": 10,
-                        "required_inquiries": ["发热时间", "意识变化过程", "基础疾病", "用药情况"],
-                    },
-                ),
-            ]
-            for tc in triage_cases:
-                db.add(tc)
-                case_count += 1
 
             db.commit()
             log.debug("内置病例已导入 (%d)", case_count)

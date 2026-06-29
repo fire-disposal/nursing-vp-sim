@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session  # noqa: TC002 — needed at runtime for OpenAPI schema
+from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user

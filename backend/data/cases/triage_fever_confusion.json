@@ -1,0 +1,27 @@
+{
+  "name": "高热伴意识模糊",
+  "description": "患者发热3天，意识模糊1小时",
+  "training_type": "triage",
+  "difficulty": 2,
+  "time_limit": 10,
+  "patient_info": {
+    "name": "李秀英",
+    "age": 76,
+    "gender": "女"
+  },
+  "chief_complaint": "发热3天，意识模糊1小时",
+  "arrival_mode": "stretcher",
+  "vitals": {
+    "hr": 105,
+    "bp_sys": 100,
+    "bp_dia": 65,
+    "rr": 28,
+    "spo2": 95,
+    "temp": 39.5,
+    "consciousness": "verbal"
+  },
+  "mews_score": 5,
+  "triage_category": "orange",
+  "red_flags": ["高龄", "高热", "意识改变"],
+  "required_inquiries": ["发热时间", "意识变化过程", "基础疾病", "用药情况"]
+}

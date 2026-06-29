@@ -1,0 +1,27 @@
+{
+  "name": "急性胸痛",
+  "description": "患者突发胸痛30分钟，伴有大汗淋漓",
+  "training_type": "triage",
+  "difficulty": 3,
+  "time_limit": 10,
+  "patient_info": {
+    "name": "张建国",
+    "age": 58,
+    "gender": "男"
+  },
+  "chief_complaint": "突发胸痛30分钟",
+  "arrival_mode": "ambulance",
+  "vitals": {
+    "hr": 112,
+    "bp_sys": 90,
+    "bp_dia": 60,
+    "rr": 24,
+    "spo2": 93,
+    "temp": 36.8,
+    "consciousness": "alert"
+  },
+  "mews_score": 4,
+  "triage_category": "red",
+  "red_flags": ["胸痛伴大汗", "血压偏低", "心率偏快"],
+  "required_inquiries": ["胸痛性质", "放射部位", "伴随症状", "既往史"]
+}
