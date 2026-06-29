@@ -24,27 +24,27 @@
 - [x] `TrainingRecord` 加 `training_type` 列
 - [x] 全量测试：429 passed，ruff/ty/compileall 通过
 
-## 批次 B — 删除死基础设施 + 评分快照（~2 天）
+## 批次 B — 删除死基础设施 + 评分快照（已完成）
 
 前提：批次 A 已合入，profile 已接管 prompt/rubric 来源。
 
-- [ ] 删除 `infrastructure/prompt/registry.py`（320 行）
-- [ ] 删除 `infrastructure/prompt/manager.py` DB 部分（~200 行），保留 `render_template()`（~10 行）移入 `profiles/`
-- [ ] 删除 `services/prompt.py`
-- [ ] 删除 `services/rubric.py`
-- [ ] 删除 `routers/admin/prompts.py`
-- [ ] 删除 `routers/admin/rubrics.py`
-- [ ] 删除 `models/llm.py` 中 `PromptTemplate` ORM 类
-- [ ] 删除 `models/case_practice.py` 中 `Rubric` ORM 类
-- [ ] 删除两个 DB 表 migration
-- [ ] `TrainingRecord` 加 `prompt_snapshot` / `rubric_snapshot` JSONB 列
-- [ ] `score_engine.py` 评分前快照 `profile.prompts` + `profile.rubric` 写入
-- [ ] 删除 `rubric_frozen` 字段
-- [ ] 删除 `detect_operation()` + `_DEFAULT_ALIASES`（`exam.py`）
-- [ ] 删除 `EmotionState.decay()`（`emotion.py`）
-- [ ] 删除 `initiative.py` 规则路径 `generate_initiative()`
-- [ ] 合并 `effective_features()` / `resolve_features()`（`capabilities.py`）
-- [ ] 全量测试：`pnpm run check:full`
+- [x] 删除 `infrastructure/prompt/registry.py`（320 行）
+- [x] 删除 `infrastructure/prompt/manager.py` DB 部分，保留 `render_template()`（~10 行）
+- [x] 删除 `services/prompt.py`
+- [x] 删除 `services/rubric.py`
+- [x] 删除 `routers/admin/prompts.py`
+- [x] 删除 `routers/admin/rubrics.py`
+- [x] 删除 `models/llm.py` 中 `PromptTemplate` ORM 类
+- [x] 删除 `models/case_practice.py` 中 `Rubric` ORM 类
+- [x] 删除两个 DB 表 migration
+- [x] `TrainingRecord` 已加 `prompt_snapshot` / `rubric_snapshot` JSONB 列（Batch A）
+- [x] `score_engine.py` 评分前快照写入
+- [x] 删除 `rubric_frozen` 字段
+- [x] 删除 `detect_operation()` + `_DEFAULT_ALIASES`（`exam.py`）
+- [x] 删除 `EmotionState.decay()`（`emotion.py`）
+- [x] 删除 `initiative.py` 规则路径 `generate_initiative()`
+- [x] 合并 `resolve_features()` 带 overrides，`effective_features()` 保留为 compat
+- [x] 全量测试：397 passed，ruff/compileall 通过
 
 ## 批次 C — 前端 Scene 架构（~3 天）
 
