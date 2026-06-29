@@ -61,18 +61,27 @@
 - [x] `TrainingEngine.tsx` 标记废弃（保留兼容入口）
 - [x] 前端测试：`tsc --noEmit` 通过，`biome check` clean
 
-## 批次 D — Triage 场景实现（独立评估）
+## 批次 D — Triage 场景实现（已完成）
 
 前提：批次 C 已合入，前端有 Scene 框架。
 
-- [ ] `profiles/triage/profile.py` + `TriageCaseSchema`
-- [ ] 分诊专用 NoteSources
-- [ ] 分诊评分标准 + 评分 prompt
-- [ ] 分诊 AI 生成 prompt
-- [ ] 分诊专用 operations 定义
-- [ ] `TriageScene` 前端组件
-- [ ] 管理表单 triage section（`CaseForm.tsx` 扩展）
-- [ ] 全量测试：`pnpm run check:full`
+- [x] `profiles/triage/profile.py` + `TriageCaseSchema`
+- [x] 分诊专用 NoteSources（复用 `OperationNoteSource`）
+- [x] 分诊评分标准 + 评分 prompt（profile 内嵌）
+- [x] 分诊 AI 生成 prompt（`{#training_type_label#}` 变量）
+- [x] 分诊专用 operations 定义（`mews_calc`, `assign_category`）
+- [x] `TriageScene` 前端组件（生命体征显示 + MEWS 计算器 + 分诊级别选择器）
+- [x] 管理表单 triage section（`CaseForm.tsx` 按 `training_type` 切换表单段）
+- [x] 全量测试：397 backend passed，tsc 0 errors
+
+### 待完善（后续迭代）
+
+| 项目 | 优先级 |
+|------|:------:|
+| 分诊场景内嵌对话（`useSSE` + `ChatArea`） | 中 |
+| 分诊结果提交 API | 中 |
+| 圆形按钮面板 → 场景私有面板侧边栏组件 | 低 |
+| 分诊专用管理表单字段（vitals 输入等） | 低 |
 
 ---
 
