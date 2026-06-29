@@ -100,3 +100,8 @@ export function getActivePanels(features: Record<string, boolean>) {
     .filter((p) => !p.featureFlag || features[p.featureFlag])
     .sort((a, b) => a.priority - b.priority);
 }
+
+export { default as ExamPanel } from "./panels/ExamPanel";
+export { default as InquiryPanel } from "./panels/InquiryPanel";
+// Re-export scene panel components used by HistoryTakingScene
+export { default as PatientInfoPanel } from "./panels/PatientInfoPanel";
