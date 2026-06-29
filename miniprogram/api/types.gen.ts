@@ -141,6 +141,7 @@ export interface CaseBrief {
   description?: string | null
   training_type?: string
   patient_summary?: Record<string, unknown> | null
+  profile_info?: Record<string, unknown>
 }
 
 export interface CaseCreateRequest {
@@ -1105,6 +1106,7 @@ export interface TrainingRecordDetail {
   exam_anchors?: Record<string, unknown>
   exam_results?: Record<string, unknown>[]
   case_data?: Record<string, unknown>
+  profile_info?: Record<string, unknown>
 }
 
 export interface TrainingStartRequest {
@@ -1137,6 +1139,18 @@ export interface TrendStats {
   total_sessions: number
   total_minutes: number
   avg_score?: number | null
+}
+
+export interface TriageSubmitRequest {
+  mews_score: number
+  category: string
+  department: string
+  notes?: string
+}
+
+export interface TriageSubmitResponse {
+  message: string
+  record_id: number
 }
 
 export interface UserBrief {

@@ -1785,6 +1785,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/api/triage/{record_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Triage */
+        post: operations["submit_triage_api_training_api_triage__record_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat/{record_id}/message": {
         parameters: {
             query?: never;
@@ -2140,6 +2157,26 @@ export interface paths {
          *     语音服务 (TTS/ASR) 统计、系统错误日志、指标快照、告警列表。
          */
         get: operations["diagnose_api_diagnose_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Profiles
+         * @description Return all registered training types with metadata.
+         */
+        get: operations["list_profiles_api_profiles_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2529,6 +2566,10 @@ export interface components {
             patient_summary?: {
                 [key: string]: unknown;
             } | null;
+            /** Profile Info */
+            profile_info?: {
+                [key: string]: unknown;
+            };
         };
         /** CaseCreateRequest */
         CaseCreateRequest: {
@@ -4626,6 +4667,10 @@ export interface components {
             case_data?: {
                 [key: string]: unknown;
             };
+            /** Profile Info */
+            profile_info?: {
+                [key: string]: unknown;
+            };
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -4689,6 +4734,27 @@ export interface components {
             total_minutes: number;
             /** Avg Score */
             avg_score?: number | null;
+        };
+        /** TriageSubmitRequest */
+        TriageSubmitRequest: {
+            /** Mews Score */
+            mews_score: number;
+            /** Category */
+            category: string;
+            /** Department */
+            department: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** TriageSubmitResponse */
+        TriageSubmitResponse: {
+            /** Message */
+            message: string;
+            /** Record Id */
+            record_id: number;
         };
         /** UserBrief */
         UserBrief: {
@@ -9019,6 +9085,41 @@ export interface operations {
             };
         };
     };
+    submit_triage_api_training_api_triage__record_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageSubmitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     send_message_api_chat__record_id__message_post: {
         parameters: {
             query?: never;
@@ -9786,6 +9887,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_profiles_api_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

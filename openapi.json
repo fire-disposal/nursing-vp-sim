@@ -6735,6 +6735,64 @@
         }
       }
     },
+    "/api/training/api/triage/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "训练",
+          "分诊"
+        ],
+        "summary": "Submit Triage",
+        "operationId": "submit_triage_api_training_api_triage__record_id__submit_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageSubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriageSubmitResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/chat/{record_id}/message": {
       "post": {
         "tags": [
@@ -7970,6 +8028,26 @@
         }
       }
     },
+    "/api/profiles": {
+      "get": {
+        "tags": [
+          "训练类型"
+        ],
+        "summary": "List Profiles",
+        "description": "Return all registered training types with metadata.",
+        "operationId": "list_profiles_api_profiles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tts/synthesize": {
       "post": {
         "tags": [
@@ -8862,6 +8940,11 @@
               }
             ],
             "title": "Patient Summary"
+          },
+          "profile_info": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Profile Info"
           }
         },
         "type": "object",
@@ -14109,6 +14192,11 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Case Data"
+          },
+          "profile_info": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Profile Info"
           }
         },
         "type": "object",
@@ -14288,6 +14376,56 @@
           "total_minutes"
         ],
         "title": "TrendStats"
+      },
+      "TriageSubmitRequest": {
+        "properties": {
+          "mews_score": {
+            "type": "integer",
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Mews Score"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Category"
+          },
+          "department": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Department"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "mews_score",
+          "category",
+          "department"
+        ],
+        "title": "TriageSubmitRequest"
+      },
+      "TriageSubmitResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "record_id": {
+            "type": "integer",
+            "title": "Record Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "record_id"
+        ],
+        "title": "TriageSubmitResponse"
       },
       "UserBrief": {
         "properties": {
