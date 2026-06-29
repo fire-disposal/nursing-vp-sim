@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from unittest.mock import patch
+
 from infrastructure.llm import ProfileRouter, _SyntheticConfig
 from models import ApiSecret, LLMConfig
 
@@ -92,7 +94,8 @@ def test_select_all_unavailable():
 
 
 @pytest.mark.asyncio
-async def test_report_result_circuit_breaks_on_consecutive_failures():
+@patch("services.llm.LLMDataService.persist_stats")
+async def test_report_result_circuit_breaks_on_consecutive_failures(mock_persist):
     router = ProfileRouter()
     secret = _make_secret()
     cfg = _make_config(1, secret)
@@ -108,7 +111,8 @@ async def test_report_result_circuit_breaks_on_consecutive_failures():
 
 
 @pytest.mark.asyncio
-async def test_report_result_429_sets_rate_limited():
+@patch("services.llm.LLMDataService.persist_stats")
+async def test_report_result_429_sets_rate_limited(mock_persist):
     router = ProfileRouter()
     secret = _make_secret()
     cfg = _make_config(1, secret)
@@ -121,7 +125,8 @@ async def test_report_result_429_sets_rate_limited():
 
 
 @pytest.mark.asyncio
-async def test_report_result_success_clears_degraded():
+@patch("services.llm.LLMDataService.persist_stats")
+async def test_report_result_success_clears_degraded(mock_persist):
     router = ProfileRouter()
     secret = _make_secret(status="degraded")
     secret.degraded_reason = "rate_limited"
