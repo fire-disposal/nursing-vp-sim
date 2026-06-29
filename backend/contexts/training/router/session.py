@@ -406,6 +406,7 @@ def get_records(
             id=r.id,
             case_id=r.case_id,
             case_name=r.case.name if r.case else "",
+            training_type=r.training_type or "history_taking",
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
             status=r.status,

@@ -3551,6 +3551,11 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /**
+             * Training Type
+             * @default history_taking
+             */
+            training_type: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -3592,6 +3597,11 @@ export interface components {
              * @default
              */
             case_name: string;
+            /**
+             * Training Type
+             * @default history_taking
+             */
+            training_type: string;
             /** Features */
             features?: {
                 [key: string]: boolean;
@@ -4512,6 +4522,11 @@ export interface components {
             case_id: number;
             /** Case Name */
             case_name: string;
+            /**
+             * Training Type
+             * @default history_taking
+             */
+            training_type: string;
             /** User Display Name */
             user_display_name: string;
             /** User Student Id */
@@ -4607,6 +4622,10 @@ export interface components {
             exam_results?: {
                 [key: string]: unknown;
             }[];
+            /** Case Data */
+            case_data?: {
+                [key: string]: unknown;
+            };
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {
@@ -5302,6 +5321,8 @@ export interface operations {
                 name?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
+                /** @description 训练类型 history_taking/triage */
+                training_type?: string | null;
             };
             header?: never;
             path?: never;

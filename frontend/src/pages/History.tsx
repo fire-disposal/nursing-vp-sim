@@ -193,6 +193,9 @@ export default function History() {
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
 											病例
 										</TableHead>
+										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider">
+											类型
+										</TableHead>
 										<TableHead className="sticky top-0 z-10 bg-muted/50 font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">
 											开始时间
 										</TableHead>
@@ -234,6 +237,13 @@ export default function History() {
 												)}
 												<TableCell className="font-medium">
 													{String(re.case_name ?? "")}
+												</TableCell>
+												<TableCell>
+													{re.training_type === "triage" ? (
+														<Badge variant="info">分诊</Badge>
+													) : (
+														<Badge variant="secondary">问诊</Badge>
+													)}
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
 													{new Date(re.start_time as string).toLocaleString(

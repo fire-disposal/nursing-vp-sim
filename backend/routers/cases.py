@@ -96,8 +96,9 @@ def list_cases_manage(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     name: Annotated[str | None, Query(description="病例名称模糊搜索")] = None,
     difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
+    training_type: Annotated[str | None, Query(description="训练类型 history_taking/triage")] = None,
 ):
-    views, total = CaseService(db).list_manage(offset, limit, name=name, difficulty=difficulty)
+    views, total = CaseService(db).list_manage(offset, limit, name=name, difficulty=difficulty, training_type=training_type)
     return PaginatedResponse(
         items=[_to_manage_item(v) for v in views],
         total=total,

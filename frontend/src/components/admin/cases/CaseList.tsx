@@ -13,10 +13,10 @@ interface CaseListProps {
 	total: number;
 	offset: number;
 	limit: number;
-	filters: { name: string; difficulty: string };
+	filters: { name: string; difficulty: string; training_type: string };
 	searchInput: string;
 	onSearchChange: (value: string) => void;
-	onFilterChange: (filters: { name: string; difficulty: string }) => void;
+	onFilterChange: (filters: { name: string; difficulty: string; training_type: string }) => void;
 	onOffsetChange: (offset: number) => void;
 	onAdd: () => void;
 	onAIAdd: () => void;
@@ -45,6 +45,16 @@ export default function CaseList({
 			header: "病例名称",
 			cellClassName: "font-medium",
 			render: (c) => c.name,
+		},
+		{
+			key: "training_type",
+			header: "类型",
+			render: (c) =>
+				c.training_type === "triage" ? (
+					<Badge variant="info">分诊</Badge>
+				) : (
+					<Badge variant="secondary">问诊</Badge>
+				),
 		},
 		{
 			key: "difficulty",
@@ -158,6 +168,22 @@ export default function CaseList({
 								<option value="1">初级</option>
 								<option value="2">中级</option>
 								<option value="3">高级</option>
+							</select>
+						</label>
+						<label className="flex-1 min-w-[160px]">
+							<span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+								训练类型
+							</span>
+							<select
+								value={filters.training_type || ""}
+								onChange={(e) =>
+									onFilterChange({ ...filters, training_type: e.target.value })
+								}
+								className={inputClass}
+							>
+								<option value="">全部</option>
+								<option value="history_taking">问诊</option>
+								<option value="triage">分诊</option>
 							</select>
 						</label>
 					</div>

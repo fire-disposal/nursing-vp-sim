@@ -213,7 +213,7 @@ export default function RecordDetail() {
 				</nav>
 
 				<RecordStatsBar
-					record={record as { user_display_name?: string; case_name?: string }}
+					record={record as { user_display_name?: string; case_name?: string; training_type?: string }}
 					duration={duration}
 					hasScore={hasScore}
 					recordScore={recordScore}

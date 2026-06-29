@@ -32,6 +32,7 @@ class PracticeItem(BaseModel):
     description: str | None = None
     case_id: int
     case_name: str = ""
+    training_type: str = "history_taking"
     features: dict[str, bool] = Field(default_factory=dict)
     behavior: dict[str, Any] = Field(default_factory=dict)
     is_active: bool = True
@@ -47,5 +48,6 @@ class PracticeBrief(BaseModel):
     model_config = _RESP_CFG
     id: int
     name: str
+    training_type: str = "history_taking"
     features: dict[str, bool] = Field(default_factory=dict)
     behavior: dict[str, Any] = Field(default_factory=dict)

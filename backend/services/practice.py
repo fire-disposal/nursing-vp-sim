@@ -17,6 +17,7 @@ class PracticeView:
     description: str | None
     case_id: int
     case_name: str
+    training_type: str
     features: dict
     behavior: dict
     is_active: bool
@@ -37,6 +38,7 @@ class PracticeService:
             description=p.description,
             case_id=p.case_id,
             case_name=p.case.name if p.case else "",
+            training_type=p.case.training_type if p.case else "history_taking",
             features=p.features or {},
             behavior=p.behavior or {},
             is_active=p.is_active,

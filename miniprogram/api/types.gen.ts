@@ -639,6 +639,7 @@ export interface PhaseAdvanceResponse {
 export interface PracticeBrief {
   id: number
   name: string
+  training_type?: string
   features?: Record<string, unknown>
   behavior?: Record<string, unknown>
 }
@@ -657,6 +658,7 @@ export interface PracticeItem {
   description?: string | null
   case_id: number
   case_name?: string
+  training_type?: string
   features?: Record<string, unknown>
   behavior?: Record<string, unknown>
   is_active?: boolean
@@ -1066,6 +1068,7 @@ export interface TrainingRecordBrief {
   id: number
   case_id: number
   case_name: string
+  training_type?: string
   user_display_name: string
   user_student_id: string | null
   status: string
@@ -1101,6 +1104,7 @@ export interface TrainingRecordDetail {
   from_assignment?: boolean
   exam_anchors?: Record<string, unknown>
   exam_results?: Record<string, unknown>[]
+  case_data?: Record<string, unknown>
 }
 
 export interface TrainingStartRequest {

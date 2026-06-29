@@ -566,6 +566,24 @@
               "title": "Difficulty"
             },
             "description": "困难程度 1=初级 2=中级 3=高级"
+          },
+          {
+            "name": "training_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "训练类型 history_taking/triage",
+              "title": "Training Type"
+            },
+            "description": "训练类型 history_taking/triage"
           }
         ],
         "responses": {
@@ -11298,6 +11316,11 @@
             "type": "string",
             "title": "Name"
           },
+          "training_type": {
+            "type": "string",
+            "title": "Training Type",
+            "default": "history_taking"
+          },
           "features": {
             "additionalProperties": {
               "type": "boolean"
@@ -11392,6 +11415,11 @@
             "type": "string",
             "title": "Case Name",
             "default": ""
+          },
+          "training_type": {
+            "type": "string",
+            "title": "Training Type",
+            "default": "history_taking"
           },
           "features": {
             "additionalProperties": {
@@ -13806,6 +13834,11 @@
             "type": "string",
             "title": "Case Name"
           },
+          "training_type": {
+            "type": "string",
+            "title": "Training Type",
+            "default": "history_taking"
+          },
           "user_display_name": {
             "type": "string",
             "title": "User Display Name"
@@ -14071,6 +14104,11 @@
             },
             "type": "array",
             "title": "Exam Results"
+          },
+          "case_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Case Data"
           }
         },
         "type": "object",

@@ -38,6 +38,7 @@ class TrainingRecordBrief(BaseModel):
     id: int
     case_id: int
     case_name: str
+    training_type: str = "history_taking"
     user_display_name: str
     user_student_id: str | None
     status: str

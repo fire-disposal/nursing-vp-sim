@@ -35,6 +35,7 @@ interface PracticeRow {
 	id: number;
 	name: string;
 	case_name?: string;
+	training_type?: string;
 	features?: Record<string, boolean>;
 	behavior?: { time_limit_minutes?: number; max_rounds?: number };
 	training_count?: number;
@@ -166,6 +167,15 @@ export default function PracticesPage() {
 			key: "case_name",
 			header: "病例",
 			cellClassName: "text-sm text-muted-foreground",
+		},
+		{
+			key: "training_type",
+			header: "类型",
+			cellClassName: "text-xs",
+			render: (p) => {
+				const val = p.training_type;
+				return val === "triage" ? "🚑 分诊" : "💬 问诊";
+			},
 		},
 		{
 			key: "features",

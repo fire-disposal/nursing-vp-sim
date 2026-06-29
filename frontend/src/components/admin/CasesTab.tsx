@@ -18,7 +18,7 @@ export default function CasesTab() {
 	const [editingCase, setEditingCase] = useState<CaseManageItem | null>(null);
 	const [startWithAiPanel, setStartWithAiPanel] = useState(false);
 	const [offset, setOffset] = useState(0);
-	const [filters, setFilters] = useState({ name: "", difficulty: "" });
+	const [filters, setFilters] = useState({ name: "", difficulty: "", training_type: "" });
 	const { searchInput, debouncedValue, handleSearchChange } = useDebouncedSearch(
 		"",
 		300,
@@ -27,6 +27,7 @@ export default function CasesTab() {
 	const params: Record<string, unknown> = { offset, limit: LIMIT };
 	if (filters.name) params.name = filters.name;
 	if (filters.difficulty) params.difficulty = filters.difficulty;
+	if (filters.training_type) params.training_type = filters.training_type;
 
 	const { data: caseData, isError } = useQuery({
 		queryKey: queryKeys.cases.managed.list(params),
@@ -79,6 +80,7 @@ export default function CasesTab() {
 	const handleFilterChange = (newFilters: {
 		name: string;
 		difficulty: string;
+		training_type: string;
 	}) => {
 		setFilters(newFilters);
 		setOffset(0);
