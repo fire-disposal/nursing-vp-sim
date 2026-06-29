@@ -3,13 +3,13 @@ import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
 import { FloatingPanelHost } from "@/components/training/FloatingPanelHost";
 import { PanelErrorBoundary } from "@/components/training/PanelErrorBoundary";
+import type { PanelConfig } from "@/components/training/panels";
 import { getActivePanels } from "@/components/training/panels";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { createMessageBus } from "./MessageBus";
-import TrainingContext from "./TrainingContext";
-import { PatientProvider, usePatient } from "./PatientProvider";
 import type { EmotionState } from "./PanelContext";
 import {
 	EmotionProvider,
@@ -17,18 +17,20 @@ import {
 	useEmotion,
 	usePortrait,
 } from "./PanelContext";
+import { PatientProvider, usePatient } from "./PatientProvider";
 import { ScoreManager } from "./ScoreManager";
 import { StreamManager } from "./StreamManager";
+import TrainingContext from "./TrainingContext";
 import { TTSManager } from "./tts/TTSManager";
 import type {
 	ChatMessage,
-	PanelTabProps,
 	PanelContext,
+	PanelTabProps,
 } from "./types";
-import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 
 interface TrainingEngineProps {
 	recordId: string;
+	panels?: PanelConfig[];
 }
 
 function useFeatureToggles(initialFeatures: Record<string, boolean>) {
@@ -49,15 +51,10 @@ function useFeatureToggles(initialFeatures: Record<string, boolean>) {
 		});
 	}, []);
 
-	const activePanels = useMemo(
-		() => getActivePanels(features),
-		[features],
-	);
-
-	return { features, toggleFeature, activePanels } as const;
+	return { features, toggleFeature } as const;
 }
 
-function TrainingEngineContent({ recordId }: TrainingEngineProps) {
+function TrainingEngineContent({ recordId, panels }: TrainingEngineProps) {
 	const {
 		patient,
 		loading,
@@ -95,8 +92,9 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		latencyMs: number;
 	} | null>(null);
 
-	const { features, toggleFeature, activePanels } =
+	const { features, toggleFeature } =
 		useFeatureToggles(initialFeatures);
+	const activePanels = panels ?? getActivePanels(features);
 
 	useEffect(() => {
 		if (initialMessages.length > 0 && !seededRef.current) {
