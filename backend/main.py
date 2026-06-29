@@ -461,6 +461,12 @@ app.add_middleware(
 )
 # EnvelopeMiddleware removed — API now returns standard JSON with HTTP status codes.
 
+# Profile registration
+from profiles.history_taking import PROFILE as history_taking_profile
+from profiles.registry import register_profile
+
+register_profile("history_taking", history_taking_profile)
+
 # Route registration
 from routers import register_routers
 

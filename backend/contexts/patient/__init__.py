@@ -39,6 +39,7 @@ from .note_source import (
     ExamExperienceSource,
     IdentityGuardSource,
     NoteSource,
+    OperationNoteSource,
 )
 
 # 提示词构建
@@ -55,6 +56,7 @@ __all__ = [
     "ExamExperienceSource",
     "IdentityGuardSource",
     "NoteSource",
+    "OperationNoteSource",
     "apply_initiative_penalty",
     "build_patient_chat_messages",
     "build_patient_context_kwargs",
