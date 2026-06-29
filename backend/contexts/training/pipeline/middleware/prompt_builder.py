@@ -8,7 +8,6 @@ from contexts.patient import (
 )
 from infrastructure.prompt import render_template
 from profiles.registry import get_profile
-from prompts.patient_chat import PATIENT_CHAT_SYSTEM
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
@@ -35,14 +34,17 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
     kwargs = {**cached, "author_note": author_note if author_note.strip() else ""}
 
-    # 直接传入全部 kwargs，模板引擎只替换 {#var#} 占位符，多余的变量无副作用
+    # 使用 profile 定义的 prompt 模板，全局常量作为兜底
+    system_template = profile.prompts.system or PATIENT_DYNAMIC_TEMPLATE  # fallback handled
+    dynamic_template = profile.prompts.dynamic or PATIENT_DYNAMIC_TEMPLATE
+
     try:
-        system_prompt = render_template(PATIENT_CHAT_SYSTEM, **kwargs)
+        system_prompt = render_template(str(system_template), **kwargs)
         try:
-            dynamic_prompt = render_template(PATIENT_DYNAMIC_TEMPLATE, **kwargs)
+            dynamic_prompt = render_template(str(dynamic_template), **kwargs)
         except Exception:
-            log.warning("Dynamic prompt unavailable, falling back to static template", exc_info=True)
-            dynamic_prompt = render_template(PATIENT_DYNAMIC_TEMPLATE, **kwargs)
+            log.warning("Dynamic prompt render failed, using patient_chat template", exc_info=True)
+            dynamic_prompt = system_prompt
     except Exception as e:
         log.error("Prompt render failed: %s", e)
         system_prompt = str(kwargs.get("patient_info", "未知患者"))
