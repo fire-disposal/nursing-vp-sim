@@ -50,3 +50,21 @@ export const performExam = (recordId: number | string, opType: string) =>
 	api.post<Schemas["ExamOperationResponse"]>(
 		`/training/${recordId}/exam/${opType}` as ApiPath,
 	);
+
+// TODO: use generated types after api:spec is fixed
+interface TriageSubmitRequest {
+	mews_score: number;
+	category: string;
+	department: string;
+	notes: string;
+}
+
+interface TriageSubmitResponse {
+	message: string;
+	record_id: number;
+}
+
+export const submitTriage = (recordId: number, data: TriageSubmitRequest) =>
+	api
+		.post<TriageSubmitResponse>(`/api/triage/${recordId}/submit` as ApiPath, data)
+		.then((r) => r.data);
