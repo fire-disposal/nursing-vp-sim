@@ -29,7 +29,8 @@ from core.case_schema import assert_valid_case_data
 from core.llm_profile import get_llm_config
 from infrastructure.exporter import ColumnDef, export_response
 from infrastructure.llm.client import CallContext
-from infrastructure.prompt import get_registry
+from infrastructure.prompt import render_template
+from prompts import CASE_GENERATION_SYSTEM
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
@@ -131,20 +132,17 @@ async def generate_case(
             parts.append(f"--- 补充参考资料 ---\n{data.reference_text}")
         reference_material = "\n\n".join(parts)
 
-    pm = request.app.state.prompt_manager
-    tmpl = await pm.get("case_generation")
-    defaults = get_registry().get_defaults("case_generation")
-
     field_instruction = ""
     if data.field:
         field_instruction = f"\n\n当前任务：只生成字段「{data.field}」。"
         if data.current_case_data:
             field_instruction += f"\n\n当前病例上下文：\n{format_case_for_prompt(data.current_case_data)}"
 
-    system_content = tmpl.render(
-        description=data.description or defaults.get("description", ""),
-        reference_material=reference_material or defaults.get("reference_material", "无"),
-        field_instruction=field_instruction or defaults.get("field_instruction", ""),
+    system_content = render_template(
+        CASE_GENERATION_SYSTEM,
+        description=data.description or "生成一个护理病史采集训练病例",
+        reference_material=reference_material or "无",
+        field_instruction=field_instruction or "",
     )
 
     messages = [{"role": "system", "content": system_content}]

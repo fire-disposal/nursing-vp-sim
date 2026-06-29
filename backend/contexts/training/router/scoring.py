@@ -14,7 +14,6 @@ from core.database import SessionLocal, db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
 from infrastructure.llm.client import LLMClient
-from infrastructure.prompt import PromptManager
 from infrastructure.queue import QueueFullError
 from infrastructure.scoring_progress import ScoringProgressTracker
 
@@ -187,7 +186,6 @@ async def _run_scoring_background(
     case_data: dict,
     *,
     llm_client: LLMClient,
-    pm: PromptManager,
     tracker: ScoringProgressTracker | None = None,
     sse_manager=None,
 ) -> None:
@@ -217,7 +215,6 @@ async def _run_scoring_background(
                 record_id,
                 case_data,
                 db,
-                pm=pm,
                 llm_client=llm_client,
                 tracker=tracker,
                 sse_manager=sse_manager,
@@ -320,7 +317,6 @@ async def end_training(
                     record_id,
                     case_data,
                     llm_client=request.app.state.llm_client,
-                    pm=request.app.state.prompt_manager,
                     tracker=getattr(request.app.state, "scoring_tracker", None),
                     sse_manager=request.app.state.sse_manager,
                 ),
@@ -398,7 +394,6 @@ async def retry_scoring(
                     record_id,
                     case_data,
                     llm_client=request.app.state.llm_client,
-                    pm=request.app.state.prompt_manager,
                     tracker=getattr(request.app.state, "scoring_tracker", None),
                     sse_manager=request.app.state.sse_manager,
                 ),

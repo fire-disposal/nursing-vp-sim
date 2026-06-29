@@ -1,8 +1,8 @@
 from models._base import TimestampMixin, _now_utc
 from models.auth import Role, RolePermission, User
-from models.case_practice import Assignment, Case, Practice, Rubric
+from models.case_practice import Assignment, Case, Practice
 from models.infra import RateLimitEntry
-from models.llm import ApiSecret, LLMCallLog, LLMConfig, PromptTemplate
+from models.llm import ApiSecret, LLMCallLog, LLMConfig
 from models.org import Class, Grade, UserClass
 from models.qa import KnowledgeChunk, QARecord, QASession
 from models.questionnaire import (
@@ -41,7 +41,6 @@ __all__ = [
     "Notification",
     "NursingRecord",
     "Practice",
-    "PromptTemplate",
     "QARecord",
     "QASession",
     "QuestionnaireAnswer",
@@ -51,7 +50,6 @@ __all__ = [
     "RateLimitEntry",
     "Role",
     "RolePermission",
-    "Rubric",
     "Score",
     "ScoreReview",
     "ScoringProgress",

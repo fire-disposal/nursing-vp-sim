@@ -93,18 +93,3 @@ class LLMCallLog(Base):
 
     config: Mapped["LLMConfig"] = relationship()
 
-
-class PromptTemplate(Base, TimestampMixin):
-    __tablename__ = "prompt_templates"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    purpose: Mapped[str] = mapped_column(String(40), index=True)
-    version: Mapped[int] = mapped_column(Integer, default=1)
-    name: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    system_prompt: Mapped[str] = mapped_column(Text)
-    user_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    template_engine: Mapped[str] = mapped_column(String(20), default="format")
-    variables: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    is_active: Mapped[bool] = mapped_column(default=False)
-    created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    remark: Mapped[str | None] = mapped_column(Text, nullable=True)

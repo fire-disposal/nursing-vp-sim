@@ -16,7 +16,6 @@ from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from infrastructure.llm import LogWorker, ProfileRouter
-from infrastructure.prompt import PromptManager
 from models import (
     Assignment,
     Case,
@@ -85,7 +84,6 @@ def _try_acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
 
 _infra_client: httpx.AsyncClient | None = None
 _infra_router: ProfileRouter | None = None
-_infra_pm: PromptManager | None = None
 _infra_log_worker: LogWorker | None = None
 _main_loop: asyncio.AbstractEventLoop | None = None
 _background_thread: threading.Thread | None = None
@@ -102,11 +100,10 @@ def _ensure_loop():
     return _main_loop
 
 
-def set_training_infra(client, router_obj, pm, log_worker, background_loop=None):
-    global _infra_client, _infra_router, _infra_pm, _infra_log_worker, _main_loop
+def set_training_infra(client, router_obj, log_worker, background_loop=None):
+    global _infra_client, _infra_router, _infra_log_worker, _main_loop
     _infra_client = client
     _infra_router = router_obj
-    _infra_pm = pm
     _infra_log_worker = log_worker
     if background_loop is not None:
         _main_loop = background_loop
@@ -132,12 +129,6 @@ def _get_router():
     if _infra_router is None:
         raise RuntimeError("Training infra not initialized")
     return _infra_router
-
-
-def _get_pm():
-    if _infra_pm is None:
-        raise RuntimeError("Training infra not initialized")
-    return _infra_pm
 
 
 def _get_log_worker():

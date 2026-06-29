@@ -134,12 +134,6 @@ def client(engine, db_session):
     rate_limiter.reset_key = AsyncMock()
     app.state.rate_limiter = rate_limiter
 
-    mock_pm_template = MagicMock()
-    mock_pm_template.render = MagicMock(return_value="mock system prompt")
-    mock_pm = MagicMock()
-    mock_pm.get = AsyncMock(return_value=mock_pm_template)
-    app.state.prompt_manager = mock_pm
-
     mock_router = MagicMock()
     mock_router.load_from_db = AsyncMock()
     mock_router.select = MagicMock(return_value=MagicMock(model="test-model"))
@@ -174,7 +168,7 @@ def client(engine, db_session):
 
     from contexts.training.router.session import set_training_infra
 
-    set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker)
+    set_training_infra(app.state.httpx_client, app.state.llm_router, app.state.log_worker)
 
     with TestClient(app) as c:
         yield c

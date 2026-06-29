@@ -77,16 +77,3 @@ class Assignment(Base, TimestampMixin):
     teacher: Mapped[User] = relationship(foreign_keys=[teacher_id])
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="assignment")
 
-
-class Rubric(Base, TimestampMixin):
-    __tablename__ = "rubrics"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(80), unique=True)
-    version: Mapped[str] = mapped_column(String(40))
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    total_max: Mapped[int] = mapped_column(Integer, default=100)
-    raw_max: Mapped[int] = mapped_column(Integer, default=57)
-    raw_scale: Mapped[int] = mapped_column(Integer, default=3)
-    dimensions: Mapped[list] = mapped_column(JSONB)
-    is_active: Mapped[bool] = mapped_column(default=False)

@@ -12,9 +12,16 @@ from core.exceptions import LLMParseError
 from core.llm_profile import get_llm_config
 from infrastructure.llm import _safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
-from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema
+from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
 from models import Message, Score, TrainingRecord
-from prompts.scoring import FEEDBACK_RETRY_USER, SCORING_RETRY_USER
+from prompts.scoring import (
+    FEEDBACK_RETRY_USER,
+    SCORING_FEEDBACK_SYSTEM,
+    SCORING_FEEDBACK_USER,
+    SCORING_RETRY_USER,
+    SCORING_SYSTEM,
+    SCORING_USER,
+)
 from repositories.rubric import get_rubric_version_id, load_rubric_by_version
 
 from ._scoring_validation import (
@@ -475,7 +482,6 @@ async def evaluate_training(
     case_data: dict,
     db: Session,
     *,
-    pm,
     llm_client: LLMClient,
     tracker=None,  # ScoringProgressTracker | None
     sse_manager=None,
@@ -527,8 +533,15 @@ async def evaluate_training(
     case_id = record.case_id
     log_meta = {"message_count": len(messages)}
 
-    tmpl_score = await pm.get("scoring")
-    score_system, score_user = tmpl_score.render_pair(
+    score_system = render_template(
+        SCORING_SYSTEM,
+        scoring_criteria=scoring_criteria_text,
+        required_inquiries=required_inquiries_text,
+        scoring_json_schema=scoring_json_schema_text,
+        conversation_text=conversation_text,
+    )
+    score_user = render_template(
+        SCORING_USER,
         scoring_criteria=scoring_criteria_text,
         required_inquiries=required_inquiries_text,
         scoring_json_schema=scoring_json_schema_text,
@@ -539,8 +552,14 @@ async def evaluate_training(
         {"role": "user", "content": score_user},
     ]
 
-    tmpl_feedback = await pm.get("scoring_feedback")
-    feedback_system, feedback_user = tmpl_feedback.render_pair(
+    feedback_system = render_template(
+        SCORING_FEEDBACK_SYSTEM,
+        scoring_criteria=scoring_criteria_text_brief,
+        required_inquiries=required_inquiries_text,
+        conversation_text=conversation_text,
+    )
+    feedback_user = render_template(
+        SCORING_FEEDBACK_USER,
         scoring_criteria=scoring_criteria_text_brief,
         required_inquiries=required_inquiries_text,
         conversation_text=conversation_text,
@@ -621,7 +640,7 @@ async def evaluate_training(
         missed_content=result["missed_content"],
         suggestions=result["suggestions"],
         rubric_version=get_rubric_version_id(rubric),
-        prompt_version=tmpl_score.version,
+        prompt_version=0,
         score_scale=100,
     )
     db.add(score)

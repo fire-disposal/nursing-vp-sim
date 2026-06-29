@@ -12,8 +12,10 @@ from core.database import db_session, get_db
 from core.llm_profile import get_llm_config
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
+from infrastructure.prompt import render_template
 from middleware.rate_limits import check_qa_limit
 from models import QARecord, QASession, User
+from prompts import QA_SYSTEM
 from schemas import (
     Citation,
     QAAskRequest,
@@ -209,10 +211,9 @@ async def create_session(
     citations: list[dict[str, str]] = []
     llm_client = request.app.state.llm_client
     try:
-        pm = request.app.state.prompt_manager
-        tmpl = await pm.get("qa")
+        qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
         llm_messages = [
-            {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))},
+            {"role": "system", "content": qa_system},
             {"role": "user", "content": req.question},
         ]
         if req.rag_enabled:
@@ -310,9 +311,8 @@ async def ask_in_session(
 
     llm_messages = build_qa_history(session_id, db)
 
-    pm = request.app.state.prompt_manager
-    tmpl = await pm.get("qa")
-    llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
+    qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
+    llm_messages.insert(0, {"role": "system", "content": qa_system})
     llm_messages.append({"role": "user", "content": req.question.strip()})
 
     citations: list[dict[str, str]] = []
@@ -411,10 +411,9 @@ async def ask_stream(
 
         await check_qa_limit(current_user.id, request)
 
-        pm = request.app.state.prompt_manager
-        tmpl = await pm.get("qa")
+        qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
         llm_messages = build_qa_history(session_id, db)
-        llm_messages.insert(0, {"role": "system", "content": tmpl.render(**_qa_user_context(current_user))})
+        llm_messages.insert(0, {"role": "system", "content": qa_system})
         llm_messages.append({"role": "user", "content": req.question})
 
         citations: list[dict[str, str]] = []

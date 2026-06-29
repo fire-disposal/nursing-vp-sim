@@ -16,7 +16,6 @@ from infrastructure.prompt import (
     build_scoring_criteria,
     build_scoring_json_schema,
     build_scoring_rubric,
-    get_registry,
     render_template,
 )
 from repositories.rubric import load_rubric
@@ -376,7 +375,17 @@ class TestScoringFlowEndToEnd:
 
     def test_sample_vars_are_renderable(self):
         """SAMPLE_VARS 中的 scoring 预览数据必须可渲染"""
-        sample = get_registry().get_sample_kwargs("scoring")
+        rubric = load_rubric("nursing_history_v1")
+        sample = {
+            "scoring_criteria": build_scoring_criteria(rubric),
+            "required_inquiries": json.dumps(
+                ["主诉（部位、性质、持续时间、诱因）", "现病史（起病情况、发展经过、诊疗经过）"],
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "scoring_json_schema": build_scoring_json_schema(rubric),
+            "conversation_text": _MOCK_CONVERSATION,
+        }
         assert sample, "scoring sample vars 为空"
 
         from prompts import SCORING_SYSTEM

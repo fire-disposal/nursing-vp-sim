@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user, require_permission
-from models import Rubric, Score, ScoreReview, TrainingRecord, User
+from models import Score, ScoreReview, TrainingRecord, User
 from schemas import ScoreReviewRequest, ScoreReviewResponse
 
 log = logging.getLogger(__name__)
@@ -62,15 +62,6 @@ def submit_score_review(
 
     if req.detail_scores is not None:
         raw_scale = 3
-        record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-        if record and record.rubric_frozen:
-            try:
-                name, ver = record.rubric_frozen.split("@", 1)
-                rubric_ref = db.query(Rubric).filter(Rubric.name == name, Rubric.version == ver).first()
-                if rubric_ref:
-                    raw_scale = rubric_ref.raw_scale
-            except (ValueError, AttributeError):
-                pass
         new_total = 0.0
         for dim_data in req.detail_scores.values():
             if isinstance(dim_data, dict):

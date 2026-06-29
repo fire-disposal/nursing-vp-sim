@@ -8,6 +8,7 @@ from contexts.patient import (
 )
 from infrastructure.prompt import render_template
 from profiles.registry import get_profile
+from prompts.patient_chat import PATIENT_CHAT_SYSTEM
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
@@ -33,15 +34,12 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
         cached = build_patient_context_kwargs(ctx.case_data)
         ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
     kwargs = {**cached, "author_note": author_note if author_note.strip() else ""}
-    pm = ctx.app_state.prompt_manager
-    tmpl = await pm.get(ctx.current_phase.prompt_profile if ctx.current_phase else "patient_chat")
 
     # 直接传入全部 kwargs，模板引擎只替换 {#var#} 占位符，多余的变量无副作用
     try:
-        system_prompt = tmpl.render(**kwargs)
+        system_prompt = render_template(PATIENT_CHAT_SYSTEM, **kwargs)
         try:
-            dynamic_tmpl = await pm.get("patient_dynamic")
-            dynamic_prompt = dynamic_tmpl.render(**kwargs)
+            dynamic_prompt = render_template(PATIENT_DYNAMIC_TEMPLATE, **kwargs)
         except Exception:
             log.warning("Dynamic prompt unavailable, falling back to static template", exc_info=True)
             dynamic_prompt = render_template(PATIENT_DYNAMIC_TEMPLATE, **kwargs)

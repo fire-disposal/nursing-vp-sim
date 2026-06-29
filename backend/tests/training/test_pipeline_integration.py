@@ -24,13 +24,7 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
 
     db = MagicMock()
 
-    mock_pm = MagicMock()
-    mock_pm.get = AsyncMock()
-    mock_pm.get.return_value = MagicMock()
-    mock_pm.get.return_value.render = MagicMock(return_value="sys prompt")
-
     app_state = MagicMock()
-    app_state.prompt_manager = mock_pm
     app_state.httpx_client = MagicMock()
     app_state.llm_router = MagicMock()
     app_state.log_worker = MagicMock()

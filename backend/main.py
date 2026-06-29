@@ -49,7 +49,6 @@ from infrastructure.cache import EmotionCache, InitiativeCache
 from infrastructure.llm import LogWorker, ProfileRouter
 from infrastructure.llm.client import LLMClient
 from infrastructure.metrics import MetricsSnapshot
-from infrastructure.prompt import PromptManager
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
@@ -172,10 +171,6 @@ async def lifespan(app: FastAPI):
     await app.state.llm_router.load_from_db()
     log.info("Profile router: ready")
 
-    app.state.prompt_manager = PromptManager()
-    await app.state.prompt_manager.load_from_db()
-    log.info("Prompt manager: ready")
-
     app.state.log_worker = LogWorker(
         overflow_dir=LLM_LOG_OVERFLOW_DIR,
         overflow_max_size_mb=LLM_LOG_OVERFLOW_MAX_SIZE_MB,
@@ -257,7 +252,7 @@ async def lifespan(app: FastAPI):
     app.state._background_loop = background_loop
     app.state._background_thread = background_thread
     set_training_infra(
-        app.state.httpx_client, app.state.llm_router, app.state.prompt_manager, app.state.log_worker, background_loop
+        app.state.httpx_client, app.state.llm_router, app.state.log_worker, background_loop
     )
 
     async def _enqueue_settlement_scoring(record_id: int, case_data: dict) -> None:
@@ -268,7 +263,6 @@ async def lifespan(app: FastAPI):
                 rid,
                 cd,
                 llm_client=app.state.llm_client,
-                pm=app.state.prompt_manager,
                 sse_manager=app.state.sse_manager,
             ),
             priority=6,

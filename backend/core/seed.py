@@ -14,7 +14,7 @@ from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import hash_password
 from infrastructure.llm import encrypt_api_key
-from models import ApiSecret, Case, LLMConfig, Role, RolePermission, Rubric, User, VoiceConfig
+from models import ApiSecret, Case, LLMConfig, Role, RolePermission, User, VoiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -58,31 +58,7 @@ def _seed_data() -> None:
                 db.add(RolePermission(role_id=rid, permission=p))
         db.commit()
 
-        # 2. 评分标准
-        if db.query(Rubric).count() == 0:
-            rubric_path = _PROJECT_ROOT / "data" / "rubrics" / "nursing_history_v1.json"
-            if rubric_path.exists():
-                try:
-                    data = json.loads(rubric_path.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError) as e:
-                    log.warning("评分标准文件读取失败: %s", e)
-                    data = {}
-                db.add(
-                    Rubric(
-                        name=data.get("id", "nursing_history_v1"),
-                        version=data.get("version", "1.0"),
-                        description=data.get("name", ""),
-                        total_max=data.get("total_max", 100),
-                        raw_max=data.get("raw_max", 57),
-                        raw_scale=data.get("raw_scale", 3),
-                        dimensions=data.get("dimensions", []),
-                        is_active=True,
-                    )
-                )
-                db.commit()
-                log.debug("评分标准已导入")
-
-        # 3. 超级管理员
+        # 2. 超级管理员
         username = os.getenv("SEED_ADMIN_USERNAME", "admin")
         password = os.getenv("SEED_ADMIN_PASSWORD")
         if not password:
