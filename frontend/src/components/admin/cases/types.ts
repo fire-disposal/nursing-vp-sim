@@ -20,6 +20,7 @@ export interface CaseForm {
 	name: string;
 	time_limit: number;
 	difficulty: number;
+	training_type: string;
 	description: string;
 	patient_name: string;
 	patient_age: number;
@@ -45,6 +46,7 @@ export interface CaseData {
 	name: string;
 	time_limit: number;
 	difficulty: number;
+	training_type?: string;
 	description: string;
 	patient_info?: { name: string; age: number; gender: string };
 	chief_complaint: string;
@@ -67,6 +69,7 @@ export interface CaseJsonData {
 	name?: string;
 	time_limit?: number;
 	difficulty?: number;
+	training_type?: string;
 	description?: string;
 	chief_complaint?: string;
 	opening_line?: string;
@@ -93,6 +96,7 @@ export const NEW_CASE_TEMPLATE: CaseData = {
 	name: "",
 	time_limit: 20,
 	difficulty: 1,
+	training_type: "history_taking",
 	description: "",
 	patient_info: { name: "", age: 0, gender: "" },
 	chief_complaint: "",
@@ -125,6 +129,7 @@ export function buildCaseData(form: CaseForm): CaseData {
 		name: form.name,
 		time_limit: form.time_limit,
 		difficulty: form.difficulty,
+		training_type: form.training_type,
 		description: form.description,
 		patient_info: {
 			name: form.patient_name,
@@ -155,6 +160,7 @@ export function parseCaseData(cd: unknown): CaseForm {
 		name: rec?.name || "",
 		time_limit: rec?.time_limit || 20,
 		difficulty: rec?.difficulty || 1,
+		training_type: rec?.training_type || "history_taking",
 		description: rec?.description || "",
 		patient_name: info.name || "",
 		patient_age: info.age || 0,

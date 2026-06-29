@@ -27,7 +27,7 @@ const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 const CaseSelect = lazy(() => import("@/pages/CaseSelect"));
-const ChatTraining = lazy(() => import("@/pages/ChatTraining"));
+const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
@@ -95,7 +95,7 @@ export default function App() {
 												<Route index element={<Navigate to="/home" replace />} />
 												<Route path="/home" element={<DashboardHome />} />
 												<Route path="/cases" element={<CaseSelect />} />
-												<Route path="/training/:recordId" element={<ChatTraining />} />
+												<Route path="/training/:recordId" element={<TrainingEntry />} />
 												<Route path="/history" element={<History />} />
 												<Route path="/record/:id" element={<RecordDetail />} />
 												<Route path="/qa" element={<QA />} />

@@ -139,6 +139,7 @@ export interface CaseBrief {
   name: string
   difficulty?: number
   description?: string | null
+  training_type?: string
   patient_summary?: Record<string, unknown> | null
 }
 
@@ -155,6 +156,7 @@ export interface CaseDetail {
 
 export interface CaseGenerateRequest {
   mode?: string
+  training_type?: string
   description: string
   reference_case_ids?: number[] | null
   reference_text?: string | null
@@ -172,6 +174,7 @@ export interface CaseManageItem {
   id: number
   name: string
   description?: string | null
+  training_type?: string
   patient_name?: string
   patient_age?: number | null
   patient_gender?: string
@@ -671,68 +674,6 @@ export interface PracticeUpdate {
   is_active?: boolean | null
 }
 
-export interface PromptPreviewResponse {
-  purpose: string
-  version: number
-  system_prompt_raw: string
-  user_prompt_raw: string | null
-  system_prompt_rendered: string
-  user_prompt_rendered: string | null
-  sample_vars: Record<string, unknown>
-  render_error?: string | null
-}
-
-export interface PromptTemplateCreate {
-  purpose: string
-  name?: string | null
-  system_prompt: string
-  user_prompt?: string | null
-  variables?: Record<string, unknown>[] | null
-  created_by?: string | null
-  remark?: string | null
-  activate?: boolean
-}
-
-export interface PromptTemplateResponse {
-  id: number
-  purpose: string
-  version: number
-  name: string | null
-  system_prompt: string
-  user_prompt: string | null
-  template_engine: string
-  variables: Record<string, unknown>[] | null
-  is_active: boolean
-  created_by: string | null
-  remark: string | null
-  created_at: string
-  updated_at: string
-  is_builtin?: boolean
-  locked?: boolean
-}
-
-export interface PromptTemplateUpdate {
-  name?: string | null
-  system_prompt?: string | null
-  user_prompt?: string | null
-  variables?: Record<string, unknown>[] | null
-  remark?: string | null
-}
-
-export interface PromptValidateRequest {
-  purpose: string
-  system_prompt: string
-  user_prompt?: string | null
-  variables?: Record<string, unknown>[] | null
-}
-
-export interface PromptValidateResponse {
-  valid: boolean
-  errors?: string[]
-  missing_vars?: string[]
-  warnings?: string[]
-}
-
 export interface QAAskResponse {
   session_id: number
   answer: string
@@ -958,35 +899,6 @@ export interface RoleUpdateRequest {
   permissions?: string[] | null
 }
 
-export interface RubricCreateRequest {
-  name: string
-  dimensions?: Record<string, unknown>[]
-  version?: string
-  description?: string | null
-  total_max?: number
-  raw_max?: number
-  raw_scale?: number
-}
-
-export interface RubricResponse {
-  id: number
-  name: string
-  version?: string
-  description?: string | null
-  total_max?: number
-  raw_max?: number
-  raw_scale?: number
-  dimensions?: Record<string, unknown>[]
-  is_active?: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface SampleVarsResponse {
-  purpose: string
-  vars: Record<string, unknown>
-}
-
 export interface ScoreItem {
   id: number
   total_score: number
@@ -1184,6 +1096,7 @@ export interface TrainingRecordDetail {
   required_inquiries?: unknown[] | null
   patient_info?: Record<string, unknown> | null
   patient_gender?: string
+  training_type?: string
   features?: Record<string, unknown>
   from_assignment?: boolean
   exam_anchors?: Record<string, unknown>

@@ -16,8 +16,8 @@ import {
 	fetchRubrics,
 	updateRubric,
 } from "@/api/api-client";
-import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import type { RubricResponse } from "@/api/rubric";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -28,9 +28,6 @@ import {
 } from "@/components/ui/dialog";
 import EmptyState from "@/components/ui/empty-state";
 import RubricEditor from "./RubricEditor";
-
-type Schemas = components["schemas"];
-type RubricResponse = Schemas["RubricResponse"];
 
 interface RubricDimension {
 	id?: string;

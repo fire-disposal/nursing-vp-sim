@@ -119,6 +119,7 @@ export default function CaseFormModal({
 		try {
 			const payload: Schemas["CaseGenerateRequest"] = {
 				mode: aiMode,
+				training_type: caseForm.training_type || "history_taking",
 				description:
 					aiDescription ||
 					caseForm.chief_complaint ||

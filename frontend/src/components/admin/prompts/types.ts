@@ -1,8 +1,6 @@
-import type { components } from "@/api/api-types.gen";
+import type { PromptTemplateResponse, PromptValidateResponse } from "@/api/prompts";
 
-type Schemas = components["schemas"];
-export type PromptTemplateResponse = Schemas["PromptTemplateResponse"];
-export type PromptValidateResponse = Schemas["PromptValidateResponse"];
+export type { PromptTemplateResponse, PromptValidateResponse };
 
 export interface VariableMeta {
 	name: string;

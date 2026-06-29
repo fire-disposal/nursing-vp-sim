@@ -473,6 +473,7 @@ def get_record_detail(
         required_inquiries=case_data.get("required_inquiries", []),
         patient_info=patient_info,
         patient_gender=normalize_gender(patient_info.get("gender", "")),
+        training_type=record.training_type or "history_taking",
         features=resolve_features(record.practice_snapshot),
         from_assignment=record.assignment_id is not None,
         exam_anchors=case_data.get("exam_anchors", {}),
