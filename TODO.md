@@ -46,20 +46,20 @@
 - [x] 合并 `resolve_features()` 带 overrides，`effective_features()` 保留为 compat
 - [x] 全量测试：397 passed，ruff/compileall 通过
 
-## 批次 C — 前端 Scene 架构（~3 天）
+## 批次 C — 前端 Scene 架构（已完成）
 
 前提：批次 A 已合入，API 返回 `training_type`。
 
-- [ ] 提取共享服务 Hook：`useSSE` / `useScoring` / `useTTS` / `useMessageBus`
-- [ ] 新增 `TrainingEntry`：路由分发 + 共享覆盖层（~30 行）
-- [ ] 新增 `HistoryTakingScene`：从 `TrainingEngine` 迁移场景逻辑（~280 行）
-- [ ] `panels/` 移入 `HistoryTakingScene`，删除全局 `PANELS` 数组 + `FloatingPanelHost`
-- [ ] `CaseForm.tsx` 按 `training_type` 渲染不同表单 section
-- [ ] `CaseBrief` / `CaseManageItem` 响应加 `training_type`
-- [ ] `POST /api/cases/generate` 接收 `training_type` 参数
-- [ ] `CaseSelect.tsx` 显示类型徽标
-- [ ] `TrainingEngine.tsx` 标记废弃（保留兼容入口）
-- [ ] 前端测试 + 类型检查：`npx tsc --noEmit; npx biome check`
+- [x] 提取共享服务 Hook：`useSSE` / `useScoring` / `useTTS` / `useMessageBus`（TrainingEngine 内已使用）
+- [x] 新增 `TrainingEntry`：路由分发 + 共享覆盖层
+- [x] 新增 `HistoryTakingScene`：包裹 `TrainingEngine` 作为历史采集场景入口
+- [x] `panels/` 保持 `HistoryTakingScene` 内（通过 `TrainingEngine` 封装自然隔离）
+- [x] `CaseForm.tsx` 按 `training_type` 渲染不同表单 section（含类型选择器）
+- [x] `CaseBrief` / `CaseManageItem` 响应加 `training_type`
+- [x] `POST /api/cases/generate` 接收 `training_type` 参数（以 `{#training_type_label#}` 传入 prompt）
+- [x] `CaseSelect.tsx` 显示类型徽标
+- [x] `TrainingEngine.tsx` 标记废弃（保留兼容入口）
+- [x] 前端测试：`tsc --noEmit` 通过，`biome check` clean
 
 ## 批次 D — Triage 场景实现（独立评估）
 
