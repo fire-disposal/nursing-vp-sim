@@ -2,9 +2,7 @@ from unittest.mock import MagicMock
 
 from core.capabilities import (
     ALL_CAPABILITIES,
-    ALL_CAPABILITY_KEYS,
     all_capabilities,
-    effective_features,
     is_enabled,
     resolve_features,
 )
@@ -71,28 +69,3 @@ class TestCapabilitiesRegistry:
         assert "questionnaire" in ALL_CAPABILITIES
 
 
-class TestEffectiveFeatures:
-    def test_default_all_false(self):
-        result = effective_features()
-        assert result == dict.fromkeys(ALL_CAPABILITY_KEYS, False)
-
-    def test_student_choices_override(self):
-        result = effective_features({"physical_exam": True})
-        expected = dict.fromkeys(ALL_CAPABILITY_KEYS, False)
-        expected["physical_exam"] = True
-        assert result == expected
-
-    def test_case_plugins_force_enable(self):
-        result = effective_features({}, ["physical_exam"])
-        expected = dict.fromkeys(ALL_CAPABILITY_KEYS, False)
-        expected["physical_exam"] = True
-        assert result == expected
-
-    def test_initiative_depends_emotion(self):
-        result = effective_features({"patient_initiative": True})
-        assert result["patient_initiative"] is True
-        assert result["emotion"] is True
-
-    def test_student_choice_wins_over_plugin(self):
-        result = effective_features({"physical_exam": False}, ["physical_exam"])
-        assert not result["physical_exam"]

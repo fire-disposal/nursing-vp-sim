@@ -8,6 +8,7 @@ from core.deps import CurrentUser, DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.security import require_permission
 from models import Case, User
+from profiles.registry import get_profile
 from schemas import (
     CaseBrief,
     CaseCreateRequest,
@@ -38,6 +39,12 @@ _CaseManager = Annotated[User, Depends(require_permission("case_manage"))]
 
 
 def _to_case_brief(c: Case) -> CaseBrief:
+    profile_info = {}
+    try:
+        p = get_profile(c.training_type or "history_taking")
+        profile_info = {"type": p.name, "label": "病史采集" if p.name == "history_taking" else "预检分诊"}
+    except KeyError:
+        pass
     return CaseBrief(
         id=c.id,
         name=c.name,
@@ -45,6 +52,7 @@ def _to_case_brief(c: Case) -> CaseBrief:
         difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
         description=c.description,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
+        profile_info=profile_info,
     )
 
 

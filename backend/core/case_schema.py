@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from core.capabilities import ALL_CAPABILITY_KEYS
+from core.capabilities import ALL_CAPABILITIES
 from core.jsonb import JsonbModel
 from profiles.triage.case_schema import TriageCaseData
 
@@ -81,7 +81,7 @@ class CaseDataSchema(JsonbModel):
     @field_validator("supported_plugins")
     @classmethod
     def filter_supported_plugins(cls, v: list[str]) -> list[str]:
-        return [pid for pid in v if pid in ALL_CAPABILITY_KEYS]
+        return [pid for pid in v if pid in ALL_CAPABILITIES]
 
     exam_anchors: dict[str, Any] = {}
 

@@ -15,6 +15,7 @@ class CaseBrief(BaseModel):
     description: str | None = None
     training_type: str = "history_taking"
     patient_summary: dict[str, Any] | None = None
+    profile_info: dict[str, Any] = Field(default_factory=dict)
 
 
 class CaseDetail(BaseModel):

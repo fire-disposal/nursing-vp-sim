@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 
-from core.capabilities import effective_features, resolve_features
+from core.capabilities import resolve_features
 from core.case_schema import normalize_gender, validate_case_data
 from core.database import get_db
 from core.datetime_utils import ensure_utc, parse_iso_datetime
@@ -179,7 +179,7 @@ def _create_record(
 
     time_limit = case.time_limit_minutes or config.get("behavior", {}).get("time_limit_minutes", 20)
 
-    config["features"] = effective_features(config.get("features") or {}, case_data.get("supported_plugins"))
+    config["features"] = config.get("features") or {}
     validate_case_data(training_type, case_data, strict=False)
 
     record = TrainingRecord(
@@ -455,6 +455,13 @@ def get_record_detail(
         remaining_seconds = max(0, int(time_limit * 60 - elapsed))
     patient_info = case_data.get("patient_info", {})
 
+    profile_info = {}
+    try:
+        p = get_profile(record.training_type or "history_taking")
+        profile_info = {"type": p.name, "label": "病史采集" if p.name == "history_taking" else "预检分诊"}
+    except KeyError:
+        pass
+
     return TrainingRecordDetail(
         id=record.id,
         case_id=record.case_id,
@@ -480,6 +487,7 @@ def get_record_detail(
         exam_anchors=case_data.get("exam_anchors", {}),
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
         case_data=case_data,
+        profile_info=profile_info,
     )
 
 
