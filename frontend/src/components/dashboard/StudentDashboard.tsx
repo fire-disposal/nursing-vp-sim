@@ -83,7 +83,7 @@ export default function StudentDashboard({
 						onClick={() =>
 							inProgressRecord
 								? navigate(`/training/${inProgressRecord.id}`)
-								: navigate("/cases")
+								: navigate("/training")
 						}
 					>
 						{inProgressRecord ? (
@@ -137,7 +137,7 @@ export default function StudentDashboard({
 								onClick={() =>
 									inProgressRecord
 										? navigate(`/training/${inProgressRecord.id}`)
-										: navigate("/cases")
+										: navigate("/training")
 								}
 							>
 								{inProgressRecord ? "继续训练" : "开始新的病史采集训练"}

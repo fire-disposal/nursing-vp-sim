@@ -143,10 +143,10 @@ export function TrainingHeader() {
 			>
 				<div className="flex items-center gap-2 h-full">
 					<button
-						onClick={() => navigate("/cases")}
+						onClick={() => navigate("/training")}
 						className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
-						title="返回病例选择"
-						aria-label="返回病例选择"
+						title="返回训练选择"
+						aria-label="返回训练选择"
 					>
 						<ArrowLeft size={16} className="sm:size-[18px]" />
 					</button>

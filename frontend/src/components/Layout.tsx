@@ -31,9 +31,9 @@ import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useScoringNotifications } from "@/hooks/useScoringNotifications";
-import { cn } from "@/utils/cn";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
+import { cn } from "@/utils/cn";
 import { APP_VERSION } from "@/version";
 
 interface NavLinkItem {
@@ -46,7 +46,7 @@ interface NavLinkItem {
 const allLinks: NavLinkItem[] = [
 	{ to: "/home", icon: Home, label: "首页" },
 	{
-		to: "/cases",
+		to: "/training",
 		icon: Stethoscope,
 		label: "病例训练",
 		permission: "training_access",

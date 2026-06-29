@@ -274,7 +274,7 @@ export function ScoreCard({
 	};
 
 	const handleRestart = () => {
-		navigate("/cases");
+		navigate("/training");
 	};
 
 	return <ScoreCardInner score={score} onClose={handleClose} onRestart={handleRestart} />;

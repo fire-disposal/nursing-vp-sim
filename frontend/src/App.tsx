@@ -26,7 +26,7 @@ const queryClient = new QueryClient({
 const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
-const CaseSelect = lazy(() => import("@/pages/CaseSelect"));
+const TrainingSelect = lazy(() => import("@/pages/TrainingSelect"));
 const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
@@ -94,7 +94,8 @@ export default function App() {
 											>
 												<Route index element={<Navigate to="/home" replace />} />
 												<Route path="/home" element={<DashboardHome />} />
-												<Route path="/cases" element={<CaseSelect />} />
+												<Route path="/training" element={<TrainingSelect />} />
+											<Route path="/cases" element={<Navigate to="/training" replace />} />
 												<Route path="/training/:recordId" element={<TrainingEntry />} />
 												<Route path="/history" element={<History />} />
 												<Route path="/record/:id" element={<RecordDetail />} />

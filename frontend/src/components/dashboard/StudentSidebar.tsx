@@ -147,7 +147,7 @@ export default function StudentSidebar({
 									variant="outline"
 									size="sm"
 									className="mt-2.5"
-									onClick={() => navigate("/cases")}
+									onClick={() => navigate("/training")}
 								>
 									去训练 →
 								</Button>

@@ -1,4 +1,4 @@
-import { Clock, MessageCircle, Minus, Pause, Plus, Smile, Star, Stethoscope, User } from "lucide-react";
+import { ClipboardList, Clock, MessageCircle, Minus, Plus, Smile, Star, Stethoscope, User } from "lucide-react";
 import { useCallback, useState } from "react";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -14,28 +14,33 @@ interface PatientInfo {
 interface Props {
     open: boolean;
     caseInfo: PatientInfo;
+    trainingType: string;
     onClose: () => void;
     onStart: (features: Record<string, boolean>, timeLimit: number) => void;
     loading?: boolean;
 }
 
-export default function TrainingConfigModal({ open, caseInfo, onClose, onStart, loading }: Props) {
+export default function TrainingConfigModal({ open, caseInfo, trainingType, onClose, onStart, loading }: Props) {
     const [exam, setExam] = useState(false);
     const [advanced, setAdvanced] = useState(false);
     const [questionnaire, setQuestionnaire] = useState(false);
     const [timeLimit, setTimeLimit] = useState(20);
 
+    const isHistoryTaking = trainingType === "history_taking";
+
     const handleStart = useCallback(() => {
         const features: Record<string, boolean> = {};
-        features.physical_exam = exam;
-        if (advanced) {
-            features.emotion = true;
-            features.patient_initiative = true;
-            // exam_emotion_bridge 已废弃 — 查体体验由 ExamExperienceSource 自动注入
+        if (isHistoryTaking) {
+            features.physical_exam = exam;
+            if (advanced) {
+                features.emotion = true;
+                features.patient_initiative = true;
+                // exam_emotion_bridge 已废弃 — 查体体验由 ExamExperienceSource 自动注入
+            }
         }
         if (questionnaire) features.questionnaire = true;
         onStart(features, timeLimit);
-    }, [exam, advanced, questionnaire, timeLimit, onStart]);
+    }, [isHistoryTaking, exam, advanced, questionnaire, timeLimit, onStart]);
 
     const summary = caseInfo.patient_summary;
     const diffStars = Array.from({ length: 3 }, (_, i) => i < (caseInfo.difficulty || 1));
@@ -72,58 +77,62 @@ export default function TrainingConfigModal({ open, caseInfo, onClose, onStart, 
                     )}
                 </div>
 
-                {/* Section: 练什么 */}
-                <div>
-                    <span className="text-sm font-medium mb-3 block">你要练什么？</span>
-                    <button
-                        type="button"
-                        onClick={() => setExam((v) => !v)}
-                        className={cn(
-                            "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
-                            exam ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/20 hover:bg-muted/50",
-                        )}
-                    >
-                        <div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0", exam ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                            <Stethoscope size={18} />
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-sm font-medium">护理查体</p>
-                            <p className="text-[11px] text-muted-foreground">执行生命体征、体格检查等操作</p>
-                        </div>
-                        <div className={cn("h-5 w-9 rounded-full transition-colors shrink-0", exam ? "bg-primary" : "bg-muted-foreground/25")}>
-                            <div className={cn("size-4 rounded-full bg-white shadow-sm transition-transform mt-0.5", exam ? "translate-x-[18px]" : "translate-x-[2px]")} />
-                        </div>
-                    </button>
-                </div>
-
-                {/* Section: 真实度 */}
-                <div>
-                    <span className="text-sm font-medium mb-3 block">患者要有多真实？</span>
-                    <div className="grid grid-cols-2 gap-2">
+                {isHistoryTaking && (
+                    <>
+                    {/* Section: 练什么 */}
+                    <div>
+                        <span className="text-sm font-medium mb-3 block">你要练什么？</span>
                         <button
                             type="button"
-                            onClick={() => setAdvanced(false)}
-                            className={cn("flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all", !advanced ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/20 hover:bg-muted/50")}
+                            onClick={() => setExam((v) => !v)}
+                            className={cn(
+                                "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
+                                exam ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/20 hover:bg-muted/50",
+                            )}
                         >
-                            <Smile size={18} className={!advanced ? "text-primary" : "text-muted-foreground"} />
-                            <div>
-                                <p className="text-sm font-medium">基础</p>
-                                <p className="text-[11px] text-muted-foreground">纯问诊，患者被动应答</p>
+                            <div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0", exam ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                                <Stethoscope size={18} />
                             </div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setAdvanced(true)}
-                            className={cn("flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all", advanced ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/20 hover:bg-muted/50")}
-                        >
-                            <MessageCircle size={18} className={advanced ? "text-primary" : "text-muted-foreground"} />
-                            <div>
-                                <p className="text-sm font-medium">进阶</p>
-                                <p className="text-[11px] text-muted-foreground">情绪变化 + 主动追问{exam ? " + 查体联动" : ""}</p>
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">护理查体</p>
+                                <p className="text-[11px] text-muted-foreground">执行生命体征、体格检查等操作</p>
+                            </div>
+                            <div className={cn("h-5 w-9 rounded-full transition-colors shrink-0", exam ? "bg-primary" : "bg-muted-foreground/25")}>
+                                <div className={cn("size-4 rounded-full bg-white shadow-sm transition-transform mt-0.5", exam ? "translate-x-[18px]" : "translate-x-[2px]")} />
                             </div>
                         </button>
                     </div>
-                </div>
+
+                    {/* Section: 真实度 */}
+                    <div>
+                        <span className="text-sm font-medium mb-3 block">患者要有多真实？</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setAdvanced(false)}
+                                className={cn("flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all", !advanced ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/20 hover:bg-muted/50")}
+                            >
+                                <Smile size={18} className={!advanced ? "text-primary" : "text-muted-foreground"} />
+                                <div>
+                                    <p className="text-sm font-medium">基础</p>
+                                    <p className="text-[11px] text-muted-foreground">纯问诊，患者被动应答</p>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAdvanced(true)}
+                                className={cn("flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all", advanced ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/20 hover:bg-muted/50")}
+                            >
+                                <MessageCircle size={18} className={advanced ? "text-primary" : "text-muted-foreground"} />
+                                <div>
+                                    <p className="text-sm font-medium">进阶</p>
+                                    <p className="text-[11px] text-muted-foreground">情绪变化 + 主动追问{exam ? " + 查体联动" : ""}</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    </>
+                )}
 
                 {/* Section: 训练后 */}
                 <div>
@@ -137,7 +146,7 @@ export default function TrainingConfigModal({ open, caseInfo, onClose, onStart, 
                         )}
                     >
                         <div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0", questionnaire ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                            <Pause size={18} />
+                            <ClipboardList size={18} />
                         </div>
                         <div className="flex-1">
                             <p className="text-sm font-medium">填写评估问卷</p>

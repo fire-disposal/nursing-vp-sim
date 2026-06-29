@@ -43,7 +43,7 @@ export default function RecommendedCaseList({
 					<Button
 						variant="link"
 						size="sm"
-						onClick={() => navigate("/cases")}
+						onClick={() => navigate("/training")}
 					>
 						查看全部 →
 					</Button>
@@ -58,7 +58,7 @@ export default function RecommendedCaseList({
 							<div
 								key={c.id}
 								className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors hover:bg-muted/50"
-								onClick={() => navigate("/cases")}
+								onClick={() => navigate("/training")}
 							>
 								<div className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
 									<Stethoscope size={16} />
