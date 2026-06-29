@@ -81,14 +81,20 @@ def effective_features(
     return result
 
 
-def resolve_features(practice_snapshot: dict | None) -> dict[str, bool]:
+def resolve_features(snapshot: dict | None = None, overrides: dict[str, bool] | None = None) -> dict[str, bool]:
     result = {k: v.default for k, v in ALL_CAPABILITIES.items()}
-    if practice_snapshot:
-        for k, v in practice_snapshot.get("features", {}).items():
+    if snapshot:
+        for k, v in snapshot.get("features", {}).items():
             if k in result:
                 result[k] = v
+    if overrides:
+        for k, v in overrides.items():
+            if k in result:
+                result[k] = v
+    if result.get("patient_initiative"):
+        result["emotion"] = True
     return result
 
 
 def is_enabled(record, key: str) -> bool:
-    return resolve_features(record.practice_snapshot).get(key, False)
+    return resolve_features(getattr(record, "practice_snapshot", None)).get(key, False)

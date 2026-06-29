@@ -25,17 +25,6 @@ _LEGACY_OP_DEFS: dict[str, dict] = {
 _LEGACY_VITAL_OPS = ["temp", "hr", "bp", "rr", "spo2"]
 _LEGACY_INSPECT_OPS = ["skin", "pain"]
 
-_DEFAULT_ALIASES: dict[str, list[str]] = {
-    "vitals": ["/vitals", "/生命体征", "/查体征", "测生命体征", "查生命体征", "测量生命体征"],
-    "bp": ["/bp", "/血压", "测血压", "量血压", "测量血压"],
-    "temp": ["/temp", "/体温", "测体温", "量体温", "测量体温"],
-    "spo2": ["/spo2", "/血氧", "测血氧", "查血氧"],
-    "hr": ["/hr", "/心率", "/脉搏", "测心率", "测脉搏"],
-    "rr": ["/rr", "/呼吸", "测呼吸", "数呼吸频率"],
-    "skin": ["/skin", "/皮肤", "看皮肤", "检查皮肤", "观察皮肤"],
-    "pain": ["/pain", "/疼痛评分", "/nrs", "疼痛评分", "疼痛评估"],
-}
-
 
 def get_exam_config(case_data: dict) -> dict | None:
     """解析 case_data 返回前端用的 exam config."""
@@ -66,15 +55,6 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
         "unit": op_def["unit"],
     }
 
-
-def detect_operation(content: str) -> str | None:
-    """检测学生输入是否触发操作。"""
-    content_lower = content.lower()
-    for op_type, aliases in _DEFAULT_ALIASES.items():
-        for alias in aliases:
-            if alias in content_lower:
-                return op_type
-    return None
 
 
 # ── Config 构建 ──

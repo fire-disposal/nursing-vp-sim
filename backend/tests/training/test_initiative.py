@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 import pytest
 
 from contexts.patient.initiative import (
-    generate_initiative,
     should_initiate,
 )
 from infrastructure.cache import InitiativeCache
@@ -29,56 +28,6 @@ def _create_record(db):
     db.flush()
     return record
 
-
-class TestGenerateInitiative:
-    def test_returns_none_when_not_enough_wait(self):
-        result = generate_initiative(
-            {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50,
-            comfort=50,
-            wait_seconds=10,
-        )
-        assert result is None
-
-    def test_returns_message_when_threshold_exceeded(self):
-        result = generate_initiative(
-            {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50,
-            comfort=50,
-            wait_seconds=60,
-        )
-        assert isinstance(result, str) or result is None
-        if result is not None:
-            assert len(result) > 0
-
-    def test_low_comfort_triggers_sooner(self):
-        # comfort=20 → bias = (50-20)*0.3 = 9
-        # threshold = 30 + 0 + 0 + 9 = 39, so 25s won't trigger
-        result = generate_initiative(
-            {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50,
-            comfort=20,
-            wait_seconds=45,
-        )
-        assert result is not None
-
-    def test_impatient_patient_triggers_earlier(self):
-        result_impatient = generate_initiative(
-            {"health_literacy": "normal", "verbosity": "normal", "anxiety_trait": "normal", "patience": "low"},
-            trust=50,
-            comfort=50,
-            wait_seconds=30,
-        )
-        assert result_impatient is not None
-
-    def test_verbose_extra_responses(self):
-        result = generate_initiative(
-            {"health_literacy": "normal", "verbosity": "verbose", "anxiety_trait": "normal", "patience": "normal"},
-            trust=50,
-            comfort=80,
-            wait_seconds=60,
-        )
-        assert isinstance(result, str) or result is None
 
 
 class TestInitiativeCache:

@@ -9,7 +9,6 @@ from .emotion import (
 
 # 查体处理器
 from .exam import (
-    detect_operation,
     get_exam_config,
     handle_operation,
     infer_operations,
@@ -27,7 +26,6 @@ from .initiative import (
     apply_initiative_penalty,
     check_initiate_ready,
     cleanup_initiative,
-    generate_initiative,
     generate_initiative_llm,
     get_initiative_seconds,
     should_initiate,
@@ -64,9 +62,7 @@ __all__ = [
     "check_initiate_ready",
     "cleanup_emotion",
     "cleanup_initiative",
-    "detect_operation",
     "format_case_for_prompt",
-    "generate_initiative",
     "generate_initiative_llm",
     "get_emotion",
     "get_exam_config",

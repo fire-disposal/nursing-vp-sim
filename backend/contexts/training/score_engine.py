@@ -512,7 +512,7 @@ async def evaluate_training(
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
     await _sse_progress(sse_manager, user_id, record_id, "loading", 5, "正在加载对话记录...")
 
-    rubric = load_rubric_by_version(record.rubric_frozen or "nursing_history_v1@1.0")
+    rubric = record.rubric_snapshot or load_rubric_by_version("nursing_history_v1@1.0")
     messages = await messages_task
 
     conversation_lines = []

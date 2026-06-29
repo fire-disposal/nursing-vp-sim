@@ -61,18 +61,6 @@ class EmotionState:
     def note(self) -> str:
         return _build_author_note(self.trust, self.comfort)
 
-    def decay(self, elapsed_seconds: float = 60.0) -> None:
-        """Drift trust and comfort toward 50 over time, capped at max 5 points per minute."""
-        drift = min(5, max(0, int(elapsed_seconds / 60)))
-        if drift == 0:
-            return
-        for attr in ("trust", "comfort"):
-            current = getattr(self, attr)
-            if current > 50:
-                setattr(self, attr, max(50, current - drift))
-            elif current < 50:
-                setattr(self, attr, min(50, current + drift))
-
     def update(self, dt: int, dc: int, intent_label: str = "") -> None:
         if dt == 0 and dc == 0:
             return

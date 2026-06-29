@@ -207,18 +207,8 @@ def _create_record(
     db.commit()
     db.refresh(record)
 
-    from repositories.rubric import load_active_rubric, load_rubric_by_version
-
-    def _resolve_rubric_ref(rubric_ref: str) -> str:
-        if rubric_ref == "active":
-            active = load_active_rubric()
-            if active:
-                return f"{active.name}@{active.version}"
-            return "nursing_history_v1@1.0"
-        load_rubric_by_version(rubric_ref)  # validate it resolves
-        return rubric_ref
-
-    record.rubric_frozen = _resolve_rubric_ref(case_data.get("rubric_ref", "active"))
+    # Set rubric from profile (snapshot will be frozen at scoring time)
+    record.rubric_snapshot = profile.rubric
 
     features = resolve_features(record.practice_snapshot)
     if app_state is not None and features.get("patient_initiative"):

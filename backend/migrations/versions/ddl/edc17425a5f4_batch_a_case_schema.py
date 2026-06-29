@@ -32,6 +32,8 @@ def upgrade() -> None:
     op.drop_constraint("ck_training_records_current_phase", "training_records", type_="check")
     op.drop_constraint("ck_messages_role", "messages", type_="check")
 
+    op.drop_column("training_records", "rubric_frozen")
+
 
 def downgrade() -> None:
     op.create_check_constraint("ck_messages_role", "messages", "role IN ('student', 'patient', 'system')")
@@ -41,6 +43,8 @@ def downgrade() -> None:
     op.drop_column("training_records", "rubric_snapshot")
     op.drop_column("training_records", "prompt_snapshot")
     op.drop_column("training_records", "training_type")
+
+    op.add_column("training_records", sa.Column("rubric_frozen", sa.String(length=80), nullable=True))
     op.drop_column("cases", "time_limit_minutes")
     op.drop_column("cases", "difficulty")
     op.drop_column("cases", "training_type")

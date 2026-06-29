@@ -55,7 +55,6 @@ class TrainingRecord(Base):
     scoring_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
-    rubric_frozen: Mapped[str | None] = mapped_column(String(80), nullable=True)
     current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
     training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
     prompt_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

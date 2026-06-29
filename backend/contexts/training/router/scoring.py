@@ -204,6 +204,21 @@ async def _run_scoring_background(
             log.info("评分被新任务取代，跳过执行", extra={"record_id": record_id})
             return
 
+        # Write prompt/rubric snapshot if not yet set
+        if not record.prompt_snapshot or not record.rubric_snapshot:
+            try:
+                from profiles.registry import get_profile
+
+                profile = get_profile(record.training_type)
+                record.prompt_snapshot = {
+                    "system": profile.prompts.system,
+                    "dynamic": profile.prompts.dynamic,
+                }
+                record.rubric_snapshot = profile.rubric
+                db.commit()
+            except (KeyError, AttributeError):
+                pass
+
         record.scoring_status = "processing"
         db.commit()
 
