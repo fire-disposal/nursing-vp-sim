@@ -528,6 +528,7 @@ async def evaluate_training(
         conversation_lines.append(f"{role_label}：{msg.content}")
     conversation_text = "\n\n".join(conversation_lines)
 
+    training_type = getattr(record, "training_type", None) or "history_taking"
     all_required = case_data.get("required_inquiries", [])
     raw_max = rubric.get("raw_max", 57)
 
@@ -540,20 +541,41 @@ async def evaluate_training(
     case_id = record.case_id
     log_meta = {"message_count": len(messages)}
 
-    score_system = render_template(
-        SCORING_SYSTEM,
-        scoring_criteria=scoring_criteria_text,
-        required_inquiries=required_inquiries_text,
-        scoring_json_schema=scoring_json_schema_text,
-        conversation_text=conversation_text,
-    )
-    score_user = render_template(
-        SCORING_USER,
-        scoring_criteria=scoring_criteria_text,
-        required_inquiries=required_inquiries_text,
-        scoring_json_schema=scoring_json_schema_text,
-        conversation_text=conversation_text,
-    )
+    if training_type == "triage":
+        triage_result = (record.runtime_state or {}).get("triage_result", {})
+        actions_parts = []
+        if triage_result:
+            actions_parts.append(f"学生计算的MEWS评分：{triage_result.get('mews_score', '未计算')}")
+            actions_parts.append(f"学生选择的分诊级别：{triage_result.get('category', '未选择')}")
+            actions_parts.append(f"学生推荐的目标科室：{triage_result.get('department', '未选择')}")
+            notes = triage_result.get("notes", "")
+            if notes:
+                actions_parts.append(f"备注：{notes}")
+        student_actions_text = "\n".join(actions_parts) if actions_parts else "学生未提交分诊结果"
+
+        from profiles.triage.builder import build_context_kwargs
+
+        profile = get_profile("triage")
+        kwargs = build_context_kwargs(case_data)
+        kwargs["student_actions"] = student_actions_text
+
+        score_system = render_template(str(profile.prompts.scoring), **kwargs)
+        score_user = render_template(str(profile.prompts.scoring_user), **kwargs)
+    else:
+        score_system = render_template(
+            SCORING_SYSTEM,
+            scoring_criteria=scoring_criteria_text,
+            required_inquiries=required_inquiries_text,
+            scoring_json_schema=scoring_json_schema_text,
+            conversation_text=conversation_text,
+        )
+        score_user = render_template(
+            SCORING_USER,
+            scoring_criteria=scoring_criteria_text,
+            required_inquiries=required_inquiries_text,
+            scoring_json_schema=scoring_json_schema_text,
+            conversation_text=conversation_text,
+        )
     score_messages = [
         {"role": "system", "content": score_system},
         {"role": "user", "content": score_user},
