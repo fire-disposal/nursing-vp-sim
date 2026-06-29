@@ -16,6 +16,7 @@ async def test_pipeline_without_operation_passes_to_llm_caller():
     record.user_id = 1
     record.case_id = 1
     record.current_phase = None
+    record.training_type = "history_taking"
     record.practice_snapshot = {"features": {}}
 
     user = MagicMock()
