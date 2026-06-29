@@ -1,10 +1,9 @@
 """tests for ProfileRouter purpose-based routing"""
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
-
-from unittest.mock import patch
 
 from infrastructure.llm import ProfileRouter, _SyntheticConfig
 from models import ApiSecret, LLMConfig

@@ -108,6 +108,9 @@ class QuestionnaireResponseService:
                 raise NotFoundError("训练记录不存在")
             case_id = record.case_id
 
+        if case_id is None:
+            return QuestionnaireCheckResponse(has_pending=False)
+
         cqs = self.repo.case_questionnaires_for(case_id, trigger)
 
         for cq in cqs:
@@ -139,6 +142,8 @@ class QuestionnaireResponseService:
         t = self.repo.get_template(template_id)
         if not t or not t.is_active:
             raise NotFoundError("问卷模板不存在或已停用")
+        if case_id is None:
+            raise ValidationError("请提供病例ID")
 
         response = self.repo.find_pending(user_id, template_id, case_id)
 

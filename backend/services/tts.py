@@ -90,7 +90,7 @@ class TTSService:
         self.db.commit()
 
         media_type = _AUDIO_MEDIA_TYPES.get(tts_format, "application/octet-stream")
-        return audio, emotion_state, speaker, latency_ms, media_type
+        return audio, emotion_state, speaker, latency_ms, media_type  # type: ignore
 
 
 def _extract_demographics(case: Case) -> tuple[int | None, str | None]:

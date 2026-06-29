@@ -27,9 +27,7 @@ def _mask_api_key(vc: VoiceConfig) -> str:
     return f"{'*' * 8}{raw[-4:]}"
 
 
-def _build_voice_config_response(vc: VoiceConfig | None) -> VoiceConfigResponse | None:
-    if not vc:
-        return None
+def _build_voice_config_response(vc: VoiceConfig) -> VoiceConfigResponse:
     return VoiceConfigResponse(
         id=vc.id,
         provider=vc.provider,

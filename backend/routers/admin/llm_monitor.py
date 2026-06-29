@@ -36,7 +36,7 @@ def get_llm_logs(
     record_id: int | None = None,
     aggregate_patient_chat: bool = True,
     current_user: User = Depends(require_permission("llm_monitor")),
-    db: DbSession = None,
+    db: DbSession = None,  # type: ignore
 ):
     svc = LLMMonitorService(db)
     return svc.get_llm_logs(
@@ -57,7 +57,7 @@ def export_llm_logs_csv(
     date_from: str | None = None,
     date_to: str | None = None,
     current_user: User = Depends(require_permission("llm_monitor")),
-    db: DbSession = None,
+    db: DbSession = None,  # type: ignore
 ):
     svc = LLMMonitorService(db)
     return svc.export_llm_logs(fmt=format, date_from=date_from, date_to=date_to)
