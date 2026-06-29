@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
-from contexts.patient import get_emotion
 from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.security import get_current_user
@@ -14,6 +13,7 @@ from infrastructure.tts.circuit import CircuitOpenError
 from infrastructure.tts.client import VolcTTSClient
 from middleware.rate_limits import check_tts_limit
 from models import User
+from profiles.history_taking.emotion import get_emotion
 from schemas.voice import TTSSynthesizeRequest
 from services.tts import TTSService
 

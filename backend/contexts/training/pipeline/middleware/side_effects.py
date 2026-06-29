@@ -3,8 +3,8 @@
 import logging
 import re
 
-from contexts.patient.emotion import get_emotion
-from contexts.patient.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
+from profiles.history_taking.emotion import get_emotion
+from profiles.history_taking.initiative import MAX_INITIATIVE_COUNT, get_initiative_seconds
 
 from ..context import (
     STATE_FEATURES,

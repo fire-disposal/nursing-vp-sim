@@ -8,10 +8,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session  # noqa: TC002
 
-from contexts.patient import handle_operation
 from core.database import get_db
 from core.security import get_current_user
 from models import Case, TrainingRecord, User
+from profiles.history_taking.exam import handle_operation
 from schemas.training import ExamOperationResponse
 
 log = logging.getLogger(__name__)

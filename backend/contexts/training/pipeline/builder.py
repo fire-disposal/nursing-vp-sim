@@ -47,11 +47,9 @@ def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
         for src_cls in profile.note_sources:
             collector.add(src_cls())
     except KeyError:
-        from contexts.patient.note_source import (
-            EmotionNoteSource,
-            IdentityGuardSource,
-            OperationNoteSource,
-        )
+        from contexts.patient.note_source import OperationNoteSource
+        from profiles.history_taking.notes import EmotionNoteSource, IdentityGuardSource
+
         for src_cls in [EmotionNoteSource, IdentityGuardSource, OperationNoteSource]:
             collector.add(src_cls())
 

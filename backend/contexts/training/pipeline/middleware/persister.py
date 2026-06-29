@@ -2,8 +2,8 @@
 
 import logging
 
-from contexts.patient.initiative import update_initiative_timer
 from models import Message
+from profiles.history_taking.initiative import update_initiative_timer
 
 from ..context import (
     STATE_PHASE_OP_COUNT,

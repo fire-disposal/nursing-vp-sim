@@ -10,8 +10,6 @@ import random
 
 log = logging.getLogger(__name__)
 
-# ── 旧格式兼容：默认操作定义 ──
-
 _LEGACY_OP_DEFS: dict[str, dict] = {
     "temp": {"label": "体温", "unit": "°C", "source": ("vital_signs", "temperature")},
     "hr": {"label": "心率", "unit": "次/分", "source": ("vital_signs", "heart_rate")},
@@ -27,7 +25,6 @@ _LEGACY_INSPECT_OPS = ["skin", "pain"]
 
 
 def get_exam_config(case_data: dict) -> dict | None:
-    """解析 case_data 返回前端用的 exam config."""
     anchors = case_data.get("exam_anchors", {})
     if not anchors:
         return None
@@ -37,7 +34,6 @@ def get_exam_config(case_data: dict) -> dict | None:
 
 
 def handle_operation(op_type: str, case_data: dict) -> dict:
-    """执行操作，返回 {type, label, value, unit}"""
     anchors = case_data.get("exam_anchors", {})
     if not anchors:
         return {"type": "info", "label": "查体", "value": "该病例未配置查体数据", "unit": ""}
@@ -54,7 +50,6 @@ def handle_operation(op_type: str, case_data: dict) -> dict:
         "value": value,
         "unit": op_def["unit"],
     }
-
 
 
 # ── Config 构建 ──
@@ -184,7 +179,7 @@ def _resolve_bp(raw: str) -> str:
         return raw
 
 
-# ── 旧版兼容导出（供其他地方引用） ──
+# ── 旧版兼容导出 ──
 
 
 def _format_vitals(vs: dict) -> dict:
@@ -223,7 +218,6 @@ _KNOWN_VITALS = {"temp", "bp", "hr", "rr", "spo2", "skin", "pain"}
 
 
 def infer_operations(case_data: dict) -> list[str]:
-    """从 case_data 的数据推断可用操作，取代显式的 exam_anchors 元数据。"""
     ops = ["chat"]
     physiology = case_data.get("physiology", {})
     if physiology.get("timeline"):

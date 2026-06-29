@@ -5,20 +5,20 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from contexts.patient import (
-    MAX_INITIATIVE_COUNT,
-    apply_initiative_penalty,
-    generate_initiative_llm,
-    get_emotion,
-    get_initiative_seconds,
-    should_initiate,
-    update_initiative_timer,
-)
 from core.capabilities import is_enabled, resolve_features
 from core.database import get_db
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
 from models import Case, Message, TrainingRecord, User
+from profiles.history_taking.emotion import get_emotion
+from profiles.history_taking.initiative import (
+    MAX_INITIATIVE_COUNT,
+    apply_initiative_penalty,
+    generate_initiative_llm,
+    get_initiative_seconds,
+    should_initiate,
+    update_initiative_timer,
+)
 from schemas import (
     InitiativeTriggerResponse,
     PhaseAdvanceResponse,

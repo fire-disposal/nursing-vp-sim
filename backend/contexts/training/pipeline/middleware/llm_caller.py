@@ -34,7 +34,7 @@ async def llm_caller(ctx: PipelineContext, next_mw) -> None:
 async def _call_batch(ctx: PipelineContext) -> None:
     import httpx
 
-    from contexts.patient.guards import get_identity_correction_note, has_identity_leak
+    from profiles.history_taking.guards import get_identity_correction_note, has_identity_leak
 
     app = ctx.app_state
     llm_client = app.llm_client
@@ -101,7 +101,7 @@ async def _call_batch(ctx: PipelineContext) -> None:
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
-    from contexts.patient import get_identity_correction_note, has_identity_leak
+    from profiles.history_taking.guards import get_identity_correction_note, has_identity_leak
 
     app = ctx.app_state
     llm_client = app.llm_client

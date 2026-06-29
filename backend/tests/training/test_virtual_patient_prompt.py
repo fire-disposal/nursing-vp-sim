@@ -2,16 +2,14 @@
 
 from unittest.mock import MagicMock
 
-from contexts.patient import (
-    build_patient_chat_messages,
-    build_patient_context_kwargs,
-)
+from contexts.patient import build_patient_chat_messages
+from profiles.history_taking.builder import build_context_kwargs
 
 
 class TestBuildPatientContextKwargs:
     def test_returns_all_ten_keys(self):
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert set(kwargs.keys()) == {
             "communication_style",
             "patient_info",
@@ -27,23 +25,23 @@ class TestBuildPatientContextKwargs:
 
     def test_patient_info_formatting(self):
         case = {"patient_info": {"name": "张三", "age": 45, "gender": "男"}}
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert kwargs["patient_info"] == "张三，45岁，男"
 
     def test_patient_info_partial(self):
         case = {"patient_info": {"name": "李四"}}
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert kwargs["patient_info"] == "李四"
 
     def test_defaults_for_missing_fields(self):
-        kwargs = build_patient_context_kwargs({})
+        kwargs = build_context_kwargs({})
         assert len(kwargs["communication_style"]) > 0
         assert kwargs["allergy_history"] == "无已知过敏史"
         assert kwargs["author_note"] == ""
 
     def test_custom_values_override(self):
         case = {"chief_complaint": "咳嗽三天"}
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert kwargs["chief_complaint"] == "咳嗽三天"
 
     def test_personality_formatting(self):
@@ -55,20 +53,20 @@ class TestBuildPatientContextKwargs:
                 "patience": "high",
             }
         }
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert "不太会描述病情" in kwargs["personality"]
         assert "容易焦虑" in kwargs["personality"]
         assert "非常耐心" in kwargs["personality"]
 
     def test_deep_background_formatting(self):
         case = {"deep_background": {"smoking": "30年吸烟史", "occupation": "建筑工人"}}
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert "30年吸烟史" in kwargs["deep_background"]
         assert "建筑工人" in kwargs["deep_background"]
 
     def test_deep_background_empty(self):
         case = {"deep_background": {}}
-        kwargs = build_patient_context_kwargs(case)
+        kwargs = build_context_kwargs(case)
         assert "无额外背景" in kwargs["deep_background"]
 
 

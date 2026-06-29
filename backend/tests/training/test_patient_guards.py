@@ -1,6 +1,6 @@
 """Unit tests for identity leak detection."""
 
-from contexts.patient.guards import (
+from profiles.history_taking.guards import (
     get_identity_correction_note,
     has_identity_leak,
 )

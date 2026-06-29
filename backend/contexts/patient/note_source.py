@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from contexts.training.pipeline.context import PipelineContext
 
-from contexts.patient.guards import get_identity_correction_note, has_identity_leak
-
 log = logging.getLogger(__name__)
 
 
@@ -21,37 +19,6 @@ class NoteSource(ABC):
 
     @abstractmethod
     async def collect(self, ctx: PipelineContext) -> str | None: ...
-
-
-class EmotionNoteSource(NoteSource):
-    name = "emotion"
-    priority = 10
-    max_tokens = 100
-
-    async def collect(self, ctx: PipelineContext) -> str | None:
-        from contexts.patient.emotion import get_emotion
-
-        cache = getattr(ctx.app_state, "emotion_cache", None)
-        if cache is None:
-            return None
-        emotion = get_emotion(ctx.record.id, cache, ctx.db)
-        return emotion.note
-
-
-class IdentityGuardSource(NoteSource):
-    name = "identity_guard"
-    priority = 20
-    max_tokens = 50
-
-    async def collect(self, ctx: PipelineContext) -> str | None:
-        last_patient = None
-        for msg in reversed(ctx.messages):
-            if msg.role == "patient":
-                last_patient = msg.content
-                break
-        if last_patient and has_identity_leak(last_patient):
-            return get_identity_correction_note()
-        return None
 
 
 _OPS_EXPERIENCE_DESCRIPTIONS: dict[str, str] = {

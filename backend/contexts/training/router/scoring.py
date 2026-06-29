@@ -346,11 +346,11 @@ async def end_training(
 
         features = resolve_features(record.practice_snapshot)
         if features.get("patient_initiative"):
-            from contexts.patient.initiative import cleanup_initiative
+            from profiles.history_taking.initiative import cleanup_initiative
 
             cleanup_initiative(record.id, request.app.state.initiative_cache, db)
         if features.get("emotion"):
-            from contexts.patient.emotion import cleanup_emotion
+            from profiles.history_taking.emotion import cleanup_emotion
 
             cleanup_emotion(record.id, request.app.state.emotion_cache, db)
 

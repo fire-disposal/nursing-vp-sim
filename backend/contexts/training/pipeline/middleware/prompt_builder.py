@@ -1,11 +1,9 @@
 """prompt_builder — assemble LLM messages array from context."""
 
+import importlib
 import logging
 
-from contexts.patient import (
-    build_patient_chat_messages,
-    build_patient_context_kwargs,
-)
+from contexts.patient import build_patient_chat_messages
 from infrastructure.prompt import render_template
 from profiles.registry import get_profile
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
@@ -30,7 +28,8 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     # 病例静态数据缓存 — 性格/背景/示例对话整个会话不变，仅 author_note 每轮更新
     cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
     if cached is None:
-        cached = build_patient_context_kwargs(ctx.case_data)
+        builder_mod = importlib.import_module(f"profiles.{training_type}.builder")
+        cached = builder_mod.build_context_kwargs(ctx.case_data)
         ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
     kwargs = {**cached, "author_note": author_note if author_note.strip() else ""}
 

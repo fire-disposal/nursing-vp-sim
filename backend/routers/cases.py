@@ -25,12 +25,12 @@ from services.case import CaseManageView, CaseService
 
 log = logging.getLogger(__name__)
 
-from contexts.patient import format_case_for_prompt
 from core.case_schema import validate_case_data
 from core.llm_profile import get_llm_config
 from infrastructure.exporter import ColumnDef, export_response
 from infrastructure.llm.client import CallContext
 from infrastructure.prompt import render_template
+from profiles.history_taking.builder import format_case_for_prompt
 from prompts import CASE_GENERATION_SYSTEM
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])

@@ -29,9 +29,9 @@ STATE_LABELS: list[tuple[tuple[int, int], str, str]] = [
     ((70, 70), "open", "开放信任，愿意详述"),
     ((30, 60), "relaxed", "放松配合，语气友好"),
     ((30, 35), "neutral", "正常配合"),
-    ((30, 0), "anxious", "焦虑不安"),  # comfort low but trust maintained
-    ((0, 30), "defensive", "防御抵触"),  # trust low
-    ((0, 0), "withdrawn", "沉默回避"),  # both low
+    ((30, 0), "anxious", "焦虑不安"),
+    ((0, 30), "defensive", "防御抵触"),
+    ((0, 0), "withdrawn", "沉默回避"),
 ]
 
 
@@ -39,7 +39,7 @@ def _lookup_state(trust: int, comfort: int) -> tuple[str, str]:
     best = ("neutral", "正常配合")
     for (t_min, c_min), label, desc in STATE_LABELS:
         if trust >= t_min and comfort >= c_min:
-            return label, desc  # first match with highest priority
+            return label, desc
     return best
 
 

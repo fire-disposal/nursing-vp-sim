@@ -31,17 +31,11 @@ async def generate_initiative_llm(
     *,
     ctx: CallContext | None = None,
 ) -> str:
-    """LLM-driven initiative text — generates a natural, context-aware patient utterance.
-
-    Falls back to a second LLM attempt with a simpler prompt before using
-    minimal hardcoded phrases as absolute last resort.
-    """
     mood = _describe_mood(trust, comfort)
     traits = _describe_traits(personality)
 
     common_prompt = f"病例：{case_name}。{traits}\n当前情绪状态：{mood}（信任度{trust}/100，舒适度{comfort}/100）。\n"
 
-    # ── Attempt 1: full context ──
     try:
         result = await llm_client.call(
             [
@@ -69,7 +63,6 @@ async def generate_initiative_llm(
     except Exception:
         log.warning("LLM initiative attempt 1 failed, retrying with simpler prompt", exc_info=True)
 
-    # ── Attempt 2: simpler prompt, no student msg context ──
     try:
         result = await llm_client.call(
             [
@@ -94,12 +87,10 @@ async def generate_initiative_llm(
     except Exception:
         log.warning("LLM initiative attempt 2 failed", exc_info=True)
 
-    # ── Absolute last resort: minimal generic fallback ──
     return _last_resort_fallback(mood)
 
 
 def _last_resort_fallback(mood: str) -> str:
-    """Minimal fallback when both LLM attempts fail."""
     fallbacks = {
         "焦虑不安": "[不安地挪动身体]",
         "防御抵触": "（沉默地等着）",
@@ -213,9 +204,7 @@ def apply_initiative_penalty(
     emotion_cache,
     db: Session,
 ) -> dict:
-    """Apply trust/comfort penalty for patient initiative.
-    Returns emotion state dict for SSE emission."""
-    from contexts.patient.emotion import get_emotion
+    from profiles.history_taking.emotion import get_emotion
 
     count = cache.get_count(record_id, db)
     emotion = get_emotion(record_id, emotion_cache, db)
