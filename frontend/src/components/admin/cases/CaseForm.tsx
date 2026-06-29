@@ -389,6 +389,19 @@ export default function CaseFormModal({
 								<option value={3}>高级</option>
 							</select>
 						</div>
+						<div className="flex-1 min-w-[120px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								训练类型
+							</label>
+							<select
+								value={caseForm.training_type}
+								onChange={(e) => updateField("training_type", e.target.value)}
+								className={inputClass}
+							>
+								<option value="history_taking">病史采集</option>
+								<option value="triage">分诊</option>
+							</select>
+						</div>
 					</div>
 					<div className="mt-3">
 						<label className="block text-xs font-semibold text-muted-foreground mb-1">
@@ -402,6 +415,8 @@ export default function CaseFormModal({
 						/>
 					</div>
 				</fieldset>
+				{caseForm.training_type === "history_taking" && (
+				<>
 				<fieldset className="border border-border rounded-lg p-4">
 					<legend className="text-sm font-semibold text-foreground px-1">
 						患者信息
@@ -675,6 +690,8 @@ export default function CaseFormModal({
 						</div>
 					)}
 				</fieldset>
+				</>
+				)}
 				<div>
 					<label className="inline-flex items-center gap-1 text-sm text-primary cursor-pointer hover:underline">
 						<Upload size={14} /> 从 JSON 文件导入

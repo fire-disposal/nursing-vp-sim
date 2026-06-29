@@ -212,6 +212,9 @@ export default function CaseSelect() {
 										>
 											{diffLabel}
 										</Badge>
+										<span className="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700">
+											{c.training_type === "triage" ? "分诊" : "病史采集"}
+										</span>
 									</div>
 									<p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
 										{c.description}
