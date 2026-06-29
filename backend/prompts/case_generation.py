@@ -59,6 +59,8 @@ CASE_GENERATION_SYSTEM = """你是一名资深的护理学教育专家和临床�
 - **example_dialogues**：2-3 组护患典型问答，question 是护士可能问的问题，answer 是患者的回答。使用口语化语言，体现患者个性和沟通风格
 - **supported_plugins**：推荐启用的训练插件。可选值：emotion（患者情绪状态机）、physical_exam（护理查体）、patient_initiative（患者主动追问）、questionnaire（问卷评估）
 
+{#triage_output_format#}
+
 ## 用户描述
 {#description#}
 

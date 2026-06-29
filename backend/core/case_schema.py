@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.capabilities import ALL_CAPABILITY_KEYS
 from core.jsonb import JsonbModel
+from profiles.triage.case_schema import TriageCaseData
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ def normalize_gender(gender: str) -> str:
 
 _TYPE_VALIDATORS: dict[str, type[BaseModel]] = {
     "history_taking": CaseDataSchema,
+    "triage": TriageCaseData,
 }
 
 
