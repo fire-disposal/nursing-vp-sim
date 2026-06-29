@@ -162,7 +162,7 @@ export default function TrainingSelect() {
     <>
       <PageHeader
         title="训练中心"
-        subtitle="选择训练类型和虚拟患者，系统将模拟真实护理场景，训练结束后自动评分。"
+        subtitle={selectedType === "triage" ? "选择虚拟患者进行预检分诊训练，快速评估并完成分诊判定。" : selectedType ? "选择虚拟患者进行病史采集训练，系统将模拟真实护理场景。" : "选择训练类型和虚拟患者，系统将模拟真实护理场景，训练结束后自动评分。"}
         icon={ClipboardList}
         backTo="/home"
       />
@@ -216,7 +216,7 @@ export default function TrainingSelect() {
                   {cfg && (
                     <div
                       className={cn(
-                        "absolute inset-0 rounded-xl opacity-40",
+                        "absolute inset-0 rounded-xl opacity-30",
                         "bg-gradient-to-br",
                         cfg.gradient,
                       )}
@@ -243,6 +243,19 @@ export default function TrainingSelect() {
                       {p.description}
                     </p>
                   </div>
+                  {p.type === "history_taking" && (
+                    <div className="relative flex gap-2 mt-1">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">问诊</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">查体</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600">评分</span>
+                    </div>
+                  )}
+                  {p.type === "triage" && (
+                    <div className="relative flex gap-2 mt-1">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">快速评估</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600">分诊</span>
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -388,6 +401,11 @@ export default function TrainingSelect() {
                           主诉：{summary.chief_complaint}
                         </span>
                       )}
+                    </div>
+                  )}
+                  {c.training_type === "triage" && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{(c as any).arrival_mode === "ambulance" ? "🚑 救护车" : (c as any).arrival_mode === "stretcher" ? "🛏️ 平车" : "🚶 步行"}</span>
                     </div>
                   )}
                   <Button

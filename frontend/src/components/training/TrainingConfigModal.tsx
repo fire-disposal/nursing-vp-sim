@@ -35,7 +35,6 @@ export default function TrainingConfigModal({ open, caseInfo, trainingType, onCl
             if (advanced) {
                 features.emotion = true;
                 features.patient_initiative = true;
-                // exam_emotion_bridge 已废弃 — 查体体验由 ExamExperienceSource 自动注入
             }
         }
         if (questionnaire) features.questionnaire = true;
@@ -134,29 +133,43 @@ export default function TrainingConfigModal({ open, caseInfo, trainingType, onCl
                     </>
                 )}
 
-                {/* Section: 训练后 */}
-                <div>
-                    <span className="text-sm font-medium mb-3 block">训练结束后</span>
-                    <button
-                        type="button"
-                        onClick={() => setQuestionnaire((v) => !v)}
-                        className={cn(
-                            "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
-                            questionnaire ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/20 hover:bg-muted/50",
-                        )}
-                    >
-                        <div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0", questionnaire ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                            <ClipboardList size={18} />
+                {trainingType === "triage" && (
+                    <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">🚑</span>
+                            <div>
+                                <p className="font-medium text-orange-800">预检分诊训练</p>
+                                <p className="text-sm text-orange-600">快速评估患者，完成分诊判定</p>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <p className="text-sm font-medium">填写评估问卷</p>
-                            <p className="text-[11px] text-muted-foreground">训练结束后弹出评估问卷</p>
-                        </div>
-                        <div className={cn("h-5 w-9 rounded-full transition-colors shrink-0", questionnaire ? "bg-primary" : "bg-muted-foreground/25")}>
-                            <div className={cn("size-4 rounded-full bg-white shadow-sm transition-transform mt-0.5", questionnaire ? "translate-x-[18px]" : "translate-x-[2px]")} />
-                        </div>
-                    </button>
-                </div>
+                    </div>
+                )}
+
+                {/* Section: 训练后 — only for history_taking */}
+                {isHistoryTaking && (
+                    <div>
+                        <span className="text-sm font-medium mb-3 block">训练结束后</span>
+                        <button
+                            type="button"
+                            onClick={() => setQuestionnaire((v) => !v)}
+                            className={cn(
+                                "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
+                                questionnaire ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/20 hover:bg-muted/50",
+                            )}
+                        >
+                            <div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0", questionnaire ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                                <ClipboardList size={18} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">填写评估问卷</p>
+                                <p className="text-[11px] text-muted-foreground">训练结束后弹出评估问卷</p>
+                            </div>
+                            <div className={cn("h-5 w-9 rounded-full transition-colors shrink-0", questionnaire ? "bg-primary" : "bg-muted-foreground/25")}>
+                                <div className={cn("size-4 rounded-full bg-white shadow-sm transition-transform mt-0.5", questionnaire ? "translate-x-[18px]" : "translate-x-[2px]")} />
+                            </div>
+                        </button>
+                    </div>
+                )}
 
                 {/* Time */}
                 <div>
@@ -164,7 +177,7 @@ export default function TrainingConfigModal({ open, caseInfo, trainingType, onCl
                     <div className="flex items-center gap-3 rounded-lg border p-3">
                         <Clock size={18} className="text-muted-foreground shrink-0" />
                         <div className="flex-1">
-                            <input type="range" min={5} max={60} step={5} value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))}
+                            <input type="range" min={5} max={isHistoryTaking ? 60 : 30} step={5} value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))}
                                 className="w-full h-2 rounded-full appearance-none bg-muted cursor-pointer accent-primary" />
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
