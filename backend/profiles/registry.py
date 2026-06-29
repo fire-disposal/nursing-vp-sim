@@ -4,8 +4,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from contexts.patient.note_source import NoteSource
 
 

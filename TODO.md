@@ -2,27 +2,27 @@
 
 > 2026-06-29 · 从 `TRAINING-ARCH-MEMO.md` 拆出的实施批次
 
-## 批次 A — Profile 基础设施 + Case 解耦（~3 天）
+## 批次 A — Profile 基础设施 + Case 解耦（已完成）
 
 目标：建立 profile 注册机制，Case 解绑单 schema，现有代码通过适配层继续工作。
 
-- [ ] 定义 `TrainingProfile` / `PromptCollection` / `PhaseConfig` 数据类 (`profiles/__init__.py`)
-- [ ] 建立注册中心 `get_profile(type)` (`profiles/registry.py`)
-- [ ] 搬迁 `history_taking` 现有配置到 profile (`profiles/history_taking/profile.py`)
-- [ ] 数据自描述：`infer_operations(case_data)` (`profiles/history_taking/`)
-- [ ] Case migration：加 `training_type`/`difficulty`/`time_limit_minutes` 列
-- [ ] `case_data` 从 `PydanticJSONB(CaseDataSchema)` 改为 `JSONB`
-- [ ] `CaseService.create/update` 验证从列级下放到 `_VALIDATORS[type]`
-- [ ] 删除 `current_phase` / `messages.role` CHECK 约束
-- [ ] `_create_record()` 从 profile 读 `initial_phase`
-- [ ] `builder.py` 从 profile 读 `note_sources`
-- [ ] `side_effects.py` emotion/initiative 按 `profile.has_emotion` 等包裹
-- [ ] `prompt_builder.py` 模板来源从 `pm.get()` 改为 `profile.prompts`
-- [ ] `prompt.py` `max_rounds` 从硬编码 8 改为 `profile.max_rounds`
-- [ ] `phase.py` 移除 `_default_phase`，由 profile 提供 phases
-- [ ] 适配层：各处嵌入 bridge 代码，profile 是新增不覆盖
-- [ ] `TrainingRecord` 加 `training_type` 列
-- [ ] 全量测试：`pnpm run check:full`
+- [x] 定义 `TrainingProfile` / `PromptCollection` / `PhaseConfig` 数据类 (`profiles/__init__.py`)
+- [x] 建立注册中心 `get_profile(type)` (`profiles/registry.py`)
+- [x] 搬迁 `history_taking` 现有配置到 profile (`profiles/history_taking/profile.py`)
+- [x] 数据自描述：`infer_operations(case_data)` (`profiles/history_taking/`)
+- [x] Case migration：加 `training_type`/`difficulty`/`time_limit_minutes` 列
+- [x] `case_data` 从 `PydanticJSONB(CaseDataSchema)` 改为 `JSONB`
+- [x] `CaseService.create/update` 验证从列级下放到 `_VALIDATORS[type]`
+- [x] 删除 `current_phase` / `messages.role` CHECK 约束
+- [x] `_create_record()` 从 profile 读 `initial_phase`
+- [x] `builder.py` 从 profile 读 `note_sources`
+- [x] `side_effects.py` emotion/initiative 按 `profile.has_emotion` 等包裹
+- [x] `prompt_builder.py` 持有 `profile.max_rounds` 用于消息构建
+- [x] `prompt.py` `max_rounds` 从硬编码 8 改为参数化
+- [x] `phase.py` 回退阶段由 profile 提供
+- [x] 适配层：各处嵌入 bridge 代码，profile 是新增不覆盖
+- [x] `TrainingRecord` 加 `training_type` 列
+- [x] 全量测试：429 passed，ruff/ty/compileall 通过
 
 ## 批次 B — 删除死基础设施 + 评分快照（~2 天）
 
