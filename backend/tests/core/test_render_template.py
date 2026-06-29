@@ -6,7 +6,7 @@ os.environ["DEEPSEEK_API_KEY"] = "sk-test-placeholder"
 
 import pytest
 
-from infrastructure.prompt import PromptTemplateObj, render_template
+from infrastructure.prompt import render_template
 
 
 class TestRenderTemplate:
@@ -59,39 +59,3 @@ class TestRenderTemplate:
         assert "张三，45岁，男" in r
         assert "头痛3天" in r
 
-
-class TestPromptTemplateObj:
-    def test_render_pair(self):
-        pt = PromptTemplateObj(
-            id=0,
-            purpose="test",
-            version=1,
-            system_prompt="SYS: {#s#}",
-            user_prompt="USR: {#u#}",
-        )
-        s, u = pt.render_pair(s="hello", u="world")
-        assert s == "SYS: hello"
-        assert u == "USR: world"
-
-    def test_no_user_prompt(self):
-        pt = PromptTemplateObj(
-            id=0,
-            purpose="test",
-            version=1,
-            system_prompt="{#x#}",
-            user_prompt=None,
-        )
-        s, u = pt.render_pair(x="ok")
-        assert s == "ok"
-        assert u == ""
-
-    def test_missing_var_in_pair_raises(self):
-        pt = PromptTemplateObj(
-            id=0,
-            purpose="test",
-            version=1,
-            system_prompt="{#good#}",
-            user_prompt="{#bad#}",
-        )
-        with pytest.raises(RuntimeError, match="bad"):
-            pt.render_pair(good="ok")

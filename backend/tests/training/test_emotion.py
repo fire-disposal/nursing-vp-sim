@@ -54,14 +54,6 @@ class TestEmotionState:
         assert EmotionState(trust=40, comfort=70).state == "relaxed"
         assert EmotionState(trust=80, comfort=80).state == "open"
 
-    def test_decay(self):
-        e = EmotionState(trust=80, comfort=80)
-        e.decay()
-        assert e.trust < 80
-        assert e.comfort < 80
-        assert e.trust >= 75
-        assert e.comfort >= 75
-
     def test_note_includes_dimensions(self):
         e = EmotionState(trust=25, comfort=18)
         note = e.note

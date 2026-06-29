@@ -22,7 +22,7 @@ from prompts.scoring import (
     SCORING_SYSTEM,
     SCORING_USER,
 )
-from repositories.rubric import get_rubric_version_id, load_rubric_by_version
+from repositories.rubric import get_rubric_version_id, load_rubric
 
 from ._scoring_validation import (
     _check_feedback_empty,
@@ -512,7 +512,7 @@ async def evaluate_training(
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
     await _sse_progress(sse_manager, user_id, record_id, "loading", 5, "正在加载对话记录...")
 
-    rubric = record.rubric_snapshot or load_rubric_by_version("nursing_history_v1@1.0")
+    rubric = record.rubric_snapshot or load_rubric("nursing_history_v1")
     messages = await messages_task
 
     conversation_lines = []
