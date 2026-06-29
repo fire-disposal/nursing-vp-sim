@@ -62,7 +62,7 @@ class PipelineContext:
         return len(self.messages)
 
     def setup_phases(self):
-        self.phases = parse_phases(self.case_data)
+        self.phases = parse_phases(self.case_data, training_type=getattr(self.record, "training_type", None))
         saved_phase = self.record.current_phase
         if saved_phase:
             for i, p in enumerate(self.phases):

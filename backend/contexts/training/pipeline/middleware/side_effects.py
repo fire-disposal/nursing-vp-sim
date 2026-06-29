@@ -172,7 +172,16 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     app = ctx.app_state
     features = ctx.state.get(STATE_FEATURES) or {}
 
-    if features.get("emotion") and ctx.llm_reply:
+    training_type = getattr(ctx.record, "training_type", None) or "history_taking"
+    try:
+        from profiles.registry import get_profile
+        profile = get_profile(training_type)
+    except KeyError:
+        profile = None
+
+    has_emotion = profile.has_emotion if profile else features.get("emotion", False)
+
+    if has_emotion and ctx.llm_reply:
         emotion_cache = getattr(app, "emotion_cache", None)
         if emotion_cache is None:
             return
@@ -204,7 +213,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 }
             )
 
-    if not features.get("patient_initiative") or not ctx.llm_reply:
+    has_initiative = profile.has_initiative if profile else features.get("patient_initiative", False)
+    if not has_initiative or not ctx.llm_reply:
         return
 
     initiative_cache = getattr(app, "initiative_cache", None)

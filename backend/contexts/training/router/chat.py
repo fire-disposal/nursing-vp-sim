@@ -76,7 +76,7 @@ async def send_message(
     db: Annotated[Session, Depends(get_db)],
 ):
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-    pipe, collector = get_pipeline()
+    pipe, collector = get_pipeline(training_type=ctx.record.training_type)
     ctx.note_collector = collector
     await run_pipeline(ctx, pipe)
 
@@ -99,7 +99,7 @@ async def send_message_stream(
     async def _stream_with_db():
         async with db_session() as db:
             ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
-            pipe, collector = get_pipeline()
+            pipe, collector = get_pipeline(training_type=ctx.record.training_type)
             ctx.note_collector = collector
 
             async for chunk in stream_pipeline(ctx, pipe):

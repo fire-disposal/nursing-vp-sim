@@ -53,11 +53,15 @@ def parse_phase(data: dict) -> Phase:
     )
 
 
-def parse_phases(case_data: dict) -> list[Phase]:
+def parse_phases(case_data: dict, training_type: str | None = None) -> list[Phase]:
     """Parse phases from case_data, with fallback to default single-phase."""
     raw = case_data.get("phases", [])
     if raw:
         return sorted([parse_phase(p) for p in raw], key=lambda p: p.order)
+    if training_type:
+        from profiles.registry import get_profile
+        profile = get_profile(training_type)
+        return [Phase(**vars(pc)) for pc in profile.phases]
     return [_default_phase(case_data)]
 
 

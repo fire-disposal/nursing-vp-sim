@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 _CORE_MIDDLEWARE: dict[PipelineStage, list[Any]] = {}
 
 
-def build_pipeline() -> tuple[list[Any], Any]:
+def build_pipeline(training_type: str | None = None) -> tuple[list[Any], Any]:
     if not _CORE_MIDDLEWARE:
         from .middleware import (
             llm_caller,
@@ -38,18 +38,21 @@ def build_pipeline() -> tuple[list[Any], Any]:
 
     # --- assemble NoteCollector ---
     from contexts.patient.note_collector import NoteCollector
-    from contexts.patient.note_source import (
-        EmotionNoteSource,
-        ExamExperienceSource,
-        IdentityGuardSource,
-    )
+    from profiles.registry import get_profile
 
     collector = NoteCollector()
-    for src_cls in [
-        EmotionNoteSource,
-        IdentityGuardSource,
-        ExamExperienceSource,
-    ]:
-        collector.add(src_cls())
+    pt = training_type or "history_taking"
+    try:
+        profile = get_profile(pt)
+        for src_cls in profile.note_sources:
+            collector.add(src_cls())
+    except KeyError:
+        from contexts.patient.note_source import (
+            EmotionNoteSource,
+            IdentityGuardSource,
+            OperationNoteSource,
+        )
+        for src_cls in [EmotionNoteSource, IdentityGuardSource, OperationNoteSource]:
+            collector.add(src_cls())
 
     return result, collector

@@ -34,6 +34,7 @@ from models import (
     UserClass,
     VoiceCallLog,
 )
+from profiles.registry import get_profile
 from schemas import (
     DeleteResponse,
     PaginatedResponse,
@@ -182,11 +183,13 @@ def _create_record(
     is_overdue: bool = False,
     app_state=None,
 ):
-    time_limit = case_data.get("time_limit", 20)
-    time_limit = config.get("behavior", {}).get("time_limit_minutes", time_limit) or time_limit
+    training_type = case.training_type or "history_taking"
+    profile = get_profile(training_type)
+
+    time_limit = case.time_limit_minutes or config.get("behavior", {}).get("time_limit_minutes", 20)
 
     config["features"] = effective_features(config.get("features") or {}, case_data.get("supported_plugins"))
-    validate_case_data(case_data, strict=False)
+    validate_case_data(training_type, case_data, strict=False)
 
     record = TrainingRecord(
         user_id=user_id,
@@ -195,10 +198,11 @@ def _create_record(
         practice_snapshot=config or None,
         assignment_id=assignment_id,
         is_overdue=is_overdue,
+        training_type=training_type,
         status="in_progress",
         time_limit=time_limit,
     )
-    record.current_phase = "history_taking"
+    record.current_phase = profile.initial_phase
     db.add(record)
     db.flush()
 

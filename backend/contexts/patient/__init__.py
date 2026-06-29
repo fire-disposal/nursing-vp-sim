@@ -12,6 +12,7 @@ from .exam import (
     detect_operation,
     get_exam_config,
     handle_operation,
+    infer_operations,
 )
 
 # 患者守卫
@@ -73,6 +74,7 @@ __all__ = [
     "get_initiative_seconds",
     "handle_operation",
     "has_identity_leak",
+    "infer_operations",
     "should_initiate",
     "update_initiative_timer",
 ]
