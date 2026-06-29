@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.capabilities import ALL_CAPABILITY_KEYS
 from core.jsonb import JsonbModel
@@ -94,15 +94,26 @@ def normalize_gender(gender: str) -> str:
     return GENDER_MAP.get(gender, gender)
 
 
-def validate_case_data(data: dict, *, strict: bool = False) -> dict:
+_TYPE_VALIDATORS: dict[str, type[BaseModel]] = {
+    "history_taking": CaseDataSchema,
+}
+
+
+def validate_case_data(training_type: str, data: dict, *, strict: bool = False) -> dict:
+    """Validate case_data against the schema for the given training_type."""
+    schema_cls = _TYPE_VALIDATORS.get(training_type)
+    if schema_cls is None:
+        log.warning("No validator for training_type=%s, skipping validation", training_type)
+        return data
     try:
-        CaseDataSchema(**data)
-    except ValidationError as e:
+        validated = schema_cls(**data)
+        return validated.model_dump()
+    except Exception:
         if strict:
             raise
-        log.warning("case_data validation warning: %s", e)
-    return data
+        log.warning("case_data validation warning for type=%s", training_type, exc_info=True)
+        return data
 
 
 def assert_valid_case_data(data: dict) -> dict:
-    return validate_case_data(data, strict=True)
+    return validate_case_data("history_taking", data, strict=True)

@@ -42,7 +42,7 @@ class TestCaseDataSchema:
             assert_valid_case_data({"name": ""})
 
     def test_validate_case_data_non_strict_returns_raw(self):
-        result = validate_case_data({"name": ""}, strict=False)
+        result = validate_case_data("history_taking", {"name": ""}, strict=False)
         assert result == {"name": ""}
 
     def test_rubric_ref_default(self):

@@ -41,10 +41,6 @@ class TrainingRecord(Base):
             "scoring_status IN ('pending', 'processing', 'completed', 'failed')",
             name="ck_training_records_scoring_status",
         ),
-        CheckConstraint(
-            "current_phase IN ('history_taking', 'physical_exam', 'ending')",
-            name="ck_training_records_current_phase",
-        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -61,6 +57,9 @@ class TrainingRecord(Base):
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
     rubric_frozen: Mapped[str | None] = mapped_column(String(80), nullable=True)
     current_phase: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
+    prompt_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    rubric_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
     )
@@ -82,10 +81,6 @@ class Message(Base):
     __table_args__ = (
         Index("ix_msg_record_created", "record_id", "created_at"),
         Index("ix_msg_role", "role"),
-        CheckConstraint(
-            "role IN ('student', 'patient', 'system')",
-            name="ck_messages_role",
-        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from core.case_schema import assert_valid_case_data, normalize_gender
+from core.case_schema import normalize_gender, validate_case_data
 from core.exceptions import ConflictError
 from core.unit_of_work import unit_of_work
 from models import Case, Practice
@@ -92,8 +92,16 @@ class CaseService:
         return self.repo.get_or_404(case_id, "病例不存在")
 
     def create(self, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
-        cd = assert_valid_case_data(case_data)
-        case = Case(name=cd["name"], description=cd.get("description", ""), case_data=cd)
+        training_type = case_data.get("training_type", "history_taking")
+        cd = validate_case_data(training_type, case_data, strict=True)
+        case = Case(
+            name=cd["name"],
+            description=cd.get("description", ""),
+            case_data=cd,
+            training_type=training_type,
+            difficulty=cd.get("difficulty", 1),
+            time_limit_minutes=cd.get("time_limit", 20),
+        )
         with unit_of_work(self.db, conflict_detail="病例创建冲突"):
             self.repo.add(case)
         log.info(
@@ -104,10 +112,14 @@ class CaseService:
 
     def update(self, case_id: int, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
         case = self.repo.get_or_404(case_id, "病例不存在")
-        cd = assert_valid_case_data(case_data)
+        training_type = case_data.get("training_type", "history_taking")
+        cd = validate_case_data(training_type, case_data, strict=True)
         case.name = cd["name"]
         case.description = cd.get("description", "")
         case.case_data = cd
+        case.training_type = training_type
+        case.difficulty = cd.get("difficulty", 1)
+        case.time_limit_minutes = cd.get("time_limit", 20)
         with unit_of_work(self.db, conflict_detail="病例更新冲突"):
             self.db.flush()
         log.info(
