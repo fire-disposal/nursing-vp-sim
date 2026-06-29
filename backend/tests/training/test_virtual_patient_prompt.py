@@ -122,3 +122,24 @@ class TestBuildPatientChatMessages:
         assert len(msgs) == 3
         assert msgs[0]["role"] == "system"
         assert msgs[2] == {"role": "user", "content": "hello"}
+
+    def test_system_role_messages_skipped(self):
+        from unittest.mock import MagicMock
+
+        def _make(role, content):
+            m = MagicMock()
+            m.role = role
+            m.content = content
+            return m
+
+        history = [
+            _make("student", "你好护士"),
+            _make("system", "体温: 36.5℃"),
+            _make("patient", "我有点不舒服"),
+        ]
+        msgs = build_patient_chat_messages("sys", "dyn", history, "追问")
+        roles = [m["role"] for m in msgs]
+        contents = [m["content"] for m in msgs]
+        assert "system" not in roles[2:]
+        assert "体温: 36.5℃" not in contents[2:]
+        assert len(msgs) == 5  # sys + dyn + student + patient + user

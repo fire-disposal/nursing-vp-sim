@@ -54,33 +54,44 @@ class IdentityGuardSource(NoteSource):
         return None
 
 
-class ExamResultsSource(NoteSource):
-    name = "exam_results"
+_EXAM_EXPERIENCE_DESCRIPTIONS: dict[str, str] = {
+    "temp": "体温测量（体温计置于腋下）",
+    "bp": "血压测量（袖带绑在左上臂）",
+    "hr": "心率测量",
+    "rr": "呼吸频率测量（观察胸廓起伏）",
+    "spo2": "血氧测量（手指佩戴血氧夹）",
+    "vitals": "全套生命体征测量",
+    "skin": "皮肤检查（视诊观察）",
+    "pain": "NRS 疼痛评估",
+}
+
+
+class ExamExperienceSource(NoteSource):
+    """注入查体过程体验描述，不含临床数值。
+
+    只告诉 LLM 病人被做了什么操作（如"血压测量（袖带绑在左上臂）"），
+    不泄露任何测量结果。病人 LLM 据此自然产生感受和回应，而非"知道"数据。
+    """
+
+    name = "exam_experience"
     priority = 30
-    max_tokens = 200
+    max_tokens = 150
 
     async def collect(self, ctx: PipelineContext) -> str | None:
         rs = ctx.record.runtime_state or {}
         exam_results = rs.get("exam_results", [])
         if not isinstance(exam_results, list) or not exam_results:
             return None
-        lines = []
-        for r in exam_results[-5:]:
-            label = r.get("label", "")
-            value = r.get("value", "")
-            unit = r.get("unit", "")
-            lines.append(f"{label}: {value}{unit}")
-        return "已查体征: " + " | ".join(lines)
-
-
-class ExamImpactSource(NoteSource):
-    name = "exam_impact"
-    priority = 40
-    max_tokens = 100
-
-    async def collect(self, ctx: PipelineContext) -> str | None:
-        rs = ctx.record.runtime_state or {}
-        note = rs.get("exam_impact_note")
-        if note and isinstance(note, str) and note.strip():
-            return note
-        return None
+        experiences: list[str] = []
+        seen: set[str] = set()
+        for r in exam_results:
+            op_type = r.get("type", "")
+            if op_type in seen:
+                continue
+            seen.add(op_type)
+            desc = _EXAM_EXPERIENCE_DESCRIPTIONS.get(op_type)
+            if desc:
+                experiences.append(desc)
+        if not experiences:
+            return None
+        return "护士对你进行了以下操作：\n- " + "\n- ".join(experiences)

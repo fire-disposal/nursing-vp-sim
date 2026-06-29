@@ -113,6 +113,8 @@ def build_patient_chat_messages(
     ]
 
     for msg in history_messages[-max_rounds * 2 :]:
+        if msg.role == "system":
+            continue
         role = "user" if msg.role == "student" else "assistant"
         llm_messages.append({"role": role, "content": msg.content})
 

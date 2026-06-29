@@ -40,8 +40,7 @@ def build_pipeline() -> tuple[list[Any], Any]:
     from contexts.patient.note_collector import NoteCollector
     from contexts.patient.note_source import (
         EmotionNoteSource,
-        ExamImpactSource,
-        ExamResultsSource,
+        ExamExperienceSource,
         IdentityGuardSource,
     )
 
@@ -49,8 +48,7 @@ def build_pipeline() -> tuple[list[Any], Any]:
     for src_cls in [
         EmotionNoteSource,
         IdentityGuardSource,
-        ExamResultsSource,
-        ExamImpactSource,
+        ExamExperienceSource,
     ]:
         collector.add(src_cls())
 

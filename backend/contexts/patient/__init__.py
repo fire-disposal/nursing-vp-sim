@@ -36,8 +36,7 @@ from .initiative import (
 # NoteSource 实例
 from .note_source import (
     EmotionNoteSource,
-    ExamImpactSource,
-    ExamResultsSource,
+    ExamExperienceSource,
     IdentityGuardSource,
     NoteSource,
 )
@@ -53,8 +52,7 @@ __all__ = [
     "MAX_INITIATIVE_COUNT",
     "EmotionNoteSource",
     "EmotionState",
-    "ExamImpactSource",
-    "ExamResultsSource",
+    "ExamExperienceSource",
     "IdentityGuardSource",
     "NoteSource",
     "apply_initiative_penalty",

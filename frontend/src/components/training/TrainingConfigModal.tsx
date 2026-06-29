@@ -31,7 +31,7 @@ export default function TrainingConfigModal({ open, caseInfo, onClose, onStart, 
         if (advanced) {
             features.emotion = true;
             features.patient_initiative = true;
-            if (exam) features.exam_emotion_bridge = true;
+            // exam_emotion_bridge 已废弃 — 查体体验由 ExamExperienceSource 自动注入
         }
         if (questionnaire) features.questionnaire = true;
         onStart(features, timeLimit);

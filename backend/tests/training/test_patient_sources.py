@@ -2,8 +2,7 @@
 
 from contexts.patient.note_source import (
     EmotionNoteSource,
-    ExamImpactSource,
-    ExamResultsSource,
+    ExamExperienceSource,
     IdentityGuardSource,
 )
 
@@ -95,51 +94,50 @@ class TestIdentityGuardSource:
         assert result is None
 
 
-class TestExamResultsSource:
-    async def test_formats_exam_results(self):
-        src = ExamResultsSource()
+class TestExamExperienceSource:
+    async def test_formats_exam_experiences(self):
+        src = ExamExperienceSource()
         record = FakeContext.Record(
             runtime_state={
                 "exam_results": [
-                    {"label": "体温", "value": "36.5", "unit": "℃"},
-                    {"label": "血压", "value": "120/80", "unit": "mmHg"},
+                    {"type": "temp", "label": "体温", "value": "36.5", "unit": "℃"},
+                    {"type": "bp", "label": "血压", "value": "120/80", "unit": "mmHg"},
                 ]
             }
         )
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
-        assert "已查体征" in result
-        assert "体温: 36.5℃" in result
-        assert "血压: 120/80mmHg" in result
+        assert "体温测量" in result
+        assert "血压测量" in result
+        assert "体温计置于腋下" in result
+        assert "袖带绑在左上臂" in result
+        assert "36.5" not in result
+        assert "120/80" not in result
 
     async def test_returns_none_when_no_results(self):
-        src = ExamResultsSource()
+        src = ExamExperienceSource()
         record = FakeContext.Record(runtime_state={})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result is None
 
-    async def test_limits_to_last_5(self):
-        src = ExamResultsSource()
-        results = [{"label": f"T{i}", "value": str(i), "unit": ""} for i in range(10)]
+    async def test_deduplicates_repeated_types(self):
+        src = ExamExperienceSource()
+        results = [
+            {"type": "temp", "label": "体温", "value": "36.5", "unit": "℃"},
+            {"type": "bp", "label": "血压", "value": "120/80", "unit": "mmHg"},
+            {"type": "temp", "label": "体温", "value": "36.6", "unit": "℃"},
+        ]
         record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
-        assert "T0" not in result
-        assert "T9" in result
+        assert result.count("体温测量") == 1
+        assert result.count("血压测量") == 1
 
-
-class TestExamImpactSource:
-    async def test_returns_impact_note(self):
-        src = ExamImpactSource()
-        record = FakeContext.Record(runtime_state={"exam_impact_note": "频繁检查让患者不耐烦"})
-        ctx = FakeContext(record=record)
-        result = await src.collect(ctx)
-        assert result == "频繁检查让患者不耐烦"
-
-    async def test_returns_none_when_empty(self):
-        src = ExamImpactSource()
-        record = FakeContext.Record(runtime_state={"exam_impact_note": ""})
+    async def test_unknown_type_skipped(self):
+        src = ExamExperienceSource()
+        results = [{"type": "unknown_op", "label": "未知", "value": "x", "unit": ""}]
+        record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result is None
