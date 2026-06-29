@@ -45,12 +45,16 @@ class NoteCollector:
     def _budget_join(self, notes: list[tuple[int, str, str]]) -> str:
         budget = MAX_AUTHOR_NOTE_TOKENS
         selected: list[str] = []
+        dropped: list[str] = []
         for _, _name, text in notes:
             cost = estimate_tokens(text)
             if cost > budget:
                 if not selected:
                     selected.append(_truncate_tokens(text, budget))
-                break
+                dropped.append(_name)
+                continue
             selected.append(text)
             budget -= cost
+        if dropped:
+            log.warning("NoteCollector dropped sources due to budget: %s", dropped)
         return "\u3010" + " | ".join(selected) + "\u3011" if selected else ""

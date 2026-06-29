@@ -37,17 +37,12 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     system_template = profile.prompts.system or PATIENT_DYNAMIC_TEMPLATE  # fallback handled
     dynamic_template = profile.prompts.dynamic or PATIENT_DYNAMIC_TEMPLATE
 
+    system_prompt = render_template(str(system_template), **kwargs)
     try:
-        system_prompt = render_template(str(system_template), **kwargs)
-        try:
-            dynamic_prompt = render_template(str(dynamic_template), **kwargs)
-        except Exception:
-            log.warning("Dynamic prompt render failed, using patient_chat template", exc_info=True)
-            dynamic_prompt = system_prompt
-    except Exception as e:
-        log.error("Prompt render failed: %s", e)
-        system_prompt = str(kwargs.get("patient_info", "未知患者"))
-        dynamic_prompt = str(kwargs.get("chief_complaint", "无"))
+        dynamic_prompt = render_template(str(dynamic_template), **kwargs)
+    except Exception:
+        log.warning("Dynamic prompt render failed, using system prompt as fallback", exc_info=True)
+        dynamic_prompt = system_prompt
 
     ctx.llm_messages = build_patient_chat_messages(
         system_prompt,
