@@ -49,26 +49,7 @@ _PROMPTS = PromptCollection(
 """,
 )
 
-_RUBRIC: dict = {
-    "name": "nursing_history_v1",
-    "version": "1.0",
-    "raw_max": 57,
-    "raw_scale": 3,
-    "dimensions": [
-        {
-            "name": "沟通技能",
-            "items": [
-                {"id": "greeting", "label": "主动礼貌问候", "max": 3},
-            ],
-        },
-        {
-            "name": "病史采集",
-            "items": [
-                {"id": "chief_complaint", "label": "主诉询问", "max": 3},
-            ],
-        },
-    ],
-}
+from profiles.history_taking.rubric import RUBRIC as _RUBRIC
 
 PROFILE = TrainingProfile(
     name="history_taking",
