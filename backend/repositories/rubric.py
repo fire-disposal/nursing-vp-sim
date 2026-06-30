@@ -1,25 +1,17 @@
-"""评分标准（Rubric）服务 —— 从 data/rubrics/ JSON 文件加载、验证"""
+"""评分标准（Rubric）服务 —— 从 profile 加载、验证"""
 
-import json
-from pathlib import Path
-
-_RUBRIC_DIR = Path(__file__).resolve().parent.parent / "data" / "rubrics"
 _CACHE: dict[str, dict] = {}
 
 
 def load_rubric(version: str = "nursing_history_v1") -> dict:
-    """从 data/rubrics/ 加载评分标准 JSON 文件，结果缓存"""
+    """从 profile 加载评分标准，结果缓存"""
     if version in _CACHE:
         return _CACHE[version]
-    path = _RUBRIC_DIR / f"{version}.json"
-    if not path.exists():
-        raise FileNotFoundError(f"评分标准文件不存在: {path}")
-    try:
-        rubric = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as e:
-        raise ValueError(f"评分标准 JSON 解析失败: {path}: {e}") from e
-    _CACHE[version] = rubric
-    return rubric
+    if version == "nursing_history_v1":
+        from profiles.history_taking.rubric import RUBRIC
+        _CACHE[version] = RUBRIC
+        return RUBRIC
+    raise FileNotFoundError(f"评分标准未找到: {version}")
 
 
 def get_rubric_version_id(rubric_dict: dict) -> str:
