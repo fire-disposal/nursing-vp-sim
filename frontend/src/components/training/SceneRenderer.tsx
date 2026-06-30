@@ -1,6 +1,6 @@
+import type { SceneState } from "@/engine/scene-state";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { useSceneState } from "@/engine/useSceneBus";
-import type { SceneProps, SceneState } from "@/engine/scene-state";
 
 /**
  * Mounted inside a training scene when a 3D/2D scene component is

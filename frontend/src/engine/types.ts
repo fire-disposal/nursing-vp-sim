@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+
 
 export interface ChatMessage {
 	id?: string | number;

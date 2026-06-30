@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { MessageBus } from "./types";
+import { useCallback, useEffect, useState } from "react";
 import {
   emitSceneEvent,
   type SceneState,
 } from "./scene-state";
+import type { MessageBus } from "./types";
 
 const DEFAULT_SCENE: SceneState = {
   environment: { type: "clinic", time_of_day: "day", equipment: [] },

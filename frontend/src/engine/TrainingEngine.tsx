@@ -172,7 +172,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		busRef.current.emit("training:ended");
 	}, []);
 
-	const ctx: PanelContext = useMemo(
+	const _ctx: PanelContext = useMemo(
 		() => ({
 			recordId,
 			bus: busRef.current,
