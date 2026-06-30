@@ -9,6 +9,7 @@ def load_rubric(version: str = "nursing_history_v1") -> dict:
         return _CACHE[version]
     if version == "nursing_history_v1":
         from profiles.history_taking.rubric import RUBRIC
+
         _CACHE[version] = RUBRIC
         return RUBRIC
     raise FileNotFoundError(f"评分标准未找到: {version}")

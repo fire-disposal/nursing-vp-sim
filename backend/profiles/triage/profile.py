@@ -106,7 +106,12 @@ PROFILE = TrainingProfile(
             {
                 "name": "MEWS评分",
                 "items": [
-                    {"id": "mews_accuracy", "label": "MEWS评分准确性", "max": 5, "anchors": ["完全错误", "部分正确", "基本正确", "完全正确", "精确计算", "完美"]},
+                    {
+                        "id": "mews_accuracy",
+                        "label": "MEWS评分准确性",
+                        "max": 5,
+                        "anchors": ["完全错误", "部分正确", "基本正确", "完全正确", "精确计算", "完美"],
+                    },
                 ],
             },
             {

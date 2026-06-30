@@ -7,7 +7,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from core.database import SessionLocal
 from core.exceptions import LLMParseError
 from core.llm_profile import get_llm_config
 from infrastructure.llm import _safe_parse_json
@@ -119,294 +118,32 @@ async def _sse_progress(
         log.warning("SSE publish failed: stage=%s record_id=%d", stage, record_id)
 
 
-async def _score_stage(
-    messages: list[dict],
-    record_id: int,
-    rubric: dict,
-    *,
-    user_id: int,
-    case_id: int,
-    log_meta: dict | None,
-    llm_client: LLMClient,
-    llm_cfg: dict | None = None,
-    tracker=None,  # ScoringProgressTracker | None
-    sse_manager=None,
-) -> dict:
-    """第一阶段：逐项评分（total_score + detail_scores + evidence/reason）。"""
-    cfg = llm_cfg or get_llm_config("scoring")
-
-    if tracker:
-        tracker.update(record_id, "scoring", 15, "正在逐项评分分析...")
-
-    result = await _stream_scoring_attempt(
-        llm_client,
-        messages,
-        record_id,
-        cfg,
-        user_id=user_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        sse_manager=sse_manager,
-        tracker=tracker,
-    )
-
-    if result:
-        try:
-            _validate_scoring_essentials(result)
-            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
-            await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
-            if tracker:
-                tracker.update(record_id, "scoring", 55, "评分维度分析完成", thought=thought)
-            return result
-        except (ValueError, TypeError):
-            log.warning("第一次评分校验失败，将触发一次重试", extra={"record_id": record_id})
-
-    partial_json = json.dumps(result, ensure_ascii=False, indent=2) if result else "{}"
-    item_errors = _validate_items_content(result.get("detail_scores", {})) if result else ["LLM 未返回有效 JSON"]
-    validation_msg = "; ".join(item_errors) if item_errors else "字段缺失或不完整"
-    retry_user = SCORING_RETRY_USER.format(
-        partial_json=partial_json,
-        validation_errors=validation_msg,
-    )
-    retry_messages = [
-        *messages,
-        {"role": "assistant", "content": partial_json},
-        {"role": "user", "content": retry_user},
-    ]
-    result2 = await _stream_scoring_attempt(
-        llm_client,
-        retry_messages,
-        record_id,
-        cfg,
-        user_id=user_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        sse_manager=sse_manager,
-        tracker=tracker,
-    )
-    if not result2:
-        raise RuntimeError(f"评分解析重试失败 record_id={record_id}")
-    try:
-        _validate_scoring_essentials(result2)
-        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
-        if tracker:
-            tracker.update(record_id, "scoring", 55, "评分维度分析完成", thought=thought)
-        await _sse_progress(sse_manager, user_id, record_id, "scoring", 55, "评分维度分析完成", thought)
-        return result2
-    except Exception as retry_err:
-        log.warning(
-            "[SCORING] STAGE1-RETRYFAIL record_id=%d error=%s: %s",
-            record_id,
-            type(retry_err).__name__,
-            str(retry_err)[:200],
-        )
-        raise RuntimeError(f"评分解析重试失败 record_id={record_id}") from retry_err
-
-
-async def _stream_scoring_attempt(
+async def _stream_attempt(
     llm_client: LLMClient,
     messages: list[dict],
     record_id: int,
     cfg: dict,
     *,
+    purpose: str,
     user_id: int,
     case_id: int,
     log_meta: dict | None,
+    pct_base: int,
+    pct_range: int,
+    progress_msg: str,
+    sse_stage: str,
     sse_manager=None,
     tracker=None,
 ) -> dict:
-    """Stream LLM scoring response — pushes combined reasoning+content as thought every 0.3s."""
+    """Stream LLM response for scoring or feedback — pushes thought every 0.3s."""
     ctx = CallContext(
-        purpose="scoring",
+        purpose=purpose,
         user_id=user_id,
         record_id=record_id,
         case_id=case_id,
         log_meta=log_meta,
     )
-    stream_kwargs: dict[str, Any] = {
-        "purpose": "scoring",
-        "ctx": ctx,
-        "enable_thinking": True,
-    }
-    for key in ("temperature", "max_tokens", "timeout", "max_retries", "response_format"):
-        if key in cfg:
-            stream_kwargs[key] = cfg[key]
-
-    content_parts: list[str] = []
-    thought_buffer: list[str] = []
-    last_push = 0.0
-    PUSH_INTERVAL = 0.3  # push every 300ms for smooth scrolling
-    stream_done = asyncio.Event()
-
-    async def _do_push():
-        """Push current thought to SSE+tracker."""
-        nonlocal last_push
-        text = "".join(thought_buffer[-400:]) if thought_buffer else "▎ 分析中..."
-        # Progress: 15% base + up to 38% based on total accumulated
-        total_len = sum(len(p) for p in content_parts) + sum(len(p) for p in thought_buffer)
-        pct = 15 + int(38 * min(total_len / 3000, 0.9))
-        if tracker:
-            tracker.update(record_id, "scoring", pct, "正在逐项评分分析...", thought=text)
-        await _sse_progress(sse_manager, user_id, record_id, "scoring", pct, "正在逐项评分分析...", text)
-        last_push = time.monotonic()
-
-    async def _on_reasoning(text: str) -> None:
-        thought_buffer.append(text)
-        if time.monotonic() - last_push >= PUSH_INTERVAL:
-            await _do_push()
-
-    async def _heartbeat():
-        pct = 17
-        while not stream_done.is_set():
-            await asyncio.sleep(2.0)
-            if stream_done.is_set():
-                return
-            pct = min(pct + 1, 50)
-            hb = "".join(thought_buffer[-120:]) if thought_buffer else "▎ 推理中..."
-            if tracker:
-                tracker.update(record_id, "scoring", pct, "正在逐项评分分析...", thought=hb)
-            await _sse_progress(sse_manager, user_id, record_id, "scoring", pct, "正在逐项评分分析...", hb)
-
-    await _sse_progress(sse_manager, user_id, record_id, "scoring", 16, "正在逐项评分分析...", "▎ 启动评分分析...")
-
-    heartbeat_task = asyncio.create_task(_heartbeat())
-
-    try:
-        async for chunk in llm_client.stream(messages, on_reasoning=_on_reasoning, **stream_kwargs):
-            content_parts.append(chunk)
-            # Also feed content into thought buffer when reasoning is sparse
-            if not thought_buffer or time.monotonic() - last_push >= PUSH_INTERVAL:
-                thought_buffer.append(chunk)
-                await _do_push()
-
-        # Flush final accumulated content
-        if content_parts and not thought_buffer:
-            thought_buffer.extend(content_parts[-5:])
-            await _do_push()
-
-        full_text = "".join(content_parts)
-        result = _safe_parse_json(full_text)
-        _coerce_numeric_fields(result)
-        return result
-    except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
-        log.warning(
-            "评分首次调用失败（JSON解析或校验），将触发重试", extra={"record_id": record_id, "error": str(e)[:200]}
-        )
-        return {}
-    finally:
-        stream_done.set()
-        heartbeat_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await heartbeat_task
-
-
-async def _feedback_stage(
-    messages: list[dict],
-    record_id: int,
-    *,
-    user_id: int,
-    case_id: int,
-    log_meta: dict | None,
-    llm_client: LLMClient,
-    llm_cfg: dict | None = None,
-    tracker=None,  # ScoringProgressTracker | None
-    sse_manager=None,
-) -> dict:
-    """第二阶段：生成反馈（strengths/weaknesses/missed_content/suggestions）。"""
-    cfg = llm_cfg or get_llm_config("scoring_feedback")
-
-    if tracker:
-        tracker.update(record_id, "feedback", 65, "正在生成反馈建议...")
-
-    result = await _stream_feedback_attempt(
-        llm_client,
-        messages,
-        record_id,
-        cfg,
-        user_id=user_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        sse_manager=sse_manager,
-        tracker=tracker,
-    )
-
-    if result:
-        try:
-            _validate_feedback_fields(result)
-            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
-            await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
-            if tracker:
-                tracker.update(record_id, "feedback", 90, "反馈建议生成完成", thought=thought)
-            return result
-        except ValueError as e:
-            log.info(
-                "scoring_feedback_empty",
-                extra={"record_id": record_id, "error": str(e)},
-            )
-
-    missing = _check_feedback_empty(result) if result else ["所有字段"]
-    if not missing:
-        missing = ["strengths", "weaknesses", "missed_content", "suggestions"]
-    retry_user = FEEDBACK_RETRY_USER.format(missing=", ".join(missing))
-    retry_messages = [
-        *messages,
-        {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)},
-        {"role": "user", "content": retry_user},
-    ]
-    result2 = await _stream_feedback_attempt(
-        llm_client,
-        retry_messages,
-        record_id,
-        cfg,
-        user_id=user_id,
-        case_id=case_id,
-        log_meta=log_meta,
-        sse_manager=sse_manager,
-        tracker=tracker,
-    )
-    if not result2:
-        raise RuntimeError(f"反馈解析重试失败 record_id={record_id}")
-
-    try:
-        _validate_feedback_fields(result2)
-        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
-        if tracker:
-            tracker.update(record_id, "feedback", 90, "反馈建议生成完成", thought=thought)
-        await _sse_progress(sse_manager, user_id, record_id, "feedback", 90, "反馈建议生成完成", thought)
-        return result2
-    except ValueError:
-        log.warning("Second feedback retry validation failed: record_id=%d", record_id)
-
-    if tracker:
-        tracker.update(record_id, "feedback", 90, "反馈建议生成完成")
-    return _merge_feedback(result, result2, missing)
-
-
-async def _stream_feedback_attempt(
-    llm_client: LLMClient,
-    messages: list[dict],
-    record_id: int,
-    cfg: dict,
-    *,
-    user_id: int,
-    case_id: int,
-    log_meta: dict | None,
-    sse_manager=None,
-    tracker=None,
-) -> dict:
-    """Stream LLM feedback response — pushes combined reasoning+content as thought every 0.3s."""
-    ctx = CallContext(
-        purpose="scoring_feedback",
-        user_id=user_id,
-        record_id=record_id,
-        case_id=case_id,
-        log_meta=log_meta,
-    )
-    stream_kwargs: dict[str, Any] = {
-        "purpose": "scoring_feedback",
-        "ctx": ctx,
-        "enable_thinking": True,
-    }
+    stream_kwargs: dict[str, Any] = {"purpose": purpose, "ctx": ctx, "enable_thinking": True}
     for key in ("temperature", "max_tokens", "timeout", "max_retries", "response_format"):
         if key in cfg:
             stream_kwargs[key] = cfg[key]
@@ -419,12 +156,12 @@ async def _stream_feedback_attempt(
 
     async def _do_push():
         nonlocal last_push
-        text = "".join(thought_buffer[-400:]) if thought_buffer else "▎ 生成中..."
+        text = "".join(thought_buffer[-400:]) if thought_buffer else f"▎ {progress_msg}..."
         total_len = sum(len(p) for p in content_parts) + sum(len(p) for p in thought_buffer)
-        pct = 65 + int(23 * min(total_len / 2000, 0.9))
+        pct = pct_base + int(pct_range * min(total_len / 3000, 0.9))
         if tracker:
-            tracker.update(record_id, "feedback", pct, "正在生成反馈建议...", thought=text)
-        await _sse_progress(sse_manager, user_id, record_id, "feedback", pct, "正在生成反馈建议...", text)
+            tracker.update(record_id, sse_stage, pct, f"正在{progress_msg}...", thought=text)
+        await _sse_progress(sse_manager, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", text)
         last_push = time.monotonic()
 
     async def _on_reasoning(text: str) -> None:
@@ -433,18 +170,20 @@ async def _stream_feedback_attempt(
             await _do_push()
 
     async def _heartbeat():
-        pct = 67
+        pct = pct_base + 2
         while not stream_done.is_set():
             await asyncio.sleep(2.0)
             if stream_done.is_set():
                 return
-            pct = min(pct + 1, 85)
+            pct = min(pct + 1, pct_base + pct_range - 5)
             hb = "".join(thought_buffer[-120:]) if thought_buffer else "▎ 推理中..."
             if tracker:
-                tracker.update(record_id, "feedback", pct, "正在生成反馈建议...", thought=hb)
-            await _sse_progress(sse_manager, user_id, record_id, "feedback", pct, "正在生成反馈建议...", hb)
+                tracker.update(record_id, sse_stage, pct, f"正在{progress_msg}...", thought=hb)
+            await _sse_progress(sse_manager, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", hb)
 
-    await _sse_progress(sse_manager, user_id, record_id, "feedback", 66, "正在生成反馈建议...", "▎ 启动反馈生成...")
+    await _sse_progress(
+        sse_manager, user_id, record_id, sse_stage, pct_base + 1, f"正在{progress_msg}...", f"▎ 启动{progress_msg}..."
+    )
 
     heartbeat_task = asyncio.create_task(_heartbeat())
 
@@ -464,18 +203,125 @@ async def _stream_feedback_attempt(
         _coerce_numeric_fields(result)
         return result
     except (json.JSONDecodeError, LLMParseError, ValueError, TypeError) as e:
-        log.warning(
-            "[SCORING] STAGE2-PARSEFAIL record_id=%d error=%s: %s",
-            record_id,
-            type(e).__name__,
-            str(e)[:200],
-        )
+        log.warning("Stream attempt parse failed: record_id=%d purpose=%s error=%s", record_id, purpose, str(e)[:200])
         return {}
     finally:
         stream_done.set()
         heartbeat_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await heartbeat_task
+
+
+async def _stage_with_retry(
+    messages: list[dict],
+    record_id: int,
+    *,
+    purpose: str,
+    user_id: int,
+    case_id: int,
+    log_meta: dict | None,
+    llm_client: LLMClient,
+    llm_cfg: dict,
+    validate_fn,
+    retry_prompt_template: str,
+    pct_base: int,
+    pct_range: int,
+    progress_msg: str,
+    sse_stage: str,
+    sse_manager=None,
+    tracker=None,
+    fallback_fn=None,
+) -> dict:
+    """Single scoring stage with retry."""
+    if tracker:
+        tracker.update(record_id, sse_stage, pct_base, f"正在{progress_msg}...")
+
+    result = await _stream_attempt(
+        llm_client,
+        messages,
+        record_id,
+        llm_cfg,
+        purpose=purpose,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        pct_base=pct_base,
+        pct_range=pct_range,
+        progress_msg=progress_msg,
+        sse_stage=sse_stage,
+        sse_manager=sse_manager,
+        tracker=tracker,
+    )
+
+    if result:
+        try:
+            validate_fn(result)
+            thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
+            await _sse_progress(
+                sse_manager, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
+            )
+            if tracker:
+                tracker.update(record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought=thought)
+            return result
+        except (ValueError, TypeError):
+            log.warning("First attempt validation failed, retrying: record_id=%d purpose=%s", record_id, purpose)
+
+    partial_json = json.dumps(result, ensure_ascii=False, indent=2) if result else "{}"
+    item_errors = _validate_items_content(result.get("detail_scores", {})) if result else ["LLM 未返回有效 JSON"]
+    validation_msg = "; ".join(item_errors) if item_errors else "字段缺失或不完整"
+
+    missing_list = _check_feedback_empty(result) if result else ["所有字段"]
+    if not missing_list:
+        missing_list = ["strengths", "weaknesses", "missed_content", "suggestions"]
+    missing = ", ".join(missing_list)
+
+    retry_user = retry_prompt_template.format(
+        partial_json=partial_json,
+        validation_errors=validation_msg,
+        missing=missing,
+    )
+    retry_msgs = [
+        *messages,
+        {"role": "assistant", "content": partial_json},
+        {"role": "user", "content": retry_user},
+    ]
+
+    result2 = await _stream_attempt(
+        llm_client,
+        retry_msgs,
+        record_id,
+        llm_cfg,
+        purpose=purpose,
+        user_id=user_id,
+        case_id=case_id,
+        log_meta=log_meta,
+        pct_base=pct_base,
+        pct_range=pct_range,
+        progress_msg=progress_msg,
+        sse_stage=sse_stage,
+        sse_manager=sse_manager,
+        tracker=tracker,
+    )
+    if not result2:
+        if fallback_fn:
+            return {}
+        raise RuntimeError(f"Stage failed after retry: record_id={record_id} purpose={purpose}")
+
+    try:
+        validate_fn(result2)
+        thought = _safe_truncate_thought(json.dumps(result2, ensure_ascii=False, indent=2), 3000)
+        if tracker:
+            tracker.update(record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought=thought)
+        await _sse_progress(
+            sse_manager, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
+        )
+        return result2
+    except Exception as retry_err:
+        if fallback_fn:
+            log.warning("Feedback retry also failed, merging partial results: record_id=%d", record_id)
+            return fallback_fn(result, result2, missing_list)
+        log.warning("Scoring retry failed: record_id=%d error=%s", record_id, str(retry_err)[:200])
+        raise RuntimeError(f"Scoring stage failed: record_id={record_id}") from retry_err
 
 
 async def evaluate_training(
@@ -499,14 +345,7 @@ async def evaluate_training(
     if not record:
         raise ValueError("训练记录不存在")
 
-    def _fetch_messages() -> list:
-        _db = SessionLocal()
-        try:
-            return _db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
-        finally:
-            _db.close()
-
-    messages_task = asyncio.to_thread(_fetch_messages)
+    messages = db.query(Message).filter(Message.record_id == record_id).order_by(Message.created_at).all()
 
     if tracker:
         tracker.start(record_id)
@@ -520,7 +359,6 @@ async def evaluate_training(
             rubric = profile.rubric
         except KeyError:
             rubric = load_rubric("nursing_history_v1")
-    messages = await messages_task
 
     conversation_lines = []
     for msg in messages:
@@ -605,28 +443,42 @@ async def evaluate_training(
     scoring_cfg = get_llm_config("scoring")
     feedback_cfg = get_llm_config("scoring_feedback")
 
-    scoring_task = _score_stage(
+    scoring_task = _stage_with_retry(
         score_messages,
         record_id,
-        rubric,
+        purpose="scoring",
         user_id=user_id,
         case_id=case_id,
         log_meta=log_meta,
         llm_client=llm_client,
         llm_cfg=scoring_cfg,
+        validate_fn=_validate_scoring_essentials,
+        retry_prompt_template=SCORING_RETRY_USER,
+        pct_base=15,
+        pct_range=38,
+        progress_msg="逐项评分分析",
+        sse_stage="scoring",
         tracker=tracker,
         sse_manager=sse_manager,
     )
-    feedback_task = _feedback_stage(
+    feedback_task = _stage_with_retry(
         feedback_messages,
         record_id,
+        purpose="scoring_feedback",
         user_id=user_id,
         case_id=case_id,
         log_meta=log_meta,
         llm_client=llm_client,
         llm_cfg=feedback_cfg,
+        validate_fn=_validate_feedback_fields,
+        retry_prompt_template=FEEDBACK_RETRY_USER,
+        pct_base=65,
+        pct_range=23,
+        progress_msg="生成反馈建议",
+        sse_stage="feedback",
         tracker=tracker,
         sse_manager=sse_manager,
+        fallback_fn=_merge_feedback,
     )
 
     results = await asyncio.gather(scoring_task, feedback_task, return_exceptions=True)

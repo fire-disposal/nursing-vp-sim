@@ -86,7 +86,9 @@ class CaseService:
         difficulty: int | None = None,
         training_type: str | None = None,
     ) -> tuple[list[CaseManageView], int]:
-        cases, total = self.repo.list_manage(offset, limit, name=name, difficulty=difficulty, training_type=training_type)
+        cases, total = self.repo.list_manage(
+            offset, limit, name=name, difficulty=difficulty, training_type=training_type
+        )
         training_counts = self.repo.training_counts([c.id for c in cases])
         views = [self._manage_view(c, training_counts.get(c.id, 0)) for c in cases]
         return views, total

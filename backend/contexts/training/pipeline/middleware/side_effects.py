@@ -175,6 +175,7 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     training_type = getattr(ctx.record, "training_type", None) or "history_taking"
     try:
         from profiles.registry import get_profile
+
         profile = get_profile(training_type)
     except KeyError:
         profile = None

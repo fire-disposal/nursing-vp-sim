@@ -18,14 +18,16 @@ def list_profiles():
     result = []
     for t in types:
         p = get_profile(t)
-        result.append({
-            "type": p.name,
-            "label": _TYPE_LABELS.get(p.name, p.name),
-            "description": _TYPE_DESCRIPTIONS.get(p.name, ""),
-            "icon": _TYPE_ICONS.get(p.name, "ClipboardList"),
-            "color": _TYPE_COLORS.get(p.name, "blue"),
-            "case_count_hint": _TYPE_HINTS.get(p.name, ""),
-        })
+        result.append(
+            {
+                "type": p.name,
+                "label": _TYPE_LABELS.get(p.name, p.name),
+                "description": _TYPE_DESCRIPTIONS.get(p.name, ""),
+                "icon": _TYPE_ICONS.get(p.name, "ClipboardList"),
+                "color": _TYPE_COLORS.get(p.name, "blue"),
+                "case_count_hint": _TYPE_HINTS.get(p.name, ""),
+            }
+        )
     return {"items": result}
 
 

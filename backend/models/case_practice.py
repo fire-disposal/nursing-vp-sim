@@ -76,4 +76,3 @@ class Assignment(Base, TimestampMixin):
     class_: Mapped[Class] = relationship()
     teacher: Mapped[User] = relationship(foreign_keys=[teacher_id])
     training_records: Mapped[list[TrainingRecord]] = relationship(back_populates="assignment")
-

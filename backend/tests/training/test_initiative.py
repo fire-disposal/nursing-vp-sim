@@ -29,7 +29,6 @@ def _create_record(db):
     return record
 
 
-
 class TestInitiativeCache:
     def test_timer_lifecycle(self, db_session):
         record = _create_record(db_session)

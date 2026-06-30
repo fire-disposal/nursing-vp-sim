@@ -92,4 +92,3 @@ class LLMCallLog(Base):
     created_at: Mapped[datetime] = mapped_column(index=True, default=_now_utc)
 
     config: Mapped["LLMConfig"] = relationship()
-

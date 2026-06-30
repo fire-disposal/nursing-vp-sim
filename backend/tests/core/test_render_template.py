@@ -58,4 +58,3 @@ class TestRenderTemplate:
         )
         assert "张三，45岁，男" in r
         assert "头痛3天" in r
-

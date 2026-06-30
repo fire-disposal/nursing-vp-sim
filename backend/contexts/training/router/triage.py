@@ -63,7 +63,12 @@ def submit_triage(
     record.runtime_state = rs
     db.commit()
 
-    log.info("Triage submitted: record_id=%d category=%s department=%s mews=%d",
-             record_id, req.category, req.department, req.mews_score)
+    log.info(
+        "Triage submitted: record_id=%d category=%s department=%s mews=%d",
+        record_id,
+        req.category,
+        req.department,
+        req.mews_score,
+    )
 
     return TriageSubmitResponse(message="分诊完成", record_id=record_id)

@@ -221,7 +221,11 @@ def infer_operations(case_data: dict) -> list[str]:
     ops = ["chat"]
     physiology = case_data.get("physiology", {})
     if physiology.get("timeline"):
-        baseline = physiology["timeline"]["0m"] if "0m" in physiology["timeline"] else next(iter(physiology["timeline"].values()))
+        baseline = (
+            physiology["timeline"]["0m"]
+            if "0m" in physiology["timeline"]
+            else next(iter(physiology["timeline"].values()))
+        )
         for k in baseline:
             if k in _KNOWN_VITALS:
                 ops.append(k)

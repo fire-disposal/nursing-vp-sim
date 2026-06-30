@@ -67,5 +67,3 @@ class TestCapabilitiesRegistry:
 
     def test_questionnaire_flag_exists(self):
         assert "questionnaire" in ALL_CAPABILITIES
-
-
