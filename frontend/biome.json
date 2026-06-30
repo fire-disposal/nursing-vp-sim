@@ -6,7 +6,7 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!!**/dist", "!openapi.json"]
+		"includes": ["**", "!!**/dist", "!openapi.json", "!public/chart.umd.*.min.js"]
 	},
 	"formatter": {
 		"enabled": false

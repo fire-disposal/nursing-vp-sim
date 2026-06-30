@@ -1,7 +1,7 @@
 import { ClipboardList, FileText, MessageCircle, Stethoscope, StickyNote, User } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo } from "react";
-import LoadingState from "@/components/ui/loading-state";
 import { NursingRecordPanel } from "@/components/training/panels/nursing-record/NursingRecordPanel";
+import LoadingState from "@/components/ui/loading-state";
 import type { PanelContext } from "@/engine/types";
 import NotePanel from "../components/NotePanel";
 import type { TabDef } from "../components/TabStack";
