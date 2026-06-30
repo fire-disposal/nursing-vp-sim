@@ -1,10 +1,19 @@
 import { ClipboardList, FileText, MessageCircle, Stethoscope, StickyNote, User } from "lucide-react";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
 import LoadingState from "@/components/ui/loading-state";
+import { NursingRecordPanel } from "@/components/training/panels/nursing-record/NursingRecordPanel";
+import type { PanelContext } from "@/engine/types";
 import NotePanel from "../components/NotePanel";
 import type { TabDef } from "../components/TabStack";
 import TabStack from "../components/TabStack";
-import { ExamPanel, InquiryPanel, PatientInfoPanel } from "./history-taking/panels";
+import ExamPanel from "./history-taking/panels/ExamPanel";
+import InquiryPanel from "./history-taking/panels/InquiryPanel";
+import PatientInfoPanel from "./history-taking/panels/PatientInfoPanel";
+
+function NursingRecordPanelWrapper({ recordId }: { recordId: string }) {
+	const ctx = useMemo(() => ({ recordId }) as PanelContext, [recordId]);
+	return <NursingRecordPanel ctx={ctx} features={{}} isCollapsed={false} />;
+}
 
 const TrainingEngine = lazy(() =>
 	import("@/engine").then((m) => ({ default: m.TrainingEngine })),
@@ -38,7 +47,7 @@ export default function HistoryTakingScene({
 			id: "nursing-record",
 			icon: <FileText />,
 			label: "记录",
-			panel: <NotePanel recordId={recordId} />,
+			panel: <NursingRecordPanelWrapper recordId={recordId} />,
 		},
 		{
 			id: "notes",

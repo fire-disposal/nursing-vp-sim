@@ -213,28 +213,4 @@ def _format_vitals(vs: dict) -> dict:
     return {"type": "vitals", "label": "生命体征", "value": value, "unit": ""}
 
 
-def _parse_pain(case_data: dict) -> dict:
-    nrs = case_data.get("pain_score")
-    if nrs is not None:
-        return {"type": "vitals", "label": "NRS疼痛评分", "value": str(nrs), "unit": "/10"}
-    return {"type": "vitals", "label": "NRS疼痛评分", "value": "患者可自主报告"}
 
-
-_KNOWN_VITALS = {"temp", "bp", "hr", "rr", "spo2", "skin", "pain"}
-
-
-def infer_operations(case_data: dict) -> list[str]:
-    ops = ["chat"]
-    physiology = case_data.get("physiology", {})
-    if physiology.get("timeline"):
-        baseline = (
-            physiology["timeline"]["0m"]
-            if "0m" in physiology["timeline"]
-            else next(iter(physiology["timeline"].values()))
-        )
-        for k in baseline:
-            if k in _KNOWN_VITALS:
-                ops.append(k)
-    if not ops and case_data.get("exam_anchors"):
-        ops.extend(["vitals", "bp", "temp", "spo2", "hr", "rr", "skin", "pain"])
-    return ops

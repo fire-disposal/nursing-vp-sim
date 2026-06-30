@@ -80,63 +80,9 @@ export interface BadgeInfo {
 	variant: "default" | "destructive";
 }
 
-export interface PanelHooks {
-	onInit?: (ctx: PanelContext) => undefined | (() => void);
-	onDestroy?: () => void;
-	beforeSend?: (text: string, ctx: PanelContext) => string | Promise<string>;
-	afterReceive?: (
-		msg: ChatMessage,
-		ctx: PanelContext,
-	) => ChatMessage | null | Promise<ChatMessage | null>;
-	onPhaseChange?: (from: string, to: string, ctx: PanelContext) => void;
-	onEnd?: (reason: "manual" | "timeout", ctx: PanelContext) => void;
-}
-
 export interface PanelTabProps {
 	ctx: PanelContext;
 	features: Record<string, boolean>;
 	isCollapsed: boolean;
-}
-
-export interface PanelDef {
-	id: string;
-	meta: { name: string; description?: string };
-	tab: {
-		icon: ComponentType<{ size?: number }>;
-		label: string;
-		badge?: (ctx: PanelContext) => BadgeInfo | null;
-		priority?: number;
-	};
-	component: ComponentType<PanelTabProps>;
-	hooks?: PanelHooks;
-}
-
-// ── Backend Manifest types ──
-
-export interface ManifestFeature {
-	id: string;
-	name: string;
-	description?: string;
-	feature_flag?: string;
-	requires: string[];
-	ui?: ManifestUI;
-}
-
-export interface ManifestUI {
-	type: "panel" | "overlay";
-	tab?: {
-		icon: string;
-		label: string;
-		priority?: number;
-		badge?: string;
-	};
-	actions?: ManifestAction[];
-}
-
-export interface ManifestAction {
-	id: string;
-	label: string;
-	type: string;
-	op_type?: string;
 }
 
