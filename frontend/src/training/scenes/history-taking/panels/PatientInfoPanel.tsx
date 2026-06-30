@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Heart, User } from "lucide-react";
 import { getRecordDetail } from "@/api/training";
+import { getTrainingState } from "@/api/training-state";
 
 interface Props {
 	recordId: string;
@@ -15,6 +16,7 @@ export default function PatientInfoPanel({ recordId }: Props) {
 	const cd = ((record as Record<string, unknown>)?.case_data as Record<string, unknown>) || {};
 	const patient = (cd.patient_info as Record<string, unknown>) || {};
 	const personality = (cd.personality as Record<string, unknown>) || {};
+	const features = (record as Record<string, unknown>)?.features as Record<string, boolean> | undefined;
 
 	const name = String(patient.name || "患者");
 	const age = String(patient.age ?? "");
@@ -66,12 +68,46 @@ export default function PatientInfoPanel({ recordId }: Props) {
 				</div>
 			)}
 
-			<div className="p-3 bg-blue-50 rounded-lg">
-				<div className="flex items-center gap-2 mb-2">
-					<Heart size={14} className="text-blue-600" />
-					<span className="text-xs font-medium text-blue-700">患者情绪</span>
-				</div>
-				<div className="text-xs text-blue-600">随对话进展动态变化</div>
+			{features?.emotion ? (
+				<LiveEmotion recordId={recordId} />
+			) : null}
+		</div>
+	);
+}
+
+function LiveEmotion({ recordId }: { recordId: string }) {
+	const { data: resp } = useQuery({
+		queryKey: ["training-state", recordId],
+		queryFn: () => getTrainingState(Number(recordId)),
+		refetchInterval: 3000,
+	});
+	const e = (resp as unknown as { data: { emotion?: { state: string; trust: number; comfort: number } } })?.data?.emotion;
+	const trust = e?.trust ?? 50;
+	const comfort = e?.comfort ?? 50;
+	return (
+		<div className="p-3 bg-blue-50 rounded-lg">
+			<div className="flex items-center gap-2 mb-2">
+				<Heart size={14} className="text-blue-600" />
+				<span className="text-xs font-medium text-blue-700">患者情绪</span>
+				<span className="text-[10px] ml-auto text-blue-500">{e?.state || "neutral"}</span>
+			</div>
+			<div className="space-y-1.5">
+				<Bar label="信赖" value={trust} color="bg-blue-500" />
+				<Bar label="舒适" value={comfort} color="bg-teal-500" />
+			</div>
+		</div>
+	);
+}
+
+function Bar({ label, value, color }: { label: string; value: number; color: string }) {
+	return (
+		<div>
+			<div className="flex justify-between text-[10px] text-blue-600 mb-0.5">
+				<span>{label}</span>
+				<span>{value}</span>
+			</div>
+			<div className="h-1.5 rounded-full bg-blue-200/50 overflow-hidden">
+				<div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${value}%` }} />
 			</div>
 		</div>
 	);

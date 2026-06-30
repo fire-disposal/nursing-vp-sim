@@ -131,15 +131,20 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 
 	return (
 		<div className="shrink-0 bg-muted/30 overflow-hidden">
-			<div className={cn("h-1 w-full transition-opacity duration-300", pausedRef.current && "opacity-40")}>
-				<div
-					className={cn(
-						"h-full rounded-full transition-all duration-1000 ease-linear",
-						barColor,
-					)}
-					style={{ width: `${Math.min(100, percent)}%` }}
-				/>
-			</div>
+			{percent > 0 && (
+				<div className="flex items-center gap-2 px-3 py-1">
+					<span className="text-[10px] text-muted-foreground shrink-0">患者等待</span>
+					<div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+						<div
+							className={cn("h-full rounded-full transition-all duration-1000 ease-linear", barColor)}
+							style={{ width: `${Math.min(100, percent)}%` }}
+						/>
+					</div>
+					<span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+						{Math.round(percent)}%
+					</span>
+				</div>
+			)}
 		</div>
 	);
 }
