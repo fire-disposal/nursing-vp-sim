@@ -276,7 +276,8 @@ async def _stage_with_retry(
         missing_list = ["strengths", "weaknesses", "missed_content", "suggestions"]
     missing = ", ".join(missing_list)
 
-    retry_user = retry_prompt_template.format(
+    retry_user = render_template(
+        retry_prompt_template,
         partial_json=partial_json,
         validation_errors=validation_msg,
         missing=missing,
