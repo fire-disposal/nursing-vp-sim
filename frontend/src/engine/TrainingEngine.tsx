@@ -261,6 +261,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 		<>
 		<TrainingContext.Provider
 			value={{
+				bus: busRef.current,
 				recordId,
 				patient,
 				features,

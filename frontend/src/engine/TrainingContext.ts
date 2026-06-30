@@ -1,7 +1,8 @@
 import { createContext, useContext } from "react";
-import type { PatientData } from "./types";
+import type { MessageBus, PatientData } from "./types";
 
 export interface TrainingContextValue {
+	bus: MessageBus;
 	recordId: string;
 	patient: PatientData;
 	features: Record<string, boolean>;

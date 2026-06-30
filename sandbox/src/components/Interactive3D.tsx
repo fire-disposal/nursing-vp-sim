@@ -1,6 +1,6 @@
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { type ReactNode, useRef, useState } from "react"
 import { useFrame } from "@react-three/fiber"
-import { Html, useCursor } from "@react-three/drei"
+import { Html } from "@react-three/drei"
 import * as THREE from "three"
 
 type IState = "idle" | "hover" | "active"
@@ -13,93 +13,48 @@ interface Interactive3DProps {
 
 const COLORS: Record<IState, string> = { idle: "#000", hover: "#5ac8fa", active: "#40a0ff" }
 
-function findFirstMesh(root: THREE.Object3D): THREE.Mesh | null {
-  let result: THREE.Mesh | null = null
-  root.traverse((child) => { if (child instanceof THREE.Mesh && !result) result = child })
-  return result
-}
-
 /**
- * Wraps R3F children (meshes, groups) with:
- *  - Pointer cursor on hover
- *  - Outline glow on the first child mesh
- *  - Emissive pulse on hover/active
- *  - Html tooltip
+ * Wraps children with hover/click interaction + emissive glow.
+ * Edge outline removed — tracking per‑mesh offset was unreliable.
  */
 export function Interactive3D({ children, label, onInteract }: Interactive3DProps) {
   const groupRef = useRef<THREE.Group>(null)
-  const edgesRef = useRef<THREE.LineSegments>(null)
   const pulse = useRef(0)
   const [state, setState] = useState<IState>("idle")
-
-  useCursor(state !== "idle")
-
-  // Extract EdgesGeometry from the first child Mesh after R3F reconciliation
-  useLayoutEffect(() => {
-    const root = groupRef.current
-    if (!root || edgesRef.current) return
-
-    const mesh = findFirstMesh(root)
-    if (!mesh) return
-
-    const geom = new THREE.EdgesGeometry(mesh.geometry, 30)
-    const mat = new THREE.LineBasicMaterial({
-      transparent: true,
-      opacity: 0,
-      depthTest: false,
-      color: COLORS.hover,
-    })
-    const lines = new THREE.LineSegments(geom, mat)
-    lines.renderOrder = 999
-    root.add(lines)
-    edgesRef.current = lines
-  }, [children])
 
   useFrame((_, delta) => {
     pulse.current += delta * 3
     const intensity = state === "hover"
-      ? 0.12 + Math.sin(pulse.current) * 0.06
+      ? 0.15 + Math.sin(pulse.current) * 0.06
       : state === "active"
-        ? 0.25 + Math.sin(pulse.current * 2) * 0.12
+        ? 0.3 + Math.sin(pulse.current * 2) * 0.15
         : 0
 
-    if (edgesRef.current) {
-      const mat = edgesRef.current.material as THREE.LineBasicMaterial
-      const c = new THREE.Color(COLORS[state])
-      mat.color = c
-      mat.opacity = state === "idle" ? 0 : Math.min(1, 0.35 + intensity * 1.5)
-    }
-
-    // Emissive pulse on all child meshes
     const root = groupRef.current
     if (!root) return
     root.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof THREE.Mesh && child.geometry.type !== "PlaneGeometry") {
         const m = child.material as THREE.MeshStandardMaterial
         if (m && "emissive" in m) {
-          m.emissive = new THREE.Color(COLORS[state])
+          m.emissive = new THREE.Color(state === "idle" ? "#000" : "#5ac8fa")
           m.emissiveIntensity = intensity
         }
       }
     })
   })
 
+  const handleClick = () => { setState("active"); onInteract?.() }
+
   return (
-    <group
-      ref={groupRef}
-      onClick={(e) => { e.stopPropagation(); setState("active"); onInteract?.() }}
-      onPointerOver={(e) => { e.stopPropagation(); setState("hover") }}
-      onPointerOut={() => setState("idle")}
-    >
+    <group ref={groupRef} onClick={handleClick} onPointerOver={() => setState("hover")} onPointerOut={() => setState("idle")}>
       {children}
 
       {(state === "hover" || state === "active") && (
-        <Html position={[0, 0.9, 0]} center style={{ pointerEvents: "none" }}>
+        <Html position={[0, 1.2, 0]} center pointerEvents="none" transform={false}>
           <div style={{
             background: state === "active" ? COLORS.active : "#333",
-            color: "#fff", padding: "3px 10px", borderRadius: 6,
-            fontSize: 12, fontFamily: "system-ui", whiteSpace: "nowrap",
-            pointerEvents: "none",
+            color: "#fff", padding: "2px 6px", borderRadius: 4,
+            fontSize: 10, fontFamily: "system-ui", whiteSpace: "nowrap",
           }}>
             {label}{state === "active" ? " ✓" : ""}
           </div>

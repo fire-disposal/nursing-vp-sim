@@ -60,8 +60,8 @@ function StepTarget({ id, label, children }: { id: string; label: string; childr
       {/* Guide arrow for current target */}
       {isTarget && (
         <Float speed={2} rotationIntensity={0} floatIntensity={0.15}>
-          <Html position={[0, 1.1, 0]} center style={{ pointerEvents: "none" }}>
-            <div style={{ fontSize: 24, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" }}>
+          <Html position={[0, 1.2, 0]} center pointerEvents="none" transform={false}>
+            <div style={{ fontSize: 10 }}>
               👆
             </div>
           </Html>
@@ -189,10 +189,10 @@ function Rug() {
 // ── 3D scene ──
 function Scene3D() {
   return (<>
-    {/* Floor */}
-    <mesh rotation={[-Math.PI/2,0,0]} position={[0,0,0]} receiveShadow>
-      <planeGeometry args={[GRID.W-0.04, GRID.D-0.04]} />
-      <meshStandardMaterial color={C.floor} roughness={0.95} />
+    {/* Floor — polygonOffset prevents z-fighting with wall bottoms */}
+    <mesh rotation={[-Math.PI/2,0,0]} position={[0,-0.002,0]} receiveShadow>
+      <planeGeometry args={[GRID.W-0.06, GRID.D-0.06]} />
+      <meshStandardMaterial color={C.floor} roughness={0.95} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
     </mesh>
     <Box pos={[0,0.04,-(GRID.D/2)+0.02]} size={[GRID.W,0.08,0.04]} color={C.wood} />
     <RoomWalls color={C.wall} />
@@ -206,7 +206,7 @@ function Scene3D() {
     <Plant />
     <WallClock />
     <Rug />
-    <ContactShadows position={[0,0.001,0]} opacity={0.2} scale={7} blur={3} far={3} />
+            <ContactShadows position={[0,0.001,0]} opacity={0.2} scale={7} blur={3} far={3} />
   </>)
 }
 
@@ -307,7 +307,7 @@ export default function Demo3D(_props: SceneProps) {
             <directionalLight position={[-2,3,1]} intensity={0.25} />
             <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
             <Scene3D />
-            <OrbitControls ref={orbitRef} enableRotate={false} enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minZoom={20} maxZoom={120} target={[0,0.4,0]} />
+            <OrbitControls ref={orbitRef} enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minZoom={20} maxZoom={120} minPolarAngle={1.1} maxPolarAngle={1.1} target={[0,0.4,0]} />
             <SceneTools controlsRef={orbitRef} />
           </Canvas>
         </R3FErrorBoundary>
