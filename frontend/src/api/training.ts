@@ -6,7 +6,7 @@ import { api } from "./client";
 type Schemas = components["schemas"];
 
 export const getProfiles = () =>
-  api.get<{ items: TrainingTypeInfo[] }>("/profiles" as string).then((r) => r.data.items);
+  api.get<{ items: TrainingTypeInfo[] }>("/profiles" satisfies ApiPath as string).then((r) => r.data.items);
 
 export const endTraining = (recordId: number | string, signal?: AbortSignal) =>
 	api.post<Schemas["ScoringTriggerResponse"]>(

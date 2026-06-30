@@ -42,7 +42,7 @@ class OperationNoteSource(NoteSource):
 
     async def collect(self, ctx: PipelineContext) -> str | None:
         rs = ctx.record.runtime_state or {}
-        ops = rs.get("operations", [])
+        ops = rs.get("exam_results", [])
         if not isinstance(ops, list) or not ops:
             return None
         experiences: list[str] = []

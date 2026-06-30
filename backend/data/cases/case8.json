@@ -46,16 +46,6 @@
     "患者近半年睡眠极差（每日4-5小时）已": "患者近半年睡眠极差（每日4-5小时），已有明显抑郁倾向但拒绝承认",
     "患者饮酒量远多于自述妻子知道实际饮酒量": "患者饮酒量远多于自述，妻子知道实际饮酒量（每日3-5两不等，近期超半斤）"
   },
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "38.5-39.2",
-      "heart_rate": "105-120",
-      "blood_pressure": "105/65-115/72",
-      "respiratory_rate": "22-30",
-      "spo2": "94-98"
-    },
-    "skin": "皮肤灼热，黏膜干燥"
-  },
   "personality": {
     "health_literacy": "low",
     "verbosity": "terse",

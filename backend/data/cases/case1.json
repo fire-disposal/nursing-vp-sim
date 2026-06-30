@@ -41,19 +41,6 @@
     "患者2周前自行停用了噻托溴铵原因是感觉": "患者2周前自行停用了噻托溴铵，原因是感觉症状好转",
     "患者家属（妻子）担心患者病情希望医生能": "患者家属（妻子）担心患者病情，希望医生能详细解释"
   },
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "37.8-38.5",
-      "heart_rate": "98-112",
-      "blood_pressure": "138/86-146/92",
-      "respiratory_rate": "24-32",
-      "spo2": "88-94"
-    },
-    "auscultation": {
-      "lungs": "双肺底散在湿啰音，呼气相延长"
-    },
-    "skin": "口唇轻度发绀，皮肤干燥"
-  },
   "personality": {
     "health_literacy": "high",
     "verbosity": "normal",

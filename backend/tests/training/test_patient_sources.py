@@ -96,9 +96,9 @@ class TestOperationNoteSource:
         src = OperationNoteSource()
         record = FakeContext.Record(
             runtime_state={
-                "operations": [
-                    {"type": "temp", "description": "体温测量（体温计置于腋下）"},
-                    {"type": "bp", "description": "血压测量（袖带绑在左上臂）"},
+                "exam_results": [
+                    {"type": "temp", "label": "体温", "value": "36.5", "unit": "℃"},
+                    {"type": "bp", "label": "血压", "value": "120/80", "unit": "mmHg"},
                 ]
             }
         )
@@ -121,11 +121,11 @@ class TestOperationNoteSource:
     async def test_deduplicates_repeated_types(self):
         src = OperationNoteSource()
         results = [
-            {"type": "temp", "description": "体温测量（体温计置于腋下）"},
-            {"type": "bp", "description": "血压测量（袖带绑在左上臂）"},
-            {"type": "temp", "description": "体温测量（体温计置于腋下）"},
+            {"type": "temp", "label": "体温", "value": "36.5", "unit": "℃"},
+            {"type": "bp", "label": "血压", "value": "120/80", "unit": "mmHg"},
+            {"type": "temp", "label": "体温", "value": "36.6", "unit": "℃"},
         ]
-        record = FakeContext.Record(runtime_state={"operations": results})
+        record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result.count("体温测量") == 1
@@ -133,8 +133,8 @@ class TestOperationNoteSource:
 
     async def test_unknown_type_skipped(self):
         src = OperationNoteSource()
-        results = [{"type": "unknown_op", "description": "未知操作"}]
-        record = FakeContext.Record(runtime_state={"operations": results})
+        results = [{"type": "unknown_op", "label": "未知", "value": "x", "unit": ""}]
+        record = FakeContext.Record(runtime_state={"exam_results": results})
         ctx = FakeContext(record=record)
         result = await src.collect(ctx)
         assert result is None

@@ -1,6 +1,12 @@
 # 训练架构重构 TODO
 
-> 2026-06-29 · 从 `TRAINING-ARCH-MEMO.md` 拆出的实施批次
+> 2026-06-29 · 全部批次已完成。剩余改进见 TRAINING-ARCH-MEMO.md
+
+## 已知剩余改进项
+
+- [ ] 评分引擎 triage 路径完整验证（走通一次 triage → 结束 → 评分全链路）
+- [ ] 分诊管理表单字段（vitals 输入、arrival_mode 选择）
+- [ ] 生理模拟引擎（前瞻，非短期）
 
 ## 批次 A — Profile 基础设施 + Case 解耦（已完成）
 

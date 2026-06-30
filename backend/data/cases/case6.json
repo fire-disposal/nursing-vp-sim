@@ -43,16 +43,6 @@
     "母亲因焦虑已自行查阅大量网络信息对'癫": "母亲因焦虑已自行查阅大量网络信息，对'癫痫''脑损伤'等词充满恐惧",
     "患儿1岁半时幼儿急疹发热最高38.5℃": "患儿1岁半时幼儿急疹发热最高38.5℃，当时未抽搐，说明并非每次发热都抽搐"
   },
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "37.5-38.2",
-      "heart_rate": "85-95",
-      "blood_pressure": "118/72-128/78",
-      "respiratory_rate": "18-24",
-      "spo2": "98-100"
-    },
-    "skin": "面色潮红"
-  },
   "personality": {
     "health_literacy": "medium",
     "verbosity": "verbose",

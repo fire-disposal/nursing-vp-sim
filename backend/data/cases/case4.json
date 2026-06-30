@@ -43,17 +43,6 @@
     "患者近半年情绪低落、睡眠差可能与慢性疼": "患者近半年情绪低落、睡眠差，可能与慢性疼痛和功能受限有关的焦虑情绪",
     "患者近3个月完全停止了广场舞和散步活动": "患者近3个月完全停止了广场舞和散步活动，体重增加2kg，可能加重关节负担"
   },
-  "exam_anchors": {
-    "vital_signs": {
-      "temperature": "36.5-37.0",
-      "heart_rate": "72-82",
-      "blood_pressure": "128/78-138/85",
-      "respiratory_rate": "16-20",
-      "spo2": "97-99"
-    },
-    "skin": "双膝关节肿胀，局部皮温稍高，活动受限",
-    "pain_score": 5
-  },
   "personality": {
     "health_literacy": "normal",
     "verbosity": "verbose",

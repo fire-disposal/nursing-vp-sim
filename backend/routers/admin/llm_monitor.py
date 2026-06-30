@@ -18,8 +18,8 @@ router = APIRouter()
 
 @router.get("/llm-stats", response_model=LLMStatsResponse)
 def get_llm_stats(
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: DbSession,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
 ):
     svc = LLMMonitorService(db)
     return svc.get_llm_stats()
@@ -27,6 +27,8 @@ def get_llm_stats(
 
 @router.get("/llm-logs", response_model=PaginatedResponse[LLMCallLogItem])
 def get_llm_logs(
+    db: DbSession,
+    current_user: User = Depends(require_permission("llm_monitor")),
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     purpose: str | None = None,
@@ -35,8 +37,6 @@ def get_llm_logs(
     date_to: str | None = None,
     record_id: int | None = None,
     aggregate_patient_chat: bool = True,
-    current_user: User = Depends(require_permission("llm_monitor")),
-    db: DbSession = None,  # type: ignore
 ):
     svc = LLMMonitorService(db)
     return svc.get_llm_logs(
@@ -53,11 +53,11 @@ def get_llm_logs(
 
 @router.post("/llm-logs/export")
 def export_llm_logs_csv(
+    db: DbSession,
+    current_user: User = Depends(require_permission("llm_monitor")),
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
     date_from: str | None = None,
     date_to: str | None = None,
-    current_user: User = Depends(require_permission("llm_monitor")),
-    db: DbSession = None,  # type: ignore
 ):
     svc = LLMMonitorService(db)
     return svc.export_llm_logs(fmt=format, date_from=date_from, date_to=date_to)
@@ -66,8 +66,8 @@ def export_llm_logs_csv(
 @router.get("/llm-logs/{log_id}", response_model=LLMCallLogItem)
 def get_llm_log_detail(
     log_id: int,
-    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
     db: DbSession,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
 ):
     svc = LLMMonitorService(db)
     return svc.get_llm_log_detail(log_id)
@@ -75,8 +75,8 @@ def get_llm_log_detail(
 
 @router.post("/records/export")
 def export_records_excel(
-    current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: DbSession,
+    current_user: Annotated[User, Depends(require_permission("export_data"))],
     format: str = Query("xlsx", pattern="^(csv|xlsx)$"),
 ):
     svc = LLMMonitorService(db)

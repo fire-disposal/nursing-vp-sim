@@ -24,9 +24,11 @@ export default function TrainingConfigModal({ open, caseInfo, trainingType, onCl
     const [exam, setExam] = useState(false);
     const [advanced, setAdvanced] = useState(false);
     const [questionnaire, setQuestionnaire] = useState(false);
-    const [timeLimit, setTimeLimit] = useState(20);
-
+    const isTriage = trainingType === "triage";
     const isHistoryTaking = trainingType === "history_taking";
+    const [timeLimit, setTimeLimit] = useState(isTriage ? 10 : 20);
+    const timeMin = isTriage ? 5 : 5;
+    const timeMax = isTriage ? 30 : 60;
 
     const handleStart = useCallback(() => {
         const features: Record<string, boolean> = {};
@@ -44,7 +46,7 @@ export default function TrainingConfigModal({ open, caseInfo, trainingType, onCl
     const summary = caseInfo.patient_summary;
     const diffStars = Array.from({ length: 3 }, (_, i) => i < (caseInfo.difficulty || 1));
 
-    const adjustTime = (delta: number) => setTimeLimit((t) => Math.min(60, Math.max(5, t + delta)));
+    const adjustTime = (delta: number) => setTimeLimit((t) => Math.min(timeMax, Math.max(timeMin, t + delta)));
 
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
