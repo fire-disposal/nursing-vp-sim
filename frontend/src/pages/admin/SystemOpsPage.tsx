@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Cpu, RefreshCw, Server, Timer } from "lucide-react";
 import { useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
@@ -14,7 +15,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { cn } from "@/utils/cn";
 
 function StatGrid({ data }: { data: DiagnoseResponse }) {
@@ -235,9 +235,9 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 export default function SystemOpsPage() {
 	const [autoRefresh, setAutoRefresh] = useState(false);
 
-	const { data, isLoading, refetch } = useApiQuery({
+	const { data, isLoading, refetch } = useQuery({
 		queryKey: queryKeys.diagnose,
-		queryFn: () => fetchDiagnose(),
+		queryFn: () => fetchDiagnose().then((r) => r.data),
 		staleTime: 15_000,
 		refetchInterval: autoRefresh ? 30_000 : false,
 	});

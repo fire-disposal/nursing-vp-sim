@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
@@ -16,7 +17,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { useApiQuery } from "@/hooks/useApiQuery";
 
 function statusBadge(status: string) {
 	switch (status) {
@@ -46,9 +46,9 @@ export default function AssignmentDetailPage() {
 	const navigate = useNavigate();
 	const toast = useToast();
 
-	const { data, isLoading, error } = useApiQuery({
+	const { data, isLoading, error } = useQuery({
 		queryKey: queryKeys.assignments.detail(id),
-		queryFn: () => getAssignment(id!),
+		queryFn: () => getAssignment(id!).then((r) => r.data),
 		enabled: !!id,
 		staleTime: 2 * 60_000,
 	});

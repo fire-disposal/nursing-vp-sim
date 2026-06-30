@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -28,7 +28,6 @@ import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import {
 	type NotificationValues,
 	notificationSchema,
@@ -74,9 +73,9 @@ export default function SystemNotificationsPage() {
 		defaultValues: DEFAULT_VALUES,
 	});
 
-	const { data, isLoading } = useApiQuery({
+	const { data, isLoading } = useQuery({
 		queryKey: queryKeys.systemNotifications.all,
-		queryFn: () => getSystemNotifications(),
+		queryFn: () => getSystemNotifications().then((r) => r.data),
 	});
 
 	const notifications = data ?? [];

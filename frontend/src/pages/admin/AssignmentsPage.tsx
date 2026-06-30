@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Eye, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 
@@ -102,19 +101,19 @@ export default function AssignmentsPage() {
 		defaultValues: DEFAULT_VALUES,
 	});
 
-	const { data: listData, isLoading } = useApiQuery({
+	const { data: listData, isLoading } = useQuery({
 		queryKey: queryKeys.assignments.all,
-		queryFn: () => getAssignments({ limit: 100 }),
+		queryFn: () => getAssignments({ limit: 100 }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
-	const { data: practicesData } = useApiQuery({
+	const { data: practicesData } = useQuery({
 		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices(),
+		queryFn: () => getPractices().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
-	const { data: classesData } = useApiQuery({
+	const { data: classesData } = useQuery({
 		queryKey: queryKeys.grades.classes(),
-		queryFn: () => getClasses({}),
+		queryFn: () => getClasses({}).then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 

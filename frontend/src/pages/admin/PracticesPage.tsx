@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { type PracticeValues, practiceSchema } from "@/schemas/practice";
 
 interface PracticeRow {
@@ -76,14 +75,14 @@ export default function PracticesPage() {
 		defaultValues: DEFAULT_VALUES,
 	});
 
-	const { data: listData, isLoading } = useApiQuery({
+	const { data: listData, isLoading } = useQuery({
 		queryKey: queryKeys.practices.all,
-		queryFn: () => getPractices(),
+		queryFn: () => getPractices().then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
-	const { data: casesData } = useApiQuery({
+	const { data: casesData } = useQuery({
 		queryKey: queryKeys.cases.options(),
-		queryFn: () => getCases(),
+		queryFn: () => getCases().then((r) => r.data),
 		staleTime: 5 * 60_000,
 	});
 

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -12,7 +12,6 @@ import {
 } from "@/api/notifications";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import { useApiQuery } from "@/hooks/useApiQuery";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
@@ -27,10 +26,10 @@ export default function NotificationBell() {
 	const { error: toastError } = useToast();
 	const mutationLockRef = useRef(false);
 
-	const { data, isLoading, isError } = useApiQuery({
+	const { data, isLoading, isError } = useQuery({
 		queryKey: queryKeys.notifications.list({ offset }),
 		queryFn: () =>
-			getNotifications({ unread_only: false, limit: LIMIT, offset }),
+			getNotifications({ unread_only: false, limit: LIMIT, offset }).then((r) => r.data),
 		refetchInterval: 60_000,
 	});
 

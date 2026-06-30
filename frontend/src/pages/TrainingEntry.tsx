@@ -1,16 +1,16 @@
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import LoadingState from "@/components/ui/loading-state";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { getRecordDetail } from "../api/training";
 import { TRAINING_SCENES } from "../training/scenes/registry";
 
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
 
-	const { data: record, isLoading, error } = useApiQuery({
+	const { data: record, isLoading, error } = useQuery({
 		queryKey: queryKeys.training.record(recordId),
-		queryFn: () => getRecordDetail(Number(recordId!)),
+		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
 	});
 
