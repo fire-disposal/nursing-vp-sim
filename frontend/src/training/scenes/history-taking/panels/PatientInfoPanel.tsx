@@ -79,7 +79,7 @@ function LiveEmotion({ recordId }: { recordId: string }) {
 	const { data: resp } = useQuery({
 		queryKey: ["training-state", recordId],
 		queryFn: () => getTrainingState(Number(recordId)),
-		refetchInterval: 3000,
+		staleTime: 10_000,
 	});
 	const e = (resp as unknown as { data: { emotion?: { state: string; trust: number; comfort: number } } })?.data?.emotion;
 	const trust = e?.trust ?? 50;
