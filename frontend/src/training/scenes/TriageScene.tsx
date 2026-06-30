@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRecordDetail, submitTriage } from "@/api/training";
+import { queryKeys } from "@/api/query-keys";
 import LoadingState from "@/components/ui/loading-state";
 import { cn } from "@/utils/cn";
 
@@ -94,9 +95,9 @@ export default function TriageScene({ recordId }: { recordId: string }) {
     if (submitted) checkSuccessAnimation();
   }, [submitted]);
 
-  const { data: record, isLoading } = useQuery({
-    queryKey: ["training-record", recordId],
-    queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
+	const { data: record, isLoading } = useQuery({
+		queryKey: queryKeys.training.record(recordId),
+		queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
   });
 
   const submitMutation = useMutation({

@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { queryKeys } from "@/api/query-keys";
 import LoadingState from "@/components/ui/loading-state";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { getRecordDetail } from "../api/training";
@@ -8,7 +9,7 @@ export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
 
 	const { data: record, isLoading, error } = useApiQuery({
-		queryKey: ["training-record", recordId],
+		queryKey: queryKeys.training.record(recordId),
 		queryFn: () => getRecordDetail(Number(recordId!)),
 		enabled: !!recordId,
 	});

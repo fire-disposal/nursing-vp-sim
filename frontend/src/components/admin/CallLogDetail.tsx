@@ -9,6 +9,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { getLogDetail } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/utils/cn";
@@ -76,7 +77,7 @@ export default function CallLogDetail({ logId, onClose }: CallLogDetailProps) {
 		isLoading,
 		isError,
 	} = useQuery({
-		queryKey: ["logDetail", logId],
+		queryKey: queryKeys.llmCallLogs.detail(logId),
 		queryFn: () => getLogDetail(logId!).then((r) => r.data),
 		enabled: logId !== null,
 	});

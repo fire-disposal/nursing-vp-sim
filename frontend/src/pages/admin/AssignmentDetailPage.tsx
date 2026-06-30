@@ -15,6 +15,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 
 function statusBadge(status: string) {
@@ -46,7 +47,7 @@ export default function AssignmentDetailPage() {
 	const toast = useToast();
 
 	const { data, isLoading, error } = useApiQuery({
-		queryKey: ["assignment", id],
+		queryKey: queryKeys.assignments.detail(id),
 		queryFn: () => getAssignment(id!),
 		enabled: !!id,
 		staleTime: 2 * 60_000,

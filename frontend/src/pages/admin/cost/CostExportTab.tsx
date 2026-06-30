@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, FileJson, FileSpreadsheet, Search } from "lucide-react";
 import { useState } from "react";
 import { fetchCostExport } from "@/api/admin/voice-cost";
+import { queryKeys } from "@/api/query-keys";
 import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
@@ -30,7 +31,7 @@ export default function CostExportTab() {
 	const [format, setFormat] = useState("json");
 
 	const { data, isLoading, isFetching, refetch } = useQuery({
-		queryKey: ["admin", "cost", "export", startDate, endDate, service, granularity, format],
+		queryKey: queryKeys.cost.costExport(startDate, endDate, service, granularity, format),
 		queryFn: () =>
 			fetchCostExport({
 				start_date: startDate || undefined,

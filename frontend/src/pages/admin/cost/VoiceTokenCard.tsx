@@ -8,6 +8,7 @@ import {
 	updateVoiceConfig,
 	type VoiceConfigResponse,
 } from "@/api/admin/voice-cost";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +76,7 @@ export default function VoiceTokenCard({
 	const toast = useToast();
 	const queryClient = useQueryClient();
 	const { data: config, isLoading } = useQuery({
-		queryKey: ["admin", "voice", "config"],
+		queryKey: queryKeys.voice.config,
 		queryFn: () => fetchVoiceConfig().then((r) => r.data),
 		staleTime: 60_000,
 	});
@@ -85,7 +86,7 @@ export default function VoiceTokenCard({
 			updateVoiceConfig(data).then((r) => r.data),
 		onSuccess: () => {
 			toast.success("配置已保存");
-			queryClient.invalidateQueries({ queryKey: ["admin", "voice", "config"] });
+			queryClient.invalidateQueries({ queryKey: queryKeys.voice.config });
 		},
 		onError: (e: unknown) => {
 			toast.apiError(e, "保存失败");

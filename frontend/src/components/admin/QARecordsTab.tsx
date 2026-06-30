@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -36,7 +37,7 @@ export default function QARecordsTab() {
 	}, [debouncedValue]);
 
 	const { data: recordsData, isLoading } = useQuery({
-		queryKey: ["qaHistory", offset, debouncedValue],
+		queryKey: queryKeys.qa.history({ offset, search: debouncedValue }),
 		queryFn: () =>
 			getQAHistoryAll({
 				offset,
@@ -48,7 +49,7 @@ export default function QARecordsTab() {
 	});
 
 	const { data: previewMessages, isLoading: loadingPreview } = useQuery({
-		queryKey: ["qaSessionMessages", previewSessionId],
+		queryKey: queryKeys.qa.messages(previewSessionId),
 		queryFn: () =>
 			getQASessionMessagesAdmin(previewSessionId!).then((r) => r.data ?? []),
 		enabled: previewSessionId !== null,

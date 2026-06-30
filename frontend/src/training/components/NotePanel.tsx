@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { listNotes, deleteNote } from "@/api/notes";
+import { queryKeys } from "@/api/query-keys";
 import NoteEditor from "./NoteEditor";
 import { FileText, Plus, Trash2 } from "lucide-react";
 
@@ -20,7 +21,7 @@ export default function NotePanel({ recordId }: Props) {
 	const rid = recordId ? Number(recordId) : undefined;
 
 	const { data: notes = [], refetch } = useQuery({
-		queryKey: ["notes", rid],
+		queryKey: queryKeys.notes.byRecord(rid),
 		queryFn: () => listNotes(rid),
 	});
 

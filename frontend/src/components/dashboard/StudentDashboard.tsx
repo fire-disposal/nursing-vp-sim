@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
+import { queryKeys } from "@/api/query-keys";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
@@ -55,7 +56,7 @@ export default function StudentDashboard({
 	const latestScore = latestCompleted?.score_total;
 
 	const { data: studentAssignmentsData } = useQuery({
-		queryKey: ["student-assignments"],
+		queryKey: queryKeys.assignments.student,
 		queryFn: () => getStudentAssignments().then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo } from "react";
 import { getRecordDetail } from "@/api/training";
+import { queryKeys } from "@/api/query-keys";
 
 interface Props {
 	recordId: string;
@@ -9,7 +10,7 @@ interface Props {
 
 export default function InquiryPanel({ recordId }: Props) {
 	const { data: record } = useQuery({
-		queryKey: ["training-record", recordId],
+		queryKey: queryKeys.training.record(recordId),
 		queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
 	});
 

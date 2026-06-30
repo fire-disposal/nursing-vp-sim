@@ -26,6 +26,7 @@ import {
 	getTeacherSummary,
 	getTrends,
 } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
@@ -91,13 +92,13 @@ export default function Stats() {
 	const LIMIT = 50;
 
 	const { data: trends } = useQuery({
-		queryKey: ["trends", period],
+		queryKey: queryKeys.stats.trends(period),
 		queryFn: () => getTrends(period).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
 
 	const { data: summaryData } = useQuery({
-		queryKey: ["teacherSummary", summaryOffset],
+		queryKey: queryKeys.stats.teacherSummary({ offset: summaryOffset }),
 		queryFn: () =>
 			getTeacherSummary({ offset: summaryOffset, limit: LIMIT }).then(
 				(r) => r.data,
@@ -107,7 +108,7 @@ export default function Stats() {
 	});
 
 	const { data: rankingData } = useQuery({
-		queryKey: ["studentRanking", rankingOffset],
+		queryKey: queryKeys.stats.ranking({ offset: rankingOffset }),
 		queryFn: () =>
 			getStudentRanking({ offset: rankingOffset, limit: LIMIT }).then(
 				(r) => r.data,

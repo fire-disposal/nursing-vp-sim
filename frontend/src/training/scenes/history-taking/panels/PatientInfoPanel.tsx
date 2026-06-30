@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Heart, User } from "lucide-react";
 import { getRecordDetail } from "@/api/training";
 import { getTrainingState } from "@/api/training-state";
+import { queryKeys } from "@/api/query-keys";
 
 interface Props {
 	recordId: string;
@@ -9,7 +10,7 @@ interface Props {
 
 export default function PatientInfoPanel({ recordId }: Props) {
 	const { data: record } = useQuery({
-		queryKey: ["training-record", recordId],
+		queryKey: queryKeys.training.record(recordId),
 		queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
 	});
 
@@ -77,7 +78,7 @@ export default function PatientInfoPanel({ recordId }: Props) {
 
 function LiveEmotion({ recordId }: { recordId: string }) {
 	const { data: resp } = useQuery({
-		queryKey: ["training-state", recordId],
+		queryKey: queryKeys.training.state(recordId),
 		queryFn: () => getTrainingState(Number(recordId)),
 		staleTime: 10_000,
 	});

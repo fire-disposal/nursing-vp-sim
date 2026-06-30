@@ -25,19 +25,19 @@ export default function DashboardHome() {
 		perms.includes("score_review") || perms.includes("user_manage");
 
 	const { data: casesData, isLoading: casesLoading } = useQuery({
-		queryKey: ["cases", "student"],
+		queryKey: queryKeys.cases.student(),
 		queryFn: () => getCases().then((r) => r.data),
 		enabled: !isAdmin,
 		staleTime: 5 * 60_000,
 	});
 	const { data: durationData, isLoading: durationLoading } = useQuery({
-		queryKey: ["durationStats"],
+		queryKey: queryKeys.stats.duration(),
 		queryFn: () => getDurationStats().then((r) => r.data),
 		enabled: !isAdmin,
 		staleTime: 2 * 60_000,
 	});
 	const { data: statsData, isLoading: statsLoading } = useQuery({
-		queryKey: ["adminStats"],
+		queryKey: queryKeys.stats.admin(),
 		queryFn: () => getStats().then((r) => r.data),
 		enabled: isAdmin,
 		staleTime: 2 * 60_000,

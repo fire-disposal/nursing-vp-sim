@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff, X } from "lucide-react";
+import { queryKeys } from "@/api/query-keys";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -27,7 +28,7 @@ export default function NotificationBell() {
 	const mutationLockRef = useRef(false);
 
 	const { data, isLoading, isError } = useApiQuery({
-		queryKey: ["notifications", { offset }],
+		queryKey: queryKeys.notifications.list({ offset }),
 		queryFn: () =>
 			getNotifications({ unread_only: false, limit: LIMIT, offset }),
 		refetchInterval: 60_000,
@@ -62,7 +63,7 @@ export default function NotificationBell() {
 		onError: (_err, id) => {
 			toastError("标记已读失败");
 			updateItemInList(id, false);
-			qc.invalidateQueries({ queryKey: ["notifications"] });
+			qc.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		},
 	});
 
@@ -74,7 +75,7 @@ export default function NotificationBell() {
 		onError: (_err, id) => {
 			toastError("标记未读失败");
 			updateItemInList(id, true);
-			qc.invalidateQueries({ queryKey: ["notifications"] });
+			qc.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		},
 	});
 
@@ -86,7 +87,7 @@ export default function NotificationBell() {
 		},
 		onError: () => {
 			toastError("全部已读失败");
-			qc.invalidateQueries({ queryKey: ["notifications"] });
+			qc.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		},
 		onSettled: () => {
 			mutationLockRef.current = false;

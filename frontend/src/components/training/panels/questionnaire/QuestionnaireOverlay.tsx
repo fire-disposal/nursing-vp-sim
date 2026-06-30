@@ -4,6 +4,7 @@ import {
 	getTrainingQuestionnaire,
 	submitTrainingQuestionnaire,
 } from "@/api/questionnaires";
+import { queryKeys } from "@/api/query-keys";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus } from "@/engine/types";
 
@@ -59,7 +60,7 @@ function QuestionnaireOverlayInner({
 	}, []);
 
 	const { data: preQuestionnaire } = useQuery({
-		queryKey: ["questionnaire", recordId, "pre"],
+		queryKey: queryKeys.questionnaires.training(recordId, "pre"),
 		queryFn: async () => {
 			const res = await getTrainingQuestionnaire(recordId, "pre");
 			return res.data as Questionnaire | null;
@@ -76,7 +77,7 @@ function QuestionnaireOverlayInner({
 	}, [preQuestionnaire]);
 
 	const { data: postQuestionnaire } = useQuery({
-		queryKey: ["questionnaire", recordId, "post"],
+		queryKey: queryKeys.questionnaires.training(recordId, "post"),
 		queryFn: async () => {
 			const res = await getTrainingQuestionnaire(recordId, "post");
 			return res.data as Questionnaire | null;

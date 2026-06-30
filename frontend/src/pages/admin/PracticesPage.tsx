@@ -82,7 +82,7 @@ export default function PracticesPage() {
 		staleTime: 2 * 60_000,
 	});
 	const { data: casesData } = useApiQuery({
-		queryKey: ["cases", "options"],
+		queryKey: queryKeys.cases.options(),
 		queryFn: () => getCases(),
 		staleTime: 5 * 60_000,
 	});

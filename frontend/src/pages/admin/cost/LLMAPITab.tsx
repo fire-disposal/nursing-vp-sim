@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CircleDollarSign, Cpu, Key, TrendingUp } from "lucide-react";
 import { fetchSecrets } from "@/api/admin/api-management";
+import { queryKeys } from "@/api/query-keys";
 import ApiManagementTab from "@/components/admin/ApiManagementTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -8,7 +9,7 @@ import StatCard from "@/components/ui/stat-card";
 
 function LLMCostSummary() {
 	const { data: secrets = [], isLoading } = useQuery({
-		queryKey: ["admin", "api", "secrets"],
+		queryKey: queryKeys.apiManagement.secrets,
 		queryFn: () => fetchSecrets().then((r) => r.data),
 		staleTime: 60_000,
 	});

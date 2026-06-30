@@ -11,6 +11,7 @@ import {
 	YAxis,
 } from "recharts";
 import { getTrends } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
@@ -40,7 +41,7 @@ export default function TrainingDurationChart() {
 	const [period, setPeriod] = useState("month");
 
 	const { data: trends, isLoading } = useQuery({
-		queryKey: ["trends", period],
+		queryKey: queryKeys.stats.trends(period),
 		queryFn: () => getTrends(period).then((r) => r.data),
 		staleTime: 60_000,
 	});

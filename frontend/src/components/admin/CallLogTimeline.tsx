@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Clock, Eye, Hash, Zap } from "lucide-react";
 import { useState } from "react";
 import { getRecordLogs } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import type { components } from "@/api/api-types.gen";
 import CallLogDetail from "@/components/admin/CallLogDetail";
 import Badge from "@/components/ui/badge";
@@ -45,7 +46,7 @@ export default function CallLogTimeline({
 	const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
 
 	const { data, isLoading } = useQuery({
-		queryKey: ["recordLogs", recordId],
+		queryKey: queryKeys.llmCallLogs.timeline(recordId),
 		queryFn: () => getRecordLogs(recordId).then((r) => r.data),
 	});
 

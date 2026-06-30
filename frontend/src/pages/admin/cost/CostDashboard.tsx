@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import type { CostDashboardResponse } from "@/api/admin/voice-cost";
 import { fetchCostDashboard } from "@/api/admin/voice-cost";
+import { queryKeys } from "@/api/query-keys";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -296,7 +297,7 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 
 export default function CostDashboard() {
 	const { data, isLoading } = useQuery({
-		queryKey: ["admin", "cost", "dashboard"],
+		queryKey: queryKeys.cost.dashboard,
 		queryFn: () => fetchCostDashboard().then((r) => r.data),
 		staleTime: 60_000,
 	});

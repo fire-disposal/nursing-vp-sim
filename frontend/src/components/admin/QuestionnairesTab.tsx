@@ -6,6 +6,7 @@ import {
 	getQuestionnairesTemplates,
 	getQuestionnaireTemplate,
 } from "@/api/questionnaires";
+import { queryKeys } from "@/api/query-keys";
 import QuestionnaireAssign from "@/components/admin/questionnaires/QuestionnaireAssign";
 import QuestionnaireEditor from "@/components/admin/questionnaires/QuestionnaireEditor";
 import QuestionnaireList from "@/components/admin/questionnaires/QuestionnaireList";
@@ -59,7 +60,7 @@ export default function QuestionnairesTab() {
 	if (typeFilter) params.type = typeFilter;
 
 	const { data: templatesData, isLoading } = useQuery({
-		queryKey: ["questionnaireTemplates", offset, typeFilter],
+		queryKey: queryKeys.questionnaires.templates(offset, typeFilter),
 		queryFn: () => getQuestionnairesTemplates(params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 5 * 60_000,
@@ -69,7 +70,7 @@ export default function QuestionnairesTab() {
 	const total = templatesData?.total ?? 0;
 
 	const { data: casesData } = useQuery({
-		queryKey: ["cases", "all"],
+		queryKey: queryKeys.cases.all,
 		queryFn: () =>
 			getCases({ limit: 1000 }).then((r) => r.data),
 		enabled: showAssign,
@@ -79,7 +80,7 @@ export default function QuestionnairesTab() {
 	const allCases: CaseBrief[] = casesData?.items ?? [];
 
 	const { data: templateDetail, isLoading: isLoadingDetail } = useQuery({
-		queryKey: ["questionnaireTemplateDetail", editingId],
+		queryKey: queryKeys.questionnaires.detail(editingId),
 		queryFn: () =>
 			getQuestionnaireTemplate(editingId!).then((r) => r.data as TemplateDetail),
 		enabled: editingId !== null && showEditor,
@@ -87,7 +88,7 @@ export default function QuestionnairesTab() {
 	});
 
 	const { data: statsData, isLoading: isLoadingStats } = useQuery({
-		queryKey: ["questionnaireStats", statsTemplate?.id],
+		queryKey: queryKeys.questionnaires.stats(statsTemplate?.id ?? null),
 		queryFn: () =>
 			getQuestionnaireStats(statsTemplate!.id).then((r) => r.data),
 		enabled: view === "stats" && statsTemplate !== null,

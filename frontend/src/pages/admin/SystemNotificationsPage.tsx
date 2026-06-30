@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
+import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import {
 	type NotificationValues,
@@ -74,7 +75,7 @@ export default function SystemNotificationsPage() {
 	});
 
 	const { data, isLoading } = useApiQuery({
-		queryKey: ["system-notifications"],
+		queryKey: queryKeys.systemNotifications.all,
 		queryFn: () => getSystemNotifications(),
 	});
 
@@ -118,7 +119,7 @@ export default function SystemNotificationsPage() {
 				await createSystemNotification(body as any);
 				toast.success(publishedAt ? "已创建定时通知" : "已发送");
 			}
-			qc.invalidateQueries({ queryKey: ["system-notifications"] });
+			qc.invalidateQueries({ queryKey: queryKeys.systemNotifications.all });
 			setModalOpen(false);
 		} catch (e) {
 			toast.apiError(e);
@@ -129,7 +130,7 @@ export default function SystemNotificationsPage() {
 		try {
 			await deleteSystemNotification(id);
 			toast.success("已删除");
-			qc.invalidateQueries({ queryKey: ["system-notifications"] });
+			qc.invalidateQueries({ queryKey: queryKeys.systemNotifications.all });
 		} catch (e) {
 			toast.apiError(e);
 		}

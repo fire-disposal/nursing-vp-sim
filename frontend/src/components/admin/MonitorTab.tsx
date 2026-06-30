@@ -3,13 +3,14 @@ import {
 	Activity,
 	AlertCircle,
 	BarChart3,
-	Download,
+		Download,
 	Server,
 	TrendingUp,
 	Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import type { components } from "@/api/api-types.gen";
 import CallLogTimeline from "@/components/admin/CallLogTimeline";
 import Badge from "@/components/ui/badge";
@@ -90,7 +91,7 @@ export default function MonitorTab() {
 		isError: statsError,
 		refetch: refetchStats,
 	} = useQuery({
-		queryKey: ["llmStats"],
+		queryKey: queryKeys.admin.llm.stats(),
 		queryFn: () => getLLMStats().then((r) => r.data as LLMStats),
 	});
 
@@ -101,7 +102,7 @@ export default function MonitorTab() {
 	if (filters.date_to) logParams.date_to = filters.date_to;
 
 	const { data: logData, isLoading } = useQuery({
-		queryKey: ["llmLogs", offset, filters],
+		queryKey: queryKeys.admin.llm.logs({ offset, ...filters }),
 		queryFn: () => getLLMLogs(logParams).then((r) => r.data),
 	});
 	const logs = logData?.items ?? [];

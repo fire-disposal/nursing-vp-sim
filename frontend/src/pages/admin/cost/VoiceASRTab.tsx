@@ -4,6 +4,7 @@ import {
 	fetchVoiceUsage,
 	testASR,
 } from "@/api/admin/voice-cost";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatCard from "@/components/ui/stat-card";
@@ -19,7 +20,7 @@ import VoiceTokenCard from "./VoiceTokenCard";
 
 function ASRUsageTable() {
 	const { data: usage } = useQuery({
-		queryKey: ["admin", "voice", "usage"],
+		queryKey: queryKeys.voice.usage,
 		queryFn: () => fetchVoiceUsage().then((r) => r.data),
 		staleTime: 60_000,
 	});
@@ -86,7 +87,7 @@ function ASRUsageTable() {
 
 export default function VoiceASRTab() {
 	const { data: usage } = useQuery({
-		queryKey: ["admin", "voice", "usage"],
+		queryKey: queryKeys.voice.usage,
 		queryFn: () => fetchVoiceUsage().then((r) => r.data),
 		staleTime: 60_000,
 	});

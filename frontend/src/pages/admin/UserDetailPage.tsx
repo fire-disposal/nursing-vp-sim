@@ -21,6 +21,7 @@ import {
 	YAxis,
 } from "recharts";
 import { getStudentDetail } from "@/api/api-client";
+import { queryKeys } from "@/api/query-keys";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -79,7 +80,7 @@ export default function UserDetailPage() {
 	const barColors = useBarColors();
 
 	const { data: student, isLoading, isError, error } = useQuery({
-		queryKey: ["studentDetail", userId],
+		queryKey: queryKeys.admin.users.studentDetail(userId),
 		queryFn: () => getStudentDetail(Number(userId)).then((r) => r.data),
 		enabled: !!userId,
 		staleTime: 2 * 60_000,

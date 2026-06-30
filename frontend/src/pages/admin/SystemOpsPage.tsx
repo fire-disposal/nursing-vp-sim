@@ -13,6 +13,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { cn } from "@/utils/cn";
 
@@ -235,7 +236,7 @@ export default function SystemOpsPage() {
 	const [autoRefresh, setAutoRefresh] = useState(false);
 
 	const { data, isLoading, refetch } = useApiQuery({
-		queryKey: ["admin", "diagnose"],
+		queryKey: queryKeys.diagnose,
 		queryFn: () => fetchDiagnose(),
 		staleTime: 15_000,
 		refetchInterval: autoRefresh ? 30_000 : false,
