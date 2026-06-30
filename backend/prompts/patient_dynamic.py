@@ -11,4 +11,8 @@ PATIENT_DYNAMIC_TEMPLATE = """## 病情信息
 **隐藏背景**: {#deep_background#}
 
 **对话参考**: {#example_dialogues#}
+
+## 当前场景
+
+{#scene_state#}
 """
