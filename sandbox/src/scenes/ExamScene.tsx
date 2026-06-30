@@ -1,293 +1,242 @@
 import { useCallback, useRef, useState } from "react"
 import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
 
-// ── Operation definition ──
-interface OpDef {
-  id: string
-  label: string
-  unit: string
-  category: "vital" | "auscultation" | "neuro" | "musculoskeletal" | "bedside"
+// ════════════════════════════════════════════════════════
+// 1. Built-in normal values per exam operation.
+//    Case author only writes what DEVIATES from these.
+// ════════════════════════════════════════════════════════
+
+const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
+  temp:     { label: "体温",      unit: "°C",     normal: "36.8",                        cat: "vital" },
+  hr:       { label: "心率",      unit: "次/分",   normal: "76",                          cat: "vital" },
+  rr:       { label: "呼吸频率",   unit: "次/分",   normal: "18",                          cat: "vital" },
+  bp:       { label: "血压",      unit: "mmHg",    normal: "120/80",                      cat: "vital" },
+  spo2:     { label: "血氧饱和度", unit: "%",       normal: "98",                          cat: "vital" },
+  pain:     { label: "疼痛评分",   unit: "/10",     normal: "0",                           cat: "vital" },
+  lung:     { label: "肺部听诊",   unit: "",        normal: "双肺呼吸音清，未闻及干湿啰音", cat: "auscultation" },
+  heart:    { label: "心脏听诊",   unit: "",        normal: "心律齐，各瓣膜听诊区未闻及病理性杂音", cat: "auscultation" },
+  bowel:    { label: "肠鸣音",    unit: "次/分",    normal: "5",                           cat: "auscultation" },
+  pupil:    { label: "瞳孔检查",   unit: "",        normal: "双侧瞳孔等大等圆，对光反射灵敏", cat: "neuro" },
+  gcs:      { label: "GCS 评分",  unit: "/15",     normal: "15 (E4V5M6)",                 cat: "neuro" },
+  strength: { label: "肌力",       unit: "/5",     normal: "5",                           cat: "musculoskeletal" },
+  edema:    { label: "水肿评估",   unit: "",        normal: "无凹陷性水肿",                 cat: "musculoskeletal" },
+  glucose:  { label: "血糖",      unit: "mmol/L",  normal: "5.2",                         cat: "bedside" },
+  ecg:      { label: "心电图",    unit: "",         normal: "窦性心律，未见明显异常",        cat: "bedside" },
 }
 
-interface BodyPart {
-  id: string; label: string
-  x: number; y: number; w: number; h: number
-  ops: OpDef[]
+const CAT_LABEL: Record<string, string> = {
+  vital: "生命体征", auscultation: "听诊", neuro: "神经系统",
+  musculoskeletal: "骨骼肌肉", bedside: "床旁检测",
 }
 
-const ALL_OPS: Record<string, OpDef> = {
-  // Vital signs
-  temp:  { id: "temp",  label: "体温",     unit: "°C",     category: "vital" },
-  hr:    { id: "hr",    label: "心率",     unit: "次/分",   category: "vital" },
-  rr:    { id: "rr",    label: "呼吸频率",  unit: "次/分",   category: "vital" },
-  bp:    { id: "bp",    label: "血压",     unit: "mmHg",    category: "vital" },
-  spo2:  { id: "spo2",  label: "血氧饱和度", unit: "%",     category: "vital" },
-  pain:  { id: "pain",  label: "疼痛评分",  unit: "/10",    category: "vital" },
-
-  // Auscultation
-  lung:  { id: "lung",  label: "肺部听诊",  unit: "",       category: "auscultation" },
-  heart: { id: "heart", label: "心脏听诊",  unit: "",       category: "auscultation" },
-  bowel: { id: "bowel", label: "肠鸣音",    unit: "次/分",   category: "auscultation" },
-
-  // Neuro
-  pupil: { id: "pupil", label: "瞳孔检查",  unit: "",       category: "neuro" },
-  gcs:   { id: "gcs",   label: "GCS 评分",  unit: "/15",    category: "neuro" },
-
-  // Musculoskeletal
-  strength: { id: "strength", label: "肌力",    unit: "/5",  category: "musculoskeletal" },
-  edema:    { id: "edema",    label: "水肿评估", unit: "",   category: "musculoskeletal" },
-
-  // Bedside
-  glucose: { id: "glucose", label: "血糖",  unit: "mmol/L", category: "bedside" },
-  ecg:     { id: "ecg",     label: "心电图", unit: "",      category: "bedside" },
+const CAT_COLOR: Record<string, string> = {
+  vital: "#4fc3f7", auscultation: "#7c4dff", neuro: "#ff7043",
+  musculoskeletal: "#66bb6a", bedside: "#ffa726",
 }
 
-const BODY_PARTS: BodyPart[] = [
-  {
-    id: "head", label: "头部", x: 38, y: 2, w: 24, h: 18,
-    ops: [ALL_OPS.temp, ALL_OPS.pain, ALL_OPS.pupil, ALL_OPS.gcs],
+// ════════════════════════════════════════════════════════
+// 2. Hard‑coded randomizers per numeric op.
+//    Non‑numeric ops (text findings) are not randomized.
+// ════════════════════════════════════════════════════════
+
+type RandFn = (base: string) => string
+
+const RANDOMIZERS: Record<string, RandFn> = {
+  temp: (b) => { const n = Number(b) + (Math.random() - 0.5) * 0.4; return n.toFixed(1) },
+  hr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 8)}`,
+  rr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 4)}`,
+  bp:   (b) => {
+    const [s, d] = b.split("/").map(Number)
+    return `${Math.round(s + (Math.random() - 0.5) * 10)}/${Math.round(d + (Math.random() - 0.5) * 8)}`
   },
-  {
-    id: "chest", label: "胸部", x: 30, y: 24, w: 40, h: 26,
-    ops: [ALL_OPS.hr, ALL_OPS.rr, ALL_OPS.spo2, ALL_OPS.heart, ALL_OPS.lung, ALL_OPS.ecg],
-  },
-  {
-    id: "arm_l", label: "左上肢", x: 8, y: 26, w: 18, h: 36,
-    ops: [ALL_OPS.bp, ALL_OPS.glucose, ALL_OPS.strength],
-  },
-  {
-    id: "arm_r", label: "右上肢", x: 74, y: 26, w: 18, h: 36,
-    ops: [ALL_OPS.bp, ALL_OPS.glucose, ALL_OPS.strength],
-  },
-  {
-    id: "abdomen", label: "腹部", x: 34, y: 52, w: 32, h: 18,
-    ops: [ALL_OPS.bowel, ALL_OPS.pain],
-  },
-  {
-    id: "leg_l", label: "左下肢", x: 22, y: 72, w: 22, h: 26,
-    ops: [ALL_OPS.strength, ALL_OPS.edema],
-  },
-  {
-    id: "leg_r", label: "右下肢", x: 56, y: 72, w: 22, h: 26,
-    ops: [ALL_OPS.strength, ALL_OPS.edema],
-  },
+  spo2: (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 2)}`,
+}
+
+function resolve(opId: string, userOverride: string | undefined): { value: string; abnormal: boolean } {
+  const def = NORMALS[opId]
+  if (!def) return { value: "—", abnormal: false }
+  const base = userOverride ?? def.normal
+  const rand = RANDOMIZERS[opId]
+  const value = rand ? rand(base) : base
+  return { value, abnormal: userOverride !== undefined && userOverride !== def.normal }
+}
+
+// ════════════════════════════════════════════════════════
+// 3. Case presets — only write what's abnormal
+// ════════════════════════════════════════════════════════
+
+interface CasePreset { name: string; desc: string; overrides: Record<string, string> }
+
+const PRESETS: CasePreset[] = [
+  { name: "正常",     desc: "各项指标正常",                      overrides: {} },
+  { name: "肺炎",     desc: "发热 · 呼吸急促 · 血氧低",          overrides: { temp: "38.5", rr: "26", spo2: "93", lung: "右下肺可闻及湿啰音" } },
+  { name: "心衰",     desc: "心动过速 · 高血压 · 水肿",          overrides: { hr: "104", bp: "150/95", rr: "22", lung: "双肺底湿啰音", edema: "中度凹陷性水肿 (2+)" } },
+  { name: "糖尿病前期", desc: "空腹血糖偏高",                     overrides: { glucose: "6.8" } },
+  { name: "脑外伤",   desc: "意识障碍 · 瞳孔异常 · 肌力下降",     overrides: { gcs: "10 (E3V3M4)", pupil: "左侧瞳孔散大，对光反射迟钝", strength: "3" } },
+  { name: "术后",     desc: "疼痛 · 肌力减退",                   overrides: { pain: "6", strength: "4" } },
 ]
 
-// ── Clinical result generators ──
-type SimFn = () => { value: string; details?: string }
+// ════════════════════════════════════════════════════════
+// 4. Body map
+// ════════════════════════════════════════════════════════
 
-const SIMULATORS: Record<string, SimFn> = {
-  temp:    () => ({ value: (36.2 + Math.random() * 1.8).toFixed(1) }),
-  hr:      () => ({ value: String(Math.floor(72 + Math.random() * 40)) }),
-  rr:      () => ({ value: String(Math.floor(14 + Math.random() * 12)) }),
-  bp:      () => ({ value: `${Math.floor(110 + Math.random() * 25)}/${Math.floor(70 + Math.random() * 20)}` }),
-  spo2:    () => ({ value: String(Math.floor(94 + Math.random() * 6)) }),
-  pain:    () => ({ value: String(Math.floor(Math.random() * 5)) }),
+interface Part { id: string; label: string; x: number; y: number; w: number; h: number; ops: string[] }
 
-  lung:    () => {
-    const f = ["双肺呼吸音清，未闻及干湿啰音", "右下肺可闻及湿啰音", "双肺散在哮鸣音", "呼吸音粗，可闻及痰鸣音"]
-    return { value: f[Math.floor(Math.random() * f.length)] }
-  },
-  heart:   () => {
-    const f = ["心律齐，各瓣膜听诊区未闻及病理性杂音", "心律齐，可闻及 II/6 级收缩期杂音", "心律绝对不齐，脉搏短绌"]
-    return { value: f[Math.floor(Math.random() * f.length)] }
-  },
-  bowel:   () => {
-    const n = Math.floor(4 + Math.random() * 8)
-    return { value: `${n}`, details: n < 4 ? "肠鸣音减弱" : n > 10 ? "肠鸣音活跃" : "肠鸣音正常" }
-  },
+const PARTS: Part[] = [
+  { id: "head",    label: "头部",   x: 38, y: 2,  w: 24, h: 18, ops: ["temp","pain","pupil","gcs"] },
+  { id: "chest",   label: "胸部",   x: 30, y: 24, w: 40, h: 26, ops: ["hr","rr","spo2","heart","lung","ecg"] },
+  { id: "arm_l",   label: "左上肢", x: 8,  y: 26, w: 18, h: 36, ops: ["bp","glucose","strength"] },
+  { id: "arm_r",   label: "右上肢", x: 74, y: 26, w: 18, h: 36, ops: ["bp","glucose","strength"] },
+  { id: "abdomen", label: "腹部",   x: 34, y: 52, w: 32, h: 18, ops: ["bowel","pain"] },
+  { id: "leg_l",   label: "左下肢", x: 22, y: 72, w: 22, h: 26, ops: ["strength","edema"] },
+  { id: "leg_r",   label: "右下肢", x: 56, y: 72, w: 22, h: 26, ops: ["strength","edema"] },
+]
 
-  pupil:   () => {
-    const sides = ["双侧瞳孔等大等圆", "左侧瞳孔散大", "右侧瞳孔缩小"]
-    const react = ["对光反射灵敏", "对光反射迟钝", "对光反射消失"]
-    return { value: `${sides[Math.floor(Math.random() * sides.length)]}，${react[Math.floor(Math.random() * react.length)]}` }
-  },
-  gcs:     () => {
-    const e = Math.floor(3 + Math.random() * 2) // 3-4
-    const v = Math.floor(4 + Math.random() * 2) // 4-5
-    const m = Math.floor(5 + Math.random() * 2) // 5-6
-    return { value: `${e + v + m} (E${e}V${v}M${m})` }
-  },
-
-  strength: () => {
-    const scores = [5, 5, 5, 4, 4, 3]
-    const s = scores[Math.floor(Math.random() * scores.length)]
-    return { value: `${s}`, details: s >= 5 ? "肌力正常" : s >= 4 ? "轻度减弱" : "中度减弱" }
-  },
-  edema:   () => {
-    const levels = ["无凹陷性水肿", "轻度凹陷性水肿 (1+)", "中度凹陷性水肿 (2+)", "重度凹陷性水肿 (3+)"]
-    return { value: levels[Math.floor(Math.random() * levels.length)] }
-  },
-
-  glucose: () => ({ value: (4.0 + Math.random() * 6.0).toFixed(1) }),
-  ecg:     () => {
-    const f = ["窦性心律，未见明显异常", "窦性心动过速", "窦性心动过缓", "房性早搏", "ST-T 改变"]
-    return { value: f[Math.floor(Math.random() * f.length)] }
-  },
-}
-
-function getCategoryColor(cat: string): string {
-  switch (cat) {
-    case "vital":           return "#4fc3f7"
-    case "auscultation":    return "#7c4dff"
-    case "neuro":           return "#ff7043"
-    case "musculoskeletal": return "#66bb6a"
-    case "bedside":         return "#ffa726"
-    default:                return "#888"
+function groupByCat(ops: string[]): [string, string[]][] {
+  const m = new Map<string, string[]>()
+  for (const id of ops) {
+    const c = NORMALS[id]?.cat ?? "other"
+    if (!m.has(c)) m.set(c, [])
+    m.get(c)!.push(id)
   }
+  return [...m.entries()]
 }
 
-function getCategoryLabel(cat: string): string {
-  switch (cat) {
-    case "vital":           return "生命体征"
-    case "auscultation":    return "听诊"
-    case "neuro":           return "神经系统"
-    case "musculoskeletal": return "骨骼肌肉"
-    case "bedside":         return "床旁检测"
-    default:                return ""
-  }
-}
+// ════════════════════════════════════════════════════════
+// 5. Component
+// ════════════════════════════════════════════════════════
 
-// ── ExamScene ──
-export default function ExamScene({ bus, mode }: SceneProps) {
-  const [results, setResults] = useState<Record<string, { op: OpDef; value: string; details?: string }>>({})
-  const [selected, setSelected] = useState<BodyPart | null>(null)
-  const [activeOp, setActiveOp] = useState<string | null>(null)
+export default function ExamScene({ bus }: SceneProps) {
+  const [presetIdx, setPresetIdx] = useState(0)
+  const preset = PRESETS[presetIdx]
+  const [results, setResults] = useState<Record<string, { value: string; abnormal: boolean }>>({})
+  const [selected, setSelected] = useState<string | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
 
-  const performOp = useCallback((part: BodyPart, op: OpDef) => {
-    setActiveOp(op.id)
-    const sim = SIMULATORS[op.id]
-    const { value, details } = sim ? sim() : { value: "—" }
-    setResults((prev) => ({ ...prev, [part.id + ":" + op.id]: { op, value, details } }))
+  const interact = useCallback((opId: string) => {
+    const def = NORMALS[opId]
+    if (!def) return
+    setFlash(opId)
+    const { value, abnormal } = resolve(opId, preset.overrides[opId])
+    setResults((prev) => ({ ...prev, [opId]: { value, abnormal } }))
 
-    emitSceneEvent(bus, "scene:interaction", {
-      hotspotId: part.id,
-      metadata: { op_type: op.id, body_part: part.id, value },
-    })
+    emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value } })
 
-    // Broadcast SceneState update
     const patch: Partial<SceneState> = {}
-    if (op.id === "hr")   patch.vitals = { hr: Number(value) }
-    if (op.id === "bp")   { const [s, d] = value.split("/"); patch.vitals = { bp_sys: Number(s), bp_dia: Number(d) } }
-    if (op.id === "rr")   patch.vitals = { rr: Number(value) }
-    if (op.id === "spo2") patch.vitals = { spo2: Number(value) }
-    if (op.id === "temp") patch.vitals = { temp: Number(value) }
-    if (op.id === "pain") patch.vitals = { pain: Number(value) }
-    if (op.id === "glucose") patch.vitals = { ...patch.vitals }
+    if (opId === "hr")   patch.vitals = { hr: Number(value) }
+    if (opId === "bp")   { const [s, d] = value.split("/"); patch.vitals = { bp_sys: Number(s), bp_dia: Number(d) } }
+    if (opId === "rr")   patch.vitals = { rr: Number(value) }
+    if (opId === "spo2") patch.vitals = { spo2: Number(value) }
+    if (opId === "temp") patch.vitals = { temp: Number(value) }
+    if (opId === "pain") patch.vitals = { pain: Number(value) }
     if (Object.keys(patch).length) emitSceneEvent(bus, "scene:state", patch)
 
     setSelected(null)
-    setTimeout(() => setActiveOp(null), 400)
-    if (logRef.current) logRef.current.scrollTop = 0
-  }, [bus])
-
-  const groupedOps = useCallback((ops: OpDef[]) => {
-    const groups: Record<string, OpDef[]> = {}
-    for (const op of ops) {
-      (groups[op.category] ??= []).push(op)
-    }
-    return Object.entries(groups)
-  }, [])
+    setTimeout(() => setFlash(null), 350)
+    logRef.current?.scrollTo(0, 0)
+  }, [bus, selected, preset.overrides])
 
   return (
     <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#1a1a2a" }}>
-      {/* Body diagram */}
-      <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      {/* ── Body ── */}
+      <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        {/* Preset bar */}
+        <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6, alignItems: "center", background: "#12121e", padding: "6px 12px", borderRadius: 8, border: "1px solid #333", zIndex: 5 }}>
+          <span style={{ color: "#666", fontSize: 11, fontWeight: 600 }}>病例</span>
+          <select value={presetIdx} onChange={(e) => { setPresetIdx(Number(e.target.value)); setResults({}) }}
+            style={{ padding: "3px 8px", background: "#222", color: "#e0e0e0", border: "1px solid #444", borderRadius: 4, fontSize: 12, cursor: "pointer" }}>
+            {PRESETS.map((p, i) => <option key={i} value={i}>{p.name} — {p.desc}</option>)}
+          </select>
+          {Object.keys(preset.overrides).length > 0 && (
+            <span style={{ background: "#ff704344", color: "#ff7043", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
+              {Object.keys(preset.overrides).length} 项异常
+            </span>
+          )}
+        </div>
+
+        {/* Body shape */}
         <div style={{ position: "relative", width: "55%", maxWidth: 320, aspectRatio: "0.48", background: "#222", borderRadius: "60px 60px 30px 30px", border: "2px solid #3a3a4e" }}>
-          {BODY_PARTS.map((part) => {
-            const isSelected = selected?.id === part.id
+          {PARTS.map((part) => {
+            const sel = selected === part.id
             return (
               <div key={part.id}>
-                <div onClick={() => setSelected(isSelected ? null : part)}
-                  onMouseEnter={(e) => { if (!isSelected) { (e.currentTarget as HTMLDivElement).style.borderColor = "#555"; (e.currentTarget as HTMLDivElement).style.background = "#ffffff06" }}}
-                  onMouseLeave={(e) => { if (!isSelected) { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; (e.currentTarget as HTMLDivElement).style.background = "transparent" }}}
+                <div onClick={() => setSelected(sel ? null : part.id)}
+                  onMouseEnter={(e) => { if (!sel) { (e.currentTarget as HTMLDivElement).style.borderColor = "#555"; (e.currentTarget as HTMLDivElement).style.background = "#ffffff06" } }}
+                  onMouseLeave={(e) => { if (!sel) { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; (e.currentTarget as HTMLDivElement).style.background = "transparent" } }}
                   style={{
                     position: "absolute", left: `${part.x}%`, top: `${part.y}%`,
                     width: `${part.w}%`, height: `${part.h}%`,
-                    border: isSelected ? "2px solid #4fc3f7" : "1px solid transparent",
+                    border: sel ? "2px solid #4fc3f7" : "1px solid transparent",
                     borderRadius: 8, cursor: "pointer", transition: "all 0.15s",
-                    background: isSelected ? "#4fc3f718" : "transparent",
+                    background: sel ? "#4fc3f718" : "transparent",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    color: isSelected ? "#4fc3f7" : "#444", fontSize: 10, fontWeight: 500,
-                  }}
-                >
+                    color: sel ? "#4fc3f7" : "#444", fontSize: 10, fontWeight: 500,
+                  }}>
                   {part.label}
                 </div>
 
-                {/* Op popup */}
-                {isSelected && (
+                {sel && (
                   <div style={{
                     position: "absolute", left: `${part.x + part.w / 2}%`, top: `${part.y}%`,
                     transform: "translate(-50%, -108%)", zIndex: 10,
                     background: "#1a1a2e", border: "1px solid #4fc3f7", borderRadius: 10,
-                    padding: "8px 8px 4px", boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-                    minWidth: 160, maxWidth: 220,
+                    padding: "8px 8px 4px", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", minWidth: 160,
                   }}>
-                    {groupedOps(part.ops).map(([cat, ops]) => (
+                    {groupByCat(part.ops).map(([cat, ids]) => (
                       <div key={cat} style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 9, color: "#666", marginBottom: 3, fontWeight: 600 }}>
-                          {getCategoryLabel(cat)}
-                        </div>
+                        <div style={{ fontSize: 9, color: "#666", marginBottom: 3, fontWeight: 600 }}>{CAT_LABEL[cat] ?? cat}</div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {ops.map((op) => (
-                            <button key={op.id} onClick={() => performOp(part, op)}
-                              style={{
-                                padding: "3px 8px", background: activeOp === op.id ? getCategoryColor(cat) : "#2a2a3e",
-                                border: `1px solid ${getCategoryColor(cat)}44`, borderRadius: 4,
-                                color: activeOp === op.id ? "#111" : "#ccc", cursor: "pointer",
-                                fontSize: 10, whiteSpace: "nowrap", transition: "all 0.1s",
-                              }}>
-                              {op.label}
-                            </button>
-                          ))}
+                          {ids.map((id) => {
+                            const ab = preset.overrides[id] !== undefined
+                            return (
+                              <button key={id} onClick={() => interact(id)}
+                                style={{
+                                  padding: "3px 8px",
+                                  background: flash === id ? (CAT_COLOR[cat] ?? "#888") : "#2a2a3e",
+                                  border: `1px solid ${ab ? "#ff7043" : (CAT_COLOR[cat] ?? "#888")}44`,
+                                  borderRadius: 4, cursor: "pointer", fontSize: 10, whiteSpace: "nowrap",
+                                  color: flash === id ? "#111" : ab ? "#ff7043" : "#ccc",
+                                  transition: "all 0.1s",
+                                }}>
+                                {NORMALS[id]?.label ?? id}
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
                     ))}
-                    <div style={{ textAlign: "center", fontSize: 9, color: "#555", paddingTop: 4, borderTop: "1px solid #2a2a3e", marginTop: 4 }}>
-                      点击选择检查项目
-                    </div>
                   </div>
                 )}
               </div>
             )
           })}
-          <div style={{ position: "absolute", left: "44%", top: "6%", fontSize: 18, pointerEvents: "none", opacity: 0.15 }}>🙂</div>
+          <div style={{ position: "absolute", left: "44%", top: "6%", fontSize: 18, pointerEvents: "none", opacity: 0.12 }}>🙂</div>
         </div>
       </div>
 
-      {/* Results panel */}
-      <div style={{
-        width: 280, background: "#12121e", borderLeft: "1px solid #333",
-        display: "flex", flexDirection: "column", fontFamily: "monospace", fontSize: 11,
-      }}>
-        <div style={{ padding: "10px 14px", borderBottom: "1px solid #333", color: "#888", fontWeight: 700, fontSize: 12 }}>
-          ◈ 检查记录
-        </div>
+      {/* ── Results panel ── */}
+      <div style={{ width: 280, background: "#12121e", borderLeft: "1px solid #333", display: "flex", flexDirection: "column", fontFamily: "monospace", fontSize: 11 }}>
+        <div style={{ padding: "10px 14px", borderBottom: "1px solid #333", color: "#888", fontWeight: 700, fontSize: 12 }}>◈ 检查记录</div>
         <div ref={logRef} style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
           {Object.keys(results).length === 0 && (
-            <div style={{ padding: 20, color: "#444", textAlign: "center", fontSize: 11 }}>
-              点击人体部位选择检查项目
-            </div>
+            <div style={{ padding: 20, color: "#444", textAlign: "center", fontSize: 11 }}>点击人体部位选择检查项目</div>
           )}
-          {Object.entries(results).map(([key, r]) => (
-            <div key={key} style={{ padding: "8px 14px", borderBottom: "1px solid #1a1a2a" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                <span style={{
-                  display: "inline-block", width: 6, height: 6, borderRadius: "50%",
-                  background: getCategoryColor(r.op.category),
-                }} />
-                <span style={{ color: "#999", fontSize: 10 }}>{r.op.label}</span>
-                <span style={{ color: "#555", fontSize: 9 }}>{r.op.unit}</span>
+          {Object.entries(results).map(([id, r]) => {
+            const def = NORMALS[id]
+            if (!def) return null
+            return (
+              <div key={id} style={{ padding: "8px 14px", borderBottom: "1px solid #1a1a2a", borderLeft: r.abnormal ? "2px solid #ff7043" : "2px solid transparent" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                  <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: CAT_COLOR[def.cat] ?? "#888" }} />
+                  <span style={{ color: "#999", fontSize: 10 }}>{def.label}</span>
+                  <span style={{ color: "#555", fontSize: 9 }}>{def.unit}</span>
+                  {r.abnormal && <span style={{ color: "#ff7043", fontSize: 9, marginLeft: "auto" }}>异常</span>}
+                </div>
+                <div style={{ color: r.abnormal ? "#ff7043" : "#e0e0e0", fontWeight: 600, fontSize: 12, marginLeft: 12 }}>{r.value}</div>
               </div>
-              <div style={{ color: "#e0e0e0", fontWeight: 600, fontSize: 12, marginLeft: 12 }}>
-                {r.value}
-              </div>
-              {r.details && (
-                <div style={{ color: "#666", fontSize: 10, marginLeft: 12 }}>{r.details}</div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
