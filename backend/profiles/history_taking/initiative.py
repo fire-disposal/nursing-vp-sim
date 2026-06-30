@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 from infrastructure.cache import InitiativeCache
 from infrastructure.llm.client import CallContext
+from infrastructure.prompt import render_template
+from prompts.initiative import INITIATIVE_SYSTEM, INITIATIVE_SYSTEM_SHORT
 
 log = logging.getLogger(__name__)
 
@@ -34,22 +36,19 @@ async def generate_initiative_llm(
     mood = _describe_mood(trust, comfort)
     traits = _describe_traits(personality)
 
-    common_prompt = f"病例：{case_name}。{traits}\n当前情绪状态：{mood}（信任度{trust}/100，舒适度{comfort}/100）。\n"
+    kwargs = {
+        "case_name": case_name,
+        "traits": traits,
+        "mood": mood,
+        "trust": str(trust),
+        "comfort": str(comfort),
+        "student_msg": recent_student_msg or "（护士在沉默）",
+    }
 
     try:
+        system = render_template(INITIATIVE_SYSTEM, **kwargs)
         result = await llm_client.call(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        f"你正在模拟一位护理训练中的患者。{common_prompt}"
-                        "护士刚刚说了一句话但你停顿了一会儿没回复。请以患者的身份说一句简短、自然的追问或反应（15-40字），"
-                        "可以是催促、补充信息、表达不适、转移话题或沉默的肢体语言（用[]标注）。"
-                        "只输出患者的话，不要任何解释、前缀或标签。"
-                    ),
-                },
-                {"role": "user", "content": f"护士说：{recent_student_msg or '（护士在沉默）'}"},
-            ],
+            [{"role": "system", "content": system}],
             purpose="patient_chat",
             temperature=0.9,
             max_tokens=80,
@@ -64,16 +63,9 @@ async def generate_initiative_llm(
         log.warning("LLM initiative attempt 1 failed, retrying with simpler prompt", exc_info=True)
 
     try:
+        system = render_template(INITIATIVE_SYSTEM_SHORT, **kwargs)
         result = await llm_client.call(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        f"你是一位{mood}的患者。{common_prompt}"
-                        "请用15-30字说一句自然的追问、抱怨或沉默反应（肢体语言用[]标注）。只输出患者的话。"
-                    ),
-                },
-            ],
+            [{"role": "system", "content": system}],
             purpose="patient_chat",
             temperature=0.9,
             max_tokens=60,

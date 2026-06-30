@@ -6,7 +6,6 @@
 """
 
 import logging
-import random
 
 log = logging.getLogger(__name__)
 
@@ -153,6 +152,12 @@ def _resolve_value(op_type: str, op_def: dict, anchors: dict, case_data: dict) -
 
 
 def _resolve_range(raw: str) -> str:
+    """Resolve a config value to a single display string.
+
+    - Range string ("36.5-37.2") → midpoint ("36.9")
+    - BP range ("120/80-130/85") → midpoint ("125/83")
+    - Fixed string ("36.8") → as‑is
+    """
     raw = raw.strip()
     if "-" in raw and "/" in raw:
         return _resolve_bp(raw)
@@ -160,7 +165,7 @@ def _resolve_range(raw: str) -> str:
         parts = raw.split("-", 1)
         try:
             lo, hi = float(parts[0]), float(parts[1])
-            val = random.uniform(lo, hi)
+            val = (lo + hi) / 2
             return f"{val:.1f}"
         except (ValueError, IndexError):
             pass
@@ -168,12 +173,13 @@ def _resolve_range(raw: str) -> str:
 
 
 def _resolve_bp(raw: str) -> str:
+    """BP range → deterministic midpoint."""
     try:
         left, right = raw.split("-", 1)
         s_lo, d_lo = left.split("/")
         s_hi, d_hi = right.split("/")
-        s = round(random.uniform(float(s_lo), float(s_hi)))
-        d = round(random.uniform(float(d_lo), float(d_hi)))
+        s = round((float(s_lo) + float(s_hi)) / 2)
+        d = round((float(d_lo) + float(d_hi)) / 2)
         return f"{int(s)}/{int(d)}"
     except (ValueError, IndexError):
         return raw

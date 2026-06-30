@@ -37,11 +37,11 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
   },
   "exam_anchors": {
     "vital_signs": {
-      "temperature": "36.5-37.2",
-      "heart_rate": "72-88",
-      "blood_pressure": "120/80-130/85",
-      "respiratory_rate": "16-20",
-      "spo2": "96-99"
+      "temperature": "36.8",
+      "heart_rate": "76",
+      "blood_pressure": "125/82",
+      "respiratory_rate": "18",
+      "spo2": "98"
     },
     "skin": "皮肤温暖干燥，未见皮疹"
   },
@@ -55,7 +55,7 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
 ## 字段说明
 - **personality**：四维度控制患者 AI 的角色扮演行为。health_literacy（low/normal/high）、verbosity（terse/normal/verbose）、anxiety_trait（calm/normal/anxious）、patience（low/normal/high）
 - **deep_background**：患者不便主动告知但影响诊疗的深层背景。3-6 条，每条一句话
-- **exam_anchors**：护理查体时的预期发现。vital_signs 使用范围格式（如 "138/86-146/92"），可含 skin 等附加描述
+- **exam_anchors**：护理查体时的预期发现。使用固定值（如 `"temperature": "36.8"`），系统会在显示时做微小随机偏移
 - **example_dialogues**：2-3 组护患典型问答，口语化，体现个性
 - **supported_plugins**：推荐启用的训练插件（emotion / physical_exam / patient_initiative / questionnaire）"""
 

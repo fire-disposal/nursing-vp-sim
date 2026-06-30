@@ -85,16 +85,20 @@ SCORING_FEEDBACK_USER = """请根据以下对话内容，生成 strengths、weak
 仔细分析对话：学生哪些提问专业到位（strengths），哪些方面存在不足（weaknesses），对照必须采集清单找出遗漏（missed_content），最后给出个性化建议（suggestions）。只输出 JSON。"""
 
 
-# ── 重试提示（内联模板，使用 Python .format() 注入上轮结果）──
+# ── 重试提示（标准 {#...#} 语法）──
 
-SCORING_RETRY_USER = (
-    "你上一次的输出存在以下问题：\n{validation_errors}\n\n"
-    "你上一次的输出：\n```json\n{partial_json}\n```\n\n"
-    "请重新输出完整的 JSON，确保每条目的 id、name、score(1-3)、evidence(≥10字)、reason(≥5字) 都完备。"
-)
+SCORING_RETRY_USER = """你上一次的输出存在以下问题：
+{#validation_errors#}
 
-FEEDBACK_RETRY_USER = (
-    "你上一次的输出中，以下反馈字段为空：{missing}。\n\n"
-    "请补全以上缺失字段。补充时必须引用对话中的具体行为。\n\n"
-    "只输出缺失字段的 JSON（不需要重新输出已有的正确字段）。"
-)
+你上一次的输出：
+```json
+{#partial_json#}
+```
+
+请重新输出完整的 JSON，确保每条目的 id、name、score(1-3)、evidence(≥10字)、reason(≥5字) 都完备。"""
+
+FEEDBACK_RETRY_USER = """你上一次的输出中，以下反馈字段为空：{#missing#}。
+
+请补全以上缺失字段。补充时必须引用对话中的具体行为。
+
+只输出缺失字段的 JSON（不需要重新输出已有的正确字段）。"""
