@@ -1,5 +1,5 @@
 import { ClipboardList, FileText, MessageCircle, Stethoscope, StickyNote, User } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import LoadingState from "@/components/ui/loading-state";
 import type { TabDef } from "../components/TabStack";
 import TabStack from "../components/TabStack";
@@ -63,8 +63,22 @@ export default function HistoryTakingScene({
 		},
 	];
 
+	useEffect(() => {
+		const handler = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+		};
+		window.addEventListener("beforeunload", handler);
+		return () => window.removeEventListener("beforeunload", handler);
+	}, []);
+
 	return (
-		<div className="flex h-screen">
+		<div
+			className="flex h-screen"
+			style={{
+				paddingTop: "env(safe-area-inset-top)",
+				paddingBottom: "env(safe-area-inset-bottom)",
+			}}
+		>
 			<div className="flex-1 min-w-0">
 				<Suspense fallback={<LoadingState className="h-screen" />}>
 					<TrainingEngine recordId={recordId} />

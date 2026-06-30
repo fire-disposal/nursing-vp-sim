@@ -19,8 +19,17 @@ export default function TabStack({ tabs, side = "right" }: Props) {
 
 	return (
 		<div className="relative h-full flex">
+			{/* Mobile backdrop */}
+			{activeTab && (
+				<div
+					className="fixed inset-0 z-40 bg-black/30 md:hidden"
+					onClick={() => setActive(null)}
+					role="presentation"
+				/>
+			)}
+
 			<div
-				className={`flex flex-col gap-1 py-4 px-1.5 bg-muted/30 border-${side === "right" ? "l" : "r"} ${side === "right" ? "order-last" : ""}`}
+				className={`z-10 flex flex-col gap-1 py-4 px-1.5 bg-muted/30 border-${side === "right" ? "l" : "r"} ${side === "right" ? "order-last" : ""}`}
 			>
 				{tabs.map((tab) => (
 					<button
@@ -45,9 +54,14 @@ export default function TabStack({ tabs, side = "right" }: Props) {
 			</div>
 
 			{activeTab && (
-				<div className={`w-80 overflow-y-auto border-${side === "right" ? "l" : "r"} bg-background`}>
-					<div className="p-4">{activeTab.panel}</div>
-				</div>
+				<>
+					{/* Mobile overlay panel */}
+					<div
+						className="fixed inset-y-0 right-0 z-50 w-80 overflow-y-auto border-l bg-background shadow-e2 transition-transform duration-300 md:static md:z-auto md:shadow-none md:transition-none md:border-l"
+					>
+						<div className="p-4">{activeTab.panel}</div>
+					</div>
+				</>
 			)}
 		</div>
 	);
