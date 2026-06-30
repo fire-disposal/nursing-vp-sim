@@ -4,8 +4,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ValidationError as PydanticValidationError
 
+from contexts.case_generation.service import generate_case as _generate_case
 from core.deps import CurrentUser, DbSession
-from core.exceptions import NotFoundError, ValidationError
 from core.security import require_permission
 from models import Case, User
 from profiles.registry import get_profile
@@ -25,13 +25,7 @@ from services.case import CaseManageView, CaseService
 
 log = logging.getLogger(__name__)
 
-from core.case_schema import validate_case_data
-from core.llm_profile import get_llm_config
 from infrastructure.exporter import ColumnDef, export_response
-from infrastructure.llm.client import CallContext
-from infrastructure.prompt import render_template
-from profiles.history_taking.builder import format_case_for_prompt
-from prompts import CASE_GENERATION_SYSTEM
 
 router = APIRouter(prefix="/api/cases", tags=["病例"])
 
@@ -119,7 +113,7 @@ def list_cases_manage(
     )
 
 
-# ── LLM 病例生成 (non-CRUD, kept inline) ──
+# ── LLM 病例生成（委托至 contexts/case_generation/service.py）──
 
 
 @router.post("/generate", response_model=CaseGenerateResponse)
@@ -129,71 +123,7 @@ async def generate_case(
     current_user: _CaseManager,
     db: DbSession,
 ):
-    if not data.description.strip():
-        raise ValidationError(detail="描述不能为空")
-
-    reference_material = ""
-    if data.mode == "reference":
-        parts = []
-        if data.reference_case_ids:
-            ref_cases = db.query(Case).filter(Case.id.in_(data.reference_case_ids)).all()
-            found_ids = {c.id for c in ref_cases}
-            missing = [cid for cid in data.reference_case_ids if cid not in found_ids]
-            if missing:
-                raise NotFoundError(detail=f"参考病例不存在: {missing}")
-            for c in ref_cases:
-                parts.append(f"--- 参考病例: {c.name} ---\n{format_case_for_prompt(c.case_data)}")
-        if data.reference_text:
-            parts.append(f"--- 补充参考资料 ---\n{data.reference_text}")
-        reference_material = "\n\n".join(parts)
-
-    field_instruction = ""
-    if data.field:
-        field_instruction = f"\n\n当前任务：只生成字段「{data.field}」。"
-        if data.current_case_data:
-            field_instruction += f"\n\n当前病例上下文：\n{format_case_for_prompt(data.current_case_data)}"
-
-    _TRAINING_TYPE_LABELS: dict[str, str] = {
-        "history_taking": "护理病史采集",
-        "physical_exam": "护理查体",
-        "nursing_operation": "护理操作",
-    }
-    training_type_label = _TRAINING_TYPE_LABELS.get(data.training_type, data.training_type)
-
-    system_content = render_template(
-        CASE_GENERATION_SYSTEM,
-        training_type_label=training_type_label,
-        description=data.description or "生成一个护理病史采集训练病例",
-        reference_material=reference_material or "无",
-        field_instruction=field_instruction or "",
-    )
-
-    messages = [{"role": "system", "content": system_content}]
-
-    try:
-        result = await request.app.state.llm_client.call_json(
-            messages,
-            purpose="case_generation",
-            ctx=CallContext(
-                purpose="case_generation",
-                user_id=current_user.id,
-                log_meta={"description": data.description[:200] if data.description else None},
-            ),
-            **get_llm_config("case_generation"),
-        )
-    except Exception as e:
-        log.exception("case_generation LLM call failed")
-        raise HTTPException(status_code=500, detail=f"AI 生成失败: {e!s}")
-
-    if data.field:
-        field_value = result.get("field_value") or result.get(data.field)
-        return CaseGenerateResponse(field_value=field_value, field=data.field)
-
-    try:
-        result = validate_case_data(data.training_type, result, strict=True)
-    except PydanticValidationError as e:
-        raise HTTPException(status_code=422, detail=e.errors(include_url=False))
-    return CaseGenerateResponse(case_data=result)
+    return await _generate_case(data, db, current_user, request.app.state.llm_client)
 
 
 # ── 子路由: 病例关联练习 (delegated to service) ──

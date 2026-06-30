@@ -1,6 +1,5 @@
 """专用提示词文件 —— 每个功能一个独立文件，便于版本管理和测试"""
 
-from prompts.case_generation import CASE_GENERATION_SYSTEM
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 from prompts.qa import QA_SYSTEM
 from prompts.scoring import (
@@ -13,7 +12,6 @@ from prompts.scoring import (
 )
 
 __all__ = [
-    "CASE_GENERATION_SYSTEM",
     "FEEDBACK_RETRY_USER",
     "PATIENT_DYNAMIC_TEMPLATE",
     "QA_SYSTEM",
