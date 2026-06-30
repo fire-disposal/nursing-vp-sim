@@ -443,7 +443,7 @@ export default function QA() {
 						title={ragEnabled ? "关闭教材参考" : "开启教材参考"}
 					>
 						<BookOpen size={12} />
-						{ragEnabled ? "教材" : "教材"}
+						{ragEnabled ? "教材参考" : "基础回答"}
 					</button>
 					<input
 							ref={inputRef}

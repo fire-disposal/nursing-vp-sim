@@ -215,38 +215,37 @@ export default function History() {
 								</TableHeader>
 								<TableBody>
 									{records.map((r) => {
-										const re = r as Record<string, unknown> & typeof r;
-										const durMins = re.end_time
+										const durMins = r.end_time
 											? Math.round(
-													(new Date(re.end_time as string).getTime() -
-														new Date(re.start_time as string).getTime()) /
+													(new Date(r.end_time).getTime() -
+														new Date(r.start_time).getTime()) /
 														60000,
 												)
 											: null;
 										return (
-											<TableRow key={re.id as number}>
+											<TableRow key={r.id}>
 												{user?.role === "teacher" && (
 													<TableCell>
-														{String(re.user_display_name ?? "")}
+														{r.user_display_name}
 													</TableCell>
 												)}
 												{user?.role === "teacher" && (
 													<TableCell className="text-muted-foreground">
-														{String(re.user_student_id ?? "")}
+														{r.user_student_id ?? ""}
 													</TableCell>
 												)}
 												<TableCell className="font-medium">
-													{String(re.case_name ?? "")}
+													{r.case_name}
 												</TableCell>
 												<TableCell>
-													{re.training_type === "triage" ? (
+													{r.training_type === "triage" ? (
 														<Badge variant="info">分诊</Badge>
 													) : (
 														<Badge variant="secondary">问诊</Badge>
 													)}
 												</TableCell>
 												<TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
-													{new Date(re.start_time as string).toLocaleString(
+													{new Date(r.start_time).toLocaleString(
 														"zh-CN",
 													)}
 												</TableCell>

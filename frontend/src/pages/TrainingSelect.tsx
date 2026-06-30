@@ -9,12 +9,13 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, getProfiles, startTraining } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import TrainingConfigModal from "@/components/training/TrainingConfigModal";
+import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
@@ -79,7 +80,7 @@ export default function TrainingSelect() {
   const toast = useToast();
 
   const { data: profiles = [] } = useQuery({
-    queryKey: ["profiles"],
+    queryKey: queryKeys.profiles.all,
     queryFn: getProfiles,
     staleTime: 30 * 60_000,
   });
@@ -89,12 +90,13 @@ export default function TrainingSelect() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["cases", selectedType, offset],
+    queryKey: queryKeys.cases.list({ type: selectedType, difficulty: difficultyFilter, offset }),
     queryFn: () =>
       getCases({
         offset,
         limit: LIMIT,
         ...(selectedType ? { training_type: selectedType } : {}),
+        ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}),
       }).then((r) => r.data),
     staleTime: 5 * 60_000,
   });
@@ -115,21 +117,6 @@ export default function TrainingSelect() {
 
   const cases = casesData?.items ?? [];
   const total = casesData?.total ?? 0;
-  const filteredCases =
-    difficultyFilter === 0
-      ? cases
-      : cases.filter((c) => (c.difficulty || 1) === difficultyFilter);
-
-  const typeCounts = useMemo(() => {
-    if (!casesData) return {} as Record<string, number>;
-    return (casesData.items ?? []).reduce(
-      (acc, c) => {
-        acc[c.training_type] = (acc[c.training_type] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-  }, [casesData]);
 
   const handleTypeSelect = (type: string) => {
     if (selectedType === type) return;
@@ -200,7 +187,7 @@ export default function TrainingSelect() {
               const Icon = TYPE_ICONS[p.icon] || Stethoscope;
               const cfg = TRAINING_TYPE_CONFIGS[p.type];
               const isSelected = selectedType === p.type;
-              const count = typeCounts[p.type] ?? 0;
+              const count = (p as any).case_count ?? 0;
               return (
                 <button
                   key={p.type}
@@ -324,13 +311,13 @@ export default function TrainingSelect() {
               description="选择后即可浏览对应的虚拟患者病例"
             />
           </div>
-        ) : filteredCases.length === 0 ? (
+        ) : cases.length === 0 ? (
           <div className="rounded-xl border bg-card">
             <EmptyState icon={AlertTriangle} title="暂无病例" />
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredCases.map((c) => {
+            {cases.map((c) => {
               const summary = getPatientSummary(c.patient_summary);
               const isStarting =
                 startMutation.isPending && selectedCase?.id === c.id;
