@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from contexts.training.pipeline.prompt_context import PromptContext
 from core.exceptions import LLMParseError
 from core.llm_profile import get_llm_config
 from infrastructure.llm import _safe_parse_json
@@ -394,43 +395,44 @@ async def evaluate_training(
         from profiles.triage.builder import build_context_kwargs
 
         profile = get_profile("triage")
-        kwargs = build_context_kwargs(case_data)
-        kwargs["student_actions"] = student_actions_text
+        pc = PromptContext()
+        pc.register("case", build_context_kwargs(case_data))
+        pc.register("actions", {"student_actions": student_actions_text})
+        prompt_kw = pc.as_dict()
 
-        score_system = render_template(str(profile.prompts.scoring), **kwargs)
-        score_user = render_template(str(profile.prompts.scoring_user), **kwargs)
+        score_system = render_template(str(profile.prompts.scoring), **prompt_kw)
+        score_user = render_template(str(profile.prompts.scoring_user), **prompt_kw)
     else:
-        score_system = render_template(
-            SCORING_SYSTEM,
-            scoring_criteria=scoring_criteria_text,
-            required_inquiries=required_inquiries_text,
-            scoring_json_schema=scoring_json_schema_text,
-            conversation_text=conversation_text,
+        pc = PromptContext()
+        pc.register(
+            "scoring",
+            {
+                "scoring_criteria": scoring_criteria_text,
+                "required_inquiries": required_inquiries_text,
+                "scoring_json_schema": scoring_json_schema_text,
+                "conversation_text": conversation_text,
+            },
         )
-        score_user = render_template(
-            SCORING_USER,
-            scoring_criteria=scoring_criteria_text,
-            required_inquiries=required_inquiries_text,
-            scoring_json_schema=scoring_json_schema_text,
-            conversation_text=conversation_text,
-        )
+        prompt_kw = pc.as_dict()
+        score_system = render_template(SCORING_SYSTEM, **prompt_kw)
+        score_user = render_template(SCORING_USER, **prompt_kw)
     score_messages = [
         {"role": "system", "content": score_system},
         {"role": "user", "content": score_user},
     ]
 
-    feedback_system = render_template(
-        SCORING_FEEDBACK_SYSTEM,
-        scoring_criteria=scoring_criteria_text_brief,
-        required_inquiries=required_inquiries_text,
-        conversation_text=conversation_text,
+    fb_ctx = PromptContext()
+    fb_ctx.register(
+        "feedback",
+        {
+            "scoring_criteria": scoring_criteria_text_brief,
+            "required_inquiries": required_inquiries_text,
+            "conversation_text": conversation_text,
+        },
     )
-    feedback_user = render_template(
-        SCORING_FEEDBACK_USER,
-        scoring_criteria=scoring_criteria_text_brief,
-        required_inquiries=required_inquiries_text,
-        conversation_text=conversation_text,
-    )
+    fb_kw = fb_ctx.as_dict()
+    feedback_system = render_template(SCORING_FEEDBACK_SYSTEM, **fb_kw)
+    feedback_user = render_template(SCORING_FEEDBACK_USER, **fb_kw)
     feedback_messages = [
         {"role": "system", "content": feedback_system},
         {"role": "user", "content": feedback_user},

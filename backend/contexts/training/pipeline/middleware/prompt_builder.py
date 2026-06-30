@@ -1,16 +1,41 @@
-"""prompt_builder — assemble LLM messages array from context."""
+"""prompt_builder — assemble LLM messages array from context.
+
+Each data source is registered into a ``PromptContext`` so the assembly
+is explicit, debuggable, and extensible without touching the flat
+``kwargs`` dict.
+"""
+
+from __future__ import annotations
 
 import importlib
 import logging
 
 from contexts.patient import build_patient_chat_messages
+from contexts.training.scene.state import (
+    SceneState,
+    format_scene_for_prompt,
+)
 from infrastructure.prompt import render_template
 from profiles.registry import get_profile
 from prompts.patient_dynamic import PATIENT_DYNAMIC_TEMPLATE
 
 from ..context import STATE_PATIENT_CONTEXT_KWARGS, PipelineContext
+from ..prompt_context import PromptContext
 
 log = logging.getLogger(__name__)
+
+
+def _resolve_scene_text(ctx: PipelineContext) -> str | None:
+    """Read ``runtime_state.scene`` and format for prompt injection."""
+    raw = (ctx.record.runtime_state or {}).get("scene", {}) if ctx.record else None
+    if not raw:
+        return None
+    try:
+        state = SceneState.model_validate(raw)
+    except Exception:
+        log.warning("Invalid scene state in runtime_state", exc_info=True)
+        return None
+    return format_scene_for_prompt(state)
 
 
 async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
@@ -25,21 +50,26 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     training_type = getattr(ctx.record, "training_type", None) or "history_taking"
     profile = get_profile(training_type)
 
-    # 病例静态数据缓存 — 性格/背景/示例对话整个会话不变，仅 author_note 每轮更新
+    # Case-data kwargs — cached across turns (personality, background, …)
     cached = ctx.state.get(STATE_PATIENT_CONTEXT_KWARGS)
     if cached is None:
         builder_mod = importlib.import_module(f"profiles.{training_type}.builder")
         cached = builder_mod.build_context_kwargs(ctx.case_data)
         ctx.state[STATE_PATIENT_CONTEXT_KWARGS] = cached
-    kwargs = {**cached, "author_note": author_note if author_note.strip() else ""}
 
-    # 使用 profile 定义的 prompt 模板，全局常量作为兜底
-    system_template = profile.prompts.system or PATIENT_DYNAMIC_TEMPLATE  # fallback handled
+    # Assemble all sources into a PromptContext
+    prompt_ctx = PromptContext()
+    prompt_ctx.register("case", cached)
+    prompt_ctx.register("author", {"author_note": author_note if author_note.strip() else ""})
+    prompt_ctx.register("scene", {"scene_state": _resolve_scene_text(ctx)})
+
+    # Profile prompt templates (global constant as fallback)
+    system_template = profile.prompts.system or PATIENT_DYNAMIC_TEMPLATE
     dynamic_template = profile.prompts.dynamic or PATIENT_DYNAMIC_TEMPLATE
 
-    system_prompt = render_template(str(system_template), **kwargs)
+    system_prompt = render_template(str(system_template), **prompt_ctx.as_dict())
     try:
-        dynamic_prompt = render_template(str(dynamic_template), **kwargs)
+        dynamic_prompt = render_template(str(dynamic_template), **prompt_ctx.as_dict())
     except Exception:
         log.warning("Dynamic prompt render failed, using system prompt as fallback", exc_info=True)
         dynamic_prompt = system_prompt
