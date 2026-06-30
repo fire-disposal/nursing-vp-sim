@@ -3,6 +3,8 @@ import { Canvas, useFrame } from "@react-three/fiber"
 import { ContactShadows, Float, Html, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import type { SceneProps } from "../scene-types"
+import { R3FErrorBoundary } from "../components/R3FErrorBoundary"
+import { SceneTools } from "../components/SceneTools"
 import { RoomWalls } from "../components/AutoHideWall"
 import { Interactive3D } from "../components/Interactive3D"
 import { GRID, gridToWorld } from "../components/GridConfig"
@@ -267,6 +269,7 @@ function CompletionOverlay({ onReset }: { onReset: () => void }) {
 
 // ── Exported component ──
 export default function Demo3D(_props: SceneProps) {
+  const orbitRef = useRef<any>(null)
   const [step, setStep] = useState(0)
   const [done, setDone] = useState(false)
   const [key, setKey] = useState(0)
@@ -290,21 +293,24 @@ export default function Demo3D(_props: SceneProps) {
   return (
     <StepCtx.Provider value={{ step, done, interact }}>
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        <Canvas
-          key={key}
-          orthographic
-          camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
-          shadows
-          style={{ width: "100%", height: "100%", background: C.wall }}
-          onCreated={({ gl }) => { gl.setClearColor(C.wall) }}
-        >
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[4,7,5]} intensity={0.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-bias={-0.001} />
-          <directionalLight position={[-2,3,1]} intensity={0.25} />
-          <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
-          <Scene3D />
-          <OrbitControls enableRotate={false} enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minZoom={20} maxZoom={120} target={[0,0.4,0]} />
-        </Canvas>
+        <R3FErrorBoundary>
+          <Canvas
+            key={key}
+            orthographic
+            camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
+            shadows
+            style={{ width: "100%", height: "100%", background: C.wall }}
+            onCreated={({ gl }) => { gl.setClearColor(C.wall) }}
+          >
+            <ambientLight intensity={0.5} />
+            <directionalLight position={[4,7,5]} intensity={0.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-bias={-0.001} />
+            <directionalLight position={[-2,3,1]} intensity={0.25} />
+            <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
+            <Scene3D />
+            <OrbitControls ref={orbitRef} enableRotate={false} enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minZoom={20} maxZoom={120} target={[0,0.4,0]} />
+            <SceneTools controlsRef={orbitRef} />
+          </Canvas>
+        </R3FErrorBoundary>
         {!done && <StepGuide step={step} done={done} />}
         {done && <CompletionOverlay onReset={reset} />}
       </div>
