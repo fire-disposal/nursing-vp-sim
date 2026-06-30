@@ -8,21 +8,22 @@ import {
 	getStats,
 } from "@/api/api-client";
 import { queryKeys } from "@/api/query-keys";
+import StudentDashboard from "@/components/dashboard/StudentDashboard";
+import TeacherDashboard from "@/components/dashboard/TeacherDashboard";
 import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 import type { RecordExtended } from "@/types/record";
-import StudentDashboard from "@/components/dashboard/StudentDashboard";
-import TeacherDashboard from "@/components/dashboard/TeacherDashboard";
 
 export default function DashboardHome() {
 	const navigate = useNavigate();
 	const toast = useToast();
 
 	const perms = useAuthStore((s) => s.permissions);
-	const isAdmin =
-		perms.includes("score_review") || perms.includes("user_manage");
+	const isAdmin = perms.some(
+		(p) => p !== "training_access" && p !== "qa_access",
+	);
 
 	const { data: casesData, isLoading: casesLoading } = useQuery({
 		queryKey: queryKeys.cases.student(),

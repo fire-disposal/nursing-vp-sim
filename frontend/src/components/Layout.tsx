@@ -20,7 +20,7 @@
 	Users,
 	X,
 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
@@ -30,7 +30,6 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { useScoringNotifications } from "@/hooks/useScoringNotifications";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
@@ -52,8 +51,8 @@ const allLinks: NavLinkItem[] = [
 		permission: "training_access",
 	},
 	{ to: "/history", icon: ClipboardList, label: "训练记录" },
-	{ to: "/qa", icon: HelpCircle, label: "护理问答" },
-	{ to: "/stats", icon: BarChart3, label: "训练统计" },
+	{ to: "/qa", icon: HelpCircle, label: "护理问答", permission: "qa_access" },
+	{ to: "/stats", icon: BarChart3, label: "训练统计", permission: "stats_view" },
 	{ to: "/my-responses", icon: ClipboardCheck, label: "我的问卷" },
 	{
 		to: "/admin/users",
@@ -89,7 +88,7 @@ const allLinks: NavLinkItem[] = [
 		to: "/admin/assignments",
 		icon: ClipboardCheck,
 		label: "练习发布",
-		permission: "score_review",
+		permission: "assignment_manage",
 	},
 	{
 		to: "/admin",
@@ -141,11 +140,13 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const user = useAuthStore((s) => s.user);
 	const permissions = useAuthStore((s) => s.permissions);
 	const logout = useAuthStore((s) => s.logout);
+	const permKey = permissions.join(",");
 	const links = useMemo(() => {
 		return allLinks.filter(
 			(link) => !link.permission || permissions.includes(link.permission),
 		);
-	}, [permissions]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [permKey]);
 	const userLinks = links.filter((l) => !l.to.startsWith("/admin"));
 	const adminLinks = links.filter((l) => l.to.startsWith("/admin"));
 	const [mobileOpen, setMobileOpen] = useState(false);
@@ -155,11 +156,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const isQAPage = location.pathname.startsWith("/qa");
 	const isFullPage = isTrainingPage || isQAPage;
 	const isOnline = useNetworkStatus();
-	useScoringNotifications();
 
 	const userAvatar = getUserAvatar(user?.gender);
-
-	const close = () => setMobileOpen(false);
+	const close = useCallback(() => setMobileOpen(false), []);
 
 	const handleLogout = () => {
 		logout();
@@ -194,56 +193,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 				</div>
 
 				<nav className="flex-1 overflow-y-auto px-2 py-2">
-					{userLinks.map((link) => {
-						const Icon = link.icon;
-						return (
-							<NavLink
-								key={link.to}
-								to={link.to}
-								end={link.to === "/home"}
-								onClick={close}
-								className={({ isActive }) =>
-									cn(
-										"mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
-										isActive && "bg-primary/10 text-primary",
-									)
-								}
-							>
-								<Icon size={17} />
-								{link.label}
-							</NavLink>
-						);
-					})}
-					{adminLinks.length > 0 && (
-						<>
-							<Separator className="my-2" />
-							<div className="px-3 py-1">
-								<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-									管理
-								</p>
-							</div>
-							{adminLinks.map((link) => {
-								const Icon = link.icon;
-								return (
-									<NavLink
-										key={link.to}
-										to={link.to}
-										end={link.to === "/admin"}
-										onClick={close}
-										className={({ isActive }) =>
-											cn(
-												"mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
-												isActive && "bg-primary/10 text-primary",
-											)
-										}
-									>
-										<Icon size={17} />
-										{link.label}
-									</NavLink>
-								);
-							})}
-						</>
-					)}
+					<SidebarNav userLinks={userLinks} adminLinks={adminLinks} close={close} />
 				</nav>
 
 				<Separator />
@@ -364,3 +314,68 @@ export default function Layout({ children }: { children: ReactNode }) {
 		</div>
 	);
 }
+
+const SidebarNav = memo(function SidebarNav({
+	userLinks,
+	adminLinks,
+	close,
+}: {
+	userLinks: NavLinkItem[];
+	adminLinks: NavLinkItem[];
+	close: () => void;
+}) {
+	return (
+		<>
+			{userLinks.map((link) => {
+				const Icon = link.icon;
+				return (
+					<NavLink
+						key={link.to}
+						to={link.to}
+						end={link.to === "/home"}
+						onClick={close}
+						className={({ isActive }) =>
+							cn(
+								"mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
+								isActive && "bg-primary/10 text-primary",
+							)
+						}
+					>
+						<Icon size={17} />
+						{link.label}
+					</NavLink>
+				);
+			})}
+			{adminLinks.length > 0 && (
+				<>
+					<Separator className="my-2" />
+					<div className="px-3 py-1">
+						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+							管理
+						</p>
+					</div>
+					{adminLinks.map((link) => {
+						const Icon = link.icon;
+						return (
+							<NavLink
+								key={link.to}
+								to={link.to}
+								end={link.to === "/admin"}
+								onClick={close}
+								className={({ isActive }) =>
+									cn(
+										"mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
+										isActive && "bg-primary/10 text-primary",
+									)
+								}
+							>
+								<Icon size={17} />
+								{link.label}
+							</NavLink>
+						);
+					})}
+				</>
+			)}
+		</>
+	);
+});

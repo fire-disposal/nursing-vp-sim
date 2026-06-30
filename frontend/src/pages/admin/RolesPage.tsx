@@ -44,7 +44,7 @@ const ALL_PERMISSIONS = [
 	{ key: "qa_access", label: "护理问答" },
 	{ key: "llm_monitor", label: "LLM 监控" },
 	{ key: "api_manage", label: "API 管理" },
-	{ key: "prompt_manage", label: "Prompt 管理" },
+	{ key: "assignment_manage", label: "练习发布" },
 	{ key: "feedback_review", label: "反馈管理" },
 	{ key: "export_data", label: "数据导出" },
 	{ key: "record_notes", label: "训练批注" },

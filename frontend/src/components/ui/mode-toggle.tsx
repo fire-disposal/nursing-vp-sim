@@ -1,4 +1,4 @@
-import { Moon, Monitor, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
 

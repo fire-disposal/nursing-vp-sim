@@ -16,6 +16,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
 import { onForceLogout } from "@/events";
+import { useScoringNotifications } from "@/hooks/useScoringNotifications";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -62,6 +63,11 @@ function ForceLogoutListener() {
 	return null;
 }
 
+function ScoringNotificationsSubscriber() {
+	useScoringNotifications();
+	return null;
+}
+
 function PageLoader() {
 	return (
 		<div className="flex h-screen flex-col items-center justify-center gap-3">
@@ -76,6 +82,7 @@ export default function App() {
 			<BrowserRouter>
 				<QueryClientProvider client={queryClient}>
 					<ForceLogoutListener />
+					<ScoringNotificationsSubscriber />
 					<Toaster />
 					<ConfirmProvider>
 						<FeedbackProvider>
@@ -94,12 +101,28 @@ export default function App() {
 											>
 												<Route index element={<Navigate to="/home" replace />} />
 												<Route path="/home" element={<DashboardHome />} />
-												<Route path="/training" element={<TrainingSelect />} />
-												<Route path="/training/:recordId" element={<TrainingEntry />} />
+												<Route path="/training" element={
+													<PermissionGuard permission="training_access">
+														<TrainingSelect />
+													</PermissionGuard>
+												} />
+												<Route path="/training/:recordId" element={
+													<PermissionGuard permission="training_access">
+														<TrainingEntry />
+													</PermissionGuard>
+												} />
 												<Route path="/history" element={<History />} />
 												<Route path="/record/:id" element={<RecordDetail />} />
-												<Route path="/qa" element={<QA />} />
-												<Route path="/stats" element={<StatsPage />} />
+												<Route path="/qa" element={
+													<PermissionGuard permission="qa_access">
+														<QA />
+													</PermissionGuard>
+												} />
+												<Route path="/stats" element={
+													<PermissionGuard permission="stats_view">
+														<StatsPage />
+													</PermissionGuard>
+												} />
 												<Route path="/my-responses" element={<MyResponses />} />
 												<Route path="/profile" element={<Profile />} />
 												<Route
@@ -203,7 +226,7 @@ export default function App() {
 												<Route
 													path="/admin/assignments"
 													element={
-													<PermissionGuard permission="score_review">
+													<PermissionGuard permission="assignment_manage">
 														<AssignmentsPage />
 													</PermissionGuard>
 												}
@@ -211,7 +234,7 @@ export default function App() {
 												<Route
 													path="/admin/assignments/:id"
 													element={
-													<PermissionGuard permission="score_review">
+													<PermissionGuard permission="assignment_manage">
 														<AssignmentDetailPage />
 													</PermissionGuard>
 												}
