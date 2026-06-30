@@ -5,7 +5,8 @@ import logging
 log = logging.getLogger(__name__)
 
 from infrastructure.prompt import render_template
-from prompts.patient_chat import AUTHOR_NOTE_TEMPLATE
+
+AUTHOR_NOTE_TEMPLATE = """{#author_note#}"""
 
 
 def build_patient_chat_messages(
