@@ -2,12 +2,7 @@ from .client import CallContext, LLMClient
 from .crypto_utils import decrypt_api_key, encrypt_api_key
 from .logging import LogWorker
 from .parsing import _safe_parse_json
-from .router import (
-    ProfileRouter,
-    _SyntheticConfig,
-    get_env_fallback_state,
-    set_env_fallback_state,
-)
+from .router import ProfileRouter, _SyntheticConfig, get_env_fallback_state
 
 __all__ = [
     "CallContext",
@@ -19,5 +14,4 @@ __all__ = [
     "decrypt_api_key",
     "encrypt_api_key",
     "get_env_fallback_state",
-    "set_env_fallback_state",
 ]

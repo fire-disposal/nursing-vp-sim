@@ -23,14 +23,6 @@ _env_fallback_stats = {"call_count": 0, "total_tokens": 0, "total_cost": 0.0}
 _env_fallback_lock = asyncio.Lock()
 
 
-async def set_env_fallback_state(available: bool, latency_ms: int | None = None, error: str | None = None):
-    async with _env_fallback_lock:
-        global _env_fallback_available, _env_fallback_latency_ms, _env_fallback_error
-        _env_fallback_available = available
-        _env_fallback_latency_ms = latency_ms
-        _env_fallback_error = error
-
-
 async def _update_synthetic_stats(success: bool, prompt_tokens: int, completion_tokens: int):
     if success:
         total = prompt_tokens + completion_tokens
