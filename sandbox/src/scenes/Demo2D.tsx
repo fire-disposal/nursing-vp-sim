@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react"
 import type { HotspotDef } from "../components/Hotspot"
 import { Hotspot } from "../components/Hotspot"
 import { InteractionLog, type LogEntry } from "../components/InteractionLog"
-import type { SceneProps, SceneState } from "../scene-types"
+import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
 
 const HOTSPOTS: HotspotDef[] = [
   { id: "bed",     label: "病床",   x: 12, y: 30, w: 40, h: 38, color: "#5b7db5" },
@@ -37,14 +37,14 @@ export default function Demo2D({ bus, mode }: SceneProps) {
 
     const entry: LogEntry = { ts: fmtTime(), text: `点击: ${HOTSPOTS.find((h) => h.id === id)?.label ?? id}` }
     setLog((p) => [entry, ...p].slice(0, 20))
-    bus.emit("scene:interaction", { hotspotId: id })
+    emitSceneEvent(bus, "scene:interaction", { hotspotId: id })
 
     const s = STEPS.findIndex((x) => x.hotspot === id)
     if (s === step && s < STEPS.length) {
       setStep((p) => Math.min(p + 1, STEPS.length))
       setLog((p) => [{ ts: "", text: `步骤 ${s + 1}: ${STEPS[s].label}`, done: true }, ...p].slice(0, 20))
       stateRef.current = { ...stateRef.current, ...STEPS[s].state }
-      bus.emit("scene:state", stateRef.current)
+      emitSceneEvent(bus, "scene:state", stateRef.current)
     }
   }, [step, bus])
 

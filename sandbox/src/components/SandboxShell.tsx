@@ -4,13 +4,13 @@ import type { MessageBus } from "../mock/bus"
 import { SANDBOX_SCENES } from "../registry"
 import type { SceneProps } from "../scene-types"
 import { DebugPanel } from "./DebugPanel"
-import { StateViewer } from "./StateViewer"
+import { SceneStateEditor } from "./SceneStateEditor"
 
 export function SandboxShell({ initialScene }: { initialScene?: string }) {
   const [bus] = useState(() => createMockBus())
   const [sceneId, setSceneId] = useState(initialScene ?? SANDBOX_SCENES[0]?.id ?? "")
   const [showDebug, setShowDebug] = useState(true)
-  const [showState, setShowState] = useState(true)
+  const [showStateEditor, setShowStateEditor] = useState(true)
 
   const scene = SANDBOX_SCENES.find((s) => s.id === sceneId)
 
@@ -35,7 +35,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
         </select>
         <div style={{ flex: 1 }} />
         <label style={{ display: "flex", alignItems: "center", gap: 4, color: "#888", cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={showState} onChange={(e) => setShowState(e.target.checked)} />
+          <input type="checkbox" checked={showStateEditor} onChange={(e) => setShowStateEditor(e.target.checked)} />
           State
         </label>
         <label style={{ display: "flex", alignItems: "center", gap: 4, color: "#888", cursor: "pointer", fontSize: 13 }}>
@@ -44,10 +44,9 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
         </label>
       </div>
 
-      {/* Content */}
+      {/* Main */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {showState && <StateViewer bus={bus} />}
           {scene ? (
             <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#555" }}>Loading…</div>}>
               <scene.component {...sceneProps} />
@@ -58,6 +57,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
             </div>
           )}
         </div>
+        {showStateEditor && <SceneStateEditor bus={bus} />}
         {showDebug && <DebugPanel bus={bus} />}
       </div>
     </div>

@@ -15,4 +15,5 @@ function def(id: string, name: string, desc: string, loader: () => Promise<{ def
 export const SANDBOX_SCENES: SandboxScene[] = [
   def("demo-2d", "2D 点触交互", "类过家家 — 场景状态编辑器", () => import("./scenes/Demo2D")),
   def("demo-3d", "3D 诊室 (R3F)", "低面数 3D 诊室 — 可选的视觉渲染器", () => import("./scenes/Demo3D")),
+  def("demo-exam", "查体场景", "人体图交互 — 查体操作的自洽场景", () => import("./scenes/ExamScene")),
 ]

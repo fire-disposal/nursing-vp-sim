@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { ContactShadows, Float, Html, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
-import type { SceneProps } from "../scene-types"
+import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
 import { R3FErrorBoundary } from "../components/R3FErrorBoundary"
 import { SceneTools } from "../components/SceneTools"
 import { RoomWalls } from "../components/AutoHideWall"
@@ -40,12 +40,12 @@ function Sph({ pos, args, color, ...r }: any) {
 }
 
 // ── State-machine context ──
-interface StepDef { id: string; label: string; target: string }
+interface StepDef { id: string; label: string; target: string; state?: Partial<SceneState> }
 const STEPS: StepDef[] = [
-  { id: "observe", label: "观察患者面色", target: "patient" },
-  { id: "adjust",  label: "调整患者体位", target: "bed" },
-  { id: "monitor", label: "查看监护数据", target: "monitor" },
-  { id: "iv",      label: "检查输液状态", target: "iv" },
+  { id: "observe", label: "观察患者面色", target: "patient", state: { patient: { expression: "pale" as const, consciousness: "alert" as const } } },
+  { id: "adjust",  label: "调整患者体位", target: "bed",     state: { patient: { position: "semi-recumbent" as const } } },
+  { id: "monitor", label: "查看监护数据", target: "monitor", state: { vitals: { hr: 102, bp_sys: 130, bp_dia: 85, spo2: 96 } } },
+  { id: "iv",      label: "检查输液状态", target: "iv",      state: { vitals: { hr: 90 } } },
 ]
 interface StepCtx { step: number; done: boolean; interact: (target: string) => void }
 const StepCtx = createContext<StepCtx>({ step: 0, done: false, interact: () => {} })
@@ -268,7 +268,7 @@ function CompletionOverlay({ onReset }: { onReset: () => void }) {
 }
 
 // ── Exported component ──
-export default function Demo3D(_props: SceneProps) {
+export default function Demo3D({ bus }: SceneProps) {
   const orbitRef = useRef<any>(null)
   const [step, setStep] = useState(0)
   const [done, setDone] = useState(false)
@@ -278,13 +278,15 @@ export default function Demo3D(_props: SceneProps) {
     if (done) return
     const current = STEPS[step]
     if (current?.target === target) {
+      emitSceneEvent(bus, "scene:state", STEPS[step].state as Partial<SceneState>)
+      emitSceneEvent(bus, "scene:interaction", { hotspotId: target })
       if (step >= STEPS.length - 1) {
         setDone(true)
       } else {
         setStep((s) => s + 1)
       }
     }
-  }, [step, done])
+  }, [step, done, bus])
 
   const reset = useCallback(() => {
     setStep(0); setDone(false); setKey((k) => k + 1)
