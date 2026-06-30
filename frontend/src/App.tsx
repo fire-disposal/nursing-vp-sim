@@ -95,7 +95,6 @@ export default function App() {
 												<Route index element={<Navigate to="/home" replace />} />
 												<Route path="/home" element={<DashboardHome />} />
 												<Route path="/training" element={<TrainingSelect />} />
-											<Route path="/cases" element={<Navigate to="/training" replace />} />
 												<Route path="/training/:recordId" element={<TrainingEntry />} />
 												<Route path="/history" element={<History />} />
 												<Route path="/record/:id" element={<RecordDetail />} />
@@ -103,25 +102,62 @@ export default function App() {
 												<Route path="/stats" element={<StatsPage />} />
 												<Route path="/my-responses" element={<MyResponses />} />
 												<Route path="/profile" element={<Profile />} />
-												{/*
-												 * All admin routes are flat under Layout to avoid the
-												 * ProtectedRoute layout-route switching bug that caused
-												 * sidebar navigation to stop working.
-												 *
-												 * Permission checks happen via PermissionGuard inside
-												 * each page component.  The sidebar already filters links
-												 * based on user permissions.
-												 */}
-												<Route path="/admin" element={<Admin />} />
-												<Route path="/admin/system-ops" element={<SystemOpsPage />} />
+												<Route
+													path="/admin"
+													element={
+													<PermissionGuard permission="score_review">
+														<Admin />
+													</PermissionGuard>
+												}
+												/>
+												<Route
+													path="/admin/system-ops"
+													element={
+													<PermissionGuard permission="api_manage">
+														<SystemOpsPage />
+													</PermissionGuard>
+												}
+												/>
 												<Route
 													path="/admin/system-notifications"
-													element={<SystemNotificationsPage />}
+													element={
+													<PermissionGuard permission="api_manage">
+														<SystemNotificationsPage />
+													</PermissionGuard>
+												}
 												/>
-												<Route path="/admin/llm" element={<AdminLLM />} />
-												<Route path="/admin/costs" element={<CostManagement />} />
-												<Route path="/admin/cases" element={<AdminCases />} />
-												<Route path="/admin/practices" element={<PracticesPage />} />
+												<Route
+													path="/admin/llm"
+													element={
+													<PermissionGuard permission="llm_monitor">
+														<AdminLLM />
+													</PermissionGuard>
+												}
+												/>
+												<Route
+													path="/admin/costs"
+													element={
+													<PermissionGuard permission="llm_monitor">
+														<CostManagement />
+													</PermissionGuard>
+												}
+												/>
+												<Route
+													path="/admin/cases"
+													element={
+													<PermissionGuard permission="case_manage">
+														<AdminCases />
+													</PermissionGuard>
+												}
+												/>
+												<Route
+													path="/admin/practices"
+													element={
+													<PermissionGuard permission="case_manage">
+														<PracticesPage />
+													</PermissionGuard>
+												}
+												/>
 												<Route path="/admin/users" element={
 													<PermissionGuard permission="user_manage">
 														<AdminUsers />
@@ -145,7 +181,11 @@ export default function App() {
 												/>
 												<Route
 													path="/admin/feedback"
-													element={<AdminFeedback />}
+													element={
+													<PermissionGuard permission="feedback_review">
+														<AdminFeedback />
+													</PermissionGuard>
+												}
 												/>
 												<Route path="/admin/roles" element={
 													<PermissionGuard permission="role_manage">
@@ -154,15 +194,27 @@ export default function App() {
 												} />
 												<Route
 													path="/admin/questionnaires"
-													element={<AdminQuestionnaires />}
+													element={
+													<PermissionGuard permission="questionnaire_manage">
+														<AdminQuestionnaires />
+													</PermissionGuard>
+												}
 												/>
 												<Route
 													path="/admin/assignments"
-													element={<AssignmentsPage />}
+													element={
+													<PermissionGuard permission="score_review">
+														<AssignmentsPage />
+													</PermissionGuard>
+												}
 												/>
 												<Route
 													path="/admin/assignments/:id"
-													element={<AssignmentDetailPage />}
+													element={
+													<PermissionGuard permission="score_review">
+														<AssignmentDetailPage />
+													</PermissionGuard>
+												}
 												/>
 											</Route>
 										</Route>
