@@ -30,6 +30,7 @@ export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
 	const [showScore, setShowScore] = useState(false);
 	const [retrying, setRetrying] = useState(false);
+	const [retryProgress, setRetryProgress] = useState<number | null>(null);
 	const [showReviewEditor, setShowReviewEditor] = useState(false);
 	const [submittingReview, setSubmittingReview] = useState(false);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
@@ -70,24 +71,34 @@ export default function RecordDetail() {
 	const isReviewed = review?.review_status === "reviewed";
 	const isTeacher = user?.role === "teacher";
 
-	const mountedRef = useRef(true);
+	const abortRef = useRef<AbortController | null>(null);
 	useEffect(() => {
 		return () => {
-			mountedRef.current = false;
+			abortRef.current?.abort();
 		};
 	}, []);
 
+	const sleep = (ms: number, signal: AbortSignal) =>
+		new Promise<void>((resolve) => {
+			const timer = setTimeout(resolve, ms);
+			signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+		});
+
 	const handleRetryScoring = async () => {
 		setRetrying(true);
+		setRetryProgress(0);
+		const controller = new AbortController();
+		abortRef.current = controller;
 		try {
 			await retryScoring(id!);
 			toast.info("评分已重新触发，请稍后刷新查看结果");
 			for (let i = 0; i < 30; i++) {
-				if (!mountedRef.current) break;
-				await new Promise<void>((r) => setTimeout(r, 3000));
-				if (!mountedRef.current) break;
+				setRetryProgress(i + 1);
+				if (controller.signal.aborted) break;
+				await sleep(3000, controller.signal);
+				if (controller.signal.aborted) break;
 				const { data } = await getRecordDetail(id!);
-				if (!mountedRef.current) break;
+				if (controller.signal.aborted) break;
 				if (data.scoring_status === "completed" && data.score) {
 					queryClient.setQueryData(queryKeys.training.detail(id!), data);
 					toast.success("评分已完成");
@@ -100,9 +111,11 @@ export default function RecordDetail() {
 				}
 			}
 		} catch (err: unknown) {
+			if (err instanceof DOMException && err.name === "AbortError") return;
 			toast.apiError(err, "重试评分失败");
 		} finally {
 			setRetrying(false);
+			setRetryProgress(null);
 		}
 	};
 
@@ -223,6 +236,7 @@ export default function RecordDetail() {
 				<ScoringPendingBanner
 					record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
 					retrying={retrying}
+					retryProgress={retryProgress}
 					onRetry={handleRetryScoring}
 				/>
 

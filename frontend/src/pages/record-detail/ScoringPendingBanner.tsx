@@ -10,12 +10,14 @@ interface ScoringPendingRecord {
 interface Props {
 	record: ScoringPendingRecord;
 	retrying: boolean;
+	retryProgress?: number | null;
 	onRetry: () => void;
 }
 
 export default function ScoringPendingBanner({
 	record,
 	retrying,
+	retryProgress,
 	onRetry,
 }: Props) {
 	if (record.status !== "completed" || record.scoring_status === "completed") {
@@ -25,7 +27,7 @@ export default function ScoringPendingBanner({
 	return (
 		<div className="rounded-xl border border-warning bg-warning p-5 sm:p-6">
 			<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-				<div>
+				<div className="flex-1">
 					<h3 className="font-semibold text-warning-foreground">
 						{record.scoring_status === "pending" ||
 						record.scoring_status === "processing"
@@ -40,6 +42,21 @@ export default function ScoringPendingBanner({
 								? `评分失败: ${record.scoring_error || "未知错误"}`
 								: "评分尚未生成"}
 					</p>
+					{retrying && retryProgress != null && (
+						<div className="mt-3">
+							<div className="flex items-center gap-2">
+								<div className="flex-1 h-2 rounded-full bg-amber-200 overflow-hidden">
+									<div
+										className="h-full rounded-full bg-amber-600 transition-all duration-500"
+										style={{ width: `${(retryProgress / 30) * 100}%` }}
+									/>
+								</div>
+								<span className="text-xs text-warning-foreground/70 font-medium tabular-nums shrink-0">
+									{retryProgress}/30
+								</span>
+							</div>
+						</div>
+					)}
 				</div>
 				{(record.scoring_status === "failed" ||
 					record.scoring_status == null) && (

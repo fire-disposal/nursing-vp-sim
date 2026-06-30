@@ -87,9 +87,15 @@ export default function RolesPage() {
 		);
 	};
 
-	const startEdit = (role: RoleItem) => {
+	const startEdit = async (role: RoleItem) => {
 		if (editId !== null && editId !== role.id) {
-			if (!window.confirm("放弃当前编辑的修改？")) return;
+			const ok = await confirm({
+				title: "放弃修改？",
+				message: "当前权限编辑尚未保存，确定放弃？",
+				confirmLabel: "放弃",
+				danger: true,
+			});
+			if (!ok) return;
 		}
 		setEditId(role.id);
 		setEditPerms([...role.permissions]);

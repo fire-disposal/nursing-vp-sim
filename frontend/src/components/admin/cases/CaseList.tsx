@@ -112,7 +112,7 @@ export default function CaseList({
 					</Button>
 					<Button
 						size="sm"
-						variant="danger"
+						variant="destructive"
 						onClick={() => onDelete(c)}
 						disabled={c.training_count > 0}
 						title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}

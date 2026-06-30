@@ -135,7 +135,7 @@ export default function QuestionnaireList({
 					</Button>
 					<Button
 						size="sm"
-						variant="danger"
+						variant="destructive"
 						onClick={() => onDelete(t)}
 						title="删除"
 					>

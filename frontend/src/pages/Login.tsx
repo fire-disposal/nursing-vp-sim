@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
 import { Activity, Stethoscope } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
 import LoginIllustration from "./LoginIllustration";
@@ -28,8 +28,6 @@ function isTokenExpired(token: string): boolean {
 
 export default function Login() {
 	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(false);
-	const isSubmitting = useRef(false);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
 	const user = useAuthStore((s) => s.user);
@@ -38,6 +36,7 @@ export default function Login() {
 	const form = useForm<LoginFormValues>({
 		resolver: zodResolver(loginSchema),
 		defaultValues: { username: "", password: "" },
+		mode: "onBlur",
 	});
 
 	if (token && user && !isTokenExpired(token)) {
@@ -45,10 +44,8 @@ export default function Login() {
 	}
 
 	const onSubmit = async (values: LoginFormValues) => {
-		if (isSubmitting.current) return;
-		isSubmitting.current = true;
+		if (form.formState.isSubmitting) return;
 		setError("");
-		setLoading(true);
 		try {
 			await login(values.username, values.password);
 			navigate("/home");
@@ -58,12 +55,7 @@ export default function Login() {
 				response?: { data?: { message?: string } };
 				message?: string;
 			};
-			setError(
-				axiosErr.message || "登录失败",
-			);
-		} finally {
-			setLoading(false);
-			isSubmitting.current = false;
+			setError(axiosErr.message || "登录失败");
 		}
 	};
 
@@ -144,10 +136,10 @@ export default function Login() {
 								/>
 								<Button
 									type="submit"
-									disabled={loading}
+									disabled={form.formState.isSubmitting}
 									className="h-11 w-full"
 								>
-									{loading ? "登录中..." : "登 录"}
+									{form.formState.isSubmitting ? "登录中..." : "登 录"}
 								</Button>
 							</form>
 						</Form>
