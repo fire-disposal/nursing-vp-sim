@@ -105,8 +105,12 @@ class LLMMonitorService:
 
         if do_agg:
             agg_rows, agg_count = self.repo.aggregated_logs(
-                record_id=record_id, date_from=date_from, date_to=date_to,
-                status=status, offset=offset, limit=limit,
+                record_id=record_id,
+                date_from=date_from,
+                date_to=date_to,
+                status=status,
+                offset=offset,
+                limit=limit,
             )
 
         if need_raw:
@@ -120,9 +124,13 @@ class LLMMonitorService:
             remaining_limit = max(0, limit - len(agg_rows))
 
             raw_rows, raw_count = self.repo.raw_logs(
-                purpose=raw_purpose, record_id=record_id, status=status,
-                date_from=date_from, date_to=date_to,
-                offset=remaining_offset, limit=remaining_limit,
+                purpose=raw_purpose,
+                record_id=record_id,
+                status=status,
+                date_from=date_from,
+                date_to=date_to,
+                offset=remaining_offset,
+                limit=remaining_limit,
                 exclude_purpose=exclude_purpose,
             )
 

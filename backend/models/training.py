@@ -137,7 +137,9 @@ class Note(Base, TimestampMixin):
     __table_args__ = (Index("ix_notes_record_id", "record_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    record_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("training_records.id", ondelete="SET NULL"), nullable=True)
+    record_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("training_records.id", ondelete="SET NULL"), nullable=True
+    )
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     type: Mapped[str] = mapped_column(String(20), default="free")
     title: Mapped[str] = mapped_column(String(200), default="")

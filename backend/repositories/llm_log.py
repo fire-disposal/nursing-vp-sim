@@ -1,4 +1,5 @@
 """Repository for LLM call log queries."""
+
 from datetime import UTC, datetime
 from typing import Any
 
@@ -15,16 +16,38 @@ class LLMCallLogRepository:
         self.db = db
 
     def count_since(self, since: datetime) -> int:
-        return self.db.query(LLMCallLog).filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC)).count()
+        return (
+            self.db.query(LLMCallLog)
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
+            .count()
+        )
 
     def success_count_since(self, since: datetime) -> int:
-        return self.db.query(LLMCallLog).filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC), LLMCallLog.status == "success").count()
+        return (
+            self.db.query(LLMCallLog)
+            .filter(
+                LLMCallLog.created_at >= since,
+                LLMCallLog.created_at < datetime.now(UTC),
+                LLMCallLog.status == "success",
+            )
+            .count()
+        )
 
     def avg_latency_since(self, since: datetime) -> float:
-        return self.db.query(func.avg(LLMCallLog.latency_ms)).filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC)).scalar() or 0
+        return (
+            self.db.query(func.avg(LLMCallLog.latency_ms))
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
+            .scalar()
+            or 0
+        )
 
     def total_cost_since(self, since: datetime) -> float:
-        return self.db.query(func.sum(LLMCallLog.estimated_cost)).filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC)).scalar() or 0
+        return (
+            self.db.query(func.sum(LLMCallLog.estimated_cost))
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
+            .scalar()
+            or 0
+        )
 
     def stats_by_purpose(self, since: datetime, now: datetime) -> list[Any]:
         return (
@@ -49,7 +72,9 @@ class LLMCallLogRepository:
                 func.sum(LLMCallLog.estimated_cost).label("total_cost"),
             )
             .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < now)
-            .group_by("date").order_by("date").all()
+            .group_by("date")
+            .order_by("date")
+            .all()
         )
 
     def stats_by_provider(self, since: datetime, now: datetime) -> list[Any]:
@@ -61,10 +86,19 @@ class LLMCallLogRepository:
                 func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
             )
             .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < now)
-            .group_by(LLMCallLog.provider_name).all()
+            .group_by(LLMCallLog.provider_name)
+            .all()
         )
 
-    def aggregated_logs(self, record_id: int | None, date_from: str | None, date_to: str | None, status: str | None, offset: int, limit: int) -> tuple[list[Any], int]:
+    def aggregated_logs(
+        self,
+        record_id: int | None,
+        date_from: str | None,
+        date_to: str | None,
+        status: str | None,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[Any], int]:
         q = (
             self.db.query(
                 LLMCallLog.record_id.label("record_id"),
@@ -105,7 +139,17 @@ class LLMCallLogRepository:
         rows = q.order_by(func.max(LLMCallLog.created_at).desc()).offset(offset).limit(limit).all()
         return rows, total
 
-    def raw_logs(self, purpose: str | None, record_id: int | None, status: str | None, date_from: str | None, date_to: str | None, offset: int, limit: int, exclude_purpose: str | None = None) -> tuple[list[LLMCallLog], int]:
+    def raw_logs(
+        self,
+        purpose: str | None,
+        record_id: int | None,
+        status: str | None,
+        date_from: str | None,
+        date_to: str | None,
+        offset: int,
+        limit: int,
+        exclude_purpose: str | None = None,
+    ) -> tuple[list[LLMCallLog], int]:
         q = self.db.query(LLMCallLog)
         if record_id is not None:
             q = q.filter(LLMCallLog.record_id == record_id)

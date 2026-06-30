@@ -1,4 +1,5 @@
 """Repository for voice call log queries."""
+
 from datetime import datetime
 from typing import Any
 
@@ -13,19 +14,36 @@ class VoiceCallLogRepository:
         self.db = db
 
     def count_direction_since(self, direction: str, since: datetime) -> int:
-        return self.db.query(VoiceCallLog).filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since).count()
+        return (
+            self.db.query(VoiceCallLog)
+            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
+            .count()
+        )
 
     def count_status_since(self, direction: str, status: str, since: datetime) -> int:
-        return self.db.query(VoiceCallLog).filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since, VoiceCallLog.status == status).count()
+        return (
+            self.db.query(VoiceCallLog)
+            .filter(
+                VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since, VoiceCallLog.status == status
+            )
+            .count()
+        )
 
     def sum_field_since(self, field: Any, direction: str, since: datetime):
-        return self.db.query(func.coalesce(func.sum(field), 0)).filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since).scalar() or 0
+        return (
+            self.db.query(func.coalesce(func.sum(field), 0))
+            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
+            .scalar()
+            or 0
+        )
 
     def count_since(self, since: datetime) -> int:
         return self.db.query(VoiceCallLog).filter(VoiceCallLog.created_at >= since).count()
 
     def status_count_since(self, status: str, since: datetime) -> int:
-        return self.db.query(VoiceCallLog).filter(VoiceCallLog.created_at >= since, VoiceCallLog.status == status).count()
+        return (
+            self.db.query(VoiceCallLog).filter(VoiceCallLog.created_at >= since, VoiceCallLog.status == status).count()
+        )
 
     def avg_field_since(self, field: Any, since: datetime) -> float:
         return self.db.query(func.avg(field)).filter(VoiceCallLog.created_at >= since).scalar() or 0.0
@@ -34,7 +52,12 @@ class VoiceCallLogRepository:
         return self.db.query(func.coalesce(func.sum(field), 0)).filter(VoiceCallLog.created_at >= since).scalar() or 0.0
 
     def avg_field_direction_since(self, field: Any, direction: str, since: datetime) -> float:
-        return float(self.db.query(func.avg(field)).filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since).scalar() or 0.0)
+        return float(
+            self.db.query(func.avg(field))
+            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
+            .scalar()
+            or 0.0
+        )
 
     def cost_series(self, since: datetime, now: datetime) -> list[Any]:
         return (
@@ -45,5 +68,7 @@ class VoiceCallLogRepository:
                 func.sum(VoiceCallLog.cost_estimated).label("total_cost"),
             )
             .filter(VoiceCallLog.created_at >= since, VoiceCallLog.created_at < now)
-            .group_by("date").order_by("date").all()
+            .group_by("date")
+            .order_by("date")
+            .all()
         )
