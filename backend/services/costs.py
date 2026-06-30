@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
 from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
+from repositories.voice_log import VoiceCallLogRepository
 from schemas.voice import (
     CostBreakdown,
     CostDashboardResponse,
@@ -19,34 +20,16 @@ from schemas.voice import (
 class CostService:
     def __init__(self, db: Session):
         self.db = db
+        self.voice_repo = VoiceCallLogRepository(db)
 
     def _voice_usage(self, direction: str, since: datetime) -> VoiceUsageItem:
-        base = self.db.query(VoiceCallLog).filter(
-            VoiceCallLog.direction == direction,
-            VoiceCallLog.created_at >= since,
-        )
-        total = base.count()
-        success = base.filter(VoiceCallLog.status == "success").count()
-        fallback = base.filter(VoiceCallLog.status == "fallback").count()
-        error_count = base.filter(VoiceCallLog.status == "error").count()
-        total_chars = (
-            self.db.query(func.coalesce(func.sum(VoiceCallLog.text_length), 0))
-            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
-            .scalar()
-            or 0
-        )
-        total_latency = (
-            self.db.query(func.coalesce(func.sum(VoiceCallLog.latency_ms), 0))
-            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
-            .scalar()
-            or 0
-        )
-        cost = (
-            self.db.query(func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0))
-            .filter(VoiceCallLog.direction == direction, VoiceCallLog.created_at >= since)
-            .scalar()
-            or 0
-        )
+        total = self.voice_repo.count_direction_since(direction, since)
+        success = self.voice_repo.count_status_since(direction, "success", since)
+        fallback = self.voice_repo.count_status_since(direction, "fallback", since)
+        error_count = self.voice_repo.count_status_since(direction, "error", since)
+        total_chars = self.voice_repo.sum_field_since(VoiceCallLog.text_length, direction, since)
+        total_latency = self.voice_repo.sum_field_since(VoiceCallLog.latency_ms, direction, since)
+        cost = self.voice_repo.sum_field_since(VoiceCallLog.cost_estimated, direction, since)
         return VoiceUsageItem(
             calls_total=total,
             calls_success=success,
@@ -95,41 +78,20 @@ class CostService:
         return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
 
     def _voice_stats(self, since: datetime) -> tuple:
-        base = self.db.query(VoiceCallLog).filter(VoiceCallLog.created_at >= since)
-        total = base.count()
-        success = base.filter(VoiceCallLog.status == "success").count()
-        error_count = base.filter(VoiceCallLog.status == "error").count()
-        avg_latency = self.db.query(func.avg(VoiceCallLog.latency_ms)).filter(VoiceCallLog.created_at >= since).scalar()
-        total_cost = (
-            self.db.query(func.sum(VoiceCallLog.cost_estimated)).filter(VoiceCallLog.created_at >= since).scalar()
-        )
-        return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
+        total = self.voice_repo.count_since(since)
+        success = self.voice_repo.status_count_since("success", since)
+        error_count = self.voice_repo.status_count_since("error", since)
+        avg_latency = self.voice_repo.avg_field_since(VoiceCallLog.latency_ms, since)
+        total_cost = self.voice_repo.sum_field_all_since(VoiceCallLog.cost_estimated, since)
+        return total, success, error_count, avg_latency, total_cost
 
     def _voice_stats_direction(self, since: datetime, direction: str) -> tuple:
-        base = self.db.query(VoiceCallLog).filter(
-            VoiceCallLog.direction == direction,
-            VoiceCallLog.created_at >= since,
-        )
-        total = base.count()
-        success = base.filter(VoiceCallLog.status == "success").count()
-        error_count = base.filter(VoiceCallLog.status == "error").count()
-        avg_latency = (
-            self.db.query(func.avg(VoiceCallLog.latency_ms))
-            .filter(
-                VoiceCallLog.direction == direction,
-                VoiceCallLog.created_at >= since,
-            )
-            .scalar()
-        )
-        total_cost = (
-            self.db.query(func.sum(VoiceCallLog.cost_estimated))
-            .filter(
-                VoiceCallLog.direction == direction,
-                VoiceCallLog.created_at >= since,
-            )
-            .scalar()
-        )
-        return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
+        total = self.voice_repo.count_direction_since(direction, since)
+        success = self.voice_repo.count_status_since(direction, "success", since)
+        error_count = self.voice_repo.count_status_since(direction, "error", since)
+        avg_latency = self.voice_repo.avg_field_direction_since(VoiceCallLog.latency_ms, direction, since)
+        total_cost = self.voice_repo.sum_field_since(VoiceCallLog.cost_estimated, direction, since)
+        return total, success, error_count, avg_latency, total_cost
 
     def _daily_series(self, days: int = 30) -> list[CostSeriesPoint]:
         now = datetime.now(UTC)

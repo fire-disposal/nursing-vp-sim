@@ -4,15 +4,12 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi.responses import Response
-from sqlalchemy import Integer as SAInteger
-from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from core.datetime_utils import parse_iso_datetime
 from core.exceptions import NotFoundError
 from infrastructure.exporter import ColumnDef, export_response
-from models import Case as CaseModel
 from models import LLMCallLog, TrainingRecord, User
+from repositories.llm_log import LLMCallLogRepository
 from schemas import LLMCallLogItem, LLMStatsResponse, PaginatedResponse
 
 log = logging.getLogger(__name__)
@@ -23,26 +20,15 @@ EXCEL_EXPORT_ROW_LIMIT = 10000
 class LLMMonitorService:
     def __init__(self, db: Session):
         self.db = db
+        self.repo = LLMCallLogRepository(db)
 
-    @staticmethod
-    def _build_stats(db: Session, since: datetime):
-        base = db.query(LLMCallLog).filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
-        total = base.count()
+    def _build_stats(self, since: datetime):
+        total = self.repo.count_since(since)
         if total == 0:
             return {"count": 0, "success_rate": 0, "avg_latency_ms": 0, "total_cost": 0}
-        success_count = base.filter(LLMCallLog.status == "success").count()
-        avg_latency = (
-            db.query(func.avg(LLMCallLog.latency_ms))
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
-            .scalar()
-            or 0
-        )
-        total_cost = (
-            db.query(func.sum(LLMCallLog.estimated_cost))
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < datetime.now(UTC))
-            .scalar()
-            or 0
-        )
+        success_count = self.repo.success_count_since(since)
+        avg_latency = self.repo.avg_latency_since(since)
+        total_cost = self.repo.total_cost_since(since)
         return {
             "count": total,
             "success_rate": round(success_count / total * 100, 1),
@@ -56,39 +42,17 @@ class LLMMonitorService:
         week_start = today_start - timedelta(days=7)
         month_start = today_start - timedelta(days=30)
 
-        today_stats = self._build_stats(self.db, today_start)
-        week_stats = self._build_stats(self.db, week_start)
+        today_stats = self._build_stats(today_start)
+        week_stats = self._build_stats(week_start)
         month_start_cal = today_start.replace(day=1)
-        month_stats = self._build_stats(self.db, month_start_cal)
+        month_stats = self._build_stats(month_start_cal)
 
-        rows = (
-            self.db.query(
-                LLMCallLog.purpose,
-                func.count().label("count"),
-                func.avg(LLMCallLog.latency_ms).label("avg_latency"),
-                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
-            )
-            .filter(LLMCallLog.created_at >= week_start, LLMCallLog.created_at < now)
-            .group_by(LLMCallLog.purpose)
-            .all()
-        )
+        rows = self.repo.stats_by_purpose(week_start, now)
         by_purpose = [
             {"purpose": r[0], "count": r[1], "avg_latency_ms": round(r[2] or 0, 0), "error_count": r[3]} for r in rows
         ]
 
-        daily_rows = (
-            self.db.query(
-                func.date(LLMCallLog.created_at).label("date"),
-                func.count().label("count"),
-                func.sum(func.cast(LLMCallLog.status == "success", type_=SAInteger)).label("success_count"),
-                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("fail_count"),
-                func.sum(LLMCallLog.estimated_cost).label("total_cost"),
-            )
-            .filter(LLMCallLog.created_at >= month_start, LLMCallLog.created_at < now)
-            .group_by("date")
-            .order_by("date")
-            .all()
-        )
+        daily_rows = self.repo.daily_stats(month_start, now)
         daily = [
             {
                 "date": str(r[0]),
@@ -100,17 +64,7 @@ class LLMMonitorService:
             for r in daily_rows
         ]
 
-        provider_rows = (
-            self.db.query(
-                LLMCallLog.provider_name,
-                func.count().label("count"),
-                func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("total_cost"),
-                func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
-            )
-            .filter(LLMCallLog.created_at >= week_start, LLMCallLog.created_at < now)
-            .group_by(LLMCallLog.provider_name)
-            .all()
-        )
+        provider_rows = self.repo.stats_by_provider(week_start, now)
         by_provider = [
             {
                 "provider": r[0] or "unknown",
@@ -150,75 +104,27 @@ class LLMMonitorService:
         raw_rows = []
 
         if do_agg:
-            agg_q = (
-                self.db.query(
-                    LLMCallLog.record_id.label("record_id"),
-                    func.max(LLMCallLog.id).label("id"),
-                    func.max(LLMCallLog.user_id).label("user_id"),
-                    func.max(LLMCallLog.case_id).label("case_id"),
-                    func.count().label("call_count"),
-                    func.avg(LLMCallLog.latency_ms).label("latency_ms"),
-                    func.sum(LLMCallLog.prompt_tokens).label("prompt_tokens"),
-                    func.sum(LLMCallLog.completion_tokens).label("completion_tokens"),
-                    func.sum(LLMCallLog.total_tokens).label("total_tokens"),
-                    func.max(LLMCallLog.token_estimated).label("token_estimated"),
-                    func.sum(LLMCallLog.estimated_cost).label("estimated_cost"),
-                    func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)).label("error_count"),
-                    func.min(LLMCallLog.created_at).label("first_called_at"),
-                    func.max(LLMCallLog.created_at).label("created_at"),
-                    User.display_name.label("student_name"),
-                    CaseModel.name.label("case_name"),
-                    LLMCallLog.provider_name.label("provider_display_name"),
-                )
-                .join(TrainingRecord, LLMCallLog.record_id == TrainingRecord.id, isouter=True)
-                .join(User, TrainingRecord.user_id == User.id, isouter=True)
-                .join(CaseModel, TrainingRecord.case_id == CaseModel.id, isouter=True)
-                .filter(
-                    LLMCallLog.purpose == "patient_chat",
-                    LLMCallLog.record_id.isnot(None),
-                )
+            agg_rows, agg_count = self.repo.aggregated_logs(
+                record_id=record_id, date_from=date_from, date_to=date_to,
+                status=status, offset=offset, limit=limit,
             )
-            if record_id is not None:
-                agg_q = agg_q.filter(LLMCallLog.record_id == record_id)
-
-            if date_from:
-                agg_q = agg_q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
-            if date_to:
-                agg_q = agg_q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
-
-            agg_q = agg_q.group_by(LLMCallLog.record_id, User.display_name, CaseModel.name, LLMCallLog.provider_name)
-
-            if status == "success":
-                agg_q = agg_q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) == 0)
-            elif status == "failed":
-                agg_q = agg_q.having(func.sum(func.cast(LLMCallLog.status != "success", type_=SAInteger)) > 0)
-
-            agg_count = agg_q.order_by(None).count()
-            agg_rows = agg_q.order_by(func.max(LLMCallLog.created_at).desc()).offset(offset).limit(limit).all()
 
         if need_raw:
-            q = self.db.query(LLMCallLog)
-            if record_id is not None:
-                q = q.filter(LLMCallLog.record_id == record_id)
+            raw_purpose = purpose
+            exclude_purpose = None
             if aggregate_patient_chat and purpose is None:
-                q = q.filter(LLMCallLog.purpose != "patient_chat")
-            elif purpose:
-                q = q.filter(LLMCallLog.purpose == purpose)
-            if status:
-                q = q.filter(LLMCallLog.status == status)
-            if date_from:
-                q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
-            if date_to:
-                q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
-
-            raw_count = q.order_by(None).count()
+                raw_purpose = None
+                exclude_purpose = "patient_chat"
 
             remaining_offset = max(0, offset - agg_count)
             remaining_limit = max(0, limit - len(agg_rows))
-            if remaining_limit > 0:
-                raw_rows = (
-                    q.order_by(LLMCallLog.created_at.desc()).offset(remaining_offset).limit(remaining_limit).all()
-                )
+
+            raw_rows, raw_count = self.repo.raw_logs(
+                purpose=raw_purpose, record_id=record_id, status=status,
+                date_from=date_from, date_to=date_to,
+                offset=remaining_offset, limit=remaining_limit,
+                exclude_purpose=exclude_purpose,
+            )
 
         total = agg_count + raw_count
 
@@ -275,7 +181,7 @@ class LLMMonitorService:
         return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
     def get_llm_log_detail(self, log_id: int) -> LLMCallLog:
-        entry = self.db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()
+        entry = self.repo.get_by_id(log_id)
         if not entry:
             raise NotFoundError("日志不存在")
         return entry
@@ -284,12 +190,7 @@ class LLMMonitorService:
         self, fmt: str | None = None, date_from: str | None = None, date_to: str | None = None
     ) -> Response:
         file_format = fmt or "csv"
-        q = self.db.query(LLMCallLog)
-        if date_from:
-            q = q.filter(LLMCallLog.created_at >= parse_iso_datetime(date_from))
-        if date_to:
-            q = q.filter(LLMCallLog.created_at < parse_iso_datetime(date_to))
-        entries = q.order_by(LLMCallLog.created_at.desc()).limit(50000).all()
+        entries = self.repo.export_query(date_from=date_from, date_to=date_to)
 
         columns = [
             ColumnDef("ID", key="id", fmt=str),
