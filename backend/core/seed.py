@@ -24,6 +24,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def seed_all() -> None:
     """Run all seed operations. Idempotent — safe to call multiple times."""
     _seed_data()
+    _seed_cases()
     _seed_llm()
     _seed_voice()
 
@@ -82,7 +83,7 @@ def _seed_data() -> None:
             db.commit()
             log.debug("超级管理员已创建 (%s)", username)
 
-        # 4. 测试学生和病例 (仅首次初始化)
+        # 4. 测试学生 (仅首次初始化)
         if db.query(User).filter(User.username != username).count() == 0:
             student_role_id = role_ids.get("student")
             test_genders = ["男", "女", "男", "女", "男"]
@@ -97,30 +98,45 @@ def _seed_data() -> None:
                         gender=test_genders[i - 1],
                     )
                 )
+            db.commit()
             log.debug("测试学生已创建 (student1-5 / 123456)")
 
-            cases_dir = _PROJECT_ROOT / "data" / "cases"
-            case_count = 0
-            for fpath in sorted(cases_dir.glob("*.json")):
-                try:
-                    d = json.loads(fpath.read_text(encoding="utf-8"))
-                    db.add(
-                        Case(
-                            name=d.get("name", fpath.stem),
-                            description=d.get("description", ""),
-                            training_type=d.get("training_type", "history_taking"),
-                            difficulty=d.get("difficulty", 1),
-                            time_limit_minutes=d.get("time_limit", 20),
-                            case_data=d,
-                        )
+    finally:
+        db.close()
+
+
+def _seed_cases() -> None:
+    """Import cases from data/cases/*.json. Idempotent — skips existing names."""
+    db = SessionLocal()
+    try:
+        existing_names = {c.name for c in db.query(Case.name).all()}
+        cases_dir = _PROJECT_ROOT / "data" / "cases"
+        imported = 0
+        skipped = 0
+        for fpath in sorted(cases_dir.glob("*.json")):
+            try:
+                d = json.loads(fpath.read_text(encoding="utf-8"))
+                name = d.get("name", fpath.stem)
+                if name in existing_names:
+                    skipped += 1
+                    continue
+                db.add(
+                    Case(
+                        name=name,
+                        description=d.get("description", ""),
+                        training_type=d.get("training_type", "history_taking"),
+                        difficulty=d.get("difficulty", 1),
+                        time_limit_minutes=d.get("time_limit", 20),
+                        case_data=d,
                     )
-                    case_count += 1
-                except (OSError, json.JSONDecodeError) as e:
-                    log.warning("病例文件读取失败 %s: %s", fpath.name, e)
-
+                )
+                existing_names.add(name)
+                imported += 1
+            except (OSError, json.JSONDecodeError) as e:
+                log.warning("病例文件读取失败 %s: %s", fpath.name, e)
+        if imported:
             db.commit()
-            log.debug("内置病例已导入 (%d)", case_count)
-
+        log.debug("病例导入完成: 新增 %d, 跳过 %d", imported, skipped)
     finally:
         db.close()
 

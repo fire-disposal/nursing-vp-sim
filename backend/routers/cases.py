@@ -83,8 +83,10 @@ def list_cases(
     current_user: CurrentUser,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    training_type: Annotated[str | None, Query(description="训练类型 history_taking/triage")] = None,
+    difficulty: Annotated[int | None, Query(ge=1, le=3, description="困难程度 1=初级 2=中级 3=高级")] = None,
 ):
-    items, total = CaseService(db).list_brief(offset, limit)
+    items, total = CaseService(db).list_brief(offset, limit, training_type=training_type, difficulty=difficulty)
     return PaginatedResponse(
         items=[_to_case_brief(c) for c in items],
         total=total,

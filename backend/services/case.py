@@ -74,8 +74,15 @@ class CaseService:
             training_count=training_count,
         )
 
-    def list_brief(self, offset: int, limit: int) -> tuple[list[Case], int]:
-        return self.repo.list_brief(offset, limit)
+    def list_brief(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        training_type: str | None = None,
+        difficulty: int | None = None,
+    ) -> tuple[list[Case], int]:
+        return self.repo.list_brief(offset, limit, training_type=training_type, difficulty=difficulty)
 
     def list_manage(
         self,

@@ -9,8 +9,19 @@ from repositories.base import Repository
 class CaseRepository(Repository[Case]):
     model = Case
 
-    def list_brief(self, offset: int, limit: int) -> tuple[list[Case], int]:
+    def list_brief(
+        self,
+        offset: int,
+        limit: int,
+        *,
+        training_type: str | None = None,
+        difficulty: int | None = None,
+    ) -> tuple[list[Case], int]:
         q = self.db.query(Case).order_by(Case.id)
+        if training_type:
+            q = q.filter(Case.training_type == training_type)
+        if difficulty is not None:
+            q = q.filter(Case.difficulty == difficulty)
         total = q.order_by(None).count()
         items = q.offset(offset).limit(limit).all()
         return items, total
