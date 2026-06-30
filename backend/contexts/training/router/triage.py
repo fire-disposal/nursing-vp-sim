@@ -1,15 +1,20 @@
 """Triage router — submit triage result and trigger scoring."""
 
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import get_current_user
-from models import TrainingRecord, User
+from infrastructure.queue import QueueFullError
+from models import Case, TrainingRecord, User
+
+from .scoring import _run_scoring_background
+from .session import _try_acquire_scoring
 
 log = logging.getLogger(__name__)
 
@@ -33,11 +38,12 @@ _TRIAGE_DEPARTMENTS = ["内科", "外科", "妇产科", "儿科", "急诊科", "
 
 
 @router.post("/{record_id}/submit", response_model=TriageSubmitResponse)
-def submit_triage(
+async def submit_triage(
     record_id: int,
     req: TriageSubmitRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    request: Request,
 ):
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
@@ -61,6 +67,28 @@ def submit_triage(
     }
     rs["phase_op_count"] = rs.get("phase_op_count", 0) + 1
     record.runtime_state = rs
+
+    # End training and trigger scoring
+    case = db.query(Case).filter(Case.id == record.case_id).first()
+    case_data = case.case_data if case else {}
+
+    if _try_acquire_scoring(record_id, db):
+        record.status = "completed"
+        record.end_time = datetime.now(UTC)
+        try:
+            await request.app.state.task_queue.enqueue(
+                lambda: _run_scoring_background(
+                    record_id,
+                    case_data,
+                    llm_client=request.app.state.llm_client,
+                    tracker=getattr(request.app.state, "scoring_tracker", None),
+                    sse_manager=request.app.state.sse_manager,
+                ),
+                priority=5,
+            )
+        except QueueFullError:
+            log.warning("Triage scoring queue full for record_id=%d", record_id)
+
     db.commit()
 
     log.info(

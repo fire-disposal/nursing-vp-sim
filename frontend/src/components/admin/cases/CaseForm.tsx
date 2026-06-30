@@ -415,6 +415,230 @@ export default function CaseFormModal({
 						/>
 					</div>
 				</fieldset>
+				{caseForm.training_type === "triage" && (
+				<>
+				<fieldset className="border border-border rounded-lg p-4">
+					<legend className="text-sm font-semibold text-foreground px-1">
+						患者信息
+					</legend>
+					<div className="flex gap-3 flex-wrap">
+						<div className="flex-[2] min-w-[200px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								姓名
+							</label>
+							<input
+								value={caseForm.patient_name}
+								onChange={(e) => updateField("patient_name", e.target.value)}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[120px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								年龄
+							</label>
+							<input
+								type="number"
+								min={0}
+								max={120}
+								value={caseForm.patient_age}
+								onChange={(e) =>
+									updateField("patient_age", Number(e.target.value))
+								}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[120px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								性别
+							</label>
+							<select
+								value={caseForm.patient_gender}
+								onChange={(e) => updateField("patient_gender", e.target.value)}
+								className={inputClass}
+							>
+								<option value="">--</option>
+								<option value="男">男</option>
+								<option value="女">女</option>
+							</select>
+						</div>
+					</div>
+				</fieldset>
+				<fieldset className="border border-border rounded-lg p-4">
+					<legend className="text-sm font-semibold text-foreground px-1">
+						到达与主诉
+					</legend>
+					<div className="flex flex-col gap-3">
+						<div>
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								到达方式
+							</label>
+							<select
+								value={caseForm.arrival_mode}
+								onChange={(e) => updateField("arrival_mode", e.target.value)}
+								className={inputClass}
+							>
+								<option value="walk">步行</option>
+								<option value="stretcher">平车</option>
+								<option value="ambulance">救护车</option>
+							</select>
+						</div>
+						<div>
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								主诉
+							</label>
+							<textarea
+								rows={2}
+								value={caseForm.chief_complaint}
+								onChange={(e) => updateField("chief_complaint", e.target.value)}
+								className={textareaClass}
+							/>
+						</div>
+						<div>
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								警示信号（每行一个）
+							</label>
+							<textarea
+								rows={3}
+								value={(caseForm.red_flags || []).join("\n")}
+								onChange={(e) => updateList("red_flags", e.target.value)}
+								placeholder="胸痛、呼吸困难、意识改变..."
+								className={textareaClass}
+							/>
+						</div>
+					</div>
+				</fieldset>
+				<fieldset className="border border-border rounded-lg p-4">
+					<legend className="text-sm font-semibold text-foreground px-1">
+						生命体征
+					</legend>
+					<div className="flex gap-3 flex-wrap">
+						<div className="flex-1 min-w-[100px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								心率
+							</label>
+							<input
+								type="number"
+								value={caseForm.hr}
+								onChange={(e) => updateField("hr", Number(e.target.value))}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[100px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								收缩压
+							</label>
+							<input
+								type="number"
+								value={caseForm.bp_sys}
+								onChange={(e) => updateField("bp_sys", Number(e.target.value))}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[100px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								舒张压
+							</label>
+							<input
+								type="number"
+								value={caseForm.bp_dia}
+								onChange={(e) => updateField("bp_dia", Number(e.target.value))}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[100px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								呼吸
+							</label>
+							<input
+								type="number"
+								value={caseForm.rr}
+								onChange={(e) => updateField("rr", Number(e.target.value))}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[100px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								血氧
+							</label>
+							<input
+								type="number"
+								value={caseForm.spo2}
+								onChange={(e) => updateField("spo2", Number(e.target.value))}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[100px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								体温
+							</label>
+							<input
+								type="number"
+								step={0.1}
+								value={caseForm.temp}
+								onChange={(e) => updateField("temp", Number(e.target.value))}
+								className={inputClass}
+							/>
+						</div>
+					</div>
+					<div className="mt-3">
+						<label className="block text-xs font-semibold text-muted-foreground mb-1">
+							意识状态
+						</label>
+						<select
+							value={caseForm.consciousness}
+							onChange={(e) => updateField("consciousness", e.target.value)}
+							className={inputClass}
+						>
+							<option value="alert">清醒</option>
+							<option value="verbal">对声音有反应</option>
+							<option value="pain">对疼痛有反应</option>
+							<option value="unresponsive">无反应</option>
+						</select>
+					</div>
+				</fieldset>
+				<fieldset className="border border-border rounded-lg p-4">
+					<legend className="text-sm font-semibold text-foreground px-1">
+						MEWS 与分诊
+					</legend>
+					<div className="flex gap-3 flex-wrap">
+						<div className="flex-1 min-w-[120px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								MEWS 评分 (0-14)
+							</label>
+							<input
+								type="number"
+								min={0}
+								max={14}
+								value={caseForm.mews_score}
+								onChange={(e) =>
+									updateField("mews_score", Number(e.target.value))
+								}
+								className={inputClass}
+							/>
+						</div>
+						<div className="flex-1 min-w-[150px]">
+							<label className="block text-xs font-semibold text-muted-foreground mb-1">
+								分诊级别
+							</label>
+							<select
+								value={caseForm.triage_category}
+								onChange={(e) =>
+									updateField("triage_category", e.target.value)
+								}
+								className={inputClass}
+							>
+								<option value="">未评估</option>
+								<option value="red">红色 — 即刻</option>
+								<option value="orange">橙色 — 危急</option>
+								<option value="yellow">黄色 — 紧急</option>
+								<option value="green">绿色 — 普通</option>
+								<option value="blue">蓝色 — 非急</option>
+							</select>
+						</div>
+					</div>
+				</fieldset>
+				</>
+				)}
 				{caseForm.training_type === "history_taking" && (
 				<>
 				<fieldset className="border border-border rounded-lg p-4">

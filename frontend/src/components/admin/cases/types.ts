@@ -39,6 +39,17 @@ export interface CaseForm {
 	required_inquiries: string[];
 	scoring_criteria: Record<string, ScoringDimension>;
 	supported_plugins: string[];
+	arrival_mode: string;
+	red_flags: string[];
+	hr: number;
+	bp_sys: number;
+	bp_dia: number;
+	rr: number;
+	spo2: number;
+	temp: number;
+	consciousness: string;
+	mews_score: number;
+	triage_category: string;
 }
 
 export interface CaseData {
@@ -63,6 +74,21 @@ export interface CaseData {
 	required_inquiries: string[];
 	scoring_criteria: Record<string, ScoringDimension>;
 	supported_plugins: string[];
+	triage_info?: {
+		arrival_mode?: string;
+		red_flags?: string[];
+		vitals?: {
+			hr?: number;
+			bp_sys?: number;
+			bp_dia?: number;
+			rr?: number;
+			spo2?: number;
+			temp?: number;
+		};
+		consciousness?: string;
+		mews_score?: number;
+		triage_category?: string;
+	};
 }
 
 export interface CaseJsonData {
@@ -90,6 +116,21 @@ export interface CaseJsonData {
 		age?: number;
 		gender?: string;
 	};
+	triage_info?: {
+		arrival_mode?: string;
+		red_flags?: string[];
+		vitals?: {
+			hr?: number;
+			bp_sys?: number;
+			bp_dia?: number;
+			rr?: number;
+			spo2?: number;
+			temp?: number;
+		};
+		consciousness?: string;
+		mews_score?: number;
+		triage_category?: string;
+	};
 }
 
 export const NEW_CASE_TEMPLATE: CaseData = {
@@ -116,6 +157,21 @@ export const NEW_CASE_TEMPLATE: CaseData = {
 		病史采集: { name: "病史采集", max: 15, description: "", items: [] },
 	},
 	supported_plugins: [],
+	triage_info: {
+		arrival_mode: "walk",
+		red_flags: [],
+		vitals: {
+			hr: 0,
+			bp_sys: 0,
+			bp_dia: 0,
+			rr: 0,
+			spo2: 0,
+			temp: 0,
+		},
+		consciousness: "alert",
+		mews_score: 0,
+		triage_category: "",
+	},
 };
 
 export const inputClass =
@@ -150,12 +206,30 @@ export function buildCaseData(form: CaseForm): CaseData {
 		required_inquiries: form.required_inquiries,
 		scoring_criteria: form.scoring_criteria,
 		supported_plugins: form.supported_plugins,
+		triage_info: form.training_type === "triage"
+			? {
+					arrival_mode: form.arrival_mode,
+					red_flags: form.red_flags,
+					vitals: {
+						hr: form.hr,
+						bp_sys: form.bp_sys,
+						bp_dia: form.bp_dia,
+						rr: form.rr,
+						spo2: form.spo2,
+						temp: form.temp,
+					},
+					consciousness: form.consciousness,
+					mews_score: form.mews_score,
+					triage_category: form.triage_category,
+				}
+			: undefined,
 	};
 }
 
 export function parseCaseData(cd: unknown): CaseForm {
 	const rec = cd as CaseJsonData | null;
 	const info = rec?.patient_info ?? {};
+	const ti = rec?.triage_info;
 	return {
 		name: rec?.name || "",
 		time_limit: rec?.time_limit || 20,
@@ -179,6 +253,17 @@ export function parseCaseData(cd: unknown): CaseForm {
 		required_inquiries: rec?.required_inquiries || [],
 		scoring_criteria: rec?.scoring_criteria || {},
 		supported_plugins: rec?.supported_plugins || [],
+		arrival_mode: ti?.arrival_mode || "",
+		red_flags: ti?.red_flags || [],
+		hr: ti?.vitals?.hr ?? 0,
+		bp_sys: ti?.vitals?.bp_sys ?? 0,
+		bp_dia: ti?.vitals?.bp_dia ?? 0,
+		rr: ti?.vitals?.rr ?? 0,
+		spo2: ti?.vitals?.spo2 ?? 0,
+		temp: ti?.vitals?.temp ?? 0,
+		consciousness: ti?.consciousness || "alert",
+		mews_score: ti?.mews_score ?? 0,
+		triage_category: ti?.triage_category || "",
 	};
 }
 
