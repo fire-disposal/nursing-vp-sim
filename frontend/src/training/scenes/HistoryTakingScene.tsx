@@ -38,11 +38,7 @@ export default function HistoryTakingScene({
 			id: "nursing-record",
 			icon: <FileText />,
 			label: "记录",
-			panel: (
-				<div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/30 rounded-lg">
-					护理记录（待集成）
-				</div>
-			),
+			panel: <NotePanel recordId={recordId} />,
 		},
 		{
 			id: "notes",
@@ -55,8 +51,13 @@ export default function HistoryTakingScene({
 			icon: <MessageCircle />,
 			label: "主动",
 			panel: (
-				<div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/30 rounded-lg">
-					患者主动（待集成）
+				<div className="space-y-3">
+					<p className="text-xs text-muted-foreground">患者主动追问状态</p>
+					<div className="p-4 bg-muted/30 rounded-lg text-center">
+						<MessageCircle size={24} className="mx-auto mb-2 text-muted-foreground/50" />
+						<p className="text-sm text-muted-foreground">患者在等待时会主动发言</p>
+						<p className="text-xs text-muted-foreground/60 mt-1">由患者情绪和等待时间触发</p>
+					</div>
 				</div>
 			),
 		},
