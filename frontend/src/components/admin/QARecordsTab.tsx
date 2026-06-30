@@ -8,8 +8,8 @@ import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { formatDateTime } from "@/utils/date";
 import { cn } from "@/utils/cn";
+import { formatDateTime } from "@/utils/date";
 
 function truncate(text: string, maxLen: number): string {
 	if (!text) return "";
@@ -162,8 +162,8 @@ export default function QARecordsTab() {
 									className={cn(
 										"max-w-[70%] px-3.5 py-2.5 rounded-xl text-sm whitespace-pre-wrap break-words",
 										m.role === "user"
-											? "self-end bg-[#2563eb] text-white"
-											: "self-start bg-[#f4f5f7] text-foreground",
+											? "self-end bg-primary text-primary-foreground"
+											: "self-start bg-muted text-foreground",
 									)}
 								>
 									{m.content}

@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getRecordDetail, submitTriage } from "@/api/training";
 import { queryKeys } from "@/api/query-keys";
+import { getRecordDetail, submitTriage } from "@/api/training";
 import LoadingState from "@/components/ui/loading-state";
 import { cn } from "@/utils/cn";
 
@@ -24,7 +24,7 @@ const STEPS = [
 ];
 
 function vitalUrgency(value: number | undefined, type: string): { color: string; isCritical: boolean } {
-  if (value === undefined) return { color: "text-gray-400", isCritical: false };
+  if (value === undefined) return { color: "text-muted-foreground/60", isCritical: false };
   if (type === "hr" && (value > 130 || value < 40)) return { color: "text-red-600 font-bold", isCritical: true };
   if (type === "hr" && (value > 110 || value < 50)) return { color: "text-orange-600", isCritical: false };
   if (type === "spo2" && value < 90) return { color: "text-red-600 font-bold", isCritical: true };
@@ -33,17 +33,17 @@ function vitalUrgency(value: number | undefined, type: string): { color: string;
   if (type === "temp" && value > 38) return { color: "text-orange-600", isCritical: false };
   if (type === "rr" && (value > 30 || value < 8)) return { color: "text-red-600 font-bold", isCritical: true };
   if (type === "rr" && (value > 24 || value < 12)) return { color: "text-orange-600", isCritical: false };
-  return { color: "text-gray-900", isCritical: false };
+  return { color: "text-foreground", isCritical: false };
 }
 
 function VitalCard({ label, value, unit, urgency: urgencyStr }: { label: string; value: number | string; unit: string; urgency?: string }) {
   const urgent = urgencyStr?.includes("red") || false;
   return (
-    <div className={cn("bg-gray-50 rounded-lg p-3 text-center transition-all", urgent && "ring-2 ring-red-300 animate-pulse")}>
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className={cn("text-lg font-semibold", urgencyStr || "text-gray-900")}>
+    <div className={cn("bg-muted/50 rounded-lg p-3 text-center transition-all", urgent && "ring-2 ring-destructive/30 animate-pulse")}>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className={cn("text-lg font-semibold", urgencyStr || "text-foreground")}>
         {value ?? "—"}
-        {unit && <span className="text-xs text-gray-400 ml-0.5">{unit}</span>}
+        {unit && <span className="text-xs text-muted-foreground/60 ml-0.5">{unit}</span>}
       </p>
     </div>
   );
@@ -129,16 +129,16 @@ export default function TriageScene({ recordId }: { recordId: string }) {
           <h2 className="text-2xl font-bold mb-1 anim-fade-up anim-delay-1">分诊完成</h2>
           <p className="text-muted-foreground text-sm mb-2 anim-fade-up anim-delay-1">用时 {timeStr}</p>
           <div className="space-y-3 mt-6 text-left">
-            <div className="flex justify-between p-3 bg-gray-50 rounded-lg anim-fade-up anim-delay-2">
-              <span className="text-gray-600">MEWS 评分</span>
+            <div className="flex justify-between p-3 bg-muted/50 rounded-lg anim-fade-up anim-delay-2">
+              <span className="text-muted-foreground">MEWS 评分</span>
               <span className="font-bold text-lg">{mews}/14</span>
             </div>
-            <div className="flex justify-between p-3 rounded-lg anim-fade-up anim-delay-2" style={{ backgroundColor: cat?.bg || "#f9fafb" }}>
-              <span className="text-gray-600">分诊级别</span>
-              <span className={cat?.textColor || "text-gray-900"}>{cat?.label || category}</span>
+            <div className="flex justify-between p-3 rounded-lg anim-fade-up anim-delay-2" style={{ backgroundColor: cat?.bg }}>
+              <span className="text-muted-foreground">分诊级别</span>
+              <span className={cat?.textColor || "text-foreground"}>{cat?.label || category}</span>
             </div>
-            <div className="flex justify-between p-3 bg-gray-50 rounded-lg anim-fade-up anim-delay-3">
-              <span className="text-gray-600">建议科室</span>
+            <div className="flex justify-between p-3 bg-muted/50 rounded-lg anim-fade-up anim-delay-3">
+              <span className="text-muted-foreground">建议科室</span>
               <span className="font-bold">{department}</span>
             </div>
           </div>
@@ -162,8 +162,8 @@ export default function TriageScene({ recordId }: { recordId: string }) {
             <h1 className="text-2xl font-bold">预检分诊</h1>
             <p className="text-muted-foreground">评估患者情况，完成分诊判定</p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl text-sm font-mono tabular-nums">
-            <span className="text-gray-400">⏱</span>
+          <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-xl text-sm font-mono tabular-nums">
+            <span className="text-muted-foreground/60">⏱</span>
             <span className="font-semibold">{formatTime(elapsed)}</span>
           </div>
         </div>
@@ -180,13 +180,13 @@ export default function TriageScene({ recordId }: { recordId: string }) {
                   "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                   isDone && "bg-green-100 text-green-700",
                   isCurrent && "bg-blue-100 text-blue-700 ring-1 ring-blue-300",
-                  !isDone && !isCurrent && "bg-gray-100 text-gray-400",
+                  !isDone && !isCurrent && "bg-muted text-muted-foreground/60",
                 )}>
                   <span>{isDone ? "✓" : step.id === "assess" ? "1" : step.id === "score" ? "2" : step.id === "triage" ? "3" : "4"}</span>
                   <span>{step.label}</span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={cn("flex-1 h-0.5 rounded-full", isDone ? "bg-green-300" : "bg-gray-200")} />
+                  <div className={cn("flex-1 h-0.5 rounded-full", isDone ? "bg-primary/40" : "bg-muted/70")} />
                 )}
               </div>
             );
@@ -198,9 +198,9 @@ export default function TriageScene({ recordId }: { recordId: string }) {
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-xl font-bold">{String(patient.name || "未知患者")}</h2>
-              <p className="text-gray-500">{String(patient.age || "?")}岁 · {String(patient.gender || "?")}</p>
+              <p className="text-muted-foreground">{String(patient.age || "?")}岁 · {String(patient.gender || "?")}</p>
             </div>
-            <span className="px-3 py-1 text-sm rounded-full bg-gray-100">{arrival}</span>
+            <span className="px-3 py-1 text-sm rounded-full bg-muted">{arrival}</span>
           </div>
           <p className="mt-3"><span className="font-semibold">主诉:</span> {String(cd.chief_complaint || "无")}</p>
           {redFlags.length > 0 && (
@@ -235,21 +235,21 @@ export default function TriageScene({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      <div className="bg-gray-50 p-5 border-l overflow-y-auto">
+      <div className="bg-muted/50 p-5 border-l overflow-y-auto">
         <div className="mb-6">
           <h3 className="font-semibold text-lg mb-3">MEWS 评分</h3>
-          <div className={cn("bg-white rounded-xl p-4 text-center transition-all", mewsUrgency === "red" && "ring-2 ring-red-300 animate-pulse")}>
+          <div className={cn("bg-card rounded-xl p-4 text-center transition-all", mewsUrgency === "red" && "ring-2 ring-destructive/30 animate-pulse")}>
             <div className="text-5xl font-bold">{mews}
-              <span className="text-lg font-normal text-gray-400 ml-1">/ 14</span>
+              <span className="text-lg font-normal text-muted-foreground/60 ml-1">/ 14</span>
             </div>
             <div className="flex items-center justify-center gap-4 mt-4">
-              <button onClick={() => setMews(Math.max(0, mews - 1))} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-xl font-bold">−</button>
+              <button onClick={() => setMews(Math.max(0, mews - 1))} className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 text-xl font-bold">−</button>
               <input
                 type="number" min={0} max={14} value={mews}
                 onChange={(e) => setMews(Math.min(14, Math.max(0, Number(e.target.value))))}
                 className="w-16 text-center text-xl font-bold border rounded-lg py-2"
               />
-              <button onClick={() => setMews(Math.min(14, mews + 1))} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-xl font-bold">+</button>
+              <button onClick={() => setMews(Math.min(14, mews + 1))} className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 text-xl font-bold">+</button>
             </div>
           </div>
         </div>
@@ -268,7 +268,7 @@ export default function TriageScene({ recordId }: { recordId: string }) {
                 <span className={`w-4 h-4 rounded-full ${c.color} shrink-0`} />
                 <div>
                   <div className="font-medium text-sm">{c.label}</div>
-                  <div className="text-xs text-gray-500">{c.priority}</div>
+                  <div className="text-xs text-muted-foreground/70">{c.priority}</div>
                 </div>
               </button>
             ))}
@@ -283,7 +283,7 @@ export default function TriageScene({ recordId }: { recordId: string }) {
                 key={dep}
                 onClick={() => setDepartment(dep)}
                 className={`py-2.5 px-3 rounded-xl text-sm font-medium border-2 transition-all ${
-                  department === dep ? "border-blue-500 bg-blue-50 text-blue-700" : "border-transparent bg-white text-gray-600 hover:border-gray-200"
+                  department === dep ? "border-primary bg-primary/10 text-primary" : "border-transparent bg-card text-muted-foreground hover:border-border"
                 }`}
               >
                 {dep}
@@ -295,7 +295,7 @@ export default function TriageScene({ recordId }: { recordId: string }) {
         <button
           onClick={() => submitMutation.mutate()}
           disabled={!category || !department || submitMutation.isPending}
-          className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold text-base hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-semibold text-base hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {submitMutation.isPending ? "提交中..." : "完成分诊"}
         </button>

@@ -150,13 +150,12 @@ export default function VoiceTokenCard({
 	if (isLoading) return <LoadingSkeleton />;
 
 	return (
-		<>
-			<Card>
-				<CardHeader className="flex flex-row items-center justify-between">
-					<CardTitle>API 凭证与参数</CardTitle>
-					<div className="flex gap-1">
-						<Button variant="outline" size="sm" onClick={handleExport}>
-							<Download className="size-3.5" />
+		<Card>
+			<CardHeader className="flex flex-row items-center justify-between">
+				<CardTitle>API 凭证与参数</CardTitle>
+				<div className="flex gap-1">
+					<Button variant="outline" size="sm" onClick={handleExport}>
+						<Download className="size-3.5" />
 							导出
 						</Button>
 
@@ -332,9 +331,6 @@ export default function VoiceTokenCard({
 						</>
 					)}
 				</CardContent>
-			</Card>
-
-
-		</>
+		</Card>
 	);
 }
