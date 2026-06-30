@@ -331,18 +331,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/notes/{record_id}": {
+    "/api/notes": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Notes */
-        get: operations["get_notes_api_notes__record_id__get"];
+        /** List Notes */
+        get: operations["list_notes_api_notes_get"];
         put?: never;
-        /** Save Note */
-        post: operations["save_note_api_notes__record_id__post"];
+        /** Create Note */
+        post: operations["create_note_api_notes_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -356,7 +356,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Note */
+        get: operations["get_note_api_notes__note_id__get"];
         /** Update Note */
         put: operations["update_note_api_notes__note_id__put"];
         post?: never;
@@ -3374,8 +3375,29 @@ export interface components {
         };
         /** NoteCreateRequest */
         NoteCreateRequest: {
+            /** Record Id */
+            record_id?: number | null;
+            /**
+             * Type
+             * @default free
+             */
+            type: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
             /** Content */
-            content: string;
+            content?: {
+                [key: string]: unknown;
+            };
+            /** Tags */
+            tags?: string[] | null;
+            /**
+             * Is Private
+             * @default true
+             */
+            is_private: boolean;
         };
         /** NoteItem */
         NoteItem: {
@@ -3393,6 +3415,48 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** NoteResponse */
+        NoteResponse: {
+            /** Id */
+            id: number;
+            /** Record Id */
+            record_id: number | null;
+            /** User Id */
+            user_id: number;
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Tags */
+            tags: string[] | null;
+            /** Is Private */
+            is_private: boolean;
+            /** Training Type */
+            training_type: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** NoteUpdateRequest */
+        NoteUpdateRequest: {
+            /** Type */
+            type?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Content */
+            content?: {
+                [key: string]: unknown;
+            } | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Is Private */
+            is_private?: boolean | null;
         };
         /** NursingRecordResponse */
         NursingRecordResponse: {
@@ -5739,13 +5803,13 @@ export interface operations {
             };
         };
     };
-    get_notes_api_notes__record_id__get: {
+    list_notes_api_notes_get: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
+            query?: {
+                record_id?: number | null;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -5756,7 +5820,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NoteItem"][];
+                    "application/json": components["schemas"]["NoteResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -5770,13 +5834,11 @@ export interface operations {
             };
         };
     };
-    save_note_api_notes__record_id__post: {
+    create_note_api_notes_post: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                record_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -5786,12 +5848,43 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_note_api_notes__note_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NoteItem"];
+                    "application/json": components["schemas"]["NoteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5816,7 +5909,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NoteCreateRequest"];
+                "application/json": components["schemas"]["NoteUpdateRequest"];
             };
         };
         responses: {
@@ -5826,7 +5919,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NoteItem"];
+                    "application/json": components["schemas"]["NoteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5857,7 +5950,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

@@ -512,7 +512,12 @@ export interface MessageItem {
 }
 
 export interface NoteCreateRequest {
-  content: string
+  record_id?: number | null
+  type?: string
+  title?: string
+  content?: Record<string, unknown>
+  tags?: string[] | null
+  is_private?: boolean
 }
 
 export interface NoteItem {
@@ -520,6 +525,28 @@ export interface NoteItem {
   content: string
   created_at: string
   updated_at: string
+}
+
+export interface NoteResponse {
+  id: number
+  record_id: number | null
+  user_id: number
+  type: string
+  title: string
+  content: Record<string, unknown>
+  tags: string[] | null
+  is_private: boolean
+  training_type: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NoteUpdateRequest {
+  type?: string | null
+  title?: string | null
+  content?: Record<string, unknown> | null
+  tags?: string[] | null
+  is_private?: boolean | null
 }
 
 export interface NursingRecordResponse {

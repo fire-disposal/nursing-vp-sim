@@ -1,8 +1,9 @@
-import { ClipboardList, FileText, MessageCircle, Stethoscope, User } from "lucide-react";
+import { ClipboardList, FileText, MessageCircle, Stethoscope, StickyNote, User } from "lucide-react";
 import { lazy, Suspense } from "react";
 import LoadingState from "@/components/ui/loading-state";
 import type { TabDef } from "../components/TabStack";
 import TabStack from "../components/TabStack";
+import NotePanel from "../components/NotePanel";
 import { ExamPanel, InquiryPanel, PatientInfoPanel } from "./history-taking/panels";
 
 const TrainingEngine = lazy(() =>
@@ -42,6 +43,12 @@ export default function HistoryTakingScene({
 					护理记录（待集成）
 				</div>
 			),
+		},
+		{
+			id: "notes",
+			icon: <StickyNote />,
+			label: "笔记",
+			panel: <NotePanel recordId={recordId} />,
 		},
 		{
 			id: "initiative",

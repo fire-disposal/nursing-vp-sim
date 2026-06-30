@@ -1177,13 +1177,13 @@
         }
       }
     },
-    "/api/notes/{record_id}": {
+    "/api/notes": {
       "get": {
         "tags": [
           "笔记"
         ],
-        "summary": "Get Notes",
-        "operationId": "get_notes_api_notes__record_id__get",
+        "summary": "List Notes",
+        "operationId": "list_notes_api_notes_get",
         "security": [
           {
             "HTTPBearer": []
@@ -1192,10 +1192,17 @@
         "parameters": [
           {
             "name": "record_id",
-            "in": "path",
-            "required": true,
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "integer",
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Record Id"
             }
           }
@@ -1208,9 +1215,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/NoteItem"
+                    "$ref": "#/components/schemas/NoteResponse"
                   },
-                  "title": "Response Get Notes Api Notes  Record Id  Get"
+                  "title": "Response List Notes Api Notes Get"
                 }
               }
             }
@@ -1231,22 +1238,11 @@
         "tags": [
           "笔记"
         ],
-        "summary": "Save Note",
-        "operationId": "save_note_api_notes__record_id__post",
+        "summary": "Create Note",
+        "operationId": "create_note_api_notes_post",
         "security": [
           {
             "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
           }
         ],
         "requestBody": {
@@ -1260,12 +1256,12 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteItem"
+                  "$ref": "#/components/schemas/NoteResponse"
                 }
               }
             }
@@ -1284,6 +1280,51 @@
       }
     },
     "/api/notes/{note_id}": {
+      "get": {
+        "tags": [
+          "笔记"
+        ],
+        "summary": "Get Note",
+        "operationId": "get_note_api_notes__note_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "note_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Note Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "tags": [
           "笔记"
@@ -1311,7 +1352,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NoteCreateRequest"
+                "$ref": "#/components/schemas/NoteUpdateRequest"
               }
             }
           }
@@ -1322,7 +1363,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteItem"
+                  "$ref": "#/components/schemas/NoteResponse"
                 }
               }
             }
@@ -1366,9 +1407,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -10846,17 +10885,53 @@
       },
       "NoteCreateRequest": {
         "properties": {
-          "content": {
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "type": {
             "type": "string",
-            "minLength": 1,
+            "title": "Type",
+            "default": "free"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
             "title": "Content"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private",
+            "default": true
           }
         },
-        "additionalProperties": false,
         "type": "object",
-        "required": [
-          "content"
-        ],
         "title": "NoteCreateRequest"
       },
       "NoteItem": {
@@ -10888,6 +10963,159 @@
           "updated_at"
         ],
         "title": "NoteItem"
+      },
+      "NoteResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "is_private": {
+            "type": "boolean",
+            "title": "Is Private"
+          },
+          "training_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Training Type"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "record_id",
+          "user_id",
+          "type",
+          "title",
+          "content",
+          "tags",
+          "is_private",
+          "training_type",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "NoteResponse"
+      },
+      "NoteUpdateRequest": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "is_private": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Private"
+          }
+        },
+        "type": "object",
+        "title": "NoteUpdateRequest"
       },
       "NursingRecordResponse": {
         "properties": {
