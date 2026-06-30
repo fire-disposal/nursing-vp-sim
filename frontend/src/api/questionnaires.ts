@@ -1,7 +1,6 @@
+import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
-
-import type { ApiPath } from "./api-path";
 
 type Schemas = components["schemas"];
 

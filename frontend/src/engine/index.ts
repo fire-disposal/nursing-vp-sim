@@ -1,5 +1,4 @@
 export { createMessageBus } from "./MessageBus";
-export { PatientProvider, usePatient } from "./PatientProvider";
 export type { EmotionState } from "./PanelContext";
 export {
 	EMOTION_LABELS,
@@ -10,6 +9,7 @@ export {
 	useEmotion,
 	usePortrait,
 } from "./PanelContext";
+export { PatientProvider, usePatient } from "./PatientProvider";
 export { notifySSEProgress, ScoreManager } from "./ScoreManager";
 export { StreamManager } from "./StreamManager";
 export { useTrainingContext } from "./TrainingContext";
@@ -18,8 +18,8 @@ export type {
 	BadgeInfo,
 	ChatMessage,
 	MessageBus,
+	PanelContext,
 	PanelTabProps,
 	PatientData,
-	PanelContext,
 	ScoreData,
 } from "./types";

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { queryKeys } from "@/api/query-keys";
 import {
 	getTrainingQuestionnaire,
 	submitTrainingQuestionnaire,
 } from "@/api/questionnaires";
-import { queryKeys } from "@/api/query-keys";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { MessageBus } from "@/engine/types";
 

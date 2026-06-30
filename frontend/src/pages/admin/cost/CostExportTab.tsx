@@ -7,8 +7,8 @@ import Button from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Label } from "@/components/ui/label";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
 	Table,

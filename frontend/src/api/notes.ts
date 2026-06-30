@@ -1,11 +1,11 @@
-import type { components } from "./api-types.gen";
 import type { ApiPath } from "./api-path";
+import type { components } from "./api-types.gen";
 import { api } from "./client";
 
 type NoteItem = components["schemas"]["NoteResponse"];
 type NoteCreatePayload = components["schemas"]["NoteCreateRequest"];
 
-export type { NoteItem, NoteCreatePayload };
+export type { NoteCreatePayload, NoteItem };
 
 export const listNotes = (recordId?: number) =>
 	api.get<NoteItem[]>(`/notes${recordId ? `?record_id=${recordId}` : ""}` as ApiPath).then((r) => r.data);

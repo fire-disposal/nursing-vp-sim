@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Heart, User } from "lucide-react";
+import { queryKeys } from "@/api/query-keys";
 import { getRecordDetail } from "@/api/training";
 import { getTrainingState } from "@/api/training-state";
-import { queryKeys } from "@/api/query-keys";
 
 interface Props {
 	recordId: string;

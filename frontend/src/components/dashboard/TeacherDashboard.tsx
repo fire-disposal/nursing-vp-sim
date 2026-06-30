@@ -32,8 +32,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/utils/cn";
 import type { RecordExtended } from "@/types/record";
+import { cn } from "@/utils/cn";
 
 type AdminStats = components["schemas"]["AdminStats"];
 

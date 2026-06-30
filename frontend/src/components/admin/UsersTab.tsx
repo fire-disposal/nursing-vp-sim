@@ -5,9 +5,9 @@ import { getClasses } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
-import { btnPrimary, btnSecondary } from "@/utils/styles";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem } from "@/types/store";
+import { btnPrimary, btnSecondary } from "@/utils/styles";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,

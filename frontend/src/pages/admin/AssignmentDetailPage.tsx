@@ -1,6 +1,7 @@
 import { ArrowLeft, Download } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { exportAssignment, getAssignment } from "@/api/assignments";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -15,7 +16,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 
 function statusBadge(status: string) {

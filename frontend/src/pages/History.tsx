@@ -20,8 +20,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/utils/cn";
 import useAuthStore from "@/stores/authStore";
+import { cn } from "@/utils/cn";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 

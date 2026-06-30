@@ -3,7 +3,6 @@ import { Activity, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
-import LoginIllustration from "./LoginIllustration";
 import { Button } from "@/components/ui/button";
 import {
 	Form,
@@ -16,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
+import LoginIllustration from "./LoginIllustration";
 
 function isTokenExpired(token: string): boolean {
 	try {

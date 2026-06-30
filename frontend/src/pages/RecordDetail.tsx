@@ -20,11 +20,11 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import type { ScoreData as EngineScoreData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
-import RecordStatsBar from "./record-detail/RecordStatsBar";
-import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
-import ScoreResultSection from "./record-detail/ScoreResultSection";
-import MessagePlayback from "./record-detail/MessagePlayback";
 import type { MessageData } from "./record-detail/MessagePlayback";
+import MessagePlayback from "./record-detail/MessagePlayback";
+import RecordStatsBar from "./record-detail/RecordStatsBar";
+import ScoreResultSection from "./record-detail/ScoreResultSection";
+import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
 
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();

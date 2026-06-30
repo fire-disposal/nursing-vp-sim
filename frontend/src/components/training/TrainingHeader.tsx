@@ -14,12 +14,11 @@ import { useNavigate } from "react-router-dom";
 import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { usePortrait } from "@/engine";
-import { useTrainingContext } from "@/engine";
+import { usePortrait, useTrainingContext } from "@/engine";
 import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
-import { cn } from "@/utils/cn";
 import { getPatientAvatar } from "@/utils/avatar";
+import { cn } from "@/utils/cn";
 
 const FEATURE_META: Record<string, { label: string; desc: string }> = {
 	allow_pause: {

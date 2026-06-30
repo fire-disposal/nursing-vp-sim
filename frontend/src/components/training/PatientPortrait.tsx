@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EmotionState } from "@/engine";
 import { EMOTION_LABELS, getEmotionBorder } from "@/engine";
 import type { PatientData } from "@/engine/types";
@@ -12,6 +12,8 @@ interface PatientPortraitProps {
 	trust?: number;
 	comfort?: number;
 }
+
+const CROSSFADE_MS = 400;
 
 export function PatientPortrait({
 	patient,
@@ -31,45 +33,59 @@ export function PatientPortrait({
 			: "border-border";
 
 	const [prevSrc, setPrevSrc] = useState(avatarSrc);
-	const [fading, setFading] = useState(false);
+	const [phase, setPhase] = useState<"idle" | "entering" | "done">("idle");
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	useEffect(() => {
-		if (avatarSrc !== prevSrc) {
-			setFading(true);
-			if (timerRef.current) clearTimeout(timerRef.current);
-			timerRef.current = setTimeout(() => {
-				setPrevSrc(avatarSrc);
-				setFading(false);
-			}, 350);
-			return () => {
-				if (timerRef.current) clearTimeout(timerRef.current);
-			};
-		}
-	}, [avatarSrc, prevSrc]);
+	const transition = useCallback(() => {
+		if (timerRef.current) clearTimeout(timerRef.current);
+		setPhase("entering");
+		timerRef.current = setTimeout(() => {
+			setPrevSrc(avatarSrc);
+			setPhase("done");
+		}, CROSSFADE_MS);
+	}, [avatarSrc]);
 
+	useEffect(() => {
+		if (avatarSrc !== prevSrc) transition();
+		return () => {
+			if (timerRef.current) clearTimeout(timerRef.current);
+		};
+	}, [avatarSrc, prevSrc, transition]);
+
+	useEffect(() => {
+		if (phase === "done") {
+			setPhase("idle");
+		}
+	}, [phase]);
 
 	return (
 		<div className="text-center space-y-2">
 			<div
 				className={cn(
-					"relative mx-auto size-56 overflow-hidden rounded-full border-2 bg-muted transition-colors duration-500",
+					"relative mx-auto size-56 overflow-hidden rounded-full border-2 bg-muted",
+					"transition-colors duration-500",
 					borderClass,
 				)}
 			>
 				<img
-					src={fading ? prevSrc : avatarSrc}
+					src={avatarSrc}
 					alt={patient.name}
 					className={cn(
-						"w-full h-full object-cover transition-opacity duration-300",
-						fading ? "opacity-0" : "opacity-100",
+						"w-full h-full object-cover",
+						"transition-[opacity,filter] duration-[400ms] ease-in-out",
+						"will-change-[opacity,filter]",
+						phase === "entering" && "opacity-0 blur-sm",
 					)}
 				/>
-				{fading && (
+				{phase === "entering" && (
 					<img
-						src={avatarSrc}
+						src={prevSrc}
 						alt={patient.name}
-						className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 opacity-100"
+						className={cn(
+							"absolute inset-0 w-full h-full object-cover",
+							"transition-[opacity,filter] duration-[400ms] ease-in-out",
+							"will-change-[opacity,filter]",
+						)}
 					/>
 				)}
 			</div>

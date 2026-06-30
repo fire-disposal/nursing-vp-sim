@@ -1,6 +1,7 @@
 import { Activity, AlertTriangle, CheckCircle2, Cpu, RefreshCw, Server, Timer } from "lucide-react";
 import { useState } from "react";
-import { fetchDiagnose, type DiagnoseResponse } from "@/api/admin/ops";
+import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
+import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -13,7 +14,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { cn } from "@/utils/cn";
 

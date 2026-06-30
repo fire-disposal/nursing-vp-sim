@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { FileText, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { listNotes, deleteNote } from "@/api/notes";
+import { deleteNote, listNotes } from "@/api/notes";
 import { queryKeys } from "@/api/query-keys";
 import NoteEditor from "./NoteEditor";
-import { FileText, Plus, Trash2 } from "lucide-react";
 
 const TYPE_LABELS: Record<string, string> = {
 	reflection: "反思",

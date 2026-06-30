@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/utils/cn";
 import type { ScoreItemData } from "@/types/score";
+import { cn } from "@/utils/cn";
 
 export default function ScoreItem({ item }: { item: ScoreItemData }) {
 	const itemMax = Number.isFinite(item.max) && item.max! > 0 ? item.max! : 3;

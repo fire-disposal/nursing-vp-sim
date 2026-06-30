@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { cn } from "@/utils/cn";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
+import { cn } from "@/utils/cn";
 
 interface ClassFilterParams {
 	grade_id: number | null;

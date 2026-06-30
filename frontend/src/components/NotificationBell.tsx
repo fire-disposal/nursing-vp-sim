@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, EyeOff, X } from "lucide-react";
-import { queryKeys } from "@/api/query-keys";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +10,7 @@ import {
 	markNotificationRead,
 	markNotificationUnread,
 } from "@/api/notifications";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useApiQuery } from "@/hooks/useApiQuery";
 

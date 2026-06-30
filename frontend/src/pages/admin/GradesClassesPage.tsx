@@ -19,12 +19,12 @@ import {
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { formatDate } from "@/utils/date";
-import { selectClass } from "@/utils/styles";
-import { cn } from "@/utils/cn";
 import { type GradeClassValues, gradeClassSchema } from "@/schemas/grade-class";
 import useGradesClassesStore from "@/stores/gradesClassesStore";
 import type { ClassItem, Grade } from "@/types/store";
+import { cn } from "@/utils/cn";
+import { formatDate } from "@/utils/date";
+import { selectClass } from "@/utils/styles";
 
 export default function GradesClassesPage() {
 	const [tab, setTab] = useState<"grades" | "classes">("grades");

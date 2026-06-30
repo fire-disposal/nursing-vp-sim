@@ -7,8 +7,8 @@ import {
 	textareaClass,
 } from "@/components/admin/questionnaires/types";
 import Button from "@/components/ui/button";
-import LoadingState from "@/components/ui/loading-state";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import LoadingState from "@/components/ui/loading-state";
 
 interface QuestionnaireEditorProps {
 	open: boolean;

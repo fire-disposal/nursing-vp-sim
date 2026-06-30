@@ -26,16 +26,15 @@ import {
 	getTeacherSummary,
 	getTrends,
 } from "@/api/api-client";
-import { queryKeys } from "@/api/query-keys";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
-import { LegacyTabs } from "@/components/ui/tabs";
 import {
 	Table,
 	TableBody,
@@ -44,10 +43,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { LegacyTabs } from "@/components/ui/tabs";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
-import { cn } from "@/utils/cn";
 import useAuthStore from "@/stores/authStore";
 import type { User } from "@/types/store";
+import { cn } from "@/utils/cn";
 
 type TrendStats = components["schemas"]["TrendStats"];
 type TeacherSummaryItem = components["schemas"]["TeacherSummaryItem"];

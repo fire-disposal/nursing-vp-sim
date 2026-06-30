@@ -9,10 +9,10 @@ import {
 	ThumbsUp,
 	X,
 } from "lucide-react";
-import Badge from "@/components/ui/badge";
 import { CollapsibleSection, ScoreItem } from "@/components/record-review";
-import { cn } from "@/utils/cn";
+import Badge from "@/components/ui/badge";
 import type { DetailScoreCategory, ScoreData } from "@/types/score";
+import { cn } from "@/utils/cn";
 
 interface ReviewData {
 	review_status?: string | null;

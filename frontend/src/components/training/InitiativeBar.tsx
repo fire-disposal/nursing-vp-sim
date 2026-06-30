@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MessageBus } from "@/engine/types";
 import { triggerInitiative } from "@/api/training-state";
+import type { MessageBus } from "@/engine/types";
 import { cn } from "@/utils/cn";
 
 interface InitiativeBarProps {

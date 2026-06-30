@@ -1,4 +1,4 @@
-import { useQuery, type DefaultError, type QueryKey, type UseQueryOptions } from "@tanstack/react-query";
+import { type DefaultError, type QueryKey, type UseQueryOptions, useQuery } from "@tanstack/react-query";
 import type { AxiosResponse } from "axios";
 
 /**

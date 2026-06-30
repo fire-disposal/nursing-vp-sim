@@ -10,6 +10,7 @@ import {
 	updateSystemNotification,
 } from "@/api/admin/system-notifications";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm";
@@ -27,7 +28,6 @@ import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { Textarea } from "@/components/ui/textarea";
-import { queryKeys } from "@/api/query-keys";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import {
 	type NotificationValues,

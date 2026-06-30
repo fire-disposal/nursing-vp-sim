@@ -1,9 +1,9 @@
 import { ClipboardList, FileText, MessageCircle, Stethoscope, StickyNote, User } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 import LoadingState from "@/components/ui/loading-state";
+import NotePanel from "../components/NotePanel";
 import type { TabDef } from "../components/TabStack";
 import TabStack from "../components/TabStack";
-import NotePanel from "../components/NotePanel";
 import { ExamPanel, InquiryPanel, PatientInfoPanel } from "./history-taking/panels";
 
 const TrainingEngine = lazy(() =>

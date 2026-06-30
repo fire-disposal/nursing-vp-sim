@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { btnPrimary, btnSecondary } from "@/utils/styles";
-import { cn } from "@/utils/cn";
 import type { ClassItem, Grade } from "@/types/store";
+import { cn } from "@/utils/cn";
+import { btnPrimary, btnSecondary } from "@/utils/styles";
 import type {
 	EditUserFormValues,
 	RoleOption,

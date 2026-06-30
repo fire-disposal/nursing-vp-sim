@@ -12,14 +12,14 @@ import {
 } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import CitationCard from "./CitationCard";
-import { useApiQuery } from "@/hooks/useApiQuery";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import { cn } from "@/utils/cn";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { getNurseAvatar } from "@/utils/avatar";
+import { cn } from "@/utils/cn";
+import CitationCard from "./CitationCard";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 

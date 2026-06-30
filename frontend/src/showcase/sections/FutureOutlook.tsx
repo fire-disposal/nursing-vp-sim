@@ -1,4 +1,4 @@
-import { Smartphone, Monitor } from "lucide-react";
+import { Monitor, Smartphone } from "lucide-react";
 import Reveal from "../components/Reveal";
 
 export default function FutureOutlook() {

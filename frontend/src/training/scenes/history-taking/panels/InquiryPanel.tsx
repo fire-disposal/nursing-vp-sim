@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo } from "react";
-import { getRecordDetail } from "@/api/training";
 import { queryKeys } from "@/api/query-keys";
+import { getRecordDetail } from "@/api/training";
 
 interface Props {
 	recordId: string;

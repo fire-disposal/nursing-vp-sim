@@ -1,7 +1,7 @@
-import type { MessageBus } from "../types";
 import type { EmotionState } from "../PanelContext";
+import type { MessageBus } from "../types";
 import { createBrowserTTS } from "./browser-tts";
-import type { TTSProvider, TTSManagerConfig } from "./types";
+import type { TTSManagerConfig, TTSProvider } from "./types";
 import { VolcTTSProvider } from "./VolcTTSProvider";
 
 function splitFirstSentence(text: string): [string, string] {

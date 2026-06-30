@@ -21,15 +21,15 @@ import {
 	YAxis,
 } from "recharts";
 import { getStudentDetail } from "@/api/api-client";
-import { queryKeys } from "@/api/query-keys";
 import type { components } from "@/api/api-types.gen";
+import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import PageHeader from "@/components/ui/page-header";
 import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
-import { statCardClass, statIconClass } from "@/utils/styles";
 import { cn } from "@/utils/cn";
+import { statCardClass, statIconClass } from "@/utils/styles";
 
 type Schemas = components["schemas"];
 type StudentDetail = Schemas["StudentDetail"];
