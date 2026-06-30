@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.database import db_session, get_db
 from core.llm_profile import get_llm_config
-from core.security import get_current_user
+from core.security import require_permission
 from infrastructure.llm.client import CallContext
 from infrastructure.prompt import render_template
 from middleware.rate_limits import check_qa_limit
@@ -166,7 +166,7 @@ def _qa_user_context(user: User) -> dict[str, str]:
 async def create_session(
     req: QASessionCreate,
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     if not req.question.strip():
@@ -290,7 +290,7 @@ async def ask_in_session(
     session_id: int,
     req: QASessionCreate,
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     if not req.question.strip():
@@ -395,7 +395,7 @@ async def ask_stream(
     session_id: int,
     req: QAAskRequest,
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
 ):
     async with db_session() as db:
         session = (
@@ -515,7 +515,7 @@ def get_section_text(source: str, section: str):
 async def ask_question_legacy(
     req: QASessionCreate,
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     return await create_session(req, request=request, current_user=current_user, db=db)

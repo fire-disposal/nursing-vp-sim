@@ -7,7 +7,6 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Request
 
 from core.deps import DbSession
-from core.exceptions import AuthError
 from core.security import require_permission
 from infrastructure.llm import decrypt_api_key, get_env_fallback_state
 from models import ApiSecret, LLMConfig, User
@@ -35,11 +34,6 @@ router = APIRouter(prefix="/api/admin", tags=["API管理"])
 _Manager = Annotated[User, Depends(require_permission("api_manage"))]
 
 
-def _require_system_admin(current_user: User) -> None:
-    if not current_user.is_super_admin:
-        raise AuthError("仅系统管理员可管理API密钥", status_code=403)
-
-
 def _secret_resp(s: dict) -> ApiSecretResponse:
     return ApiSecretResponse(**s)
 
@@ -49,26 +43,22 @@ def _secret_resp(s: dict) -> ApiSecretResponse:
 
 @router.get("/secrets", response_model=list[ApiSecretResponse])
 def list_secrets(current_user: _Manager, db: DbSession):
-    _require_system_admin(current_user)
     return [_secret_resp(s) for s in ApiSecretService(db).list_with_config_counts()]
 
 
 @router.post("/secrets", status_code=201, response_model=SecretCreateResponse)
 def create_secret(data: ApiSecretCreate, current_user: _Manager, db: DbSession):
-    _require_system_admin(current_user)
     return ApiSecretService(db).create(data.model_dump())
 
 
 @router.put("/secrets/{secret_id}", response_model=OkResponse)
 def update_secret(secret_id: int, data: ApiSecretUpdate, current_user: _Manager, db: DbSession):
-    _require_system_admin(current_user)
     ApiSecretService(db).update(secret_id, data.model_dump(exclude_unset=True))
     return {"ok": True}
 
 
 @router.delete("/secrets/{secret_id}", response_model=DeleteResponse)
 async def delete_secret(secret_id: int, request: Request, current_user: _Manager, db: DbSession):
-    _require_system_admin(current_user)
     ApiSecretService(db).delete(secret_id)
     await request.app.state.llm_router.load_from_db()
     return {"ok": True}

@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 
-_Teacher = Annotated[User, Depends(require_permission("score_review"))]
+_AssignmentManager = Annotated[User, Depends(require_permission("assignment_manage"))]
 
 
 def _list_resp(view) -> AssignmentListItem:
@@ -80,7 +80,7 @@ def _detail_resp(view) -> AssignmentDetail:
 
 
 @router.post("", response_model=AssignmentDetail)
-def create_assignment(req: AssignmentCreateRequest, current_user: _Teacher, db: DbSession):
+def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentManager, db: DbSession):
     return _detail_resp(
         AssignmentService(db).create(
             practice_id=req.practice_id,
@@ -96,7 +96,7 @@ def create_assignment(req: AssignmentCreateRequest, current_user: _Teacher, db: 
 
 @router.get("", response_model=PaginatedResponse[AssignmentListItem])
 def list_assignments(
-    current_user: _Teacher,
+    current_user: _AssignmentManager,
     db: DbSession,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -114,12 +114,12 @@ def list_assignments(
 
 
 @router.get("/{assignment_id}", response_model=AssignmentDetail)
-def get_assignment(assignment_id: str, current_user: _Teacher, db: DbSession):
+def get_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
     return _detail_resp(AssignmentService(db).get(assignment_id, current_user.id))
 
 
 @router.put("/{assignment_id}", response_model=AssignmentDetail)
-def update_assignment(assignment_id: str, req: AssignmentUpdateRequest, current_user: _Teacher, db: DbSession):
+def update_assignment(assignment_id: str, req: AssignmentUpdateRequest, current_user: _AssignmentManager, db: DbSession):
     return _detail_resp(
         AssignmentService(db).update(
             assignment_id=assignment_id,
@@ -135,7 +135,7 @@ def update_assignment(assignment_id: str, req: AssignmentUpdateRequest, current_
 
 
 @router.delete("/{assignment_id}", response_model=DeleteResponse)
-def delete_assignment(assignment_id: str, current_user: _Teacher, db: DbSession):
+def delete_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
     return AssignmentService(db).delete(assignment_id, current_user.id)
 
 

@@ -58,7 +58,7 @@ def engine():
                         "score_review",
                         "llm_monitor",
                         "api_manage",
-                        "prompt_manage",
+                        "assignment_manage",
                         "grade_class_manage",
                         "stats_view",
                         "feedback_review",

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.pagination import paginate
-from core.security import get_current_user, require_permission
+from core.security import require_permission
 from models import QARecord, QASession, User
 from schemas import (
     DeleteResponse,
@@ -26,7 +26,7 @@ router = APIRouter()
 
 @router.get("/sessions", response_model=list[QASessionItem])
 def list_sessions(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -44,7 +44,7 @@ def list_sessions(
 @router.delete("/sessions/{session_id}", response_model=DeleteResponse)
 def delete_session(
     session_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     session = (
@@ -85,7 +85,7 @@ def _enrich_message(record) -> dict:
 @router.get("/sessions/{session_id}/messages", response_model=list[QAMessageItem])
 def get_session_messages(
     session_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission("qa_access"))],
     db: Annotated[Session, Depends(get_db)],
 ):
     session = (
