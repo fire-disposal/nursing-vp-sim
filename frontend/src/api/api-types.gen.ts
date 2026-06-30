@@ -4727,6 +4727,10 @@ export interface components {
             exam_results?: {
                 [key: string]: unknown;
             }[];
+            /** Triage Result */
+            triage_result?: {
+                [key: string]: unknown;
+            };
             /** Case Data */
             case_data?: {
                 [key: string]: unknown;
@@ -4819,6 +4823,10 @@ export interface components {
             message: string;
             /** Record Id */
             record_id: number;
+            /** Triage Result */
+            triage_result?: {
+                [key: string]: unknown;
+            };
         };
         /** UserBrief */
         UserBrief: {

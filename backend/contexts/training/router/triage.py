@@ -31,6 +31,7 @@ class TriageSubmitRequest(BaseModel):
 class TriageSubmitResponse(BaseModel):
     message: str
     record_id: int
+    triage_result: dict = Field(default_factory=dict)
 
 
 _TRIAGE_CATEGORIES = ["red", "orange", "yellow", "green", "blue"]
@@ -99,4 +100,4 @@ async def submit_triage(
         req.mews_score,
     )
 
-    return TriageSubmitResponse(message="分诊完成", record_id=record_id)
+    return TriageSubmitResponse(message="分诊完成", record_id=record_id, triage_result=rs.get("triage_result", {}))

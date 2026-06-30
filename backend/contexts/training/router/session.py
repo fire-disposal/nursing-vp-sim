@@ -486,6 +486,7 @@ def get_record_detail(
         from_assignment=record.assignment_id is not None,
         exam_anchors=case_data.get("exam_anchors", {}),
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
+        triage_result=dict(record.runtime_state or {}).get("triage_result", {}),
         case_data=case_data,
         profile_info=profile_info,
     )

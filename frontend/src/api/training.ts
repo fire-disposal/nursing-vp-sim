@@ -62,6 +62,7 @@ interface TriageSubmitRequest {
 interface TriageSubmitResponse {
 	message: string;
 	record_id: number;
+	triage_result?: Record<string, unknown>;
 }
 
 export const submitTriage = (recordId: number, data: TriageSubmitRequest) =>

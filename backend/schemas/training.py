@@ -116,6 +116,7 @@ class TrainingRecordDetail(BaseModel):
     from_assignment: bool = False
     exam_anchors: dict[str, Any] = Field(default_factory=dict)
     exam_results: list[dict[str, Any]] = Field(default_factory=list)
+    triage_result: dict[str, Any] = Field(default_factory=dict)
     case_data: dict[str, Any] = Field(default_factory=dict)
     profile_info: dict[str, Any] = Field(default_factory=dict)
 
