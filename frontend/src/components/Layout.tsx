@@ -4,7 +4,7 @@
 	Menu, MessageSquare, Server, Settings, Shield, Stethoscope,
 	UserSearch, Users, X,
 } from "lucide-react";
-import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
+import { memo, type ReactNode, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
@@ -59,9 +59,6 @@ const STUDENT_LINKS: NavLinkItem[] = [
 // ── Student top navigation ──
 function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: () => void }) {
 	const [mobileOpen, setMobileOpen] = useState(false);
-	const { openFeedback } = useFeedback();
-	const user = useAuthStore((s) => s.user);
-	const avatar = getUserAvatar(user?.gender);
 
 	return (
 		<header className="shrink-0 border-b border-border bg-card">
