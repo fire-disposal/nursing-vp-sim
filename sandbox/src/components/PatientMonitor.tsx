@@ -72,9 +72,9 @@ function resolve(s: MonitorStatus) {
     bpSys, bpDia, rr, temp, pain, alarms,
     ecgSpeed: 60 / hr,
     respSpeed: 60 / rr,
-    ecgColor: "#4fc3f7",     // fixed — waveform colour never changes; alarm shown via text/value
-    plethColor: "#66bb6a",
-    respColor: "#ffa726",
+    ecgColor: "#4fc3f7",     // cyan — ECG lead
+    plethColor: "#66bb6a",   // green — SpO₂ plethysmograph
+    respColor: "#ffa726",    // amber — RESP waveform
   }
 }
 
@@ -190,9 +190,9 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, color: "#3a5a7a", borderBottom: "1px solid #14202e", paddingBottom: 3 }}>
           <span style={{ color: "#6aa0c0", fontWeight: 700 }}>{patientName || "Pt. UNKNOWN"}</span>
           <div style={{ display: "flex", gap: 6 }}>
-            <Lead on label="HR" alarm={p.alarms.includes("HR")} />
-            <Lead on label="SpO₂" alarm={p.alarms.includes("SpO₂")} />
-            <Lead on label="RESP" alarm={p.alarms.includes("RR")} />
+            <Lead on color="#4fc3f7" label="HR" alarm={p.alarms.includes("HR")} />
+            <Lead on color="#66bb6a" label="SpO₂" alarm={p.alarms.includes("SpO₂")} />
+            <Lead on color="#ffa726" label="RESP" alarm={p.alarms.includes("RR")} />
           </div>
         </div>
 
@@ -257,6 +257,6 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
   )
 }
 
-function Lead({ on, label, alarm }: { on: boolean; label: string; alarm?: boolean }) {
-  return <span style={{ color: alarm ? "#e74c3c" : on ? "#66bb6a" : "#3a5a7a" }}>● {label}</span>
+function Lead({ on, label, alarm, color }: { on: boolean; label: string; alarm?: boolean; color?: string }) {
+  return <span style={{ color: alarm ? "#e74c3c" : on ? (color ?? "#66bb6a") : "#3a5a7a" }}>● {label}</span>
 }
