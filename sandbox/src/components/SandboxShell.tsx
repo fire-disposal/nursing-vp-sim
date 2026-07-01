@@ -17,7 +17,6 @@ const ICONS: Record<string, string> = {
   "card-inquiry": "📋",
   "card-monitor": "💓",
   "card-notes": "📝",
-  "furniture-lab": "🪑",
 }
 
 interface WindowMeta {
@@ -207,28 +206,28 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
       {/* ── Top bar ── */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          padding: "6px 12px",
-          background: dark ? "#16161e" : "#fff",
-          borderBottom: `1px solid ${dark ? "#2a2a35" : "#ddd"}`,
-          fontFamily: "system-ui",
-          fontSize: 13,
-          flexWrap: "wrap",
+        display: "flex",
+        alignItems: "center",
+        gap: 3,
+        padding: "5px 10px",
+        background: dark ? "#16161e" : "#fff",
+        borderBottom: `1px solid ${dark ? "#2a2a35" : "#ddd"}`,
+        fontFamily: "system-ui",
+        fontSize: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <span
+        style={{
+          fontWeight: 700,
+          color: c("#999", "#666"),
+          letterSpacing: 0.5,
+          marginRight: 4,
+          fontSize: 10,
         }}
       >
-        <span
-          style={{
-            fontWeight: 700,
-            color: c("#999", "#666"),
-            letterSpacing: 1,
-            marginRight: 6,
-            fontSize: 11,
-          }}
-        >
-          S/B
-        </span>
+        S/B
+      </span>
 
         {/* Mode tabs */}
         <div style={{ display: "flex", gap: 2, marginRight: 8 }}>
@@ -246,9 +245,9 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 4,
-                padding: "4px 8px",
-                borderRadius: 5,
+                gap: 3,
+                padding: "3px 7px",
+                borderRadius: 4,
                 border: `1px solid ${
                   isOpen ? (dark ? "#4fc3f7" : "#0288d1") : dark ? "#2a2a35" : "#ddd"
                 }`,
@@ -259,9 +258,8 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                   ? dark ? "#4fc3f7" : "#0288d1"
                   : dark ? "#777" : "#666",
                 cursor: "pointer",
-                fontSize: 11,
+                fontSize: 10,
                 fontFamily: "system-ui",
-                transition: "all 0.1s",
               }}
             >
               <span>{ICONS[s.id] ?? "◻"}</span>
@@ -274,10 +272,10 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
 
         <button
           onClick={() => setShowDock((d) => !d)}
-          title="Toggle Debug Dock [Ctrl+D]"
+          title="Debug Dock [Ctrl+D]"
           style={{
-            padding: "4px 8px",
-            borderRadius: 4,
+            padding: "3px 7px",
+            borderRadius: 3,
             border: `1px solid ${showDock ? (dark ? "#4fc3f7" : "#0288d1") : dark ? "#2a2a35" : "#ddd"}`,
             background: showDock
               ? dark ? "#4fc3f718" : "#e3f2fd"
@@ -286,7 +284,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
               ? dark ? "#4fc3f7" : "#0288d1"
               : dark ? "#777" : "#555",
             cursor: "pointer",
-            fontSize: 11,
+            fontSize: 10,
             fontFamily: "system-ui",
           }}
         >
@@ -295,15 +293,15 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
 
         <button
           onClick={() => setDark((d) => !d)}
-          title="Toggle theme [T]"
+          title="Theme [T]"
           style={{
-            padding: "4px 8px",
-            borderRadius: 4,
+            padding: "3px 7px",
+            borderRadius: 3,
             border: `1px solid ${dark ? "#2a2a35" : "#ddd"}`,
             background: dark ? "#1c1c26" : "#eee",
             color: dark ? "#777" : "#555",
             cursor: "pointer",
-            fontSize: 11,
+            fontSize: 10,
             fontFamily: "system-ui",
           }}
         >
@@ -381,17 +379,18 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "7px 10px",
+                    padding: "5px 9px",
                     background: dark ? "#1c1c26" : "#f0f0f4",
                     borderBottom: `1px solid ${dark ? "#2a2a35" : "#ddd"}`,
                     cursor: "grab",
                     userSelect: "none",
-                    fontSize: 11,
+                    fontSize: 10,
                     color: dark ? "#aaa" : "#555",
                   }}
                 >
-                  <span>
-                    {ICONS[id] ?? "◻"} {s.name}
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span>{ICONS[id] ?? "◻"}</span>
+                    <span>{s.name}</span>
                   </span>
                   <div style={{ display: "flex", gap: 2 }}>
                     <button
@@ -400,11 +399,11 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                       style={{
                         background: "none",
                         border: "none",
-                        color: "#666",
+                        color: dark ? "#555" : "#888",
                         cursor: "pointer",
-                        fontSize: 12,
-                        padding: "1px 5px",
-                        borderRadius: 3,
+                        fontSize: 10,
+                        padding: "1px 4px",
+                        borderRadius: 2,
                         lineHeight: 1,
                       }}
                     >
@@ -416,11 +415,11 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                       style={{
                         background: "none",
                         border: "none",
-                        color: "#666",
+                        color: dark ? "#555" : "#888",
                         cursor: "pointer",
-                        fontSize: 12,
-                        padding: "1px 5px",
-                        borderRadius: 3,
+                        fontSize: 10,
+                        padding: "1px 4px",
+                        borderRadius: 2,
                         lineHeight: 1,
                       }}
                     >
@@ -429,10 +428,10 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                   </div>
                 </div>
 
-                <div style={{ maxHeight: "calc(100vh - 240px)", minHeight: 300, overflow: "auto" }}>
+                <div style={{ maxHeight: "calc(100vh - 230px)", minHeight: 260, overflow: "auto" }}>
                   <Suspense
                     fallback={
-                      <div style={{ padding: 40, textAlign: "center", color: "#555" }}>
+                      <div style={{ padding: 30, textAlign: "center", color: "#555", fontSize: 11 }}>
                         Loading…
                       </div>
                     }
@@ -448,21 +447,19 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "4px 10px",
+                    padding: "3px 9px",
                     background: dark ? "#0d0d12" : "#fafafa",
                     borderTop: `1px solid ${dark ? "#1e1e28" : "#eee"}`,
-                    fontSize: 10,
+                    fontSize: 9,
                     color: dark ? "#555" : "#999",
                     fontFamily: "monospace",
                   }}
                 >
                   <span>{s.id}</span>
-                  <span>
-                    bus:{" "}
-                    <span style={{ color: dark ? "#4fc3f7" : "#0288d1" }}>✓</span>
-                    {" · "}
-                    mode:{" "}
-                    <span style={{ color: dark ? "#81c784" : "#388e3c" }}>sandbox</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span>bus <span style={{ color: dark ? "#4fc3f7" : "#0288d1" }}>✓</span></span>
+                    <span style={{ color: dark ? "#333" : "#ddd" }}>|</span>
+                    <span>mode <span style={{ color: dark ? "#81c784" : "#388e3c" }}>sandbox</span></span>
                   </span>
                   <button
                     onClick={() => {
@@ -474,11 +471,11 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                     style={{
                       background: "none",
                       border: `1px solid ${dark ? "#333" : "#ddd"}`,
-                      borderRadius: 3,
+                      borderRadius: 2,
                       color: dark ? "#777" : "#888",
                       cursor: "pointer",
-                      fontSize: 9,
-                      padding: "1px 6px",
+                      fontSize: 8,
+                      padding: "1px 5px",
                       fontFamily: "monospace",
                     }}
                   >
@@ -498,12 +495,12 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                 height: "100%",
                 color: dark ? "#333" : "#ccc",
                 fontFamily: "system-ui",
-                fontSize: 14,
-                letterSpacing: 1,
+                fontSize: 12,
+                letterSpacing: 0.5,
                 userSelect: "none",
               }}
             >
-              Select a scene above to begin
+              Select a scene above
             </div>
           )}
         </div>
@@ -536,29 +533,28 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                 ["state", "State"],
                 ["info", "Info"],
               ] as [DockTab, string][]).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  onClick={() => setDockTab(tab)}
-                  style={{
-                    flex: 1,
-                    padding: "7px 0",
-                    background: "none",
-                    border: "none",
-                    borderBottom:
-                      dockTab === tab
-                        ? `2px solid ${dark ? "#4fc3f7" : "#0288d1"}`
-                        : "2px solid transparent",
-                    color:
-                      dockTab === tab
-                        ? dark ? "#4fc3f7" : "#0288d1"
-                        : dark ? "#555" : "#888",
-                    cursor: "pointer",
-                    fontSize: 11,
-                    fontFamily: "system-ui",
-                    fontWeight: dockTab === tab ? 600 : 400,
-                    transition: "all 0.1s",
-                  }}
-                >
+                  <button
+                    key={tab}
+                    onClick={() => setDockTab(tab)}
+                    style={{
+                      flex: 1,
+                      padding: "5px 0",
+                      background: "none",
+                      border: "none",
+                      borderBottom:
+                        dockTab === tab
+                          ? `2px solid ${dark ? "#4fc3f7" : "#0288d1"}`
+                          : "2px solid transparent",
+                      color:
+                        dockTab === tab
+                          ? dark ? "#4fc3f7" : "#0288d1"
+                          : dark ? "#555" : "#888",
+                      cursor: "pointer",
+                      fontSize: 10,
+                      fontFamily: "system-ui",
+                      fontWeight: dockTab === tab ? 600 : 400,
+                    }}
+                  >
                   {label}
                 </button>
               ))}
@@ -654,8 +650,8 @@ function ModeTab({ active, onClick, dark, children }: { active: boolean; onClick
   return (
     <button onClick={onClick}
       style={{
-        padding: "4px 10px", borderRadius: 5, border: "none", cursor: "pointer",
-        fontSize: 10, fontWeight: active ? 700 : 400, fontFamily: "system-ui",
+        padding: "3px 8px", borderRadius: 4, border: "none", cursor: "pointer",
+        fontSize: 9, fontWeight: active ? 600 : 400, fontFamily: "system-ui",
         background: active ? (dark ? "#4fc3f722" : "#0288d122") : "transparent",
         color: active ? (dark ? "#4fc3f7" : "#0288d1") : (dark ? "#666" : "#999"),
       }}

@@ -9,7 +9,7 @@
  * GLB model:
  *   <Furniture gx={6} gz={3} glb="/models/chair.glb" rotation={90} />
  *
- * `rotation` is in degrees clockwise around Y.
+ * `rotation` is in degrees around Y (positive = counter‑clockwise, Three.js right‑hand rule).
  */
 import { type ReactNode, Suspense, useMemo } from "react"
 import { useGLTF } from "@react-three/drei"

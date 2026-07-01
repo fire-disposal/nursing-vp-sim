@@ -32,22 +32,23 @@ export function SceneStateEditor({ bus, dark }: { bus: MessageBus; dark: boolean
         display: "flex",
         flexDirection: "column",
         fontFamily: "monospace",
-        fontSize: 11,
+        fontSize: 10,
         overflow: "auto",
       }}
     >
       {/* Current state JSON */}
       <pre
         style={{
-          padding: "8px 12px",
+          padding: "6px 10px",
           margin: 0,
           color: dark ? "#aaa" : "#666",
           whiteSpace: "pre-wrap",
           wordBreak: "break-all",
-          maxHeight: 200,
+          maxHeight: 180,
           overflow: "auto",
           borderBottom: `1px solid ${dark ? "#1e1e28" : "#eee"}`,
-          fontSize: 10,
+          fontSize: 9,
+          lineHeight: 1.4,
           background: dark ? "#0d0d12" : "#fafafa",
         }}
       >
@@ -55,13 +56,13 @@ export function SceneStateEditor({ bus, dark }: { bus: MessageBus; dark: boolean
       </pre>
 
       {/* Preset buttons */}
-      <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ padding: "6px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
         <div
           style={{
             color: dark ? "#555" : "#aaa",
             fontWeight: 600,
-            fontSize: 10,
-            marginBottom: 4,
+            fontSize: 9,
+            marginBottom: 2,
             textTransform: "uppercase",
             letterSpacing: 0.5,
           }}
@@ -73,15 +74,14 @@ export function SceneStateEditor({ bus, dark }: { bus: MessageBus; dark: boolean
             key={label}
             onClick={() => apply(patch)}
             style={{
-              padding: "5px 8px",
+              padding: "4px 7px",
               background: dark ? "#1c1c26" : "#f5f5f5",
               border: `1px solid ${dark ? "#2a2a35" : "#ddd"}`,
-              borderRadius: 4,
+              borderRadius: 3,
               color: dark ? "#ccc" : "#555",
               cursor: "pointer",
-              fontSize: 10,
+              fontSize: 9,
               textAlign: "left",
-              transition: "all 0.1s",
               fontFamily: "system-ui",
             }}
             onMouseEnter={(e) => {

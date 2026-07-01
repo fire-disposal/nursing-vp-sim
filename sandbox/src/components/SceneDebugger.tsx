@@ -52,53 +52,50 @@ export function SceneDebugger({ bus, props, sceneId, quickActions }: SceneDebugg
     <div style={{ borderTop: "1px solid #333", fontSize: 11, fontFamily: "monospace" }}>
       <button onClick={() => setOpen(!open)}
         style={{
-          width: "100%", padding: "6px 12px", background: "#1a1a2e", border: "none",
-          color: "#888", cursor: "pointer", textAlign: "left", fontSize: 11, fontFamily: "system-ui",
-          display: "flex", alignItems: "center", gap: 6,
+          width: "100%", padding: "4px 10px", background: "#1a1a2e", border: "none",
+          color: "#777", cursor: "pointer", textAlign: "left", fontSize: 10, fontFamily: "system-ui",
+          display: "flex", alignItems: "center", gap: 5,
         }}
       >
-        <span style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.12s" }}>▶</span>
-        Debug — {sceneId}
+        <span style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.1s", fontSize: 8 }}>▶</span>
+        Debug {sceneId}
       </button>
 
       {open && (
-        <div style={{ padding: "8px 12px", background: "#12121e", display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Props */}
+        <div style={{ padding: "6px 10px", background: "#12121e", display: "flex", flexDirection: "column", gap: 6 }}>
           <div>
-            <div style={{ color: "#666", fontSize: 10, marginBottom: 4, fontWeight: 600 }}>PROPS</div>
-            <pre style={{ margin: 0, color: "#aaa", fontSize: 10, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+            <div style={{ color: "#555", fontSize: 9, marginBottom: 3, fontWeight: 600 }}>PROPS</div>
+            <pre style={{ margin: 0, color: "#999", fontSize: 9, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.4 }}>
               {JSON.stringify(props, null, 2)}
             </pre>
           </div>
 
-          {/* Bus emitter */}
           <div>
-            <div style={{ color: "#666", fontSize: 10, marginBottom: 4, fontWeight: 600 }}>BUS EMITTER</div>
-            <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <div style={{ color: "#555", fontSize: 9, marginBottom: 3, fontWeight: 600 }}>BUS EMITTER</div>
+            <div style={{ display: "flex", gap: 3, marginBottom: 3 }}>
               <select value={eventType} onChange={(e) => handleTypeChange(e.target.value)}
-                style={{ flex: 1, padding: "3px 6px", background: "#222", color: "#ccc", border: "1px solid #444", borderRadius: 4, fontSize: 10, fontFamily: "monospace" }}
+                style={{ flex: 1, padding: "2px 5px", background: "#222", color: "#bbb", border: "1px solid #444", borderRadius: 3, fontSize: 9, fontFamily: "monospace" }}
               >
                 {Object.keys(EVENT_TEMPLATES).map((t) => <option key={t} value={t}>{t}</option>)}
                 <option value="custom">custom</option>
               </select>
               <button onClick={emit} disabled={!valid}
-                style={{ padding: "3px 10px", background: valid ? "#4fc3f7" : "#333", border: "none", borderRadius: 4, color: valid ? "#111" : "#555", cursor: valid ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 600 }}>
+                style={{ padding: "2px 8px", background: valid ? "#4fc3f7" : "#333", border: "none", borderRadius: 3, color: valid ? "#111" : "#555", cursor: valid ? "pointer" : "not-allowed", fontSize: 9, fontWeight: 600 }}>
                 EMIT
               </button>
             </div>
-            <textarea value={payload} onChange={(e) => handlePayloadChange(e.target.value)} rows={4}
-              style={{ width: "100%", padding: 6, background: "#1a1a2e", color: valid ? "#ccc" : "#e74c3c", border: `1px solid ${valid ? "#444" : "#e74c3c"}`, borderRadius: 4, fontSize: 10, fontFamily: "monospace", resize: "vertical" }}
+            <textarea value={payload} onChange={(e) => handlePayloadChange(e.target.value)} rows={3}
+              style={{ width: "100%", padding: 4, background: "#1a1a2e", color: valid ? "#bbb" : "#e74c3c", border: `1px solid ${valid ? "#444" : "#e74c3c"}`, borderRadius: 3, fontSize: 9, fontFamily: "monospace", resize: "vertical" }}
             />
           </div>
 
-          {/* Card-specific quick actions */}
           {quickActions && quickActions.length > 0 && (
             <div>
-              <div style={{ color: "#666", fontSize: 10, marginBottom: 4, fontWeight: 600 }}>QUICK — {sceneId}</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              <div style={{ color: "#555", fontSize: 9, marginBottom: 3, fontWeight: 600 }}>QUICK — {sceneId}</div>
+              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                 {quickActions.map((qa, i) => (
                   <button key={i} onClick={() => bus.emit(qa.emit.event, qa.emit.data)}
-                    style={{ padding: "3px 8px", background: "#2a2a3e", border: "1px solid #444", borderRadius: 4, color: "#ccc", cursor: "pointer", fontSize: 10, fontFamily: "system-ui" }}>
+                    style={{ padding: "2px 7px", background: "#2a2a3e", border: "1px solid #444", borderRadius: 3, color: "#bbb", cursor: "pointer", fontSize: 9, fontFamily: "system-ui" }}>
                     {qa.label}
                   </button>
                 ))}
