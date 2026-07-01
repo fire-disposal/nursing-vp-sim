@@ -63,7 +63,7 @@ function groupByCat(ops: string[]): [string, string[]][] {
   return [...m.entries()];
 }
 
-export default function ExamBodyScene({ bus }: SceneProps) {
+export default function ExamBodyScene({ bus, bgImageUrl }: SceneProps & { bgImageUrl?: string }) {
   const [results, setResults] = useState<Record<string, { value: string; abnormal: boolean }>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -93,7 +93,10 @@ export default function ExamBodyScene({ bus }: SceneProps) {
     <div className="flex flex-col h-full min-h-[420px] font-sans bg-background">
       {/* Body diagram area */}
       <div className="flex-1 relative flex items-center justify-center min-h-[300px]">
-        <div className="relative w-[55%] max-w-[320px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border">
+         <div className="relative w-[55%] max-w-[320px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border overflow-hidden">
+          {bgImageUrl && (
+            <img src={bgImageUrl} alt="Patient" className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0" />
+          )}
           {PARTS.map((part) => {
             const sel = selected === part.id;
             return (

@@ -65,7 +65,7 @@ function groupByCat(ops: string[]): [string, string[]][] {
 }
 
 // ═══ 4. Component ═══
-export default function ExamScene({ bus }: SceneProps) {
+export default function ExamScene({ bus, bgImageUrl }: SceneProps & { bgImageUrl?: string }) {
   const [results, setResults] = useState<Record<string, { value: string; abnormal: boolean }>>({})
   const [selected, setSelected] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
@@ -97,7 +97,10 @@ export default function ExamScene({ bus }: SceneProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 420, fontFamily: "system-ui", background: "#1a1a2a" }}>
       <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
-        <div style={{ position: "relative", width: "55%", maxWidth: 320, aspectRatio: "0.48", background: "#222", borderRadius: "60px 60px 30px 30px", border: "2px solid #3a3a4e" }}>
+        <div style={{ position: "relative", width: "55%", maxWidth: 320, aspectRatio: "0.48", background: "#222", borderRadius: "60px 60px 30px 30px", border: "2px solid #3a3a4e", overflow: "hidden" }}>
+          {bgImageUrl && (
+            <img src={bgImageUrl} alt="Patient" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none", zIndex: 0 }} />
+          )}
           {PARTS.map((part) => {
             const sel = selected === part.id
             return (
