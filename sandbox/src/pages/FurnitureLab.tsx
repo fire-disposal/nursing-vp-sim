@@ -324,9 +324,9 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
   const handleModelClick = useCallback(async (model: DiscoveredModel) => {
     if (glbUrl) URL.revokeObjectURL(glbUrl)
-    // Fetch the GLB to compute hash
     try {
       const res = await fetch(model.url)
+      if (!res.ok) return
       const blob = await res.blob()
       const buf = await blob.arrayBuffer()
       const hashBytes = await crypto.subtle.digest("SHA-256", buf)
@@ -445,10 +445,10 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                     <div key={id}
                       style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 6px", borderRadius: 4, border: `1px solid ${glbName === id ? pal.accent : "transparent"}`, background: glbName === id ? `${pal.accent}12` : "transparent", fontSize: 8, cursor: "pointer" }}
                       onClick={async () => {
-                        // Load the GLB via fetch
                         if (entry.glb) {
                           try {
                             const res = await fetch(entry.glb)
+                            if (!res.ok) return
                             const blob = await res.blob()
                             const buf = await blob.arrayBuffer()
                             const hashBytes = await crypto.subtle.digest("SHA-256", buf)

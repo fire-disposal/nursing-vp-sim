@@ -1,12 +1,1 @@
-{
-  "chair.glb": {
-    "id": "chair.glb",
-    "name": "陪护椅",
-    "category": "furniture",
-    "tags": ["座位"],
-    "enabled": true,
-    "glb": "/models/chair.glb",
-    "hash": null,
-    "calibration": { "scale": 1.0, "tx": 0, "ty": 0, "tz": 0, "rot": 0 }
-  }
-}
+{}
