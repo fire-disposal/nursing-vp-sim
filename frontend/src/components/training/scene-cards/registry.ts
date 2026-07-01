@@ -4,6 +4,7 @@ import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import PatientInfoCard from "./PatientInfoCard";
 import InquiryCard from "./InquiryCard";
 import NotesCard from "./NotesCard";
+import MonitorCard from "./MonitorCard";
 
 interface CardDef {
   id: string;
@@ -19,13 +20,15 @@ function def(id: string, loader: () => Promise<{ default: ComponentType<SceneCar
 const HISTORY_TAKING: CardDef[] = [
   { id: "patient-info",  component: PatientInfoCard,                          priority: 0 },
   { id: "inquiry",       component: InquiryCard,                              priority: 1 },
-  def("body-exam",   () => import("@/components/training/body-exam/ExamBodyScene"), 2, "physical_exam"),
-  { id: "notes",         component: NotesCard,                                priority: 3 },
+  { id: "monitor",       component: MonitorCard,                              priority: 2 },
+  def("body-exam",   () => import("@/components/training/body-exam/ExamBodyScene"), 3, "physical_exam"),
+  { id: "notes",         component: NotesCard,                                priority: 4 },
 ];
 
 const TRIAGE: CardDef[] = [
   { id: "patient-info",  component: PatientInfoCard,                          priority: 0 },
-  def("mews",        () => import("@/components/training/panels/triage/MewsPanel"), 1, "exam_scene"),
+  { id: "monitor",       component: MonitorCard,                              priority: 1 },
+  def("mews",        () => import("@/components/training/panels/triage/MewsPanel"), 2, "exam_scene"),
 ];
 
 const REGISTRY: Record<string, CardDef[]> = {

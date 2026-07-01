@@ -1,8 +1,9 @@
-import { Clock, Minus, Plus, Star, Stethoscope, User } from "lucide-react";
+import { Clock, Minus, Plus, Star, User } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ALL_CAPABILITIES, TRAINING_CAPABILITIES } from "@/engine/capabilities";
 import type { TrainingTypeInfo } from "@/training/types";
 import { cn } from "@/utils/cn";
 
@@ -17,38 +18,30 @@ interface Props {
   loading?: boolean;
 }
 
-interface CapabilityToggle {
-  key: string;
-  label: string;
-  description: string;
-  icon: typeof Stethoscope;
-  defaultOn: boolean;
-}
-
-const CAPABILITIES: Record<string, CapabilityToggle[]> = {
-  history_taking: [
-    { key: "physical_exam", label: "护理查体", description: "可执行生命体征测量、体格检查", icon: Stethoscope, defaultOn: true },
-  ],
-};
-
 export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart, loading }: Props) {
   const isTriage = caseInfo.training_type === "triage";
+  const availableKeys = TRAINING_CAPABILITIES[caseInfo.training_type] ?? [];
   const [toggles, setToggles] = useState<Record<string, boolean>>({});
   const [timeLimit, setTimeLimit] = useState(isTriage ? 10 : 20);
   const timeMin = 5;
   const timeMax = isTriage ? 30 : 60;
 
   const caps = useMemo(() => {
-    const defaults: Record<string, boolean> = {};
-    for (const c of CAPABILITIES[caseInfo.training_type] ?? []) {
-      defaults[c.key] = c.defaultOn;
+    const result: Record<string, boolean> = {};
+    for (const key of availableKeys) {
+      const def = ALL_CAPABILITIES[key];
+      result[key] = toggles[key] ?? (def ? def.defaultOn : false);
     }
-    return { ...defaults, ...toggles };
-  }, [caseInfo.training_type, toggles]);
+    return result;
+  }, [availableKeys, toggles]);
 
   const toggle = useCallback((key: string) => {
-    setToggles((prev) => ({ ...prev, [key]: !(prev[key] ?? CAPABILITIES[caseInfo.training_type]?.find((c) => c.key === key)?.defaultOn) }));
-  }, [caseInfo.training_type]);
+    setToggles((prev) => {
+      const def = ALL_CAPABILITIES[key];
+      const current = prev[key] ?? (def ? def.defaultOn : false);
+      return { ...prev, [key]: !current };
+    });
+  }, []);
 
   const handleStart = useCallback(() => {
     onStart(caps, timeLimit);
@@ -83,32 +76,34 @@ export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart
                 {summary.chief_complaint && <span className="truncate max-w-[200px]">主诉：{summary.chief_complaint}</span>}
               </div>
             )}
-            {profile && (
-              <div className="mt-2 text-[11px] text-muted-foreground">{profile.description}</div>
-            )}
+            {profile && <div className="mt-2 text-[11px] text-muted-foreground">{profile.description}</div>}
           </div>
 
           {/* Capabilities */}
-          {CAPABILITIES[caseInfo.training_type]?.length > 0 && (
+          {availableKeys.length > 0 && (
             <div>
-              <span className="text-sm font-medium mb-3 block">训练配置</span>
+              <span className="text-sm font-medium mb-3 block">训练特性</span>
               <div className="space-y-2">
-                {(CAPABILITIES[caseInfo.training_type] ?? []).map((c) => {
-                  const on = caps[c.key];
-                  const Icon = c.icon;
+                {availableKeys.map((key) => {
+                  const def = ALL_CAPABILITIES[key];
+                  if (!def) return null;
+                  const on = caps[key];
                   return (
-                    <button key={c.key} type="button" onClick={() => toggle(c.key)}
+                    <button key={key} type="button" onClick={() => toggle(key)}
                       className={cn(
                         "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
                         on ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/20 hover:bg-muted/50",
                       )}
                     >
-                      <div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0", on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                        <Icon size={18} />
+                      <div className={cn(
+                        "flex size-9 items-center justify-center rounded-lg shrink-0 transition-colors",
+                        on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                      )}>
+                        <span className="text-sm font-bold">{def.label.slice(0, 2)}</span>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{c.label}</p>
-                        <p className="text-[11px] text-muted-foreground">{c.description}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{def.label}</p>
+                        <p className="text-[11px] text-muted-foreground">{def.description}</p>
                       </div>
                       <div className={cn("h-5 w-9 rounded-full transition-colors shrink-0", on ? "bg-primary" : "bg-muted-foreground/25")}>
                         <div className={cn("size-4 rounded-full bg-white shadow-sm transition-transform mt-0.5", on ? "translate-x-[18px]" : "translate-x-[2px]")} />
