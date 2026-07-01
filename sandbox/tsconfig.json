@@ -6,11 +6,13 @@
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
+    "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "skipLibCheck": true,
     "allowJs": false,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }

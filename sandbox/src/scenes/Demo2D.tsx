@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import type { HotspotDef } from "../components/Hotspot"
 import { Hotspot } from "../components/Hotspot"
-import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
+import { emitSceneEvent, type SceneMeta, type SceneProps, type SceneState } from "../scene-types"
 
 const HOTSPOTS: HotspotDef[] = [
   { id: "bed",     label: "病床",   x: 12, y: 30, w: 40, h: 38, color: "#5b7db5" },
@@ -98,4 +98,8 @@ export default function Demo2D({ bus, mode }: SceneProps) {
       </div>
     </div>
   )
+}
+export const sceneMeta: SceneMeta = {
+  id: "demo-2d", name: "2D 点触交互", description: "场景状态编辑器", icon: "🖱️",
+  size: { minW: 400, minH: 300, w: 480, h: 400 },
 }

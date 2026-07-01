@@ -4,11 +4,7 @@
  */
 import { useState } from "react"
 import type { MessageBus } from "../mock/bus"
-
-export interface QuickAction {
-  label: string
-  emit: { event: string; data: unknown }
-}
+import type { QuickAction } from "../scene-types"
 
 interface SceneDebuggerProps {
   bus: MessageBus

@@ -4,7 +4,7 @@ import { ContactShadows, Html, OrbitControls, useCursor } from "@react-three/dre
 import { ProceduralRoom } from "../components/ProceduralRoom"
 import { Furniture } from "../components/Furniture"
 import * as THREE from "three"
-import type { SceneProps } from "../scene-types"
+import type { SceneMeta, SceneProps } from "../scene-types"
 import { GRID } from "../components/GridConfig"
 
 // ── Shared hover context ──
@@ -217,4 +217,8 @@ export default function Demo3D(_props: SceneProps) {
       </div>
     </HoverContext.Provider>
   )
+}
+export const sceneMeta: SceneMeta = {
+  id: "demo-3d", name: "3D 诊室 (R3F)", description: "低面数 3D 诊室", icon: "🏥",
+  size: { minW: 500, minH: 320, w: 640, h: 400 },
 }

@@ -34,8 +34,6 @@ export interface SceneProps {
 // ── Bus protocol: well‑typed scene ↔ host events ──
 export interface SceneBusProtocol {
   "scene:interaction": [{ hotspotId: string; metadata?: Record<string, unknown> }]
-  "scene:observation": [{ observation: string; confidence?: number }]
-  "scene:completed":  [{ procedureId: string }]
   "scene:state":      [Partial<SceneState>]
 }
 
@@ -67,4 +65,24 @@ export function emitSceneEvent<K extends keyof SceneBusProtocol>(
   ...args: SceneBusProtocol[K]
 ): void {
   bus.emit(event, ...(args as unknown[]))
+}
+
+// ── Self‑describing scene metadata ──
+export interface SizePref {
+  minW?: number; minH?: number
+  w?: number; h?: number
+}
+
+export interface QuickAction {
+  label: string
+  emit: { event: string; data: unknown }
+}
+
+export interface SceneMeta {
+  id: string
+  name: string
+  description: string
+  icon: string
+  size?: SizePref
+  quickActions?: QuickAction[]
 }

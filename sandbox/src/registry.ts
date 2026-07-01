@@ -1,37 +1,34 @@
-import { lazy, type ComponentType } from "react"
-import type { SceneProps } from "./scene-types"
-import type { QuickAction } from "./components/SceneDebugger"
+/**
+ * Auto‑discovered scene registry.
+ *
+ * Any file under scenes/ that exports `sceneMeta` is automatically
+ * registered — no manual entry needed.
+ */
+import type { ComponentType } from "react"
+import type { SceneMeta, SceneProps } from "./scene-types"
 
-export interface SizePref {
-  /** Minimum window width the scene needs. */
-  minW?: number
-  /** Minimum window height. */
-  minH?: number
-  /** Default opening width (if unset, computed from content). */
-  w?: number
-  /** Default opening height (if unset, computed from content). */
-  h?: number
-}
+export type { SizePref, SceneMeta, QuickAction } from "./scene-types"
 
-export interface SandboxScene {
-  id: string
-  name: string
-  description: string
+export interface SandboxScene extends SceneMeta {
   component: ComponentType<SceneProps>
-  size?: SizePref
-  quickActions?: QuickAction[]
 }
 
-function def(id: string, name: string, desc: string, loader: () => Promise<{ default: ComponentType<SceneProps> }>, size?: SizePref, quickActions?: QuickAction[]): SandboxScene {
-  return { id, name, description: desc, component: lazy(loader) as ComponentType<SceneProps>, quickActions }
+interface SceneModule {
+  default: ComponentType<SceneProps>
+  sceneMeta?: SceneMeta
 }
 
-export const SANDBOX_SCENES: SandboxScene[] = [
-  def("demo-2d", "2D 点触交互", "场景状态编辑器", () => import("./scenes/Demo2D"), { minW: 400, minH: 300, w: 480, h: 400 }),
-  def("demo-3d", "3D 诊室 (R3F)", "低面数 3D 诊室", () => import("./scenes/Demo3D"), { minW: 500, minH: 320, w: 640, h: 400 }),
-  def("demo-exam", "查体场景", "人体图查体交互", () => import("./scenes/ExamScene"), { minW: 360, minH: 400, w: 420, h: 480 }),
-  def("card-patient", "卡片: 患者信息", "患者信息场景卡片", () => import("./scenes/CardPatientInfo"), { w: 280, h: 200 }),
-  def("card-inquiry", "卡片: 问诊清单", "问诊清单场景卡片", () => import("./scenes/CardInquiry"), { w: 300, h: 260 }),
-  def("card-monitor", "卡片: 监护仪", "监护仪场景卡片", () => import("./scenes/MonitorCard"), { w: 340, h: 280 }),
-  def("card-notes", "卡片: 笔记", "笔记场景卡片", () => import("./scenes/CardNotes"), { w: 280, h: 240 }),
-]
+const modules = import.meta.glob<SceneModule>("./scenes/*.tsx", { eager: true })
+
+export const SANDBOX_SCENES: SandboxScene[] = Object.entries(modules)
+  .filter(([, mod]) => mod.sceneMeta)
+  .map(([, mod]) => ({
+    ...mod.sceneMeta!,
+    component: mod.default,
+  }))
+  .sort((a, b) => a.id.localeCompare(b.id))
+
+/** Built‑in icon lookup (fallback when sceneMeta.icon is absent). */
+export function sceneIcon(s: SandboxScene): string {
+  return s.icon || "◻"
+}

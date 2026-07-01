@@ -1,6 +1,6 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { SandboxShell } from "./components/SandboxShell"
+import { SandboxShell } from "./SandboxShell"
 
 const params = new URLSearchParams(window.location.search)
 const initialScene = params.get("scene") || undefined

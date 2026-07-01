@@ -1,5 +1,5 @@
 import { useSceneState } from "../useSceneBus"
-import type { SceneProps } from "../scene-types"
+import type { SceneMeta, SceneProps } from "../scene-types"
 import { PatientMonitor, type MonitorStatus } from "../components/PatientMonitor"
 
 function classify(vitals: Record<string, number | undefined>): MonitorStatus {
@@ -22,4 +22,8 @@ export default function MonitorCard({ bus }: SceneProps) {
       <PatientMonitor status={status} patientName="SANDBOX" />
     </div>
   )
+}
+export const sceneMeta: SceneMeta = {
+  id: "card-monitor", name: "卡片: 监护仪", description: "监护仪场景卡片", icon: "💓",
+  size: { w: 340, h: 280 },
 }

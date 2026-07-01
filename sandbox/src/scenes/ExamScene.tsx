@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react"
-import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
+import { emitSceneEvent, type SceneMeta, type SceneProps, type SceneState } from "../scene-types"
 
 // ═══ 1. Normal values ═══
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
@@ -178,4 +178,8 @@ export default function ExamScene({ bus }: SceneProps) {
       </div>
     </div>
   )
+}
+export const sceneMeta: SceneMeta = {
+  id: "demo-exam", name: "查体场景", description: "人体图查体交互", icon: "🩺",
+  size: { minW: 360, minH: 400, w: 420, h: 480 },
 }
