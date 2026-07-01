@@ -1,28 +1,33 @@
+import { lazy, Suspense } from "react";
 import type { SceneState } from "@/engine/scene-state";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { useSceneState } from "@/engine/useSceneBus";
 
+const ExamBodyScene = lazy(() => import("@/components/training/body-exam/ExamBodyScene"));
+
 /**
- * Mounted inside a training scene when a 3D/2D scene component is
- * registered.  Bridges the real MessageBus to the scene's props.
+ * Renders active scenes based on enabled capabilities.
+ * Each capability (exam_scene, scene_3d, …) maps to a scene component.
  *
- * @example
- * ```tsx
- * <SceneRenderer>
- *   <MyScene bus={bus} mode="training" />
- * </SceneRenderer>
- * ```
+ * Scenes receive the real MessageBus from TrainingContext,
+ * matching the sandbox's SceneProps interface exactly.
  */
-export function SceneRenderer({ children }: { children?: React.ReactNode }) {
+export function SceneRenderer() {
   const { bus, features } = useTrainingContext();
   const sceneState = useSceneState(bus);
 
-  if (!features.scene_3d) return null;
-
-  if (children) return <>{children}</>;
-
-  // Fallback: render a text summary of the current scene state
-  return <SceneStateOverlay state={sceneState} />;
+  return (
+    <>
+      {features.exam_scene && (
+        <Suspense fallback={null}>
+          <ExamBodyScene bus={bus} mode="training" />
+        </Suspense>
+      )}
+      {features.scene_3d && !features.exam_scene && (
+        <SceneStateOverlay state={sceneState} />
+      )}
+    </>
+  );
 }
 
 // ── minimal debug overlay ──

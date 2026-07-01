@@ -34,6 +34,12 @@ ALL_CAPABILITIES: dict[str, Capability] = {
         default=False,
         description="训练结束后向学生推送问卷调查",
     ),
+    "exam_scene": Capability(
+        key="exam_scene",
+        label="人体查体场景",
+        default=False,
+        description="启用可视化人体查体交互（点击人体部位执行检查）",
+    ),
 }
 
 
