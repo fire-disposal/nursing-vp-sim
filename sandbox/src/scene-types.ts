@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import type { MessageBus } from "./mock/bus"
 
 // ── Ground-truth clinical state ──
@@ -45,6 +46,18 @@ export function onSceneEvent<K extends keyof SceneBusProtocol>(
   handler: (...args: SceneBusProtocol[K]) => void,
 ): () => void {
   return bus.on(event, handler as (...args: unknown[]) => void)
+}
+
+// ── Scene card protocol (mirrors engine/scene-card.ts) ──
+export interface SceneCardProps extends SceneProps {
+  recordId: string
+}
+
+export interface SceneCard {
+  id: string
+  component: ComponentType<SceneCardProps>
+  featureFlag?: string
+  priority: number
 }
 
 /** Emit a scene event. */

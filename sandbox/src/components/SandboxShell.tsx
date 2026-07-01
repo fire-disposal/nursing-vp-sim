@@ -10,10 +10,9 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   const [bus] = useState(() => createMockBus())
   const [sceneId, setSceneId] = useState(initialScene ?? SANDBOX_SCENES[0]?.id ?? "")
   const [showDebug, setShowDebug] = useState(true)
-  const [showStateEditor, setShowStateEditor] = useState(true)
+  const [showStateEditor, setShowStateEditor] = useState(false)
 
   const scene = SANDBOX_SCENES.find((s) => s.id === sceneId)
-
   const sceneProps: SceneProps = {
     bus: bus as MessageBus,
     mode: "sandbox",
@@ -44,7 +43,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
         </label>
       </div>
 
-      {/* Main */}
+      {/* Main area: scene fills the space, debug/state panels are overlaid on the right */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           {scene ? (
@@ -57,7 +56,11 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
             </div>
           )}
         </div>
+
+        {/* State editor */}
         {showStateEditor && <SceneStateEditor bus={bus} />}
+
+        {/* Debug panel */}
         {showDebug && <DebugPanel bus={bus} />}
       </div>
     </div>
