@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react"
 import type { HotspotDef } from "../components/Hotspot"
 import { Hotspot } from "../components/Hotspot"
-import { InteractionLog, type LogEntry } from "../components/InteractionLog"
 import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
 
 const HOTSPOTS: HotspotDef[] = [
@@ -10,24 +9,19 @@ const HOTSPOTS: HotspotDef[] = [
   { id: "monitor", label: "监护仪", x: 56, y: 28, w: 12, h: 16, color: "#4a9e6f" },
   { id: "iv",      label: "输液架", x: 46, y: 20, w:  6, h: 40, color: "#b5a05b" },
   { id: "table",   label: "床头柜", x: 10, y: 64, w: 16, h: 12, color: "#a07a5b" },
-  { id: "door",    label: "门",     x: 84, y:  4, w: 10, h: 28, color: "#6b7a8a" },
+  { id: "acc",     label: "设备柜", x: 72, y: 52, w: 16, h: 24, color: "#6b7a8a" },
 ]
 
 const STEPS = [
-  { hotspot: "patient", label: "观察患者面色", state: { patient: { expression: "pale", consciousness: "alert" as const } } },
-  { hotspot: "bed",     label: "调整患者体位", state: { patient: { position: "semi-recumbent" as const } } },
-  { hotspot: "monitor", label: "查看监护仪",   state: { vitals: { hr: 98, bp_sys: 130, bp_dia: 85, spo2: 96 } } },
-  { hotspot: "iv",      label: "检查输液",     state: { vitals: { hr: 88 } } },
+  { hotspot: "patient", label: "观察面色", state: { patient: { expression: "pale", consciousness: "alert" as const } } },
+  { hotspot: "bed",     label: "调整体位", state: { patient: { position: "semi-recumbent" as const } } },
+  { hotspot: "monitor", label: "查看监护", state: { vitals: { hr: 98, bp_sys: 130, bp_dia: 85, spo2: 96 } } },
+  { hotspot: "iv",      label: "检查输液", state: { vitals: { hr: 88 } } },
 ]
-
-function fmtTime() {
-  const d = new Date()
-  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`
-}
 
 export default function Demo2D({ bus, mode }: SceneProps) {
   const [step, setStep] = useState(0)
-  const [log, setLog] = useState<LogEntry[]>([])
+  const [log, setLog] = useState<string[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const stateRef = useRef<SceneState>({})
 
@@ -35,28 +29,28 @@ export default function Demo2D({ bus, mode }: SceneProps) {
     setActiveId(id)
     setTimeout(() => setActiveId(null), 600)
 
-    const entry: LogEntry = { ts: fmtTime(), text: `点击: ${HOTSPOTS.find((h) => h.id === id)?.label ?? id}` }
-    setLog((p) => [entry, ...p].slice(0, 20))
+    const label = HOTSPOTS.find((h) => h.id === id)?.label ?? id
+    setLog((p) => [`${new Date().toLocaleTimeString()} · ${label}`, ...p].slice(0, 10))
+
     emitSceneEvent(bus, "scene:interaction", { hotspotId: id })
 
     const s = STEPS.findIndex((x) => x.hotspot === id)
     if (s === step && s < STEPS.length) {
       setStep((p) => Math.min(p + 1, STEPS.length))
-      setLog((p) => [{ ts: "", text: `步骤 ${s + 1}: ${STEPS[s].label}`, done: true }, ...p].slice(0, 20))
       stateRef.current = { ...stateRef.current, ...STEPS[s].state }
       emitSceneEvent(bus, "scene:state", stateRef.current)
     }
   }, [step, bus])
 
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 400, fontFamily: "system-ui" }}>
-      {/* Room */}
-      <div style={{ flex: 1, position: "relative", background: "#2a2a3a", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 420, fontFamily: "system-ui" }}>
+      {/* Room area */}
+      <div style={{ flex: 1, position: "relative", background: "#2a2a3a", minHeight: 280, overflow: "hidden" }}>
         <div style={{
-          position: "absolute", inset: "8%", background: "#3a3a4e", borderRadius: 12,
+          position: "absolute", inset: "6%", background: "#3a3a4e", borderRadius: 12,
           border: "2px solid #4a4a5e", overflow: "hidden",
         }}>
-          <div style={{ position: "absolute", bottom: "26%", left: 0, right: 0, height: 2, background: "#4a4a5e" }} />
+          <div style={{ position: "absolute", bottom: "28%", left: 0, right: 0, height: 2, background: "#4a4a5e" }} />
           {HOTSPOTS.map((h) => (
             <Hotspot key={h.id} def={h} highlight={activeId === h.id} onInteract={handleInteract} />
           ))}
@@ -65,25 +59,42 @@ export default function Demo2D({ bus, mode }: SceneProps) {
         {/* Step indicator */}
         {mode === "sandbox" && (
           <div style={{
-            position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)",
-            display: "flex", gap: 8, background: "#1a1a2ecc", padding: "8px 16px",
-            borderRadius: 20, backdropFilter: "blur(4px)",
+            position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
+            display: "flex", gap: 6, background: "#1a1a2ecc", padding: "6px 14px",
+            borderRadius: 16, backdropFilter: "blur(4px)",
           }}>
             {STEPS.map((s, i) => (
-              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6, color: i < step ? "#4fc3f7" : i === step ? "#fff" : "#555", fontSize: 12 }}>
+              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 4, color: i < step ? "#4fc3f7" : i === step ? "#fff" : "#555", fontSize: 11 }}>
                 <span style={{
-                  width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, fontWeight: 700, background: i < step ? "#4fc3f7" : i === step ? "#4fc3f733" : "#333",
+                  width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 700, background: i < step ? "#4fc3f7" : i === step ? "#4fc3f733" : "#333",
                   color: i < step ? "#111" : i === step ? "#4fc3f7" : "#555",
                 }}>{i < step ? "✓" : i + 1}</span>
-                {s.label}
+                <span className="hidden sm:inline">{s.label}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <InteractionLog entries={log} />
+      {/* Log strip — compact, below the room */}
+      <div style={{
+        height: 36, background: "#1a1a2e", borderTop: "1px solid #333",
+        display: "flex", alignItems: "center", gap: 4, padding: "0 10px", overflow: "auto",
+      }}>
+        <span style={{ color: "#666", fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", marginRight: 4 }}>
+          {new Set(log).size > 0 ? "" : "🔍 "}LOG
+        </span>
+        {log.length === 0 && (
+          <span style={{ color: "#555", fontSize: 11 }}>Click a hotspot to interact</span>
+        )}
+        {log.map((entry, i) => (
+          <span key={i} style={{
+            padding: "2px 8px", background: "#2a2a3e", borderRadius: 4,
+            color: "#aaa", fontSize: 10, whiteSpace: "nowrap",
+          }}>{entry}</span>
+        ))}
+      </div>
     </div>
   )
 }
