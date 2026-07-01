@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { cn } from "@/utils/cn";
 import { emitSceneEvent, type SceneProps, type SceneState } from "@/engine/scene-state";
+import { cn } from "@/utils/cn";
 
 // ── Normal values ──
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
@@ -122,14 +122,16 @@ export default function ExamBodyScene({ bus }: SceneProps) {
                             const def = NORMALS[id];
                             if (!def) return null;
                             return (
-                              <button key={id} onClick={() => interact(id)}
-                                className="px-2 py-0.5 rounded text-[10px] whitespace-nowrap transition-all cursor-pointer border"
-                                style={{
-                                  background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : "var(--color-muted)",
-                                  borderColor: `${CAT_COLOR[def.cat] ?? "#888"}44`,
-                                  color: flash === id ? "#111" : "var(--color-foreground)",
-                                }}
-                              >
+                                <button key={id} onClick={() => interact(id)}
+                                  className={cn(
+                                    "px-2 py-0.5 rounded text-[10px] whitespace-nowrap transition-all cursor-pointer border",
+                                    flash === id ? "text-foreground" : "text-foreground",
+                                  )}
+                                  style={{
+                                    background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : "var(--color-muted)",
+                                    borderColor: `${CAT_COLOR[def.cat] ?? "#888"}44`,
+                                  }}
+                                >
                                 {def.label}
                               </button>
                             );
@@ -156,7 +158,7 @@ export default function ExamBodyScene({ bus }: SceneProps) {
             return (
               <span key={id} className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] whitespace-nowrap shrink-0",
-                r.abnormal ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground",
+                r.abnormal ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground",
               )}>
                 <span className="size-1.5 rounded-full shrink-0" style={{ background: CAT_COLOR[def.cat] ?? "#888" }} />
                 {def.label} <span className="font-semibold">{r.value}</span>{def.unit}

@@ -4,11 +4,11 @@ import { submitTriage } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 
 const CATEGORIES = [
-  { id: "red", label: "红色 — 即刻", color: "bg-red-500", priority: "需立即抢救", textColor: "text-red-700", bg: "bg-red-50" },
-  { id: "orange", label: "橙色 — 危急", color: "bg-orange-500", priority: "10分钟内处理", textColor: "text-orange-700", bg: "bg-orange-50" },
-  { id: "yellow", label: "黄色 — 紧急", color: "bg-yellow-500", priority: "30分钟内处理", textColor: "text-yellow-700", bg: "bg-yellow-50" },
-  { id: "green", label: "绿色 — 普通", color: "bg-green-500", priority: "可等待", textColor: "text-green-700", bg: "bg-green-50" },
-  { id: "blue", label: "蓝色 — 非急", color: "bg-blue-500", priority: "可延迟", textColor: "text-blue-700", bg: "bg-blue-50" },
+  { id: "red",    label: "红色 — 即刻", priority: "需立即抢救", border: "border-red-500/40", activeBg: "bg-red-50 dark:bg-red-950/30", dot: "bg-red-500" },
+  { id: "orange", label: "橙色 — 危急", priority: "10分钟内处理", border: "border-orange-500/40", activeBg: "bg-orange-50 dark:bg-orange-950/30", dot: "bg-orange-500" },
+  { id: "yellow", label: "黄色 — 紧急", priority: "30分钟内处理", border: "border-yellow-500/40", activeBg: "bg-yellow-50 dark:bg-yellow-950/30", dot: "bg-yellow-500" },
+  { id: "green",  label: "绿色 — 普通", priority: "可等待", border: "border-green-500/40", activeBg: "bg-green-50 dark:bg-green-950/30", dot: "bg-green-500" },
+  { id: "blue",   label: "蓝色 — 非急", priority: "可延迟", border: "border-blue-500/40", activeBg: "bg-blue-50 dark:bg-blue-950/30", dot: "bg-blue-500" },
 ];
 
 const DEPARTMENTS = ["内科", "外科", "妇产科", "儿科", "急诊科", "ICU", "骨科", "神经科"];
@@ -26,66 +26,62 @@ export default function MewsPanel({ recordId }: SceneCardProps) {
   });
 
   const mewsUrgency = mews >= 5 ? "red" : mews >= 3 ? "orange" : "";
+  const mewsBg = mewsUrgency === "red" ? "bg-red-50 dark:bg-red-950/20"
+    : mewsUrgency === "orange" ? "bg-orange-50 dark:bg-orange-950/20"
+    : "bg-muted";
 
   if (submitted) {
     const cat = CATEGORIES.find((c) => c.id === category);
     return (
-      <div style={{ padding: 16, textAlign: "center" }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>分诊完成</div>
-        <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>MEWS {mews}/14 · {cat?.label ?? category}</div>
-        <div style={{ fontSize: 12, color: "#999" }}>建议科室: {department}</div>
+      <div className="p-4 text-center space-y-1">
+        <div className="text-3xl mb-1">✅</div>
+        <div className="font-bold text-base">分诊完成</div>
+        <div className="text-sm text-muted-foreground">MEWS {mews}/14 · {cat?.label ?? category}</div>
+        <div className="text-xs text-muted-foreground/70">建议科室: {department}</div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 12, fontFamily: "system-ui", fontSize: 13 }}>
+    <div className="p-3 space-y-4 text-sm">
       {/* MEWS */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>MEWS 评分</div>
-        <div style={{
-          background: mewsUrgency === "red" ? "#fff0f0" : mewsUrgency === "orange" ? "#fff5e6" : "#f5f5f5",
-          borderRadius: 10, padding: 12, textAlign: "center",
-        }}>
-          <div style={{ fontSize: 32, fontWeight: 700 }}>{mews}<span style={{ fontSize: 16, fontWeight: 400, color: "#999" }}>/14</span></div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 8 }}>
+      <div className="space-y-2">
+        <div className="font-semibold text-sm">MEWS 评分</div>
+        <div className={`${mewsBg} rounded-xl p-3 text-center`}>
+          <div className="text-3xl font-bold">{mews}<span className="text-base font-normal text-muted-foreground">/14</span></div>
+          <div className="flex items-center justify-center gap-3 mt-2">
             <button onClick={() => setMews(Math.max(0, mews - 1))}
-              style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 18 }}>−</button>
+              className="size-8 rounded-full border border-border bg-card cursor-pointer text-lg flex items-center justify-center hover:bg-muted transition-colors">−</button>
             <input type="number" min={0} max={14} value={mews} onChange={(e) => setMews(Math.min(14, Math.max(0, Number(e.target.value))))}
-              style={{ width: 48, textAlign: "center", fontSize: 16, border: "1px solid #ddd", borderRadius: 6, padding: "4px 0" }} />
+              className="w-12 text-center text-base border border-border rounded-md py-1 bg-card" />
             <button onClick={() => setMews(Math.min(14, mews + 1))}
-              style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 18 }}>+</button>
+              className="size-8 rounded-full border border-border bg-card cursor-pointer text-lg flex items-center justify-center hover:bg-muted transition-colors">+</button>
           </div>
         </div>
       </div>
 
       {/* Category */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>分诊级别</div>
+      <div className="space-y-2">
+        <div className="font-semibold text-sm">分诊级别</div>
         {CATEGORIES.map((c) => (
           <button key={c.id} onClick={() => setCategory(c.id)}
-            style={{
-              display: "block", width: "100%", padding: "8px 10px", marginBottom: 4, borderRadius: 8,
-              border: category === c.id ? "2px solid #333" : "1px solid #e0e0e0",
-              background: category === c.id ? c.bg : "#fff", cursor: "pointer", textAlign: "left", fontSize: 12,
-            }}>
-            <span style={{ fontWeight: 600 }}>{c.label}</span>
-            <span style={{ color: "#666", marginLeft: 8, fontSize: 11 }}>{c.priority}</span>
+            className={`w-full text-left text-xs rounded-lg px-3 py-2 transition-colors flex items-center gap-2
+              ${category === c.id ? `${c.activeBg} ${c.border} border-2` : "border border-border bg-card hover:bg-muted"}`}>
+            <span className={`size-2.5 rounded-full shrink-0 ${c.dot}`} />
+            <span className="font-semibold">{c.label}</span>
+            <span className="text-muted-foreground text-[11px] ml-auto">{c.priority}</span>
           </button>
         ))}
       </div>
 
       {/* Department */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>建议科室</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+      <div className="space-y-2">
+        <div className="font-semibold text-sm">建议科室</div>
+        <div className="grid grid-cols-2 gap-1.5">
           {DEPARTMENTS.map((dep) => (
             <button key={dep} onClick={() => setDepartment(dep)}
-              style={{
-                padding: "6px 0", borderRadius: 6, border: department === dep ? "2px solid #4fc3f7" : "1px solid #e0e0e0",
-                background: department === dep ? "#e6f7ff" : "#fff", cursor: "pointer", fontSize: 12,
-              }}>
+              className={`rounded-lg py-1.5 text-xs transition-colors
+                ${department === dep ? "border-2 border-primary bg-primary/10 text-primary font-semibold" : "border border-border bg-card hover:bg-muted text-foreground"}`}>
               {dep}
             </button>
           ))}
@@ -95,15 +91,13 @@ export default function MewsPanel({ recordId }: SceneCardProps) {
       {/* Notes */}
       <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
         placeholder="记录观察要点..." rows={3}
-        style={{ width: "100%", padding: 8, border: "1px solid #ddd", borderRadius: 6, fontSize: 12, resize: "none", marginBottom: 12 }} />
+        className="w-full p-2 border border-border rounded-lg text-xs resize-none bg-card placeholder:text-muted-foreground/50" />
 
       {/* Submit */}
       <button onClick={() => submitMutation.mutate()} disabled={!category || !department || submitMutation.isPending}
-        style={{
-          width: "100%", padding: "10px 0", border: "none", borderRadius: 8,
-          background: !category || !department ? "#ccc" : "#333", color: "#fff",
-          cursor: !category || !department ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600,
-        }}>
+        className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors
+          disabled:opacity-50 disabled:cursor-not-allowed
+          enabled:bg-primary enabled:text-primary-foreground enabled:hover:opacity-90">
         {submitMutation.isPending ? "提交中..." : "完成分诊"}
       </button>
     </div>

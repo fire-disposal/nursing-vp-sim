@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useRef, useState } from "react";
-import { useTrainingContext } from "@/engine/TrainingContext";
 import { ALL_CAPABILITIES } from "@/engine/capabilities";
 import type { SceneCardProps } from "@/engine/scene-card";
+import { useTrainingContext } from "@/engine/TrainingContext";
 import { getSceneCards } from "./scene-cards/registry";
 
 const ICONS: Record<string, string> = {
@@ -16,13 +16,23 @@ const ICONS: Record<string, string> = {
 /**
  * Icon sidebar + draggable overlay panel.
  * Click an icon to open/close its card panel; drag the header to reposition.
+ * Click _ to minimize (collapses to header only), ✕ to fully close.
  */
 export function SceneRenderer() {
   const { bus, features, recordId, trainingType } = useTrainingContext();
   const cards = getSceneCards(trainingType, features);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [minimized, setMinimized] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, dragging: false });
+
+  const toggleMinimize = useCallback((id: string) => {
+    setMinimized((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
 
   const cardProps: SceneCardProps = { bus, mode: "training", recordId };
 
@@ -73,17 +83,31 @@ export function SceneRenderer() {
             className="absolute top-0 right-full border border-border bg-card rounded-xl shadow-xl overflow-hidden"
           >
             {/* Draggable header */}
-            <div onMouseDown={onHeaderDown} style={{ cursor: "grab" }}
+            <div onMouseDown={!minimized.has(activeCard.id) ? onHeaderDown : undefined} style={{ cursor: "grab" }}
               className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 select-none"
             >
               <span className="text-xs font-medium text-muted-foreground">
-                {ALL_CAPABILITIES[activeCard.featureFlag ?? ""]?.label ?? activeCard.id}
+                {ICONS[activeCard.id] ?? "◻"} {ALL_CAPABILITIES[activeCard.featureFlag ?? ""]?.label ?? activeCard.id}
               </span>
-              <button onClick={() => setActiveId(null)} className="text-muted-foreground hover:text-foreground text-xs leading-none">✕</button>
+              <div className="flex items-center gap-1">
+                <button onClick={(e) => { e.stopPropagation(); toggleMinimize(activeCard.id) }}
+                  className="text-muted-foreground hover:text-foreground text-xs leading-none px-1">
+                  {minimized.has(activeCard.id) ? "□" : "_"}
+                </button>
+                <button onClick={() => setActiveId(null)} className="text-muted-foreground hover:text-foreground text-xs leading-none">✕</button>
+              </div>
             </div>
-            <Suspense fallback={<div className="h-20" />}>
-              <activeCard.component {...cardProps} />
-            </Suspense>
+            {minimized.has(activeCard.id) ? (
+              <div className="flex items-center gap-1 px-3 py-1 text-[10px] text-muted-foreground/50 select-none cursor-pointer"
+                onClick={() => toggleMinimize(activeCard.id)}>
+                <span className="text-[10px]">⋯</span>
+                <span>minimized — click to expand</span>
+              </div>
+            ) : (
+              <Suspense fallback={<div className="h-20" />}>
+                <activeCard.component {...cardProps} />
+              </Suspense>
+            )}
           </div>
           <div className="fixed inset-0 z-[-1]" onClick={() => setActiveId(null)} />
         </>

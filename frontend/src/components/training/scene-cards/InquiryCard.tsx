@@ -41,7 +41,7 @@ export default function InquiryCard({ recordId }: SceneCardProps) {
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-muted-foreground">问诊目标 ({doneCount}/{inquiries.length})</span>
         {doneCount > 0 && (
-          <span className="text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] text-success-foreground bg-success px-1.5 py-0.5 rounded">
             {Math.round((doneCount / inquiries.length) * 100)}%
           </span>
         )}
@@ -51,8 +51,8 @@ export default function InquiryCard({ recordId }: SceneCardProps) {
         return (
           <div key={i} className={`flex items-start gap-2 py-1.5 ${done ? "opacity-60" : ""}`}>
             {done
-              ? <CheckCircle2 size={14} className="text-green-500 mt-0.5 shrink-0" />
-              : <Circle size={14} className="text-gray-300 mt-0.5 shrink-0" />
+              ? <CheckCircle2 size={14} className="text-success-foreground mt-0.5 shrink-0" />
+              : <Circle size={14} className="text-muted-foreground/30 mt-0.5 shrink-0" />
             }
             <span className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{inq}</span>
           </div>

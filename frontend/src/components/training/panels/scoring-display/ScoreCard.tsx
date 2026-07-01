@@ -20,8 +20,8 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 		return () => cancelAnimationFrame(raf);
 	}, [percentage, circumference]);
 
-	const strokeColor =
-		percentage >= 80 ? "#22c55e" : percentage >= 60 ? "#f59e0b" : "#ef4444";
+	const ringClass =
+		percentage >= 80 ? "text-success-foreground" : percentage >= 60 ? "text-warning-foreground" : "text-destructive";
 
 	return (
 		<div className="relative inline-flex items-center justify-center">
@@ -47,16 +47,16 @@ function CircularProgress({ score, maxScore }: { score: number; maxScore: number
 					cy="60"
 					r={radius}
 					fill="none"
-					stroke={strokeColor}
+					stroke="currentColor"
 					strokeWidth="8"
 					strokeLinecap="round"
 					strokeDasharray={circumference}
 					strokeDashoffset={offset}
-					className="transition-all duration-1000 ease-out"
+					className={cn("transition-all duration-1000 ease-out", ringClass)}
 				/>
 			</svg>
 			<div className="absolute inset-0 flex flex-col items-center justify-center">
-				<span className="text-3xl font-bold" style={{ color: strokeColor }}>
+				<span className={cn("text-3xl font-bold", ringClass)}>
 					{score}
 				</span>
 				<span className="text-xs text-muted-foreground">/ {maxScore}</span>
@@ -72,7 +72,7 @@ function DimensionSection({ name, dimension }: { name: string; dimension: ScoreD
 	const dimMax = Number.isFinite(dimension.max) && dimension.max > 0 ? dimension.max : dimension.items?.reduce((s, i) => s + (Number.isFinite(i.max) && i.max > 0 ? i.max : 3), 0) ?? 100;
 	const percentage = dimMax > 0 ? (dimension.score / dimMax) * 100 : 0;
 	const barColor =
-		percentage >= 80 ? "bg-green-500" : percentage >= 60 ? "bg-amber-500" : "bg-red-500";
+		percentage >= 80 ? "bg-success" : percentage >= 60 ? "bg-warning" : "bg-destructive";
 
 	useEffect(() => {
 		const raf = requestAnimationFrame(() => setBarWidth(`${percentage}%`));
@@ -163,13 +163,13 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 					{score.strengths && score.strengths.length > 0 && (
 						<div>
 							<h3 className="mb-1.5 text-sm font-medium text-success-foreground flex items-center gap-1.5">
-								<span className="inline-block size-1.5 rounded-full bg-green-500" />
+								<span className="inline-block size-1.5 rounded-full bg-success" />
 								优势
 							</h3>
 							<ul className="space-y-1">
 								{score.strengths.map((s, i) => (
 									<li key={i} className="text-sm text-muted-foreground flex gap-2">
-										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-green-400" />
+										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-success/60" />
 										{s}
 									</li>
 								))}
@@ -181,13 +181,13 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 					{score.weaknesses && score.weaknesses.length > 0 && (
 						<div>
 							<h3 className="mb-1.5 text-sm font-medium text-warning-foreground flex items-center gap-1.5">
-								<span className="inline-block size-1.5 rounded-full bg-amber-500" />
+								<span className="inline-block size-1.5 rounded-full bg-warning" />
 								改进建议
 							</h3>
 							<ul className="space-y-1">
 								{score.weaknesses.map((w, i) => (
 									<li key={i} className="text-sm text-muted-foreground flex gap-2">
-										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-amber-400" />
+										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-warning/60" />
 										{w}
 									</li>
 								))}
@@ -198,14 +198,14 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 					{/* Missed Content */}
 					{score.missed_content && score.missed_content.length > 0 && (
 						<div>
-							<h3 className="mb-1.5 text-sm font-medium text-orange-600 flex items-center gap-1.5">
-								<span className="inline-block size-1.5 rounded-full bg-orange-500" />
+							<h3 className="mb-1.5 text-sm font-medium text-destructive flex items-center gap-1.5">
+								<span className="inline-block size-1.5 rounded-full bg-destructive" />
 								遗漏要点
 							</h3>
 							<ul className="space-y-1">
 								{score.missed_content.map((m, i) => (
 									<li key={i} className="text-sm text-muted-foreground flex gap-2">
-										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-orange-400" />
+										<span className="mt-0.5 inline-block size-1 shrink-0 rounded-full bg-destructive/60" />
 										{m}
 									</li>
 								))}
