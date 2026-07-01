@@ -324,6 +324,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
   const handleModelClick = useCallback(async (model: DiscoveredModel) => {
     if (glbUrl) URL.revokeObjectURL(glbUrl)
+    setIdx(0) // deselect primitive
     try {
       const res = await fetch(model.url)
       if (!res.ok) return
@@ -447,6 +448,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                       onClick={async () => {
                         if (entry.glb) {
                           try {
+                            setIdx(0)
                             const res = await fetch(entry.glb)
                             if (!res.ok) return
                             const blob = await res.blob()
