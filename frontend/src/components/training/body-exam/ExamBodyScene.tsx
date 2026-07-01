@@ -21,11 +21,6 @@ const NORMALS: Record<string, { label: string; unit: string; normal: string; cat
   ecg:      { label: "心电图",    unit: "",         normal: "窦性心律，未见明显异常",        cat: "bedside" },
 };
 
-const CAT_LABEL: Record<string, string> = {
-  vital: "生命体征", auscultation: "听诊", neuro: "神经系统",
-  musculoskeletal: "骨骼肌肉", bedside: "床旁检测",
-};
-
 const CAT_COLOR: Record<string, string> = {
   vital: "#4fc3f7", auscultation: "#7c4dff", neuro: "#ff7043",
   musculoskeletal: "#66bb6a", bedside: "#ffa726",
@@ -47,7 +42,6 @@ function resolve(opId: string): { value: string; abnormal: boolean } {
   return { value: rand ? rand(def.normal) : def.normal, abnormal: false };
 }
 
-// ── Body parts ──
 interface Part { id: string; label: string; x: number; y: number; w: number; h: number; ops: string[] }
 const PARTS: Part[] = [
   { id: "head",    label: "头部",   x: 38, y: 2,  w: 24, h: 18, ops: ["temp","pain","pupil","gcs"] },
@@ -69,7 +63,6 @@ function groupByCat(ops: string[]): [string, string[]][] {
   return [...m.entries()];
 }
 
-// ── Component ──
 export default function ExamBodyScene({ bus }: SceneProps) {
   const [results, setResults] = useState<Record<string, { value: string; abnormal: boolean }>>({});
   const [selected, setSelected] = useState<string | null>(null);
@@ -82,9 +75,7 @@ export default function ExamBodyScene({ bus }: SceneProps) {
     setFlash(opId);
     const { value, abnormal } = resolve(opId);
     setResults((prev) => ({ ...prev, [opId]: { value, abnormal } }));
-
     emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value } });
-
     const patch: Partial<SceneState> = {};
     if (opId === "hr")   patch.vitals = { hr: Number(value) };
     if (opId === "bp")   { const [s, d] = value.split("/"); patch.vitals = { bp_sys: Number(s), bp_dia: Number(d) }; }
@@ -93,16 +84,15 @@ export default function ExamBodyScene({ bus }: SceneProps) {
     if (opId === "temp") patch.vitals = { temp: Number(value) };
     if (opId === "pain") patch.vitals = { pain: Number(value) };
     if (Object.keys(patch).length) emitSceneEvent(bus, "scene:state", patch);
-
     setSelected(null);
     setTimeout(() => setFlash(null), 350);
     logRef.current?.scrollTo(0, 0);
   }, [bus, selected]);
 
   return (
-    <div className="flex h-full font-sans bg-background">
-      {/* Body diagram */}
-      <div className="flex-1 relative flex items-center justify-center">
+    <div className="flex flex-col h-full min-h-[420px] font-sans bg-background">
+      {/* Body diagram area */}
+      <div className="flex-1 relative flex items-center justify-center min-h-[300px]">
         <div className="relative w-[55%] max-w-[320px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border">
           {PARTS.map((part) => {
             const sel = selected === part.id;
@@ -126,7 +116,7 @@ export default function ExamBodyScene({ bus }: SceneProps) {
                   >
                     {groupByCat(part.ops).map(([cat, ids]) => (
                       <div key={cat} className="mb-1.5">
-                        <div className="text-[9px] text-muted-foreground mb-1 font-semibold">{CAT_LABEL[cat] ?? cat}</div>
+                        <div className="text-[9px] text-muted-foreground mb-1 font-semibold">{cat}</div>
                         <div className="flex gap-1 flex-wrap">
                           {ids.map((id) => {
                             const def = NORMALS[id];
@@ -135,8 +125,8 @@ export default function ExamBodyScene({ bus }: SceneProps) {
                               <button key={id} onClick={() => interact(id)}
                                 className="px-2 py-0.5 rounded text-[10px] whitespace-nowrap transition-all cursor-pointer border"
                                 style={{
-                                  background: flash === id ? (CAT_COLOR[cat] ?? "#888") : "var(--color-muted)",
-                                  borderColor: `${CAT_COLOR[cat] ?? "#888"}44`,
+                                  background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : "var(--color-muted)",
+                                  borderColor: `${CAT_COLOR[def.cat] ?? "#888"}44`,
                                   color: flash === id ? "#111" : "var(--color-foreground)",
                                 }}
                               >
@@ -156,29 +146,25 @@ export default function ExamBodyScene({ bus }: SceneProps) {
         </div>
       </div>
 
-      {/* Results panel */}
-      <div className="w-[280px] border-l border-border bg-card flex flex-col font-mono text-xs">
-        <div className="px-3.5 py-2.5 border-b border-border text-muted-foreground font-bold text-xs">◈ 检查记录</div>
-        <div ref={logRef} className="flex-1 overflow-auto">
-          {Object.keys(results).length === 0 && (
-            <div className="p-5 text-muted-foreground/60 text-center text-xs">点击人体部位选择检查项目</div>
-          )}
-          {Object.entries(results).map(([id, r]) => {
+      {/* Results footer strip */}
+      <div className="h-9 border-t border-border bg-card flex items-center gap-1.5 px-2 overflow-x-auto shrink-0">
+        {Object.keys(results).length === 0 ? (
+          <span className="text-xs text-muted-foreground/60 px-1">点击人体部位选择检查项目</span>
+        ) : (
+          Object.entries(results).map(([id, r]) => {
             const def = NORMALS[id];
             if (!def) return null;
             return (
-              <div key={id} className={cn("px-3.5 py-2 border-b border-border/60", r.abnormal ? "border-l-2 border-l-orange-500" : "border-l-2 border-l-transparent")}>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="inline-block size-1.5 rounded-full shrink-0" style={{ background: CAT_COLOR[def.cat] ?? "#888" }} />
-                  <span className="text-muted-foreground text-[10px]">{def.label}</span>
-                  <span className="text-muted-foreground/60 text-[9px]">{def.unit}</span>
-                  {r.abnormal && <span className="text-orange-500 text-[9px] ml-auto">异常</span>}
-                </div>
-                <div className={cn("text-xs font-semibold ml-3", r.abnormal ? "text-orange-500" : "text-foreground")}>{r.value}</div>
-              </div>
+              <span key={id} className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] whitespace-nowrap shrink-0",
+                r.abnormal ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground",
+              )}>
+                <span className="size-1.5 rounded-full shrink-0" style={{ background: CAT_COLOR[def.cat] ?? "#888" }} />
+                {def.label} <span className="font-semibold">{r.value}</span>{def.unit}
+              </span>
             );
-          })}
-        </div>
+          })
+        )}
       </div>
     </div>
   );
