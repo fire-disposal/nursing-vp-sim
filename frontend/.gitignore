@@ -25,3 +25,6 @@ dist-ssr
 
 # Generated artifacts
 public/report.html
+
+# Directory junctions
+public/models
