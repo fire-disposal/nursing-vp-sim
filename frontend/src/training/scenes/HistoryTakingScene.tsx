@@ -14,13 +14,12 @@ export default function HistoryTakingScene({ recordId }: { recordId: string }) {
   }, []);
 
   return (
-    <div className="flex h-screen" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex-1 min-w-0">
-        <Suspense fallback={<LoadingState className="h-screen" />}>
-          <TrainingEngine recordId={recordId} />
-        </Suspense>
-      </div>
-      <SceneRenderer />
+    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100vh" }}>
+      <Suspense fallback={<LoadingState className="h-screen" />}>
+        <TrainingEngine recordId={recordId}>
+          <SceneRenderer />
+        </TrainingEngine>
+      </Suspense>
     </div>
   );
 }

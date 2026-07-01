@@ -5,6 +5,7 @@ import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
+import type { ReactNode } from "react";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
 import {
@@ -25,6 +26,7 @@ import type {
 
 interface TrainingEngineProps {
 	recordId: string;
+	children?: ReactNode;
 }
 
 function useFeatureToggles(initialFeatures: Record<string, boolean>) {
@@ -48,7 +50,7 @@ function useFeatureToggles(initialFeatures: Record<string, boolean>) {
 	return { features, toggleFeature } as const;
 }
 
-function TrainingEngineContent({ recordId }: TrainingEngineProps) {
+function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	const {
 		patient,
 		trainingType,
@@ -283,7 +285,8 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 				endTraining,
 			}}
 		>
-			<div className="flex flex-col h-screen">
+			<div className="flex h-screen">
+				<div className="flex flex-col flex-1 min-w-0">
 				<TrainingHeader />
 				<div className="flex-1 overflow-hidden relative">
 					<ChatArea
@@ -296,6 +299,8 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 						features={features}
 						recordId={recordNum}
 					/>
+				</div>
+				{children}
 				</div>
 			</div>
 		</TrainingContext.Provider>
