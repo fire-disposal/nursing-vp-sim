@@ -300,8 +300,8 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 						recordId={recordNum}
 					/>
 				</div>
-				{children}
 				</div>
+				{children}
 			</div>
 		</TrainingContext.Provider>
 			<ScoringOverlay

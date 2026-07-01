@@ -2,7 +2,6 @@ import { Suspense, useState } from "react"
 import { createMockBus } from "../mock/bus"
 import type { MessageBus } from "../mock/bus"
 import { SANDBOX_SCENES } from "../registry"
-import type { SceneProps } from "../scene-types"
 import { DebugPanel } from "./DebugPanel"
 import { SceneStateEditor } from "./SceneStateEditor"
 
@@ -13,9 +12,11 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   const [showStateEditor, setShowStateEditor] = useState(false)
 
   const scene = SANDBOX_SCENES.find((s) => s.id === sceneId)
-  const sceneProps: SceneProps = {
+
+  const sceneProps = {
     bus: bus as MessageBus,
-    mode: "sandbox",
+    mode: "sandbox" as const,
+    recordId: "sandbox",
   }
 
   return (
@@ -43,7 +44,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
         </label>
       </div>
 
-      {/* Main area: scene fills the space, debug/state panels are overlaid on the right */}
+      {/* Main area */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           {scene ? (
@@ -56,11 +57,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
             </div>
           )}
         </div>
-
-        {/* State editor */}
         {showStateEditor && <SceneStateEditor bus={bus} />}
-
-        {/* Debug panel */}
         {showDebug && <DebugPanel bus={bus} />}
       </div>
     </div>

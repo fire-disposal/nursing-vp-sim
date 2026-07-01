@@ -197,6 +197,9 @@ if (typeof document !== "undefined" && !document.getElementById(SFX)) {
 }
 
 // ── Wave Row ──
+// Two identical paths tiled: the second is offset by W via SVG transform.
+// CSS animation scrolls left at a constant rate; when the first exits left,
+// the second is already visible entering from the right.
 function WaveRow({ path, speed, color, height }: { path: string; speed: number; color: string; height: number }) {
   return (
     <div style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative" }}>
@@ -205,11 +208,13 @@ function WaveRow({ path, speed, color, height }: { path: string; speed: number; 
         animation: `scr2 ${speed}s linear infinite`,
       }}>
         <g stroke={color} strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <path d={`${path} M${W},${BASELINE} ${path}`} />
+          <path d={path} />
+          <path d={path} transform={`translate(${W}, 0)`} />
         </g>
       </svg>
-      {/* Edge fade */}
-      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 12, background: "linear-gradient(to left, #080c14 40%, transparent)" }} />
+      {/* Edge fade — hides the hard edge where the cycle restarts */}
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 14, background: "linear-gradient(to left, #080c14 30%, transparent)" }} />
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: "#080c14" }} />
     </div>
   )
 }

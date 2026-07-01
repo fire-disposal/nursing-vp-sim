@@ -2,10 +2,10 @@ import { useState } from "react"
 import { createMockBus } from "../mock/bus"
 import { playSequence } from "../mock/events"
 import type { MessageBus } from "../mock/bus"
+import type { SceneProps } from "../scene-types"
 import { PatientMonitor, type MonitorStatus } from "../components/PatientMonitor"
-import type { SceneCardProps } from "../scene-types"
 
-export default function MonitorCard(_props: SceneCardProps) {
+export default function MonitorCard(_props: SceneProps) {
   const [status, setStatus] = useState<MonitorStatus>({
     hr: "normal", spo2: "normal", bp: "normal",
     rr: "normal", temp: "normal", pain: "none",
