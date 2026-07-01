@@ -29,7 +29,9 @@ type DockTab = "events" | "state" | "info"
 const LS_KEY = "sandbox-windows"
 const DOCK_WIDTH = 320
 
-function loadPositions(): Record<string, { x: number; y: number }> {
+interface SavedPos { x: number; y: number; w?: number; h?: number }
+
+function loadPositions(): Record<string, SavedPos> {
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return {}
@@ -39,7 +41,7 @@ function loadPositions(): Record<string, { x: number; y: number }> {
   }
 }
 
-function savePositions(wins: Record<string, { x: number; y: number }>) {
+function savePositions(wins: Record<string, SavedPos>) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(wins))
   } catch {}
@@ -53,9 +55,12 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
     const result: Record<string, WindowMeta> = {}
     SANDBOX_SCENES.forEach((s, i) => {
       const p = saved[s.id]
+      const sz = s.size
       result[s.id] = {
         x: p?.x ?? 30 + i * 30,
         y: p?.y ?? 20 + i * 40,
+        w: p?.w ?? sz?.w ?? 400,
+        h: p?.h ?? sz?.h ?? 300,
         minimized: false,
         zIndex: i + 10,
       }
@@ -72,9 +77,9 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   winsRef.current = wins
 
   useEffect(() => {
-    const pos: Record<string, { x: number; y: number }> = {}
+    const pos: Record<string, SavedPos> = {}
     for (const [id, m] of Object.entries(wins)) {
-      pos[id] = { x: m.x, y: m.y }
+      pos[id] = { x: m.x, y: m.y, w: m.w, h: m.h }
     }
     savePositions(pos)
   }, [wins])
