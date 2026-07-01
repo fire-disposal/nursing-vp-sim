@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { MessageBus } from "../mock/bus"
 import type { MockMessageBus } from "../mock/bus"
 import { createMockBus } from "../mock/bus"
@@ -6,6 +6,8 @@ import { SANDBOX_SCENES } from "../registry"
 import { DebugPanel } from "./DebugPanel"
 import { SceneDebugger } from "./SceneDebugger"
 import { SceneStateEditor } from "./SceneStateEditor"
+
+const FurnitureLab = lazy(() => import("../scenes/FurnitureLab"))
 
 const ICONS: Record<string, string> = {
   "demo-2d": "🖱️",
@@ -15,6 +17,7 @@ const ICONS: Record<string, string> = {
   "card-inquiry": "📋",
   "card-monitor": "💓",
   "card-notes": "📝",
+  "furniture-lab": "🪑",
 }
 
 interface WindowMeta {
@@ -70,6 +73,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   const [showDock, setShowDock] = useState(true)
   const [dockTab, setDockTab] = useState<DockTab>("events")
   const [dark, setDark] = useState(true)
+  const [mode, setMode] = useState<"scenes" | "furniture">("scenes")
   const [inspectedId, setInspectedId] = useState<string | null>(null)
   const nextZ = useRef(100)
   const dragRef = useRef<{ id: string; ox: number; oy: number; dragging: boolean }>({ id: "", ox: 0, oy: 0, dragging: false })
@@ -225,7 +229,14 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
         >
           S/B
         </span>
-        {SANDBOX_SCENES.map((s) => {
+
+        {/* Mode tabs */}
+        <div style={{ display: "flex", gap: 2, marginRight: 8 }}>
+          <ModeTab active={mode === "scenes"} onClick={() => setMode("scenes")} dark={dark}>Scenes</ModeTab>
+          <ModeTab active={mode === "furniture"} onClick={() => setMode("furniture")} dark={dark}>Furniture</ModeTab>
+        </div>
+
+        {mode === "scenes" && SANDBOX_SCENES.map((s) => {
           const isOpen = open.has(s.id)
           return (
             <button
@@ -302,7 +313,13 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
 
       {/* ── Main area ── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Scene canvas */}
+        {/* Furniture Lab mode takes over the whole area */}
+        {mode === "furniture" ? (
+          <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#555" }}>Loading FurnitureLab…</div>}>
+            <FurnitureLab />
+          </Suspense>
+        ) : (
+        /* Scene floating windows */
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           {[...open].map((id) => {
             const s = SANDBOX_SCENES.find((sc) => sc.id === id)
@@ -490,9 +507,10 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
             </div>
           )}
         </div>
+        )}
 
-        {/* ── Right dock ── */}
-        {showDock && (
+        {/* ── Right dock (scenes mode only) ── */}
+        {mode === "scenes" && showDock && (
           <div
             style={{
               width: DOCK_WIDTH,
@@ -629,5 +647,20 @@ function Section({
         <div style={{ fontFamily: "monospace", fontSize: 12 }}>{children}</div>
       )}
     </div>
+  )
+}
+
+function ModeTab({ active, onClick, dark, children }: { active: boolean; onClick: () => void; dark: boolean; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick}
+      style={{
+        padding: "4px 10px", borderRadius: 5, border: "none", cursor: "pointer",
+        fontSize: 10, fontWeight: active ? 700 : 400, fontFamily: "system-ui",
+        background: active ? (dark ? "#4fc3f722" : "#0288d122") : "transparent",
+        color: active ? (dark ? "#4fc3f7" : "#0288d1") : (dark ? "#666" : "#999"),
+      }}
+    >
+      {children}
+    </button>
   )
 }

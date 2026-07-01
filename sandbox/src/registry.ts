@@ -40,4 +40,5 @@ export const SANDBOX_SCENES: SandboxScene[] = [
     { label: "Fever 39.2", emit: { event: "scene:state", data: { vitals: { hr: 102, spo2: 96, bp_sys: 125, bp_dia: 80, temp: 39.2 } } } },
   ]),
   def("card-notes", "卡片: 笔记", "笔记场景卡片", () => import("./scenes/CardNotes"), { w: 280, h: 240 }),
+  def("furniture-lab", "家具工坊", "3D 家具预览 / 参数调整 / GLB 校准", () => import("./scenes/FurnitureLab"), { w: 640, h: 480 }),
 ]
