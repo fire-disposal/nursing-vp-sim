@@ -1,199 +1,430 @@
 /**
- * FurnitureLab — preview, tune, and calibrate furniture items.
+ * FurnitureLab — pick, preview, and calibrate furniture.
  *
- * Supports both primitive‑based and GLB models.
- * Adjust translate (X/Y/Z), rotation (Y), and uniform scale in real‑time.
+ * ┌──────────────┬──────────────────────────────────────────┐
+ * │  PICKER      │  INFO + PARAMS                           │
+ * │  ┌──┐ ┌──┐   │  ┌────────────────────────────────────┐  │
+ * │  │床│ │椅│   │  │  3D preview (grid + reference)     │  │
+ * │  ├──┤ ├──┤   │  │                                    │  │
+ * │  │患│ │输│   │  └────────────────────────────────────┘  │
+ * │  │者│ │液│   │  ┌────────────────────────────────────┐  │
+ * │  └──┘ └──┘   │  │  Translate  │ Rotate │ Scale       │  │
+ * │  [search]     │  │  X: ═══●══  │ Y: ═══●══  │ ═══●══ │  │
+ * └──────────────┴──────────────────────────────────────────┘
  */
-import { useState } from "react"
+import { useState, useCallback, useRef, useMemo, Suspense } from "react"
 import { Canvas } from "@react-three/fiber"
-import { ContactShadows, Html, OrbitControls } from "@react-three/drei"
-import { type ReactNode } from "react"
-import { Furniture } from "../components/Furniture"
+import { ContactShadows, Edges, OrbitControls, useGLTF } from "@react-three/drei"
+import type { ReactNode } from "react"
+import * as THREE from "three"
+
+// ── Colour palette ──
+const C = {
+  bg: "#1a1a2a", panel: "#12121e", border: "#2a2a35",
+  text: "#ccc", dim: "#666", accent: "#4fc3f7",
+}
 
 // ── Furniture catalogue ──
 interface FurniDef {
-  id: string; name: string
-  /** Initial grid position for preview. */
-  gx: number; gz: number
-  /** Preview‑only: renders the piece centered on the grid. */
+  id: string; name: string; category: string
+  tags: string[]
+  /** Simple CPU‑based thumbnail colour (no 3D render). */
+  thumb: string
   render: (props: { gx: number; gz: number }) => ReactNode
 }
 
 const FURNI: FurniDef[] = [
-  {
-    id: "bed", name: "病床", gx: 0, gz: 0,
-    render: ({ gx, gz }) => (
-      <Furniture gx={gx} gz={gz}>
-        <mesh position={[0,0.04,0]} receiveShadow castShadow><boxGeometry args={[2.4,0.08,1.4]} /><meshStandardMaterial color="#d4b898" roughness={0.7} /></mesh>
-        <mesh position={[0,0.12,0]} receiveShadow castShadow><boxGeometry args={[2.2,0.12,1.2]} /><meshStandardMaterial color="#e4eef4" roughness={0.7} /></mesh>
-        <mesh position={[1.15,0.3,0]} receiveShadow castShadow><boxGeometry args={[0.06,0.5,1.4]} /><meshStandardMaterial color="#d4b898" roughness={0.7} /></mesh>
-        {[[-1.0,-0.2,-0.55],[-1.0,-0.2,0.55],[1.0,-0.2,-0.55],[1.0,-0.2,0.55]].map((p,i) => (
-          <mesh key={i} position={[p[0],p[1],p[2]]} castShadow><cylinderGeometry args={[0.03,0.04,0.2]} /><meshStandardMaterial color="#b89a78" /></mesh>
-        ))}
-      </Furniture>
-    ),
-  },
-  {
-    id: "patient", name: "患者 (chibi)", gx: 0, gz: 0,
-    render: ({ gx, gz }) => (
-      <Furniture gx={gx} gz={gz}>
-        <mesh position={[0.35,0.05,0]} receiveShadow castShadow><boxGeometry args={[0.5,0.06,0.6]} /><meshStandardMaterial color="#e4eef4" /></mesh>
-        <mesh position={[-0.15,0.1,0]} receiveShadow castShadow><boxGeometry args={[1.2,0.16,0.55]} /><meshStandardMaterial color="#b8d4c8" /></mesh>
-        <mesh position={[0.55,0.35,0]} castShadow><sphereGeometry args={[0.16,20,20]} /><meshStandardMaterial color="#f0c8a0" roughness={0.6} /></mesh>
-        <mesh position={[0.55,0.44,0]} castShadow><sphereGeometry args={[0.17,20,20,0,Math.PI*2,0,Math.PI/2.5]} /><meshStandardMaterial color="#8a7a6a" roughness={0.8} /></mesh>
-      </Furniture>
-    ),
-  },
-  {
-    id: "iv", name: "输液架", gx: 0, gz: 0,
-    render: ({ gx, gz }) => (
-      <Furniture gx={gx} gz={gz}>
-        <mesh position={[0,1.0,0]} castShadow><cylinderGeometry args={[0.025,0.025,2.0]} /><meshStandardMaterial color="#c8c8d0" metalness={0.3} /></mesh>
-        <mesh position={[0,-0.02,0]}><cylinderGeometry args={[0.2,0.25,0.03]} /><meshStandardMaterial color="#c8c8d0" metalness={0.3} /></mesh>
-        <mesh position={[0.15,1.0,0]} castShadow><boxGeometry args={[0.12,0.18,0.04]} /><meshStandardMaterial color="#e0e8f0" transparent opacity={0.6} /></mesh>
-      </Furniture>
-    ),
-  },
-  {
-    id: "monitor", name: "监护仪", gx: 0, gz: 0,
-    render: ({ gx, gz }) => (
-      <Furniture gx={gx} gz={gz}>
-        <mesh position={[0,0.25,0]} castShadow><cylinderGeometry args={[0.025,0.04,0.5]} /><meshStandardMaterial color="#6a8aaa" /></mesh>
-        <mesh position={[0,0.42,0.05]} castShadow><boxGeometry args={[0.35,0.12,0.03]} /><meshStandardMaterial color="#1a2a3a" /></mesh>
-        <mesh position={[0,0.42,0]}><boxGeometry args={[0.38,0.15,0.02]} /><meshStandardMaterial color="#6a8aaa" /></mesh>
-      </Furniture>
-    ),
-  },
-  {
-    id: "chair", name: "椅子", gx: 0, gz: 0,
-    render: ({ gx, gz }) => (
-      <Furniture gx={gx} gz={gz}>
-        <mesh position={[0,0.3,0]} receiveShadow castShadow><boxGeometry args={[0.5,0.06,0.5]} /><meshStandardMaterial color="#c8b8a0" roughness={0.7} /></mesh>
-        <mesh position={[-0.25,0.55,0]} receiveShadow castShadow><boxGeometry args={[0.04,0.5,0.5]} /><meshStandardMaterial color="#d4b898" /></mesh>
-        {[[-0.2,0.02,-0.2],[-0.2,0.02,0.2],[0.2,0.02,-0.2],[0.2,0.02,0.2]].map((p,i) => (
-          <mesh key={i} position={[p[0],p[1],p[2]]} castShadow><cylinderGeometry args={[0.025,0.025,0.28]} /><meshStandardMaterial color="#b89a78" /></mesh>
-        ))}
-      </Furniture>
-    ),
-  },
-  {
-    id: "plant", name: "盆栽", gx: 0, gz: 0,
-    render: ({ gx, gz }) => (
-      <Furniture gx={gx} gz={gz}>
-        <mesh position={[0,0.15,0]}><cylinderGeometry args={[0.12,0.1,0.15]} /><meshStandardMaterial color="#c87a5a" /></mesh>
-        {[[0,0.35,0],[-0.06,0.3,-0.04],[0.06,0.28,0.04],[-0.04,0.32,0.06],[0.05,0.3,-0.05]].map((p,i) => (
-          <mesh key={i} position={[p[0],p[1],p[2]]}><sphereGeometry args={[0.05,8,8]} /><meshStandardMaterial color="#7aaa6a" roughness={0.9} /></mesh>
-        ))}
-      </Furniture>
-    ),
-  },
+  { id: "bed", name: "病床", category: "bed", tags: ["床","病房","卧具"], thumb: "#8aaece",
+    render: () => (<>
+      <mesh position={[0,0.04,0]} receiveShadow castShadow><boxGeometry args={[2.4,0.08,1.4]} /><meshStandardMaterial color="#d4b898" roughness={0.7} /></mesh>
+      <mesh position={[0,0.12,0]} receiveShadow castShadow><boxGeometry args={[2.2,0.12,1.2]} /><meshStandardMaterial color="#e4eef4" roughness={0.7} /></mesh>
+      <mesh position={[1.15,0.3,0]} receiveShadow castShadow><boxGeometry args={[0.06,0.5,1.4]} /><meshStandardMaterial color="#d4b898" roughness={0.7} /></mesh>
+      {[[-1.0,-0.2,-0.55],[-1.0,-0.2,0.55],[1.0,-0.2,-0.55],[1.0,-0.2,0.55]].map((p,i) => (
+        <mesh key={i} position={[p[0],p[1],p[2]]} castShadow><cylinderGeometry args={[0.03,0.04,0.2]} /><meshStandardMaterial color="#b89a78" /></mesh>
+      ))}
+    </>)},
+  { id: "patient", name: "患者 (chibi)", category: "character", tags: ["人","患者"], thumb: "#f0c8a0",
+    render: () => (<>
+      <mesh position={[0.35,0.05,0]} receiveShadow castShadow><boxGeometry args={[0.5,0.06,0.6]} /><meshStandardMaterial color="#e4eef4" /></mesh>
+      <mesh position={[-0.15,0.1,0]} receiveShadow castShadow><boxGeometry args={[1.2,0.16,0.55]} /><meshStandardMaterial color="#b8d4c8" /></mesh>
+      <mesh position={[0.55,0.35,0]} castShadow><sphereGeometry args={[0.16,20,20]} /><meshStandardMaterial color="#f0c8a0" roughness={0.6} /></mesh>
+      <mesh position={[0.55,0.44,0]} castShadow><sphereGeometry args={[0.17,20,20,0,Math.PI*2,0,Math.PI/2.5]} /><meshStandardMaterial color="#8a7a6a" roughness={0.8} /></mesh>
+    </>)},
+  { id: "iv", name: "输液架", category: "equipment", tags: ["输液","仪器"], thumb: "#c8d0d8",
+    render: () => (<>
+      <mesh position={[0,1.0,0]} castShadow><cylinderGeometry args={[0.025,0.025,2.0]} /><meshStandardMaterial color="#c8c8d0" metalness={0.3} /></mesh>
+      <mesh position={[0,-0.02,0]}><cylinderGeometry args={[0.2,0.25,0.03]} /><meshStandardMaterial color="#c8c8d0" metalness={0.3} /></mesh>
+      <mesh position={[0.15,1.0,0]} castShadow><boxGeometry args={[0.12,0.18,0.04]} /><meshStandardMaterial color="#e0e8f0" transparent opacity={0.6} /></mesh>
+    </>)},
+  { id: "monitor", name: "监护仪", category: "equipment", tags: ["监测","仪器"], thumb: "#6a8aaa",
+    render: () => (<>
+      <mesh position={[0,0.25,0]} castShadow><cylinderGeometry args={[0.025,0.04,0.5]} /><meshStandardMaterial color="#6a8aaa" /></mesh>
+      <mesh position={[0,0.42,0.05]} castShadow><boxGeometry args={[0.35,0.12,0.03]} /><meshStandardMaterial color="#1a2a3a" /></mesh>
+      <mesh position={[0,0.42,0]}><boxGeometry args={[0.38,0.15,0.02]} /><meshStandardMaterial color="#6a8aaa" /></mesh>
+    </>)},
+  { id: "chair", name: "椅子", category: "furniture", tags: ["座位","家具"], thumb: "#c8b8a0",
+    render: () => (<>
+      <mesh position={[0,0.3,0]} receiveShadow castShadow><boxGeometry args={[0.5,0.06,0.5]} /><meshStandardMaterial color="#c8b8a0" roughness={0.7} /></mesh>
+      <mesh position={[-0.25,0.55,0]} receiveShadow castShadow><boxGeometry args={[0.04,0.5,0.5]} /><meshStandardMaterial color="#d4b898" /></mesh>
+      {[[-0.2,0.02,-0.2],[-0.2,0.02,0.2],[0.2,0.02,-0.2],[0.2,0.02,0.2]].map((p,i) => (
+        <mesh key={i} position={[p[0],p[1],p[2]]} castShadow><cylinderGeometry args={[0.025,0.025,0.28]} /><meshStandardMaterial color="#b89a78" /></mesh>
+      ))}
+    </>)},
+  { id: "plant", name: "盆栽", category: "decor", tags: ["植物","装饰"], thumb: "#7aaa6a",
+    render: () => (<>
+      <mesh position={[0,0.15,0]}><cylinderGeometry args={[0.12,0.1,0.15]} /><meshStandardMaterial color="#c87a5a" /></mesh>
+      {[[0,0.35,0],[-0.06,0.3,-0.04],[0.06,0.28,0.04],[-0.04,0.32,0.06],[0.05,0.3,-0.05]].map((p,i) => (
+        <mesh key={i} position={[p[0],p[1],p[2]]}><sphereGeometry args={[0.05,8,8]} /><meshStandardMaterial color="#7aaa6a" roughness={0.9} /></mesh>
+      ))}
+    </>)},
+  { id: "cabinet", name: "储物柜", category: "furniture", tags: ["储物","家具"], thumb: "#b8a888",
+    render: () => (<>
+      <mesh position={[0,0.4,0]} receiveShadow castShadow><boxGeometry args={[0.6,0.8,0.5]} /><meshStandardMaterial color="#b8a888" roughness={0.7} /></mesh>
+      <mesh position={[0,0.04,0]} receiveShadow castShadow><boxGeometry args={[0.65,0.08,0.55]} /><meshStandardMaterial color="#b89a78" /></mesh>
+    </>)},
+  { id: "bedside", name: "床头柜", category: "furniture", tags: ["储物","家具","床头"], thumb: "#d4b898",
+    render: () => (<>
+      <mesh position={[0,0.3,0]} receiveShadow castShadow><boxGeometry args={[0.5,0.6,0.5]} /><meshStandardMaterial color="#d4b898" roughness={0.7} /></mesh>
+      <mesh position={[0,0.04,0]} receiveShadow castShadow><boxGeometry args={[0.55,0.08,0.55]} /><meshStandardMaterial color="#b89a78" /></mesh>
+    </>)},
 ]
 
-// ── Preview scene ──
-function Preview({ def, tx, ty, tz, rot, sc }: { def: FurniDef; tx: number; ty: number; tz: number; rot: number; sc: number }) {
+// ── Slider + number input ──
+function SliderInput({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
+  const [edit, setEdit] = useState<string | null>(null)
+
+  const display = edit ?? ""
+  const numValue = edit !== null ? Number(edit) : value
+  const clamped = Math.min(max, Math.max(min, numValue))
+
+  const commit = (v: string) => {
+    const n = Number(v)
+    if (!isNaN(n) && isFinite(n)) {
+      onChange(Math.min(max, Math.max(min, Math.round(n / step) * step)))
+    }
+    setEdit(null)
+  }
+
   return (
-    <>
-      {/* Grid floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[4, 4]} />
-        <meshStandardMaterial color="#e8e0d8" roughness={0.95} />
-      </mesh>
-      <gridHelper args={[4, 8, "#ccc", "#aaa"]} position={[0, -0.005, 0]} />
-
-      {/* Furniture with user transforms applied */}
-      <group position={[tx, ty, tz]} rotation={[0, rot, 0]} scale={[sc, sc, sc]}>
-        {def.render({ gx: 0, gz: 0 })}
-      </group>
-
-      <ContactShadows position={[0, 0, 0]} opacity={0.3} scale={5} blur={2} far={2} />
-    </>
-  )
-}
-
-// ── Slider component ──
-function Knob({ label, value, min, max, step, onChange, unit }: {
-  label: string; value: number; min: number; max: number; step: number
-  onChange: (v: number) => void; unit?: string
-}) {
-  return (
-    <div style={{ marginBottom: 6 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#888", marginBottom: 2 }}>
-        <span>{label}</span>
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>{value.toFixed(step < 0.1 ? 2 : 1)}{unit}</span>
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, height: 22 }}>
+      <span style={{ fontSize: 9, color: C.dim, width: 20, flexShrink: 0 }}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "100%", height: 4, accentColor: "#4fc3f7", cursor: "pointer" }}
-      />
+        style={{ flex: 1, height: 3, accentColor: C.accent, cursor: "pointer" }} />
+      <input type="text" value={display} placeholder={value.toFixed(step < 0.1 ? 2 : 1)}
+        onChange={(e) => setEdit(e.target.value)}
+        onBlur={() => commit(edit ?? "")}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(edit ?? ""); if (e.key === "Escape") setEdit(null) }}
+        style={{ width: 48, padding: "1px 4px", background: C.bg, border: `1px solid ${edit ? C.accent : C.border}`, borderRadius: 3, color: C.text, fontSize: 9, textAlign: "right", outline: "none", fontVariantNumeric: "tabular-nums" }} />
     </div>
   )
 }
 
-// ── Page ──
-export default function FurnitureLab() {
-  const [idx, setIdx] = useState(0)
-  const [tx, setTx] = useState(0); const [ty, setTy] = useState(0); const [tz, setTz] = useState(0)
-  const [rot, setRot] = useState(0); const [sc, setSc] = useState(1)
+// ── JSON transform panel ──
+function TransformJSON({ id, name, tx, ty, tz, rot, scale, glbName, glbHash, onApply }: {
+  id: string; name: string
+  tx: number; ty: number; tz: number
+  rot: number; scale: number
+  glbName?: string | null
+  glbHash?: string | null
+  onApply: (v: { tx: number; ty: number; tz: number; rot: number; scale: number }) => void
+}) {
+  const [raw, setRaw] = useState("")
+  const [err, setErr] = useState("")
 
-  const def = FURNI[idx]
+  const obj: Record<string, unknown> = { id, name, tx: +tx.toFixed(2), ty: +ty.toFixed(2), tz: +tz.toFixed(2), rot, scale: +scale.toFixed(2) }
+  if (glbName) obj.glb = glbName
+  if (glbHash) obj.hash = glbHash
+  const json = JSON.stringify(obj, null, 2)
+
+  const copy = useCallback(() => {
+    navigator.clipboard.writeText(json).catch(() => {})
+  }, [json])
+
+  const apply = useCallback(() => {
+    try {
+      const p = JSON.parse(raw)
+      const v = {
+        tx: typeof p.tx === "number" ? p.tx : tx,
+        ty: typeof p.ty === "number" ? p.ty : ty,
+        tz: typeof p.tz === "number" ? p.tz : tz,
+        rot: typeof p.rot === "number" ? p.rot : rot,
+        scale: typeof p.scale === "number" ? p.scale : scale,
+      }
+      onApply(v)
+      setErr("")
+    } catch { setErr("Invalid JSON") }
+  }, [raw, tx, ty, tz, rot, scale, onApply])
 
   return (
-    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#1a1a2a" }}>
-      {/* 3D viewport */}
-      <div style={{ flex: 1, position: "relative" }}>
-        <Canvas camera={{ position: [2.5, 2, 3], fov: 35 }} shadows style={{ background: "#e8e0d8" }}>
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[3,5,3]} intensity={0.7} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
-          <directionalLight position={[-2,2,1]} intensity={0.3} />
-          <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
-          <Preview def={def} tx={tx} ty={ty} tz={tz} rot={rot * Math.PI / 180} sc={sc} />
-          <OrbitControls enableZoom enablePan enableRotate minDistance={1} maxDistance={10} target={[0, 0.4, 0]} />
-        </Canvas>
-        {/* Top bar — floating over canvas */}
-        <div style={{
-          position: "absolute", top: 8, left: 8, display: "flex", gap: 6, alignItems: "center",
-          background: "#1a1a2ecc", padding: "6px 12px", borderRadius: 8, backdropFilter: "blur(6px)",
-        }}>
-          <span style={{ color: "#888", fontSize: 11, fontWeight: 600 }}>FURNITURE LAB</span>
-          <select value={idx} onChange={(e) => setIdx(Number(e.target.value))}
-            style={{ padding: "3px 8px", background: "#222", color: "#e0e0e0", border: "1px solid #444", borderRadius: 4, fontSize: 12, cursor: "pointer" }}>
-            {FURNI.map((f, i) => <option key={f.id} value={i}>{f.name}</option>)}
-          </select>
+    <div style={{ minWidth: 180, flex: 1 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 9, color: C.dim, fontWeight: 600 }}>TRANSFORM JSON</span>
+        <button onClick={copy}
+          style={{ padding: "1px 8px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 3, color: C.accent, cursor: "pointer", fontSize: 9 }}>
+          Copy
+        </button>
+      </div>
+      <pre style={{ margin: "0 0 4px 0", color: "#b0b8c0", fontSize: 9, fontFamily: "monospace", lineHeight: 1.4, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+{json}
+      </pre>
+      <div style={{ display: "flex", gap: 3 }}>
+        <input value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="Paste JSON & Apply…"
+          style={{ flex: 1, padding: "2px 6px", background: C.bg, border: `1px solid ${err ? "#e74c3c" : C.border}`, borderRadius: 3, color: C.text, fontSize: 9, outline: "none" }}
+        />
+        <button onClick={apply} disabled={!raw}
+          style={{ padding: "2px 8px", background: raw ? `${C.accent}33` : C.bg, border: `1px solid ${raw ? C.accent : C.border}`, borderRadius: 3, color: raw ? C.accent : C.dim, cursor: raw ? "pointer" : "default", fontSize: 9 }}>
+          Apply
+        </button>
+      </div>
+      {err && <div style={{ color: "#e74c3c", fontSize: 8, marginTop: 2 }}>{err}</div>}
+    </div>
+  )
+}
+
+// ── GLB model loader (inside Canvas + Suspense) — auto‑centers bottom to floor
+function GLBScene({ url }: { url: string }) {
+  const gltf = useGLTF(url)
+  const { scene, offsetY } = useMemo(() => {
+    const s = gltf.scene.clone(true)
+    s.traverse((child: any) => {
+      if (child.isMesh) { child.castShadow = true; child.receiveShadow = true }
+    })
+    const box = new THREE.Box3().setFromObject(s)
+    const oy = box.min.y < 0 ? -box.min.y : 0
+    return { scene: s, offsetY: oy }
+  }, [gltf.scene])
+  return <primitive object={scene} position={[0, offsetY, 0]} />
+}
+
+// ── 3D preview ──
+function Preview({ def, tx, ty, tz, rot, sc, glbUrl }: { def: FurniDef; tx: number; ty: number; tz: number; rot: number; sc: number; glbUrl?: string }) {
+  return (
+    <>
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[3,5,3]} intensity={0.7} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+      <directionalLight position={[-2,2,1]} intensity={0.3} />
+      <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
+
+      {/* Ground */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+        <planeGeometry args={[3, 3]} />
+        <meshStandardMaterial color="#ede8e2" roughness={0.95} />
+      </mesh>
+
+      {/* Grid — 0.5m spacing */}
+      <gridHelper args={[3, 6, "#ccc", "#e0e0e0"]} position={[0, 0.002, 0]} />
+
+      {/* Origin crosshair */}
+      <mesh position={[0, 0.003, 0]}>
+        <planeGeometry args={[0.08, 0.08]} />
+        <meshBasicMaterial color={C.accent} transparent opacity={0.25} side={2} />
+      </mesh>
+
+      {/* Reference box + colour axes — 1m wireframe cube, bottom centre = origin */}
+      {/*
+        Box centre: [0, 0.5, 0]  →  bottom face centre at origin
+        Three axis arrows from the bottom‑left‑front corner showing 1m edge directions.
+        Axes are part of the cube (scale/direction reference), NOT at the origin.
+      */}
+      <group position={[0, 0.5, 0]}>
+        <mesh>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          <Edges color="#999" transparent opacity={0.3} />
+        </mesh>
+        {/* Corner = bottom‑left‑front: offset [-0.5, -0.5, -0.5] from centre */}
+        <group position={[-0.5, -0.5, -0.5]}>
+          {/* X edge — red (+X) */}
+          <mesh rotation={[0, 0, -Math.PI / 2]} position={[0.5, 0, 0]}>
+            <cylinderGeometry args={[0.006, 0.006, 1.0]} />
+            <meshStandardMaterial color="#e74c3c" />
+          </mesh>
+          <mesh rotation={[0, 0, -Math.PI / 2]} position={[0.97, 0, 0]}>
+            <coneGeometry args={[0.025, 0.06, 6]} />
+            <meshStandardMaterial color="#e74c3c" />
+          </mesh>
+          {/* Y edge — green (+Y) */}
+          <mesh position={[0, 0.5, 0]}>
+            <cylinderGeometry args={[0.006, 0.006, 1.0]} />
+            <meshStandardMaterial color="#2ecc71" />
+          </mesh>
+          <mesh position={[0, 0.97, 0]}>
+            <coneGeometry args={[0.025, 0.06, 6]} />
+            <meshStandardMaterial color="#2ecc71" />
+          </mesh>
+          {/* Z edge — blue (+Z) */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.5]}>
+            <cylinderGeometry args={[0.006, 0.006, 1.0]} />
+            <meshStandardMaterial color="#3498db" />
+          </mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.97]}>
+            <coneGeometry args={[0.025, 0.06, 6]} />
+            <meshStandardMaterial color="#3498db" />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Furniture */}
+      <group position={[tx, ty, tz]} rotation={[0, rot, 0]} scale={[sc, sc, sc]}>
+        {glbUrl
+          ? <Suspense fallback={null}>
+              <GLBScene url={glbUrl} />
+            </Suspense>
+          : def.render({ gx: 0, gz: 0 })
+        }
+      </group>
+
+      <ContactShadows position={[0, 0.001, 0]} opacity={0.2} scale={3} blur={1.5} far={1} />
+    </>
+  )
+}
+
+// ── File → hash helper ──
+async function fileToHash(file: File): Promise<string> {
+  const buf = await file.arrayBuffer()
+  const hash = await crypto.subtle.digest("SHA-256", buf)
+  const hex = Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("")
+  return "sha256:" + hex
+}
+
+// ── Component ──
+export default function FurnitureLab() {
+  const [idx, setIdx] = useState(0)
+  const [filter, setFilter] = useState("")
+  const [tx, setTx] = useState(0); const [ty, setTy] = useState(0); const [tz, setTz] = useState(0)
+  const [rot, setRot] = useState(0); const [sc, setSc] = useState(1)
+  const [glbUrl, setGlbUrl] = useState<string | null>(null)
+  const [glbHash, setGlbHash] = useState<string | null>(null)
+  const [glbName, setGlbName] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const filtered = filter
+    ? FURNI.filter((f) => f.name.includes(filter) || f.tags.some((t) => t.includes(filter)))
+    : FURNI
+  const def = FURNI[idx]
+
+  const CATS = ["", ...new Set(FURNI.map((f) => f.category))]
+  const [cat, setCat] = useState("")
+
+  const handleLoadGLB = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Revoke previous blob URL
+    if (glbUrl) URL.revokeObjectURL(glbUrl)
+    const hash = await fileToHash(file)
+    const url = URL.createObjectURL(file)
+    setGlbUrl(url)
+    setGlbHash(hash)
+    setGlbName(file.name)
+    setTx(0); setTy(0); setTz(0); setRot(0); setSc(1)
+    // Reset file input so re-selecting the same file triggers onChange
+    e.target.value = ""
+  }, [glbUrl])
+
+  return (
+    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: C.bg }}>
+      {/* ── LEFT: Picker ── */}
+      <div style={{ width: 220, background: C.panel, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
+        {/* Search + category chips */}
+        <div style={{ padding: "6px 7px", borderBottom: `1px solid ${C.border}` }}>
+          <input value={filter} onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search…"
+            style={{ width: "100%", padding: "3px 6px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, fontSize: 10, outline: "none" }}
+          />
+          <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap" }}>
+            {CATS.map((c) => (
+              <button key={c} onClick={() => setCat(c)}
+                style={{
+                  padding: "1px 5px", borderRadius: 3, border: `1px solid ${cat === c ? C.accent : "transparent"}`,
+                  background: cat === c ? `${C.accent}22` : "transparent",
+                  color: cat === c ? C.accent : C.dim, cursor: "pointer", fontSize: 8, lineHeight: "14px",
+                }}>
+                {c || "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Thumbnail grid */}
+        <div style={{ flex: 1, overflow: "auto", padding: "5px 7px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, alignContent: "start" }}>
+          {(cat ? filtered.filter((f) => f.category === cat) : filtered).map((f, i) => {
+            const fi = FURNI.indexOf(f)
+            const active = fi === idx
+            return (
+              <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  padding: "8px 4px", borderRadius: 6, border: `1px solid ${active ? C.accent : "transparent"}`,
+                  background: active ? `${C.accent}12` : "transparent", cursor: "pointer",
+                }}>
+                <div style={{ width: 44, height: 44, borderRadius: 5, background: f.thumb, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.7 }}>
+                  {f.id === "bed" ? "🛏" : f.id === "patient" ? "🧑" : f.id === "iv" ? "💉" : f.id === "monitor" ? "🖥" : f.id === "chair" ? "🪑" : f.id === "plant" ? "🌿" : f.id === "cabinet" ? "🗄" : f.id === "bedside" ? "🪑" : "▣"}
+                </div>
+                <span style={{ fontSize: 10, color: active ? C.accent : C.text }}>{f.name}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* Parameter panel */}
-      <div style={{
-        width: 260, background: "#12121e", borderLeft: "1px solid #333",
-        display: "flex", flexDirection: "column", fontSize: 12, overflow: "auto",
-      }}>
-        <div style={{ padding: "10px 14px", borderBottom: "1px solid #333", color: "#888", fontWeight: 700, fontSize: 11 }}>
-          PARAMETERS — {def.name.toUpperCase()}
+      {/* ── RIGHT: Preview + params ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Info bar — compact */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderBottom: `1px solid ${C.border}`, background: C.panel, fontSize: 10 }}>
+          <span style={{ color: C.accent, fontWeight: 700 }}>{glbName ?? def.name}</span>
+          <span style={{ color: C.dim }}>{glbUrl ? "GLB" : def.id}</span>
+          {glbHash && <span style={{ color: C.dim, fontSize: 8, fontFamily: "monospace", maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis" }} title={glbHash}>{glbHash.slice(0, 12)}…</span>}
+          <span style={{ color: C.dim, marginLeft: "auto" }}>
+            {glbUrl ? `loaded · ${glbName}` : `${def.category}`}
+          </span>
+          <input ref={fileRef} type="file" accept=".glb" onChange={handleLoadGLB} style={{ display: "none" }} />
+          <button onClick={() => fileRef.current?.click()}
+            style={{ padding: "1px 8px", background: `${C.accent}22`, border: `1px solid ${C.accent}`, borderRadius: 3, color: C.accent, cursor: "pointer", fontSize: 9 }}>
+            +GLB
+          </button>
+          {glbUrl && <button onClick={() => { if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null) }}
+            style={{ padding: "1px 5px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 3, color: C.dim, cursor: "pointer", fontSize: 9 }}>
+            ✕
+          </button>}
         </div>
-        <div style={{ padding: "10px 14px", flex: 1 }}>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ color: "#666", fontSize: 10, fontWeight: 600, marginBottom: 6 }}>TRANSLATE</div>
-            <Knob label="X (左右)" value={tx} min={-2} max={2} step={0.05} onChange={setTx} />
-            <Knob label="Y (上下)" value={ty} min={-1} max={2} step={0.05} onChange={setTy} />
-            <Knob label="Z (前后)" value={tz} min={-2} max={2} step={0.05} onChange={setTz} />
+
+        {/* 3D preview — fills available space */}
+        <div style={{ flex: 1, minHeight: 150, position: "relative" }}>
+          <Canvas camera={{ position: [2.5, 2, 3], fov: 35 }} shadows style={{ background: "#e8e0d8" }}>
+            <ambientLight intensity={0.5} />
+            <directionalLight position={[3,5,3]} intensity={0.7} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+            <directionalLight position={[-2,2,1]} intensity={0.3} />
+            <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
+            <Preview def={def} tx={tx} ty={ty} tz={tz} rot={rot * Math.PI / 180} sc={sc} glbUrl={glbUrl ?? undefined} />
+            <OrbitControls enableZoom enablePan enableRotate minDistance={1} maxDistance={8} target={[0, 0.2, 0]} />
+          </Canvas>
+          <div style={{ position: "absolute", bottom: 4, right: 6, fontSize: 8, color: "#0003", pointerEvents: "none" }}>
+            grid: 0.5m · origin ●
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ color: "#666", fontSize: 10, fontWeight: 600, marginBottom: 6 }}>ROTATE</div>
-            <Knob label="Y 轴旋转" value={rot} min={0} max={360} step={1} onChange={setRot} unit="°" />
+        </div>
+
+        {/* Parameter panel — compact bottom strip */}
+        <div style={{ padding: "5px 10px", borderTop: `1px solid ${C.border}`, background: C.panel, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <div style={{ minWidth: 120, flex: 1 }}>
+            <div style={{ fontSize: 8, color: C.dim, fontWeight: 600, marginBottom: 2 }}>TRANSLATE</div>
+            <SliderInput label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
+            <SliderInput label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
+            <SliderInput label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ color: "#666", fontSize: 10, fontWeight: 600, marginBottom: 6 }}>SCALE</div>
-            <Knob label="统一缩放" value={sc} min={0.1} max={3} step={0.05} onChange={setSc} />
+          <div style={{ minWidth: 110, flex: 1 }}>
+            <div style={{ fontSize: 8, color: C.dim, fontWeight: 600, marginBottom: 2 }}>ROTATE</div>
+            <SliderInput label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
+            <div style={{ fontSize: 8, color: C.dim, fontWeight: 600, marginBottom: 2, marginTop: 3 }}>SCALE</div>
+            <SliderInput label="×" value={sc} min={0.1} max={3} step={0.05} onChange={setSc} />
           </div>
-          <div style={{ borderTop: "1px solid #2a2a3e", paddingTop: 10, marginTop: 10 }}>
-            <div style={{ color: "#666", fontSize: 10, fontWeight: 600, marginBottom: 6 }}>CURRENT VALUES</div>
-            <pre style={{ margin: 0, color: "#aaa", fontSize: 10, whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
-{`tx: ${tx.toFixed(2)}
-ty: ${ty.toFixed(2)}
-tz: ${tz.toFixed(2)}
-rot: ${rot}°
-scale: ${sc.toFixed(2)}`}
-            </pre>
+
+          <TransformJSON id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
+
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1 }}>
+            <button onClick={() => { setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
+              style={{ padding: "3px 10px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 3, color: C.text, cursor: "pointer", fontSize: 9 }}>
+              Reset
+            </button>
           </div>
         </div>
       </div>
