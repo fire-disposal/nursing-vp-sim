@@ -261,13 +261,26 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
   const [cat, setCat] = useState("")
 
   const allModels = useMemo(() => discoverModels(), [])
+  const [registeredNames, setRegisteredNames] = useState<Set<string>>(new Set())
   const [modelsFilter, setModelsFilter] = useState("")
 
+  // Load registered GLB filenames so we can hide calibrated models
+  useEffect(() => {
+    (async () => {
+      const { getAllEntries } = await import("../data/furniture-registry")
+      const entries = await getAllEntries()
+      setRegisteredNames(new Set(entries.filter((e) => e.glb).map((e) => e.id)))
+    })()
+  }, [])
+
   const filteredModels = useMemo(() => {
-    if (!modelsFilter) return allModels
-    const q = modelsFilter.toLowerCase()
-    return allModels.filter((m) => m.filename.toLowerCase().includes(q))
-  }, [allModels, modelsFilter])
+    let list = allModels.filter((m) => !registeredNames.has(m.filename))
+    if (modelsFilter) {
+      const q = modelsFilter.toLowerCase()
+      list = list.filter((m) => m.filename.toLowerCase().includes(q))
+    }
+    return list
+  }, [allModels, registeredNames, modelsFilter])
 
   const handleLoadGLB = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -362,7 +375,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
         {/* ── Models section ── */}
         <div style={{ borderTop: `1px solid ${pal.border}`, padding: "5px 7px" }}>
-          <div style={{ fontSize: 9, color: pal.dim, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Models</div>
+          <div style={{ fontSize: 9, color: pal.dim, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Uncalibrated</div>
           {filteredModels.length === 0 ? (
             <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No .glb files found</div>
           ) : (
