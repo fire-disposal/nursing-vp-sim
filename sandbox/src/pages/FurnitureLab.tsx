@@ -18,7 +18,8 @@ import { ContactShadows, Edges, OrbitControls, useGLTF } from "@react-three/drei
 import * as THREE from "three"
 import type { FurniDef } from "../data/furniture-catalog"
 import { FURNI } from "../data/furniture-catalog"
-import { buildEntry, mergeEntry } from "../data/furniture-registry"
+import { buildEntry, mergeEntry, getEntry } from "../data/furniture-registry"
+import { discoverModels, type DiscoveredModel } from "../data/discover-models"
 
 // ── Colour palette (light/dark aware) ──
 function palette(dark: boolean) {
@@ -259,6 +260,15 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
   const CATS = ["", ...new Set(FURNI.map((f) => f.category))]
   const [cat, setCat] = useState("")
 
+  const allModels = useMemo(() => discoverModels(), [])
+  const [modelsFilter, setModelsFilter] = useState("")
+
+  const filteredModels = useMemo(() => {
+    if (!modelsFilter) return allModels
+    const q = modelsFilter.toLowerCase()
+    return allModels.filter((m) => m.filename.toLowerCase().includes(q))
+  }, [allModels, modelsFilter])
+
   const handleLoadGLB = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -278,13 +288,41 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
     e.target.value = ""
   }, [glbUrl])
 
+  const handleModelClick = useCallback(async (model: DiscoveredModel) => {
+    if (glbUrl) URL.revokeObjectURL(glbUrl)
+    // Fetch the GLB to compute hash
+    try {
+      const res = await fetch(model.url)
+      const blob = await res.blob()
+      const buf = await blob.arrayBuffer()
+      const hashBytes = await crypto.subtle.digest("SHA-256", buf)
+      const hash = "sha256:" + Array.from(new Uint8Array(hashBytes)).map((b) => b.toString(16).padStart(2, "0")).join("")
+      const url = URL.createObjectURL(blob)
+      setGlbUrl(url)
+      setGlbHash(hash)
+      setGlbName(model.filename)
+      // Look up by filename for calibration
+      const entry = await getEntry(model.filename)
+      setTx(entry?.calibration?.tx ?? 0)
+      setTy(entry?.calibration?.ty ?? 0)
+      setTz(entry?.calibration?.tz ?? 0)
+      setRot(entry?.calibration?.rot ?? 0)
+      setSc(entry?.calibration?.scale ?? 1)
+    } catch {
+      // Fallback: direct URL without hash
+      setGlbUrl(model.url)
+      setGlbHash(null)
+      setGlbName(model.filename)
+    }
+  }, [glbUrl])
+
   return (
     <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: pal.bg }}>
       {/* ── LEFT: Picker ── */}
       <div style={{ width: 220, background: pal.panel, borderRight: `1px solid ${pal.border}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
         {/* Search + category chips */}
         <div style={{ padding: "6px 7px", borderBottom: `1px solid ${pal.border}` }}>
-          <input value={filter} onChange={(e) => setFilter(e.target.value)}
+          <input value={filter} onChange={(e) => { setFilter(e.target.value); setModelsFilter(e.target.value) }}
             placeholder="Search…"
             style={{ width: "100%", padding: "3px 6px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 4, color: pal.text, fontSize: 10, outline: "none" }}
           />
@@ -320,6 +358,33 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
               </button>
             )
           })}
+        </div>
+
+        {/* ── Models section ── */}
+        <div style={{ borderTop: `1px solid ${pal.border}`, padding: "5px 7px" }}>
+          <div style={{ fontSize: 9, color: pal.dim, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Models</div>
+          {filteredModels.length === 0 ? (
+            <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No .glb files found</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {filteredModels.map((model) => {
+                const active = glbName === model.filename
+                return (
+                  <button key={model.url} onClick={() => handleModelClick(model)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5, padding: "4px 6px", borderRadius: 4,
+                      border: `1px solid ${active ? pal.accent : "transparent"}`,
+                      background: active ? `${pal.accent}12` : "transparent",
+                      cursor: "pointer", textAlign: "left", fontSize: 9, color: active ? pal.accent : pal.text,
+                    }}>
+                    <span style={{ fontSize: 12 }}>📦</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{model.filename}</span>
+                    <span style={{ color: pal.dim, fontSize: 8 }}>{model.rel.split("/")[0]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
