@@ -294,14 +294,15 @@ export default function Demo3D({ bus }: SceneProps) {
 
   return (
     <StepCtx.Provider value={{ step, done, interact }}>
-      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      {/* Landscape container — 4:3 aspect ratio, max-h constrained */}
+      <div style={{ position: "relative", width: "100%", maxWidth: 580, aspectRatio: "4/3", margin: "0 auto" }}>
         <R3FErrorBoundary>
           <Canvas
             key={key}
             orthographic
             camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
             shadows
-            style={{ width: "100%", height: "100%", background: C.wall }}
+            style={{ width: "100%", height: "100%", background: C.wall, borderRadius: 8 }}
             onCreated={({ gl }) => { gl.setClearColor(C.wall) }}
           >
             <ambientLight intensity={0.5} />
