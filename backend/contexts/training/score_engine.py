@@ -405,6 +405,9 @@ async def evaluate_training(
         score_system = render_template(str(profile.prompts.scoring), **prompt_kw)
         score_user = render_template(str(profile.prompts.scoring_user), **prompt_kw)
     else:
+        exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
+        exam_results_text = json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
+
         pc = PromptContext()
         pc.register(
             "scoring",
@@ -413,6 +416,7 @@ async def evaluate_training(
                 "required_inquiries": required_inquiries_text,
                 "scoring_json_schema": scoring_json_schema_text,
                 "conversation_text": conversation_text,
+                "exam_results": exam_results_text,
             },
         )
         prompt_kw = pc.as_dict()
@@ -430,6 +434,7 @@ async def evaluate_training(
             "scoring_criteria": scoring_criteria_text_brief,
             "required_inquiries": required_inquiries_text,
             "conversation_text": conversation_text,
+            "exam_results": exam_results_text,
         },
     )
     fb_kw = fb_ctx.as_dict()

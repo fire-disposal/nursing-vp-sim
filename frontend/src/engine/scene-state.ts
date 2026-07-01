@@ -37,13 +37,9 @@ export interface SceneState {
 
 /** Events the scene layer understands */
 export interface SceneBusProtocol {
-  /** Scene → Training: user clicked / interacted with something */
+  /** Scene → Training: user clicked / interacted with something (exam, body check, etc.) */
   "scene:interaction": [{ hotspotId: string; metadata?: Record<string, unknown> }];
-  /** Scene → Training: student noted an observation */
-  "scene:observation": [{ observation: string; confidence?: number }];
-  /** Scene → Training: a procedure step is done */
-  "scene:completed": [{ procedureId: string }];
-  /** ← Training → Scene: full or partial scene state update */
+  /** ← Training → Scene: full or partial scene state update (vitals, position, etc.) */
   "scene:state": [Partial<SceneState>];
 }
 

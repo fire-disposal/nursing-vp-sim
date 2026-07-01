@@ -49,6 +49,10 @@ desktop.ini
 # 生成文件
 openapi.json
 
+# GLB/GLTF 模型文件（存放在服务器，不入 git）
+*.glb
+*.gltf
+
 # 临时文件
 tmp_*
 

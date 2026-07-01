@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { emitSceneEvent, type SceneProps, type SceneState } from "@/engine/scene-state";
 import { cn } from "@/utils/cn";
+import { submitExam } from "@/api/training";
 
 // ── Normal values ──
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
@@ -26,6 +27,7 @@ const CAT_COLOR: Record<string, string> = {
   musculoskeletal: "#66bb6a", bedside: "#ffa726",
 };
 
+// Randomiser fallback when the API is unreachable
 type RandFn = (base: string) => string;
 const RANDOMIZERS: Record<string, RandFn> = {
   temp: (b) => { const n = Number(b) + (Math.random() - 0.5) * 0.4; return n.toFixed(1); },
@@ -35,11 +37,16 @@ const RANDOMIZERS: Record<string, RandFn> = {
   spo2: (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 2)}`,
 };
 
-function resolve(opId: string): { value: string; abnormal: boolean } {
+function resolveFallback(opId: string): { value: string } {
   const def = NORMALS[opId];
-  if (!def) return { value: "—", abnormal: false };
+  if (!def) return { value: "—" };
   const rand = RANDOMIZERS[opId];
-  return { value: rand ? rand(def.normal) : def.normal, abnormal: false };
+  return { value: rand ? rand(def.normal) : def.normal };
+}
+
+function parseRecordId(props: SceneProps): number {
+  const rid = (props as unknown as Record<string, unknown>).recordId;
+  return rid ? Number(rid) : 0;
 }
 
 interface Part { id: string; label: string; x: number; y: number; w: number; h: number; ops: string[] }
@@ -63,31 +70,56 @@ function groupByCat(ops: string[]): [string, string[]][] {
   return [...m.entries()];
 }
 
-export default function ExamBodyScene({ bus }: SceneProps) {
-  const [results, setResults] = useState<Record<string, { value: string; abnormal: boolean }>>({});
+export default function ExamBodyScene(props: SceneProps) {
+  const { bus } = props;
+  const recordId = parseRecordId(props);
+  const [results, setResults] = useState<Record<string, { value: string }>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
-  const interact = useCallback((opId: string) => {
+  const interact = useCallback(async (opId: string) => {
     const def = NORMALS[opId];
     if (!def) return;
     setFlash(opId);
-    const { value, abnormal } = resolve(opId);
-    setResults((prev) => ({ ...prev, [opId]: { value, abnormal } }));
-    emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value } });
+
+    // Optimistic local value
+    const local = resolveFallback(opId);
+    setResults((prev) => ({ ...prev, [opId]: local }));
+    emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value: local.value } });
+
+    // Persist via API — backend writes scene.vitals + broadcasts exam:done via SSE
+    if (recordId > 0) {
+      try {
+        const res = await submitExam(recordId, opId, local.value);
+        const serverValue = ((res as Record<string, unknown>)?.data as Record<string, unknown>)?.value as string;
+        if (serverValue) {
+          setResults((prev) => ({ ...prev, [opId]: { value: serverValue } }));
+        }
+        // Broadcast on frontend bus so ChatArea etc. react immediately
+        bus.emit("exam:done", { type: opId, value: serverValue || local.value, label: def.label });
+      } catch {
+        // API unreachable — keep optimistic value, still emit locally
+        bus.emit("exam:done", { type: opId, value: local.value, label: def.label });
+      }
+    } else {
+      bus.emit("exam:done", { type: opId, value: local.value, label: def.label });
+    }
+
+    // Local bus broadcast for other scene cards (MonitorCard etc.)
     const patch: Partial<SceneState> = {};
-    if (opId === "hr")   patch.vitals = { hr: Number(value) };
-    if (opId === "bp")   { const [s, d] = value.split("/"); patch.vitals = { bp_sys: Number(s), bp_dia: Number(d) }; }
-    if (opId === "rr")   patch.vitals = { rr: Number(value) };
-    if (opId === "spo2") patch.vitals = { spo2: Number(value) };
-    if (opId === "temp") patch.vitals = { temp: Number(value) };
-    if (opId === "pain") patch.vitals = { pain: Number(value) };
+    if (opId === "hr")   patch.vitals = { hr: Number(local.value) };
+    if (opId === "bp")   { const [s, d] = local.value.split("/"); patch.vitals = { bp_sys: Number(s), bp_dia: Number(d) }; }
+    if (opId === "rr")   patch.vitals = { rr: Number(local.value) };
+    if (opId === "spo2") patch.vitals = { spo2: Number(local.value) };
+    if (opId === "temp") patch.vitals = { temp: Number(local.value) };
+    if (opId === "pain") patch.vitals = { pain: Number(local.value) };
     if (Object.keys(patch).length) emitSceneEvent(bus, "scene:state", patch);
+
     setSelected(null);
     setTimeout(() => setFlash(null), 350);
     logRef.current?.scrollTo(0, 0);
-  }, [bus, selected]);
+  }, [bus, selected, recordId]);
 
   return (
     <div className="flex flex-col h-full min-h-[420px] font-sans bg-background">
@@ -158,7 +190,7 @@ export default function ExamBodyScene({ bus }: SceneProps) {
             return (
               <span key={id} className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] whitespace-nowrap shrink-0",
-                r.abnormal ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground",
+                "bg-muted text-muted-foreground",
               )}>
                 <span className="size-1.5 rounded-full shrink-0" style={{ background: CAT_COLOR[def.cat] ?? "#888" }} />
                 {def.label} <span className="font-semibold">{r.value}</span>{def.unit}

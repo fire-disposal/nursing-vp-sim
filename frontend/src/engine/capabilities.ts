@@ -31,12 +31,18 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     description: "患者会根据等待时长主动发言",
     defaultOn: false,
   },
+  questionnaire: {
+    key: "questionnaire",
+    label: "问卷评估",
+    description: "训练结束后弹出评估问卷",
+    defaultOn: false,
+  },
 };
 
 /** Which capabilities are available for each training type. */
 export const TRAINING_CAPABILITIES: Record<string, string[]> = {
-  history_taking: ["physical_exam", "emotion", "patient_initiative", "exam_scene"],
-  triage: ["exam_scene"],
+  history_taking: ["physical_exam", "emotion", "patient_initiative", "questionnaire", "exam_scene"],
+  triage: ["exam_scene", "questionnaire"],
 };
 
 /** Resolve final feature set from defaults + overrides. */

@@ -20,7 +20,6 @@ export interface BusEvents {
 		},
 	];
 	"initiative:triggered": [{ content: string }];
-	"portrait:changed": [{ url: string }];
 	"tts:provider-status": [{ provider: string; latencyMs: number }];
 	"tts:prebuffer": [{ text: string }];
 	"tts:start": [text: string];

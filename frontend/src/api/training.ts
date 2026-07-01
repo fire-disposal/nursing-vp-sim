@@ -69,3 +69,8 @@ export const submitTriage = (recordId: number, data: TriageSubmitRequest) =>
 	api
 		.post<TriageSubmitResponse>(`/api/triage/${recordId}/submit` as ApiPath, data)
 		.then((r) => r.data);
+
+export const submitExam = (recordId: number | string, opType: string, value: string) =>
+	api
+		.post<Record<string, unknown>>(`/training/${recordId}/exam/${opType}` as ApiPath, { value })
+		.then((r) => r.data);
