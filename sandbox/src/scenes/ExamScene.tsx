@@ -138,9 +138,9 @@ export default function ExamScene({ bus }: SceneProps) {
   }, [bus, selected, preset.overrides])
 
   return (
-    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#1a1a2a" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 420, fontFamily: "system-ui", background: "#1a1a2a" }}>
       {/* ── Body ── */}
-      <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
         {/* Preset bar */}
         <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6, alignItems: "center", background: "#12121e", padding: "6px 12px", borderRadius: 8, border: "1px solid #333", zIndex: 5 }}>
           <span style={{ color: "#666", fontSize: 11, fontWeight: 600 }}>病例</span>
@@ -215,29 +215,25 @@ export default function ExamScene({ bus }: SceneProps) {
         </div>
       </div>
 
-      {/* ── Results panel ── */}
-      <div style={{ width: 280, background: "#12121e", borderLeft: "1px solid #333", display: "flex", flexDirection: "column", fontFamily: "monospace", fontSize: 11 }}>
-        <div style={{ padding: "10px 14px", borderBottom: "1px solid #333", color: "#888", fontWeight: 700, fontSize: 12 }}>◈ 检查记录</div>
-        <div ref={logRef} style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
-          {Object.keys(results).length === 0 && (
-            <div style={{ padding: 20, color: "#444", textAlign: "center", fontSize: 11 }}>点击人体部位选择检查项目</div>
-          )}
-          {Object.entries(results).map(([id, r]) => {
+      {/* ── Results footer strip ── */}
+      <div style={{ height: 32, background: "#12121e", borderTop: "1px solid #333", display: "flex", alignItems: "center", gap: 4, padding: "0 8px", overflowX: "auto", fontSize: 10, fontFamily: "monospace" }}>
+        {Object.keys(results).length === 0 ? (
+          <span style={{ color: "#555", padding: "0 4px" }}>点击人体部位选择检查项目</span>
+        ) : (
+          Object.entries(results).map(([id, r]) => {
             const def = NORMALS[id]
             if (!def) return null
             return (
-              <div key={id} style={{ padding: "8px 14px", borderBottom: "1px solid #1a1a2a", borderLeft: r.abnormal ? "2px solid #ff7043" : "2px solid transparent" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                  <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: CAT_COLOR[def.cat] ?? "#888" }} />
-                  <span style={{ color: "#999", fontSize: 10 }}>{def.label}</span>
-                  <span style={{ color: "#555", fontSize: 9 }}>{def.unit}</span>
-                  {r.abnormal && <span style={{ color: "#ff7043", fontSize: 9, marginLeft: "auto" }}>异常</span>}
-                </div>
-                <div style={{ color: r.abnormal ? "#ff7043" : "#e0e0e0", fontWeight: 600, fontSize: 12, marginLeft: 12 }}>{r.value}</div>
-              </div>
+              <span key={id} style={{
+                display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap",
+                background: r.abnormal ? "#ff704322" : "#1a1a2e", color: r.abnormal ? "#ff7043" : "#aaa",
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: CAT_COLOR[def.cat] ?? "#888", flexShrink: 0 }} />
+                {def.label} <span style={{ fontWeight: 600 }}>{r.value}</span>{def.unit}
+              </span>
             )
-          })}
-        </div>
+          })
+        )}
       </div>
     </div>
   )
