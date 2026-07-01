@@ -303,25 +303,6 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
     return list
   }, [allModels, registeredNames, modelsFilter])
 
-  const handleLoadGLB = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (glbUrl) URL.revokeObjectURL(glbUrl)
-    const hash = await fileToHash(file)
-    const url = URL.createObjectURL(file)
-    setGlbUrl(url)
-    setGlbHash(hash)
-    setGlbName(file.name)
-    // Look up by filename (stable key) — apply calibration if found
-    const entry = await (await import("../data/furniture-registry")).getEntry(file.name)
-    setTx(entry?.calibration?.tx ?? 0)
-    setTy(entry?.calibration?.ty ?? 0)
-    setTz(entry?.calibration?.tz ?? 0)
-    setRot(entry?.calibration?.rot ?? 0)
-    setSc(entry?.calibration?.scale ?? 1)
-    e.target.value = ""
-  }, [glbUrl])
-
   const handleModelClick = useCallback(async (model: DiscoveredModel) => {
     if (glbUrl) URL.revokeObjectURL(glbUrl)
     setIdx(0) // deselect primitive
@@ -498,11 +479,6 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
           <span style={{ color: pal.dim, marginLeft: "auto" }}>
             {glbUrl ? `loaded · ${glbName}` : `${def.category}`}
           </span>
-          <input ref={fileRef} type="file" accept=".glb" onChange={handleLoadGLB} style={{ display: "none" }} />
-          <button onClick={() => fileRef.current?.click()}
-            style={{ padding: "1px 8px", background: `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: pal.accent, cursor: "pointer", fontSize: 9 }}>
-            +GLB
-          </button>
           {glbUrl && <button onClick={() => { if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null) }}
             style={{ padding: "1px 5px", background: "transparent", border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.dim, cursor: "pointer", fontSize: 9 }}>
             ✕
