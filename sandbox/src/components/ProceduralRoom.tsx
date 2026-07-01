@@ -22,11 +22,10 @@ interface WallSeg {
 
 interface RoomConfig {
   cells: Cell[]
-  unit: number        // grid cell size in world units
+  unit: number
   wallHeight: number
   wallColor: string
   floorColor: string
-  floorY?: number
 }
 
 /**
@@ -149,7 +148,7 @@ function WallMesh({ seg, height, color }: { seg: WallSeg; height: number; color:
 }
 
 // ── Exported component ──
-export function ProceduralRoom({ cells, unit, wallHeight, wallColor, floorColor, floorY = 0 }: RoomConfig) {
+export function ProceduralRoom({ cells, unit, wallHeight, wallColor, floorColor }: RoomConfig) {
   const walls = useMemo(() => buildWalls(cells, unit), [cells, unit])
 
   // Compute bounding box for floor
@@ -164,18 +163,13 @@ export function ProceduralRoom({ cells, unit, wallHeight, wallColor, floorColor,
 
   return (
     <>
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[fcx, floorY - 0.002, fcz]} receiveShadow>
-        <planeGeometry args={[fw - 0.02, fd - 0.02]} />
-        <meshStandardMaterial color={floorColor} roughness={0.95} />
+      {/* Floor at Y=0 — all walls start from Y=0 */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[fcx, 0, fcz]} receiveShadow>
+        <planeGeometry args={[fw, fd]} />
+        <meshStandardMaterial color={floorColor} roughness={0.95} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
       </mesh>
-      {/* Grid helper — every 2 cells (1m spacing) */}
-      <gridHelper args={[Math.max(fw, fd), Math.round(Math.max(fw, fd) / unit / 2), "#4a4a5e", "#3a3a4e"]} position={[fcx, floorY - 0.001, fcz]} />
-
-      {/* Walls */}
-      {walls.map((seg, i) => (
-        <WallMesh key={i} seg={seg} height={wallHeight} color={wallColor} />
-      ))}
+      {/* Grid helper slightly below floor */}
+      <gridHelper args={[Math.max(fw, fd), Math.round(Math.max(fw, fd) / unit / 2), "#4a4a5e", "#3a3a4e"]} position={[fcx, -0.005, fcz]} />
     </>
   )
 }
