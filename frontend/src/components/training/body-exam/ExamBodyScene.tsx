@@ -93,9 +93,11 @@ export default function ExamBodyScene({ bus, bgImageUrl }: SceneProps & { bgImag
     <div className="flex flex-col h-full min-h-[420px] font-sans bg-background">
       {/* Body diagram area */}
       <div className="flex-1 relative flex items-center justify-center min-h-[300px]">
-         <div className="relative w-[55%] max-w-[320px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border overflow-hidden">
+         <div className="relative w-[55%] max-w-[320px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border">
           {bgImageUrl && (
-            <img src={bgImageUrl} alt="Patient" className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0" />
+            <div className="absolute inset-0 overflow-hidden rounded-[inherit] pointer-events-none">
+              <img src={bgImageUrl} alt="Patient" className="w-full h-full object-contain" />
+            </div>
           )}
           {PARTS.map((part) => {
             const sel = selected === part.id;
