@@ -82,13 +82,12 @@ function FloatingTooltip() {
   const { hover } = useContext(HoverContext)
   if (!hover) return null
   return (
-    <Html position={hover.pos} center distanceFactor={1.5} style={{ pointerEvents: "none", transition: "none" }}>
+    <Html position={hover.pos} center transform={false} style={{ pointerEvents: "none" }}>
       <div style={{
-        background: "#222e", color: "#fff", padding: "4px 12px", borderRadius: 8,
-        fontSize: 12, fontFamily: "system-ui", whiteSpace: "nowrap",
-        backdropFilter: "blur(8px)", border: "1px solid #fff3",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-        transform: "translate(10px, -10px)",
+        background: "#222e", color: "#fff", padding: "2px 8px", borderRadius: 5,
+        fontSize: 10, fontFamily: "system-ui", whiteSpace: "nowrap",
+        backdropFilter: "blur(6px)", border: "1px solid #fff3",
+        transform: "translate(6px, -6px)",
       }}>
         {hover.label}
       </div>
@@ -212,11 +211,11 @@ export default function Demo3D(_props: SceneProps) {
         {selected && (
           <div style={{
             position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
-            background: "#222e", color: "#fff", padding: "6px 16px", borderRadius: 20,
-            fontSize: 12, fontFamily: "system-ui", backdropFilter: "blur(8px)",
+            background: "#222e", color: "#fff", padding: "3px 12px", borderRadius: 14,
+            fontSize: 10, fontFamily: "system-ui", backdropFilter: "blur(6px)",
             border: "1px solid #fff3", pointerEvents: "none",
           }}>
-            Selected: {selected} <span style={{ color: "#888", fontSize: 10 }}>— click again to deselect</span>
+            {selected} <span style={{ color: "#888", fontSize: 9 }}>— click to deselect</span>
           </div>
         )}
       </div>
