@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from "react"
+import { createContext, useContext, type ReactNode, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { ContactShadows, Html, OrbitControls, useCursor } from "@react-three/drei"
 import { ProceduralRoom } from "../components/ProceduralRoom"
@@ -29,21 +29,36 @@ function Sph({ pos, args, color, ...r }: any) {
   </mesh>
 }
 
-// ── Clickable wrapper — hover glow + Html label + cursor ──
-function Clickable({ label, children, onClick }: { label: string; children: ReactNode; onClick?: () => void }) {
-  const [h, setH] = useState(false)
-  const [c, setC] = useState(false)
-  useCursor(h)
-  const ref = useRef<THREE.Group>(null)
+// ── Shared hover state — drives the floating tooltip ──
+interface HoverCtx {
+  label: string
+  pos: [number, number, number]
+}
 
-  useFrame((_, delta) => {
+const HoverContext = createContext<{
+  hover: HoverCtx | null
+  setHover: (h: HoverCtx | null) => void
+  selected: string | null
+  setSelected: (s: string | null) => void
+}>({ hover: null, setHover: () => {}, selected: null, setSelected: () => {} })
+
+// ── Clickable — mesh group with emissive glow + hover events ──
+function Clickable({ label, children }: { label: string; children: ReactNode }) {
+  const { setHover, selected, setSelected } = useContext(HoverContext)
+  const [h, setH] = useState(false)
+  const sel = selected === label
+  useCursor(h || sel)
+  const ref = useRef<THREE.Group>(null)
+  const ptRef = useRef<THREE.Vector3>(new THREE.Vector3())
+
+  useFrame(() => {
     if (!ref.current) return
-    const intensity = h ? 0.3 + Math.sin(performance.now() / 200) * 0.1 : c ? 0.2 : 0
+    const intensity = h ? 0.35 + Math.sin(performance.now() / 250) * 0.1 : sel ? 0.2 : 0
     ref.current.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         const m = child.material as THREE.MeshStandardMaterial
         if (m && "emissive" in m) {
-          m.emissive = new THREE.Color(h ? "#5ac8fa" : c ? "#40a0ff" : "#000")
+          m.emissive = new THREE.Color(h ? "#5ac8fa" : sel ? "#40a0ff" : "#000")
           m.emissiveIntensity = intensity
         }
       }
@@ -52,24 +67,32 @@ function Clickable({ label, children, onClick }: { label: string; children: Reac
 
   return (
     <group ref={ref}
-      onClick={(e) => { e.stopPropagation(); setC(true); onClick?.() }}
-      onPointerOver={(e) => { e.stopPropagation(); setH(true) }}
-      onPointerOut={() => setH(false)}
+      onClick={(e) => { e.stopPropagation(); setSelected(sel ? null : label) }}
+      onPointerOver={(e) => { e.stopPropagation(); setH(true); ptRef.current.copy(e.point); setHover({ label, pos: [e.point.x, e.point.y, e.point.z] }) }}
+      onPointerMove={(e) => { if (h) { ptRef.current.copy(e.point); setHover({ label, pos: [e.point.x, e.point.y, e.point.z] }) } }}
+      onPointerOut={() => { setH(false); setHover(null) }}
     >
       {children}
-      {(h || c) && (
-        <Html position={[0, 0.8, 0]} center pointerEvents="none" transform={false}>
-          <div style={{
-            background: c ? "#40a0ff" : "#222", color: "#fff",
-            padding: "3px 10px", borderRadius: 6, fontSize: 11,
-            fontFamily: "system-ui", whiteSpace: "nowrap",
-            pointerEvents: "none",
-          }}>
-            {label} {c ? "✓" : ""}
-          </div>
-        </Html>
-      )}
     </group>
+  )
+}
+
+// ── Floating tooltip rendered once at Canvas root ──
+function FloatingTooltip() {
+  const { hover } = useContext(HoverContext)
+  if (!hover) return null
+  return (
+    <Html position={hover.pos} center distanceFactor={1.5} style={{ pointerEvents: "none", transition: "none" }}>
+      <div style={{
+        background: "#222e", color: "#fff", padding: "4px 12px", borderRadius: 8,
+        fontSize: 12, fontFamily: "system-ui", whiteSpace: "nowrap",
+        backdropFilter: "blur(8px)", border: "1px solid #fff3",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+        transform: "translate(10px, -10px)",
+      }}>
+        {hover.label}
+      </div>
+    </Html>
   )
 }
 
@@ -155,15 +178,8 @@ function ROOM_CELLS() {
 
 function Scene3D() {
   const cells = useMemo(() => ROOM_CELLS(), [])
-
   return (<>
-    <ProceduralRoom
-      cells={cells}
-      unit={GRID.UNIT}
-      wallHeight={GRID.WALL_H}
-      wallColor={C.wall}
-      floorColor={C.floor}
-    />
+    <ProceduralRoom cells={cells} unit={GRID.UNIT} wallHeight={GRID.WALL_H} wallColor={C.wall} floorColor={C.floor} />
     <Bed /><ChibiPatient /><IVStand /><Monitor /><Chair /><Plant /><Rug />
     <ContactShadows position={[0,0.001,0]} opacity={0.2} scale={7} blur={3} far={3} />
   </>)
@@ -171,23 +187,39 @@ function Scene3D() {
 
 export default function Demo3D(_props: SceneProps) {
   const orbitRef = useRef<any>(null)
+  const [hover, setHover] = useState<HoverCtx | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
 
   return (
-    <div style={{ position: "relative", width: "100%", maxWidth: 720, minHeight: 340, aspectRatio: "16/9", margin: "0 auto" }}>
-      <Canvas
-        orthographic
-        camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
-        shadows
-        style={{ width: "100%", height: "100%", background: C.wall, borderRadius: 8 }}
-        onCreated={({ gl }) => { gl.setClearColor(C.wall) }}
-      >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[4,7,5]} intensity={0.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-bias={-0.001} />
-        <directionalLight position={[-2,3,1]} intensity={0.25} />
-        <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
-        <Scene3D />
-        <OrbitControls ref={orbitRef} enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minZoom={20} maxZoom={120} minPolarAngle={1.1} maxPolarAngle={1.1} target={[0,0.4,0]} enableDamping dampingFactor={0.12} />
-      </Canvas>
-    </div>
+    <HoverContext.Provider value={{ hover, setHover, selected, setSelected }}>
+      <div style={{ position: "relative", width: "100%", maxWidth: 720, minHeight: 340, aspectRatio: "16/9", margin: "0 auto" }}>
+        <Canvas
+          orthographic
+          camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
+          shadows
+          style={{ width: "100%", height: "100%", background: C.wall, borderRadius: 8 }}
+          onCreated={({ gl }) => { gl.setClearColor(C.wall) }}
+        >
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[4,7,5]} intensity={0.6} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-bias={-0.001} />
+          <directionalLight position={[-2,3,1]} intensity={0.25} />
+          <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
+          <Scene3D />
+          <FloatingTooltip />
+          <OrbitControls ref={orbitRef} enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minZoom={20} maxZoom={120} minPolarAngle={1.1} maxPolarAngle={1.1} target={[0,0.4,0]} enableDamping dampingFactor={0.12} />
+        </Canvas>
+        {/* Selection info strip */}
+        {selected && (
+          <div style={{
+            position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
+            background: "#222e", color: "#fff", padding: "6px 16px", borderRadius: 20,
+            fontSize: 12, fontFamily: "system-ui", backdropFilter: "blur(8px)",
+            border: "1px solid #fff3", pointerEvents: "none",
+          }}>
+            Selected: {selected} <span style={{ color: "#888", fontSize: 10 }}>— click again to deselect</span>
+          </div>
+        )}
+      </div>
+    </HoverContext.Provider>
   )
 }

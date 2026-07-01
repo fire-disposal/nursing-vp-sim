@@ -169,8 +169,8 @@ export function ProceduralRoom({ cells, unit, wallHeight, wallColor, floorColor,
         <planeGeometry args={[fw - 0.02, fd - 0.02]} />
         <meshStandardMaterial color={floorColor} roughness={0.95} />
       </mesh>
-      {/* Grid helper */}
-      <gridHelper args={[Math.max(fw, fd), Math.max(cells.length, 1), "#4a4a5e", "#3a3a4e"]} position={[fcx, floorY - 0.001, fcz]} />
+      {/* Grid helper — every 2 cells (1m spacing) */}
+      <gridHelper args={[Math.max(fw, fd), Math.round(Math.max(fw, fd) / unit / 2), "#4a4a5e", "#3a3a4e"]} position={[fcx, floorY - 0.001, fcz]} />
 
       {/* Walls */}
       {walls.map((seg, i) => (
