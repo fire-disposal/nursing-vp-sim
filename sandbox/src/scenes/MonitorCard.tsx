@@ -1,27 +1,31 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { createMockBus } from "../mock/bus"
 import { playSequence } from "../mock/events"
 import type { MessageBus } from "../mock/bus"
-import { useSceneState } from "../useSceneBus"
+import { PatientMonitor, type MonitorStatus } from "../components/PatientMonitor"
 import type { SceneCardProps } from "../scene-types"
-import { PatientMonitor } from "../components/PatientMonitor"
 
 export default function MonitorCard(_props: SceneCardProps) {
-  const [bus] = useState(() => createMockBus())
-  const sceneState = useSceneState(bus)
-  const vitals = sceneState.vitals || {}
+  const [status, setStatus] = useState<MonitorStatus>({
+    hr: "normal", spo2: "normal", bp: "normal",
+    rr: "normal", temp: "normal", pain: "none",
+  })
 
-  useEffect(() => {
-    playSequence(bus, [
-      { event: "scene:state", args: [{ vitals: { hr: 76, spo2: 98, bp_sys: 120, bp_dia: 80, temp: 36.6, rr: 16, pain: 0 } }], delay: 200 },
-      { event: "scene:state", args: [{ vitals: { hr: 112, spo2: 93, bp_sys: 150, bp_dia: 95, temp: 38.4, rr: 26, pain: 6 } }], delay: 4000 },
-      { event: "scene:state", args: [{ vitals: { hr: 88, spo2: 97, bp_sys: 130, bp_dia: 85, temp: 37.1, rr: 18, pain: 3 } }], delay: 8000 },
-    ])
-  }, [])
+  // Cycle through states on click
+  const cycle = () => {
+    const states: MonitorStatus[] = [
+      { hr: "normal", spo2: "normal", bp: "normal", rr: "normal", temp: "normal", pain: "none" },
+      { hr: "tachycardia", spo2: "low", bp: "elevated", rr: "tachypnea", temp: "fever", pain: "moderate" },
+      { hr: "bradycardia", spo2: "critical", bp: "hypertensive", rr: "bradypnea", temp: "hypothermia", pain: "severe" },
+    ]
+    const next = (states.findIndex((s) => s.hr === status.hr) + 1) % states.length
+    setStatus(states[next])
+  }
 
   return (
-    <div style={{ padding: 8 }}>
-      <PatientMonitor vitals={vitals} />
+    <div style={{ padding: 8, cursor: "pointer" }} onClick={cycle}>
+      <PatientMonitor status={status} patientName="SANDBOX" />
+      <div style={{ fontSize: 9, color: "#555", textAlign: "center", marginTop: 4 }}>Click to cycle states</div>
     </div>
   )
 }
