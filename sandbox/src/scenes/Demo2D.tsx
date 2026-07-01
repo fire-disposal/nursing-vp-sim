@@ -48,7 +48,7 @@ export default function Demo2D({ bus, mode }: SceneProps) {
       <div style={{ flex: 1, position: "relative", background: "#2a2a3a", minHeight: 280, overflow: "hidden" }}>
         <div style={{
           position: "absolute", inset: "6%", background: "#3a3a4e", borderRadius: 12,
-          border: "2px solid #4a4a5e", overflow: "hidden",
+          border: "2px solid #4a4a5e",
         }}>
           <div style={{ position: "absolute", bottom: "28%", left: 0, right: 0, height: 2, background: "#4a4a5e" }} />
           {HOTSPOTS.map((h) => (
@@ -59,18 +59,19 @@ export default function Demo2D({ bus, mode }: SceneProps) {
         {/* Step indicator */}
         {mode === "sandbox" && (
           <div style={{
-            position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
-            display: "flex", gap: 6, background: "#1a1a2ecc", padding: "6px 14px",
-            borderRadius: 16, backdropFilter: "blur(4px)",
+            position: "absolute", bottom: "2%", left: "50%", transform: "translateX(-50%)",
+            display: "flex", gap: 4, background: "#1a1a2ecc", padding: "4px 10px",
+            borderRadius: 14, backdropFilter: "blur(4px)", whiteSpace: "nowrap",
           }}>
             {STEPS.map((s, i) => (
-              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 4, color: i < step ? "#4fc3f7" : i === step ? "#fff" : "#555", fontSize: 11 }}>
+              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 3, color: i < step ? "#4fc3f7" : i === step ? "#fff" : "#555", fontSize: 10 }}>
                 <span style={{
-                  width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: 700, background: i < step ? "#4fc3f7" : i === step ? "#4fc3f733" : "#333",
+                  width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 9, fontWeight: 700, background: i < step ? "#4fc3f7" : i === step ? "#4fc3f733" : "#333",
                   color: i < step ? "#111" : i === step ? "#4fc3f7" : "#555",
                 }}>{i < step ? "✓" : i + 1}</span>
-                <span className="hidden sm:inline">{s.label}</span>
+                <span>{s.label}</span>
+                {i < STEPS.length - 1 && <span style={{ color: "#555", fontSize: 9 }}>→</span>}
               </div>
             ))}
           </div>

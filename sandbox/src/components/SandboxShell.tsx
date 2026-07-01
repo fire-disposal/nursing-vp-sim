@@ -18,8 +18,8 @@ const ICONS: Record<string, string> = {
 }
 
 interface WindowMeta {
-  x: number
-  y: number
+  x: number; y: number
+  w: number; h: number
   minimized: boolean
   zIndex: number
 }
@@ -89,9 +89,16 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
       }
       return next
     })
+    const scene = SANDBOX_SCENES.find((s) => s.id === id)
+    const sz = scene?.size
     setWins((w) => ({
       ...w,
-      [id]: { ...w[id], minimized: false, zIndex: nextZ.current++ },
+      [id]: {
+        ...w[id],
+        w: sz?.w ?? w[id]?.w ?? 400,
+        h: sz?.h ?? w[id]?.h ?? 300,
+        minimized: false, zIndex: nextZ.current++,
+      },
     }))
     setInspectedId(id)
   }, [])
