@@ -76,9 +76,7 @@ def _try_acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
             {"id": record_id},
         )
     if result.rowcount > 0:
-        from .scoring import _increment_scoring_generation
-
-        _increment_scoring_generation(record_id)
+        pass  # status already updated atomically by DB UPDATE
     return result.rowcount > 0
 
 

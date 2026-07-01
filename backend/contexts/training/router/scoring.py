@@ -32,17 +32,9 @@ router = APIRouter()
 
 # Generation counter to detect stale background scoring tasks.
 # Incremented in _try_acquire_scoring whenever a new scoring session starts.
-# NOTE: 模块级 dict 在单进程开发环境下正常工作。
-# 生产多 worker 部署时需迁移至 Redis，详见 docs/ops/multi-worker.md
-_scoring_generation: dict[int, int] = {}
-
-
-def _increment_scoring_generation(record_id: int) -> None:
-    _scoring_generation[record_id] = _scoring_generation.get(record_id, 0) + 1
-
-
-def _get_current_generation(record_id: int) -> int:
-    return _scoring_generation.get(record_id, 0)
+# Scoring 生成控制：使用 DB 的 scoring_status 作为唯一仲裁者。
+# 弃用进程内 generation dict（多 worker 下不安全）。
+# 每个任务在写入终态前校验 scoring_status 是否仍是 "processing"。
 
 
 def _create_notification(
@@ -137,7 +129,6 @@ def _set_overdue_if_needed(record: TrainingRecord, db: Session) -> None:
 
 def _handle_scoring_failure(
     record_id: int,
-    gen: int,
     error_msg: str,
     tracker: ScoringProgressTracker | None = None,
     sse_manager=None,
@@ -151,7 +142,7 @@ def _handle_scoring_failure(
         try:
             db.expire_all()
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-            if record and _get_current_generation(record_id) == gen:
+            if record and record.scoring_status == "processing":
                 record.scoring_status = "failed"
                 record.scoring_error = error_msg[:2000]
                 db.commit()
@@ -192,16 +183,15 @@ async def _run_scoring_background(
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
     db = SessionLocal()
-    gen = _get_current_generation(record_id)
-    log.info("[SCORING] START record_id=%d gen=%d timeout=%ds", record_id, gen, SCORING_GLOBAL_TIMEOUT)
+    log.info("[SCORING] START record_id=%d timeout=%ds", record_id, SCORING_GLOBAL_TIMEOUT)
     try:
         record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
             log.warning("评分任务：记录不存在", extra={"record_id": record_id})
             return
         log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
-        if _get_current_generation(record_id) != gen:
-            log.info("评分被新任务取代，跳过执行", extra={"record_id": record_id})
+        if record.scoring_status != "processing":
+            log.info("评分状态已变更 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
             return
 
         # Write prompt/rubric snapshot if not yet set
@@ -238,7 +228,9 @@ async def _run_scoring_background(
             timeout=SCORING_GLOBAL_TIMEOUT,
         )
 
-        if _get_current_generation(record_id) != gen:
+        # Re-fetch record to check if status was reset by a retry_scoring
+        db.refresh(record)
+        if record.scoring_status != "processing":
             log.info("评分被新任务取代，跳过完成状态更新", extra={"record_id": record_id})
             return
 
@@ -274,7 +266,6 @@ async def _run_scoring_background(
             tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
         _handle_scoring_failure(
             record_id,
-            gen,
             "评分超时（超过5分钟）",
             tracker=tracker,
             sse_manager=sse_manager,
@@ -286,7 +277,6 @@ async def _run_scoring_background(
             tracker.update(record_id, "failed", 0, msg)
         _handle_scoring_failure(
             record_id,
-            gen,
             str(e)[:2000] or type(e).__name__,
             tracker=tracker,
             sse_manager=sse_manager,
@@ -295,8 +285,6 @@ async def _run_scoring_background(
         db.close()
         if tracker:
             tracker.cleanup(record_id)
-        if _get_current_generation(record_id) == gen:
-            _scoring_generation.pop(record_id, None)
 
 
 @router.post("/{record_id}/end", response_model=ScoringTriggerResponse)
@@ -398,8 +386,6 @@ async def retry_scoring(
             db.query(ScoreReview).filter(ScoreReview.score_id == old_score.id).delete()
             db.delete(old_score)
 
-        db.commit()
-
         case = db.query(Case).filter(Case.id == record.case_id).first()
         case_data = case.case_data if case else {}
 
@@ -417,6 +403,7 @@ async def retry_scoring(
         except QueueFullError:
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
 
+        db.commit()
         return {"message": "评分已重新触发", "record_id": record_id, "scoring_status": "pending"}
 
 

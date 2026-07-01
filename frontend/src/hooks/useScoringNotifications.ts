@@ -19,6 +19,12 @@ export function useScoringNotifications() {
 				error?: string;
 			};
 			if (eventType === "scoring_complete") {
+				notifySSEProgress({
+					record_id: payload.record_id!,
+					stage: "completed",
+					percent: 100,
+					message: "评分完成",
+				});
 				queryClient.invalidateQueries({ queryKey: ["notifications"] });
 				toast.success("评分已完成！", {
 					description: "训练评分已生成，可点击查看详情",
@@ -30,6 +36,12 @@ export function useScoringNotifications() {
 				});
 			}
 			if (eventType === "scoring_failed") {
+				notifySSEProgress({
+					record_id: payload.record_id!,
+					stage: "failed",
+					percent: 0,
+					message: payload.error || "评分失败",
+				});
 				queryClient.invalidateQueries({ queryKey: ["notifications"] });
 				toast.error("评分失败", {
 					description: payload.error || "请稍后重试",
