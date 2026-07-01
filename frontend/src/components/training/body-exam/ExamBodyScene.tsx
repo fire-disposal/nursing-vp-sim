@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import { cn } from "@/utils/cn";
 import { emitSceneEvent, type SceneProps, type SceneState } from "@/engine/scene-state";
 
-// ── Built-in normal values ──
+// ── Normal values ──
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
   temp:     { label: "体温",      unit: "°C",     normal: "36.8",                        cat: "vital" },
   hr:       { label: "心率",      unit: "次/分",   normal: "76",                          cat: "vital" },
@@ -30,32 +31,24 @@ const CAT_COLOR: Record<string, string> = {
   musculoskeletal: "#66bb6a", bedside: "#ffa726",
 };
 
-// ── Randomizers (hardcoded deltas) ──
 type RandFn = (base: string) => string;
-
 const RANDOMIZERS: Record<string, RandFn> = {
   temp: (b) => { const n = Number(b) + (Math.random() - 0.5) * 0.4; return n.toFixed(1); },
   hr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 8)}`,
   rr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 4)}`,
-  bp:   (b) => {
-    const [s, d] = b.split("/").map(Number);
-    return `${Math.round(s + (Math.random() - 0.5) * 10)}/${Math.round(d + (Math.random() - 0.5) * 8)}`;
-  },
+  bp:   (b) => { const [s, d] = b.split("/").map(Number); return `${Math.round(s + (Math.random() - 0.5) * 10)}/${Math.round(d + (Math.random() - 0.5) * 8)}`; },
   spo2: (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 2)}`,
 };
 
-function resolve(opId: string, override: string | undefined): { value: string; abnormal: boolean } {
+function resolve(opId: string): { value: string; abnormal: boolean } {
   const def = NORMALS[opId];
   if (!def) return { value: "—", abnormal: false };
-  const base = override ?? def.normal;
   const rand = RANDOMIZERS[opId];
-  const value = rand ? rand(base) : base;
-  return { value, abnormal: override !== undefined && override !== def.normal };
+  return { value: rand ? rand(def.normal) : def.normal, abnormal: false };
 }
 
-// ── Body map ──
+// ── Body parts ──
 interface Part { id: string; label: string; x: number; y: number; w: number; h: number; ops: string[] }
-
 const PARTS: Part[] = [
   { id: "head",    label: "头部",   x: 38, y: 2,  w: 24, h: 18, ops: ["temp","pain","pupil","gcs"] },
   { id: "chest",   label: "胸部",   x: 30, y: 24, w: 40, h: 26, ops: ["hr","rr","spo2","heart","lung","ecg"] },
@@ -87,7 +80,7 @@ export default function ExamBodyScene({ bus }: SceneProps) {
     const def = NORMALS[opId];
     if (!def) return;
     setFlash(opId);
-    const { value, abnormal } = resolve(opId, undefined);
+    const { value, abnormal } = resolve(opId);
     setResults((prev) => ({ ...prev, [opId]: { value, abnormal } }));
 
     emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value } });
@@ -107,54 +100,46 @@ export default function ExamBodyScene({ bus }: SceneProps) {
   }, [bus, selected]);
 
   return (
-    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#1a1a2a" }}>
+    <div className="flex h-full font-sans bg-background">
       {/* Body diagram */}
-      <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "relative", width: "55%", maxWidth: 320, aspectRatio: "0.48", background: "#222", borderRadius: "60px 60px 30px 30px", border: "2px solid #3a3a4e" }}>
+      <div className="flex-1 relative flex items-center justify-center">
+        <div className="relative w-[55%] max-w-[320px] aspect-[0.48] bg-muted rounded-[60px_60px_30px_30px] border-2 border-border">
           {PARTS.map((part) => {
             const sel = selected === part.id;
             return (
               <div key={part.id}>
-                <div
-                  onClick={() => setSelected(sel ? null : part.id)}
-                  onMouseEnter={(e) => { if (!sel) { (e.currentTarget as HTMLDivElement).style.borderColor = "#555"; (e.currentTarget as HTMLDivElement).style.background = "#ffffff06"; } }}
-                  onMouseLeave={(e) => { if (!sel) { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; (e.currentTarget as HTMLDivElement).style.background = "transparent"; } }}
-                  style={{
-                    position: "absolute", left: `${part.x}%`, top: `${part.y}%`,
-                    width: `${part.w}%`, height: `${part.h}%`,
-                    border: sel ? "2px solid #4fc3f7" : "1px solid transparent",
-                    borderRadius: 8, cursor: "pointer", transition: "all 0.15s",
-                    background: sel ? "#4fc3f718" : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: sel ? "#4fc3f7" : "#444", fontSize: 10, fontWeight: 500,
-                  }}
+                <div onClick={() => setSelected(sel ? null : part.id)}
+                  onMouseEnter={(e) => { if (!sel) { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-border)"; (e.currentTarget as HTMLDivElement).style.background = "var(--color-accent)"; }}}
+                  onMouseLeave={(e) => { if (!sel) { (e.currentTarget as HTMLDivElement).style.borderColor = "transparent"; (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}}
+                  className={cn(
+                    "absolute flex items-center justify-center rounded-lg cursor-pointer transition-all text-[10px] font-medium border",
+                    sel ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground/60 hover:border-border hover:bg-accent",
+                  )}
+                  style={{ left: `${part.x}%`, top: `${part.y}%`, width: `${part.w}%`, height: `${part.h}%` }}
                 >
                   {part.label}
                 </div>
+
                 {sel && (
-                  <div style={{
-                    position: "absolute", left: `${part.x + part.w / 2}%`, top: `${part.y}%`,
-                    transform: "translate(-50%, -108%)", zIndex: 10,
-                    background: "#1a1a2e", border: "1px solid #4fc3f7", borderRadius: 10,
-                    padding: "8px 8px 4px", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", minWidth: 160,
-                  }}>
+                  <div className="absolute z-10 bg-popover border border-border rounded-xl shadow-xl p-2"
+                    style={{ left: `${part.x + part.w / 2}%`, top: `${part.y}%`, transform: "translate(-50%, -108%)", minWidth: 160 }}
+                  >
                     {groupByCat(part.ops).map(([cat, ids]) => (
-                      <div key={cat} style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 9, color: "#666", marginBottom: 3, fontWeight: 600 }}>{CAT_LABEL[cat] ?? cat}</div>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      <div key={cat} className="mb-1.5">
+                        <div className="text-[9px] text-muted-foreground mb-1 font-semibold">{CAT_LABEL[cat] ?? cat}</div>
+                        <div className="flex gap-1 flex-wrap">
                           {ids.map((id) => {
                             const def = NORMALS[id];
                             if (!def) return null;
                             return (
                               <button key={id} onClick={() => interact(id)}
+                                className="px-2 py-0.5 rounded text-[10px] whitespace-nowrap transition-all cursor-pointer border"
                                 style={{
-                                  padding: "3px 8px",
-                                  background: flash === id ? (CAT_COLOR[cat] ?? "#888") : "#2a2a3e",
-                                  border: `1px solid ${CAT_COLOR[cat] ?? "#888"}44`,
-                                  borderRadius: 4, cursor: "pointer", fontSize: 10, whiteSpace: "nowrap",
-                                  color: flash === id ? "#111" : "#ccc",
-                                  transition: "all 0.1s",
-                                }}>
+                                  background: flash === id ? (CAT_COLOR[cat] ?? "#888") : "var(--color-muted)",
+                                  borderColor: `${CAT_COLOR[cat] ?? "#888"}44`,
+                                  color: flash === id ? "#111" : "var(--color-foreground)",
+                                }}
+                              >
                                 {def.label}
                               </button>
                             );
@@ -167,35 +152,29 @@ export default function ExamBodyScene({ bus }: SceneProps) {
               </div>
             );
           })}
-          <div style={{ position: "absolute", left: "44%", top: "6%", fontSize: 18, pointerEvents: "none", opacity: 0.12 }}>🙂</div>
+          <div className="absolute left-[44%] top-[6%] text-lg pointer-events-none opacity-10">🙂</div>
         </div>
       </div>
 
       {/* Results panel */}
-      <div style={{
-        width: 280, background: "#12121e", borderLeft: "1px solid #333",
-        display: "flex", flexDirection: "column", fontFamily: "monospace", fontSize: 11,
-      }}>
-        <div style={{ padding: "10px 14px", borderBottom: "1px solid #333", color: "#888", fontWeight: 700, fontSize: 12 }}>◈ 检查记录</div>
-        <div ref={logRef} style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
+      <div className="w-[280px] border-l border-border bg-card flex flex-col font-mono text-xs">
+        <div className="px-3.5 py-2.5 border-b border-border text-muted-foreground font-bold text-xs">◈ 检查记录</div>
+        <div ref={logRef} className="flex-1 overflow-auto">
           {Object.keys(results).length === 0 && (
-            <div style={{ padding: 20, color: "#444", textAlign: "center", fontSize: 11 }}>点击人体部位选择检查项目</div>
+            <div className="p-5 text-muted-foreground/60 text-center text-xs">点击人体部位选择检查项目</div>
           )}
           {Object.entries(results).map(([id, r]) => {
             const def = NORMALS[id];
             if (!def) return null;
             return (
-              <div key={id} style={{
-                padding: "8px 14px", borderBottom: "1px solid #1a1a2a",
-                borderLeft: r.abnormal ? "2px solid #ff7043" : "2px solid transparent",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                  <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: CAT_COLOR[def.cat] ?? "#888" }} />
-                  <span style={{ color: "#999", fontSize: 10 }}>{def.label}</span>
-                  <span style={{ color: "#555", fontSize: 9 }}>{def.unit}</span>
-                  {r.abnormal && <span style={{ color: "#ff7043", fontSize: 9, marginLeft: "auto" }}>异常</span>}
+              <div key={id} className={cn("px-3.5 py-2 border-b border-border/60", r.abnormal ? "border-l-2 border-l-orange-500" : "border-l-2 border-l-transparent")}>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="inline-block size-1.5 rounded-full shrink-0" style={{ background: CAT_COLOR[def.cat] ?? "#888" }} />
+                  <span className="text-muted-foreground text-[10px]">{def.label}</span>
+                  <span className="text-muted-foreground/60 text-[9px]">{def.unit}</span>
+                  {r.abnormal && <span className="text-orange-500 text-[9px] ml-auto">异常</span>}
                 </div>
-                <div style={{ color: r.abnormal ? "#ff7043" : "#e0e0e0", fontWeight: 600, fontSize: 12, marginLeft: 12 }}>{r.value}</div>
+                <div className={cn("text-xs font-semibold ml-3", r.abnormal ? "text-orange-500" : "text-foreground")}>{r.value}</div>
               </div>
             );
           })}
