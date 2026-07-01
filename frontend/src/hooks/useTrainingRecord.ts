@@ -6,6 +6,7 @@ import type { ChatMessage, PatientData } from "@/engine/types";
 
 export interface TrainingRecordData {
 	patient: PatientData;
+	trainingType: string;
 	features: Record<string, boolean>;
 	fromAssignment: boolean;
 	initialMessages: ChatMessage[];
@@ -41,6 +42,7 @@ export function useTrainingRecord(recordId: string) {
 			patient_info?: { gender?: string };
 			case_title?: string;
 			chief_complaint?: string;
+			training_type?: string;
 			personality?: string;
 			required_inquiries?: string[];
 			exam_anchors?: Record<string, unknown>;
@@ -93,6 +95,7 @@ export function useTrainingRecord(recordId: string) {
 
 		return {
 			patient,
+			trainingType: d.training_type || "history_taking",
 			features: d.features ?? {},
 			fromAssignment: d.from_assignment ?? false,
 			initialMessages,

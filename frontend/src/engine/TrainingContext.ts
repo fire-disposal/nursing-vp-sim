@@ -4,6 +4,7 @@ import type { MessageBus, PatientData } from "./types";
 export interface TrainingContextValue {
 	bus: MessageBus;
 	recordId: string;
+	trainingType: string;
 	patient: PatientData;
 	features: Record<string, boolean>;
 	ttsAutoPlay: boolean;

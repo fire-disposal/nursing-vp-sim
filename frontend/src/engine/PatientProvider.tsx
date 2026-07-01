@@ -9,6 +9,7 @@ import type { ChatMessage, PatientData } from "./types";
 
 interface PatientContextValue {
 	patient: PatientData | null;
+	trainingType: string;
 	loading: boolean;
 	error: string | null;
 	features: Record<string, boolean>;
@@ -20,6 +21,7 @@ interface PatientContextValue {
 
 const PatientContext = createContext<PatientContextValue>({
 	patient: null,
+	trainingType: "history_taking",
 	loading: true,
 	error: null,
 	features: {},
@@ -41,6 +43,7 @@ export function PatientProvider({
 	const value = useMemo(
 		() => ({
 			patient: data?.patient ?? null,
+			trainingType: data?.trainingType ?? "history_taking",
 			loading,
 			error,
 			features: data?.features ?? {},

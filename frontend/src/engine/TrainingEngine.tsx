@@ -51,6 +51,7 @@ function useFeatureToggles(initialFeatures: Record<string, boolean>) {
 function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 	const {
 		patient,
+		trainingType,
 		loading,
 		error: patientError,
 		features: initialFeatures,
@@ -263,6 +264,7 @@ function TrainingEngineContent({ recordId }: TrainingEngineProps) {
 			value={{
 				bus: busRef.current,
 				recordId,
+				trainingType,
 				patient,
 				features,
 				ttsAutoPlay,

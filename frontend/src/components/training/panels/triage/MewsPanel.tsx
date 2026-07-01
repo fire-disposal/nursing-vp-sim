@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { submitTriage } from "@/api/training";
+import type { SceneCardProps } from "@/engine/scene-card";
 
 const CATEGORIES = [
   { id: "red", label: "红色 — 即刻", color: "bg-red-500", priority: "需立即抢救", textColor: "text-red-700", bg: "bg-red-50" },
@@ -12,11 +13,7 @@ const CATEGORIES = [
 
 const DEPARTMENTS = ["内科", "外科", "妇产科", "儿科", "急诊科", "ICU", "骨科", "神经科"];
 
-interface MewsPanelProps {
-  recordId: string;
-}
-
-export function MewsPanel({ recordId }: MewsPanelProps) {
+export default function MewsPanel({ recordId }: SceneCardProps) {
   const [mews, setMews] = useState(0);
   const [category, setCategory] = useState("");
   const [department, setDepartment] = useState("");
