@@ -18,7 +18,8 @@ import { ContactShadows, Edges, OrbitControls, useGLTF } from "@react-three/drei
 import * as THREE from "three"
 import type { FurniDef } from "../data/furniture-catalog"
 import { FURNI } from "../data/furniture-catalog"
-import { buildEntry, mergeEntry, getEntry } from "../data/furniture-registry"
+import { buildEntry, mergeEntry, getEntry, getAllEntries, toggleEnabled, deleteEntry } from "../data/furniture-registry"
+import type { FurnitureEntry } from "../data/furniture-registry"
 import { discoverModels, clearModelCache, type DiscoveredModel } from "../data/discover-models"
 
 // ── Colour palette (light/dark aware) ──
@@ -278,14 +279,16 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
   const [allModels, setAllModels] = useState<DiscoveredModel[]>([])
   const [registeredNames, setRegisteredNames] = useState<Set<string>>(new Set())
+  const [allEntries, setAllEntries] = useState<Record<string, FurnitureEntry>>({})
   const [modelsFilter, setModelsFilter] = useState("")
+  const [sectionTab, setSectionTab] = useState<"uncalibrated" | "registered">("uncalibrated")
 
   // Load discovered models + registry
   const refreshModels = useCallback(async () => {
     clearModelCache()
     setAllModels(await discoverModels())
-    const { getAllEntries } = await import("../data/furniture-registry")
     const entries = await getAllEntries()
+    setAllEntries(Object.fromEntries(entries.map((e) => [e.id, e])))
     setRegisteredNames(new Set(entries.filter((e) => e.glb).map((e) => e.id)))
   }, [])
 
@@ -378,7 +381,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
               const fi = FURNI.indexOf(f)
               const active = fi === idx
               return (
-                <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
+                <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1); if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null) }}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                     padding: "8px 4px", borderRadius: 6, border: `1px solid ${active ? pal.accent : "transparent"}`,
@@ -393,38 +396,93 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             })}
           </div>
 
-          {/* Bottom half — uncalibrated models */}
+          {/* Bottom half — model/registry tabs */}
           <div style={{ flex: 1, overflow: "auto", borderTop: `1px solid ${pal.border}`, padding: "5px 7px", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexShrink: 0 }}>
-              <span style={{ fontSize: 9, color: pal.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Uncalibrated</span>
-              <button onClick={refreshModels} title="Rescan models directory"
-                style={{ padding: "1px 5px", background: "none", border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.dim, cursor: "pointer", fontSize: 8, lineHeight: "14px" }}>
+            <div style={{ display: "flex", gap: 2, marginBottom: 4, flexShrink: 0 }}>
+              <button onClick={() => setSectionTab("uncalibrated")}
+                style={{ padding: "1px 6px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 8, fontWeight: sectionTab === "uncalibrated" ? 600 : 400, fontFamily: "system-ui", background: sectionTab === "uncalibrated" ? `${pal.accent}22` : "transparent", color: sectionTab === "uncalibrated" ? pal.accent : pal.dim }}>
+                Uncalibrated
+              </button>
+              <button onClick={() => setSectionTab("registered")}
+                style={{ padding: "1px 6px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 8, fontWeight: sectionTab === "registered" ? 600 : 400, fontFamily: "system-ui", background: sectionTab === "registered" ? `${pal.accent}22` : "transparent", color: sectionTab === "registered" ? pal.accent : pal.dim }}>
+                Registered ({Object.keys(allEntries).length})
+              </button>
+              <button onClick={refreshModels} title="Rescan"
+                style={{ marginLeft: "auto", padding: "1px 5px", background: "none", border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.dim, cursor: "pointer", fontSize: 8, lineHeight: "14px" }}>
                 ↻
               </button>
             </div>
-          {filteredModels.length === 0 ? (
-            <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No .glb files found</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {filteredModels.map((model) => {
-                const active = glbName === model.filename
-                return (
-                  <button key={model.url} onClick={() => handleModelClick(model)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 5, padding: "4px 6px", borderRadius: 4,
-                      border: `1px solid ${active ? pal.accent : "transparent"}`,
-                      background: active ? `${pal.accent}12` : "transparent",
-                      cursor: "pointer", textAlign: "left", fontSize: 9, color: active ? pal.accent : pal.text,
-                    }}>
-                    <span style={{ fontSize: 12 }}>📦</span>
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{model.filename}</span>
-                    <span style={{ color: pal.dim, fontSize: 8 }}>{model.rel.split("/")[0]}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
+
+            {sectionTab === "uncalibrated" ? (
+              filteredModels.length === 0 ? (
+                <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No .glb files found</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {filteredModels.map((model) => {
+                    const active = glbName === model.filename
+                    return (
+                      <button key={model.url} onClick={() => handleModelClick(model)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 5, padding: "4px 6px", borderRadius: 4,
+                          border: `1px solid ${active ? pal.accent : "transparent"}`,
+                          background: active ? `${pal.accent}12` : "transparent",
+                          cursor: "pointer", textAlign: "left", fontSize: 9, color: active ? pal.accent : pal.text,
+                        }}>
+                        <span style={{ fontSize: 12 }}>📦</span>
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{model.filename}</span>
+                        <span style={{ color: pal.dim, fontSize: 8 }}>{model.rel.split("/")[0]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {Object.entries(allEntries).length === 0 ? (
+                  <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No registered items</div>
+                ) : (
+                  Object.entries(allEntries).map(([id, entry]) => (
+                    <div key={id}
+                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 6px", borderRadius: 4, border: `1px solid ${glbName === id ? pal.accent : "transparent"}`, background: glbName === id ? `${pal.accent}12` : "transparent", fontSize: 8, cursor: "pointer" }}
+                      onClick={async () => {
+                        // Load the GLB via fetch
+                        if (entry.glb) {
+                          try {
+                            const res = await fetch(entry.glb)
+                            const blob = await res.blob()
+                            const buf = await blob.arrayBuffer()
+                            const hashBytes = await crypto.subtle.digest("SHA-256", buf)
+                            const hash = "sha256:" + Array.from(new Uint8Array(hashBytes)).map((b) => b.toString(16).padStart(2, "0")).join("")
+                            setGlbUrl(URL.createObjectURL(blob))
+                            setGlbHash(hash)
+                            setGlbName(entry.id)
+                            setTx(entry.calibration.tx); setTy(entry.calibration.ty); setTz(entry.calibration.tz)
+                            setRot(entry.calibration.rot); setSc(entry.calibration.scale)
+                            setRegName(entry.name)
+                            setRegTags(entry.tags.join(", "))
+                            setRegNote(entry.note ?? "")
+                          } catch {}
+                        }
+                      }}>
+                      <span style={{ fontSize: 11, opacity: entry.enabled ? 1 : 0.3 }}>📦</span>
+                      <div style={{ flex: 1, overflow: "hidden" }}>
+                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: entry.enabled ? pal.text : pal.dim }}>{entry.name || id}</div>
+                        {entry.note && <div style={{ color: pal.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 7 }}>{entry.note}</div>}
+                      </div>
+                      <button onClick={async (e) => { e.stopPropagation(); await toggleEnabled(id); refreshModels() }}
+                        style={{ padding: "1px 4px", background: "none", border: `1px solid ${pal.border}`, borderRadius: 2, color: pal.dim, cursor: "pointer", fontSize: 7, lineHeight: "12px" }}>
+                        {entry.enabled ? "on" : "off"}
+                      </button>
+                      <button onClick={async (e) => { e.stopPropagation(); if (confirm(`Remove "${entry.name || id}" from registry?`)) { await deleteEntry(id); refreshModels() } }}
+                        style={{ padding: "1px 4px", background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: 8, lineHeight: "12px", opacity: 0.5 }}>
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
       </div>
       </div>
 
@@ -464,61 +522,68 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
           </div>
         </div>
 
-        {/* Parameter panel — compact bottom strip */}
-        <div style={{ padding: "5px 10px", borderTop: `1px solid ${pal.border}`, background: pal.panel, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ minWidth: 120, flex: 1 }}>
-            <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>TRANSLATE</div>
-            <SliderInput dark={dark} label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
-            <SliderInput dark={dark} label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
-            <SliderInput dark={dark} label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
-          </div>
-          <div style={{ minWidth: 110, flex: 1 }}>
-            <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>ROTATE</div>
-            <SliderInput dark={dark} label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
-            <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2, marginTop: 3 }}>SCALE</div>
-            <SliderInput dark={dark} label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
-          </div>
-
-          <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
-
-          {glbHash && <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 140, flex: 1 }}>
-            <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 1 }}>REGISTER</div>
-            <input value={regName} onChange={(e) => setRegName(e.target.value)}
-              placeholder="Furniture name" maxLength={40}
-              style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
-            />
-            <div style={{ display: "flex", gap: 2 }}>
-              <input value={regTags} onChange={(e) => setRegTags(e.target.value)}
-                placeholder="tag1, tag2…" style={{ flex: 1, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
-              />
-              <button onClick={async () => {
-                const { buildEntry, mergeEntry, sanitizeTags } = await import("../data/furniture-registry")
-                const tags = sanitizeTags(regTags.split(",").map((t) => t.trim()).filter(Boolean))
-                const cat = tags[0] || "uncategorized"
-                const name = regName.trim() || (glbName ?? "model.glb")
-                const entry = buildEntry(glbName ?? "model.glb", name, cat, tags, glbHash, { scale: sc, tx, ty, tz, rot }, regNote.trim() || undefined)
-                await mergeEntry(entry)
-                setRegisteredNames((prev) => new Set(prev).add(glbName ?? ""))
-                setSaved(true)
-                setTimeout(() => setSaved(false), 1200)
-              }}
-                style={{ padding: "3px 8px", background: saved ? `${pal.accent}44` : `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: saved ? "#fff" : pal.accent, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", transition: "all 0.15s" }}>
-                {saved ? "✓ Saved" : "Save"}
+        {/* ── Parameter panel ── */}
+        <div style={{ padding: "5px 10px", borderTop: `1px solid ${pal.border}`, background: pal.panel, display: "flex", flexDirection: "column", gap: 4 }}>
+          {/* Row 1 — sliders + JSON */}
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div style={{ minWidth: 120, flex: 1 }}>
+              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>TRANSLATE</div>
+              <SliderInput dark={dark} label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
+              <SliderInput dark={dark} label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
+              <SliderInput dark={dark} label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
+            </div>
+            <div style={{ minWidth: 110, flex: 1 }}>
+              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>ROTATE</div>
+              <SliderInput dark={dark} label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
+              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2, marginTop: 3 }}>SCALE</div>
+              <SliderInput dark={dark} label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
+            </div>
+            <div style={{ minWidth: 120, flex: 1, maxWidth: 200 }}>
+              <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1, flexShrink: 0 }}>
+              <button onClick={() => { setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
+                style={{ padding: "3px 10px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, cursor: "pointer", fontSize: 9 }}>
+                Reset
               </button>
             </div>
-            <textarea value={regNote} onChange={(e) => setRegNote(e.target.value)}
-              placeholder="Notes…" rows={2} maxLength={200}
-              style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none", resize: "none", fontFamily: "inherit" }}
-            />
-            <div style={{ fontSize: 7, color: pal.dim, marginTop: 1 }}>to furniture-registry.json in git</div>
-          </div>}
-
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1 }}>
-            <button onClick={() => { setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
-              style={{ padding: "3px 10px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, cursor: "pointer", fontSize: 9 }}>
-              Reset
-            </button>
           </div>
+
+          {/* Row 2 — register form (only when GLB loaded) */}
+          {glbHash && <div style={{ borderTop: `1px solid ${pal.border}`, paddingTop: 4, display: "flex", gap: 6, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600 }}>REGISTER</div>
+              <input value={regName} onChange={(e) => setRegName(e.target.value)}
+                placeholder="Furniture name" maxLength={40}
+                style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
+              />
+              <div style={{ display: "flex", gap: 2 }}>
+                <input value={regTags} onChange={(e) => setRegTags(e.target.value)}
+                  placeholder="tag1, tag2…" style={{ flex: 1, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
+                />
+                <button onClick={async () => {
+                  const { buildEntry, mergeEntry, sanitizeTags } = await import("../data/furniture-registry")
+                  const tags = sanitizeTags(regTags.split(",").map((t) => t.trim()).filter(Boolean))
+                  const cat = tags[0] || "uncategorized"
+                  const name = regName.trim() || (glbName ?? "model.glb")
+                  const entry = buildEntry(glbName ?? "model.glb", name, cat, tags, glbHash, { scale: sc, tx, ty, tz, rot }, regNote.trim() || undefined)
+                  await mergeEntry(entry)
+                  setRegisteredNames((prev) => new Set(prev).add(glbName ?? ""))
+                  setAllEntries((prev) => ({ ...prev, [entry.id]: entry }))
+                  setSaved(true)
+                  setTimeout(() => setSaved(false), 1200)
+                }}
+                  style={{ padding: "3px 10px", background: saved ? `${pal.accent}44` : `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: saved ? "#fff" : pal.accent, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", transition: "all 0.15s" }}>
+                  {saved ? "✓" : "Save"}
+                </button>
+              </div>
+              <textarea value={regNote} onChange={(e) => setRegNote(e.target.value)}
+                placeholder="Notes…" rows={1} maxLength={200}
+                style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none", resize: "none", fontFamily: "inherit" }}
+              />
+            </div>
+            <div style={{ fontSize: 7, color: pal.dim, alignSelf: "flex-end", paddingBottom: 2, whiteSpace: "nowrap" }}>→ registry in git</div>
+          </div>}
         </div>
           </div>
           {/* Tag chips */}

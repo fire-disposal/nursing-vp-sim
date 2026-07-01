@@ -127,3 +127,11 @@ export async function toggleEnabled(id: string): Promise<string> {
   _cache = table
   return JSON.stringify(table, null, 2) + "\n"
 }
+
+/** Remove an entry from the registry entirely. */
+export async function deleteEntry(id: string): Promise<string> {
+  const table = await load()
+  delete table[id]
+  _cache = table
+  return JSON.stringify(table, null, 2) + "\n"
+}
