@@ -30,6 +30,7 @@ export interface FurnitureEntry {
   glb?: string
   hash?: string | null
   calibration: CalibrationParams
+  note?: string
 }
 
 // ── Runtime cache ──
@@ -89,6 +90,7 @@ export function buildEntry(
   tags: string[],
   hash: string | null,
   calibration: CalibrationParams,
+  note?: string,
 ): FurnitureEntry {
   return {
     id: filename,
@@ -105,6 +107,7 @@ export function buildEntry(
       tz: Math.round(calibration.tz * 100) / 100,
       rot: calibration.rot,
     },
+    note: note || undefined,
   }
 }
 

@@ -257,6 +257,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
   const [glbName, setGlbName] = useState<string | null>(null)
   const [regTags, setRegTags] = useState("")
   const [regName, setRegName] = useState("")
+  const [regNote, setRegNote] = useState("")
   const [saved, setSaved] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -480,7 +481,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
           <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
 
-          {glbHash && <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 120, flex: 1 }}>
+          {glbHash && <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 140, flex: 1 }}>
             <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 1 }}>REGISTER</div>
             <input value={regName} onChange={(e) => setRegName(e.target.value)}
               placeholder="Furniture name" maxLength={40}
@@ -495,7 +496,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                 const tags = sanitizeTags(regTags.split(",").map((t) => t.trim()).filter(Boolean))
                 const cat = tags[0] || "uncategorized"
                 const name = regName.trim() || (glbName ?? "model.glb")
-                const entry = buildEntry(glbName ?? "model.glb", name, cat, tags, glbHash, { scale: sc, tx, ty, tz, rot })
+                const entry = buildEntry(glbName ?? "model.glb", name, cat, tags, glbHash, { scale: sc, tx, ty, tz, rot }, regNote.trim() || undefined)
                 await mergeEntry(entry)
                 setRegisteredNames((prev) => new Set(prev).add(glbName ?? ""))
                 setSaved(true)
@@ -505,6 +506,10 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                 {saved ? "✓ Saved" : "Save"}
               </button>
             </div>
+            <textarea value={regNote} onChange={(e) => setRegNote(e.target.value)}
+              placeholder="Notes…" rows={2} maxLength={200}
+              style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none", resize: "none", fontFamily: "inherit" }}
+            />
             <div style={{ fontSize: 7, color: pal.dim, marginTop: 1 }}>to furniture-registry.json in git</div>
           </div>}
 
