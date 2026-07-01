@@ -33,17 +33,6 @@ for entry in data.values():
         sys.stdout.write(entry['glb'].lstrip('/') + '\n')
 ")
 
-if [[ ${#FILES[@]} -eq 0 ]]; then
-  echo "  No registered enabled models to sync"
-  exit 0
-fi
-
-# Build rsync include patterns for only these files
-INCLUDES=()
-for f in "${FILES[@]}"; do
-  INCLUDES+=(--include="$f")
-done
-
-echo "  Syncing ${#FILES[@]} calibrated models to server..."
+echo "  Syncing ${#FILES[@]} calibrated models + registry to server..."
 rsync "${FLAGS}" "${INCLUDES[@]}" --include="furniture-registry.json" --exclude="*" "$LOCAL"/ "$REMOTE"/ 2>&1
 echo "  Done"

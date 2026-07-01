@@ -11,7 +11,14 @@ const FurnitureLab = lazy(() => import("./pages/FurnitureLab"))
 const SceneEditor = lazy(() => import("./pages/SceneEditor"))
 
 export function SandboxShell({ initialScene }: { initialScene?: string }) {
-  const [mode, setMode] = useState<"scenes" | "furniture" | "editor">("scenes")
+  const [mode, setMode] = useState<"scenes" | "furniture" | "editor">(() =>
+    (localStorage.getItem("sandbox:mode") as "scenes" | "furniture" | "editor") || "scenes",
+  )
+
+  const setModeAndSave = (m: "scenes" | "furniture" | "editor") => {
+    setMode(m)
+    localStorage.setItem("sandbox:mode", m)
+  }
 
   // Sync .dark class on <html> — T key toggles
   useEffect(() => {
@@ -35,7 +42,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
         <span style={{ fontWeight: 700, color: "var(--muted-fg)", letterSpacing: 0.5, fontSize: 10, marginRight: 6 }}>S/B</span>
 
         {(["scenes", "furniture", "editor"] as const).map((m) => (
-          <button key={m} onClick={() => setMode(m)}
+          <button key={m} onClick={() => setModeAndSave(m)}
             style={{
               padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer",
               fontSize: 9, fontWeight: mode === m ? 600 : 400, fontFamily: "system-ui",

@@ -19,7 +19,7 @@ import * as THREE from "three"
 import type { FurniDef } from "../data/furniture-catalog"
 import { FURNI } from "../data/furniture-catalog"
 import { buildEntry, mergeEntry, getEntry } from "../data/furniture-registry"
-import { discoverModels, type DiscoveredModel } from "../data/discover-models"
+import { discoverModels, clearModelCache, type DiscoveredModel } from "../data/discover-models"
 
 // ── Colour palette (light/dark aware) ──
 function palette(dark: boolean) {
@@ -268,18 +268,20 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
       })
     : FURNI
 
-  const allModels = useMemo(() => discoverModels(), [])
+  const [allModels, setAllModels] = useState<DiscoveredModel[]>([])
   const [registeredNames, setRegisteredNames] = useState<Set<string>>(new Set())
   const [modelsFilter, setModelsFilter] = useState("")
 
-  // Load registered GLB filenames so we can hide calibrated models
-  useEffect(() => {
-    (async () => {
-      const { getAllEntries } = await import("../data/furniture-registry")
-      const entries = await getAllEntries()
-      setRegisteredNames(new Set(entries.filter((e) => e.glb).map((e) => e.id)))
-    })()
+  // Load discovered models + registry
+  const refreshModels = useCallback(async () => {
+    clearModelCache()
+    setAllModels(await discoverModels())
+    const { getAllEntries } = await import("../data/furniture-registry")
+    const entries = await getAllEntries()
+    setRegisteredNames(new Set(entries.filter((e) => e.glb).map((e) => e.id)))
   }, [])
+
+  useEffect(() => { refreshModels() }, [refreshModels])
 
   const filteredModels = useMemo(() => {
     let list = allModels.filter((m) => !registeredNames.has(m.filename))
@@ -385,7 +387,13 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
           {/* Bottom half — uncalibrated models */}
           <div style={{ flex: 1, overflow: "auto", borderTop: `1px solid ${pal.border}`, padding: "5px 7px", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 9, color: pal.dim, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>Uncalibrated</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: pal.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Uncalibrated</span>
+              <button onClick={refreshModels} title="Rescan models directory"
+                style={{ padding: "1px 5px", background: "none", border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.dim, cursor: "pointer", fontSize: 8, lineHeight: "14px" }}>
+                ↻
+              </button>
+            </div>
           {filteredModels.length === 0 ? (
             <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No .glb files found</div>
           ) : (

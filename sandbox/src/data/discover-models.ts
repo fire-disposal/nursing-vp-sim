@@ -1,34 +1,41 @@
 /**
- * Auto-discover GLB model files served from /models/.
+ * Auto-discover GLB model files on the server.
  *
- * Uses Vite's import.meta.glob at build time — files added to
- * assets/models/ appear automatically after dev server restart.
+ * Fetches a file listing from the Vite dev-server middleware at
+ * GET /api/models.  New .glb files appear immediately after a
+ * refresh (no page reload needed).
  */
 
-// Vite resolves these to their served public URLs
-const modelModules = import.meta.glob("/models/**/*.glb", {
-  eager: true,
-  query: "?url",
-  import: "default",
-})
-
 export interface DiscoveredModel {
-  /** Just the filename, e.g. "chair.glb" */
   filename: string
-  /** Served URL, e.g. "/models/furniture/chair.glb" */
   url: string
-  /** Relative path under /models/, e.g. "furniture/chair.glb" */
   rel: string
 }
 
-/** Return all GLB files found under /models/. */
-export function discoverModels(): DiscoveredModel[] {
-  return Object.entries(modelModules).map(([fp, url]) => {
-    const parts = fp.replace(/^\/models\//, "").split("/")
-    return {
-      filename: parts[parts.length - 1],
-      url: url as string,
-      rel: fp.replace(/^\//, ""),
-    }
-  })
+let _cached: DiscoveredModel[] | null = null
+
+/** Fetch all GLB files from the server's models directory. */
+export async function discoverModels(): Promise<DiscoveredModel[]> {
+  if (_cached) return _cached
+  try {
+    const res = await fetch("/api/models")
+    if (!res.ok) return []
+    const paths: string[] = await res.json()
+    _cached = paths.map((rel) => {
+      const parts = rel.split("/")
+      return {
+        filename: parts[parts.length - 1],
+        url: `/models/${rel}`,
+        rel,
+      }
+    })
+    return _cached
+  } catch {
+    return []
+  }
+}
+
+/** Clear cache so next discoverModels() re-fetches. */
+export function clearModelCache(): void {
+  _cached = null
 }
