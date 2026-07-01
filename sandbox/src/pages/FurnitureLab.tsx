@@ -256,6 +256,8 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
   const [glbHash, setGlbHash] = useState<string | null>(null)
   const [glbName, setGlbName] = useState<string | null>(null)
   const [regTags, setRegTags] = useState("")
+  const [regName, setRegName] = useState("")
+  const [saved, setSaved] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const CATS = ["", ...new Set(FURNI.map((f) => f.category))]
@@ -478,28 +480,32 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
           <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
 
-          {glbHash && <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1 }}>
-            <input value={regTags} onChange={(e) => setRegTags(e.target.value)}
-              placeholder="tag1, tag2…"
-              style={{ width: 80, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
+          {glbHash && <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 120, flex: 1 }}>
+            <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 1 }}>REGISTER</div>
+            <input value={regName} onChange={(e) => setRegName(e.target.value)}
+              placeholder="Furniture name" maxLength={40}
+              style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
             />
-            <button onClick={async () => {
-              const { buildEntry, mergeEntry, sanitizeTags } = await import("../data/furniture-registry")
-              const tags = sanitizeTags(regTags.split(",").map((t) => t.trim()).filter(Boolean))
-              const cat = tags[0] || "uncategorized"
-              const entry = buildEntry(glbName ?? "model.glb", glbName ?? "model.glb", cat, tags, glbHash, { scale: sc, tx, ty, tz, rot })
-              const json = await mergeEntry(entry)
-              const blob = new Blob([json], { type: "application/json" })
-              const a = document.createElement("a")
-              a.href = URL.createObjectURL(blob)
-              a.download = "furniture-registry.json"
-              a.click()
-              URL.revokeObjectURL(a.href)
-              setRegisteredNames((prev) => new Set(prev).add(glbName ?? ""))
-            }}
-              style={{ padding: "3px 8px", background: `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: pal.accent, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>
-              Save Reg
-            </button>
+            <div style={{ display: "flex", gap: 2 }}>
+              <input value={regTags} onChange={(e) => setRegTags(e.target.value)}
+                placeholder="tag1, tag2…" style={{ flex: 1, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
+              />
+              <button onClick={async () => {
+                const { buildEntry, mergeEntry, sanitizeTags } = await import("../data/furniture-registry")
+                const tags = sanitizeTags(regTags.split(",").map((t) => t.trim()).filter(Boolean))
+                const cat = tags[0] || "uncategorized"
+                const name = regName.trim() || (glbName ?? "model.glb")
+                const entry = buildEntry(glbName ?? "model.glb", name, cat, tags, glbHash, { scale: sc, tx, ty, tz, rot })
+                await mergeEntry(entry)
+                setRegisteredNames((prev) => new Set(prev).add(glbName ?? ""))
+                setSaved(true)
+                setTimeout(() => setSaved(false), 1200)
+              }}
+                style={{ padding: "3px 8px", background: saved ? `${pal.accent}44` : `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: saved ? "#fff" : pal.accent, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", transition: "all 0.15s" }}>
+                {saved ? "✓ Saved" : "Save"}
+              </button>
+            </div>
+            <div style={{ fontSize: 7, color: pal.dim, marginTop: 1 }}>to furniture-registry.json in git</div>
           </div>}
 
           <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1 }}>
