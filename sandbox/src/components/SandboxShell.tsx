@@ -4,6 +4,7 @@ import type { MockMessageBus } from "../mock/bus"
 import { createMockBus } from "../mock/bus"
 import { SANDBOX_SCENES } from "../registry"
 import { DebugPanel } from "./DebugPanel"
+import { SceneDebugger } from "./SceneDebugger"
 import { SceneStateEditor } from "./SceneStateEditor"
 
 const ICONS: Record<string, string> = {
@@ -401,7 +402,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                   </div>
                 </div>
 
-                <div style={{ maxHeight: "calc(100vh - 200px)", overflow: "auto" }}>
+                <div style={{ maxHeight: "calc(100vh - 240px)", overflow: "auto" }}>
                   <Suspense
                     fallback={
                       <div style={{ padding: 40, textAlign: "center", color: "#555" }}>
@@ -412,6 +413,8 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                     <s.component {...sceneProps} />
                   </Suspense>
                 </div>
+
+                <SceneDebugger bus={bus as MessageBus} props={sceneProps as any} sceneId={id} />
 
                 <div
                   style={{
