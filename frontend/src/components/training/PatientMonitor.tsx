@@ -72,8 +72,8 @@ function resolve(s: MonitorStatus) {
     bpSys, bpDia, rr, temp, pain, alarms,
     ecgSpeed: 60 / hr,
     respSpeed: 60 / rr,
-    ecgColor: "#4fc3f7",     // cyan — ECG lead
-    plethColor: "#66bb6a",   // green — SpO₂ plethysmograph
+    ecgColor: "#66bb6a",     // green — ECG lead
+    plethColor: "#4fc3f7",   // cyan — SpO₂ plethysmograph
     respColor: "#ffa726",    // amber — RESP waveform
   }
 }
@@ -190,8 +190,8 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, color: "#3a5a7a", borderBottom: "1px solid #14202e", paddingBottom: 3 }}>
           <span style={{ color: "#6aa0c0", fontWeight: 700 }}>{patientName || "Pt. UNKNOWN"}</span>
           <div style={{ display: "flex", gap: 6 }}>
-            <Lead on color="#4fc3f7" label="HR" alarm={p.alarms.includes("HR")} />
-            <Lead on color="#66bb6a" label="SpO₂" alarm={p.alarms.includes("SpO₂")} />
+            <Lead on color="#66bb6a" label="HR" alarm={p.alarms.includes("HR")} />
+            <Lead on color="#4fc3f7" label="SpO₂" alarm={p.alarms.includes("SpO₂")} />
             <Lead on color="#ffa726" label="RESP" alarm={p.alarms.includes("RR")} />
           </div>
         </div>
@@ -200,7 +200,7 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
         <div style={{ height: 48, display: "flex", gap: 6, alignItems: "stretch" }}>
           <div style={{ minWidth: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ fontSize: 7, color: "#3a5a7a" }}>HR</div>
-            <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("HR") ? "#e74c3c" : "#4fc3f7" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("HR") ? "#e74c3c" : "#66bb6a" }}>
               {String(p.hr).padStart(3, " ")}<span style={{ fontSize: 8, fontWeight: 400, color: "#3a5a7a", marginLeft: 1 }}>bpm</span>
             </div>
             <div style={{ fontSize: 6, color: "#2a4a5a" }}>LIMIT 60-100</div>
@@ -215,7 +215,7 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
         <div style={{ height: 26, display: "flex", gap: 6, alignItems: "stretch" }}>
           <div style={{ minWidth: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ fontSize: 7, color: "#3a5a7a" }}>SpO₂</div>
-            <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("SpO₂") ? "#e74c3c" : "#66bb6a" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("SpO₂") ? "#e74c3c" : "#4fc3f7" }}>
               {String(p.spo2Val).padStart(2, " ")}%
             </div>
           </div>
