@@ -1,11 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import { emitSceneEvent, type SceneProps, type SceneState } from "../scene-types"
 
-// ════════════════════════════════════════════════════════
-// 1. Built-in normal values per exam operation.
-//    Case author only writes what DEVIATES from these.
-// ════════════════════════════════════════════════════════
-
+// ═══ 1. Normal values ═══
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
   temp:     { label: "体温",      unit: "°C",     normal: "36.8",                        cat: "vital" },
   hr:       { label: "心率",      unit: "次/分",   normal: "76",                          cat: "vital" },
@@ -24,64 +20,30 @@ const NORMALS: Record<string, { label: string; unit: string; normal: string; cat
   ecg:      { label: "心电图",    unit: "",         normal: "窦性心律，未见明显异常",        cat: "bedside" },
 }
 
-const CAT_LABEL: Record<string, string> = {
-  vital: "生命体征", auscultation: "听诊", neuro: "神经系统",
-  musculoskeletal: "骨骼肌肉", bedside: "床旁检测",
-}
-
 const CAT_COLOR: Record<string, string> = {
   vital: "#4fc3f7", auscultation: "#7c4dff", neuro: "#ff7043",
   musculoskeletal: "#66bb6a", bedside: "#ffa726",
 }
 
-// ════════════════════════════════════════════════════════
-// 2. Hard‑coded randomizers per numeric op.
-//    Non‑numeric ops (text findings) are not randomized.
-// ════════════════════════════════════════════════════════
-
+// ═══ 2. Hardcoded randomizers ═══
 type RandFn = (base: string) => string
-
 const RANDOMIZERS: Record<string, RandFn> = {
   temp: (b) => { const n = Number(b) + (Math.random() - 0.5) * 0.4; return n.toFixed(1) },
   hr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 8)}`,
   rr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 4)}`,
-  bp:   (b) => {
-    const [s, d] = b.split("/").map(Number)
-    return `${Math.round(s + (Math.random() - 0.5) * 10)}/${Math.round(d + (Math.random() - 0.5) * 8)}`
-  },
+  bp:   (b) => { const [s, d] = b.split("/").map(Number); return `${Math.round(s + (Math.random() - 0.5) * 10)}/${Math.round(d + (Math.random() - 0.5) * 8)}` },
   spo2: (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 2)}`,
 }
 
-function resolve(opId: string, userOverride: string | undefined): { value: string; abnormal: boolean } {
+function resolve(opId: string): { value: string; abnormal: boolean } {
   const def = NORMALS[opId]
   if (!def) return { value: "—", abnormal: false }
-  const base = userOverride ?? def.normal
   const rand = RANDOMIZERS[opId]
-  const value = rand ? rand(base) : base
-  return { value, abnormal: userOverride !== undefined && userOverride !== def.normal }
+  return { value: rand ? rand(def.normal) : def.normal, abnormal: false }
 }
 
-// ════════════════════════════════════════════════════════
-// 3. Case presets — only write what's abnormal
-// ════════════════════════════════════════════════════════
-
-interface CasePreset { name: string; desc: string; overrides: Record<string, string> }
-
-const PRESETS: CasePreset[] = [
-  { name: "正常",     desc: "各项指标正常",                      overrides: {} },
-  { name: "肺炎",     desc: "发热 · 呼吸急促 · 血氧低",          overrides: { temp: "38.5", rr: "26", spo2: "93", lung: "右下肺可闻及湿啰音" } },
-  { name: "心衰",     desc: "心动过速 · 高血压 · 水肿",          overrides: { hr: "104", bp: "150/95", rr: "22", lung: "双肺底湿啰音", edema: "中度凹陷性水肿 (2+)" } },
-  { name: "糖尿病前期", desc: "空腹血糖偏高",                     overrides: { glucose: "6.8" } },
-  { name: "脑外伤",   desc: "意识障碍 · 瞳孔异常 · 肌力下降",     overrides: { gcs: "10 (E3V3M4)", pupil: "左侧瞳孔散大，对光反射迟钝", strength: "3" } },
-  { name: "术后",     desc: "疼痛 · 肌力减退",                   overrides: { pain: "6", strength: "4" } },
-]
-
-// ════════════════════════════════════════════════════════
-// 4. Body map
-// ════════════════════════════════════════════════════════
-
+// ═══ 3. Body parts ═══
 interface Part { id: string; label: string; x: number; y: number; w: number; h: number; ops: string[] }
-
 const PARTS: Part[] = [
   { id: "head",    label: "头部",   x: 38, y: 2,  w: 24, h: 18, ops: ["temp","pain","pupil","gcs"] },
   { id: "chest",   label: "胸部",   x: 30, y: 24, w: 40, h: 26, ops: ["hr","rr","spo2","heart","lung","ecg"] },
@@ -102,13 +64,8 @@ function groupByCat(ops: string[]): [string, string[]][] {
   return [...m.entries()]
 }
 
-// ════════════════════════════════════════════════════════
-// 5. Component
-// ════════════════════════════════════════════════════════
-
+// ═══ 4. Component ═══
 export default function ExamScene({ bus }: SceneProps) {
-  const [presetIdx, setPresetIdx] = useState(0)
-  const preset = PRESETS[presetIdx]
   const [results, setResults] = useState<Record<string, { value: string; abnormal: boolean }>>({})
   const [selected, setSelected] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
@@ -118,7 +75,7 @@ export default function ExamScene({ bus }: SceneProps) {
     const def = NORMALS[opId]
     if (!def) return
     setFlash(opId)
-    const { value, abnormal } = resolve(opId, preset.overrides[opId])
+    const { value, abnormal } = resolve(opId)
     setResults((prev) => ({ ...prev, [opId]: { value, abnormal } }))
 
     emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value } })
@@ -135,27 +92,11 @@ export default function ExamScene({ bus }: SceneProps) {
     setSelected(null)
     setTimeout(() => setFlash(null), 350)
     logRef.current?.scrollTo(0, 0)
-  }, [bus, selected, preset.overrides])
+  }, [bus, selected])
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 420, fontFamily: "system-ui", background: "#1a1a2a" }}>
-      {/* ── Body ── */}
       <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
-        {/* Preset bar */}
-        <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6, alignItems: "center", background: "#12121e", padding: "6px 12px", borderRadius: 8, border: "1px solid #333", zIndex: 5 }}>
-          <span style={{ color: "#666", fontSize: 11, fontWeight: 600 }}>病例</span>
-          <select value={presetIdx} onChange={(e) => { setPresetIdx(Number(e.target.value)); setResults({}) }}
-            style={{ padding: "3px 8px", background: "#222", color: "#e0e0e0", border: "1px solid #444", borderRadius: 4, fontSize: 12, cursor: "pointer" }}>
-            {PRESETS.map((p, i) => <option key={i} value={i}>{p.name} — {p.desc}</option>)}
-          </select>
-          {Object.keys(preset.overrides).length > 0 && (
-            <span style={{ background: "#ff704344", color: "#ff7043", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
-              {Object.keys(preset.overrides).length} 项异常
-            </span>
-          )}
-        </div>
-
-        {/* Body shape */}
         <div style={{ position: "relative", width: "55%", maxWidth: 320, aspectRatio: "0.48", background: "#222", borderRadius: "60px 60px 30px 30px", border: "2px solid #3a3a4e" }}>
           {PARTS.map((part) => {
             const sel = selected === part.id
@@ -178,28 +119,29 @@ export default function ExamScene({ bus }: SceneProps) {
 
                 {sel && (
                   <div style={{
-                    position: "absolute", left: `${part.x + part.w / 2}%`, top: `${part.y}%`,
-                    transform: "translate(-50%, -108%)", zIndex: 10,
+                    position: "absolute", left: `${part.x + part.w / 2}%`, top: `${part.y + part.h / 2}%`,
+                    transform: "translate(-50%, -50%)", zIndex: 10,
                     background: "#1a1a2e", border: "1px solid #4fc3f7", borderRadius: 10,
                     padding: "8px 8px 4px", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", minWidth: 160,
                   }}>
                     {groupByCat(part.ops).map(([cat, ids]) => (
                       <div key={cat} style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 9, color: "#666", marginBottom: 3, fontWeight: 600 }}>{CAT_LABEL[cat] ?? cat}</div>
+                        <div style={{ fontSize: 9, color: "#666", marginBottom: 3, fontWeight: 600 }}>{cat}</div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {ids.map((id) => {
-                            const ab = preset.overrides[id] !== undefined
+                            const def = NORMALS[id]
+                            if (!def) return null
                             return (
                               <button key={id} onClick={() => interact(id)}
                                 style={{
                                   padding: "3px 8px",
-                                  background: flash === id ? (CAT_COLOR[cat] ?? "#888") : "#2a2a3e",
-                                  border: `1px solid ${ab ? "#ff7043" : (CAT_COLOR[cat] ?? "#888")}44`,
+                                  background: flash === id ? (CAT_COLOR[def.cat] ?? "#888") : "#2a2a3e",
+                                  border: `1px solid ${CAT_COLOR[def.cat] ?? "#888"}44`,
                                   borderRadius: 4, cursor: "pointer", fontSize: 10, whiteSpace: "nowrap",
-                                  color: flash === id ? "#111" : ab ? "#ff7043" : "#ccc",
+                                  color: flash === id ? "#111" : "#ccc",
                                   transition: "all 0.1s",
                                 }}>
-                                {NORMALS[id]?.label ?? id}
+                                {def.label}
                               </button>
                             )
                           })}
@@ -211,11 +153,10 @@ export default function ExamScene({ bus }: SceneProps) {
               </div>
             )
           })}
-          <div style={{ position: "absolute", left: "44%", top: "6%", fontSize: 18, pointerEvents: "none", opacity: 0.12 }}>🙂</div>
         </div>
       </div>
 
-      {/* ── Results footer strip ── */}
+      {/* Results footer strip */}
       <div style={{ height: 32, background: "#12121e", borderTop: "1px solid #333", display: "flex", alignItems: "center", gap: 4, padding: "0 8px", overflowX: "auto", fontSize: 10, fontFamily: "monospace" }}>
         {Object.keys(results).length === 0 ? (
           <span style={{ color: "#555", padding: "0 4px" }}>点击人体部位选择检查项目</span>

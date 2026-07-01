@@ -112,7 +112,7 @@ export default function ExamBodyScene({ bus }: SceneProps) {
 
                 {sel && (
                   <div className="absolute z-10 bg-popover border border-border rounded-xl shadow-xl p-2"
-                    style={{ left: `${part.x + part.w / 2}%`, top: `${part.y}%`, transform: "translate(-50%, -108%)", minWidth: 160 }}
+                    style={{ left: `${part.x + part.w / 2}%`, top: `${part.y + part.h / 2}%`, transform: "translate(-50%, -50%)", minWidth: 160 }}
                   >
                     {groupByCat(part.ops).map(([cat, ids]) => (
                       <div key={cat} className="mb-1.5">
@@ -142,7 +142,6 @@ export default function ExamBodyScene({ bus }: SceneProps) {
               </div>
             );
           })}
-          <div className="absolute left-[44%] top-[6%] text-lg pointer-events-none opacity-10">🙂</div>
         </div>
       </div>
 
