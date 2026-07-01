@@ -400,7 +400,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                   </div>
                 </div>
 
-                <div style={{ maxHeight: "calc(100vh - 240px)", overflow: "auto" }}>
+                <div style={{ maxHeight: "calc(100vh - 240px)", minHeight: 300, overflow: "auto" }}>
                   <Suspense
                     fallback={
                       <div style={{ padding: 40, textAlign: "center", color: "#555" }}>

@@ -49,7 +49,7 @@ export default function Demo2D({ bus, mode }: SceneProps) {
   }, [step, bus])
 
   return (
-    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui" }}>
+    <div style={{ display: "flex", height: "100%", minHeight: 400, fontFamily: "system-ui" }}>
       {/* Room */}
       <div style={{ flex: 1, position: "relative", background: "#2a2a3a", overflow: "hidden" }}>
         <div style={{
