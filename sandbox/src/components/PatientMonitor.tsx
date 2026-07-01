@@ -1,17 +1,8 @@
 /**
- * Simulated patient monitor — internally generates seamless waveforms
- * from high‑level state labels.  No raw numeric vitals required.
- *
- * Usage:
- *   <PatientMonitor status={{
- *     hr: "tachycardia", spo2: "low", bp: "elevated",
- *     rr: "normal", temp: "fever", pain: "moderate"
- *   }} />
+ * High-fidelity patient monitor — Canvas-rendered waveforms.
+ * Receives status labels, generates realistic waveforms internally.
  */
-
 import { useEffect, useMemo, useRef, useState } from "react"
-
-// ── Public API ──
 
 export type HrStatus = "normal" | "tachycardia" | "bradycardia"
 export type Spo2Status = "normal" | "low" | "critical"
@@ -21,12 +12,8 @@ export type TempStatus = "normal" | "fever" | "hypothermia"
 export type PainStatus = "none" | "mild" | "moderate" | "severe"
 
 export interface MonitorStatus {
-  hr: HrStatus
-  spo2: Spo2Status
-  bp: BpStatus
-  rr: RrStatus
-  temp: TempStatus
-  pain: PainStatus
+  hr: HrStatus; spo2: Spo2Status; bp: BpStatus
+  rr: RrStatus; temp: TempStatus; pain: PainStatus
 }
 
 interface PatientMonitorProps {
@@ -34,202 +21,128 @@ interface PatientMonitorProps {
   patientName?: string
 }
 
-// ── Internal: map state → numeric parameters ──
-
-interface Params {
-  hr: number          // beats per minute
-  hrAmp: number       // ECG amplitude (normalised)
-  spo2Amp: number     // pleth amplitude
-  rr: number          // breaths per minute
-  respAmp: number     // resp amplitude
-  ecgColor: string
-  plethColor: string
-  respColor: string
-  nbpSys: number
-  nbpDia: number
-  spo2Val: number
-  tempVal: number
-  painVal: number
-  alarms: string[]
+// ── Pre-computed ECG lookup table (P-QRS-T, 400 points) ──
+const ECG_TABLE = new Float32Array(400)
+for (let i = 0; i < 400; i++) {
+  const x = i / 400
+  let y = 0
+  // P wave (0.05–0.20)
+  if (x > 0.05 && x < 0.20) y -= Math.sin((x - 0.05) / 0.15 * Math.PI) * 0.08
+  // Q wave (0.22–0.26)
+  if (x > 0.22 && x < 0.26) y += Math.sin((x - 0.22) / 0.04 * Math.PI) * 0.12
+  // R wave (0.26–0.33)
+  if (x > 0.26 && x < 0.33) y -= Math.sin((x - 0.26) / 0.07 * Math.PI) * 0.85
+  // S wave (0.33–0.38)
+  if (x > 0.33 && x < 0.38) y += Math.sin((x - 0.33) / 0.05 * Math.PI) * 0.25
+  // T wave (0.45–0.70)
+  if (x > 0.45 && x < 0.70) y -= Math.sin((x - 0.45) / 0.25 * Math.PI) * 0.18
+  ECG_TABLE[i] = y
 }
 
-const HR_MAP: Record<HrStatus, { bpm: number; amp: number }> = {
-  normal:       { bpm: 72, amp: 1 },
-  tachycardia:  { bpm: 118, amp: 0.8 },
-  bradycardia:  { bpm: 48, amp: 1.2 },
-}
+// ── Map status → parameters ──
+function resolve(s: MonitorStatus) {
+  const hrMap = { normal: 72, tachycardia: 118, bradycardia: 48 }
+  const spo2Map = { normal: { val: 98, amp: 1 }, low: { val: 91, amp: 0.4 }, critical: { val: 84, amp: 0.1 } }
+  const bpMap = { normal: [120, 80], elevated: [145, 90], hypertensive: [175, 105] }
+  const rrMap = { normal: 16, tachypnea: 28, bradypnea: 8 }
+  const tempMap = { normal: 36.8, fever: 38.6, hypothermia: 35.2 }
+  const painMap = { none: 0, mild: 3, moderate: 6, severe: 9 }
 
-const SPO2_MAP: Record<Spo2Status, { val: number; amp: number }> = {
-  normal:   { val: 98, amp: 1 },
-  low:      { val: 91, amp: 0.5 },
-  critical: { val: 84, amp: 0.2 },
-}
-
-const BP_MAP: Record<BpStatus, { sys: number; dia: number }> = {
-  normal:         { sys: 120, dia: 80 },
-  elevated:       { sys: 145, dia: 90 },
-  hypertensive:   { sys: 175, dia: 105 },
-}
-
-const RR_MAP: Record<RrStatus, { rr: number; amp: number }> = {
-  normal:    { rr: 16, amp: 1 },
-  tachypnea: { rr: 28, amp: 0.7 },
-  bradypnea: { rr: 8, amp: 1.3 },
-}
-
-const TEMP_MAP: Record<TempStatus, number> = {
-  normal:     36.8,
-  fever:      38.6,
-  hypothermia: 35.2,
-}
-
-const PAIN_MAP: Record<PainStatus, number> = {
-  none:     0,
-  mild:     3,
-  moderate: 6,
-  severe:   9,
-}
-
-function resolveParams(s: MonitorStatus): Params {
-  const hrCfg = HR_MAP[s.hr]
-  const spo2Cfg = SPO2_MAP[s.spo2]
-  const bpCfg = BP_MAP[s.bp]
-  const rrCfg = RR_MAP[s.rr]
-  const tempVal = TEMP_MAP[s.temp]
-  const painVal = PAIN_MAP[s.pain]
+  const hr = hrMap[s.hr]
+  const spo2 = spo2Map[s.spo2]
+  const [bpSys, bpDia] = bpMap[s.bp]
+  const rr = rrMap[s.rr]
+  const temp = tempMap[s.temp]
+  const pain = painMap[s.pain]
 
   const alarms: string[] = []
-  if (s.hr === "tachycardia" || s.hr === "bradycardia") alarms.push("HR")
-  if (s.spo2 === "low" || s.spo2 === "critical") alarms.push("SpO₂")
-  if (s.bp === "elevated" || s.bp === "hypertensive") alarms.push("NIBP")
-  if (s.rr === "tachypnea" || s.rr === "bradypnea") alarms.push("RR")
-  if (s.temp === "fever" || s.temp === "hypothermia") alarms.push("TEMP")
+  if (s.hr !== "normal") alarms.push("HR")
+  if (s.spo2 !== "normal") alarms.push("SpO₂")
+  if (s.bp !== "normal") alarms.push("NIBP")
+  if (s.rr !== "normal") alarms.push("RR")
+  if (s.temp !== "normal") alarms.push("TEMP")
 
   return {
-    hr: hrCfg.bpm, hrAmp: hrCfg.amp,
-    spo2Amp: spo2Cfg.amp,
-    rr: rrCfg.rr, respAmp: rrCfg.amp,
-    nbpSys: bpCfg.sys, nbpDia: bpCfg.dia,
-    spo2Val: spo2Cfg.val,
-    tempVal, painVal,
+    hr, spo2Val: spo2.val, spo2Amp: spo2.amp,
+    bpSys, bpDia, rr, temp, pain, alarms,
+    ecgSpeed: 60 / hr,         // seconds per cycle
+    respSpeed: 60 / rr,
     ecgColor: alarms.includes("HR") ? "#e74c3c" : "#4fc3f7",
     plethColor: alarms.includes("SpO₂") ? "#e74c3c" : "#66bb6a",
     respColor: alarms.includes("RR") ? "#e74c3c" : "#ffa726",
-    alarms,
   }
 }
 
-// ── Waveform path generator — mathematically continuous ──
-//   Each function returns ONE cycle of the waveform as SVG path data.
-//   The path starts and ends at the same Y so two copies tile seamlessly.
+// ── Canvas waveform renderer ──
+function useWaveform(amp: number, speed: number, table: Float32Array | null, color: string, paused: boolean) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const bufRef = useRef<HTMLCanvasElement | null>(null)
+  const posRef = useRef(0)
 
-const H = 24              // viewBox height
-const W = 120             // viewBox width  (one cycle)
-const BASELINE = H / 2    // centre line
+  useEffect(() => {
+    const cvs = canvasRef.current
+    if (!cvs) return
+    const ctx = cvs.getContext("2d")
+    if (!ctx) return
+    const dpr = window.devicePixelRatio || 1
 
-/** Normal‑sinus P‑QRS‑T complex (amplitude-scaled). */
-function ecgPath(amp: number): string {
-  const bp = BASELINE
-  const s = amp             // scale factor
-  const pt = (y: number) => (y - 12) * s * 1.2 + bp  // translate + scale
-  // prettier: hand‑tuned control points for one beat
-  const pts = [
-    [0, 12], [8, 12],                 // baseline
-    [10, 10.5],                         // P onset
-    [13, 9.5],                          // P peak
-    [16, 10.5],                         // P end
-    [18, 12],                           // PR segment
-    [20, 12],
-    [22, 14.5],                         // Q wave
-    [23.5, 2.5],                        // R upstroke
-    [25, 0.5],                          // R peak
-    [26.5, 3],                          // R downstroke
-    [28, 7],                            // S wave
-    [30, 12],                           // back to baseline
-    [35, 12],                           // ST segment
-    [40, 10.5],                         // T onset
-    [48, 9],                            // T peak
-    [56, 10.5],                         // T end
-    [60, 12],                           // return to baseline
-    [80, 12],                           // diastasis
-    [120, 12],                          // end
-  ].map(([x, y]) => `${x},${pt(y).toFixed(1)}`).join(" L")
-  return `M${pts}`
-}
+    // Setup offscreen buffer
+    if (!bufRef.current || bufRef.current.width !== cvs.width) {
+      const buf = document.createElement("canvas")
+      buf.width = cvs.width
+      buf.height = cvs.height
+      bufRef.current = buf
+    }
+    const buf = bufRef.current
+    const bctx = buf.getContext("2d")!
+    const W = cvs.width
+    const H = cvs.height
+    const mid = H / 2
+    const pxPerSec = 60 * dpr   // pixels per second of waveform
+    const periodPx = pxPerSec * speed  // pixels per full cycle
+    let animId = 0
 
-/** Plethysmograph — subtle pulse wave (barely visible). */
-function plethPath(amp: number): string {
-  const bp = BASELINE
-  const s = amp * 0.3  // pleth is deliberately tiny
-  const pt = (y: number) => (y - 12) * s + bp
-  const pts = [
-    [0, 12], [16, 12],
-    [18, 10.5], [19, 9], [20, 8.5], [21, 8.8], [22, 9.5],  // upstroke + peak
-    [25, 11], [30, 11.5],                                     // dicrotic notch
-    [40, 11.8], [60, 12], [120, 12],                          // return
-  ].map(([x, y]) => `${x},${pt(y).toFixed(1)}`).join(" L")
-  return `M${pts}`
-}
+    const draw = () => {
+      if (paused) { animId = requestAnimationFrame(draw); return }
 
-/** Respiration — smooth sine wave. */
-function respPath(amp: number): string {
-  const bp = BASELINE
-  const a = amp * 5
-  // Generate 1 cycle of sine
-  const steps = 24
-  const pts: string[] = []
-  for (let i = 0; i <= steps; i++) {
-    const angle = (i / steps) * Math.PI * 2
-    const x = (i / steps) * W
-    const y = bp - Math.sin(angle) * a
-    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
-  }
-  return `M${pts.join(" L")}`
-}
+      // Scroll left by 1px
+      bctx.drawImage(buf, 1, 0, W - 1, H, 0, 0, W - 1, H)
+      bctx.clearRect(W - 1, 0, 1, H)
 
-// ── SVG style inject ──
-const SFX = "__pmfx_2"
-if (typeof document !== "undefined" && !document.getElementById(SFX)) {
-  const s = document.createElement("style")
-  s.id = SFX
-  s.textContent = `@keyframes scr2{from{transform:translateX(0)}to{transform:translateX(-50%)}}`
-  document.head.appendChild(s)
-}
+      // Sample the waveform table at current position
+      const frac = (posRef.current % periodPx) / periodPx
+      let val = 0
+      if (table) {
+        const idx = Math.floor(frac * table.length) % table.length
+        val = table[idx] * amp * (H * 0.35)
+      }
+      posRef.current += 1 * dpr
+      if (posRef.current > periodPx * 10) posRef.current -= periodPx * 10
 
-// ── Wave Row ──
-function WaveRow({ path, speed, color, height }: { path: string; speed: number; color: string; height: number }) {
-  return (
-    <div style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative" }}>
-      <svg viewBox={`0 0 ${W * 2} ${H}`} aria-hidden="true" style={{
-        width: "200%", height: "100%", display: "block",
-        animation: `scr2 ${speed}s linear infinite`,
-      }}>
-        <g stroke={color} strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <path d={`${path} M${W},${BASELINE} ${path}`} />
-        </g>
-      </svg>
-      {/* Edge fade */}
-      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 12, background: "linear-gradient(to left, #080c14 40%, transparent)" }} />
-    </div>
-  )
-}
+      // Draw pixel column at right edge
+      const y = mid + val
+      bctx.fillStyle = color
+      bctx.fillRect(W - 1, Math.round(y), 1, 1)
 
-// ── Parameter cell ──
-function Param({ label, value, unit, color }: { label: string; value: string; unit: string; color?: string }) {
-  return (
-    <span>
-      <span style={{ color: "#3a5a7a", fontSize: 8 }}>{label} </span>
-      <span style={{ color: color ?? "#b0c8e0", fontWeight: 700 }}>{value}</span>
-      <span style={{ color: "#3a5a7a", fontSize: 8 }}> {unit}</span>
-    </span>
-  )
+      // Blit to visible canvas
+      ctx.clearRect(0, 0, W, H)
+      ctx.drawImage(buf, 0, 0)
+
+      animId = requestAnimationFrame(draw)
+    }
+    animId = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(animId)
+  }, [amp, speed, table, color, paused])
+
+  return canvasRef
 }
 
 // ── Component ──
 export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
-  const p = useMemo(() => resolveParams(status), [status])
+  const p = useMemo(() => resolve(status), [status])
   const [flash, setFlash] = useState(false)
   const hasAlarm = p.alarms.length > 0
+  const [paused, setPaused] = useState(false) // pause when hidden
 
   useEffect(() => {
     if (!hasAlarm) { setFlash(false); return }
@@ -237,38 +150,48 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
     return () => clearInterval(id)
   }, [hasAlarm])
 
-  const ecgSpeed = Math.max(0.35, 60 / p.hr)
-  const respSpeed = Math.max(1.2, 60 / p.rr)
+  // Waveform tables
+  const plethTable = useMemo(() => {
+    const t = new Float32Array(200)
+    for (let i = 0; i < 200; i++) {
+      const x = i / 200
+      if (x < 0.1) t[i] = -Math.sin(x / 0.1 * Math.PI / 2) * 0.6
+      else if (x < 0.15) t[i] = -0.6
+      else if (x < 0.25) t[i] = -0.6 + Math.sin((x - 0.15) / 0.1 * Math.PI) * 0.2
+      else t[i] = -0.4 * Math.exp(-(x - 0.25) * 6)
+    }
+    return t
+  }, [])
+  const respTable = useMemo(() => {
+    const t = new Float32Array(200)
+    for (let i = 0; i < 200; i++) t[i] = Math.sin(i / 200 * Math.PI * 2) * 0.5
+    return t
+  }, [])
 
-  const ecgD = useMemo(() => ecgPath(p.hrAmp), [p.hrAmp])
-  const plethD = useMemo(() => plethPath(p.spo2Amp), [p.spo2Amp])
-  const respD = useMemo(() => respPath(p.respAmp), [p.respAmp])
+  const ecgRef = useWaveform(1, p.ecgSpeed, ECG_TABLE, p.ecgColor, paused)
+  const plethRef = useWaveform(p.spo2Amp, p.ecgSpeed, plethTable, p.plethColor, paused)
+  const respRef = useWaveform(1, p.respSpeed, respTable, p.respColor, paused)
+
+  const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
 
   return (
     <div style={{
-      background: "#080c14",
-      border: `2px solid ${hasAlarm && flash ? "#e74c3c" : "#182230"}`,
-      borderRadius: 8,
-      fontFamily: "'Courier New', Consolas, monospace",
-      color: "#b0c8e0", fontSize: 11,
-      boxShadow: hasAlarm && flash ? "0 0 30px rgba(231,76,60,0.3), inset 0 0 60px rgba(0,0,0,0.5)" : "inset 0 0 60px rgba(0,0,0,0.5)",
-      transition: "box-shadow 0.15s, border-color 0.15s",
-      position: "relative", overflow: "hidden",
+      background: "#060a12",
+      border: `2px solid ${hasAlarm && flash ? "#e74c3c" : "#14202e"}`,
+      borderRadius: 8, fontFamily: "'Courier New', Consolas, monospace", color: "#b0c8e0", fontSize: 11,
+      boxShadow: hasAlarm && flash ? "0 0 30px rgba(231,76,60,0.3), inset 0 0 60px rgba(0,0,0,0.6)" : "inset 0 0 60px rgba(0,0,0,0.6)",
+      transition: "box-shadow 0.15s, border-color 0.15s", position: "relative", overflow: "hidden",
     }}>
       {/* Grid */}
       <div style={{
-        position: "absolute", inset: 0,
-        backgroundImage: "linear-gradient(rgba(20,40,70,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(20,40,70,0.2) 1px, transparent 1px)",
-        backgroundSize: "10px 10px",
-        pointerEvents: "none", zIndex: 0,
+        position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+        backgroundImage: "linear-gradient(rgba(20,50,80,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(20,50,80,0.15) 1px, transparent 1px)",
+        backgroundSize: "12px 12px",
       }} />
 
       <div style={{ position: "relative", zIndex: 1, padding: "6px 10px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
         {/* Top bar */}
-        <div style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          fontSize: 9, color: "#3a6a8a", borderBottom: "1px solid #14202e", paddingBottom: 3,
-        }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, color: "#3a5a7a", borderBottom: "1px solid #14202e", paddingBottom: 3 }}>
           <span style={{ color: "#6aa0c0", fontWeight: 700 }}>{patientName || "Pt. UNKNOWN"}</span>
           <div style={{ display: "flex", gap: 6 }}>
             <Lead on label="HR" alarm={p.alarms.includes("HR")} />
@@ -279,54 +202,57 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
 
         {/* ECG row */}
         <div style={{ height: 48, display: "flex", gap: 6, alignItems: "stretch" }}>
-          <div style={{ minWidth: 42, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ minWidth: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ fontSize: 7, color: "#3a5a7a" }}>HR</div>
             <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("HR") ? "#e74c3c" : "#4fc3f7" }}>
-              {String(p.hr).padStart(3, " ")}
-              <span style={{ fontSize: 8, fontWeight: 400, color: "#3a5a7a", marginLeft: 1 }}>bpm</span>
+              {String(p.hr).padStart(3, " ")}<span style={{ fontSize: 8, fontWeight: 400, color: "#3a5a7a", marginLeft: 1 }}>bpm</span>
             </div>
+            <div style={{ fontSize: 6, color: "#2a4a5a" }}>LIMIT 60-100</div>
           </div>
-          <WaveRow path={ecgD} speed={ecgSpeed} color={p.ecgColor} height={48} />
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative" }}>
+            <canvas ref={ecgRef} width={240 * DPR} height={48 * DPR} style={{ width: 240, height: 48, display: "block" }} />
+            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 10, background: "linear-gradient(to left, #060a12 30%, transparent)" }} />
+          </div>
         </div>
 
         {/* SpO₂ row */}
         <div style={{ height: 26, display: "flex", gap: 6, alignItems: "stretch" }}>
-          <div style={{ minWidth: 42, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ minWidth: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ fontSize: 7, color: "#3a5a7a" }}>SpO₂</div>
             <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("SpO₂") ? "#e74c3c" : "#66bb6a" }}>
               {String(p.spo2Val).padStart(2, " ")}%
             </div>
           </div>
-          <WaveRow path={plethD} speed={ecgSpeed} color={p.plethColor} height={26} />
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative" }}>
+            <canvas ref={plethRef} width={240 * DPR} height={26 * DPR} style={{ width: 240, height: 26, display: "block" }} />
+            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 10, background: "linear-gradient(to left, #060a12 30%, transparent)" }} />
+          </div>
         </div>
 
         {/* RESP row */}
         <div style={{ height: 22, display: "flex", gap: 6, alignItems: "stretch" }}>
-          <div style={{ minWidth: 42, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ minWidth: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ fontSize: 7, color: "#3a5a7a" }}>RR</div>
             <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1, color: p.alarms.includes("RR") ? "#e74c3c" : "#ffa726" }}>
-              {String(p.rr).padStart(2, " ")}
-              <span style={{ fontSize: 8, fontWeight: 400, color: "#3a5a7a" }}>/min</span>
+              {String(p.rr).padStart(2, " ")}<span style={{ fontSize: 8, fontWeight: 400, color: "#3a5a7a" }}>/min</span>
             </div>
           </div>
-          <WaveRow path={respD} speed={respSpeed} color={p.respColor} height={22} />
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden", position: "relative" }}>
+            <canvas ref={respRef} width={240 * DPR} height={22 * DPR} style={{ width: 240, height: 22, display: "block" }} />
+            <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 10, background: "linear-gradient(to left, #060a12 30%, transparent)" }} />
+          </div>
         </div>
 
         {/* Bottom bar */}
-        <div style={{
-          display: "flex", gap: 10, alignItems: "center",
-          borderTop: "1px solid #14202e", paddingTop: 3, marginTop: 1, fontSize: 8,
-        }}>
-          <Param label="NIBP" value={`${p.nbpSys}/${p.nbpDia}`} unit="mmHg" color={p.alarms.includes("NIBP") ? "#e74c3c" : "#66bb6a"} />
-          <Param label="TEMP" value={`${p.tempVal.toFixed(1)}`} unit="°C" color={p.alarms.includes("TEMP") ? "#e74c3c" : "#b0c8e0"} />
-          <Param label="PAIN" value={`${p.painVal}`} unit="/10" color={p.painVal > 4 ? "#e74c3c" : "#b0c8e0"} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center", borderTop: "1px solid #14202e", paddingTop: 3, marginTop: 1, fontSize: 8 }}>
+          <span><span style={{ color: "#3a5a7a" }}>NIBP </span><span style={{ color: p.alarms.includes("NIBP") ? "#e74c3c" : "#66bb6a" }}>{p.bpSys}/{p.bpDia}</span> <span style={{ color: "#3a5a7a" }}>mmHg</span></span>
+          <span><span style={{ color: "#3a5a7a" }}>TEMP </span><span style={{ color: p.alarms.includes("TEMP") ? "#e74c3c" : "#b0c8e0" }}>{p.temp.toFixed(1)}°C</span></span>
+          <span><span style={{ color: "#3a5a7a" }}>PAIN </span><span style={{ color: p.pain > 4 ? "#e74c3c" : "#b0c8e0" }}>{p.pain}/10</span></span>
         </div>
 
+        {/* Alarm */}
         {hasAlarm && (
-          <div style={{
-            textAlign: "center", fontSize: 9, color: "#e74c3c", fontWeight: 700,
-            opacity: flash ? 1 : 0.2, transition: "opacity 0.15s",
-          }}>
+          <div style={{ textAlign: "center", fontSize: 9, color: "#e74c3c", fontWeight: 700, opacity: flash ? 1 : 0.2, transition: "opacity 0.15s" }}>
             ⚠ {p.alarms.join(" · ")}
           </div>
         )}

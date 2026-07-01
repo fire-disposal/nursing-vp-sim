@@ -13,39 +13,83 @@ const PRESETS: Record<string, Partial<SceneState>> = {
   "ward morning": { environment: { type: "ward", time_of_day: "morning", equipment: ["monitor"] } },
 }
 
-export function SceneStateEditor({ bus }: { bus: MessageBus }) {
+export function SceneStateEditor({ bus, dark }: { bus: MessageBus; dark: boolean }) {
   const state = useSceneState(bus)
 
-  const apply = useCallback((patch: Partial<SceneState>) => {
-    emitSceneEvent(bus, "scene:state", patch)
-  }, [bus])
+  const apply = useCallback(
+    (patch: Partial<SceneState>) => {
+      emitSceneEvent(bus, "scene:state", patch)
+    },
+    [bus],
+  )
+
+  const c = (light: string, darkC: string) => (dark ? darkC : light)
 
   return (
-    <div style={{
-      width: 260, background: "#1a1a2e", borderLeft: "1px solid #333",
-      display: "flex", flexDirection: "column", fontFamily: "monospace", fontSize: 11, overflow: "auto",
-    }}>
-      <div style={{ padding: "8px 12px", borderBottom: "1px solid #333", color: "#888", fontWeight: 600 }}>
-        SCENE STATE
-      </div>
-
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "monospace",
+        fontSize: 11,
+        overflow: "auto",
+      }}
+    >
       {/* Current state JSON */}
-      <pre style={{ padding: "8px 12px", margin: 0, color: "#aaa", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 200, overflow: "auto", borderBottom: "1px solid #333", fontSize: 10 }}>
+      <pre
+        style={{
+          padding: "8px 12px",
+          margin: 0,
+          color: dark ? "#aaa" : "#666",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
+          maxHeight: 200,
+          overflow: "auto",
+          borderBottom: `1px solid ${dark ? "#1e1e28" : "#eee"}`,
+          fontSize: 10,
+          background: dark ? "#0d0d12" : "#fafafa",
+        }}
+      >
         {JSON.stringify(state, null, 2)}
       </pre>
 
       {/* Preset buttons */}
       <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ color: "#666", fontWeight: 600, fontSize: 10, marginBottom: 4 }}>PRESETS</div>
+        <div
+          style={{
+            color: dark ? "#555" : "#aaa",
+            fontWeight: 600,
+            fontSize: 10,
+            marginBottom: 4,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}
+        >
+          Presets
+        </div>
         {Object.entries(PRESETS).map(([label, patch]) => (
-          <button key={label} onClick={() => apply(patch)}
+          <button
+            key={label}
+            onClick={() => apply(patch)}
             style={{
-              padding: "4px 8px", background: "#2a2a3e", border: "1px solid #444",
-              borderRadius: 4, color: "#ccc", cursor: "pointer", fontSize: 10,
-              textAlign: "left", transition: "all 0.1s",
+              padding: "5px 8px",
+              background: dark ? "#1c1c26" : "#f5f5f5",
+              border: `1px solid ${dark ? "#2a2a35" : "#ddd"}`,
+              borderRadius: 4,
+              color: dark ? "#ccc" : "#555",
+              cursor: "pointer",
+              fontSize: 10,
+              textAlign: "left",
+              transition: "all 0.1s",
+              fontFamily: "system-ui",
             }}
-            onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "#333" }}
-            onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "#2a2a3e" }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLButtonElement).style.background = dark ? "#2a2a35" : "#eee"
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLButtonElement).style.background = dark ? "#1c1c26" : "#f5f5f5"
+            }}
           >
             {label}
           </button>
