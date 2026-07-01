@@ -250,15 +250,23 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
   const [glbUrl, setGlbUrl] = useState<string | null>(null)
   const [glbHash, setGlbHash] = useState<string | null>(null)
   const [glbName, setGlbName] = useState<string | null>(null)
+  const [regTags, setRegTags] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
-
-  const filtered = filter
-    ? FURNI.filter((f) => f.name.includes(filter) || f.tags.some((t) => t.includes(filter)))
-    : FURNI
-  const def = FURNI[idx]
 
   const CATS = ["", ...new Set(FURNI.map((f) => f.category))]
   const [cat, setCat] = useState("")
+  const [tagFilter, setTagFilter] = useState("")
+  const ALL_TAGS = useMemo(() => [...new Set(FURNI.flatMap((f) => f.tags))].sort(), [])
+
+  const def = FURNI[idx]
+
+  const filtered = filter || tagFilter
+    ? FURNI.filter((f) => {
+        if (filter && !f.name.includes(filter) && !f.tags.some((t) => t.includes(filter))) return false
+        if (tagFilter && !f.tags.includes(tagFilter)) return false
+        return true
+      })
+    : FURNI
 
   const allModels = useMemo(() => discoverModels(), [])
   const [registeredNames, setRegisteredNames] = useState<Set<string>>(new Set())
@@ -454,27 +462,29 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
 
           <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
 
-          {glbHash && <button onClick={async () => {
-            const { buildEntry, mergeEntry } = await import("../data/furniture-registry")
-            const entry = buildEntry(
-              glbName ?? "model.glb",
-              glbName ?? "model.glb",
-              "uncategorized",
-              [],
-              glbHash,
-              { scale: sc, tx, ty, tz, rot },
-            )
-            const json = await mergeEntry(entry)
-            const blob = new Blob([json], { type: "application/json" })
-            const a = document.createElement("a")
-            a.href = URL.createObjectURL(blob)
-            a.download = "furniture-registry.json"
-            a.click()
-            URL.revokeObjectURL(a.href)
-          }}
-            style={{ padding: "3px 8px", background: `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: pal.accent, cursor: "pointer", fontSize: 9, alignSelf: "flex-end", marginBottom: 1 }}>
-            Save Reg
-          </button>}
+          {glbHash && <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1 }}>
+            <input value={regTags} onChange={(e) => setRegTags(e.target.value)}
+              placeholder="tag1, tag2…"
+              style={{ width: 80, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
+            />
+            <button onClick={async () => {
+              const { buildEntry, mergeEntry, sanitizeTags } = await import("../data/furniture-registry")
+              const tags = sanitizeTags(regTags.split(",").map((t) => t.trim()).filter(Boolean))
+              const cat = tags[0] || "uncategorized"
+              const entry = buildEntry(glbName ?? "model.glb", glbName ?? "model.glb", cat, tags, glbHash, { scale: sc, tx, ty, tz, rot })
+              const json = await mergeEntry(entry)
+              const blob = new Blob([json], { type: "application/json" })
+              const a = document.createElement("a")
+              a.href = URL.createObjectURL(blob)
+              a.download = "furniture-registry.json"
+              a.click()
+              URL.revokeObjectURL(a.href)
+              setRegisteredNames((prev) => new Set(prev).add(glbName ?? ""))
+            }}
+              style={{ padding: "3px 8px", background: `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: pal.accent, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap" }}>
+              Save Reg
+            </button>
+          </div>}
 
           <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1 }}>
             <button onClick={() => { setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
@@ -483,7 +493,24 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             </button>
           </div>
         </div>
-      </div>
-    </div>
+          </div>
+          {/* Tag chips */}
+          {tagFilter && (
+            <div style={{ display: "flex", gap: 2, marginTop: 3, flexWrap: "wrap" }}>
+              {ALL_TAGS.map((t) => (
+                <button key={t} onClick={() => setTagFilter(tagFilter === t ? "" : t)}
+                  style={{
+                    padding: "1px 5px", borderRadius: 3,
+                    border: `1px solid ${tagFilter === t ? pal.accent : "transparent"}`,
+                    background: tagFilter === t ? `${pal.accent}22` : "transparent",
+                    color: tagFilter === t ? pal.accent : pal.dim,
+                    cursor: "pointer", fontSize: 7, lineHeight: "14px",
+                  }}>
+                  #{t}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
   )
 }

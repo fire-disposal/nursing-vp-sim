@@ -72,6 +72,16 @@ export async function getAllEntries(): Promise<FurnitureEntry[]> {
 
 // ── Mutations (return JSON for download, no server write) ──
 
+/** Validate a single tag: only Chinese, English, digits, hyphens, underscores. */
+export function isValidTag(tag: string): boolean {
+  return /^[\u4e00-\u9fff\w-]+$/u.test(tag) && tag.length > 0 && tag.length <= 20
+}
+
+/** Validate an array of tags, filtering out invalid ones. */
+export function sanitizeTags(tags: string[]): string[] {
+  return [...new Set(tags.filter(isValidTag))]
+}
+
 export function buildEntry(
   filename: string,
   name: string,
@@ -84,7 +94,7 @@ export function buildEntry(
     id: filename,
     name,
     category,
-    tags,
+    tags: sanitizeTags(tags),
     enabled: true,
     glb: `/models/${filename}`,
     hash,
