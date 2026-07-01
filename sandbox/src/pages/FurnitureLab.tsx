@@ -360,30 +360,32 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             ))}
           </div>
         </div>
-        {/* Thumbnail grid */}
-        <div style={{ flex: 1, overflow: "auto", padding: "5px 7px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, alignContent: "start" }}>
-          {(cat ? filtered.filter((f) => f.category === cat) : filtered).map((f, i) => {
-            const fi = FURNI.indexOf(f)
-            const active = fi === idx
-            return (
-              <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                  padding: "8px 4px", borderRadius: 6, border: `1px solid ${active ? pal.accent : "transparent"}`,
-                  background: active ? `${pal.accent}12` : "transparent", cursor: "pointer",
-                }}>
-                <div style={{ width: 44, height: 44, borderRadius: 5, background: f.thumb, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.7 }}>
-                  {f.id === "bed" ? "🛏" : f.id === "patient" ? "🧑" : f.id === "iv" ? "💉" : f.id === "monitor" ? "🖥" : f.id === "chair" ? "🪑" : f.id === "plant" ? "🌿" : f.id === "cabinet" ? "🗄" : f.id === "bedside" ? "🪑" : "▣"}
-                </div>
-                <span style={{ fontSize: 10, color: active ? pal.accent : pal.text }}>{f.name}</span>
-              </button>
-            )
-          })}
-        </div>
+        {/* ── Two equal halves: primitives + uncalibrated ── */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Top half — primitive thumbnails */}
+          <div style={{ flex: 1, overflow: "auto", padding: "5px 7px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, alignContent: "start" }}>
+            {(cat ? filtered.filter((f) => f.category === cat) : filtered).map((f, i) => {
+              const fi = FURNI.indexOf(f)
+              const active = fi === idx
+              return (
+                <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                    padding: "8px 4px", borderRadius: 6, border: `1px solid ${active ? pal.accent : "transparent"}`,
+                    background: active ? `${pal.accent}12` : "transparent", cursor: "pointer",
+                  }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 5, background: f.thumb, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.7 }}>
+                    {f.id === "bed" ? "🛏" : f.id === "patient" ? "🧑" : f.id === "iv" ? "💉" : f.id === "monitor" ? "🖥" : f.id === "chair" ? "🪑" : f.id === "plant" ? "🌿" : f.id === "cabinet" ? "🗄" : f.id === "bedside" ? "🪑" : "▣"}
+                  </div>
+                  <span style={{ fontSize: 10, color: active ? pal.accent : pal.text }}>{f.name}</span>
+                </button>
+              )
+            })}
+          </div>
 
-        {/* ── Models section ── */}
-        <div style={{ borderTop: `1px solid ${pal.border}`, padding: "5px 7px" }}>
-          <div style={{ fontSize: 9, color: pal.dim, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Uncalibrated</div>
+          {/* Bottom half — uncalibrated models */}
+          <div style={{ flex: 1, overflow: "auto", borderTop: `1px solid ${pal.border}`, padding: "5px 7px", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 9, color: pal.dim, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>Uncalibrated</div>
           {filteredModels.length === 0 ? (
             <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No .glb files found</div>
           ) : (
@@ -407,6 +409,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* ── RIGHT: Preview + params ── */}
