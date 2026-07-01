@@ -29,29 +29,34 @@ function palette(dark: boolean) {
 }
 
 // ── Slider + number input ──
-function SliderInput({ label, value, min, max, step, onChange, dark }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; dark: boolean }) {
+function SliderInput({ label, value, min, max, step, onChange, dark, log }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; dark: boolean; log?: boolean }) {
   const pal = palette(dark)
   const [edit, setEdit] = useState<string | null>(null)
 
+  // Logarithmic transform: slider 0-100 ↔ actual value
+  const sliderVal = log ? Math.round(50 + Math.log10(value) * 25) : ((value - min) / (max - min)) * 100
+  const fromSlider = (s: number) => log ? Math.pow(10, (s - 50) / 25) : min + (s / 100) * (max - min)
+
   const display = edit ?? ""
-  const numValue = edit !== null ? Number(edit) : value
-  const clamped = Math.min(max, Math.max(min, numValue))
 
   const commit = (v: string) => {
     const n = Number(v)
     if (!isNaN(n) && isFinite(n)) {
-      onChange(Math.min(max, Math.max(min, Math.round(n / step) * step)))
+      onChange(Math.min(max, Math.max(min, log ? n : Math.round(n / step) * step)))
     }
     setEdit(null)
   }
 
+  const displayVal = edit !== null ? edit : ""
+  const displayPlaceholder = value.toFixed(log ? 3 : step < 0.1 ? 2 : 1)
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, height: 22 }}>
       <span style={{ fontSize: 9, color: pal.dim, width: 20, flexShrink: 0 }}>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+      <input type="range" min={0} max={100} step={1} value={Math.round(sliderVal)}
+        onChange={(e) => onChange(fromSlider(Number(e.target.value)))}
         style={{ flex: 1, height: 3, accentColor: pal.accent, cursor: "pointer" }} />
-      <input type="text" value={display} placeholder={value.toFixed(step < 0.1 ? 2 : 1)}
+      <input type="text" value={displayVal} placeholder={displayPlaceholder}
         onChange={(e) => setEdit(e.target.value)}
         onBlur={() => commit(edit ?? "")}
         onKeyDown={(e) => { if (e.key === "Enter") commit(edit ?? ""); if (e.key === "Escape") setEdit(null) }}
@@ -468,7 +473,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>ROTATE</div>
             <SliderInput dark={dark} label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
             <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2, marginTop: 3 }}>SCALE</div>
-            <SliderInput dark={dark} label="×" value={sc} min={0.1} max={3} step={0.05} onChange={setSc} />
+            <SliderInput dark={dark} label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
           </div>
 
           <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
