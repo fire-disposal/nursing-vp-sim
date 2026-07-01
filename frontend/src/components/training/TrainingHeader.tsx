@@ -1,9 +1,7 @@
 import {
 	ArrowLeft,
 	Clock,
-	Ear,
 	EarOff,
-	MonitorCog,
 	Pause,
 	Phone,
 	Play,
@@ -11,7 +9,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { updateTrainingFeatures } from "@/api/training-state";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { usePortrait, useTrainingContext } from "@/engine";
@@ -19,13 +16,6 @@ import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { getPatientAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
-
-const FEATURE_META: Record<string, { label: string; desc: string }> = {
-	allow_pause: {
-		label: "允许暂停计时",
-		desc: "允许学生在训练中暂停倒计时。后台结算以服务器时间为准",
-	},
-};
 
 /**
  * Zero props — TrainingHeader reads all state from TrainingContext.
@@ -47,7 +37,6 @@ export function TrainingHeader() {
 	} = useTrainingContext();
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();
-	const [featuresOpen, setFeaturesOpen] = useState(false);
 	const [ttsOpen, setTtsOpen] = useState(false);
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [autoEndOpen, setAutoEndOpen] = useState(false);
@@ -104,19 +93,6 @@ export function TrainingHeader() {
 			executeEnd();
 		}
 	}, [autoEndOpen, autoEndCountdown, executeEnd]);
-
-	const handleToggleFeature = useCallback(
-		async (key: string, enabled: boolean) => {
-			if (key !== "allow_pause") return;
-			onToggleFeature(key, enabled);
-			try {
-				await updateTrainingFeatures(Number(recordId), { [key]: enabled });
-			} catch {
-				/* silent */
-			}
-		},
-		[onToggleFeature, recordId],
-	);
 
 	const handlePauseToggle = useCallback(() => {
 		if (timerActive) {
@@ -221,15 +197,7 @@ export function TrainingHeader() {
 					</button>
 					)}
 
-					{!isCompact && (
-					<button
-						onClick={() => setFeaturesOpen(true)}
-						className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
-						title="插件特性"
-					>
-						<MonitorCog size={14} className="sm:size-[16px]" />
-					</button>
-					)}
+					
 
 					<button
 						onClick={handleEndClick}
@@ -348,75 +316,7 @@ export function TrainingHeader() {
 				</DialogContent>
 			</Dialog>
 
-			<Dialog
-				open={featuresOpen}
-				onOpenChange={(o) => !o && setFeaturesOpen(false)}
-			>
-				<DialogContent title="插件特性" maxWidth={420}>
-				{featuresLocked ? (
-					<p className="text-sm text-amber-600 bg-amber-50 rounded-md px-3 py-2 mb-3">
-						此练习的插件配置由教师设定，不可更改
-					</p>
-				) : (
-					<p className="text-sm text-muted-foreground mb-4">
-						当前病例启用的训练特性，可在训练中随时开关以观察效果
-					</p>
-				)}
-				<div className="flex flex-col gap-1">
-					{Object.keys(FEATURE_META).map((key) => {
-						const fallback = FEATURE_META[key];
-						const label = fallback?.label ?? key;
-						const desc = fallback?.desc ?? "";
-						const enabled = features[key] ?? false;
-					return (
-								<label
-									key={key}
-									className={cn(
-										"flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors",
-										enabled ? "bg-primary/5" : "bg-muted/30",
-									)}
-								>
-									<div className="min-w-0">
-										<div className="text-sm font-medium">{label}</div>
-										<div className="text-xs text-muted-foreground">
-											{desc}
-										</div>
-									</div>
-									<button
-										type="button"
-										disabled={featuresLocked}
-										onClick={() => handleToggleFeature(key, !enabled)}
-										className={cn(
-											"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-											enabled ? "bg-primary" : "bg-gray-300",
-											featuresLocked &&
-												"opacity-50 cursor-not-allowed",
-										)}
-									>
-										<span
-											className={cn(
-												"inline-block size-4 transform rounded-full bg-white transition-transform shadow-sm",
-												enabled
-													? "translate-x-[18px]"
-													: "translate-x-0.5",
-											)}
-										/>
-									</button>
-								</label>
-							);
-					})}
-				</div>
-				<div className="flex justify-end mt-5">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setFeaturesOpen(false)}
-					>
-						关闭
-					</Button>
-				</div>
-				</DialogContent>
-			</Dialog>
+			
 		</>
 	);
 }
