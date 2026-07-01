@@ -28,10 +28,6 @@ function getPatientSummary(ps: CaseBrief["patient_summary"]): PatientSummary {
   return {};
 }
 
-function getTypeLabel(type: string, profiles: TrainingTypeInfo[]): string {
-  return profiles.find((x) => x.type === type)?.label ?? (type === "triage" ? "预检分诊" : "病史采集");
-}
-
 const TYPE_META: Record<string, { icon: typeof Stethoscope; color: string; features: { label: string; color: string }[] }> = {
   history_taking: {
     icon: Stethoscope,

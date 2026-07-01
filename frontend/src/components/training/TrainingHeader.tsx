@@ -7,7 +7,7 @@ import {
 	Pause,
 	Phone,
 	Play,
-	Zap,
+	Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +48,7 @@ export function TrainingHeader() {
 	const navigate = useNavigate();
 	const { portraitUrl } = usePortrait();
 	const [featuresOpen, setFeaturesOpen] = useState(false);
+	const [ttsOpen, setTtsOpen] = useState(false);
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [autoEndOpen, setAutoEndOpen] = useState(false);
 	const [autoEndCountdown, setAutoEndCountdown] = useState(10);
@@ -204,43 +205,20 @@ export function TrainingHeader() {
 
 					{!isCompact && (
 					<button
-						onClick={onTtsToggle}
+						onClick={() => setTtsOpen(true)}
 						className={cn(
 							"w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 transition-colors hover:bg-muted",
 							ttsAutoPlay &&
 								"border-primary bg-primary/10 text-primary hover:bg-primary/20",
 						)}
-						title={ttsAutoPlay ? "关闭自动朗读" : "开启自动朗读"}
+						title="语音设置"
 					>
 						{ttsAutoPlay ? (
-							<Ear size={14} className="sm:size-[16px]" />
+							<Volume2 size={14} className="sm:size-[16px]" />
 						) : (
 							<EarOff size={14} className="sm:size-[16px]" />
 						)}
 					</button>
-					)}
-
-					{!isCompact && (
-					<div
-						className="relative shrink-0"
-						title={
-							voiceStatus
-								? `TTS: ${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`
-								: "TTS: 不可用"
-						}
-					>
-						<Zap size={12} className="sm:size-[14px] text-muted-foreground" />
-						<span
-							className={cn(
-								"absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-background",
-								!voiceStatus || voiceStatus.provider === "unavailable"
-									? "bg-red-400"
-									: voiceStatus.provider.includes("browser")
-										? "bg-amber-400"
-										: "bg-emerald-400",
-							)}
-						/>
-					</div>
 					)}
 
 					{!isCompact && (
@@ -302,6 +280,69 @@ export function TrainingHeader() {
 				<div className="flex justify-center">
 					<Button variant="destructive" size="sm" onClick={executeEnd}>
 						立即结束
+					</Button>
+				</div>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={ttsOpen}
+				onOpenChange={(o) => !o && setTtsOpen(false)}
+			>
+				<DialogContent title="语音设置" maxWidth={360}>
+				<div className="space-y-4">
+					<p className="text-sm text-muted-foreground">
+						配置训练中的语音朗读（TTS）选项
+					</p>
+
+					{/* Auto-play toggle */}
+					<label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-primary/5">
+						<div>
+							<div className="text-sm font-medium">自动朗读</div>
+							<div className="text-xs text-muted-foreground">
+								患者回复后自动朗读
+							</div>
+						</div>
+						<button
+							type="button"
+							onClick={onTtsToggle}
+							className={cn(
+								"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+								ttsAutoPlay ? "bg-primary" : "bg-gray-300",
+							)}
+						>
+							<span
+								className={cn(
+									"inline-block size-4 transform rounded-full bg-white transition-transform shadow-sm",
+									ttsAutoPlay ? "translate-x-[18px]" : "translate-x-0.5",
+								)}
+							/>
+						</button>
+					</label>
+
+					{/* Provider status */}
+					<div className="px-3 py-2.5 rounded-lg bg-muted/30">
+						<div className="text-xs font-medium text-muted-foreground mb-1">语音引擎</div>
+						<div className="flex items-center gap-2">
+							<span className={cn(
+								"size-2 rounded-full",
+								!voiceStatus || voiceStatus.provider === "unavailable"
+									? "bg-red-400"
+									: voiceStatus.provider.includes("browser")
+										? "bg-amber-400"
+										: "bg-emerald-400",
+							)} />
+							<span className="text-sm">
+								{voiceStatus
+									? `${voiceStatus.provider} (${voiceStatus.latencyMs}ms)`
+									: "不可用"}
+							</span>
+						</div>
+					</div>
+				</div>
+				<div className="flex justify-end mt-5">
+					<Button variant="outline" size="sm" onClick={() => setTtsOpen(false)}>
+						关闭
 					</Button>
 				</div>
 				</DialogContent>
