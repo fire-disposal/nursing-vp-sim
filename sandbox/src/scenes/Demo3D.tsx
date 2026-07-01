@@ -294,8 +294,8 @@ export default function Demo3D({ bus }: SceneProps) {
 
   return (
     <StepCtx.Provider value={{ step, done, interact }}>
-      {/* Landscape container — 4:3 aspect ratio, max-h constrained */}
-      <div style={{ position: "relative", width: "100%", maxWidth: 580, aspectRatio: "4/3", margin: "0 auto" }}>
+      {/* Landscape container */}
+      <div style={{ position: "relative", width: "100%", maxWidth: 720, minHeight: 340, aspectRatio: "16/9", margin: "0 auto" }}>
         <R3FErrorBoundary>
           <Canvas
             key={key}
