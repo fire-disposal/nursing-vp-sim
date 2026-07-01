@@ -21,21 +21,26 @@ interface PatientMonitorProps {
   patientName?: string
 }
 
-// ── Pre-computed ECG lookup table (P-QRS-T, 400 points) ──
+// ── Pre-computed ECG lookup table (clinically realistic P‑QRS‑T) ──
+//  0–400 samples = one cardiac cycle.  Y is normalised; amp*H*0.35 in draw.
 const ECG_TABLE = new Float32Array(400)
 for (let i = 0; i < 400; i++) {
   const x = i / 400
   let y = 0
-  // P wave (0.05–0.20)
-  if (x > 0.05 && x < 0.20) y -= Math.sin((x - 0.05) / 0.15 * Math.PI) * 0.08
-  // Q wave (0.22–0.26)
-  if (x > 0.22 && x < 0.26) y += Math.sin((x - 0.22) / 0.04 * Math.PI) * 0.12
-  // R wave (0.26–0.33)
-  if (x > 0.26 && x < 0.33) y -= Math.sin((x - 0.26) / 0.07 * Math.PI) * 0.85
-  // S wave (0.33–0.38)
-  if (x > 0.33 && x < 0.38) y += Math.sin((x - 0.33) / 0.05 * Math.PI) * 0.25
-  // T wave (0.45–0.70)
-  if (x > 0.45 && x < 0.70) y -= Math.sin((x - 0.45) / 0.25 * Math.PI) * 0.18
+  // P wave  (0.05–0.18) — small, rounded, positive
+  if (x > 0.05 && x < 0.18) y -= Math.sin((x - 0.05) / 0.13 * Math.PI) * 0.06
+  // PR segment (0.18–0.25) — flat
+  // Q wave  (0.25–0.28) — small, sharp, negative
+  if (x > 0.25 && x < 0.28) y += Math.sin((x - 0.25) / 0.03 * Math.PI) * 0.10
+  // R wave  (0.28–0.33) — tall, sharp, positive (main deflection)
+  if (x > 0.28 && x < 0.33) y -= Math.sin((x - 0.28) / 0.05 * Math.PI) * 0.85
+  // S wave  (0.33–0.37) — sharp, negative, below baseline
+  if (x > 0.33 && x < 0.37) y += Math.sin((x - 0.33) / 0.04 * Math.PI) * 0.22
+  // ST segment (0.37–0.45) — flat, isoelectric
+  // T wave  (0.45–0.70) — broad, rounded, positive (larger area than P)
+  if (x > 0.45 && x < 0.70) y -= Math.sin((x - 0.45) / 0.25 * Math.PI) * 0.16
+  // U wave  (0.70–0.80) — tiny, optional
+  if (x > 0.72 && x < 0.80) y -= Math.sin((x - 0.72) / 0.08 * Math.PI) * 0.02
   ECG_TABLE[i] = y
 }
 
@@ -65,74 +70,73 @@ function resolve(s: MonitorStatus) {
   return {
     hr, spo2Val: spo2.val, spo2Amp: spo2.amp,
     bpSys, bpDia, rr, temp, pain, alarms,
-    ecgSpeed: 60 / hr,         // seconds per cycle
+    ecgSpeed: 60 / hr,
     respSpeed: 60 / rr,
-    ecgColor: alarms.includes("HR") ? "#e74c3c" : "#4fc3f7",
-    plethColor: alarms.includes("SpO₂") ? "#e74c3c" : "#66bb6a",
-    respColor: alarms.includes("RR") ? "#e74c3c" : "#ffa726",
+    ecgColor: "#4fc3f7",     // fixed — waveform colour never changes; alarm shown via text/value
+    plethColor: "#66bb6a",
+    respColor: "#ffa726",
   }
 }
 
-// ── Canvas waveform renderer ──
-function useWaveform(amp: number, speed: number, table: Float32Array | null, color: string, paused: boolean) {
+// ── Canvas waveform renderer (sample‑buffer, always connected) ──
+function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, color: string, paused: boolean) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const bufRef = useRef<HTMLCanvasElement | null>(null)
-  const posRef = useRef(0)
+  const samplesRef = useRef<number[]>([])
+  const phaseRef = useRef(0)
 
   useEffect(() => {
     const cvs = canvasRef.current
     if (!cvs) return
     const ctx = cvs.getContext("2d")
     if (!ctx) return
-    const dpr = window.devicePixelRatio || 1
-
-    // Setup offscreen buffer
-    if (!bufRef.current || bufRef.current.width !== cvs.width) {
-      const buf = document.createElement("canvas")
-      buf.width = cvs.width
-      buf.height = cvs.height
-      bufRef.current = buf
-    }
-    const buf = bufRef.current
-    const bctx = buf.getContext("2d")!
     const W = cvs.width
     const H = cvs.height
     const mid = H / 2
-    const pxPerSec = 60 * dpr   // pixels per second of waveform
-    const periodPx = pxPerSec * speed  // pixels per full cycle
+    const len = W  // one sample per pixel
+    let samples = samplesRef.current
+    if (samples.length !== len) {
+      samples = new Array(len).fill(mid)
+      samplesRef.current = samples
+    }
+    let lastTime = performance.now()
     let animId = 0
 
-    const draw = () => {
-      if (paused) { animId = requestAnimationFrame(draw); return }
+    const draw = (now: number) => {
+      animId = requestAnimationFrame(draw)
+      if (paused) return
 
-      // Scroll left by 1px
-      bctx.drawImage(buf, 1, 0, W - 1, H, 0, 0, W - 1, H)
-      bctx.clearRect(W - 1, 0, 1, H)
+      const dt = Math.min((now - lastTime) / 1000, 0.05)
+      lastTime = now
 
-      // Sample the waveform table at current position
-      const frac = (posRef.current % periodPx) / periodPx
+      // Advance phase and sample
+      phaseRef.current = (phaseRef.current + dt / cycleSec) % 1
       let val = 0
       if (table) {
-        const idx = Math.floor(frac * table.length) % table.length
+        const idx = Math.floor(phaseRef.current * table.length) % table.length
         val = table[idx] * amp * (H * 0.35)
       }
-      posRef.current += 1 * dpr
-      if (posRef.current > periodPx * 10) posRef.current -= periodPx * 10
+      const y = Math.round(mid + val)
 
-      // Draw pixel column at right edge
-      const y = mid + val
-      bctx.fillStyle = color
-      bctx.fillRect(W - 1, Math.round(y), 1, 1)
+      // Rotate sample buffer
+      samples.shift()
+      samples.push(y)
 
-      // Blit to visible canvas
+      // Redraw entire waveform as one continuous polyline
       ctx.clearRect(0, 0, W, H)
-      ctx.drawImage(buf, 0, 0)
-
-      animId = requestAnimationFrame(draw)
+      ctx.strokeStyle = color
+      ctx.lineWidth = 1.5
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      ctx.beginPath()
+      for (let i = 0; i < len; i++) {
+        if (i === 0) ctx.moveTo(i, samples[i])
+        else ctx.lineTo(i, samples[i])
+      }
+      ctx.stroke()
     }
     animId = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(animId)
-  }, [amp, speed, table, color, paused])
+  }, [amp, cycleSec, table, color, paused])
 
   return canvasRef
 }
@@ -140,15 +144,8 @@ function useWaveform(amp: number, speed: number, table: Float32Array | null, col
 // ── Component ──
 export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
   const p = useMemo(() => resolve(status), [status])
-  const [flash, setFlash] = useState(false)
   const hasAlarm = p.alarms.length > 0
-  const [paused, setPaused] = useState(false) // pause when hidden
-
-  useEffect(() => {
-    if (!hasAlarm) { setFlash(false); return }
-    const id = setInterval(() => setFlash((f) => !f), 500)
-    return () => clearInterval(id)
-  }, [hasAlarm])
+  const [paused, setPaused] = useState(false)
 
   // Waveform tables
   const plethTable = useMemo(() => {
@@ -177,10 +174,9 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
   return (
     <div style={{
       background: "#060a12",
-      border: `2px solid ${hasAlarm && flash ? "#e74c3c" : "#14202e"}`,
+      border: "2px solid #14202e",
       borderRadius: 8, fontFamily: "'Courier New', Consolas, monospace", color: "#b0c8e0", fontSize: 11,
-      boxShadow: hasAlarm && flash ? "0 0 30px rgba(231,76,60,0.3), inset 0 0 60px rgba(0,0,0,0.6)" : "inset 0 0 60px rgba(0,0,0,0.6)",
-      transition: "box-shadow 0.15s, border-color 0.15s", position: "relative", overflow: "hidden",
+      boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)", position: "relative", overflow: "hidden",
     }}>
       {/* Grid */}
       <div style={{
@@ -252,7 +248,7 @@ export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
 
         {/* Alarm */}
         {hasAlarm && (
-          <div style={{ textAlign: "center", fontSize: 9, color: "#e74c3c", fontWeight: 700, opacity: flash ? 1 : 0.2, transition: "opacity 0.15s" }}>
+          <div style={{ textAlign: "center", fontSize: 9, color: "#e74c3c", fontWeight: 700 }}>
             ⚠ {p.alarms.join(" · ")}
           </div>
         )}

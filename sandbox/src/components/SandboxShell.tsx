@@ -67,7 +67,9 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   const [dark, setDark] = useState(true)
   const [inspectedId, setInspectedId] = useState<string | null>(null)
   const nextZ = useRef(100)
-  const dragRef = useRef<{ id: string; x: number; y: number; dragging: boolean }>({ id: "", x: 0, y: 0, dragging: false })
+  const dragRef = useRef<{ id: string; ox: number; oy: number; dragging: boolean }>({ id: "", ox: 0, oy: 0, dragging: false })
+  const winsRef = useRef(wins)
+  winsRef.current = wins
 
   useEffect(() => {
     const pos: Record<string, { x: number; y: number }> = {}
@@ -147,27 +149,23 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   }, [toggle])
 
   const onHeaderDown = useCallback((e: React.MouseEvent, id: string) => {
-    const el = e.currentTarget.parentElement
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    dragRef.current = { id, x: e.clientX - rect.left, y: e.clientY - rect.top, dragging: true }
+    const w = winsRef.current[id]
+    if (!w) return
+    dragRef.current = { id, ox: e.clientX - w.x, oy: e.clientY - w.y, dragging: true }
+    bringToFront(id)
 
     const onMove = (ev: MouseEvent) => {
       if (!dragRef.current.dragging) return
-      setWins((w) => ({
-        ...w,
+      setWins((prev) => ({
+        ...prev,
         [dragRef.current.id]: {
-          ...w[dragRef.current.id],
-          x: ev.clientX - dragRef.current.x,
-          y: ev.clientY - dragRef.current.y,
+          ...prev[dragRef.current.id],
+          x: ev.clientX - dragRef.current.ox,
+          y: ev.clientY - dragRef.current.oy,
         },
       }))
     }
-    const onUp = () => {
-      dragRef.current.dragging = false
-      document.removeEventListener("mousemove", onMove)
-      document.removeEventListener("mouseup", onUp)
-    }
+    const onUp = () => { dragRef.current.dragging = false; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp) }
     document.addEventListener("mousemove", onMove)
     document.addEventListener("mouseup", onUp)
   }, [])
@@ -349,7 +347,7 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
                 onMouseDown={() => bringToFront(id)}
               >
                 <div
-                  onMouseDown={(e) => { onHeaderDown(e, id); bringToFront(id) }}
+                  onMouseDown={(e) => { onHeaderDown(e, id) }}
                   style={{
                     display: "flex",
                     alignItems: "center",
