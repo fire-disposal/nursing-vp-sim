@@ -108,14 +108,18 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
       const dt = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now
 
-      // Advance phase and sample
-      phaseRef.current = (phaseRef.current + dt / cycleSec) % 1
+      // Advance phase with slight HRV noise (±1.5%)
+      const hrvJitter = 1 + (Math.random() - 0.5) * 0.03
+      phaseRef.current = (phaseRef.current + (dt / cycleSec) * hrvJitter) % 1
+      // Sample waveform
       let val = 0
       if (table) {
         const idx = Math.floor(phaseRef.current * table.length) % table.length
         val = table[idx] * amp * (H * 0.35)
       }
-      const y = Math.round(mid + val)
+      // Tiny physiological noise (±0.5% of canvas height)
+      const noise = (Math.random() - 0.5) * H * 0.005
+      const y = Math.round(mid + val + noise)
 
       // Rotate sample buffer
       samples.shift()
