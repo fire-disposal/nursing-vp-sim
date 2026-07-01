@@ -27,6 +27,32 @@ def _merge_feedback(first: dict, second: dict, missing: list[str]) -> dict:
     return merged
 
 
+def _inject_rubric_max(result: dict, rubric: dict) -> None:
+    """Inject `max` from rubric into each dimension & item.
+
+    The LLM only outputs `score` — `max` is a structural constant
+    defined in the rubric, not something the LLM should determine.
+    """
+    raw_scale = rubric.get("raw_scale", 3)
+    dimensions = {d["id"]: d for d in rubric.get("dimensions", [])}
+    detail = result.get("detail_scores", {})
+    for dim_name, dim_data in detail.items():
+        if not isinstance(dim_data, dict):
+            continue
+        # Find matching rubric dimension by name fallback
+        rd = next((d for d in dimensions.values() if d["name"] == dim_name), None)
+        if rd:
+            dim_data["max"] = rd["max"]
+        else:
+            dim_data.setdefault("max", sum(
+                raw_scale for _ in dim_data.get("items", [])
+            ) or raw_scale)
+
+        for item in dim_data.get("items", []):
+            if isinstance(item, dict):
+                item["max"] = raw_scale
+
+
 def _coerce_numeric_fields(obj: dict, depth: int = 0):
     if depth > 10:
         log.warning("coerce_numeric_fields 超过最大递归深度 %d", depth)

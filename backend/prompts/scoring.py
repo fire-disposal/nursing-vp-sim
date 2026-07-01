@@ -25,6 +25,7 @@ SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专家，专门
 - 1 分：学生未提及该项内容
 
 **每项必须提供：**
+- `score`：1-3 分（1=未涉及, 2=部分覆盖, 3=完成）
 - `evidence`：直接引用对话原文中支持评分的具体证据（至少 10 个汉字）
 - `reason`：为什么给这个分数，点出关键得失（至少 5 个汉字）
 - 学生未涉及的条目：score=1，evidence="未涉及"
@@ -34,7 +35,7 @@ SCORING_SYSTEM = """你是一位经验丰富的护理教育评估专家，专门
 
 ## 输出前自检
 - total_score 在合理范围内
-- 每项都有 id、name、score(1-3)、evidence(≥10字)、reason(≥5字)
+- 每项都有 name、score(1-3)、evidence(≥10字)、reason(≥5字)
 - 未涉及的条目 score=1，evidence="未涉及"
 """
 

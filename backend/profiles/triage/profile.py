@@ -50,10 +50,10 @@ _TRIAGE_SCORING_SYSTEM = """你是一位分诊训练评估专家。请根据学�
 {
   "total_score": 数字(满分20),
   "detail_scores": {
-    "MEWS评分": {"score": 数字, "max": 5, "evidence": "..."},
-    "分诊级别": {"score": 数字, "max": 5, "evidence": "..."},
-    "科室选择": {"score": 数字, "max": 5, "evidence": "..."},
-    "分诊效率": {"score": 数字, "max": 5, "evidence": "..."}
+    "MEWS评分": {"score": 数字, "evidence": "..."},
+    "分诊级别": {"score": 数字, "evidence": "..."},
+    "科室选择": {"score": 数字, "evidence": "..."},
+    "分诊效率": {"score": 数字, "evidence": "..."}
   },
   "strengths": [...],
   "weaknesses": [...],

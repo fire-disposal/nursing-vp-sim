@@ -29,6 +29,7 @@ from ._scoring_validation import (
     _check_feedback_empty,
     _coerce_numeric_fields,
     _convert_to_100_scale,
+    _inject_rubric_max,
     _merge_feedback,
     _validate_feedback_fields,
     _validate_items_content,
@@ -510,6 +511,7 @@ async def evaluate_training(
         if val is not None:
             result[field] = val
 
+    _inject_rubric_max(result, rubric)
     _coerce_numeric_fields(result)
     _validate_scoring_result(result, rubric)
 
