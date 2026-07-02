@@ -4,7 +4,7 @@
  * Receives scenes via initialState prop or bus "scene:load" event.
  * Also supports file import via a hidden file input.
  */
-import { useMemo, useState, useEffect, useRef } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
 import { SceneRenderer3D } from "../components/SceneRenderer3D"
@@ -39,9 +39,7 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
     const fromState = initialState as { scene?: SceneDSL } | undefined
     return fromState?.scene ?? DEMO_SCENE
   })
-  const fileRef = useRef<HTMLInputElement>(null)
 
-  // Listen for bus scene:load events
   useEffect(() => {
     if (!bus) return
     const unsub = bus.on("scene:load", (data: { dsl: SceneDSL }) => {
@@ -50,25 +48,8 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
     return unsub
   }, [bus])
 
-  // File picker for loading scene JSON
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      const text = await file.text()
-      const dsl = JSON.parse(text) as SceneDSL
-      if (dsl.grid && dsl.items) setScene(dsl)
-    } catch {}
-    e.target.value = ""
-  }
-
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      <input ref={fileRef} type="file" accept=".json" onChange={handleFile} style={{ display: "none" }} />
-      <button onClick={() => fileRef.current?.click()}
-        style={{ position: "absolute", top: 6, right: 6, zIndex: 10, fontSize: 9, padding: "2px 8px", background: "#fff", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }}>
-        Load Scene
-      </button>
+    <div style={{ width: "100%", height: "100%" }}>
       <Canvas orthographic camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
         style={{ width: "100%", height: "100%", background: "#faf6f0", borderRadius: 8 }}
         onCreated={({ gl }) => gl.setClearColor("#faf6f0")}>
@@ -80,3 +61,4 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
     </div>
   )
 }
+
