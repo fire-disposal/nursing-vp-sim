@@ -40,8 +40,8 @@ function computeWalls(floor: boolean[][]): WallFace[] {
 }
 
 // ── 2D Grid Cell ──
-function GridCell({ floor, hasItem, icon, active, onDown, onEnter }: { floor: boolean; hasItem: boolean; icon: string; active: boolean; onDown: () => void; onEnter: () => void }) {
-  return (<div onMouseDown={(e) => { e.preventDefault(); onDown() }} onMouseEnter={onEnter} onContextMenu={(e) => e.preventDefault()}
+function GridCell({ floor, hasItem, icon, active, onDown, onRight, onEnter }: { floor: boolean; hasItem: boolean; icon: string; active: boolean; onDown: () => void; onRight: () => void; onEnter: () => void }) {
+  return (<div onMouseDown={(e) => { e.preventDefault(); if (e.button === 2) onRight(); else onDown() }} onMouseEnter={onEnter} onContextMenu={(e) => e.preventDefault()}
     style={{ width: "100%", aspectRatio: "1", background: floor ? "#ede8e2" : "#e8e0d8", border: active ? "2px solid #4fc3f7" : hasItem ? "2px solid #5a8" : "1px solid #ddd", borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none" }}>
     {hasItem ? icon : ""}</div>)
 }
@@ -144,17 +144,27 @@ export default function SceneEditor() {
     setFloor((prev) => { if (prev[gz][gx] === val) return prev; const g = prev.map((r) => [...r]); g[gz][gx] = val; return g })
   }, [])
 
+  const cycleCell = useCallback((gz: number, gx: number) => {
+    setFloor((prev) => { const g = prev.map((r) => [...r]); g[gz][gx] = !g[gz][gx]; return g })
+  }, [])
+
   const cellMouseDown = useCallback((gz: number, gx: number) => {
-    if (tool === "place") {
-      if (!floor[gz][gx]) { setSelectedIdx(-1); return }
-      setItems((prev) => [...prev, { id: placeId, gx, gz, rotation: 0, ty: 0 }]); setSelectedIdx(items.length); return
-    }
     if (tool === "paint") { painting.current = true; paintVal.current = true; applyCell(gz, gx, true); return }
     if (tool === "erase") { painting.current = true; paintVal.current = false; applyCell(gz, gx, false); return }
+    // Left click: select / cycle cell
     const hits = items.map((item, i) => item.gx === gx && item.gz === gz ? i : -1).filter((i) => i >= 0)
-    if (hits.length === 0) { setSelectedIdx(-1); return }
+    if (hits.length === 0) { setSelectedIdx(-1); if (tool !== "place") cycleCell(gz, gx); return }
     const cur = hits.indexOf(selectedIdx); setSelectedIdx(hits[(cur + 1) % hits.length])
   }, [tool, placeId, floor, items, selectedIdx, applyCell])
+
+  const cellRightClick = useCallback((gz: number, gx: number) => {
+    if (tool === "place") {
+      if (!floor[gz][gx]) return
+      setItems((prev) => [...prev, { id: placeId, gx, gz, rotation: 0, ty: 0 }]); setSelectedIdx(items.length)
+    } else if (tool === "erase") {
+      applyCell(gz, gx, false)
+    }
+  }, [tool, placeId, floor, items.length, applyCell])
 
   const cellMouseEnter = useCallback((gz: number, gx: number) => {
     if (!painting.current) return
@@ -226,7 +236,7 @@ export default function SceneEditor() {
                   hasItem={items.some((i) => i.gx === gx && i.gz === gz)}
                   icon={ICONS[items.find((i) => i.gx === gx && i.gz === gz)?.id ?? ""] ?? "⬡"}
                   active={sel?.gx === gx && sel?.gz === gz}
-                  onDown={() => cellMouseDown(gz, gx)} onEnter={() => cellMouseEnter(gz, gx)} />
+                  onDown={() => cellMouseDown(gz, gx)} onRight={() => cellRightClick(gz, gx)} onEnter={() => cellMouseEnter(gz, gx)} />
               )))}
             </div>
           </div>
