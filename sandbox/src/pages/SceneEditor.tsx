@@ -4,6 +4,7 @@ import { OrbitControls } from "@react-three/drei"
 import { Furniture } from "../components/Furniture"
 import { GRID, gridToWorld } from "../components/GridConfig"
 import { FURNI } from "../data/furniture-catalog"
+import type { FurniDef } from "../data/furniture-catalog"
 import * as THREE from "three"
 
 type Tool = "paint" | "erase" | "place"
@@ -48,16 +49,69 @@ function computeWalls(floor: boolean[][]): WallFace[] {
   return w
 }
 
-function GridCell({ floor, hasItem, icon, active, onDown, onRight, onEnter }: any) {
+function GridCell({ floor, hasItem, icon, active, highlighted, onDown, onRight, onEnter }: any) {
   const dark = useDark()
+  let bg: string
+  if (highlighted) bg = dark ? "#2a5a5a" : "#b8e8b8"
+  else if (floor) bg = dark ? "#1a2a2a" : "#e0e8e0"
+  else bg = dark ? "#14141c" : "#f0ece6"
   return (<div onMouseDown={(e) => { e.preventDefault(); if (e.button === 2) onRight(); else onDown() }} onMouseEnter={onEnter} onContextMenu={(e) => e.preventDefault()}
-    style={{ width: "100%", aspectRatio: "1", background: floor ? (dark ? "#1a2a2a" : "#e0e8e0") : (dark ? "#14141c" : "#f0ece6"), border: active ? "2px solid var(--accent)" : hasItem ? "2px solid #5a8" : `1px solid ${dark ? "#222" : "#ddd"}`, borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
+    style={{ width: "100%", aspectRatio: "1", background: bg, border: highlighted ? "2px solid #4fc3f7" : active ? "2px solid var(--accent)" : hasItem ? "2px solid #5a8" : `1px solid ${dark ? "#222" : "#ddd"}`, borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
     {hasItem ? icon : ""}</div>)
 }
 
-function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, dark }: {
+function GhostPreview({ def, dark }: { def: FurniDef; dark: boolean }) {
+  const groupRef = useRef<THREE.Group>(null)
+  useEffect(() => {
+    if (!groupRef.current) return
+    groupRef.current.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const m = child.material as THREE.MeshStandardMaterial
+        m.transparent = true
+        m.opacity = dark ? 0.2 : 0.25
+        m.depthWrite = false
+      }
+    })
+  }, [def, dark])
+  return <group ref={groupRef} renderOrder={-1}>{def.render({ gx: 0, gz: 0 })}</group>
+}
+
+function RotationHandles({ gx, gz, ty, onRotate }: { gx: number; gz: number; ty: number; onRotate: (delta: number) => void }) {
+  const pos = gridToWorld({ gx, gz }, 0)
+  const y = 0.08 + ty
+  const R = 0.65
+  const ac = "#4fc3f7"
+  const arrow = (dir: number, xOff: number, zOff: number, rx: number, rz: number) => (
+    <group position={[pos[0] + xOff * R, y, pos[2] + zOff * R]} onClick={(e) => { e.stopPropagation(); onRotate(dir) }}>
+      <mesh><ringGeometry args={[0.07, 0.12, 12]} /><meshBasicMaterial color={ac} transparent opacity={0.7} depthWrite={false} /></mesh>
+      <mesh position={[xOff * 0.18, 0, zOff * 0.18]} rotation={[rx, 0, rz]}><coneGeometry args={[0.04, 0.07, 6]} /><meshBasicMaterial color={ac} transparent opacity={0.7} depthWrite={false} /></mesh>
+    </group>
+  )
+  return (<group>
+    {arrow(15, 1, 0, 0, -Math.PI / 2)}
+    {arrow(-15, -1, 0, 0, Math.PI / 2)}
+    {arrow(15, 0, -1, Math.PI / 2, 0)}
+    {arrow(-15, 0, 1, -Math.PI / 2, 0)}
+  </group>)
+}
+
+function SelectionGlow({ gx, gz, ty }: { gx: number; gz: number; ty: number }) {
+  const meshRef = useRef<THREE.Mesh>(null)
+  useFrame(() => {
+    if (meshRef.current) {
+      (meshRef.current.material as THREE.MeshBasicMaterial).opacity = 0.2 + Math.sin(performance.now() * 0.004) * 0.08
+    }
+  })
+  const pos = gridToWorld({ gx, gz }, 0)
+  return <mesh ref={meshRef} position={[pos[0], 2.7 + ty, pos[2]]} renderOrder={10}>
+    <boxGeometry args={[GRID.UNIT * 1.15, 0.06, GRID.UNIT * 1.15]} />
+    <meshBasicMaterial color="#4fc3f7" transparent depthWrite={false} />
+  </mesh>
+}
+
+function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate, dark }: {
   floor: boolean[][]; items: PlacedItem[]; selectedIdx: number
-  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; dark: boolean
+  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onRotate: (delta: number) => void; dark: boolean
 }) {
   const walls = useMemo(() => computeWalls(floor), [floor])
   const [hover, setHover] = useState<{ gx: number; gz: number } | null>(null)
@@ -75,6 +129,8 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, dark }: {
   const FLOOR_COL = c("#ede8e2", "#1e2e2e")
   const WALL_COL = c("#faf6f0", "#2a3a4a")
   const GROUND_COL = c("#e8e0d8", "#0d0d14")
+
+  const hoverDef = useMemo(() => hover && tool === "place" ? FURNI.find(f => f.id === placeId) ?? null : null, [hover, tool, placeId])
 
   return (<>
     <ambientLight intensity={0.5} />
@@ -103,14 +159,13 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, dark }: {
       const def = FURNI.find((f) => f.id === item.id); if (!def) return null
       return (<group key={`${item.gx}-${item.gz}`}>
         <group position={[0, item.ty, 0]}><Furniture gx={item.gx} gz={item.gz} rotation={item.rotation}>{def.render({gx:item.gx,gz:item.gz})}</Furniture></group>
-        {i === selectedIdx && <mesh position={[gridToWorld({gx:item.gx,gz:item.gz},0)[0], 2.8+item.ty, gridToWorld({gx:item.gx,gz:item.gz},0)[2]]}>
-          <boxGeometry args={[GRID.UNIT * 1.1, 0.05, GRID.UNIT * 1.1]} /><meshBasicMaterial color="#4fc3f7" transparent opacity={0.25} />
-        </mesh>}
+        {i === selectedIdx && <SelectionGlow gx={item.gx} gz={item.gz} ty={item.ty} />}
+        {i === selectedIdx && <RotationHandles gx={item.gx} gz={item.gz} ty={item.ty} onRotate={onRotate} />}
       </group>)
     })}
-    {hover && tool === "place" && <mesh position={[gridToWorld({gx:hover.gx,gz:hover.gz},0)[0], 0.1, gridToWorld({gx:hover.gx,gz:hover.gz},0)[2]]}>
-      <boxGeometry args={[GRID.UNIT * 0.9, 0.02, GRID.UNIT * 0.9]} /><meshBasicMaterial color="#4fc3f7" transparent opacity={0.3} />
-    </mesh>}
+    {hoverDef && hover && <group position={[gridToWorld({gx:hover.gx,gz:hover.gz},0)[0], 0.005, gridToWorld({gx:hover.gx,gz:hover.gz},0)[2]]}>
+      <GhostPreview def={hoverDef} dark={dark} />
+    </group>}
   </>)
 }
 
@@ -123,6 +178,8 @@ export default function SceneEditor() {
   const [placeId, setPlaceId] = useState("bed")
   const [search, setSearch] = useState("")
   const [cat, setCat] = useState("")
+  const [showHelp, setShowHelp] = useState(false)
+  const [hlSet, setHlSet] = useState<Set<string>>(new Set())
   const ALL_CATS = useMemo(() => [...new Set(FURNI.map((f) => f.category))], [])
   const painting = useRef(false); const paintVal = useRef(true)
   const sel = selectedIdx >= 0 && selectedIdx < items.length ? items[selectedIdx] : null
@@ -130,13 +187,18 @@ export default function SceneEditor() {
   const applyCell = useCallback((gz: number, gx: number, val: boolean) => setFloor((p) => { if (p[gz][gx] === val) return p; const g = p.map(r=>[...r]); g[gz][gx] = val; return g }), [])
   const cycleCell = useCallback((gz: number, gx: number) => setFloor((p) => { const g = p.map(r=>[...r]); g[gz][gx] = !g[gz][gx]; return g }), [])
 
+  const addHl = useCallback((gz: number, gx: number) => {
+    setHlSet(prev => { const next = new Set(prev); next.add(`${gz},${gx}`); return next })
+  }, [])
+  const clearHl = useCallback(() => setHlSet(new Set()), [])
+
   const cellDown = useCallback((gz: number, gx: number) => {
-    if (tool === "paint") { painting.current = true; paintVal.current = true; applyCell(gz, gx, true); return }
-    if (tool === "erase") { painting.current = true; paintVal.current = false; applyCell(gz, gx, false); return }
+    if (tool === "paint") { painting.current = true; paintVal.current = true; applyCell(gz, gx, true); addHl(gz, gx); return }
+    if (tool === "erase") { painting.current = true; paintVal.current = false; applyCell(gz, gx, false); addHl(gz, gx); return }
     const hits = items.map((it,i) => it.gx===gx&&it.gz===gz ? i : -1).filter(i=>i>=0)
     if (hits.length===0) { setSelectedIdx(-1); if (tool !== "place") cycleCell(gz,gx); return }
     const cur = hits.indexOf(selectedIdx); setSelectedIdx(hits[(cur+1)%hits.length])
-  }, [tool, items, selectedIdx, applyCell, cycleCell])
+  }, [tool, items, selectedIdx, applyCell, cycleCell, addHl])
 
   const cellRight = useCallback((gz: number, gx: number) => {
     if (tool === "place") { if (!floor[gz][gx]) return; setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]); setSelectedIdx(items.length) }
@@ -147,12 +209,43 @@ export default function SceneEditor() {
   const updItem = useCallback((i: number, p: Partial<PlacedItem>) => setItems(prev => prev.map((it,idx) => idx===i ? {...it,...p} : it)), [])
   const delItem = useCallback((i: number) => { setItems(p=>p.filter((_,idx)=>idx!==i)); setSelectedIdx(-1) }, [])
 
+  const rotateSelected = useCallback((delta: number) => {
+    if (selectedIdx >= 0 && items[selectedIdx]) {
+      const cur = items[selectedIdx].rotation
+      updItem(selectedIdx, { rotation: ((cur + delta) % 360 + 360) % 360 })
+    }
+  }, [selectedIdx, items, updItem])
+
+  const filteredCatalog = useMemo(
+    () => (cat ? FURNI.filter(f => f.category === cat) : FURNI).filter(f => !search || f.name.includes(search) || f.tags.some(t=>t.includes(search))),
+    [cat, search]
+  )
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.tagName === "INPUT") return
+      const k = e.key.toLowerCase()
+      if (k === "p") { e.preventDefault(); setTool("paint") }
+      else if (k === "e") { e.preventDefault(); setTool("erase") }
+      else if (k === "v") { e.preventDefault(); setTool("place") }
+      else if ((k === "delete" || k === "backspace") && selectedIdx >= 0) { e.preventDefault(); delItem(selectedIdx) }
+      else if (k === "r" && !e.ctrlKey && !e.metaKey && selectedIdx >= 0) { e.preventDefault(); rotateSelected(15) }
+      else if (k === "?" || k === "h") { e.preventDefault(); setShowHelp(p => !p) }
+      else if (/^[1-9]$/.test(k)) {
+        const idx = parseInt(k, 10) - 1
+        if (idx < filteredCatalog.length) { setPlaceId(filteredCatalog[idx].id); setTool("place") }
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [selectedIdx, rotateSelected, delItem, filteredCatalog])
+
   const c = (l: string, d: string) => dark ? d : l
   const BG = c("#f0ece6", "#12121e"); const PANEL = c("#faf6f0", "#16161e"); const BD = c("#e0d8d0", "#2a2a35")
 
   return (
     <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: BG, color: "var(--fg)", fontSize: 11 }}
-      onMouseUp={() => { painting.current = false }} onMouseLeave={() => { painting.current = false }}>
+      onMouseUp={() => { painting.current = false; clearHl() }} onMouseLeave={() => { painting.current = false; clearHl() }}>
 
       {/* Catalog */}
       <div style={{ width: 150, background: PANEL, borderRight: `1px solid ${BD}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
@@ -170,13 +263,14 @@ export default function SceneEditor() {
           </div>
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "3px 5px" }}>
-          {(cat ? FURNI.filter(f => f.category===cat) : FURNI).filter(f => !search || f.name.includes(search) || f.tags.some(t=>t.includes(search))).map(f => (
+          {filteredCatalog.map((f, i) => (
             <button key={f.id} onClick={() => { setPlaceId(f.id); setTool("place") }}
               style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", padding: "5px 6px", marginBottom: 1, borderRadius: 4,
                 border: `1px solid ${placeId===f.id&&tool==="place" ? "var(--accent)" : "transparent"}`,
                 background: placeId===f.id&&tool==="place" ? "var(--accent)12" : "transparent", cursor: "pointer", textAlign: "left", fontSize: 10, color: "var(--fg)" }}>
               <span>{ICONS[f.id] ?? "▣"}</span><span>{f.name}</span>
-              {f.tags.length>0 && <span style={{ marginLeft: "auto", color: "var(--muted-fg)", fontSize: 8 }}>#{f.tags[0]}</span>}
+              {i < 9 && <span style={{ marginLeft: "auto", color: "var(--muted-fg)", fontSize: 7, fontFamily: "monospace" }}>[{i+1}]</span>}
+              {f.tags.length>0 && !(i < 9) && <span style={{ marginLeft: "auto", color: "var(--muted-fg)", fontSize: 8 }}>#{f.tags[0]}</span>}
             </button>
           ))}
         </div>
@@ -187,12 +281,16 @@ export default function SceneEditor() {
         <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", background: PANEL, borderBottom: `1px solid ${BD}`, fontSize: 10, flexShrink: 0 }}>
           {(["paint","erase","place"] as Tool[]).map(t => (
             <button key={t} onClick={() => setTool(t)}
+              title={t==="paint" ? "Paint [P]" : t==="erase" ? "Erase [E]" : "Place [V]"}
               style={{ padding: "3px 10px", borderRadius: 4, border: `1px solid ${tool===t ? "var(--accent)" : BD}`, cursor: "pointer", fontSize: 10,
                 background: tool===t ? "var(--accent)12" : "var(--bg)", color: tool===t ? "var(--accent)" : "var(--muted-fg)" }}>
               {t==="paint" ? "▣ Paint" : t==="erase" ? "✕ Erase" : `⬡ ${ICONS[placeId]??""}`}
             </button>
           ))}
-          <span style={{ flex: 1 }} /><span style={{ color: "var(--muted-fg)", fontSize: 9 }}>{items.length} items</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={() => setShowHelp(p => !p)} title="Help [?]"
+            style={{ padding: "2px 6px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: showHelp ? "var(--accent)12" : "transparent", color: showHelp ? "var(--accent)" : "var(--muted-fg)" }}>?</button>
+          <span style={{ color: "var(--muted-fg)", fontSize: 9 }}>{items.length} items</span>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <div style={{ overflow: "auto", padding: 10, display: "flex", alignItems: "flex-start", justifyContent: "center", flexShrink: 0 }}>
@@ -202,14 +300,15 @@ export default function SceneEditor() {
                   hasItem={items.some(i=>i.gx===gx&&i.gz===gz)}
                   icon={ICONS[items.find(i=>i.gx===gx&&i.gz===gz)?.id??""] ?? "⬡"}
                   active={sel?.gx===gx&&sel?.gz===gz}
-                  onDown={() => cellDown(gz,gx)} onRight={() => cellRight(gz,gx)} onEnter={() => { if (painting.current && (tool==="paint"||tool==="erase")) applyCell(gz,gx,paintVal.current) }} />
+                  highlighted={hlSet.has(`${gz},${gx}`)}
+                  onDown={() => cellDown(gz,gx)} onRight={() => cellRight(gz,gx)} onEnter={() => { if (painting.current && (tool==="paint"||tool==="erase")) { applyCell(gz,gx,paintVal.current); addHl(gz,gx) } }} />
               )))}
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 200, margin: 6, borderRadius: 8, overflow: "hidden" }}>
             <Canvas orthographic camera={{ position: [5,10,7], zoom: 30, near: -10, far: 20 }}
               style={{ width: "100%", height: "100%", background: dark ? "#0d0d14" : "#e8e0d8" }}>
-              <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} dark={dark} />
+              <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onRotate={rotateSelected} dark={dark} />
               <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
             </Canvas>
           </div>
@@ -237,10 +336,29 @@ export default function SceneEditor() {
           <Slider8 label="Y" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={v=>updItem(selectedIdx,{ty:v})} />
           <Slider8 label="X" value={sel.gx} min={0} max={W-1} step={1} onChange={v=>updItem(selectedIdx,{gx:v})} />
           <Slider8 label="Z" value={sel.gz} min={0} max={D-1} step={1} onChange={v=>updItem(selectedIdx,{gz:v})} />
-          <button onClick={()=>delItem(selectedIdx)}
+          <button onClick={()=>delItem(selectedIdx)} title="Delete [Del]"
             style={{ width: "100%", padding: "4px 0", marginTop: 4, borderRadius: 4, border: "1px solid #e74c3c33", background: "#e74c3c12", color: "#e74c3c", cursor: "pointer", fontSize: 9 }}>Delete</button>
         </div>}
       </div>
+
+      {/* Help overlay */}
+      {showHelp && <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)", zIndex: 100, fontFamily: "system-ui" }}
+        onClick={() => setShowHelp(false)}>
+        <div style={{ background: dark ? "#1a1a2e" : "#faf6f0", border: `1px solid ${BD}`, borderRadius: 12, padding: "24px 32px", minWidth: 280, color: "var(--fg)", fontSize: 13 }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Keyboard Shortcuts</div>
+          <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: 12 }}>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>P</span><span>Paint mode</span>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>E</span><span>Erase mode</span>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>V</span><span>Place mode</span>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>R</span><span>Rotate selected 15°</span>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>Del</span><span>Delete selected</span>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>[1-9]</span><span>Select catalog item</span>
+            <span style={{ color: "#4fc3f7", fontFamily: "monospace" }}>?</span><span>Toggle this help</span>
+          </div>
+          <div style={{ marginTop: 12, color: "var(--muted-fg)", fontSize: 10 }}>Click anywhere to close</div>
+        </div>
+      </div>}
     </div>
   )
 }

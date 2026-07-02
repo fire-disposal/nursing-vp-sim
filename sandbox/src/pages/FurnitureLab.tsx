@@ -260,6 +260,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
   const [regName, setRegName] = useState("")
   const [regNote, setRegNote] = useState("")
   const [saved, setSaved] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const CATS = ["", ...new Set(FURNI.map((f) => f.category))]
@@ -332,6 +333,32 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
     }
   }, [glbUrl])
 
+  // keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.tagName === "INPUT") return
+      const k = e.key.toLowerCase()
+      if (k === "?" || k === "h") { e.preventDefault(); setShowHelp(p => !p); return }
+      if (/^[1-9]$/.test(k)) {
+        const items = cat ? FURNI.filter(f => f.category === cat) : FURNI
+        const idx = parseInt(k, 10) - 1
+        if (idx < items.length) {
+          const f = items[idx]; const fi = FURNI.indexOf(f)
+          setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1)
+          if (glbUrl) URL.revokeObjectURL(glbUrl)
+          setGlbUrl(null); setGlbHash(null); setGlbName(null)
+          setRegName(""); setRegTags(""); setRegNote("")
+        }
+      }
+      if (e.ctrlKey || e.metaKey) {
+        if (k === "1") { e.preventDefault(); setSectionTab("uncalibrated") }
+        else if (k === "2") { e.preventDefault(); setSectionTab("registered") }
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [cat, glbUrl])
+
   return (
     <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: pal.bg }}>
       {/* ── LEFT: Picker ── */}
@@ -363,7 +390,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
               const fi = FURNI.indexOf(f)
               const active = fi === idx
               return (
-                <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1); if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null) }}
+                <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1); if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null); setRegName(""); setRegTags(""); setRegNote("") }}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                     padding: "8px 4px", borderRadius: 6, border: `1px solid ${active ? pal.accent : "transparent"}`,
@@ -423,7 +450,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                 {Object.entries(allEntries).length === 0 ? (
                   <div style={{ fontSize: 9, color: pal.dim, textAlign: "center", padding: "8px 0" }}>No registered items</div>
                 ) : (
-                  Object.entries(allEntries).map(([id, entry]) => (
+                    Object.entries(allEntries).map(([id, entry]) => (
                     <div key={id}
                       style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 6px", borderRadius: 4, border: `1px solid ${glbName === id ? pal.accent : "transparent"}`, background: glbName === id ? `${pal.accent}12` : "transparent", fontSize: 8, cursor: "pointer" }}
                       onClick={async () => {
@@ -447,13 +474,20 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                           } catch {}
                         }
                       }}>
-                      <span style={{ fontSize: 11, opacity: entry.enabled ? 1 : 0.3 }}>📦</span>
+                      <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 2, opacity: entry.enabled ? 1 : 0.3 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: entry.enabled ? "#4caf50" : "#888", flexShrink: 0 }} />
+                        📦
+                      </span>
                       <div style={{ flex: 1, overflow: "hidden" }}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: entry.enabled ? pal.text : pal.dim }}>{entry.name || id}</div>
-                        {entry.note && <div style={{ color: pal.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 7 }}>{entry.note}</div>}
+                        <div style={{ color: pal.dim, fontSize: 7, display: "flex", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {entry.note && <span>{entry.note}</span>}
+                          <span>×{entry.calibration.scale.toFixed(1)}</span>
+                          <span>{entry.calibration.rot.toFixed(0)}°</span>
+                        </div>
                       </div>
                       <button onClick={async (e) => { e.stopPropagation(); await toggleEnabled(id); refreshModels() }}
-                        style={{ padding: "1px 4px", background: "none", border: `1px solid ${pal.border}`, borderRadius: 2, color: pal.dim, cursor: "pointer", fontSize: 7, lineHeight: "12px" }}>
+                        style={{ padding: "1px 4px", background: entry.enabled ? "#4caf5022" : "transparent", border: `1px solid ${entry.enabled ? "#4caf50" : pal.border}`, borderRadius: 2, color: entry.enabled ? "#4caf50" : pal.dim, cursor: "pointer", fontSize: 7, lineHeight: "12px" }}>
                         {entry.enabled ? "on" : "off"}
                       </button>
                       <button onClick={async (e) => { e.stopPropagation(); if (confirm(`Remove "${entry.name || id}" from registry?`)) { await deleteEntry(id); refreshModels() } }}
@@ -461,7 +495,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
                         ✕
                       </button>
                     </div>
-                  ))
+                    ))
                 )}
               </div>
             )}
@@ -581,6 +615,22 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
               ))}
             </div>
           )}
+
+          {/* Help overlay */}
+          {showHelp && <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)", zIndex: 100, fontFamily: "system-ui" }}
+            onClick={() => setShowHelp(false)}>
+            <div style={{ background: dark ? "#1a1a2e" : pal.panel, border: `1px solid ${pal.border}`, borderRadius: 12, padding: "24px 32px", minWidth: 280, color: pal.text, fontSize: 13 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Keyboard Shortcuts</div>
+              <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: 12 }}>
+                <span style={{ color: pal.accent, fontFamily: "monospace" }}>[1-9]</span><span>Select primitive item</span>
+                <span style={{ color: pal.accent, fontFamily: "monospace" }}>⌘1</span><span>Uncalibrated tab</span>
+                <span style={{ color: pal.accent, fontFamily: "monospace" }}>⌘2</span><span>Registered tab</span>
+                <span style={{ color: pal.accent, fontFamily: "monospace" }}>?</span><span>Toggle this help</span>
+              </div>
+              <div style={{ marginTop: 12, color: pal.dim, fontSize: 10 }}>Click anywhere to close</div>
+            </div>
+          </div>}
         </div>
   )
 }
