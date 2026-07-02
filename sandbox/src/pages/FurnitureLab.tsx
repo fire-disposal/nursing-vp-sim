@@ -22,16 +22,14 @@ import { buildEntry, mergeEntry, getEntry, getAllEntries, toggleEnabled, deleteE
 import type { FurnitureEntry } from "../data/furniture-registry"
 import { discoverModels, clearModelCache, type DiscoveredModel } from "../data/discover-models"
 
-// ── Colour palette (light/dark aware) ──
-function palette(dark: boolean) {
-  return dark
-    ? { bg: "#1a1a2a", panel: "#12121e", border: "#2a2a35", text: "#ccc", dim: "#666", accent: "#4fc3f7", canvas: "#1e1e28", watermark: "#fff2" }
-    : { bg: "#e8e8ee", panel: "#fff", border: "#ddd", text: "#222", dim: "#888", accent: "#0288d1", canvas: "#ede8e2", watermark: "#0003" }
+// ── Light colour palette (always light) ──
+function palette() {
+  return { bg: "#f0ece6", panel: "#faf6f0", border: "#e0d8d0", text: "#555", dim: "#999", accent: "#0288d1", canvas: "#ede8e2", watermark: "#0002" }
 }
 
 // ── Slider + number input ──
-function SliderInput({ label, value, min, max, step, onChange, dark, log }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; dark: boolean; log?: boolean }) {
-  const pal = palette(dark)
+function SliderInput({ label, value, min, max, step, onChange, log }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; log?: boolean }) {
+  const pal = palette()
   const [edit, setEdit] = useState<string | null>(null)
 
   // Logarithmic transform: slider 0-100 ↔ actual value
@@ -67,16 +65,15 @@ function SliderInput({ label, value, min, max, step, onChange, dark, log }: { la
 }
 
 // ── JSON transform panel ──
-function TransformJSON({ id, name, tx, ty, tz, rot, scale, glbName, glbHash, onApply, dark }: {
+function TransformJSON({ id, name, tx, ty, tz, rot, scale, glbName, glbHash, onApply }: {
   id: string; name: string
   tx: number; ty: number; tz: number
   rot: number; scale: number
   glbName?: string | null
   glbHash?: string | null
   onApply: (v: { tx: number; ty: number; tz: number; rot: number; scale: number }) => void
-  dark: boolean
 }) {
-  const pal = palette(dark)
+  const pal = palette()
   const [raw, setRaw] = useState("")
   const [err, setErr] = useState("")
 
@@ -146,10 +143,10 @@ function GLBScene({ url }: { url: string }) {
 }
 
 // ── 3D preview ──
-function Preview({ def, tx, ty, tz, rot, sc, glbUrl, dark }: {
-  def: FurniDef; tx: number; ty: number; tz: number; rot: number; sc: number; glbUrl?: string; dark: boolean
+function Preview({ def, tx, ty, tz, rot, sc, glbUrl }: {
+  def: FurniDef; tx: number; ty: number; tz: number; rot: number; sc: number; glbUrl?: string
 }) {
-  const pal = palette(dark)
+  const pal = palette()
   return (
     <>
       <ambientLight intensity={0.5} />
@@ -240,15 +237,8 @@ async function fileToHash(file: File): Promise<string> {
 }
 
 // ── Component ──
-export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean }) {
-  const [dark, setDark] = useState(explicitDark ?? document.documentElement.classList.contains("dark"))
-  useEffect(() => {
-    if (explicitDark !== undefined) return
-    const obs = new MutationObserver(() => setDark(document.documentElement.classList.contains("dark")))
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
-    return () => obs.disconnect()
-  }, [explicitDark])
-  const pal = palette(dark)
+export default function FurnitureLab() {
+  const pal = palette()
   const [idx, setIdx] = useState(0)
   const [filter, setFilter] = useState("")
   const [tx, setTx] = useState(0); const [ty, setTy] = useState(0); const [tz, setTz] = useState(0)
@@ -526,7 +516,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             <directionalLight position={[3,5,3]} intensity={0.7} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
             <directionalLight position={[-2,2,1]} intensity={0.3} />
             <hemisphereLight args={["#e8d8c8","#c8d8e0",0.3]} />
-            <Preview def={def} tx={tx} ty={ty} tz={tz} rot={rot * Math.PI / 180} sc={sc} glbUrl={glbUrl ?? undefined} dark={dark} />
+            <Preview def={def} tx={tx} ty={ty} tz={tz} rot={rot * Math.PI / 180} sc={sc} glbUrl={glbUrl ?? undefined}  />
             <OrbitControls enableZoom enablePan enableRotate minDistance={1} maxDistance={8} target={[0, 0.2, 0]} />
           </Canvas>
           <div style={{ position: "absolute", bottom: 4, right: 6, fontSize: 8, color: pal.watermark, pointerEvents: "none" }}>
@@ -540,18 +530,18 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <div style={{ minWidth: 120, flex: 1 }}>
               <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>TRANSLATE</div>
-              <SliderInput dark={dark} label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
-              <SliderInput dark={dark} label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
-              <SliderInput dark={dark} label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
+              <SliderInput  label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
+              <SliderInput  label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
+              <SliderInput  label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
             </div>
             <div style={{ minWidth: 110, flex: 1 }}>
               <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>ROTATE</div>
-              <SliderInput dark={dark} label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
+              <SliderInput  label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
               <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2, marginTop: 3 }}>SCALE</div>
-              <SliderInput dark={dark} label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
+              <SliderInput  label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
             </div>
             <div style={{ minWidth: 120, flex: 1, maxWidth: 200 }}>
-              <TransformJSON dark={dark} id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
+              <TransformJSON  id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1, flexShrink: 0 }}>
               <button onClick={() => { setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
@@ -619,7 +609,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
           {/* Help overlay */}
           {showHelp && <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)", zIndex: 100, fontFamily: "system-ui" }}
             onClick={() => setShowHelp(false)}>
-            <div style={{ background: dark ? "#1a1a2e" : pal.panel, border: `1px solid ${pal.border}`, borderRadius: 12, padding: "24px 32px", minWidth: 280, color: pal.text, fontSize: 13 }}
+            <div style={{ background: pal.panel, border: `1px solid ${pal.border}`, borderRadius: 12, padding: "24px 32px", minWidth: 280, color: pal.text, fontSize: 13 }}
               onClick={e => e.stopPropagation()}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Keyboard Shortcuts</div>
               <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: 12 }}>

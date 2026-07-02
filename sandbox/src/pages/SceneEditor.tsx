@@ -16,15 +16,6 @@ const ICONS: Record<string, string> = {
   cabinet: "\u{1F5C4}", bedside: "\u{1FA91}",
 }
 
-function useDark(): boolean {
-  const [d, setD] = useState(() => document.documentElement.classList.contains("dark"))
-  useEffect(() => {
-    const obs = new MutationObserver(() => setD(document.documentElement.classList.contains("dark")))
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
-    return () => obs.disconnect()
-  }, [])
-  return d
-}
 
 function initGrid(): boolean[][] {
   const g: boolean[][] = []
@@ -50,17 +41,16 @@ function computeWalls(floor: boolean[][]): WallFace[] {
 }
 
 function GridCell({ floor, hasItem, icon, active, highlighted, onDown, onRight, onEnter }: any) {
-  const dark = useDark()
   let bg: string
-  if (highlighted) bg = dark ? "#2a5a5a" : "#b8e8b8"
-  else if (floor) bg = dark ? "#1a2a2a" : "#e0e8e0"
-  else bg = dark ? "#14141c" : "#f0ece6"
+  if (highlighted) bg = "#b8e8b8"
+  else if (floor) bg = "#e0e8e0"
+  else bg = "#f0ece6"
   return (<div onMouseDown={(e) => { e.preventDefault(); if (e.button === 2) onRight(); else onDown() }} onMouseEnter={onEnter} onContextMenu={(e) => e.preventDefault()}
-    style={{ width: "100%", aspectRatio: "1", background: bg, border: highlighted ? "2px solid #4fc3f7" : active ? "2px solid var(--accent)" : hasItem ? "2px solid #5a8" : `1px solid ${dark ? "#222" : "#ddd"}`, borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
+    style={{ width: "100%", aspectRatio: "1", background: bg, border: active ? "2px solid #4fc3f7" : highlighted ? "2px solid #4caf50" : hasItem ? "2px solid #5a8" : "1px solid #ddd", borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
     {hasItem ? icon : ""}</div>)
 }
 
-function GhostPreview({ def, dark }: { def: FurniDef; dark: boolean }) {
+function GhostPreview({ def }: { def: FurniDef }) {
   const groupRef = useRef<THREE.Group>(null)
   useEffect(() => {
     if (!groupRef.current) return
@@ -68,11 +58,11 @@ function GhostPreview({ def, dark }: { def: FurniDef; dark: boolean }) {
       if (child instanceof THREE.Mesh && child.material) {
         const m = child.material as THREE.MeshStandardMaterial
         m.transparent = true
-        m.opacity = dark ? 0.2 : 0.25
+        m.opacity = 0.25
         m.depthWrite = false
       }
     })
-  }, [def, dark])
+  }, [def])
   return <group ref={groupRef} renderOrder={-1}>{def.render({ gx: 0, gz: 0 })}</group>
 }
 
@@ -109,9 +99,9 @@ function SelectionGlow({ gx, gz, ty }: { gx: number; gz: number; ty: number }) {
   </mesh>
 }
 
-function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate, dark }: {
+function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate }: {
   floor: boolean[][]; items: PlacedItem[]; selectedIdx: number
-  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onRotate: (delta: number) => void; dark: boolean
+  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onRotate: (delta: number) => void
 }) {
   const walls = useMemo(() => computeWalls(floor), [floor])
   const [hover, setHover] = useState<{ gx: number; gz: number } | null>(null)
@@ -125,10 +115,9 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate, 
     return v.x * w.nx + v.z * w.nz <= 0
   }, [camPos])
 
-  const c = (light: string, d: string) => dark ? d : light
-  const FLOOR_COL = c("#ede8e2", "#1e2e2e")
-  const WALL_COL = c("#faf6f0", "#2a3a4a")
-  const GROUND_COL = c("#e8e0d8", "#0d0d14")
+  const FLOOR_COL = "#ede8e2"
+  const WALL_COL = "#faf6f0"
+  const GROUND_COL = "#e8e0d8"
 
   const hoverDef = useMemo(() => hover && tool === "place" ? FURNI.find(f => f.id === placeId) ?? null : null, [hover, tool, placeId])
 
@@ -164,13 +153,12 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate, 
       </group>)
     })}
     {hoverDef && hover && <group position={[gridToWorld({gx:hover.gx,gz:hover.gz},0)[0], 0.005, gridToWorld({gx:hover.gx,gz:hover.gz},0)[2]]}>
-      <GhostPreview def={hoverDef} dark={dark} />
+      <GhostPreview def={hoverDef} />
     </group>}
   </>)
 }
 
 export default function SceneEditor() {
-  const dark = useDark()
   const [floor, setFloor] = useState<boolean[][]>(initGrid)
   const [items, setItems] = useState<PlacedItem[]>([])
   const [selectedIdx, setSelectedIdx] = useState(-1)
@@ -180,6 +168,7 @@ export default function SceneEditor() {
   const [cat, setCat] = useState("")
   const [showHelp, setShowHelp] = useState(false)
   const [hlSet, setHlSet] = useState<Set<string>>(new Set())
+  const [orthoMode, setOrthoMode] = useState(true)
   const ALL_CATS = useMemo(() => [...new Set(FURNI.map((f) => f.category))], [])
   const painting = useRef(false); const paintVal = useRef(true)
   const sel = selectedIdx >= 0 && selectedIdx < items.length ? items[selectedIdx] : null
@@ -240,8 +229,32 @@ export default function SceneEditor() {
     return () => window.removeEventListener("keydown", handler)
   }, [selectedIdx, rotateSelected, delItem, filteredCatalog])
 
-  const c = (l: string, d: string) => dark ? d : l
-  const BG = c("#f0ece6", "#12121e"); const PANEL = c("#faf6f0", "#16161e"); const BD = c("#e0d8d0", "#2a2a35")
+  const handleExport = useCallback(() => {
+    const data = JSON.stringify({
+      version: 1, grid: floor.map(r => r.join("")), items,
+      room: { w: GRID.ROOM_W, d: GRID.ROOM_D, unit: GRID.UNIT },
+    }, null, 2)
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }))
+    a.download = "scene.json"; a.click()
+  }, [floor, items])
+
+  const handleImport = useCallback(() => {
+    const input = document.createElement("input")
+    input.type = "file"; input.accept = ".json"
+    input.onchange = async (e: any) => {
+      try {
+        const text = await e.target.files[0].text()
+        const data = JSON.parse(text)
+        if (!data.grid || !data.items) return
+        setFloor(data.grid.map((r: string) => r.split("").map((c: string) => c === "1")))
+        setItems(data.items)
+      } catch {}
+    }
+    input.click()
+  }, [])
+
+  const BG = "#f0ece6"; const PANEL = "#faf6f0"; const BD = "#e0d8d0"
 
   return (
     <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: BG, color: "var(--fg)", fontSize: 11 }}
@@ -291,6 +304,18 @@ export default function SceneEditor() {
           <button onClick={() => setShowHelp(p => !p)} title="Help [?]"
             style={{ padding: "2px 6px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: showHelp ? "var(--accent)12" : "transparent", color: showHelp ? "var(--accent)" : "var(--muted-fg)" }}>?</button>
           <span style={{ color: "var(--muted-fg)", fontSize: 9 }}>{items.length} items</span>
+          <button onClick={() => setOrthoMode(m => !m)}
+            style={{ padding: "2px 8px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: "transparent", color: "var(--muted-fg)" }}>
+            {orthoMode ? "Persp" : "Ortho"}
+          </button>
+          <button onClick={handleExport}
+            style={{ padding: "2px 8px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: "transparent", color: "var(--muted-fg)" }}>
+            Export
+          </button>
+          <button onClick={handleImport}
+            style={{ padding: "2px 8px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: "transparent", color: "var(--muted-fg)" }}>
+            Import
+          </button>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <div style={{ overflow: "auto", padding: 10, display: "flex", alignItems: "flex-start", justifyContent: "center", flexShrink: 0 }}>
@@ -306,11 +331,19 @@ export default function SceneEditor() {
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 200, margin: 6, borderRadius: 8, overflow: "hidden" }}>
-            <Canvas orthographic camera={{ position: [5,10,7], zoom: 30, near: -10, far: 20 }}
-              style={{ width: "100%", height: "100%", background: dark ? "#0d0d14" : "#e8e0d8" }}>
-              <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onRotate={rotateSelected} dark={dark} />
-              <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
-            </Canvas>
+            {orthoMode ? (
+              <Canvas orthographic camera={{ position: [5,10,7], zoom: 30, near: -10, far: 20 }}
+                style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
+                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onRotate={rotateSelected} />
+                <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
+              </Canvas>
+            ) : (
+              <Canvas camera={{ position: [5,6,7], fov: 40, near: 0.1, far: 50 }}
+                style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
+                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onRotate={rotateSelected} />
+                <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.1} maxPolarAngle={1.3} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
+              </Canvas>
+            )}
           </div>
         </div>
       </div>
@@ -344,7 +377,7 @@ export default function SceneEditor() {
       {/* Help overlay */}
       {showHelp && <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)", zIndex: 100, fontFamily: "system-ui" }}
         onClick={() => setShowHelp(false)}>
-        <div style={{ background: dark ? "#1a1a2e" : "#faf6f0", border: `1px solid ${BD}`, borderRadius: 12, padding: "24px 32px", minWidth: 280, color: "var(--fg)", fontSize: 13 }}
+            <div style={{ background: "#faf6f0", border: `1px solid ${BD}`, borderRadius: 12, padding: "24px 32px", minWidth: 280, color: "#333", fontSize: 13 }}
           onClick={e => e.stopPropagation()}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Keyboard Shortcuts</div>
           <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "6px 12px", fontSize: 12 }}>
