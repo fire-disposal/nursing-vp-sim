@@ -164,7 +164,7 @@ function Preview({ def, tx, ty, tz, rot, sc, glbUrl, dark }: {
       </mesh>
 
       {/* Grid — 0.5m spacing */}
-      <gridHelper args={[3, 6, "#ccc", "#e0e0e0"]} position={[0, 0.002, 0]} />
+      <gridHelper args={[3, 3, "#ccc", "#e0e0e0"]} position={[0, 0.002, 0]} />
 
       {/* Origin crosshair */}
       <mesh position={[0, 0.003, 0]}>
@@ -496,7 +496,7 @@ export default function FurnitureLab({ dark: explicitDark }: { dark?: boolean })
             <OrbitControls enableZoom enablePan enableRotate minDistance={1} maxDistance={8} target={[0, 0.2, 0]} />
           </Canvas>
           <div style={{ position: "absolute", bottom: 4, right: 6, fontSize: 8, color: pal.watermark, pointerEvents: "none" }}>
-            grid: 0.5m · origin ●
+            grid: 1m · origin ●
           </div>
         </div>
 

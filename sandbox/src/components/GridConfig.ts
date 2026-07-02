@@ -9,7 +9,7 @@
  */
 
 export const GRID = {
-  UNIT: 0.5,                // metres per grid cell
+  UNIT: 1,                  // metres per grid cell
   ROOM_W: 14,               // cells along X
   ROOM_D: 12,               // cells along Z
   WALL_H: 3,                // wall height (metres)

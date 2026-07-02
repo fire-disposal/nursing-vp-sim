@@ -147,6 +147,9 @@ export default function SceneEditor() {
   const [selectedIdx, setSelectedIdx] = useState(-1)
   const [tool, setTool] = useState<Tool>("paint")
   const [placeId, setPlaceId] = useState("bed")
+  const [search, setSearch] = useState("")
+  const [cat, setCat] = useState("")
+  const ALL_CATS = useMemo(() => [...new Set(FURNI.map((f) => f.category))], [])
   const painting = useRef(false); const paintVal = useRef(true)
   const sel = selectedIdx >= 0 && selectedIdx < items.length ? items[selectedIdx] : null
 
@@ -182,15 +185,33 @@ export default function SceneEditor() {
     <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#f0ece6", color: "#333" }}
       onMouseUp={() => { painting.current = false }} onMouseLeave={() => { painting.current = false }}>
       {/* Catalog */}
-      <div style={{ width: 120, background: "#faf6f0", borderRight: "1px solid #e0d8d0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      <div style={{ width: 160, background: "#faf6f0", borderRight: "1px solid #e0d8d0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "5px 6px", fontSize: 9, color: "#999", fontWeight: 600, borderBottom: "1px solid #e0d8d0" }}>CATALOG</div>
-        <div style={{ flex: 1, overflow: "auto", padding: 4 }}>
-          {FURNI.map((f) => (
+        <div style={{ padding: "4px 6px", borderBottom: "1px solid #e0d8d0" }}>
+          <input value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            style={{ width: "100%", padding: "2px 5px", background: "#fff", border: "1px solid #e0d8d0", borderRadius: 3, color: "#555", fontSize: 9, outline: "none" }}
+          />
+          <div style={{ display: "flex", gap: 2, marginTop: 3, flexWrap: "wrap" }}>
+            <button onClick={() => setCat("")}
+              style={{ padding: "1px 5px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 7, background: cat === "" ? "#4fc3f722" : "transparent", color: cat === "" ? "#4fc3f7" : "#aaa" }}>All</button>
+            {ALL_CATS.map((c) => (
+              <button key={c} onClick={() => setCat(c)}
+                style={{ padding: "1px 5px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 7, background: cat === c ? "#4fc3f722" : "transparent", color: cat === c ? "#4fc3f7" : "#aaa" }}>{c}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: "auto", padding: "3px 4px" }}>
+          {(cat ? FURNI.filter((f) => f.category === cat) : FURNI)
+            .filter((f) => !search || f.name.includes(search) || f.tags.some((t) => t.includes(search)))
+            .map((f) => (
             <button key={f.id} onClick={() => { setPlaceId(f.id); setTool("place") }}
               style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", padding: "4px 6px", marginBottom: 2, borderRadius: 4,
                 border: `1px solid ${placeId === f.id && tool === "place" ? "#4fc3f7" : "transparent"}`,
                 background: placeId === f.id && tool === "place" ? "#4fc3f718" : "transparent", cursor: "pointer", textAlign: "left", fontSize: 9, color: "#555" }}>
-              <span>{ICONS[f.id] ?? "▣"}</span><span>{f.name}</span>
+              <span>{ICONS[f.id] ?? "▣"}</span>
+              <span>{f.name}</span>
+              {f.tags.length > 0 && <span style={{ marginLeft: "auto", color: "#ccc", fontSize: 7 }}>#{f.tags[0]}</span>}
             </button>
           ))}
         </div>
