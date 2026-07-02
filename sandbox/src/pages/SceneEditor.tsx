@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react"
-import { Canvas, useThree } from "@react-three/fiber"
+import { useState, useCallback, useMemo, useRef } from "react"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { OrbitControls, ContactShadows } from "@react-three/drei"
 import { Furniture } from "../components/Furniture"
 import { GRID, gridToWorld } from "../components/GridConfig"
@@ -47,11 +47,7 @@ function GridCell({ floor, hasItem, icon, active, onDown, onEnter }: { floor: bo
 // ── 3D Scene ──
 function CameraReporter() {
   const { camera } = useThree()
-  useEffect(() => {
-    const update = () => { (window as any).__sceneCamQuat = camera.quaternion.clone() }
-    update(); const id = setInterval(update, 100)
-    return () => clearInterval(id)
-  }, [camera])
+  useFrame(() => { (window as any).__sceneCamPos = camera.position.clone() })
   return null
 }
 
@@ -69,6 +65,15 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
     if (w.x === 0 || floor[w.z]?.[w.x - 1] === false) return new THREE.Vector3(-1, 0, 0)
     return new THREE.Vector3(1, 0, 0)
   }, [floor])
+
+  const wallVisible = useCallback((w: { x: number; z: number }) => {
+    const n = wallNormal(w)
+    const cp = (window as any).__sceneCamPos as THREE.Vector3 | undefined
+    if (!cp) return true
+    const wp = gridToWorld({ gx: w.x, gz: w.z }, 0)
+    const toCam = new THREE.Vector3(cp.x - wp[0], 0, cp.z - wp[2]).normalize()
+    return toCam.dot(n) <= 0 // camera inside → show; outside → hide
+  }, [wallNormal])
 
   const handlePointerDown = useCallback((e: any) => {
     if (tool !== "place") return
@@ -101,11 +106,17 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
       </mesh>
     ) : null))}
     {walls.map((w, i) => {
-      const n = wallNormal(w); const q = (window as any).__sceneCamQuat ?? new THREE.Quaternion()
-      const d = new THREE.Vector3(0, 0, -1).applyQuaternion(q)
-      return d.x * n.x + d.z * n.z < 0 ? (
-        <mesh key={i} position={[gridToWorld({ gx: w.x, gz: w.z }, 0)[0], 1.5, gridToWorld({ gx: w.x, gz: w.z }, 0)[2]]} castShadow receiveShadow>
-          <boxGeometry args={[GRID.UNIT, 3, GRID.UNIT]} /><meshStandardMaterial color="#faf6f0" roughness={0.8} />
+      const n = wallNormal(w)
+      // Thin wall panel: thickness 0.08m, positioned at cell edge
+      const isX = n.x !== 0
+      return wallVisible(w) ? (
+        <mesh key={i} position={[
+          gridToWorld({ gx: w.x, gz: w.z }, 0)[0] + n.x * GRID.UNIT / 2,
+          1.5,
+          gridToWorld({ gx: w.x, gz: w.z }, 0)[2] + n.z * GRID.UNIT / 2,
+        ]} castShadow receiveShadow>
+          <boxGeometry args={isX ? [0.08, 3, GRID.UNIT] : [GRID.UNIT, 3, 0.08]} />
+          <meshStandardMaterial color="#faf6f0" roughness={0.8} />
         </mesh>
       ) : null
     })}
