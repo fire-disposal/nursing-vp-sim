@@ -127,7 +127,7 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate }
     <directionalLight position={[-2, 3, 1]} intensity={0.25} />
     <hemisphereLight args={["#e8d8c8", "#c8d8e0", 0.3]} />
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}
-      onPointerDown={(e: any) => { if (tool === "place") { const p = e.point; const gx = Math.round((p.x + GRID.W/2) / GRID.UNIT - 0.5); const gz = Math.round((p.z + GRID.D/2) / GRID.UNIT - 0.5); if (gx >= 0 && gx < W && gz >= 0 && gz < D && floor[gz][gx]) onPlace(gx, gz) } }}
+      onPointerDown={(e: any) => { if (e.button === 2 && tool === "place") { const p = e.point; const gx = Math.round((p.x + GRID.W/2) / GRID.UNIT - 0.5); const gz = Math.round((p.z + GRID.D/2) / GRID.UNIT - 0.5); if (gx >= 0 && gx < W && gz >= 0 && gz < D && floor[gz][gx]) onPlace(gx, gz) } }}
       onPointerMove={(e: any) => { if (tool !== "place") { setHover(null); return }; const p = e.point; const gx = Math.round((p.x + GRID.W/2) / GRID.UNIT - 0.5); const gz = Math.round((p.z + GRID.D/2) / GRID.UNIT - 0.5); if (gx >= 0 && gx < W && gz >= 0 && gz < D && floor[gz][gx]) setHover({gx,gz}); else setHover(null) }}>
       <planeGeometry args={[GRID.W + 2, GRID.D + 2]} /><meshStandardMaterial color={GROUND_COL} roughness={0.95} side={2} transparent opacity={0.01} />
     </mesh>
@@ -191,7 +191,7 @@ export default function SceneEditor() {
 
   const cellRight = useCallback((gz: number, gx: number) => {
     if (tool === "place") { if (!floor[gz][gx]) return; setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]); setSelectedIdx(items.length) }
-    else if (tool === "erase") applyCell(gz,gx,false)
+    else applyCell(gz,gx,false) // paint → erase on right-click
   }, [tool, placeId, floor, items.length, applyCell])
 
   const handle3DPlace = useCallback((gx: number, gz: number) => setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]), [placeId])
