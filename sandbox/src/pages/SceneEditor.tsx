@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { OrbitControls, ContactShadows } from "@react-three/drei"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { OrbitControls } from "@react-three/drei"
 import { Furniture } from "../components/Furniture"
 import { GRID, gridToWorld } from "../components/GridConfig"
 import { FURNI } from "../data/furniture-catalog"
@@ -47,27 +47,23 @@ function GridCell({ floor, hasItem, icon, active, onDown, onEnter }: { floor: bo
 }
 
 // ── 3D Scene ──
-function CameraReporter() {
-  const { camera } = useThree()
-  useFrame(() => { (window as any).__sceneCamPos = camera.position.clone() })
-  return null
-}
-
 function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
   floor: boolean[][]; items: PlacedItem[]; selectedIdx: number
   tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void
 }) {
   const walls = useMemo(() => computeWalls(floor), [floor])
   const [hover, setHover] = useState<{ gx: number; gz: number } | null>(null)
+  const [camPos, setCamPos] = useState<THREE.Vector3 | null>(null)
   const planeRef = useRef<THREE.Mesh>(null)
 
+  useFrame(({ camera }) => { setCamPos(camera.position.clone()) })
+
   const wallVisible = useCallback((w: WallFace) => {
-    const cp = (window as any).__sceneCamPos as THREE.Vector3 | undefined
-    if (!cp) return true
+    if (!camPos) return true
     const wp = gridToWorld({ gx: w.x, gz: w.z }, 0)
-    const toCam = new THREE.Vector3(cp.x - wp[0], 0, cp.z - wp[2]).normalize()
+    const toCam = new THREE.Vector3(camPos.x - wp[0], 0, camPos.z - wp[2]).normalize()
     return toCam.x * w.nx + toCam.z * w.nz <= 0
-  }, [])
+  }, [camPos])
 
   const handlePointerDown = useCallback((e: any) => {
     if (tool !== "place") return
@@ -86,16 +82,15 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
 
   return (<>
     <ambientLight intensity={0.5} />
-    <directionalLight position={[4, 7, 5]} intensity={0.65} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} shadow-bias={-0.001} />
+    <directionalLight position={[4, 7, 5]} intensity={0.65} />
     <directionalLight position={[-2, 3, 1]} intensity={0.25} />
     <hemisphereLight args={["#e8d8c8", "#c8d8e0", 0.3]} />
-    <CameraReporter />
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} ref={planeRef}
       onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}>
       <planeGeometry args={[GRID.W + 2, GRID.D + 2]} /><meshStandardMaterial color="#e8e0d8" roughness={0.95} side={2} transparent opacity={0.01} />
     </mesh>
     {floor.flatMap((row, gz) => row.map((isFloor, gx) => isFloor ? (
-      <mesh key={`f-${gx}-${gz}`} position={[gridToWorld({ gx, gz }, 0)[0], -0.01, gridToWorld({ gx, gz }, 0)[2]]} receiveShadow>
+      <mesh key={`f-${gx}-${gz}`} position={[gridToWorld({ gx, gz }, 0)[0], -0.01, gridToWorld({ gx, gz }, 0)[2]]}>
         <boxGeometry args={[GRID.UNIT - 0.02, 0.02, GRID.UNIT - 0.02]} /><meshStandardMaterial color="#ede8e2" roughness={0.9} />
       </mesh>
     ) : null))}
@@ -108,7 +103,7 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
           pos[0] + w.nx * (GRID.UNIT / 2 + THICK / 2),
           1.5,
           pos[2] + w.nz * (GRID.UNIT / 2 + THICK / 2),
-        ]} castShadow receiveShadow>
+        ]}>
           <boxGeometry args={[w.nx !== 0 ? THICK : GRID.UNIT, 3, w.nz !== 0 ? THICK : GRID.UNIT]} />
           <meshStandardMaterial color="#faf6f0" roughness={0.8} />
         </mesh>
@@ -126,11 +121,9 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
         </mesh>}
       </group>)
     })}
-    {/* Hover preview */}
     {hover && tool === "place" && <mesh position={[gridToWorld({ gx: hover.gx, gz: hover.gz }, 0)[0], 0.1, gridToWorld({ gx: hover.gx, gz: hover.gz }, 0)[2]]}>
       <boxGeometry args={[GRID.UNIT * 0.9, 0.02, GRID.UNIT * 0.9]} /><meshBasicMaterial color="#4fc3f7" transparent opacity={0.3} />
     </mesh>}
-    <ContactShadows position={[0, -0.01, 0]} opacity={0.2} scale={10} blur={3} far={3} />
   </>)
 }
 
