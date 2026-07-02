@@ -108,7 +108,7 @@ export function SceneSandbox({ initialScene }: { initialScene?: string }) {
             </div>)
           return (
             <div key={id} onMouseDown={() => bringToFront(id)}
-              style={{ position: "absolute", left: m.x, top: m.y, zIndex: m.zIndex, minWidth: 320, maxWidth: Math.min(520, window.innerWidth - DOCK_WIDTH - 60), background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-e3)", overflow: "hidden" }}>
+              style={{ position: "absolute", left: m.x, top: m.y, zIndex: m.zIndex, minWidth: Math.max(320, s.size?.minW ?? 320), maxWidth: Math.min(s.size?.w ?? 520, window.innerWidth - DOCK_WIDTH - 60), background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-e3)", overflow: "hidden" }}>
               <div onMouseDown={(e) => { onHeaderDown(e, id) }}
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 9px", background: "var(--muted)", borderBottom: "1px solid var(--border)", cursor: "grab", userSelect: "none", fontSize: 10, color: "var(--muted-fg)" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span>{s.icon ?? "◻"}</span><span>{s.name}</span></span>
