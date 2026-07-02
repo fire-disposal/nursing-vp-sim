@@ -20,9 +20,9 @@ export const GRID = {
 export interface GridPos { gx: number; gz: number }
 
 /** Convert grid coords → world space (origin at room centre) */
-export function gridToWorld({ gx, gz }: GridPos, y = 0): [number, number, number] {
-  const wx = (gx - GRID.ROOM_W / 2) * GRID.UNIT + GRID.UNIT / 2
-  const wz = (gz - GRID.ROOM_D / 2) * GRID.UNIT + GRID.UNIT / 2
+export function gridToWorld({ gx, gz }: GridPos, y = 0, roomW: number = GRID.ROOM_W, roomD: number = GRID.ROOM_D, unit: number = GRID.UNIT): [number, number, number] {
+  const wx = (gx - roomW / 2) * unit + unit / 2
+  const wz = (gz - roomD / 2) * unit + unit / 2
   return [wx, y, wz]
 }
 
