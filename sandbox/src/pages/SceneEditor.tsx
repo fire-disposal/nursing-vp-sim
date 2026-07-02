@@ -321,13 +321,15 @@ export default function SceneEditor() {
               <Canvas orthographic camera={{ position: [5,10,7], zoom: 30, near: -10, far: 20 }}
                 style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
                 <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick}  />
-                <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
+                <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1}
+                  mouseButtons={{ LEFT: undefined, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }} />
               </Canvas>
             ) : (
               <Canvas camera={{ position: [5,6,7], fov: 40, near: 0.1, far: 50 }}
                 style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
                 <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick}  />
-                <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.1} maxPolarAngle={1.3} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
+                <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.1} maxPolarAngle={1.3} target={[0,0.8,0]} enableDamping dampingFactor={0.1}
+                  mouseButtons={{ LEFT: undefined, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }} />
               </Canvas>
             )}
           </div>

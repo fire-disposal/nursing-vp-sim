@@ -10,6 +10,7 @@ import { OrbitControls } from "@react-three/drei"
 import { SceneRenderer3D } from "../components/SceneRenderer3D"
 import { emptyScene, type SceneDSL } from "../components/SceneDSL"
 import type { SceneMeta, SceneProps } from "../scene-types"
+import * as THREE from "three"
 
 export const sceneMeta: SceneMeta = {
   id: "demo-3d", name: "3D 诊室 (R3F)", description: "空场景 — 通过 BUS EMITTER 发送 scene:load 注入 DSL", icon: "🏥",
@@ -39,7 +40,8 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
           <SceneRenderer3D scene={scene} />
           <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4}
             minZoom={15} maxZoom={80} minPolarAngle={0.2} maxPolarAngle={1.3}
-            target={[0, 0.8, 0]} enableDamping dampingFactor={0.1} />
+            target={[0, 0.8, 0]} enableDamping dampingFactor={0.1}
+            mouseButtons={{ LEFT: undefined, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }} />
         </Canvas>
       </div>
     </div>
