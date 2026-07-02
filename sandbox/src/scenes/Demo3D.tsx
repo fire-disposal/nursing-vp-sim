@@ -38,8 +38,8 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
           onCreated={({ gl }) => gl.setClearColor("#faf6f0")}>
           <SceneRenderer3D scene={scene} />
           <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4}
-            minZoom={20} maxZoom={120} minPolarAngle={1.1} maxPolarAngle={1.1}
-            target={[0, 0.4, 0]} enableDamping dampingFactor={0.12} />
+            minZoom={15} maxZoom={80} minPolarAngle={0.2} maxPolarAngle={1.3}
+            target={[0, 0.8, 0]} enableDamping dampingFactor={0.1} />
         </Canvas>
       </div>
     </div>

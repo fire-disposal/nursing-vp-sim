@@ -39,12 +39,7 @@ export function SceneRenderer3D({ scene }: { scene: SceneDSL }) {
     <directionalLight position={[-2, 3, 1]} intensity={0.25} />
     <hemisphereLight args={["#e8d8c8", "#c8d8e0", 0.3]} />
 
-    {/* Ground */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-      <planeGeometry args={[W * U + 2, D * U + 2]} /><meshStandardMaterial color="#e8e0d8" roughness={0.95} />
-    </mesh>
-
-    {/* Floor tiles */}
+    {/* Floor tiles only */}
     {floor.flatMap((row, gz) => row.map((isFloor, gx) => isFloor ? (
       <mesh key={`f-${gx}-${gz}`} position={[gridToWorld({ gx, gz }, 0, W, D, U)[0], -0.01, gridToWorld({ gx, gz }, 0, W, D, U)[2]]}>
         <boxGeometry args={[U - 0.02, 0.02, U - 0.02]} /><meshStandardMaterial color="#ede8e2" roughness={0.9} />
