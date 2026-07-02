@@ -28,9 +28,9 @@ def upgrade() -> None:
     op.alter_column("notes", "record_id", existing_type=sa.Integer, nullable=True,
                     existing_server_default=None)
     op.drop_constraint("notes_record_id_fkey", "notes", type_="foreignkey")
-    op.create_foreign_key(None, "notes", "training_records", ["record_id"], ["id"], ondelete="SET NULL")
+    op.create_foreign_key("notes_record_id_fkey", "notes", "training_records", ["record_id"], ["id"], ondelete="SET NULL")
     op.drop_constraint("notes_user_id_fkey", "notes", type_="foreignkey")
-    op.create_foreign_key(None, "notes", "users", ["user_id"], ["id"], ondelete="CASCADE")
+    op.create_foreign_key("notes_user_id_fkey", "notes", "users", ["user_id"], ["id"], ondelete="CASCADE")
 
     op.create_table(
         "note_comments",
@@ -46,9 +46,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("note_comments")
 
-    op.drop_constraint(None, "notes", type_="foreignkey")
+    op.drop_constraint("notes_user_id_fkey", "notes", type_="foreignkey")
     op.create_foreign_key("notes_user_id_fkey", "notes", "users", ["user_id"], ["id"])
-    op.drop_constraint(None, "notes", type_="foreignkey")
+    op.drop_constraint("notes_record_id_fkey", "notes", type_="foreignkey")
     op.create_foreign_key("notes_record_id_fkey", "notes", "training_records", ["record_id"], ["id"])
     op.alter_column("notes", "record_id", existing_type=sa.Integer, nullable=False,
                     existing_server_default=None)
