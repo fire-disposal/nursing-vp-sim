@@ -40,13 +40,14 @@ function computeWalls(floor: boolean[][]): WallFace[] {
   return w
 }
 
-function GridCell({ floor, hasItem, icon, active, highlighted, onDown, onRight, onEnter }: any) {
+function GridCell({ floor, hasItem, icon, active, cellSelected, highlighted, onDown, onRight, onEnter }: any) {
   let bg: string
   if (highlighted) bg = "#b8e8b8"
   else if (floor) bg = "#e0e8e0"
   else bg = "#f0ece6"
+  const border = active ? "2px solid #4fc3f7" : cellSelected ? "2px solid #2196f3" : highlighted ? "2px solid #4caf50" : hasItem ? "2px solid #5a8" : "1px solid #ddd"
   return (<div onMouseDown={(e) => { e.preventDefault(); if (e.button === 2) onRight(); else onDown() }} onMouseEnter={onEnter} onContextMenu={(e) => e.preventDefault()}
-    style={{ width: "100%", aspectRatio: "1", background: bg, border: active ? "2px solid #4fc3f7" : highlighted ? "2px solid #4caf50" : hasItem ? "2px solid #5a8" : "1px solid #ddd", borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
+    className="d-flex align-items-center justify-content-center" style={{ width: "100%", aspectRatio: "1", background: bg, border, borderRadius: 1, cursor: "pointer", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
     {hasItem ? icon : ""}</div>)
 }
 
@@ -162,6 +163,7 @@ export default function SceneEditor() {
   const [floor, setFloor] = useState<boolean[][]>(initGrid)
   const [items, setItems] = useState<PlacedItem[]>([])
   const [selectedIdx, setSelectedIdx] = useState(-1)
+  const [selectedCell, setSelectedCell] = useState<{ gx: number; gz: number } | null>(null)
   const [tool, setTool] = useState<Tool>("paint")
   const [placeId, setPlaceId] = useState("bed")
   const [search, setSearch] = useState("")
@@ -185,13 +187,14 @@ export default function SceneEditor() {
     if (tool === "paint") { painting.current = true; paintVal.current = true; applyCell(gz, gx, true); addHl(gz, gx); return }
     if (tool === "erase") { painting.current = true; paintVal.current = false; applyCell(gz, gx, false); addHl(gz, gx); return }
     const hits = items.map((it,i) => it.gx===gx&&it.gz===gz ? i : -1).filter(i=>i>=0)
-    if (hits.length===0) { setSelectedIdx(-1); if (tool !== "place") cycleCell(gz,gx); return }
+    if (hits.length===0) { setSelectedIdx(-1); setSelectedCell({ gx, gz }); return }
+    setSelectedCell(null)
     const cur = hits.indexOf(selectedIdx); setSelectedIdx(hits[(cur+1)%hits.length])
   }, [tool, items, selectedIdx, applyCell, cycleCell, addHl])
 
   const cellRight = useCallback((gz: number, gx: number) => {
-    if (tool === "place") { if (!floor[gz][gx]) return; setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]); setSelectedIdx(items.length) }
-    else applyCell(gz,gx,false) // paint → erase on right-click
+    if (tool === "place") { if (!floor[gz][gx]) return; setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]); setSelectedIdx(items.length); setSelectedCell(null) }
+    else applyCell(gz,gx,false)
   }, [tool, placeId, floor, items.length, applyCell])
 
   const handle3DPlace = useCallback((gx: number, gz: number) => setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]), [placeId])
@@ -219,6 +222,7 @@ export default function SceneEditor() {
       else if (k === "v") { e.preventDefault(); setTool("place") }
       else if ((k === "delete" || k === "backspace") && selectedIdx >= 0) { e.preventDefault(); delItem(selectedIdx) }
       else if (k === "r" && !e.ctrlKey && !e.metaKey && selectedIdx >= 0) { e.preventDefault(); rotateSelected(15) }
+      else if (k === "escape") { e.preventDefault(); setSelectedIdx(-1); setSelectedCell(null) }
       else if (k === "?" || k === "h") { e.preventDefault(); setShowHelp(p => !p) }
       else if (/^[1-9]$/.test(k)) {
         const idx = parseInt(k, 10) - 1
@@ -325,6 +329,7 @@ export default function SceneEditor() {
                   hasItem={items.some(i=>i.gx===gx&&i.gz===gz)}
                   icon={ICONS[items.find(i=>i.gx===gx&&i.gz===gz)?.id??""] ?? "⬡"}
                   active={sel?.gx===gx&&sel?.gz===gz}
+                  cellSelected={selectedCell?.gx===gx&&selectedCell?.gz===gz}
                   highlighted={hlSet.has(`${gz},${gx}`)}
                   onDown={() => cellDown(gz,gx)} onRight={() => cellRight(gz,gx)} onEnter={() => { if (painting.current && (tool==="paint"||tool==="erase")) { applyCell(gz,gx,paintVal.current); addHl(gz,gx) } }} />
               )))}
@@ -348,30 +353,58 @@ export default function SceneEditor() {
         </div>
       </div>
 
-      {/* Right */}
-      <div style={{ width: 150, background: PANEL, borderLeft: `1px solid ${BD}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <div style={{ padding: "6px 8px", fontSize: 9, color: "var(--muted-fg)", fontWeight: 600, letterSpacing: 0.5, borderBottom: `1px solid ${BD}` }}>ITEMS ({items.length})</div>
-        <div style={{ flex: 1, overflow: "auto", padding: "4px 6px", fontSize: 10 }}>
-          {items.map((item, i) => {
-            const def = FURNI.find(f=>f.id===item.id)
-            return (<div key={i} onClick={()=>setSelectedIdx(i)}
-              style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 6px", borderRadius: 4, marginBottom: 1, cursor: "pointer", background: i===selectedIdx ? "var(--accent)12" : "transparent", border: i===selectedIdx ? "1px solid var(--accent)" : "1px solid transparent" }}>
-              <span>{ICONS[item.id] ?? "▣"}</span>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", color: "var(--fg)" }}>{def?.name??item.id}</span>
-              <span style={{ color: "var(--muted-fg)", fontSize: 9 }}>{item.gx},{item.gz}</span>
-            </div>)
-          })}
-          {items.length===0 && <div style={{ color: "var(--muted-fg)", textAlign: "center", padding: "16px 0", fontSize: 10 }}>No items</div>}
-        </div>
-        {sel && <div style={{ borderTop: `1px solid ${BD}`, padding: "6px 8px" }}>
-          <div style={{ fontSize: 8, color: "var(--muted-fg)", fontWeight: 600, letterSpacing: 0.5, marginBottom: 4 }}>PROPERTIES</div>
-          <Slider8 label="R" value={sel.rotation} min={0} max={360} step={15} onChange={v=>updItem(selectedIdx,{rotation:v})} />
-          <Slider8 label="Y" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={v=>updItem(selectedIdx,{ty:v})} />
-          <Slider8 label="X" value={sel.gx} min={0} max={W-1} step={1} onChange={v=>updItem(selectedIdx,{gx:v})} />
-          <Slider8 label="Z" value={sel.gz} min={0} max={D-1} step={1} onChange={v=>updItem(selectedIdx,{gz:v})} />
-          <button onClick={()=>delItem(selectedIdx)} title="Delete [Del]"
-            style={{ width: "100%", padding: "4px 0", marginTop: 4, borderRadius: 4, border: "1px solid #e74c3c33", background: "#e74c3c12", color: "#e74c3c", cursor: "pointer", fontSize: 9 }}>Delete</button>
-        </div>}
+      {/* Right panel — cell-focused */}
+      <div className="d-flex flex-column flex-shrink-0 border-start" style={{ width: 190, background: PANEL, borderColor: BD }}>
+        {selectedCell && !sel ? (
+          <div className="d-flex flex-column h-100">
+            <div className="px-3 pt-3 pb-1">
+              <div className="small fw-semibold text-muted ls-1">CELL ({selectedCell.gx},{selectedCell.gz})</div>
+              <div style={{ fontSize: 10, color: floor[selectedCell.gz]?.[selectedCell.gx] ? "#5a8" : "#bbb" }} className="mt-1">
+                {floor[selectedCell.gz]?.[selectedCell.gx] ? "▣ Floor" : "Empty"}
+              </div>
+            </div>
+            <div className="flex-fill overflow-auto px-2 pb-2">
+              {(items.filter(it => it.gx === selectedCell.gx && it.gz === selectedCell.gz).length === 0) ? (
+                <div className="text-muted px-1" style={{ fontSize: 10, lineHeight: 1.8, paddingTop: 16 }}>
+                  No items in this cell.<br />Right-click to place.
+                </div>
+              ) : (
+                items.filter(it => it.gx === selectedCell.gx && it.gz === selectedCell.gz).map((item, i) => {
+                  const realIdx = items.indexOf(item)
+                  const def = FURNI.find(f => f.id === item.id)
+                  return (
+                    <div key={i} onClick={() => { setSelectedIdx(realIdx); setSelectedCell(null) }}
+                      className="d-flex align-items-center gap-2 px-2 py-2 rounded mb-1"
+                      style={{ cursor: "pointer", background: realIdx === selectedIdx ? "#4fc3f718" : "transparent", border: realIdx === selectedIdx ? "1px solid #4fc3f7" : "1px solid transparent" }}>
+                      <span className="fs-6">{ICONS[item.id] ?? "▣"}</span>
+                      <div className="flex-fill min-w-0">
+                        <div className="text-truncate" style={{ fontSize: 10 }}>{def?.name ?? item.id}</div>
+                        <div className="text-muted" style={{ fontSize: 8, marginTop: 1 }}>{item.rotation}° · {item.ty.toFixed(1)}y</div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        ) : sel ? (
+          <div className="d-flex flex-column p-3 gap-1" style={{ overflow: "auto" }}>
+            <div style={{ fontSize: 11, fontWeight: 600 }}>{FURNI.find(f=>f.id===sel.id)?.name ?? sel.id}</div>
+            <div className="text-muted mb-1" style={{ fontSize: 9 }}>{sel.gx},{sel.gz} — #{items.indexOf(sel)}</div>
+            <Slider8 label="Rotation" value={sel.rotation} min={0} max={360} step={15} onChange={v=>updItem(selectedIdx,{rotation:v})} />
+            <Slider8 label="Y-offset" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={v=>updItem(selectedIdx,{ty:v})} />
+            <Slider8 label="Grid X" value={sel.gx} min={0} max={W-1} step={1} onChange={v=>updItem(selectedIdx,{gx:v})} />
+            <Slider8 label="Grid Z" value={sel.gz} min={0} max={D-1} step={1} onChange={v=>updItem(selectedIdx,{gz:v})} />
+            <button onClick={()=>delItem(selectedIdx)} title="Delete [Del]"
+              className="btn btn-sm mt-1 w-100" style={{ background: "#e74c3c12", color: "#e74c3c", border: "1px solid #e74c3c33" }}>Delete</button>
+          </div>
+        ) : (
+          <div className="flex-fill d-flex align-items-center justify-content-center p-4">
+            <div className="text-muted text-center" style={{ fontSize: 10, lineHeight: 1.8 }}>
+              Click a cell to inspect<br />items at that position
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Help overlay */}
@@ -397,10 +430,12 @@ export default function SceneEditor() {
 }
 
 function Slider8({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
-  return (<div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 3 }}>
-    <span style={{ fontSize: 8, color: "var(--muted-fg)", width: 12 }}>{label}</span>
-    <input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))}
-      style={{ flex: 1, height: 2, accentColor: "#4fc3f7", cursor: "pointer" }} />
-    <span style={{ fontSize: 8, color: "var(--muted-fg)", width: 24, textAlign: "right" }}>{value}{label==="R" ? "\u00b0" : ""}</span>
+  return (<div className="mb-2">
+    <div className="d-flex justify-content-between small text-muted mb-1">
+      <span>{label}</span>
+      <span>{value}{label==="Rotation" ? "°" : label==="Y-offset" ? "m" : ""}</span>
+    </div>
+    <input type="range" className="form-range" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))}
+      style={{ height: 4 }} />
   </div>)
 }
