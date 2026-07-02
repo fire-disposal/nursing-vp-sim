@@ -1,10 +1,10 @@
-import { lazy } from "react";
 import type { ComponentType } from "react";
+import { lazy } from "react";
 import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
-import PatientInfoCard from "./PatientInfoCard";
 import InquiryCard from "./InquiryCard";
-import NotesCard from "./NotesCard";
 import MonitorCard from "./MonitorCard";
+import NotesCard from "./NotesCard";
+import PatientInfoCard from "./PatientInfoCard";
 
 interface CardDef {
   id: string;

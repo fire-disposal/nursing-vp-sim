@@ -2,25 +2,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/Toast";
 import { notifySSEProgress } from "@/engine";
-import { useSSEStream } from "@/hooks/useSSEStream";
-import useAuthStore from "@/stores/authStore";
+import { useTrainingWS } from "@/hooks/useTrainingWS";
 
 export function useScoringNotifications() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const token = useAuthStore((s) => s.token);
 
-	useSSEStream({
-		url: "/api/training/notifications/stream",
-		token: token ?? "",
-		onEvent: (eventType, data) => {
-			const payload = data as {
-				record_id?: number;
-				error?: string;
-			};
-			if (eventType === "scoring_complete") {
+	useTrainingWS((msg) => {
+		switch (msg.type) {
+			case "scoring_complete": {
+				const payload = msg as unknown as { record_id: number; error?: string };
+				if (!payload.record_id) break;
 				notifySSEProgress({
-					record_id: payload.record_id!,
+					record_id: payload.record_id,
 					stage: "completed",
 					percent: 100,
 					message: "评分完成",
@@ -34,10 +28,13 @@ export function useScoringNotifications() {
 					},
 					duration: 10000,
 				});
+				break;
 			}
-			if (eventType === "scoring_failed") {
+			case "scoring_failed": {
+				const payload = msg as unknown as { record_id: number; error?: string };
+				if (!payload.record_id) break;
 				notifySSEProgress({
-					record_id: payload.record_id!,
+					record_id: payload.record_id,
 					stage: "failed",
 					percent: 0,
 					message: payload.error || "评分失败",
@@ -51,15 +48,13 @@ export function useScoringNotifications() {
 					},
 					duration: 10000,
 				});
+				break;
 			}
-			if (eventType === "scoring_progress") {
-				notifySSEProgress(data as Parameters<typeof notifySSEProgress>[0]);
+			case "scoring_progress": {
+				const payload = msg as unknown as Parameters<typeof notifySSEProgress>[0];
+				notifySSEProgress(payload);
+				break;
 			}
-		},
-		onError: (msg) => {
-			console.warn("[useScoringNotifications] SSE error:", msg);
-		},
-		reconnectBaseDelay: 1000,
-		reconnectMaxDelay: 30000,
+		}
 	});
 }

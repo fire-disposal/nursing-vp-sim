@@ -1,1 +1,0 @@
-export { PatientInfoTab } from "./PatientInfoTab";

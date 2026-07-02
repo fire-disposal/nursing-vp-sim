@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
@@ -5,7 +6,6 @@ import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-
 import { TrainingHeader } from "@/components/training/TrainingHeader";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getPatientPortraitUrl } from "@/utils/patient-portrait";
-import type { ReactNode } from "react";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
 import {

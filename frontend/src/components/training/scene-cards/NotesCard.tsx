@@ -1,10 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { deleteNote, listNotes } from "@/api/notes";
 import { queryKeys } from "@/api/query-keys";
-import NoteEditor from "@/training/components/NoteEditor";
 import type { SceneCardProps } from "@/engine/scene-card";
+import NoteEditor from "@/training/components/NoteEditor";
 
 const TYPE_LABELS: Record<string, string> = {
   reflection: "反思", soap: "SOAP", summary: "总结", free: "自由",

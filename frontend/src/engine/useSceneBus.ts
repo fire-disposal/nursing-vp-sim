@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   emitSceneEvent,
   type SceneState,
@@ -43,16 +43,4 @@ function deepMerge(base: SceneState, patch: Partial<SceneState>): SceneState {
   return out as SceneState;
 }
 
-/**
- * Returns a stable `emitInteraction` callback so scenes can
- * fire `scene:interaction` without importing bus directly.
- */
-export function useEmitInteraction(bus: MessageBus | null) {
-  return useCallback(
-    (hotspotId: string, metadata?: Record<string, unknown>) => {
-      if (!bus) return;
-      emitSceneEvent(bus, "scene:interaction", { hotspotId, metadata });
-    },
-    [bus],
-  );
-}
+

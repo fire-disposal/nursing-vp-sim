@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { emitSceneEvent, type SceneProps, type SceneState } from "@/engine/scene-state";
+import { useTrainingWS } from "@/hooks/useTrainingWS";
 import { cn } from "@/utils/cn";
-import { submitExam } from "@/api/training";
 
 // ── Normal values ──
 const NORMALS: Record<string, { label: string; unit: string; normal: string; cat: string }> = {
@@ -70,56 +70,55 @@ function groupByCat(ops: string[]): [string, string[]][] {
   return [...m.entries()];
 }
 
+const VITALS_PATCHERS: Record<string, (v: string) => Partial<SceneState>> = {
+	hr:   (v) => ({ vitals: { hr: Number(v) } }),
+	bp:   (v) => { const [s, d] = v.split("/"); return { vitals: { bp_sys: Number(s), bp_dia: Number(d) } }; },
+	rr:   (v) => ({ vitals: { rr: Number(v) } }),
+	spo2: (v) => ({ vitals: { spo2: Number(v) } }),
+	temp: (v) => ({ vitals: { temp: Number(v) } }),
+	pain: (v) => ({ vitals: { pain: Number(v) } }),
+};
+
 export default function ExamBodyScene(props: SceneProps) {
-  const { bus } = props;
-  const recordId = parseRecordId(props);
-  const [results, setResults] = useState<Record<string, { value: string }>>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
-  const logRef = useRef<HTMLDivElement>(null);
+	const { bus } = props;
+	const recordId = parseRecordId(props);
+	const [results, setResults] = useState<Record<string, { value: string }>>({});
+	const [selected, setSelected] = useState<string | null>(null);
+	const [flash, setFlash] = useState<string | null>(null);
+	const logRef = useRef<HTMLDivElement>(null);
+	const { sendExam } = useTrainingWS((msg) => {
+		if (msg.type === "exam:done") {
+			const m = msg as unknown as { op_type: string; data: { value: string } };
+			if (m.data?.value) {
+				setResults((prev) => ({ ...prev, [m.op_type]: { value: m.data.value } }));
+			}
+		}
+	});
 
-  const interact = useCallback(async (opId: string) => {
-    const def = NORMALS[opId];
-    if (!def) return;
-    setFlash(opId);
+	const interact = useCallback((opId: string) => {
+		const def = NORMALS[opId];
+		if (!def) return;
+		setFlash(opId);
 
-    // Optimistic local value
-    const local = resolveFallback(opId);
-    setResults((prev) => ({ ...prev, [opId]: local }));
-    emitSceneEvent(bus, "scene:interaction", { hotspotId: selected ?? "", metadata: { op_type: opId, value: local.value } });
+		// Optimistic local value
+		const local = resolveFallback(opId);
+		setResults((prev) => ({ ...prev, [opId]: local }));
+		// Persist via WebSocket — backend writes scene.vitals + broadcasts exam:done
+		if (recordId > 0) {
+			sendExam(recordId, opId);
+		}
 
-    // Persist via API — backend writes scene.vitals + broadcasts exam:done via SSE
-    if (recordId > 0) {
-      try {
-        const res = await submitExam(recordId, opId, local.value);
-        const serverValue = ((res as Record<string, unknown>)?.data as Record<string, unknown>)?.value as string;
-        if (serverValue) {
-          setResults((prev) => ({ ...prev, [opId]: { value: serverValue } }));
-        }
-        // Broadcast on frontend bus so ChatArea etc. react immediately
-        bus.emit("exam:done", { type: opId, value: serverValue || local.value, label: def.label });
-      } catch {
-        // API unreachable — keep optimistic value, still emit locally
-        bus.emit("exam:done", { type: opId, value: local.value, label: def.label });
-      }
-    } else {
-      bus.emit("exam:done", { type: opId, value: local.value, label: def.label });
-    }
+		// Local bus broadcast for other scene cards (MonitorCard etc.)
+		const patcher = VITALS_PATCHERS[opId];
+		if (patcher) {
+			const patch = patcher(local.value);
+			if (Object.keys(patch).length) emitSceneEvent(bus, "scene:state", patch);
+		}
 
-    // Local bus broadcast for other scene cards (MonitorCard etc.)
-    const patch: Partial<SceneState> = {};
-    if (opId === "hr")   patch.vitals = { hr: Number(local.value) };
-    if (opId === "bp")   { const [s, d] = local.value.split("/"); patch.vitals = { bp_sys: Number(s), bp_dia: Number(d) }; }
-    if (opId === "rr")   patch.vitals = { rr: Number(local.value) };
-    if (opId === "spo2") patch.vitals = { spo2: Number(local.value) };
-    if (opId === "temp") patch.vitals = { temp: Number(local.value) };
-    if (opId === "pain") patch.vitals = { pain: Number(local.value) };
-    if (Object.keys(patch).length) emitSceneEvent(bus, "scene:state", patch);
-
-    setSelected(null);
-    setTimeout(() => setFlash(null), 350);
-    logRef.current?.scrollTo(0, 0);
-  }, [bus, selected, recordId]);
+		setSelected(null);
+		setTimeout(() => setFlash(null), 350);
+		logRef.current?.scrollTo(0, 0);
+	}, [bus, selected, recordId, sendExam]);
 
   return (
     <div className="flex flex-col h-full min-h-[420px] font-sans bg-background">

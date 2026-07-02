@@ -6,6 +6,7 @@ import { getCases, getProfiles, startTraining } from "@/api/api-client";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import { TrainingConfigSheet } from "@/components/training/TrainingConfigSheet";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
@@ -14,7 +15,6 @@ import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import type { TrainingTypeInfo } from "@/training/types";
 import { cn } from "@/utils/cn";
-import { TrainingConfigSheet } from "@/components/training/TrainingConfigSheet";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 

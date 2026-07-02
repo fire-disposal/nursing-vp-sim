@@ -35,28 +35,7 @@ export interface SceneState {
   procedure_step?: number;
 }
 
-/** Events the scene layer understands */
-export interface SceneBusProtocol {
-  /** Scene → Training: user clicked / interacted with something (exam, body check, etc.) */
-  "scene:interaction": [{ hotspotId: string; metadata?: Record<string, unknown> }];
-  /** ← Training → Scene: full or partial scene state update (vitals, position, etc.) */
-  "scene:state": [Partial<SceneState>];
-}
-
-/** Subscribe to scene‑relevant bus events with correct types */
-export function onSceneEvent<K extends keyof SceneBusProtocol>(
-  bus: MessageBus,
-  event: K,
-  handler: (...args: SceneBusProtocol[K]) => void,
-): () => void {
-  return bus.on(event, handler as (...args: unknown[]) => void);
-}
-
-/** Emit a scene event */
-export function emitSceneEvent<K extends keyof SceneBusProtocol>(
-  bus: MessageBus,
-  event: K,
-  ...args: SceneBusProtocol[K]
-): void {
-  bus.emit(event, ...(args as unknown[]));
+/** Emit a scene state update */
+export function emitSceneEvent(bus: MessageBus, event: string, ...args: unknown[]): void {
+  bus.emit(event, ...args);
 }

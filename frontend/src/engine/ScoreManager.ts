@@ -47,14 +47,9 @@ export class ScoreManager {
 		}
 	}
 
-	/** Emit score:ready only when _score is available; fall back to score:unavailable otherwise */
 	private notifyScoreReady(): void {
-		if (!this.bus) return;
-		if (this._score) {
-			this.bus.emit("score:ready", this._score);
-		} else {
-			this.bus.emit("score:unavailable", { record_id: this.recordId });
-		}
+		if (!this.bus || !this._score) return;
+		this.bus.emit("score:ready", this._score);
 	}
 
 	async end(): Promise<void> {

@@ -1,7 +1,7 @@
-import { useSceneState } from "@/engine/useSceneBus";
+import { type MonitorStatus, PatientMonitor } from "@/components/training/PatientMonitor";
 import type { SceneCardProps } from "@/engine/scene-card";
-import { PatientMonitor, type MonitorStatus } from "@/components/training/PatientMonitor";
 import type { SceneState } from "@/engine/scene-state";
+import { useSceneState } from "@/engine/useSceneBus";
 
 function classify(s: SceneState): MonitorStatus {
   const v = s.vitals || {};
