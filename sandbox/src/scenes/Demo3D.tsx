@@ -31,7 +31,7 @@ const DEMO_SCENE: SceneDSL = {
 
 export const sceneMeta: SceneMeta = {
   id: "demo-3d", name: "3D 诊室 (R3F)", description: "DSL驱动的 3D 场景", icon: "🏥",
-  size: { minW: 500, minH: 320, w: 640, h: 400 },
+  size: { minW: 640, minH: 320, w: 800, h: 420 },
 }
 
 export default function Demo3D({ bus, initialState }: SceneProps) {
