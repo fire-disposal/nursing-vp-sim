@@ -205,11 +205,9 @@ export default function SceneEditor() {
   const cellDown = useCallback((gz: number, gx: number) => {
     if (tool === "paint") { painting.current = true; paintVal.current = true; applyCell(gz, gx, true); addHl(gz, gx); return }
     if (tool === "erase") { painting.current = true; paintVal.current = false; applyCell(gz, gx, false); addHl(gz, gx); return }
-    const hits = items.map((it,i) => it.gx===gx&&it.gz===gz ? i : -1).filter(i=>i>=0)
-    if (hits.length===0) { setSelectedIdx(-1); setSelectedCell({ gx, gz }); return }
-    setSelectedCell(null)
-    const cur = hits.indexOf(selectedIdx); setSelectedIdx(hits[(cur+1)%hits.length])
-  }, [tool, items, selectedIdx, applyCell, cycleCell, addHl])
+    // Always select the cell — right panel lists items in this cell
+    setSelectedIdx(-1); setSelectedCell({ gx, gz })
+  }, [tool, applyCell, addHl])
 
   const cellRight = useCallback((gz: number, gx: number) => {
     if (tool === "place") { if (!floor[gz][gx]) return; setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]); setSelectedIdx(items.length); setSelectedCell(null) }
@@ -243,10 +241,6 @@ export default function SceneEditor() {
       else if (k === "r" && !e.ctrlKey && !e.metaKey && selectedIdx >= 0) { e.preventDefault(); rotateSelected(15) }
       else if (k === "escape") { e.preventDefault(); setSelectedIdx(-1); setSelectedCell(null) }
       else if (k === "?" || k === "h") { e.preventDefault(); setShowHelp(p => !p) }
-      else if (/^[1-9]$/.test(k)) {
-        const idx = parseInt(k, 10) - 1
-        if (idx < filteredCatalog.length) { setPlaceId(filteredCatalog[idx].id); setTool("place") }
-      }
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
