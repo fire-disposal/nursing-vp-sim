@@ -336,50 +336,55 @@ export default function SceneEditor() {
         </div>
       </div>
 
-      {/* Right panel — cell-focused */}
+      {/* Right panel — cell view top, properties bottom */}
       <div className="d-flex flex-column flex-shrink-0 border-start" style={{ width: 190, background: PANEL, borderColor: BD }}>
-        {selectedCell && !sel ? (
-          <div className="d-flex flex-column h-100">
-            <div className="px-3 pt-3 pb-1">
-              <div className="small fw-semibold text-muted ls-1">CELL ({selectedCell.gx},{selectedCell.gz})</div>
-              <div style={{ fontSize: 10, color: floor[selectedCell.gz]?.[selectedCell.gx] ? "#5a8" : "#bbb" }} className="mt-1">
-                {floor[selectedCell.gz]?.[selectedCell.gx] ? "▣ Floor" : "Empty"}
+        {selectedCell ? (
+          <div className="d-flex flex-column flex-fill" style={{ overflow: "hidden" }}>
+            {/* Top half — cell info + items */}
+            <div className="d-flex flex-column" style={{ flex: 1, overflow: "hidden" }}>
+              <div className="px-3 pt-3 pb-1">
+                <div className="small fw-semibold text-muted ls-1">CELL ({selectedCell.gx},{selectedCell.gz})</div>
+                <div style={{ fontSize: 10, color: floor[selectedCell.gz]?.[selectedCell.gx] ? "#5a8" : "#bbb" }} className="mt-1">
+                  {floor[selectedCell.gz]?.[selectedCell.gx] ? "▣ Floor" : "Empty"}
+                </div>
+              </div>
+              <div className="flex-fill overflow-auto px-2 pb-2">
+                {(items.filter(it => it.gx === selectedCell.gx && it.gz === selectedCell.gz).length === 0) ? (
+                  <div className="text-muted px-1" style={{ fontSize: 10, lineHeight: 1.8, paddingTop: 16 }}>
+                    No items in this cell.<br />Right-click to place.
+                  </div>
+                ) : (
+                  items.filter(it => it.gx === selectedCell.gx && it.gz === selectedCell.gz).map((item, i) => {
+                    const realIdx = items.indexOf(item)
+                    const def = FURNI.find(f => f.id === item.id)
+                    return (
+                      <div key={i} onClick={() => { setSelectedIdx(realIdx) }}
+                        className="d-flex align-items-center gap-2 px-2 py-1 rounded mb-1"
+                        style={{ cursor: "pointer", background: realIdx === selectedIdx ? "#4fc3f718" : "transparent", border: realIdx === selectedIdx ? "1px solid #4fc3f7" : "1px solid transparent" }}>
+                        <span className="fs-6">{FURNI.find(f=>f.id===item.id)?.icon ?? "▣"}</span>
+                        <div className="flex-fill min-w-0">
+                          <div className="text-truncate" style={{ fontSize: 10 }}>{def?.name ?? item.id}</div>
+                          <div className="text-muted" style={{ fontSize: 8, marginTop: 1 }}>{item.rotation}° · {item.ty.toFixed(1)}y</div>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); delItem(realIdx) }} title="Delete"
+                          style={{ background: "none", border: "none", color: "#e74c3c", cursor: "pointer", fontSize: 10, padding: "2px 4px", opacity: 0.6 }}>✕</button>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </div>
-            <div className="flex-fill overflow-auto px-2 pb-2">
-              {(items.filter(it => it.gx === selectedCell.gx && it.gz === selectedCell.gz).length === 0) ? (
-                <div className="text-muted px-1" style={{ fontSize: 10, lineHeight: 1.8, paddingTop: 16 }}>
-                  No items in this cell.<br />Right-click to place.
-                </div>
-              ) : (
-                items.filter(it => it.gx === selectedCell.gx && it.gz === selectedCell.gz).map((item, i) => {
-                  const realIdx = items.indexOf(item)
-                  const def = FURNI.find(f => f.id === item.id)
-                  return (
-                    <div key={i} onClick={() => { setSelectedIdx(realIdx); setSelectedCell(null) }}
-                      className="d-flex align-items-center gap-2 px-2 py-2 rounded mb-1"
-                      style={{ cursor: "pointer", background: realIdx === selectedIdx ? "#4fc3f718" : "transparent", border: realIdx === selectedIdx ? "1px solid #4fc3f7" : "1px solid transparent" }}>
-                      <span className="fs-6">{FURNI.find(f=>f.id===item.id)?.icon ?? "▣"}</span>
-                      <div className="flex-fill min-w-0">
-                        <div className="text-truncate" style={{ fontSize: 10 }}>{def?.name ?? item.id}</div>
-                        <div className="text-muted" style={{ fontSize: 8, marginTop: 1 }}>{item.rotation}° · {item.ty.toFixed(1)}y</div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        ) : sel ? (
-          <div className="d-flex flex-column p-3 gap-1" style={{ overflow: "auto" }}>
-            <div style={{ fontSize: 11, fontWeight: 600 }}>{FURNI.find(f=>f.id===sel.id)?.name ?? sel.id}</div>
-            <div className="text-muted mb-1" style={{ fontSize: 9 }}>{sel.gx},{sel.gz} — #{items.indexOf(sel)}</div>
-            <Slider8 label="Rotation" value={sel.rotation} min={0} max={360} step={15} onChange={v=>updItem(selectedIdx,{rotation:v})} />
-            <Slider8 label="Y-offset" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={v=>updItem(selectedIdx,{ty:v})} />
-            <Slider8 label="Grid X" value={sel.gx} min={0} max={W-1} step={1} onChange={v=>updItem(selectedIdx,{gx:v})} />
-            <Slider8 label="Grid Z" value={sel.gz} min={0} max={D-1} step={1} onChange={v=>updItem(selectedIdx,{gz:v})} />
-            <button onClick={()=>delItem(selectedIdx)} title="Delete [Del]"
-              className="btn btn-sm mt-1 w-100" style={{ background: "#e74c3c12", color: "#e74c3c", border: "1px solid #e74c3c33" }}>Delete</button>
+            {/* Bottom half — selected item properties */}
+            {sel && (
+              <div className="d-flex flex-column px-3 pt-2 pb-3 border-top" style={{ borderColor: BD, overflow: "auto", flex: 1 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{FURNI.find(f=>f.id===sel.id)?.name ?? sel.id}</div>
+                <div className="text-muted mb-2" style={{ fontSize: 9 }}>#{items.indexOf(sel)}</div>
+                <Slider8 label="Rotation" value={sel.rotation} min={0} max={360} step={15} onChange={v=>updItem(selectedIdx,{rotation:v})} />
+                <Slider8 label="Y-offset" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={v=>updItem(selectedIdx,{ty:v})} />
+                <Slider8 label="Grid X" value={sel.gx} min={0} max={W-1} step={1} onChange={v=>updItem(selectedIdx,{gx:v})} />
+                <Slider8 label="Grid Z" value={sel.gz} min={0} max={D-1} step={1} onChange={v=>updItem(selectedIdx,{gz:v})} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-fill d-flex align-items-center justify-content-center p-4">
