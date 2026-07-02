@@ -61,25 +61,6 @@ function GhostPreview({ def }: { def: FurniDef }) {
   return <group ref={groupRef} renderOrder={-1}>{def.render({ gx: 0, gz: 0 })}</group>
 }
 
-function RotationHandles({ gx, gz, ty, onRotate }: { gx: number; gz: number; ty: number; onRotate: (delta: number) => void }) {
-  const pos = gridToWorld({ gx, gz }, 0)
-  const y = 0.08 + ty
-  const R = 0.65
-  const ac = "#4fc3f7"
-  const arrow = (dir: number, xOff: number, zOff: number, rx: number, rz: number) => (
-    <group position={[pos[0] + xOff * R, y, pos[2] + zOff * R]} onClick={(e) => { e.stopPropagation(); onRotate(dir) }}>
-      <mesh><ringGeometry args={[0.07, 0.12, 12]} /><meshBasicMaterial color={ac} transparent opacity={0.7} depthWrite={false} /></mesh>
-      <mesh position={[xOff * 0.18, 0, zOff * 0.18]} rotation={[rx, 0, rz]}><coneGeometry args={[0.04, 0.07, 6]} /><meshBasicMaterial color={ac} transparent opacity={0.7} depthWrite={false} /></mesh>
-    </group>
-  )
-  return (<group>
-    {arrow(15, 1, 0, 0, -Math.PI / 2)}
-    {arrow(-15, -1, 0, 0, Math.PI / 2)}
-    {arrow(15, 0, -1, Math.PI / 2, 0)}
-    {arrow(-15, 0, 1, -Math.PI / 2, 0)}
-  </group>)
-}
-
 function SelectionGlow({ gx, gz, ty }: { gx: number; gz: number; ty: number }) {
   const meshRef = useRef<THREE.Mesh>(null)
   useFrame(() => {
@@ -88,15 +69,15 @@ function SelectionGlow({ gx, gz, ty }: { gx: number; gz: number; ty: number }) {
     }
   })
   const pos = gridToWorld({ gx, gz }, 0)
-  return <mesh ref={meshRef} position={[pos[0], 2.7 + ty, pos[2]]} renderOrder={10}>
+  return <mesh ref={meshRef} position={[pos[0], 0.02 + ty, pos[2]]} renderOrder={10}>
     <boxGeometry args={[GRID.UNIT * 1.15, 0.06, GRID.UNIT * 1.15]} />
     <meshBasicMaterial color="#4fc3f7" transparent depthWrite={false} />
   </mesh>
 }
 
-function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onCellClick, onRotate }: {
+function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onCellClick }: {
   floor: boolean[][]; items: PlacedItem[]; selectedIdx: number
-  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onCellClick: (gx: number, gz: number) => void; onRotate: (delta: number) => void
+  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onCellClick: (gx: number, gz: number) => void
 }) {
   const walls = useMemo(() => computeWalls(floor), [floor])
   const [hover, setHover] = useState<{ gx: number; gz: number } | null>(null)
@@ -148,8 +129,7 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onCellClic
       const def = FURNI.find((f) => f.id === item.id); if (!def) return null
       return (<group key={`${item.gx}-${item.gz}`}>
         <group position={[0, item.ty, 0]}><Furniture gx={item.gx} gz={item.gz} rotation={item.rotation}>{def.render({gx:item.gx,gz:item.gz})}</Furniture></group>
-        {i === selectedIdx && <SelectionGlow gx={item.gx} gz={item.gz} ty={item.ty} />}
-        {i === selectedIdx && <RotationHandles gx={item.gx} gz={item.gz} ty={item.ty} onRotate={onRotate} />}
+    {i === selectedIdx && <SelectionGlow gx={item.gx} gz={item.gz} ty={item.ty} />}
       </group>)
     })}
     {hoverDef && hover && <group position={[gridToWorld({gx:hover.gx,gz:hover.gz},0)[0], 0.005, gridToWorld({gx:hover.gx,gz:hover.gz},0)[2]]}>
@@ -340,13 +320,13 @@ export default function SceneEditor() {
             {orthoMode ? (
               <Canvas orthographic camera={{ position: [5,10,7], zoom: 30, near: -10, far: 20 }}
                 style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
-                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick} onRotate={rotateSelected} />
+                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick}  />
                 <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
               </Canvas>
             ) : (
               <Canvas camera={{ position: [5,6,7], fov: 40, near: 0.1, far: 50 }}
                 style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
-                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick} onRotate={rotateSelected} />
+                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick}  />
                 <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.1} maxPolarAngle={1.3} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
               </Canvas>
             )}
