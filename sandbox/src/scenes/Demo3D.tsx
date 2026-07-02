@@ -1,43 +1,25 @@
 /**
- * Demo3D — 3D exam room rendered from a Scene DSL.
+ * Demo3D — 3D scene renderer driven by bus scene:load events.
  *
- * Receives scenes via initialState prop or bus "scene:load" event.
- * Also supports file import via a hidden file input.
+ * Starts empty.  Send a Scene DSL via the BUS EMITTER in the Events dock
+ * using the "scene:load" template to populate the room.
  */
-import { useMemo, useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
 import { SceneRenderer3D } from "../components/SceneRenderer3D"
+import { emptyScene, type SceneDSL } from "../components/SceneDSL"
 import type { SceneMeta, SceneProps } from "../scene-types"
-import type { SceneDSL } from "../components/SceneDSL"
-
-const DEMO_SCENE: SceneDSL = {
-  version: 1,
-  grid: [
-    "00000000000000","00000000000000","00111111111100","00111111111100",
-    "00111111111100","00111111111100","00111111111100","00111111111100",
-    "00111111111100","00111111111100","00000000000000","00000000000000",
-  ],
-  items: [
-    { id: "bed", gx: 6, gz: 3, rotation: 0, ty: 0 },
-    { id: "patient", gx: 6, gz: 4, rotation: 0, ty: 0 },
-    { id: "iv", gx: 11, gz: 7, rotation: 0, ty: 0 },
-    { id: "monitor", gx: 7, gz: 10, rotation: 0, ty: 0 },
-    { id: "chair", gx: 3, gz: 8, rotation: 180, ty: 0 },
-    { id: "plant", gx: 1, gz: 10, rotation: 0, ty: 0 },
-  ],
-  room: { w: 14, d: 12, unit: 1 },
-}
 
 export const sceneMeta: SceneMeta = {
-  id: "demo-3d", name: "3D 诊室 (R3F)", description: "DSL驱动的 3D 场景", icon: "🏥",
+  id: "demo-3d", name: "3D 诊室 (R3F)", description: "空场景 — 通过 BUS EMITTER 发送 scene:load 注入 DSL", icon: "🏥",
   size: { minW: 640, minH: 360, w: 800, h: 450 },
 }
 
 export default function Demo3D({ bus, initialState }: SceneProps) {
   const [scene, setScene] = useState<SceneDSL>(() => {
     const fromState = initialState as { scene?: SceneDSL } | undefined
-    return fromState?.scene ?? DEMO_SCENE
+    return fromState?.scene ?? emptyScene()
   })
 
   useEffect(() => {
@@ -63,4 +45,3 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
     </div>
   )
 }
-
