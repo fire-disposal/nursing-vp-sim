@@ -31,7 +31,7 @@ const DEMO_SCENE: SceneDSL = {
 
 export const sceneMeta: SceneMeta = {
   id: "demo-3d", name: "3D 诊室 (R3F)", description: "DSL驱动的 3D 场景", icon: "🏥",
-  size: { minW: 640, minH: 320, w: 800, h: 420 },
+  size: { minW: 640, minH: 360, w: 800, h: 450 },
 }
 
 export default function Demo3D({ bus, initialState }: SceneProps) {
@@ -49,15 +49,17 @@ export default function Demo3D({ bus, initialState }: SceneProps) {
   }, [bus])
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
-      <Canvas orthographic camera={{ position: [6, 5, 7], zoom: 48, near: -10, far: 20 }}
-        style={{ width: "100%", height: "100%", background: "#faf6f0", borderRadius: 8 }}
-        onCreated={({ gl }) => gl.setClearColor("#faf6f0")}>
-        <SceneRenderer3D scene={scene} />
-        <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4}
-          minZoom={20} maxZoom={120} minPolarAngle={1.1} maxPolarAngle={1.1}
-          target={[0, 0.4, 0]} enableDamping dampingFactor={0.12} />
-      </Canvas>
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#faf6f0", borderRadius: 8 }}>
+      <div style={{ width: "100%", maxWidth: 800, aspectRatio: "16/9" }}>
+        <Canvas orthographic camera={{ position: [6, 5, 7], zoom: 44, near: -10, far: 20 }}
+          style={{ width: "100%", height: "100%", background: "#faf6f0", borderRadius: 8 }}
+          onCreated={({ gl }) => gl.setClearColor("#faf6f0")}>
+          <SceneRenderer3D scene={scene} />
+          <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4}
+            minZoom={20} maxZoom={120} minPolarAngle={1.1} maxPolarAngle={1.1}
+            target={[0, 0.4, 0]} enableDamping dampingFactor={0.12} />
+        </Canvas>
+      </div>
     </div>
   )
 }
