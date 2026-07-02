@@ -25,14 +25,16 @@ function initGrid(): boolean[][] {
   return g
 }
 
-function computeWalls(floor: boolean[][]): { x: number; z: number }[] {
-  const walls: { x: number; z: number }[] = []
+interface WallFace { x: number; z: number; nx: number; nz: number }
+
+function computeWalls(floor: boolean[][]): WallFace[] {
+  const walls: WallFace[] = []
   for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
     if (!floor[z][x]) continue
-    if (z === 0 || !floor[z - 1][x]) { walls.push({ x, z }); continue }
-    if (z === D - 1 || !floor[z + 1][x]) { walls.push({ x, z }); continue }
-    if (x === 0 || !floor[z][x - 1]) { walls.push({ x, z }); continue }
-    if (x === W - 1 || !floor[z][x + 1]) walls.push({ x, z })
+    if (z === 0 || !floor[z - 1][x]) walls.push({ x, z, nx: 0, nz: -1 })
+    if (z === D - 1 || !floor[z + 1][x]) walls.push({ x, z, nx: 0, nz: 1 })
+    if (x === 0 || !floor[z][x - 1]) walls.push({ x, z, nx: -1, nz: 0 })
+    if (x === W - 1 || !floor[z][x + 1]) walls.push({ x, z, nx: 1, nz: 0 })
   }
   return walls
 }
@@ -59,21 +61,13 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
   const [hover, setHover] = useState<{ gx: number; gz: number } | null>(null)
   const planeRef = useRef<THREE.Mesh>(null)
 
-  const wallNormal = useCallback((w: { x: number; z: number }) => {
-    if (w.z === 0 || floor[w.z - 1]?.[w.x] === false) return new THREE.Vector3(0, 0, -1)
-    if (w.z === D - 1 || floor[w.z + 1]?.[w.x] === false) return new THREE.Vector3(0, 0, 1)
-    if (w.x === 0 || floor[w.z]?.[w.x - 1] === false) return new THREE.Vector3(-1, 0, 0)
-    return new THREE.Vector3(1, 0, 0)
-  }, [floor])
-
-  const wallVisible = useCallback((w: { x: number; z: number }) => {
-    const n = wallNormal(w)
+  const wallVisible = useCallback((w: WallFace) => {
     const cp = (window as any).__sceneCamPos as THREE.Vector3 | undefined
     if (!cp) return true
     const wp = gridToWorld({ gx: w.x, gz: w.z }, 0)
     const toCam = new THREE.Vector3(cp.x - wp[0], 0, cp.z - wp[2]).normalize()
-    return toCam.dot(n) <= 0 // camera inside → show; outside → hide
-  }, [wallNormal])
+    return toCam.x * w.nx + toCam.z * w.nz <= 0
+  }, [])
 
   const handlePointerDown = useCallback((e: any) => {
     if (tool !== "place") return
@@ -106,16 +100,16 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
       </mesh>
     ) : null))}
     {walls.map((w, i) => {
-      const n = wallNormal(w)
-      // Thin wall panel: thickness 0.08m, positioned at cell edge
-      const isX = n.x !== 0
+      const THICK = 0.08
+      const pos = gridToWorld({ gx: w.x, gz: w.z }, 0)
+      // Outer face flush with cell boundary, wall extends outward
       return wallVisible(w) ? (
         <mesh key={i} position={[
-          gridToWorld({ gx: w.x, gz: w.z }, 0)[0] + n.x * GRID.UNIT / 2,
+          pos[0] + w.nx * (GRID.UNIT / 2 + THICK / 2),
           1.5,
-          gridToWorld({ gx: w.x, gz: w.z }, 0)[2] + n.z * GRID.UNIT / 2,
+          pos[2] + w.nz * (GRID.UNIT / 2 + THICK / 2),
         ]} castShadow receiveShadow>
-          <boxGeometry args={isX ? [0.08, 3, GRID.UNIT] : [GRID.UNIT, 3, 0.08]} />
+          <boxGeometry args={[w.nx !== 0 ? THICK : GRID.UNIT, 3, w.nz !== 0 ? THICK : GRID.UNIT]} />
           <meshStandardMaterial color="#faf6f0" roughness={0.8} />
         </mesh>
       ) : null
