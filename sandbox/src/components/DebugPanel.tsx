@@ -147,6 +147,47 @@ export function DebugPanel({ bus, dark }: { bus: MockMessageBus; dark: boolean }
         </label>
       </div>
 
+      {/* BUS EMITTER — collapsible global event sender */}
+      <div style={{ borderBottom: `1px solid ${dark ? "#1e1e28" : "#eee"}`, flexShrink: 0 }}>
+        <button onClick={() => setEmitterOpen(p => !p)}
+          style={{ width: "100%", padding: "4px 8px", background: dark ? "#0d0d12" : "#f5f5f5", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: dark ? "#888" : "#888", fontFamily: "system-ui" }}>
+          <span style={{ transform: `rotate(${emitterOpen ? 90 : 0}deg)`, fontSize: 8 }}>▶</span>
+          <span style={{ fontWeight: 600 }}>BUS EMITTER</span>
+          <span style={{ marginLeft: "auto", fontSize: 8, color: dark ? "#555" : "#bbb" }}>{eventType}</span>
+        </button>
+        {emitterOpen && (
+          <div style={{ padding: "4px 8px", display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", gap: 3 }}>
+              <select value={eventType} onChange={(e) => {
+                setEventType(e.target.value)
+                const templates: Record<string, string> = {
+                  "scene:state": JSON.stringify({ vitals: { hr: 88, spo2: 97, bp_sys: 120, bp_dia: 80 } }, null, 2),
+                  "scene:load": JSON.stringify({ dsl: { version: 1, grid: ["00111111111100"], items: [], room: { w: 14, d: 12, unit: 1 } } }, null, 2),
+                  "emotion:changed": JSON.stringify({ state: "anxious", trust: 40, comfort: 35 }, null, 2),
+                  "scene:interaction": JSON.stringify({ hotspotId: "chest", metadata: { op_type: "hr" } }, null, 2),
+                }
+                const tmpl = templates[e.target.value]
+                if (tmpl) { setPayload(tmpl); try { JSON.parse(tmpl); setValid(true) } catch { setValid(false) } }
+              }}
+                style={{ flex: 1, padding: "2px 5px", fontSize: 9, background: dark ? "#1c1c26" : "#fff", border: `1px solid ${dark ? "#2a2a35" : "#ddd"}`, borderRadius: 3, color: dark ? "#ccc" : "#333", fontFamily: "monospace" }}>
+                <option value="scene:state">scene:state — vitals</option>
+                <option value="scene:load">scene:load — DSL scene</option>
+                <option value="emotion:changed">emotion:changed</option>
+                <option value="scene:interaction">scene:interaction</option>
+                <option value="custom">custom</option>
+              </select>
+              <button onClick={() => { try { bus.emit(eventType, JSON.parse(payload)); setValid(true) } catch { setValid(false) } }}
+                disabled={!valid}
+                style={{ padding: "2px 10px", fontSize: 9, background: valid ? (dark ? "#4fc3f7" : "#0288d1") : "#555", border: "none", borderRadius: 3, color: "#fff", cursor: valid ? "pointer" : "not-allowed", fontWeight: 600, whiteSpace: "nowrap" }}>
+                EMIT
+              </button>
+            </div>
+            <textarea value={payload} onChange={(e) => { setPayload(e.target.value); try { JSON.parse(e.target.value); setValid(true) } catch { setValid(false) } }}
+              rows={3} style={{ width: "100%", padding: 3, fontSize: 9, fontFamily: "monospace", background: dark ? "#1c1c26" : "#fff", border: `1px solid ${valid ? (dark ? "#2a2a35" : "#ddd") : "#e74c3c"}`, borderRadius: 3, color: dark ? "#ccc" : "#333", resize: "vertical" }} />
+          </div>
+        )}
+      </div>
+
       {/* Event list */}
       <div style={{ flex: 1, overflow: "auto", padding: "2px 0" }}>
         {filtered.length === 0 && (
