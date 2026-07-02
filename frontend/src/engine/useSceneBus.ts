@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  emitSceneEvent,
-  type SceneState,
-} from "./scene-state";
+import type { SceneState } from "./scene-state";
 import type { MessageBus } from "./types";
 
 const DEFAULT_SCENE: SceneState = {
