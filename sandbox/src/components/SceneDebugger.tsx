@@ -35,40 +35,47 @@ export function SceneDebugger({ bus, props, sceneId, quickActions }: SceneDebugg
         className="d-flex align-items-center w-100 border-0 py-1 px-2"
         style={{ background: "#f0f0f4", color: "#6c757d", cursor: "pointer", fontSize: 10, fontFamily: "system-ui", gap: 4 }}>
         <span style={{ transform: open ? "rotate(90deg)" : "none", fontSize: 8, transition: "transform 0.1s" }}>▶</span>
-        Debug {sceneId}
+        <span className="fw-medium">{sceneId}</span>
+        <span className="badge bg-light text-muted fw-normal ms-1" style={{ fontSize: 8 }}>debug</span>
+        <span className="ms-auto badge" style={{ fontSize: 8, background: "#e9ecef", color: "#6c757d" }}>{Object.keys(props).length} props</span>
       </button>
 
       {open && (
-        <div className="d-flex flex-column px-2 py-1" style={{ background: "#f8f9fa", gap: 4 }}>
-          <div>
-            <div className="small fw-semibold mb-1" style={{ color: "#6c757d", fontSize: 9 }}>PROPS</div>
-            <pre className="mb-0" style={{ color: "#6c757d", fontSize: 9, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.4, margin: 0 }}>
+        <div className="d-flex flex-column" style={{ background: "#f8f9fa" }}>
+          {/* PROPS — collapsible row */}
+          <details className="px-2 py-1" open>
+            <summary className="small fw-semibold" style={{ color: "#6c757d", fontSize: 9, cursor: "pointer" }}>PROPS ({Object.keys(props).length})</summary>
+            <pre className="mb-0 mt-1" style={{ color: "#6c757d", fontSize: 9, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.4, maxHeight: 120, overflow: "auto" }}>
               {JSON.stringify(props, null, 2)}
             </pre>
-          </div>
-          <div>
+          </details>
+
+          {/* BUS EMITTER — inline form */}
+          <div className="px-2 py-1 border-top" style={{ borderColor: "#e9ecef" }}>
             <div className="small fw-semibold mb-1" style={{ color: "#6c757d", fontSize: 9 }}>BUS EMITTER</div>
             <div className="d-flex gap-1 mb-1">
               <select value={eventType} onChange={(e) => handleTypeChange(e.target.value)}
-                className="form-select form-select-sm" style={{ fontSize: 9 }}>
+                className="form-select form-select-sm" style={{ fontSize: 9, maxWidth: 160 }}>
                 {Object.keys(EVENT_TEMPLATES).map((t) => <option key={t} value={t}>{t}</option>)}
                 <option value="custom">custom</option>
               </select>
               <button onClick={emit} disabled={!valid}
-                className="btn btn-sm" style={{ background: valid ? "#4fc3f7" : "#adb5bd", color: "#fff", fontSize: 9, fontWeight: 600, border: "none", padding: "2px 10px" }}>
+                className="btn btn-sm" style={{ background: valid ? "#4fc3f7" : "#adb5bd", color: "#fff", fontSize: 9, fontWeight: 600, border: "none", padding: "2px 12px" }}>
                 EMIT
               </button>
             </div>
-            <textarea value={payload} onChange={(e) => handlePayloadChange(e.target.value)} rows={3}
+            <textarea value={payload} onChange={(e) => handlePayloadChange(e.target.value)} rows={2}
               className="form-control form-control-sm" style={{ fontSize: 9, fontFamily: "monospace", borderColor: valid ? "#dee2e6" : "#e74c3c", resize: "vertical" }} />
           </div>
+
+          {/* QUICK ACTIONS */}
           {quickActions && quickActions.length > 0 && (
-            <div>
+            <div className="px-2 py-1 border-top" style={{ borderColor: "#e9ecef" }}>
               <div className="small fw-semibold mb-1" style={{ color: "#6c757d", fontSize: 9 }}>QUICK — {sceneId}</div>
               <div className="d-flex gap-1 flex-wrap">
                 {quickActions.map((qa, i) => (
                   <button key={i} onClick={() => bus.emit(qa.emit.event, qa.emit.data)}
-                    className="btn btn-sm" style={{ fontSize: 9, background: "#fff", border: "1px solid #dee2e6", color: "#6c757d", padding: "2px 8px" }}>
+                    className="btn btn-sm border" style={{ fontSize: 9, background: "#fff", borderColor: "#dee2e6", color: "#6c757d", padding: "2px 10px" }}>
                     {qa.label}
                   </button>
                 ))}

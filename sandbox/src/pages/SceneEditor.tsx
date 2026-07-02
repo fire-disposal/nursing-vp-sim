@@ -315,7 +315,6 @@ export default function SceneEditor() {
             Copy JSON
           </button>
         </div>
-        </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <div className="d-flex flex-column" style={{ overflow: "hidden", flexShrink: 0 }}>
             {/* Top 50% — 2D grid */}
