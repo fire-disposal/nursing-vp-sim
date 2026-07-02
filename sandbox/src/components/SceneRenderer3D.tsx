@@ -1,16 +1,11 @@
-/**
- * 3D Scene Renderer — renders a SceneDSL into a Three.js scene.
- *
- * Handles ProceduralRoom, walls, floor tiles, and furniture placement.
- * Used by Demo3D (preview) and SceneEditor (3D view).
- */
-import { useMemo } from "react"
+import { useMemo, useState, useCallback } from "react"
+import { useFrame } from "@react-three/fiber"
 import { Furniture } from "./Furniture"
 import { gridToWorld } from "./GridConfig"
 import { FURNI } from "../data/furniture-catalog"
 import { type SceneDSL, parseGrid } from "./SceneDSL"
+import * as THREE from "three"
 
-/** Compute wall faces from a floor grid (same logic as SceneEditor). */
 function computeWalls(floor: boolean[][]): { x: number; z: number; nx: number; nz: number }[] {
   const w: any[] = []; const D = floor.length; const W = floor[0]?.length ?? 0
   for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
@@ -26,7 +21,17 @@ function computeWalls(floor: boolean[][]): { x: number; z: number; nx: number; n
 export function SceneRenderer3D({ scene }: { scene: SceneDSL }) {
   const floor = useMemo(() => parseGrid(scene.grid), [scene.grid])
   const walls = useMemo(() => computeWalls(floor), [floor])
+  const [camPos, setCamPos] = useState<THREE.Vector3 | null>(null)
   const W = scene.room.w; const D = scene.room.d; const U = scene.room.unit
+
+  useFrame(({ camera }) => setCamPos(camera.position.clone()))
+
+  const wallVisible = useCallback((w: { x: number; z: number; nx: number; nz: number }) => {
+    if (!camPos) return true
+    const wp = gridToWorld({ gx: w.x, gz: w.z }, 0, W, D, U)
+    const v = new THREE.Vector3(camPos.x - wp[0], 0, camPos.z - wp[2]).normalize()
+    return v.x * w.nx + v.z * w.nz <= 0
+  }, [camPos, W, D, U])
 
   return (<>
     <ambientLight intensity={0.5} />
@@ -35,19 +40,20 @@ export function SceneRenderer3D({ scene }: { scene: SceneDSL }) {
     <hemisphereLight args={["#e8d8c8", "#c8d8e0", 0.3]} />
 
     {/* Ground */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} >
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
       <planeGeometry args={[W * U + 2, D * U + 2]} /><meshStandardMaterial color="#e8e0d8" roughness={0.95} />
     </mesh>
 
     {/* Floor tiles */}
     {floor.flatMap((row, gz) => row.map((isFloor, gx) => isFloor ? (
-      <mesh key={`f-${gx}-${gz}`} position={[gridToWorld({ gx, gz }, 0, W, D, U)[0], -0.01, gridToWorld({ gx, gz }, 0, W, D, U)[2]]} >
+      <mesh key={`f-${gx}-${gz}`} position={[gridToWorld({ gx, gz }, 0, W, D, U)[0], -0.01, gridToWorld({ gx, gz }, 0, W, D, U)[2]]}>
         <boxGeometry args={[U - 0.02, 0.02, U - 0.02]} /><meshStandardMaterial color="#ede8e2" roughness={0.9} />
       </mesh>
     ) : null))}
 
-    {/* Walls */}
+    {/* Walls with auto-hide */}
     {walls.map((w, i) => {
+      if (!wallVisible(w)) return null
       const TH = 0.08; const p = gridToWorld({ gx: w.x, gz: w.z }, 0, W, D, U)
       return (
         <mesh key={i} position={[p[0] + w.nx * (U / 2 + TH / 2), 1.5, p[2] + w.nz * (U / 2 + TH / 2)]}>
