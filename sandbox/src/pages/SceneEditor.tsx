@@ -69,7 +69,7 @@ function SelectionGlow({ gx, gz, ty }: { gx: number; gz: number; ty: number }) {
     }
   })
   const pos = gridToWorld({ gx, gz }, 0)
-  return <mesh ref={meshRef} position={[pos[0], 0.02 + ty, pos[2]]} renderOrder={10}>
+  return <mesh ref={meshRef} position={[pos[0], 0.06 + ty, pos[2]]} renderOrder={10}>
     <boxGeometry args={[GRID.UNIT * 1.15, 0.06, GRID.UNIT * 1.15]} />
     <meshBasicMaterial color="#4fc3f7" transparent depthWrite={false} />
   </mesh>
