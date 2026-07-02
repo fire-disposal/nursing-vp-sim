@@ -171,6 +171,25 @@ export default function SceneEditor() {
   const [showHelp, setShowHelp] = useState(false)
   const [hlSet, setHlSet] = useState<Set<string>>(new Set())
   const [orthoMode, setOrthoMode] = useState(true)
+  const [jsonText, setJsonText] = useState("")
+  const [jsonError, setJsonError] = useState("")
+
+  // Sync JSON from floor + items whenever they change
+  useEffect(() => {
+    const dsl = { version: 1, grid: floor.map(r => r.map(c => c ? "1" : "0").join("")), items, room: { w: GRID.ROOM_W, d: GRID.ROOM_D, unit: GRID.UNIT } }
+    setJsonText(JSON.stringify(dsl, null, 2))
+    setJsonError("")
+  }, [floor, items])
+
+  const applyJson = useCallback(() => {
+    try {
+      const dsl = JSON.parse(jsonText)
+      if (!dsl.grid || !dsl.items) { setJsonError("Missing grid or items"); return }
+      setFloor(dsl.grid.map((r: string) => r.split("").map((c: string) => c === "1")))
+      setItems(dsl.items)
+      setJsonError("")
+    } catch { setJsonError("Invalid JSON") }
+  }, [jsonText])
   const ALL_CATS = useMemo(() => [...new Set(FURNI.map((f) => f.category))], [])
   const painting = useRef(false); const paintVal = useRef(true)
   const sel = selectedIdx >= 0 && selectedIdx < items.length ? items[selectedIdx] : null
@@ -234,29 +253,8 @@ export default function SceneEditor() {
   }, [selectedIdx, rotateSelected, delItem, filteredCatalog])
 
   const handleExport = useCallback(() => {
-    const data = JSON.stringify({
-      version: 1, grid: floor.map(r => r.join("")), items,
-      room: { w: GRID.ROOM_W, d: GRID.ROOM_D, unit: GRID.UNIT },
-    }, null, 2)
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }))
-    a.download = "scene.json"; a.click()
-  }, [floor, items])
-
-  const handleImport = useCallback(() => {
-    const input = document.createElement("input")
-    input.type = "file"; input.accept = ".json"
-    input.onchange = async (e: any) => {
-      try {
-        const text = await e.target.files[0].text()
-        const data = JSON.parse(text)
-        if (!data.grid || !data.items) return
-        setFloor(data.grid.map((r: string) => r.split("").map((c: string) => c === "1")))
-        setItems(data.items)
-      } catch {}
-    }
-    input.click()
-  }, [])
+    navigator.clipboard.writeText(jsonText).catch(() => {})
+  }, [jsonText])
 
   const BG = "#f0ece6"; const PANEL = "#faf6f0"; const BD = "#e0d8d0"
 
@@ -314,25 +312,36 @@ export default function SceneEditor() {
           </button>
           <button onClick={handleExport}
             style={{ padding: "2px 8px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: "transparent", color: "var(--muted-fg)" }}>
-            Export
-          </button>
-          <button onClick={handleImport}
-            style={{ padding: "2px 8px", borderRadius: 3, border: `1px solid ${BD}`, cursor: "pointer", fontSize: 9, background: "transparent", color: "var(--muted-fg)" }}>
-            Import
+            Copy JSON
           </button>
         </div>
+        </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <div style={{ overflow: "auto", padding: 10, display: "flex", alignItems: "flex-start", justifyContent: "center", flexShrink: 0 }}>
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${W}, 22px)`, gap: 0, userSelect: "none" }} onContextMenu={e=>e.preventDefault()}>
-              {floor.flatMap((row, gz) => row.map((isFloor, gx) => (
-                <GridCell key={`${gz}-${gx}`} floor={isFloor}
-                  hasItem={items.some(i=>i.gx===gx&&i.gz===gz)}
-                  icon={ICONS[items.find(i=>i.gx===gx&&i.gz===gz)?.id??""] ?? "⬡"}
-                  active={sel?.gx===gx&&sel?.gz===gz}
-                  cellSelected={selectedCell?.gx===gx&&selectedCell?.gz===gz}
-                  highlighted={hlSet.has(`${gz},${gx}`)}
-                  onDown={() => cellDown(gz,gx)} onRight={() => cellRight(gz,gx)} onEnter={() => { if (painting.current && (tool==="paint"||tool==="erase")) { applyCell(gz,gx,paintVal.current); addHl(gz,gx) } }} />
-              )))}
+          <div className="d-flex flex-column" style={{ overflow: "hidden", flexShrink: 0 }}>
+            {/* Top 50% — 2D grid */}
+            <div style={{ overflow: "auto", padding: 8, display: "flex", alignItems: "flex-start", justifyContent: "center", flex: 1 }}>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${W}, 22px)`, gap: 0, userSelect: "none" }} onContextMenu={e=>e.preventDefault()}>
+                {floor.flatMap((row, gz) => row.map((isFloor, gx) => (
+                  <GridCell key={`${gz}-${gx}`} floor={isFloor}
+                    hasItem={items.some(i=>i.gx===gx&&i.gz===gz)}
+                    icon={ICONS[items.find(i=>i.gx===gx&&i.gz===gz)?.id??""] ?? "⬡"}
+                    active={sel?.gx===gx&&sel?.gz===gz}
+                    cellSelected={selectedCell?.gx===gx&&selectedCell?.gz===gz}
+                    highlighted={hlSet.has(`${gz},${gx}`)}
+                    onDown={() => cellDown(gz,gx)} onRight={() => cellRight(gz,gx)} onEnter={() => { if (painting.current && (tool==="paint"||tool==="erase")) { applyCell(gz,gx,paintVal.current); addHl(gz,gx) } }} />
+                )))}
+              </div>
+            </div>
+            {/* Bottom 50% — JSON editor */}
+            <div style={{ borderTop: `1px solid ${BD}`, flex: 1, display: "flex", flexDirection: "column", minHeight: 80 }}>
+              <div className="d-flex align-items-center px-2 py-1" style={{ background: PANEL, borderBottom: `1px solid ${BD}` }}>
+                <span className="small text-muted" style={{ fontSize: 9 }}>Scene DSL</span>
+                <button onClick={applyJson} className="btn btn-sm ms-auto" style={{ fontSize: 8, padding: "1px 8px" }}>Apply</button>
+              </div>
+              <textarea value={jsonText} onChange={e => { setJsonText(e.target.value); setJsonError("") }}
+                className="form-control form-control-sm border-0 rounded-0 flex-fill font-monospace"
+                style={{ fontSize: 8, resize: "none", background: "#f8f9fa" }} spellCheck={false} />
+              {jsonError && <div className="px-2" style={{ fontSize: 8, color: "#e74c3c", background: "#f8f9fa" }}>{jsonError}</div>}
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 200, margin: 6, borderRadius: 8, overflow: "hidden" }}>
