@@ -100,9 +100,9 @@ function SelectionGlow({ gx, gz, ty }: { gx: number; gz: number; ty: number }) {
   </mesh>
 }
 
-function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate }: {
+function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onCellClick, onRotate }: {
   floor: boolean[][]; items: PlacedItem[]; selectedIdx: number
-  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onRotate: (delta: number) => void
+  tool: Tool; placeId: string; onPlace: (gx: number, gz: number) => void; onCellClick: (gx: number, gz: number) => void; onRotate: (delta: number) => void
 }) {
   const walls = useMemo(() => computeWalls(floor), [floor])
   const [hover, setHover] = useState<{ gx: number; gz: number } | null>(null)
@@ -128,7 +128,12 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace, onRotate }
     <directionalLight position={[-2, 3, 1]} intensity={0.25} />
     <hemisphereLight args={["#e8d8c8", "#c8d8e0", 0.3]} />
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}
-      onPointerDown={(e: any) => { if (e.button === 2 && tool === "place") { const p = e.point; const gx = Math.round((p.x + GRID.W/2) / GRID.UNIT - 0.5); const gz = Math.round((p.z + GRID.D/2) / GRID.UNIT - 0.5); if (gx >= 0 && gx < W && gz >= 0 && gz < D && floor[gz][gx]) onPlace(gx, gz) } }}
+      onPointerDown={(e: any) => {
+        const p = e.point; const gx = Math.round((p.x + GRID.W/2) / GRID.UNIT - 0.5); const gz = Math.round((p.z + GRID.D/2) / GRID.UNIT - 0.5)
+        if (gx < 0 || gx >= W || gz < 0 || gz >= D || !floor[gz][gx]) return
+        if (e.button === 0 && tool === "place") onPlace(gx, gz)
+        else if (e.button === 2) onCellClick(gx, gz)
+      }}
       onPointerMove={(e: any) => { if (tool !== "place") { setHover(null); return }; const p = e.point; const gx = Math.round((p.x + GRID.W/2) / GRID.UNIT - 0.5); const gz = Math.round((p.z + GRID.D/2) / GRID.UNIT - 0.5); if (gx >= 0 && gx < W && gz >= 0 && gz < D && floor[gz][gx]) setHover({gx,gz}); else setHover(null) }}>
       <planeGeometry args={[GRID.W + 2, GRID.D + 2]} /><meshStandardMaterial color={GROUND_COL} roughness={0.95} side={2} transparent opacity={0.01} />
     </mesh>
@@ -195,7 +200,6 @@ export default function SceneEditor() {
   const sel = selectedIdx >= 0 && selectedIdx < items.length ? items[selectedIdx] : null
 
   const applyCell = useCallback((gz: number, gx: number, val: boolean) => setFloor((p) => { if (p[gz][gx] === val) return p; const g = p.map(r=>[...r]); g[gz][gx] = val; return g }), [])
-  const cycleCell = useCallback((gz: number, gx: number) => setFloor((p) => { const g = p.map(r=>[...r]); g[gz][gx] = !g[gz][gx]; return g }), [])
 
   const addHl = useCallback((gz: number, gx: number) => {
     setHlSet(prev => { const next = new Set(prev); next.add(`${gz},${gx}`); return next })
@@ -215,6 +219,7 @@ export default function SceneEditor() {
   }, [tool, placeId, floor, items.length, applyCell])
 
   const handle3DPlace = useCallback((gx: number, gz: number) => setItems(p=>[...p,{id:placeId,gx,gz,rotation:0,ty:0}]), [placeId])
+  const handle3DCellClick = useCallback((gx: number, gz: number) => { setSelectedIdx(-1); setSelectedCell({ gx, gz }) }, [])
   const updItem = useCallback((i: number, p: Partial<PlacedItem>) => setItems(prev => prev.map((it,idx) => idx===i ? {...it,...p} : it)), [])
   const delItem = useCallback((i: number) => { setItems(p=>p.filter((_,idx)=>idx!==i)); setSelectedIdx(-1) }, [])
 
@@ -341,13 +346,13 @@ export default function SceneEditor() {
             {orthoMode ? (
               <Canvas orthographic camera={{ position: [5,10,7], zoom: 30, near: -10, far: 20 }}
                 style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
-                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onRotate={rotateSelected} />
+                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick} onRotate={rotateSelected} />
                 <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
               </Canvas>
             ) : (
               <Canvas camera={{ position: [5,6,7], fov: 40, near: 0.1, far: 50 }}
                 style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
-                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onRotate={rotateSelected} />
+                <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} onCellClick={handle3DCellClick} onRotate={rotateSelected} />
                 <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.1} maxPolarAngle={1.3} target={[0,0.8,0]} enableDamping dampingFactor={0.1} />
               </Canvas>
             )}
