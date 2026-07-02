@@ -101,5 +101,5 @@ export default function Demo2D({ bus, mode }: SceneProps) {
 }
 export const sceneMeta: SceneMeta = {
   id: "demo-2d", name: "2D 点触交互", description: "场景状态编辑器", icon: "🖱️",
-  size: { minW: 400, minH: 300, w: 480, h: 400 },
+  size: { minW: 520, minH: 300, w: 520, h: 400 },
 }
