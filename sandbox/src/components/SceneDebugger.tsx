@@ -9,25 +9,8 @@ interface SceneDebuggerProps {
   quickActions?: QuickAction[]
 }
 
-const EVENT_TEMPLATES: Record<string, unknown> = {
-  "scene:state": { vitals: { hr: 88, spo2: 97, bp_sys: 120, bp_dia: 80 } },
-  "emotion:changed": { state: "anxious", trust: 40, comfort: 35 },
-  "scene:interaction": { hotspotId: "chest", metadata: { op_type: "hr" } },
-}
-
 export function SceneDebugger({ bus, props, sceneId, quickActions }: SceneDebuggerProps) {
   const [open, setOpen] = useState(false)
-  const [eventType, setEventType] = useState("scene:state")
-  const [payload, setPayload] = useState(JSON.stringify(EVENT_TEMPLATES["scene:state"], null, 2))
-  const [valid, setValid] = useState(true)
-
-  const handleTypeChange = (t: string) => {
-    setEventType(t)
-    const tmpl = EVENT_TEMPLATES[t]
-    if (tmpl) { const s = JSON.stringify(tmpl, null, 2); setPayload(s); try { JSON.parse(s); setValid(true) } catch { setValid(false) } }
-  }
-  const handlePayloadChange = (v: string) => { setPayload(v); try { JSON.parse(v); setValid(true) } catch { setValid(false) } }
-  const emit = () => { try { bus.emit(eventType, JSON.parse(payload)) } catch {} }
 
   return (
     <div style={{ borderTop: "1px solid #dee2e6", fontSize: 11, fontFamily: "monospace" }}>
@@ -49,24 +32,6 @@ export function SceneDebugger({ bus, props, sceneId, quickActions }: SceneDebugg
               {JSON.stringify(props, null, 2)}
             </pre>
           </details>
-
-          {/* BUS EMITTER — inline form */}
-          <div className="px-2 py-1 border-top" style={{ borderColor: "#e9ecef" }}>
-            <div className="small fw-semibold mb-1" style={{ color: "#6c757d", fontSize: 9 }}>BUS EMITTER</div>
-            <div className="d-flex gap-1 mb-1">
-              <select value={eventType} onChange={(e) => handleTypeChange(e.target.value)}
-                className="form-select form-select-sm" style={{ fontSize: 9, maxWidth: 160 }}>
-                {Object.keys(EVENT_TEMPLATES).map((t) => <option key={t} value={t}>{t}</option>)}
-                <option value="custom">custom</option>
-              </select>
-              <button onClick={emit} disabled={!valid}
-                className="btn btn-sm" style={{ background: valid ? "#4fc3f7" : "#adb5bd", color: "#fff", fontSize: 9, fontWeight: 600, border: "none", padding: "2px 12px" }}>
-                EMIT
-              </button>
-            </div>
-            <textarea value={payload} onChange={(e) => handlePayloadChange(e.target.value)} rows={2}
-              className="form-control form-control-sm" style={{ fontSize: 9, fontFamily: "monospace", borderColor: valid ? "#dee2e6" : "#e74c3c", resize: "vertical" }} />
-          </div>
 
           {/* QUICK ACTIONS */}
           {quickActions && quickActions.length > 0 && (

@@ -35,6 +35,7 @@ export interface SceneProps {
 export interface SceneBusProtocol {
   "scene:interaction": [{ hotspotId: string; metadata?: Record<string, unknown> }]
   "scene:state":      [Partial<SceneState>]
+  "scene:load":       [{ dsl: unknown }]
 }
 
 /** Subscribe to a scene event with correct payload type. */

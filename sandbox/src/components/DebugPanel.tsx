@@ -15,6 +15,10 @@ export function DebugPanel({ bus, dark }: { bus: MockMessageBus; dark: boolean }
   const [playing, setPlaying] = useState(false)
   const [filter, setFilter] = useState("")
   const [groupByType, setGroupByType] = useState(false)
+  const [emitterOpen, setEmitterOpen] = useState(false)
+  const [eventType, setEventType] = useState("scene:state")
+  const [payload, setPayload] = useState(JSON.stringify({ vitals: { hr: 88, spo2: 97, bp_sys: 120, bp_dia: 80 } }, null, 2))
+  const [valid, setValid] = useState(true)
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
