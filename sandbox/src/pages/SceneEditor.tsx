@@ -10,12 +10,6 @@ import * as THREE from "three"
 type Tool = "paint" | "erase" | "place"
 const W = GRID.ROOM_W; const D = GRID.ROOM_D
 interface PlacedItem { id: string; gx: number; gz: number; rotation: number; ty: number }
-const ICONS: Record<string, string> = {
-  bed: "\u{1F6CF}", patient: "\u{1F9D1}", iv: "\u{1F489}",
-  monitor: "\u{1F5A5}", chair: "\u{1FA91}", plant: "\u{1F33F}",
-  cabinet: "\u{1F5C4}", bedside: "\u{1FA91}",
-}
-
 
 function initGrid(): boolean[][] {
   const g: boolean[][] = []
@@ -282,7 +276,7 @@ export default function SceneEditor() {
               style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", padding: "5px 6px", marginBottom: 1, borderRadius: 4,
                 border: `1px solid ${placeId===f.id&&tool==="place" ? "var(--accent)" : "transparent"}`,
                 background: placeId===f.id&&tool==="place" ? "var(--accent)12" : "transparent", cursor: "pointer", textAlign: "left", fontSize: 10, color: "var(--fg)" }}>
-              <span>{ICONS[f.id] ?? "▣"}</span><span>{f.name}</span>
+              <span>{f.icon ?? "▣"}</span><span>{f.name}</span>
               {i < 9 && <span style={{ marginLeft: "auto", color: "var(--muted-fg)", fontSize: 7, fontFamily: "monospace" }}>[{i+1}]</span>}
               {f.tags.length>0 && !(i < 9) && <span style={{ marginLeft: "auto", color: "var(--muted-fg)", fontSize: 8 }}>#{f.tags[0]}</span>}
             </button>
@@ -298,7 +292,7 @@ export default function SceneEditor() {
               title={t==="paint" ? "Paint [P]" : t==="erase" ? "Erase [E]" : "Place [V]"}
               style={{ padding: "3px 10px", borderRadius: 4, border: `1px solid ${tool===t ? "var(--accent)" : BD}`, cursor: "pointer", fontSize: 10,
                 background: tool===t ? "var(--accent)12" : "var(--bg)", color: tool===t ? "var(--accent)" : "var(--muted-fg)" }}>
-              {t==="paint" ? "▣ Paint" : t==="erase" ? "✕ Erase" : `⬡ ${ICONS[placeId]??""}`}
+              {t==="paint" ? "▣ Paint" : t==="erase" ? "✕ Erase" : `⬡ ${FURNI.find(f=>f.id===placeId)?.icon ?? ""}`}
             </button>
           ))}
           <span style={{ flex: 1 }} />
@@ -322,7 +316,7 @@ export default function SceneEditor() {
                 {floor.flatMap((row, gz) => row.map((isFloor, gx) => (
                   <GridCell key={`${gz}-${gx}`} floor={isFloor}
                     hasItem={items.some(i=>i.gx===gx&&i.gz===gz)}
-                    icon={ICONS[items.find(i=>i.gx===gx&&i.gz===gz)?.id??""] ?? "⬡"}
+                    icon={FURNI.find(i=>i.id===items.find(j=>j.gx===gx&&j.gz===gz)?.id)?.icon ?? "⬡"}
                     active={sel?.gx===gx&&sel?.gz===gz}
                     cellSelected={selectedCell?.gx===gx&&selectedCell?.gz===gz}
                     highlighted={hlSet.has(`${gz},${gx}`)}
@@ -383,7 +377,7 @@ export default function SceneEditor() {
                     <div key={i} onClick={() => { setSelectedIdx(realIdx); setSelectedCell(null) }}
                       className="d-flex align-items-center gap-2 px-2 py-2 rounded mb-1"
                       style={{ cursor: "pointer", background: realIdx === selectedIdx ? "#4fc3f718" : "transparent", border: realIdx === selectedIdx ? "1px solid #4fc3f7" : "1px solid transparent" }}>
-                      <span className="fs-6">{ICONS[item.id] ?? "▣"}</span>
+                      <span className="fs-6">{FURNI.find(f=>f.id===item.id)?.icon ?? "▣"}</span>
                       <div className="flex-fill min-w-0">
                         <div className="text-truncate" style={{ fontSize: 10 }}>{def?.name ?? item.id}</div>
                         <div className="text-muted" style={{ fontSize: 8, marginTop: 1 }}>{item.rotation}° · {item.ty.toFixed(1)}y</div>

@@ -374,22 +374,42 @@ export default function FurnitureLab() {
         </div>
         {/* ── Two equal halves: primitives + uncalibrated ── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          {/* Top half — primitive thumbnails */}
+          {/* Top half — primitive + registered thumbnails */}
           <div style={{ flex: 1, overflow: "auto", padding: "5px 7px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, alignContent: "start" }}>
             {(cat ? filtered.filter((f) => f.category === cat) : filtered).map((f, i) => {
               const fi = FURNI.indexOf(f)
-              const active = fi === idx
+              const active = fi === idx && !glbUrl
+              const reg = allEntries[f.id]
               return (
-                <button key={f.id} onClick={() => { setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1); if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null); setRegName(""); setRegTags(""); setRegNote("") }}
+                <button key={f.id} onClick={() => {
+                  if (reg?.glb) {
+                    // Load registered GLB
+                    fetch(reg.glb).then(r => { if (!r.ok) return null; return r.blob() }).then(async blob => {
+                      if (!blob) return
+                      const buf = await blob.arrayBuffer()
+                      const hash = "sha256:" + Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf))).map(b => b.toString(16).padStart(2,"0")).join("")
+                      if (glbUrl) URL.revokeObjectURL(glbUrl)
+                      setGlbUrl(URL.createObjectURL(blob)); setGlbHash(hash); setGlbName(f.id)
+                      setTx(reg.calibration.tx); setTy(reg.calibration.ty); setTz(reg.calibration.tz)
+                      setRot(reg.calibration.rot); setSc(reg.calibration.scale)
+                      setRegName(reg.name); setRegTags(reg.tags.join(", ")); setRegNote(reg.note ?? "")
+                    }).catch(() => {})
+                  } else {
+                    setIdx(fi); setTx(0); setTy(0); setTz(0); setRot(0); setSc(1)
+                    if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null)
+                    setRegName(""); setRegTags(""); setRegNote("")
+                  }
+                }}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                    padding: "8px 4px", borderRadius: 6, border: `1px solid ${active ? pal.accent : "transparent"}`,
-                    background: active ? `${pal.accent}12` : "transparent", cursor: "pointer",
+                    padding: "8px 4px", borderRadius: 6, border: `1px solid ${active || glbName === f.id ? pal.accent : "transparent"}`,
+                    background: active || glbName === f.id ? `${pal.accent}12` : "transparent", cursor: "pointer",
                   }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 5, background: f.thumb, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.7 }}>
-                    {f.id === "bed" ? "🛏" : f.id === "patient" ? "🧑" : f.id === "iv" ? "💉" : f.id === "monitor" ? "🖥" : f.id === "chair" ? "🪑" : f.id === "plant" ? "🌿" : f.id === "cabinet" ? "🗄" : f.id === "bedside" ? "🪑" : "▣"}
+                  <div style={{ width: 44, height: 44, borderRadius: 5, background: f.thumb, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.7, position: "relative" }}>
+                    {reg?.glb ? "📦" : (f.icon ?? "▣")}
+                    {reg?.glb && <span style={{ position: "absolute", top: -2, right: -2, fontSize: 7, color: pal.accent }}>●</span>}
                   </div>
-                  <span style={{ fontSize: 10, color: active ? pal.accent : pal.text }}>{f.name}</span>
+                  <span style={{ fontSize: 10, color: active || glbName === f.id ? pal.accent : pal.text }}>{f.name}</span>
                 </button>
               )
             })}
