@@ -183,7 +183,7 @@ export function DebugPanel({ bus, dark }: { bus: MockMessageBus; dark: boolean }
               </button>
             </div>
             <textarea value={payload} onChange={(e) => { setPayload(e.target.value); try { JSON.parse(e.target.value); setValid(true) } catch { setValid(false) } }}
-              rows={3} style={{ width: "100%", padding: 3, fontSize: 9, fontFamily: "monospace", background: dark ? "#1c1c26" : "#fff", border: `1px solid ${valid ? (dark ? "#2a2a35" : "#ddd") : "#e74c3c"}`, borderRadius: 3, color: dark ? "#ccc" : "#333", resize: "vertical" }} />
+              rows={6} style={{ width: "100%", padding: 4, fontSize: 9, fontFamily: "monospace", background: dark ? "#1c1c26" : "#fff", border: `1px solid ${valid ? (dark ? "#2a2a35" : "#ddd") : "#e74c3c"}`, borderRadius: 3, color: dark ? "#ccc" : "#333", resize: "vertical" }} />
           </div>
         )}
       </div>
