@@ -42,7 +42,7 @@ function computeWalls(floor: boolean[][]): WallFace[] {
 // ── 2D Grid Cell ──
 function GridCell({ floor, hasItem, icon, active, onDown, onRight, onEnter }: { floor: boolean; hasItem: boolean; icon: string; active: boolean; onDown: () => void; onRight: () => void; onEnter: () => void }) {
   return (<div onMouseDown={(e) => { e.preventDefault(); if (e.button === 2) onRight(); else onDown() }} onMouseEnter={onEnter} onContextMenu={(e) => e.preventDefault()}
-    style={{ width: "100%", aspectRatio: "1", background: floor ? "#ede8e2" : "#e8e0d8", border: active ? "2px solid #4fc3f7" : hasItem ? "2px solid #5a8" : "1px solid #ddd", borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none" }}>
+    style={{ width: "100%", aspectRatio: "1", background: floor ? "#1a2a2a" : "#14141c", border: active ? "2px solid #4fc3f7" : hasItem ? "2px solid #5a8" : "1px solid #222", borderRadius: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, userSelect: "none", color: hasItem ? "#8a8" : "#444" }}>
     {hasItem ? icon : ""}</div>)
 }
 
@@ -179,58 +179,58 @@ export default function SceneEditor() {
   const deleteItem = useCallback((idx: number) => { setItems((prev) => prev.filter((_, i) => i !== idx)); setSelectedIdx(-1) }, [])
 
   return (
-    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#f0ece6", color: "#333" }}
+    <div style={{ display: "flex", height: "100%", fontFamily: "system-ui", background: "#12121e", color: "#ccc", fontSize: 11 }}
       onMouseUp={() => { painting.current = false }} onMouseLeave={() => { painting.current = false }}>
       {/* Catalog */}
-      <div style={{ width: 160, background: "#faf6f0", borderRight: "1px solid #e0d8d0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <div style={{ padding: "5px 6px", fontSize: 9, color: "#999", fontWeight: 600, borderBottom: "1px solid #e0d8d0" }}>CATALOG</div>
-        <div style={{ padding: "4px 6px", borderBottom: "1px solid #e0d8d0" }}>
+      <div style={{ width: 150, background: "#16161e", borderRight: "1px solid #2a2a35", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ padding: "6px 8px", fontSize: 9, color: "#666", fontWeight: 600, letterSpacing: 0.5, borderBottom: "1px solid #2a2a35" }}>CATALOG</div>
+        <div style={{ padding: "5px 7px", borderBottom: "1px solid #2a2a35" }}>
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search…"
-            style={{ width: "100%", padding: "2px 5px", background: "#fff", border: "1px solid #e0d8d0", borderRadius: 3, color: "#555", fontSize: 9, outline: "none" }}
+            style={{ width: "100%", padding: "3px 6px", background: "#0d0d12", border: "1px solid #2a2a35", borderRadius: 4, color: "#ccc", fontSize: 10, outline: "none" }}
           />
-          <div style={{ display: "flex", gap: 2, marginTop: 3, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap" }}>
             <button onClick={() => setCat("")}
-              style={{ padding: "1px 5px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 7, background: cat === "" ? "#4fc3f722" : "transparent", color: cat === "" ? "#4fc3f7" : "#aaa" }}>All</button>
+              style={{ padding: "1px 5px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 8, background: cat === "" ? "#4fc3f722" : "transparent", color: cat === "" ? "#4fc3f7" : "#555" }}>All</button>
             {ALL_CATS.map((c) => (
               <button key={c} onClick={() => setCat(c)}
-                style={{ padding: "1px 5px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 7, background: cat === c ? "#4fc3f722" : "transparent", color: cat === c ? "#4fc3f7" : "#aaa" }}>{c}</button>
+                style={{ padding: "1px 5px", borderRadius: 3, border: "none", cursor: "pointer", fontSize: 8, background: cat === c ? "#4fc3f722" : "transparent", color: cat === c ? "#4fc3f7" : "#555" }}>{c}</button>
             ))}
           </div>
         </div>
-        <div style={{ flex: 1, overflow: "auto", padding: "3px 4px" }}>
+        <div style={{ flex: 1, overflow: "auto", padding: "3px 5px" }}>
           {(cat ? FURNI.filter((f) => f.category === cat) : FURNI)
             .filter((f) => !search || f.name.includes(search) || f.tags.some((t) => t.includes(search)))
             .map((f) => (
             <button key={f.id} onClick={() => { setPlaceId(f.id); setTool("place") }}
-              style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", padding: "4px 6px", marginBottom: 2, borderRadius: 4,
+              style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", padding: "5px 6px", marginBottom: 1, borderRadius: 4,
                 border: `1px solid ${placeId === f.id && tool === "place" ? "#4fc3f7" : "transparent"}`,
-                background: placeId === f.id && tool === "place" ? "#4fc3f718" : "transparent", cursor: "pointer", textAlign: "left", fontSize: 9, color: "#555" }}>
+                background: placeId === f.id && tool === "place" ? "#4fc3f712" : "transparent", cursor: "pointer", textAlign: "left", fontSize: 10, color: "#ccc" }}>
               <span>{ICONS[f.id] ?? "▣"}</span>
               <span>{f.name}</span>
-              {f.tags.length > 0 && <span style={{ marginLeft: "auto", color: "#ccc", fontSize: 7 }}>#{f.tags[0]}</span>}
+              {f.tags.length > 0 && <span style={{ marginLeft: "auto", color: "#555", fontSize: 8 }}>#{f.tags[0]}</span>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main: side-by-side 2D grid + 3D view */}
+      {/* Main */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 8px", background: "#faf6f0", borderBottom: "1px solid #e0d8d0", fontSize: 9, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", background: "#16161e", borderBottom: "1px solid #2a2a35", fontSize: 10, flexShrink: 0 }}>
           {(["paint", "erase", "place"] as Tool[]).map((t) => (
             <button key={t} onClick={() => setTool(t)}
-              style={{ padding: "2px 8px", borderRadius: 3, border: `1px solid ${tool === t ? "#4fc3f7" : "#ddd"}`, cursor: "pointer", fontSize: 9,
-                background: tool === t ? "#4fc3f722" : "transparent", color: tool === t ? "#4fc3f7" : "#888" }}>
+              style={{ padding: "3px 10px", borderRadius: 4, border: `1px solid ${tool === t ? "#4fc3f7" : "#2a2a35"}`, cursor: "pointer", fontSize: 10,
+                background: tool === t ? "#4fc3f712" : "#1c1c26", color: tool === t ? "#4fc3f7" : "#888" }}>
               {t === "paint" ? "▣ Paint" : t === "erase" ? "✕ Erase" : `⬡ ${ICONS[placeId] ?? ""}`}
             </button>
           ))}
           <span style={{ flex: 1 }} />
-          <span style={{ color: "#bbb", fontSize: 8 }}>{items.length} items</span>
+          <span style={{ color: "#555", fontSize: 9 }}>{items.length} items</span>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           {/* 2D Grid */}
-          <div style={{ overflow: "auto", padding: 8, display: "flex", alignItems: "flex-start", justifyContent: "center", flexShrink: 0 }}>
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${W}, 20px)`, gap: 0, userSelect: "none" }} onContextMenu={(e) => e.preventDefault()}>
+          <div style={{ overflow: "auto", padding: 10, display: "flex", alignItems: "flex-start", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${W}, 22px)`, gap: 0, userSelect: "none" }} onContextMenu={(e) => e.preventDefault()}>
               {floor.flatMap((row, gz) => row.map((isFloor, gx) => (
                 <GridCell key={`${gz}-${gx}`} floor={isFloor}
                   hasItem={items.some((i) => i.gx === gx && i.gz === gz)}
@@ -240,10 +240,10 @@ export default function SceneEditor() {
               )))}
             </div>
           </div>
-          {/* 3D View — fills remaining space */}
+          {/* 3D View */}
           <div style={{ flex: 1, minWidth: 200, margin: 6, borderRadius: 8, overflow: "hidden" }}>
             <Canvas orthographic camera={{ position: [5, 10, 7], zoom: 30, near: -10, far: 20 }}
-              shadows style={{ width: "100%", height: "100%", background: "#e8e0d8" }}>
+              style={{ width: "100%", height: "100%", background: "#0d0d14" }}>
               <Scene3D floor={floor} items={items} selectedIdx={selectedIdx} tool={tool} placeId={placeId} onPlace={handle3DPlace} />
               <OrbitControls enableRotate enableZoom enablePan zoomSpeed={0.8} panSpeed={0.4} minPolarAngle={0.3} maxPolarAngle={1.2} target={[0, 0.8, 0]} enableDamping dampingFactor={0.1} />
             </Canvas>
@@ -252,28 +252,28 @@ export default function SceneEditor() {
       </div>
 
       {/* Right panel */}
-      <div style={{ width: 140, background: "#faf6f0", borderLeft: "1px solid #e0d8d0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <div style={{ padding: "5px 6px", fontSize: 9, color: "#999", fontWeight: 600, borderBottom: "1px solid #e0d8d0" }}>ITEMS ({items.length})</div>
-        <div style={{ flex: 1, overflow: "auto", padding: 4, fontSize: 9 }}>
+      <div style={{ width: 150, background: "#16161e", borderLeft: "1px solid #2a2a35", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ padding: "6px 8px", fontSize: 9, color: "#666", fontWeight: 600, letterSpacing: 0.5, borderBottom: "1px solid #2a2a35" }}>ITEMS ({items.length})</div>
+        <div style={{ flex: 1, overflow: "auto", padding: "4px 6px", fontSize: 10 }}>
           {items.map((item, i) => {
             const def = FURNI.find((f) => f.id === item.id)
             return (<div key={i} onClick={() => setSelectedIdx(i)}
-              style={{ display: "flex", alignItems: "center", gap: 3, padding: "3px 5px", borderRadius: 3, marginBottom: 2, cursor: "pointer", background: i === selectedIdx ? "#4fc3f718" : "transparent", border: i === selectedIdx ? "1px solid #4fc3f7" : "1px solid transparent" }}>
+              style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 6px", borderRadius: 4, marginBottom: 1, cursor: "pointer", background: i === selectedIdx ? "#4fc3f712" : "transparent", border: i === selectedIdx ? "1px solid #4fc3f7" : "1px solid transparent" }}>
               <span>{ICONS[item.id] ?? "▣"}</span>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{def?.name ?? item.id}</span>
-              <span style={{ color: "#bbb", fontSize: 8 }}>{item.gx},{item.gz}</span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", color: "#ccc" }}>{def?.name ?? item.id}</span>
+              <span style={{ color: "#555", fontSize: 9 }}>{item.gx},{item.gz}</span>
             </div>)
           })}
-          {items.length === 0 && <div style={{ color: "#bbb", textAlign: "center", padding: "12px 0" }}>No items</div>}
+          {items.length === 0 && <div style={{ color: "#444", textAlign: "center", padding: "16px 0", fontSize: 10 }}>No items</div>}
         </div>
-        {sel && <div style={{ borderTop: "1px solid #e0d8d0", padding: 6 }}>
-          <div style={{ fontSize: 8, color: "#999", fontWeight: 600, marginBottom: 3 }}>PROPERTIES</div>
+        {sel && <div style={{ borderTop: "1px solid #2a2a35", padding: "6px 8px" }}>
+          <div style={{ fontSize: 8, color: "#555", fontWeight: 600, letterSpacing: 0.5, marginBottom: 4 }}>PROPERTIES</div>
           <Slider8 label="R" value={sel.rotation} min={0} max={360} step={15} onChange={(v) => updateItem(selectedIdx, { rotation: v })} />
-          <Slider8 label="X" value={sel.gx} min={0} max={W - 1} step={1} onChange={(v) => updateItem(selectedIdx, { gx: v })} />
           <Slider8 label="Y" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={(v) => updateItem(selectedIdx, { ty: v })} />
+          <Slider8 label="X" value={sel.gx} min={0} max={W - 1} step={1} onChange={(v) => updateItem(selectedIdx, { gx: v })} />
           <Slider8 label="Z" value={sel.gz} min={0} max={D - 1} step={1} onChange={(v) => updateItem(selectedIdx, { gz: v })} />
           <button onClick={() => deleteItem(selectedIdx)}
-            style={{ width: "100%", padding: "3px 0", borderRadius: 3, border: "1px solid #e74c3c44", background: "#e74c3c18", color: "#e74c3c", cursor: "pointer", fontSize: 8, marginTop: 2 }}>Delete</button>
+            style={{ width: "100%", padding: "4px 0", marginTop: 4, borderRadius: 4, border: "1px solid #e74c3c33", background: "#e74c3c12", color: "#e74c3c", cursor: "pointer", fontSize: 9 }}>Delete</button>
         </div>}
       </div>
     </div>
@@ -282,9 +282,9 @@ export default function SceneEditor() {
 
 function Slider8({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void }) {
   return (<div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 3 }}>
-    <span style={{ fontSize: 8, color: "#888", width: 12 }}>{label}</span>
+    <span style={{ fontSize: 8, color: "#666", width: 12 }}>{label}</span>
     <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))}
       style={{ flex: 1, height: 2, accentColor: "#4fc3f7", cursor: "pointer" }} />
-    <span style={{ fontSize: 8, color: "#888", width: 24, textAlign: "right" }}>{value}{label === "R" ? "\u00b0" : ""}</span>
+    <span style={{ fontSize: 8, color: "#666", width: 24, textAlign: "right" }}>{value}{label === "R" ? "\u00b0" : ""}</span>
   </div>)
 }
