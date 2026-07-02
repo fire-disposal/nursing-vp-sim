@@ -5,11 +5,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from fastapi import HTTPException
 from pydantic import ValidationError as PydanticValidationError
 
 from core.case_schema import validate_case_data
-from core.exceptions import NotFoundError, ValidationError
+from core.exceptions import LLMError, NotFoundError, ValidationError
 from core.llm_profile import get_llm_config
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import render_template
@@ -111,7 +110,7 @@ async def generate_case(
         )
     except Exception as e:
         log.exception("case_generation LLM call failed")
-        raise HTTPException(status_code=500, detail=f"AI 生成失败: {e!s}")
+        raise LLMError(f"AI 生成失败: {e!s}")
 
     if data.field:
         field_value = result.get("field_value") or result.get(data.field)
@@ -120,5 +119,5 @@ async def generate_case(
     try:
         result = validate_case_data(data.training_type, result, strict=True)
     except PydanticValidationError as e:
-        raise HTTPException(status_code=422, detail=e.errors(include_url=False))
+        raise ValidationError(detail=f"病例数据验证失败: {e}")
     return CaseGenerateResponse(case_data=result)

@@ -35,14 +35,10 @@ class LoginStrategy(ABC):
 
 
 def get_strategy_registry() -> dict[str, type["LoginStrategy"]]:
-    from core.login_strategies.cas import CASLoginStrategy
-    from core.login_strategies.oauth2 import OAuth2LoginStrategy
     from core.login_strategies.password import PasswordLoginStrategy
     from core.login_strategies.wechat import WeChatLoginStrategy
 
     return {
         "password": PasswordLoginStrategy,
         "wechat": WeChatLoginStrategy,
-        "oauth2": OAuth2LoginStrategy,
-        "cas": CASLoginStrategy,
     }
