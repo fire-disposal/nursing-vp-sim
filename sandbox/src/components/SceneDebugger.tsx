@@ -1,7 +1,3 @@
-/**
- * Per‑scene debug panel — inspect props, emit bus events.
- * Quick actions are card‑specific and provided by the registry.
- */
 import { useState } from "react"
 import type { MessageBus } from "../mock/bus"
 import type { QuickAction } from "../scene-types"
@@ -11,6 +7,8 @@ interface SceneDebuggerProps {
   props: Record<string, unknown>
   sceneId: string
   quickActions?: QuickAction[]
+  /** Whether this scene window is in dark mode. */
+  dark?: boolean
 }
 
 const EVENT_TEMPLATES: Record<string, unknown> = {
@@ -19,7 +17,7 @@ const EVENT_TEMPLATES: Record<string, unknown> = {
   "scene:interaction": { hotspotId: "chest", metadata: { op_type: "hr" } },
 }
 
-export function SceneDebugger({ bus, props, sceneId, quickActions }: SceneDebuggerProps) {
+export function SceneDebugger({ bus, props, sceneId, quickActions, dark = false }: SceneDebuggerProps) {
   const [open, setOpen] = useState(false)
   const [eventType, setEventType] = useState("scene:state")
   const [payload, setPayload] = useState(JSON.stringify(EVENT_TEMPLATES["scene:state"], null, 2))
@@ -28,70 +26,55 @@ export function SceneDebugger({ bus, props, sceneId, quickActions }: SceneDebugg
   const handleTypeChange = (t: string) => {
     setEventType(t)
     const tmpl = EVENT_TEMPLATES[t]
-    if (tmpl) {
-      const str = JSON.stringify(tmpl, null, 2)
-      setPayload(str)
-      try { JSON.parse(str); setValid(true) } catch { setValid(false) }
-    }
+    if (tmpl) { const s = JSON.stringify(tmpl, null, 2); setPayload(s); try { JSON.parse(s); setValid(true) } catch { setValid(false) } }
   }
+  const handlePayloadChange = (v: string) => { setPayload(v); try { JSON.parse(v); setValid(true) } catch { setValid(false) } }
+  const emit = () => { try { bus.emit(eventType, JSON.parse(payload)) } catch {} }
 
-  const handlePayloadChange = (v: string) => {
-    setPayload(v)
-    try { JSON.parse(v); setValid(true) } catch { setValid(false) }
-  }
-
-  const emit = () => {
-    try { bus.emit(eventType, JSON.parse(payload)) } catch { /* no-op */ }
-  }
+  const c = (light: string, d: string) => dark ? d : light
+  const BG = c("#f8f9fa", "#1a1a2e"); const TEXT = c("#6c757d", "#999"); const BORDER = c("#dee2e6", "#444")
+  const INPUT = c("#fff", "#222"); const INPUT_TEXT = c("#495057", "#bbb")
 
   return (
-    <div style={{ borderTop: "1px solid #333", fontSize: 11, fontFamily: "monospace" }}>
+    <div className={dark ? "" : ""} style={{ borderTop: `1px solid ${BORDER}`, fontSize: 11, fontFamily: "monospace" }}>
       <button onClick={() => setOpen(!open)}
-        style={{
-          width: "100%", padding: "4px 10px", background: "#1a1a2e", border: "none",
-          color: "#777", cursor: "pointer", textAlign: "left", fontSize: 10, fontFamily: "system-ui",
-          display: "flex", alignItems: "center", gap: 5,
-        }}
-      >
-        <span style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.1s", fontSize: 8 }}>▶</span>
+        className="d-flex align-items-center w-100 border-0 py-1 px-2"
+        style={{ background: c("#f0f0f4", "#1a1a2e"), color: TEXT, cursor: "pointer", fontSize: 10, fontFamily: "system-ui", gap: 4 }}>
+        <span style={{ transform: open ? "rotate(90deg)" : "none", fontSize: 8, transition: "transform 0.1s" }}>▶</span>
         Debug {sceneId}
       </button>
 
       {open && (
-        <div style={{ padding: "6px 10px", background: "#12121e", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div className="d-flex flex-column px-2 py-1" style={{ background: BG, gap: 4 }}>
           <div>
-            <div style={{ color: "#555", fontSize: 9, marginBottom: 3, fontWeight: 600 }}>PROPS</div>
-            <pre style={{ margin: 0, color: "#999", fontSize: 9, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.4 }}>
+            <div className="small fw-semibold mb-1" style={{ color: TEXT, fontSize: 9 }}>PROPS</div>
+            <pre className="mb-0" style={{ color: c("#6c757d", "#999"), fontSize: 9, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.4, margin: 0 }}>
               {JSON.stringify(props, null, 2)}
             </pre>
           </div>
-
           <div>
-            <div style={{ color: "#555", fontSize: 9, marginBottom: 3, fontWeight: 600 }}>BUS EMITTER</div>
-            <div style={{ display: "flex", gap: 3, marginBottom: 3 }}>
+            <div className="small fw-semibold mb-1" style={{ color: TEXT, fontSize: 9 }}>BUS EMITTER</div>
+            <div className="d-flex gap-1 mb-1">
               <select value={eventType} onChange={(e) => handleTypeChange(e.target.value)}
-                style={{ flex: 1, padding: "2px 5px", background: "#222", color: "#bbb", border: "1px solid #444", borderRadius: 3, fontSize: 9, fontFamily: "monospace" }}
-              >
+                className="form-select form-select-sm" style={{ fontSize: 9, background: INPUT, color: INPUT_TEXT, border: `1px solid ${BORDER}` }}>
                 {Object.keys(EVENT_TEMPLATES).map((t) => <option key={t} value={t}>{t}</option>)}
                 <option value="custom">custom</option>
               </select>
               <button onClick={emit} disabled={!valid}
-                style={{ padding: "2px 8px", background: valid ? "#4fc3f7" : "#333", border: "none", borderRadius: 3, color: valid ? "#111" : "#555", cursor: valid ? "pointer" : "not-allowed", fontSize: 9, fontWeight: 600 }}>
+                className="btn btn-sm border-0" style={{ background: valid ? "#4fc3f7" : "#6c757d", color: valid ? "#111" : "#fff", fontSize: 9, fontWeight: 600, padding: "2px 10px" }}>
                 EMIT
               </button>
             </div>
             <textarea value={payload} onChange={(e) => handlePayloadChange(e.target.value)} rows={3}
-              style={{ width: "100%", padding: 4, background: "#1a1a2e", color: valid ? "#bbb" : "#e74c3c", border: `1px solid ${valid ? "#444" : "#e74c3c"}`, borderRadius: 3, fontSize: 9, fontFamily: "monospace", resize: "vertical" }}
-            />
+              className="form-control form-control-sm" style={{ fontSize: 9, fontFamily: "monospace", background: INPUT, color: valid ? INPUT_TEXT : "#e74c3c", borderColor: valid ? BORDER : "#e74c3c", resize: "vertical" }} />
           </div>
-
           {quickActions && quickActions.length > 0 && (
             <div>
-              <div style={{ color: "#555", fontSize: 9, marginBottom: 3, fontWeight: 600 }}>QUICK — {sceneId}</div>
-              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+              <div className="small fw-semibold mb-1" style={{ color: TEXT, fontSize: 9 }}>QUICK — {sceneId}</div>
+              <div className="d-flex gap-1 flex-wrap">
                 {quickActions.map((qa, i) => (
                   <button key={i} onClick={() => bus.emit(qa.emit.event, qa.emit.data)}
-                    style={{ padding: "2px 7px", background: "#2a2a3e", border: "1px solid #444", borderRadius: 3, color: "#bbb", cursor: "pointer", fontSize: 9, fontFamily: "system-ui" }}>
+                    className="btn btn-sm border" style={{ fontSize: 9, background: c("#f8f9fa", "#2a2a3e"), borderColor: BORDER, color: TEXT, padding: "2px 8px" }}>
                     {qa.label}
                   </button>
                 ))}

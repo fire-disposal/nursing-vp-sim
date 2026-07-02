@@ -546,17 +546,17 @@ export default function FurnitureLab() {
             </div>
           </div>
 
-          {/* Register form */}
-          {glbHash && <div className="d-flex gap-2 align-items-start pt-1 border-top" style={{ borderColor: pal.border }}>
+          {/* Register form — prominent when GLB loaded */}
+          {glbHash && <div className="d-flex gap-2 align-items-start pt-2 pb-1 px-2 mt-1 rounded" style={{ background: `${pal.accent}08`, border: `1px solid ${pal.accent}22` }}>
             <div className="d-flex flex-column gap-1 flex-fill min-w-0">
-              <div className="small fw-semibold" style={{ color: pal.dim, fontSize: 8 }}>REGISTER</div>
-              <input value={regName} onChange={(e) => setRegName(e.target.value)}
-                placeholder="Furniture name" maxLength={40}
-                style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
-              />
-              <div style={{ display: "flex", gap: 2 }}>
+              <div className="small fw-semibold" style={{ color: pal.accent, fontSize: 8 }}>REGISTER TO REGISTRY</div>
+              <div className="d-flex gap-2">
+                <input value={regName} onChange={(e) => setRegName(e.target.value)}
+                  placeholder="Furniture name" maxLength={40}
+                  className="form-control form-control-sm" style={{ fontSize: 9, background: pal.bg, borderColor: pal.border, color: pal.text, padding: "3px 6px" }}
+                />
                 <input value={regTags} onChange={(e) => setRegTags(e.target.value)}
-                  placeholder="tag1, tag2…" style={{ flex: 1, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}
+                  placeholder="tag1, tag2…" className="form-control form-control-sm" style={{ fontSize: 9, background: pal.bg, borderColor: pal.border, color: pal.text, padding: "3px 6px", maxWidth: 120 }}
                 />
                 <button onClick={async () => {
                   const { buildEntry, mergeEntry, sanitizeTags } = await import("../data/furniture-registry")
@@ -570,16 +570,17 @@ export default function FurnitureLab() {
                   setSaved(true)
                   setTimeout(() => setSaved(false), 1200)
                 }}
-                  style={{ padding: "3px 10px", background: saved ? `${pal.accent}44` : `${pal.accent}22`, border: `1px solid ${pal.accent}`, borderRadius: 3, color: saved ? "#fff" : pal.accent, cursor: "pointer", fontSize: 9, whiteSpace: "nowrap", transition: "all 0.15s" }}>
-                  {saved ? "✓" : "Save"}
+                  className="btn btn-sm fw-semibold" style={{ background: saved ? "#4fc3f7" : pal.accent, color: "#fff", border: "none", fontSize: 9, padding: "3px 14px", whiteSpace: "nowrap" }}>
+                  {saved ? "✓ Saved" : "Save"}
                 </button>
               </div>
-              <textarea value={regNote} onChange={(e) => setRegNote(e.target.value)}
-                placeholder="Notes…" rows={1} maxLength={200}
-                style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none", resize: "none", fontFamily: "inherit" }}
-              />
+              <div className="d-flex gap-2 align-items-center">
+                <textarea value={regNote} onChange={(e) => setRegNote(e.target.value)}
+                  placeholder="Notes…" rows={1} maxLength={200} style={{ flex: 1, fontSize: 8, padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, outline: "none", resize: "none", fontFamily: "inherit" }}
+                />
+                <span style={{ fontSize: 7, color: pal.dim, whiteSpace: "nowrap" }}>→ registry in git</span>
+              </div>
             </div>
-            <div style={{ fontSize: 7, color: pal.dim, alignSelf: "flex-end", paddingBottom: 2, whiteSpace: "nowrap" }}>→ registry in git</div>
           </div>}
         </div>
           </div>
