@@ -48,7 +48,6 @@ export function SceneSandbox({ initialScene }: { initialScene?: string }) {
   const [showDock, setShowDock] = useState(true)
   const [dockTab, setDockTab] = useState<DockTab>("events")
   const [inspectedId, setInspectedId] = useState<string | null>(null)
-  const [sceneDark, setSceneDark] = useState<Record<string, boolean>>({})
   const nextZ = useRef(100)
   const dragRef = useRef({ id: "", ox: 0, oy: 0, dragging: false })
   const winsRef = useRef(wins)
@@ -114,10 +113,6 @@ export function SceneSandbox({ initialScene }: { initialScene?: string }) {
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 9px", background: "var(--muted)", borderBottom: "1px solid var(--border)", cursor: "grab", userSelect: "none", fontSize: 10, color: "var(--muted-fg)" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span>{s.icon ?? "◻"}</span><span>{s.name}</span></span>
                 <div style={{ display: "flex", gap: 2 }}>
-                  <button onClick={(e) => { e.stopPropagation(); setSceneDark(prev => ({ ...prev, [id]: !prev[id] })) }} title="Toggle theme"
-                    style={{ background: "none", border: "none", color: "var(--muted-fg)", cursor: "pointer", fontSize: 9, padding: "1px 4px", borderRadius: 2, lineHeight: 1 }}>
-                    {sceneDark[id] ? "☀" : "🌙"}
-                  </button>
                   <button onClick={(e) => { e.stopPropagation(); toggleMinimize(id) }} title="Minimize" style={{ background: "none", border: "none", color: "var(--muted-fg)", cursor: "pointer", fontSize: 10, padding: "1px 4px", borderRadius: 2, lineHeight: 1 }}>_</button>
                   <button onClick={(e) => { e.stopPropagation(); toggle(id) }} title="Close" style={{ background: "none", border: "none", color: "var(--muted-fg)", cursor: "pointer", fontSize: 10, padding: "1px 4px", borderRadius: 2, lineHeight: 1 }}>✕</button>
                 </div>
