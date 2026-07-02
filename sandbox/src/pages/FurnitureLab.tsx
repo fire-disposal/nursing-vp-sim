@@ -494,19 +494,17 @@ export default function FurnitureLab() {
       </div>
 
       {/* ── RIGHT: Preview + params ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Info bar — compact */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderBottom: `1px solid ${pal.border}`, background: pal.panel, fontSize: 10 }}>
-          <span style={{ color: pal.accent, fontWeight: 700 }}>{glbName ?? def.name}</span>
+      <div className="d-flex flex-column flex-fill overflow-hidden">
+        {/* Info bar */}
+        <div className="d-flex align-items-center gap-2 px-2 border-bottom" style={{ background: pal.panel, borderColor: pal.border, fontSize: 10, minHeight: 26 }}>
+          <span className="fw-bold" style={{ color: pal.accent }}>{glbName ?? def.name}</span>
           <span style={{ color: pal.dim }}>{glbUrl ? "GLB" : def.id}</span>
-          {glbHash && <span style={{ color: pal.dim, fontSize: 8, fontFamily: "monospace", maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis" }} title={glbHash}>{glbHash.slice(0, 12)}…</span>}
-          <span style={{ color: pal.dim, marginLeft: "auto" }}>
+          {glbHash && <span className="text-truncate" style={{ color: pal.dim, fontFamily: "monospace", fontSize: 8, maxWidth: 60 }} title={glbHash}>{glbHash.slice(0, 12)}…</span>}
+          <span className="ms-auto" style={{ color: pal.dim }}>
             {glbUrl ? `loaded · ${glbName}` : `${def.category}`}
           </span>
           {glbUrl && <button onClick={() => { if (glbUrl) URL.revokeObjectURL(glbUrl); setGlbUrl(null); setGlbHash(null); setGlbName(null) }}
-            style={{ padding: "1px 5px", background: "transparent", border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.dim, cursor: "pointer", fontSize: 9 }}>
-            ✕
-          </button>}
+            className="btn btn-sm border-0 py-0" style={{ background: "transparent", borderColor: pal.border, color: pal.dim, fontSize: 9 }}>✕</button>}
         </div>
 
         {/* 3D preview — fills available space */}
@@ -525,36 +523,33 @@ export default function FurnitureLab() {
         </div>
 
         {/* ── Parameter panel ── */}
-        <div style={{ padding: "5px 10px", borderTop: `1px solid ${pal.border}`, background: pal.panel, display: "flex", flexDirection: "column", gap: 4 }}>
-          {/* Row 1 — sliders + JSON */}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <div style={{ minWidth: 120, flex: 1 }}>
-              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>TRANSLATE</div>
-              <SliderInput  label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
-              <SliderInput  label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
-              <SliderInput  label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
+        <div className="d-flex flex-column gap-1 px-2 py-1 border-top" style={{ borderColor: pal.border, background: pal.panel }}>
+          <div className="d-flex gap-2 align-items-start">
+            <div className="flex-fill" style={{ minWidth: 120 }}>
+              <div className="small fw-semibold mb-1" style={{ color: pal.dim, fontSize: 8 }}>TRANSLATE</div>
+              <SliderInput label="X" value={tx} min={-1.5} max={1.5} step={0.05} onChange={setTx} />
+              <SliderInput label="Y" value={ty} min={-0.5} max={2} step={0.05} onChange={setTy} />
+              <SliderInput label="Z" value={tz} min={-1.5} max={1.5} step={0.05} onChange={setTz} />
             </div>
-            <div style={{ minWidth: 110, flex: 1 }}>
-              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2 }}>ROTATE</div>
-              <SliderInput  label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
-              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600, marginBottom: 2, marginTop: 3 }}>SCALE</div>
-              <SliderInput  label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
+            <div className="flex-fill" style={{ minWidth: 110 }}>
+              <div className="small fw-semibold mb-1" style={{ color: pal.dim, fontSize: 8 }}>ROTATE</div>
+              <SliderInput label="Y°" value={rot} min={0} max={360} step={1} onChange={setRot} />
+              <div className="small fw-semibold mb-1 mt-1" style={{ color: pal.dim, fontSize: 8 }}>SCALE</div>
+              <SliderInput label="×" value={sc} min={0.01} max={100} step={0} onChange={setSc} log />
             </div>
             <div style={{ minWidth: 120, flex: 1, maxWidth: 200 }}>
-              <TransformJSON  id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
+              <TransformJSON id={def.id} name={glbName ?? def.name} tx={tx} ty={ty} tz={tz} rot={rot} scale={sc} glbName={glbName} glbHash={glbHash} onApply={({tx:a,ty:b,tz:c,rot:d,scale:e}) => { setTx(a); setTy(b); setTz(c); setRot(d); setSc(e) }} />
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, paddingBottom: 1, flexShrink: 0 }}>
+            <div className="d-flex align-items-end gap-1 flex-shrink-0" style={{ paddingBottom: 1 }}>
               <button onClick={() => { setTx(0); setTy(0); setTz(0); setRot(0); setSc(1) }}
-                style={{ padding: "3px 10px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, cursor: "pointer", fontSize: 9 }}>
-                Reset
-              </button>
+                className="btn btn-sm border-0" style={{ background: pal.bg, borderColor: pal.border, color: pal.text, fontSize: 9 }}>Reset</button>
             </div>
           </div>
 
-          {/* Row 2 — register form (only when GLB loaded) */}
-          {glbHash && <div style={{ borderTop: `1px solid ${pal.border}`, paddingTop: 4, display: "flex", gap: 6, alignItems: "flex-start" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 8, color: pal.dim, fontWeight: 600 }}>REGISTER</div>
+          {/* Register form */}
+          {glbHash && <div className="d-flex gap-2 align-items-start pt-1 border-top" style={{ borderColor: pal.border }}>
+            <div className="d-flex flex-column gap-1 flex-fill min-w-0">
+              <div className="small fw-semibold" style={{ color: pal.dim, fontSize: 8 }}>REGISTER</div>
               <input value={regName} onChange={(e) => setRegName(e.target.value)}
                 placeholder="Furniture name" maxLength={40}
                 style={{ width: "100%", padding: "2px 5px", background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 3, color: pal.text, fontSize: 8, outline: "none" }}

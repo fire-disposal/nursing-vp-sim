@@ -21,21 +21,18 @@ export function SandboxShell({ initialScene }: { initialScene?: string }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Top bar — mode tabs only */}
-      <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 10px", background: "#faf6f0", borderBottom: "1px solid #e0d8d0", fontFamily: "system-ui", fontSize: 11, flexShrink: 0 }}>
-        <span style={{ fontWeight: 700, color: "#999", letterSpacing: 0.5, fontSize: 10, marginRight: 6 }}>S/B</span>
+    <div className="d-flex flex-column" style={{ height: "100vh" }}>
+      {/* Top bar */}
+      <div className="d-flex align-items-center gap-1 px-2 border-bottom flex-shrink-0" style={{ background: "#faf6f0", borderColor: "#e0d8d0", fontFamily: "system-ui", height: 28 }}>
+        <span className="fw-bold me-1" style={{ color: "#999", letterSpacing: 0.5, fontSize: 10 }}>S/B</span>
         {(["scenes", "furniture", "editor"] as const).map((m) => (
           <button key={m} onClick={() => setModeAndSave(m)}
-            style={{ padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer",
-              fontSize: 9, fontWeight: mode === m ? 600 : 400, fontFamily: "system-ui",
-              background: mode === m ? "#4fc3f722" : "transparent",
-              color: mode === m ? "#4fc3f7" : "#888",
-            }}>
+            className={`btn btn-sm border-0 ${mode === m ? "" : ""}`}
+            style={{ fontSize: 9, fontWeight: mode === m ? 600 : 400, padding: "2px 8px", borderRadius: 4, background: mode === m ? "#4fc3f722" : "transparent", color: mode === m ? "#4fc3f7" : "#888" }}>
             {m === "scenes" ? "Scenes" : m === "furniture" ? "Furniture" : "Editor"}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
+        <div className="flex-fill" />
       </div>
 
       {mode === "furniture" ? (
