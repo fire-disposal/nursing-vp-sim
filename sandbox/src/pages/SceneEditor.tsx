@@ -8,7 +8,7 @@ import * as THREE from "three"
 
 type Tool = "paint" | "erase" | "place"
 const W = GRID.ROOM_W; const D = GRID.ROOM_D
-interface PlacedItem { id: string; gx: number; gz: number; rotation: number }
+interface PlacedItem { id: string; gx: number; gz: number; rotation: number; ty: number }
 const ICONS: Record<string, string> = {
   bed: "\u{1F6CF}", patient: "\u{1F9D1}", iv: "\u{1F489}",
   monitor: "\u{1F5A5}", chair: "\u{1FA91}", plant: "\u{1F33F}",
@@ -124,8 +124,10 @@ function Scene3D({ floor, items, selectedIdx, tool, placeId, onPlace }: {
       const def = FURNI.find((f) => f.id === item.id)
       if (!def) return null
       return (<group key={`${item.gx}-${item.gz}`}>
-        <Furniture gx={item.gx} gz={item.gz} rotation={item.rotation}>{def.render({ gx: item.gx, gz: item.gz })}</Furniture>
-        {i === selectedIdx && <mesh position={[gridToWorld({ gx: item.gx, gz: item.gz }, 0)[0], 2.8, gridToWorld({ gx: item.gx, gz: item.gz }, 0)[2]]}>
+        <group position={[0, item.ty, 0]}>
+          <Furniture gx={item.gx} gz={item.gz} rotation={item.rotation}>{def.render({ gx: item.gx, gz: item.gz })}</Furniture>
+        </group>
+        {i === selectedIdx && <mesh position={[gridToWorld({ gx: item.gx, gz: item.gz }, 0)[0], 2.8 + item.ty, gridToWorld({ gx: item.gx, gz: item.gz }, 0)[2]]}>
           <boxGeometry args={[GRID.UNIT * 1.1, 0.05, GRID.UNIT * 1.1]} /><meshBasicMaterial color="#4fc3f7" transparent opacity={0.25} />
         </mesh>}
       </group>)
@@ -155,7 +157,7 @@ export default function SceneEditor() {
   const cellMouseDown = useCallback((gz: number, gx: number) => {
     if (tool === "place") {
       if (!floor[gz][gx]) { setSelectedIdx(-1); return }
-      setItems((prev) => [...prev, { id: placeId, gx, gz, rotation: 0 }]); setSelectedIdx(items.length); return
+      setItems((prev) => [...prev, { id: placeId, gx, gz, rotation: 0, ty: 0 }]); setSelectedIdx(items.length); return
     }
     if (tool === "paint") { painting.current = true; paintVal.current = true; applyCell(gz, gx, true); return }
     if (tool === "erase") { painting.current = true; paintVal.current = false; applyCell(gz, gx, false); return }
@@ -170,7 +172,7 @@ export default function SceneEditor() {
   }, [tool, applyCell])
 
   const handle3DPlace = useCallback((gx: number, gz: number) => {
-    setItems((prev) => [...prev, { id: placeId, gx, gz, rotation: 0 }]); setSelectedIdx(items.length)
+    setItems((prev) => [...prev, { id: placeId, gx, gz, rotation: 0, ty: 0 }]); setSelectedIdx(items.length)
   }, [placeId, items.length])
 
   const updateItem = useCallback((idx: number, p: Partial<PlacedItem>) => setItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...p } : item)), [])
@@ -250,6 +252,7 @@ export default function SceneEditor() {
           <div style={{ fontSize: 8, color: "#999", fontWeight: 600, marginBottom: 3 }}>PROPERTIES</div>
           <Slider8 label="R" value={sel.rotation} min={0} max={360} step={15} onChange={(v) => updateItem(selectedIdx, { rotation: v })} />
           <Slider8 label="X" value={sel.gx} min={0} max={W - 1} step={1} onChange={(v) => updateItem(selectedIdx, { gx: v })} />
+          <Slider8 label="Y" value={sel.ty} min={-0.5} max={2} step={0.05} onChange={(v) => updateItem(selectedIdx, { ty: v })} />
           <Slider8 label="Z" value={sel.gz} min={0} max={D - 1} step={1} onChange={(v) => updateItem(selectedIdx, { gz: v })} />
           <button onClick={() => deleteItem(selectedIdx)}
             style={{ width: "100%", padding: "3px 0", borderRadius: 3, border: "1px solid #e74c3c44", background: "#e74c3c18", color: "#e74c3c", cursor: "pointer", fontSize: 8, marginTop: 2 }}>Delete</button>
