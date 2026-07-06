@@ -99,13 +99,13 @@ def _thought_fallback(original_len: int) -> str:
 
 
 async def _sse_progress(
-    sse_manager, user_id: int | None, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
+    realtime_hub, user_id: int | None, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
 ) -> None:
-    """Publish scoring progress via SSE if sse_manager and user_id are available."""
-    if not sse_manager or not user_id:
+    """Publish scoring progress via SSE if realtime_hub and user_id are available."""
+    if not realtime_hub or not user_id:
         return
     try:
-        await sse_manager.publish(
+        await realtime_hub.publish(
             user_id,
             "scoring_progress",
             {
@@ -134,7 +134,7 @@ async def _stream_attempt(
     pct_range: int,
     progress_msg: str,
     sse_stage: str,
-    sse_manager=None,
+    realtime_hub=None,
     tracker=None,
 ) -> dict:
     """Stream LLM response for scoring or feedback — pushes thought every 0.3s."""
@@ -163,7 +163,7 @@ async def _stream_attempt(
         pct = pct_base + int(pct_range * min(total_len / 3000, 0.9))
         if tracker:
             tracker.update(record_id, sse_stage, pct, f"正在{progress_msg}...", thought=text)
-        await _sse_progress(sse_manager, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", text)
+        await _sse_progress(realtime_hub, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", text)
         last_push = time.monotonic()
 
     async def _on_reasoning(text: str) -> None:
@@ -181,10 +181,10 @@ async def _stream_attempt(
             hb = "".join(thought_buffer[-120:]) if thought_buffer else "▎ 推理中..."
             if tracker:
                 tracker.update(record_id, sse_stage, pct, f"正在{progress_msg}...", thought=hb)
-            await _sse_progress(sse_manager, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", hb)
+            await _sse_progress(realtime_hub, user_id, record_id, sse_stage, pct, f"正在{progress_msg}...", hb)
 
     await _sse_progress(
-        sse_manager, user_id, record_id, sse_stage, pct_base + 1, f"正在{progress_msg}...", f"▎ 启动{progress_msg}..."
+        realtime_hub, user_id, record_id, sse_stage, pct_base + 1, f"正在{progress_msg}...", f"▎ 启动{progress_msg}..."
     )
 
     heartbeat_task = asyncio.create_task(_heartbeat())
@@ -230,7 +230,7 @@ async def _stage_with_retry(
     pct_range: int,
     progress_msg: str,
     sse_stage: str,
-    sse_manager=None,
+    realtime_hub=None,
     tracker=None,
     fallback_fn=None,
 ) -> dict:
@@ -251,7 +251,7 @@ async def _stage_with_retry(
         pct_range=pct_range,
         progress_msg=progress_msg,
         sse_stage=sse_stage,
-        sse_manager=sse_manager,
+        realtime_hub=realtime_hub,
         tracker=tracker,
     )
 
@@ -260,7 +260,7 @@ async def _stage_with_retry(
             validate_fn(result)
             thought = _safe_truncate_thought(json.dumps(result, ensure_ascii=False, indent=2), 5000)
             await _sse_progress(
-                sse_manager, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
+                realtime_hub, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
             )
             if tracker:
                 tracker.update(record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought=thought)
@@ -302,7 +302,7 @@ async def _stage_with_retry(
         pct_range=pct_range,
         progress_msg=progress_msg,
         sse_stage=sse_stage,
-        sse_manager=sse_manager,
+        realtime_hub=realtime_hub,
         tracker=tracker,
     )
     if not result2:
@@ -316,7 +316,7 @@ async def _stage_with_retry(
         if tracker:
             tracker.update(record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought=thought)
         await _sse_progress(
-            sse_manager, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
+            realtime_hub, user_id, record_id, sse_stage, pct_base + pct_range - 5, f"{progress_msg}完成", thought
         )
         return result2
     except Exception as retry_err:
@@ -334,7 +334,7 @@ async def evaluate_training(
     *,
     llm_client: LLMClient,
     tracker=None,  # ScoringProgressTracker | None
-    sse_manager=None,
+    realtime_hub=None,
     user_id: int | None = None,
 ) -> Score:
     """对训练对话进行评分并保存结果。
@@ -353,7 +353,7 @@ async def evaluate_training(
     if tracker:
         tracker.start(record_id)
         tracker.update(record_id, "loading", 5, "正在加载对话记录...")
-    await _sse_progress(sse_manager, user_id, record_id, "loading", 5, "正在加载对话记录...")
+    await _sse_progress(realtime_hub, user_id, record_id, "loading", 5, "正在加载对话记录...")
 
     rubric = record.rubric_snapshot
     if not rubric:
@@ -449,7 +449,7 @@ async def evaluate_training(
 
     if tracker:
         tracker.update(record_id, "scoring", 10, "正在评分维度分析...")
-    await _sse_progress(sse_manager, user_id, record_id, "scoring", 10, "正在评分维度分析...")
+    await _sse_progress(realtime_hub, user_id, record_id, "scoring", 10, "正在评分维度分析...")
 
     scoring_cfg = get_llm_config("scoring")
     feedback_cfg = get_llm_config("scoring_feedback")
@@ -470,7 +470,7 @@ async def evaluate_training(
         progress_msg="逐项评分分析",
         sse_stage="scoring",
         tracker=tracker,
-        sse_manager=sse_manager,
+        realtime_hub=realtime_hub,
     )
     feedback_task = _stage_with_retry(
         feedback_messages,
@@ -488,7 +488,7 @@ async def evaluate_training(
         progress_msg="生成反馈建议",
         sse_stage="feedback",
         tracker=tracker,
-        sse_manager=sse_manager,
+        realtime_hub=realtime_hub,
         fallback_fn=_merge_feedback,
     )
 
@@ -510,7 +510,7 @@ async def evaluate_training(
 
     if tracker:
         tracker.update(record_id, "saving", 95, "正在保存评分结果...")
-    await _sse_progress(sse_manager, user_id, record_id, "saving", 95, "正在保存评分结果...")
+    await _sse_progress(realtime_hub, user_id, record_id, "saving", 95, "正在保存评分结果...")
 
     result = {**scoring_result}
     for field in ("strengths", "weaknesses", "missed_content", "suggestions"):

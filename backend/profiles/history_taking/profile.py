@@ -68,7 +68,6 @@ PROFILE = TrainingProfile(
     note_sources=[EmotionNoteSource, IdentityGuardSource, OperationNoteSource],
     prompts=_PROMPTS,
     rubric=_RUBRIC,
-    capabilities=["emotion", "patient_initiative", "physical_exam"],
     max_rounds=8,
     has_emotion=True,
     has_initiative=False,

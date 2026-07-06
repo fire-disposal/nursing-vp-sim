@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from starlette.responses import StreamingResponse
 
 from contexts.training.score_engine import evaluate_training
 from core.config import SCORING_TIMEOUT_SECONDS
@@ -63,12 +62,12 @@ def _create_notification(
         log.warning("Failed to create notification (type=%s)", type, exc_info=True)
 
 
-async def _publish_scoring_event(sse_manager, user_id: int, event: str, payload: dict) -> None:
+async def _publish_scoring_event(realtime_hub, user_id: int, event: str, payload: dict) -> None:
     """Publish an SSE event, swallowing transport errors."""
-    if not sse_manager:
+    if not realtime_hub:
         return
     try:
-        await sse_manager.publish(user_id, event, payload)
+        await realtime_hub.publish(user_id, event, payload)
     except Exception:
         log.warning("SSE publish failed (event=%s)", event, exc_info=True)
 
@@ -131,7 +130,7 @@ def _handle_scoring_failure(
     record_id: int,
     error_msg: str,
     tracker: ScoringProgressTracker | None = None,
-    sse_manager=None,
+    realtime_hub=None,
     user_id: int | None = None,
 ) -> None:
     """Shared error handling — updates DB status, creates notification, publishes SSE."""
@@ -155,12 +154,12 @@ def _handle_scoring_failure(
                     title="评分失败",
                     body=f"评分失败：{error_msg[:100] or '未知错误'}",
                 )
-                if sse_manager:
+                if realtime_hub:
                     import asyncio
 
                     asyncio.ensure_future(  # noqa: RUF006
                         _publish_scoring_event(
-                            sse_manager,
+                            realtime_hub,
                             actual_user_id,
                             "scoring_failed",
                             {"record_id": record.id, "error": error_msg[:100] or "未知错误"},
@@ -178,7 +177,7 @@ async def _run_scoring_background(
     *,
     llm_client: LLMClient,
     tracker: ScoringProgressTracker | None = None,
-    sse_manager=None,
+    realtime_hub=None,
 ) -> None:
     SCORING_GLOBAL_TIMEOUT = SCORING_TIMEOUT_SECONDS
 
@@ -222,7 +221,7 @@ async def _run_scoring_background(
                 db,
                 llm_client=llm_client,
                 tracker=tracker,
-                sse_manager=sse_manager,
+                realtime_hub=realtime_hub,
                 user_id=record.user_id,
             ),
             timeout=SCORING_GLOBAL_TIMEOUT,
@@ -252,7 +251,7 @@ async def _run_scoring_background(
 
         score_obj = db.query(Score).filter(Score.record_id == record_id).first()
         await _publish_scoring_event(
-            sse_manager,
+            realtime_hub,
             record.user_id,
             "scoring_complete",
             {
@@ -268,7 +267,7 @@ async def _run_scoring_background(
             record_id,
             "评分超时（超过5分钟）",
             tracker=tracker,
-            sse_manager=sse_manager,
+            realtime_hub=realtime_hub,
         )
     except Exception as e:
         msg = str(e)[:200]
@@ -279,7 +278,7 @@ async def _run_scoring_background(
             record_id,
             str(e)[:2000] or type(e).__name__,
             tracker=tracker,
-            sse_manager=sse_manager,
+            realtime_hub=realtime_hub,
         )
     finally:
         db.close()
@@ -321,7 +320,7 @@ async def end_training(
                     case_data,
                     llm_client=request.app.state.llm_client,
                     tracker=getattr(request.app.state, "scoring_tracker", None),
-                    sse_manager=request.app.state.sse_manager,
+                    realtime_hub=request.app.state.realtime_hub,
                 ),
                 priority=5,
             )
@@ -396,7 +395,7 @@ async def retry_scoring(
                     case_data,
                     llm_client=request.app.state.llm_client,
                     tracker=getattr(request.app.state, "scoring_tracker", None),
-                    sse_manager=request.app.state.sse_manager,
+                    realtime_hub=request.app.state.realtime_hub,
                 ),
                 priority=5,
             )
@@ -472,27 +471,3 @@ def mark_notification_unread(
     notif.is_read = False
     db.commit()
     return OkResponse(message="ok")
-
-
-@router.get("/notifications/stream")
-async def notifications_stream(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
-):
-    manager = request.app.state.sse_manager
-    queue = await manager.subscribe(current_user.id)
-
-    async def event_generator():
-        try:
-            while True:
-                if await request.is_disconnected():
-                    break
-                try:
-                    event = await asyncio.wait_for(queue.get(), timeout=30)
-                    yield event
-                except TimeoutError:
-                    yield ": heartbeat\n\n"
-        finally:
-            manager.unsubscribe(current_user.id, queue)
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")

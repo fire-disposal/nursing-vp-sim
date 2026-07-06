@@ -54,20 +54,3 @@ class TestCaseDataSchema:
         data = {"name": "病例", "deep_background": {"手术史": "3年前胆囊切除"}}
         result = CaseDataSchema(**data)
         assert result.deep_background["手术史"] == "3年前胆囊切除"
-
-    def test_supported_plugins(self):
-        data = {"name": "病例", "supported_plugins": ["emotion", "physical_exam"]}
-        result = CaseDataSchema(**data)
-        assert "emotion" in result.supported_plugins
-
-
-class TestSupportedPlugins:
-    def test_any_plugin_id_passes(self):
-        data = {"name": "病例", "supported_plugins": ["nonexistent-plugin"]}
-        result = assert_valid_case_data(data)
-        assert result["name"] == "病例"
-
-    def test_absorbed_plugin_id_passes(self):
-        data = {"name": "病例", "supported_plugins": ["physical-exam"]}
-        result = assert_valid_case_data(data)
-        assert result["name"] == "病例"

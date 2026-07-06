@@ -42,9 +42,9 @@ async def admin_ops_dashboard(
     data["scoring"]["in_progress"] = scoring_in_progress
 
     sse_stats = {}
-    if hasattr(request.app.state, "sse_manager"):
+    if hasattr(request.app.state, "realtime_hub"):
         try:
-            sse_stats = request.app.state.sse_manager.stats
+            sse_stats = request.app.state.realtime_hub.stats
         except Exception:
             pass
 

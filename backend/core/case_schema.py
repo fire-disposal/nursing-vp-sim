@@ -10,9 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from core.capabilities import ALL_CAPABILITIES
 from core.jsonb import JsonbModel
 from profiles.triage.case_schema import TriageCaseData
 
@@ -75,13 +74,6 @@ class CaseDataSchema(JsonbModel):
     phases: list[PhaseConfig] | None = None
     required_inquiries: list[str] = []
     rubric_ref: str = "active"
-
-    supported_plugins: list[str] = []
-
-    @field_validator("supported_plugins")
-    @classmethod
-    def filter_supported_plugins(cls, v: list[str]) -> list[str]:
-        return [pid for pid in v if pid in ALL_CAPABILITIES]
 
     exam_anchors: dict[str, Any] = {}
 

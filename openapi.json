@@ -423,6 +423,44 @@
               "default": 50,
               "title": "Limit"
             }
+          },
+          {
+            "name": "training_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "训练类型 history_taking/triage",
+              "title": "Training Type"
+            },
+            "description": "训练类型 history_taking/triage"
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "困难程度 1=初级 2=中级 3=高级",
+              "title": "Difficulty"
+            },
+            "description": "困难程度 1=初级 2=中级 3=高级"
           }
         ],
         "responses": {
@@ -6298,30 +6336,6 @@
         }
       }
     },
-    "/api/training/notifications/stream": {
-      "get": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Notifications Stream",
-        "operationId": "notifications_stream_api_training_notifications_stream_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/training/{record_id}/advance-phase": {
       "post": {
         "tags": [
@@ -6352,53 +6366,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PhaseAdvanceResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/{record_id}/state": {
-      "get": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Get Training State",
-        "operationId": "get_training_state_api_training__record_id__state_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrainingStateResponse"
                 }
               }
             }
@@ -6540,121 +6507,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InitiativeHistoryResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/{record_id}/features": {
-      "put": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Update Training Features",
-        "operationId": "update_training_features_api_training__record_id__features_put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Features"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeaturesResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/{record_id}/exam/{op_type}": {
-      "post": {
-        "tags": [
-          "训练"
-        ],
-        "summary": "Perform Exam",
-        "operationId": "perform_exam_api_training__record_id__exam__op_type__post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          },
-          {
-            "name": "op_type",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Op Type"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExamOperationResponse"
                 }
               }
             }
@@ -9723,95 +9575,6 @@
         ],
         "title": "EmotionHistoryResponse"
       },
-      "EmotionStateResponse": {
-        "properties": {
-          "trust": {
-            "type": "integer",
-            "title": "Trust"
-          },
-          "comfort": {
-            "type": "integer",
-            "title": "Comfort"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "note": {
-            "type": "string",
-            "title": "Note"
-          },
-          "history": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "History"
-          }
-        },
-        "type": "object",
-        "required": [
-          "trust",
-          "comfort",
-          "state",
-          "note"
-        ],
-        "title": "EmotionStateResponse"
-      },
-      "ExamOperationResponse": {
-        "properties": {
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "data": {
-            "$ref": "#/components/schemas/ExamOperationResult"
-          },
-          "all_results": {
-            "items": {
-              "$ref": "#/components/schemas/ExamOperationResult"
-            },
-            "type": "array",
-            "title": "All Results",
-            "default": []
-          }
-        },
-        "type": "object",
-        "required": [
-          "type",
-          "data"
-        ],
-        "title": "ExamOperationResponse"
-      },
-      "ExamOperationResult": {
-        "properties": {
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "default": ""
-          },
-          "value": {
-            "type": "string",
-            "title": "Value",
-            "default": ""
-          },
-          "unit": {
-            "type": "string",
-            "title": "Unit",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "type"
-        ],
-        "title": "ExamOperationResult"
-      },
       "FallbackStateResponse": {
         "properties": {
           "available": {
@@ -9887,60 +9650,6 @@
           "model_pro"
         ],
         "title": "FallbackStateResponse"
-      },
-      "FeatureConfigResponse": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Features"
-          }
-        },
-        "type": "object",
-        "title": "FeatureConfigResponse"
-      },
-      "FeaturesResponse": {
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "title": "Ok",
-            "default": true
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          },
-          "features": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Features"
-          }
-        },
-        "type": "object",
-        "required": [
-          "features"
-        ],
-        "title": "FeaturesResponse"
       },
       "FeedbackDailyItem": {
         "properties": {
@@ -10258,34 +9967,6 @@
           "created_at"
         ],
         "title": "InitiativeMessageEntry"
-      },
-      "InitiativeStateResponse": {
-        "properties": {
-          "elapsed_seconds": {
-            "type": "number",
-            "title": "Elapsed Seconds"
-          },
-          "threshold_seconds": {
-            "type": "number",
-            "title": "Threshold Seconds"
-          },
-          "percent": {
-            "type": "number",
-            "title": "Percent"
-          },
-          "should_trigger": {
-            "type": "boolean",
-            "title": "Should Trigger",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "elapsed_seconds",
-          "threshold_seconds",
-          "percent"
-        ],
-        "title": "InitiativeStateResponse"
       },
       "InitiativeTriggerResponse": {
         "properties": {
@@ -14416,6 +14097,11 @@
             "type": "array",
             "title": "Exam Results"
           },
+          "triage_result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Triage Result"
+          },
           "case_data": {
             "additionalProperties": true,
             "type": "object",
@@ -14513,60 +14199,6 @@
         ],
         "title": "TrainingStartResponse"
       },
-      "TrainingStateResponse": {
-        "properties": {
-          "record_id": {
-            "type": "integer",
-            "title": "Record Id"
-          },
-          "case_id": {
-            "type": "integer",
-            "title": "Case Id"
-          },
-          "emotion": {
-            "$ref": "#/components/schemas/EmotionStateResponse"
-          },
-          "personality": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Personality"
-          },
-          "deep_background_keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Deep Background Keys"
-          },
-          "exam_anchors": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Exam Anchors"
-          },
-          "config": {
-            "$ref": "#/components/schemas/FeatureConfigResponse"
-          },
-          "initiative": {
-            "$ref": "#/components/schemas/InitiativeStateResponse"
-          },
-          "current_phase": {
-            "type": "string",
-            "title": "Current Phase",
-            "default": "history_taking"
-          }
-        },
-        "type": "object",
-        "required": [
-          "record_id",
-          "case_id",
-          "emotion",
-          "config",
-          "initiative"
-        ],
-        "title": "TrainingStateResponse"
-      },
       "TrendStats": {
         "properties": {
           "daily": {
@@ -14646,6 +14278,11 @@
           "record_id": {
             "type": "integer",
             "title": "Record Id"
+          },
+          "triage_result": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Triage Result"
           }
         },
         "type": "object",

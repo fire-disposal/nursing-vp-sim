@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from core.capabilities import is_enabled, resolve_features
+from core.capabilities import is_enabled
 from core.database import get_db
 from core.security import get_current_user
 from infrastructure.llm.client import CallContext
@@ -15,14 +15,12 @@ from profiles.history_taking.initiative import (
     MAX_INITIATIVE_COUNT,
     apply_initiative_penalty,
     generate_initiative_llm,
-    get_initiative_seconds,
     should_initiate,
     update_initiative_timer,
 )
 from schemas import (
     InitiativeTriggerResponse,
     PhaseAdvanceResponse,
-    TrainingStateResponse,
 )
 from schemas.training import EmotionHistoryResponse, InitiativeHistoryResponse
 
@@ -78,69 +76,6 @@ def advance_phase(
 
     log.info("Phase advanced: record_id=%d %s -> %s", record_id, current.id, next_phase.id)
     return {"current_phase": next_phase.id, "name": next_phase.name, "order": next_phase.order}
-
-
-@router.get("/{record_id}/state", response_model=TrainingStateResponse)
-def get_training_state(
-    record_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
-    request: Request,
-):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise HTTPException(status_code=404, detail="训练记录不存在")
-    if record.user_id != current_user.id and not current_user.has_permission("score_review"):
-        raise HTTPException(status_code=403, detail="无权限")
-
-    case = db.query(Case).filter(Case.id == record.case_id).first()
-    if not case:
-        raise HTTPException(status_code=404, detail="病例不存在")
-    case_data = case.case_data or {}
-    app_state = request.app.state
-    features = resolve_features(record.practice_snapshot)
-    config = record.practice_snapshot or {}
-    personality = case_data.get("personality", {})
-
-    emotion_data = None
-    if features.get("emotion"):
-        emotion = get_emotion(record_id, app_state.emotion_cache, db)
-        emotion_history = getattr(emotion, "history", [])
-        emotion_data = {
-            "trust": emotion.trust,
-            "comfort": emotion.comfort,
-            "state": emotion.state,
-            "note": emotion.note,
-            "history": emotion_history[-20:],
-        }
-    else:
-        emotion = None
-
-    initiative_data = None
-    if features.get("patient_initiative"):
-        emotion = get_emotion(record_id, app_state.emotion_cache, db)
-        elapsed, threshold = get_initiative_seconds(
-            record_id, app_state.initiative_cache, db, personality, emotion.trust, emotion.comfort
-        )
-        initiative_data = {
-            "elapsed_seconds": round(elapsed, 1),
-            "threshold_seconds": round(threshold, 1),
-            "percent": min(100, round(elapsed / max(1, threshold) * 100, 1)),
-        }
-
-    return {
-        "record_id": record_id,
-        "case_id": record.case_id,
-        "emotion": emotion_data,
-        "personality": personality,
-        "deep_background_keys": list(case_data.get("deep_background", {}).keys()),
-        "exam_anchors": case_data.get("exam_anchors", {}),
-        "config": {
-            "features": features,
-        },
-        "initiative": initiative_data,
-        "current_phase": record.current_phase or "history_taking",
-    }
 
 
 @router.post("/{record_id}/initiative/trigger", response_model=InitiativeTriggerResponse)

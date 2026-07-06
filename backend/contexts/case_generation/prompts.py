@@ -47,8 +47,7 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
   },
   "example_dialogues": [
     {"question": "护士的典型问题", "answer": "患者的口语化回答"}
-  ],
-  "supported_plugins": ["emotion", "physical_exam"]
+  ]
 }
 ```
 
@@ -56,8 +55,7 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
 - **personality**：四维度控制患者 AI 的角色扮演行为。health_literacy（low/normal/high）、verbosity（terse/normal/verbose）、anxiety_trait（calm/normal/anxious）、patience（low/normal/high）
 - **deep_background**：患者不便主动告知但影响诊疗的深层背景。3-6 条，每条一句话
 - **exam_anchors**：护理查体时的预期发现。使用固定值（如 `"temperature": "36.8"`），系统会在显示时做微小随机偏移
-- **example_dialogues**：2-3 组护患典型问答，口语化，体现个性
-- **supported_plugins**：推荐启用的训练插件（emotion / physical_exam / patient_initiative / questionnaire）"""
+- **example_dialogues**：2-3 组护患典型问答，口语化，体现个性"""
 
 CASE_GENERATION_TRIAGE_EXTRA = """
 ## 分诊病例额外输出字段
@@ -86,7 +84,6 @@ CASE_GENERATION_TAIL = """
 7. **深层背景**：deep_background 补充影响诊疗决策的隐蔽信息
 8. **查体锚点**：exam_anchors.vital_signs 给出与病情匹配的生命体征范围
 9. **示例对话**：example_dialogues 提供 2-3 组护患问答
-10. **插件推荐**：supported_plugins 列出推荐启用的插件
 
 {#field_instruction#}
 

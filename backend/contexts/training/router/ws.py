@@ -12,7 +12,7 @@ Protocol (JSON messages):
   Server → Client:
     { "type": "exam:done",  "data": { … }, "all_results": […] }
     { "type": "exam:error", "detail": "…" }
-    { "type": "<scoring_event>", … }            — forwarded from SSEManager
+    { "type": "<scoring_event>", … }            — forwarded from RealtimeHub
     { "type": "heartbeat" }
 """
 
@@ -73,7 +73,7 @@ async def training_ws(
 
     await websocket.accept()
 
-    manager = websocket.app.state.sse_manager
+    manager = websocket.app.state.realtime_hub
     queue = await manager.subscribe(user.id)
 
     async def _handle_client():

@@ -6,7 +6,7 @@ from collections import defaultdict
 log = logging.getLogger(__name__)
 
 
-class SSEManager:
+class RealtimeHub:
     def __init__(self):
         self._subscribers: dict[int, list[asyncio.Queue]] = defaultdict(list)
 

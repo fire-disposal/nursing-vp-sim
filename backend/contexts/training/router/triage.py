@@ -83,7 +83,7 @@ async def submit_triage(
                     case_data,
                     llm_client=request.app.state.llm_client,
                     tracker=getattr(request.app.state, "scoring_tracker", None),
-                    sse_manager=request.app.state.sse_manager,
+                    realtime_hub=request.app.state.realtime_hub,
                 ),
                 priority=5,
             )

@@ -154,18 +154,6 @@ class InitiativeStateResponse(BaseModel):
     should_trigger: bool = False
 
 
-class TrainingStateResponse(BaseModel):
-    record_id: int
-    case_id: int
-    emotion: "EmotionStateResponse"
-    personality: dict[str, str] = Field(default_factory=dict)
-    deep_background_keys: list[str] = Field(default_factory=list)
-    exam_anchors: dict = Field(default_factory=dict)
-    config: "FeatureConfigResponse"
-    initiative: "InitiativeStateResponse"
-    current_phase: str = "history_taking"
-
-
 class InitiativeTriggerResponse(BaseModel):
     triggered: bool
     message: str | None = None

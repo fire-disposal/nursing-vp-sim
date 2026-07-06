@@ -134,7 +134,6 @@ PROFILE = TrainingProfile(
             },
         ],
     },
-    capabilities=["physical_exam", "exam_scene"],
     max_rounds=6,
     has_emotion=False,
     has_initiative=False,

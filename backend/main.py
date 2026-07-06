@@ -182,12 +182,12 @@ async def lifespan(app: FastAPI):
     await app.state.task_queue.start()
     log.info("Task queue: 3 workers")
 
-    from infrastructure.sse_manager import SSEManager
+    from infrastructure.realtime_hub import RealtimeHub
 
     app.state.emotion_cache = EmotionCache()
     app.state.initiative_cache = InitiativeCache()
     app.state.scoring_tracker = ScoringProgressTracker()
-    app.state.sse_manager = SSEManager()
+    app.state.realtime_hub = RealtimeHub()
 
     metrics = MetricsSnapshot()
     app.state.metrics = metrics
@@ -261,7 +261,7 @@ async def lifespan(app: FastAPI):
                 rid,
                 cd,
                 llm_client=app.state.llm_client,
-                sse_manager=app.state.sse_manager,
+                realtime_hub=app.state.realtime_hub,
             ),
             priority=6,
         )

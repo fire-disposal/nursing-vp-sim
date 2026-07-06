@@ -40,7 +40,6 @@ class TrainingProfile:
     note_sources: list[type[NoteSource]]
     prompts: PromptCollection
     rubric: dict
-    capabilities: list[str]
     max_rounds: int
     has_emotion: bool
     has_initiative: bool
