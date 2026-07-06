@@ -382,6 +382,10 @@ async def evaluate_training(
     case_id = record.case_id
     log_meta = {"message_count": len(messages)}
 
+    # 反馈块无条件引用 exam_results_text；triage 分支不设置它，故此处预置默认，
+    # 避免 triage 评分时 UnboundLocalError（此前被 gather(return_exceptions=True) 吞掉导致 triage 无反馈）
+    exam_results_text = ""
+
     if training_type == "triage":
         triage_result = (record.runtime_state or {}).get("triage_result", {})
         actions_parts = []

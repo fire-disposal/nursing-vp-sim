@@ -444,13 +444,12 @@ class LLMClient:
                 )
                 self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
                 return
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError) as e:
-                await self._router.report_result(state._config, success=False, error=str(e))
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
+                # 失败已由 _do_stream 上报给 router（与 call()/_do_call() 一致，避免 circuit breaker 双计数）
                 if attempt >= max_retries:
                     break
                 await asyncio.sleep(backoff_delay(attempt))
             except httpx.HTTPStatusError as e:
-                await self._router.report_result(state._config, success=False, error=str(e))
                 if e.response.status_code not in (429, 500, 502, 503, 504):
                     raise
                 if attempt >= max_retries:
