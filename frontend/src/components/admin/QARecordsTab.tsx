@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, MessageCircle, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api/api-client";
+import { getQAHistoryAll, getQASessionMessagesAdmin } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";

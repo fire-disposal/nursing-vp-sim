@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ClipboardCheck, Eye, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { getMyResponses } from "@/api/api-client";
+import { getMyResponses } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";

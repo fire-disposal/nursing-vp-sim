@@ -4,7 +4,7 @@ const mockLogin = vi.fn();
 const mockGetMe = vi.fn();
 const mockLogout = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("@/api/api-client", () => ({
+vi.mock("@/api", () => ({
 	login: mockLogin,
 	getMe: mockGetMe,
 	logout: mockLogout,

@@ -11,7 +11,7 @@ import {
 	getScoreReview,
 	retryScoring,
 	submitScoreReview,
-} from "@/api/api-client";
+} from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { ReviewEditor } from "@/components/record-review";
 import { useToast } from "@/components/Toast";

@@ -6,7 +6,6 @@ export * from "./chat";
 export * from "./export";
 export * from "./grades-classes";
 export * from "./notifications";
-export * from "./nursing-records";
 export * from "./practices";
 export * from "./qa";
 export * from "./questionnaires";

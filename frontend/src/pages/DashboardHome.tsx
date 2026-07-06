@@ -6,7 +6,7 @@ import {
 	getDurationStats,
 	getRecords,
 	getStats,
-} from "@/api/api-client";
+} from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import StudentDashboard from "@/components/dashboard/StudentDashboard";
 import TeacherDashboard from "@/components/dashboard/TeacherDashboard";

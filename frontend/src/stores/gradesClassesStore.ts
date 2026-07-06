@@ -8,7 +8,7 @@ import {
 	getGrades,
 	updateClass,
 	updateGrade,
-} from "@/api/api-client";
+} from "@/api";
 import type { ClassItem, Grade, GradesClassesState } from "../types/store";
 
 const useGradesClassesStore = create<GradesClassesState>((set, get) => ({

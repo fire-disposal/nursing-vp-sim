@@ -1,4 +1,4 @@
-import { sendMessageStream } from "@/api/api-client";
+import { sendMessageStream } from "@/api";
 import type { InitiativeStateData } from "@/api/sse";
 import type { ChatMessage } from "./types";
 

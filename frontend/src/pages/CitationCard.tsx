@@ -2,7 +2,7 @@ import { BookOpen, ChevronDown, Loader2 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { getSectionText } from "@/api/api-client";
+import { getSectionText } from "@/api";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface Citation {

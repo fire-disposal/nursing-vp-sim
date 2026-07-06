@@ -2,7 +2,7 @@
 import { ClipboardList, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteRecord, getRecords } from "@/api/api-client";
+import { deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";

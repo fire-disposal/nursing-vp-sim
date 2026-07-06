@@ -9,7 +9,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { useState } from "react";
-import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api/api-client";
+import { exportLLMLogs, getLLMLogs, getLLMStats } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CallLogTimeline from "@/components/admin/CallLogTimeline";

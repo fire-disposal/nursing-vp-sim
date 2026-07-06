@@ -5,7 +5,7 @@ import type { MessageBus, ScoreData, ScorePhase, ScoringProgress } from "./types
 /** Per-record handlers for SSE scoring progress — avoids single-global overwrite when multiple ScoreManagers coexist */
 const _sseHandlers = new Map<number, (data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) => void>();
 
-export function notifySSEProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) {
+export function notifyProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }) {
 	_sseHandlers.get(data.record_id)?.(data);
 }
 
@@ -26,7 +26,7 @@ export class ScoreManager {
 		this.recordId = recordId;
 		this.bus = bus ?? null;
 		if (recordId) {
-			this._registeredHandler = this.onSSEProgress.bind(this);
+			this._registeredHandler = this.onProgress.bind(this);
 			_sseHandlers.set(recordId, this._registeredHandler);
 		}
 	}
@@ -201,13 +201,13 @@ export class ScoreManager {
 		this.recordId = id;
 		this.reset();
 		if (id) {
-			this._registeredHandler = this.onSSEProgress.bind(this);
+			this._registeredHandler = this.onProgress.bind(this);
 			_sseHandlers.set(id, this._registeredHandler);
 		}
 	}
 
 	/** Receive real-time SSE scoring progress (from useScoringNotifications hook) */
-	onSSEProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }): void {
+	onProgress(data: { record_id: number; stage: string; percent: number; message: string; thought?: string }): void {
 		if (data.record_id !== this.recordId) return;
 		if (data.thought) {
 			this._sseThought = data.thought;

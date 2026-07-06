@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Clock, Eye, Hash, Zap } from "lucide-react";
 import { useState } from "react";
-import { getRecordLogs } from "@/api/api-client";
+import { getRecordLogs } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import CallLogDetail from "@/components/admin/CallLogDetail";

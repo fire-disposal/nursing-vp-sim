@@ -1,6 +1,6 @@
 import { Send } from "lucide-react";
 import { useState } from "react";
-import { submitFeedback } from "@/api/api-client";
+import { submitFeedback } from "@/api";
 import { useToast } from "@/components/Toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/utils/cn";

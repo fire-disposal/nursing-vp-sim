@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { createSecret, updateSecret } from "@/api/api-client";
+import { createSecret, updateSecret } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";

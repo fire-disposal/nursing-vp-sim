@@ -1632,23 +1632,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/notifications/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Notifications Stream */
-        get: operations["notifications_stream_api_training_notifications_stream_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/training/{record_id}/advance-phase": {
         parameters: {
             query?: never;
@@ -1660,23 +1643,6 @@ export interface paths {
         put?: never;
         /** Advance Phase */
         post: operations["advance_phase_api_training__record_id__advance_phase_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/state": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Training State */
-        get: operations["get_training_state_api_training__record_id__state_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1728,40 +1694,6 @@ export interface paths {
         get: operations["get_initiative_history_api_training__record_id__initiative_history_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/features": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Training Features */
-        put: operations["update_training_features_api_training__record_id__features_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/training/{record_id}/exam/{op_type}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Perform Exam */
-        post: operations["perform_exam_api_training__record_id__exam__op_type__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2883,52 +2815,6 @@ export interface components {
             /** History */
             history: components["schemas"]["EmotionHistoryEntry"][];
         };
-        /** EmotionStateResponse */
-        EmotionStateResponse: {
-            /** Trust */
-            trust: number;
-            /** Comfort */
-            comfort: number;
-            /** State */
-            state: string;
-            /** Note */
-            note: string;
-            /** History */
-            history?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** ExamOperationResponse */
-        ExamOperationResponse: {
-            /** Type */
-            type: string;
-            data: components["schemas"]["ExamOperationResult"];
-            /**
-             * All Results
-             * @default []
-             */
-            all_results: components["schemas"]["ExamOperationResult"][];
-        };
-        /** ExamOperationResult */
-        ExamOperationResult: {
-            /** Type */
-            type: string;
-            /**
-             * Label
-             * @default
-             */
-            label: string;
-            /**
-             * Value
-             * @default
-             */
-            value: string;
-            /**
-             * Unit
-             * @default
-             */
-            unit: string;
-        };
         /** FallbackStateResponse */
         FallbackStateResponse: {
             /** Available */
@@ -2964,29 +2850,6 @@ export interface components {
             total_cost: number;
         } & {
             [key: string]: unknown;
-        };
-        /** FeatureConfigResponse */
-        FeatureConfigResponse: {
-            /** Id */
-            id?: string | null;
-            /** Features */
-            features?: {
-                [key: string]: boolean;
-            };
-        };
-        /** FeaturesResponse */
-        FeaturesResponse: {
-            /**
-             * Ok
-             * @default true
-             */
-            ok: boolean;
-            /** Message */
-            message?: string | null;
-            /** Features */
-            features: {
-                [key: string]: unknown;
-            };
         };
         /** FeedbackDailyItem */
         FeedbackDailyItem: {
@@ -3133,20 +2996,6 @@ export interface components {
             content: string;
             /** Created At */
             created_at: string;
-        };
-        /** InitiativeStateResponse */
-        InitiativeStateResponse: {
-            /** Elapsed Seconds */
-            elapsed_seconds: number;
-            /** Threshold Seconds */
-            threshold_seconds: number;
-            /** Percent */
-            percent: number;
-            /**
-             * Should Trigger
-             * @default false
-             */
-            should_trigger: boolean;
         };
         /** InitiativeTriggerResponse */
         InitiativeTriggerResponse: {
@@ -4765,31 +4614,6 @@ export interface components {
              */
             case_name: string;
         };
-        /** TrainingStateResponse */
-        TrainingStateResponse: {
-            /** Record Id */
-            record_id: number;
-            /** Case Id */
-            case_id: number;
-            emotion: components["schemas"]["EmotionStateResponse"];
-            /** Personality */
-            personality?: {
-                [key: string]: string;
-            };
-            /** Deep Background Keys */
-            deep_background_keys?: string[];
-            /** Exam Anchors */
-            exam_anchors?: {
-                [key: string]: unknown;
-            };
-            config: components["schemas"]["FeatureConfigResponse"];
-            initiative: components["schemas"]["InitiativeStateResponse"];
-            /**
-             * Current Phase
-             * @default history_taking
-             */
-            current_phase: string;
-        };
         /** TrendStats */
         TrendStats: {
             /** Daily */
@@ -5390,6 +5214,10 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description 训练类型 history_taking/triage */
+                training_type?: string | null;
+                /** @description 困难程度 1=初级 2=中级 3=高级 */
+                difficulty?: number | null;
             };
             header?: never;
             path?: never;
@@ -8876,26 +8704,6 @@ export interface operations {
             };
         };
     };
-    notifications_stream_api_training_notifications_stream_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     advance_phase_api_training__record_id__advance_phase_post: {
         parameters: {
             query?: never;
@@ -8914,37 +8722,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PhaseAdvanceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_training_state_api_training__record_id__state_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TrainingStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9038,75 +8815,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InitiativeHistoryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_training_features_api_training__record_id__features_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FeaturesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    perform_exam_api_training__record_id__exam__op_type__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-                op_type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExamOperationResponse"];
                 };
             };
             /** @description Validation Error */

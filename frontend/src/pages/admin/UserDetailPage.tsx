@@ -20,7 +20,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { getStudentDetail } from "@/api/api-client";
+import { getStudentDetail } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";

@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Key, Loader2, Save, User } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { changePassword, updateMyProfile } from "@/api/api-client";
+import { changePassword, updateMyProfile } from "@/api";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {

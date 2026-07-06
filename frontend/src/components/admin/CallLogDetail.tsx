@@ -8,7 +8,7 @@ import {
 	Hash,
 	Zap,
 } from "lucide-react";
-import { getLogDetail } from "@/api/api-client";
+import { getLogDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import Badge from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/sheet";

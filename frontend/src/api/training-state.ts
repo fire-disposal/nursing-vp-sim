@@ -4,19 +4,7 @@ import { api } from "./client";
 
 type Schemas = components["schemas"];
 
-export const getTrainingState = (recordId: number) =>
-	api.get<Schemas["TrainingStateResponse"]>(`/training/${recordId}/state` as ApiPath);
-
 export const triggerInitiative = (recordId: number) =>
 	api.post<Schemas["InitiativeTriggerResponse"]>(
 		`/training/${recordId}/initiative/trigger` as ApiPath,
-	);
-
-export const updateTrainingFeatures = (
-	recordId: number,
-	features: Record<string, boolean>,
-) =>
-	api.put<{ ok: boolean; features: Record<string, boolean> }>(
-		`/training/${recordId}/features` as ApiPath,
-		features,
 	);

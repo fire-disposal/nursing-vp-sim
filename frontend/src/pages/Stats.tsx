@@ -25,7 +25,7 @@ import {
 	getStudentRanking,
 	getTeacherSummary,
 	getTrends,
-} from "@/api/api-client";
+} from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";

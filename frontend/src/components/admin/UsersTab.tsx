@@ -1,7 +1,7 @@
 import { Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { getClasses } from "@/api/api-client";
+import { getClasses } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";

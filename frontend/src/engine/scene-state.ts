@@ -37,15 +37,6 @@ export interface SceneBusProtocol {
   "scene:load":       [{ dsl: unknown }];
 }
 
-/** Subscribe to a scene event with correct payload type. */
-export function onSceneEvent<K extends keyof SceneBusProtocol>(
-  bus: MessageBus,
-  event: K,
-  handler: (...args: SceneBusProtocol[K]) => void,
-): () => void {
-  return bus.on(event, handler as (...args: unknown[]) => void);
-}
-
 /** Emit a scene event with correct payload type. */
 export function emitSceneEvent<K extends keyof SceneBusProtocol>(
   bus: MessageBus,
@@ -53,24 +44,4 @@ export function emitSceneEvent<K extends keyof SceneBusProtocol>(
   ...args: SceneBusProtocol[K]
 ): void {
   bus.emit(event, ...(args as unknown[]));
-}
-
-/** Self‑describing scene metadata — identical shape in sandbox & production */
-export interface SizePref {
-  minW?: number; minH?: number;
-  w?: number; h?: number;
-}
-
-export interface QuickAction {
-  label: string;
-  emit: { event: string; data: unknown };
-}
-
-export interface SceneMeta {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  size?: SizePref;
-  quickActions?: QuickAction[];
 }

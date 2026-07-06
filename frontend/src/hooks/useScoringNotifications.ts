@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/Toast";
-import { notifySSEProgress } from "@/engine";
+import { notifyProgress } from "@/engine";
 import { useTrainingWS } from "@/hooks/useTrainingWS";
 
 export function useScoringNotifications() {
@@ -13,7 +13,7 @@ export function useScoringNotifications() {
 			case "scoring_complete": {
 				const payload = msg as unknown as { record_id: number; error?: string };
 				if (!payload.record_id) break;
-				notifySSEProgress({
+				notifyProgress({
 					record_id: payload.record_id,
 					stage: "completed",
 					percent: 100,
@@ -33,7 +33,7 @@ export function useScoringNotifications() {
 			case "scoring_failed": {
 				const payload = msg as unknown as { record_id: number; error?: string };
 				if (!payload.record_id) break;
-				notifySSEProgress({
+				notifyProgress({
 					record_id: payload.record_id,
 					stage: "failed",
 					percent: 0,
@@ -51,8 +51,8 @@ export function useScoringNotifications() {
 				break;
 			}
 			case "scoring_progress": {
-				const payload = msg as unknown as Parameters<typeof notifySSEProgress>[0];
-				notifySSEProgress(payload);
+				const payload = msg as unknown as Parameters<typeof notifyProgress>[0];
+				notifyProgress(payload);
 				break;
 			}
 		}

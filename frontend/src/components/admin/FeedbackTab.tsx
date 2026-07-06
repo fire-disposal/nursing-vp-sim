@@ -19,7 +19,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { getFeedbackStats, getFeedbacks } from "@/api/api-client";
+import { getFeedbackStats, getFeedbacks } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";

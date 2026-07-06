@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { getManageCases } from "@/api/api-client";
+import { getManageCases } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";

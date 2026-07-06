@@ -10,7 +10,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { getTrends } from "@/api/api-client";
+import { getTrends } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import EmptyState from "@/components/ui/empty-state";

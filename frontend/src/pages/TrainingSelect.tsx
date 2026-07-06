@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Ambulance, Lightbulb, Search, Star, Stethoscope, User, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCases, getProfiles, startTraining } from "@/api/api-client";
+import { getCases, getProfiles, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";

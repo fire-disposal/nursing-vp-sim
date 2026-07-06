@@ -5,7 +5,7 @@ import {
 	logout as apiLogout,
 	refreshToken as apiRefreshToken,
 	getMe,
-} from "@/api/api-client";
+} from "@/api";
 import { dispatchForceLogout } from "@/events";
 import type { AuthState, User } from "../types/store";
 

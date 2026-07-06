@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Sparkles, Upload, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { generateCase, getCaseDetail } from "@/api/api-client";
+import { generateCase, getCaseDetail } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";

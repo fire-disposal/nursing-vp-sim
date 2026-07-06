@@ -19,12 +19,6 @@ export const deleteQASession = (id: number | string) =>
 export const getQASessionMessages = (sessionId: number | string) =>
 	api.get<Schemas["QAMessageItem"][]>(`/qa/sessions/${sessionId}/messages` as ApiPath);
 
-export const askInQASession = (sessionId: number | string, question: string, ragEnabled?: boolean) =>
-	api.post<Schemas["QAAskResponse"]>(`/qa/sessions/${sessionId}/ask` as ApiPath, {
-		question,
-		rag_enabled: ragEnabled,
-	});
-
 export const getQAHistoryAll = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_QASessionAdminItem_"]>("/qa/history/all" satisfies ApiPath as string, {
 		params,

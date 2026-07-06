@@ -15,9 +15,6 @@ export const getNotifications = (params?: Record<string, unknown>) =>
 		{ params },
 	);
 
-export const getUnreadCount = () =>
-	api.get<{ count: number }>("/training/notifications/unread");
-
 export const markNotificationRead = (id: number) =>
 	api.put<Schemas["OkResponse"]>(
 		NOTIF_READ.replace("{notif_id}", String(id)),

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { getRecordDetail } from "@/api/api-client";
+import { getRecordDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import type { ChatMessage, PatientData } from "@/engine/types";
 

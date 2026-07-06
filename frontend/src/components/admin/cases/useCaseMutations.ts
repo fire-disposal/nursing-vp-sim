@@ -4,7 +4,7 @@ import {
 	deleteCase,
 	generateCase,
 	updateCase,
-} from "@/api/api-client";
+} from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";

@@ -1,12 +1,4 @@
-import {
-	ArrowLeft,
-	Clock,
-	EarOff,
-	Pause,
-	Phone,
-	Play,
-	Volume2,
-} from "lucide-react";
+import { ArrowLeft, Clock, EarOff, Phone, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
@@ -23,14 +15,10 @@ import { cn } from "@/utils/cn";
  */
 export function TrainingHeader() {
 	const {
-		recordId,
 		patient,
-		features,
-		toggleFeature: onToggleFeature,
 		ttsAutoPlay,
 		toggleTts: onTtsToggle,
 		endTraining: onEnd,
-		featuresLocked,
 		timeLimitMinutes,
 		remainingSeconds,
 		voiceStatus,
@@ -52,7 +40,6 @@ export function TrainingHeader() {
 		timerActive,
 		stopTimer,
 		formatTime,
-		setTimerActive,
 	} = useTrainingTimer({
 		initialRemaining,
 		onAutoEnd: () => {
@@ -94,18 +81,8 @@ export function TrainingHeader() {
 		}
 	}, [autoEndOpen, autoEndCountdown, executeEnd]);
 
-	const handlePauseToggle = useCallback(() => {
-		if (timerActive) {
-			stopTimer();
-		} else {
-			setTimerActive(true);
-		}
-	}, [timerActive, stopTimer, setTimerActive]);
-
 	const layout = useLayoutMode();
 	const isCompact = layout === "phone";
-
-	const allowPause = features.allow_pause ?? false;
 
 	const avatarSrc =
 		portraitUrl ||
@@ -164,19 +141,6 @@ export function TrainingHeader() {
 					>
 						<Clock size={12} className="sm:size-[14px] shrink-0" />
 						<span>{formatTime(remaining)}</span>
-						{allowPause && (
-							<button
-								onClick={handlePauseToggle}
-								className="text-xs text-muted-foreground ml-0.5 hover:text-foreground"
-								title={timerActive ? "暂停计时" : "恢复计时"}
-							>
-								{timerActive ? (
-									<Pause size={12} className="sm:size-[14px]" />
-								) : (
-									<Play size={12} className="sm:size-[14px]" />
-								)}
-							</button>
-						)}
 					</div>
 
 					{!isCompact && (

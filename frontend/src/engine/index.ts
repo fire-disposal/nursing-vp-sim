@@ -10,7 +10,7 @@ export {
 	usePortrait,
 } from "./PanelContext";
 export { PatientProvider, usePatient } from "./PatientProvider";
-export { notifySSEProgress, ScoreManager } from "./ScoreManager";
+export { notifyProgress, ScoreManager } from "./ScoreManager";
 export { StreamManager } from "./StreamManager";
 export { useTrainingContext } from "./TrainingContext";
 export { TrainingEngine } from "./TrainingEngine";
