@@ -406,7 +406,9 @@ async def evaluate_training(
         score_user = render_template(str(profile.prompts.scoring_user), **prompt_kw)
     else:
         exam_results_raw = (record.runtime_state or {}).get("exam_results", [])
-        exam_results_text = json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
+        exam_results_text = (
+            json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
+        )
 
         pc = PromptContext()
         pc.register(

@@ -50,12 +50,7 @@ async def _authenticate(token: str) -> User | None:
     try:
         from sqlalchemy.orm import joinedload
 
-        user = (
-            db.query(User)
-            .options(joinedload(User.role))
-            .filter(User.id == user_id)
-            .first()
-        )
+        user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
         if not user or not user.is_active:
             return None
         token_tv = payload.get("tv", 0)
@@ -101,12 +96,14 @@ async def training_ws(
                 try:
                     svc = PhysicalExamService(db)
                     result = svc.perform(record_id, op_type, user)
-                    await websocket.send_json({
-                        "type": "exam:done",
-                        "op_type": result["type"],
-                        "data": result["data"],
-                        "all_results": result["all_results"],
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "exam:done",
+                            "op_type": result["type"],
+                            "data": result["data"],
+                            "all_results": result["all_results"],
+                        }
+                    )
                 except HTTPException as e:
                     await websocket.send_json({"type": "exam:error", "detail": e.detail})
                 except Exception as e:

@@ -211,6 +211,3 @@ def _format_vitals(vs: dict) -> dict:
             lines.append(f"{label}: {val}")
     value = "\n".join(lines) if lines else "未配置"
     return {"type": "vitals", "label": "生命体征", "value": value, "unit": ""}
-
-
-

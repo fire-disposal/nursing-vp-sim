@@ -29,7 +29,12 @@ async def perform_exam(
 ):
     result = PhysicalExamService(db).perform(record_id, op_type, current_user)
 
-    entry = {"type": result["type"], "label": result["data"].get("label", ""), "value": str(result["data"].get("value", "")), "unit": result["data"].get("unit", "")}
+    entry = {
+        "type": result["type"],
+        "label": result["data"].get("label", ""),
+        "value": str(result["data"].get("value", "")),
+        "unit": result["data"].get("unit", ""),
+    }
     await request.app.state.sse_manager.publish(current_user.id, "exam:done", entry)
 
     return result

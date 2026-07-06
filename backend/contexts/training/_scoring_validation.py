@@ -44,9 +44,7 @@ def _inject_rubric_max(result: dict, rubric: dict) -> None:
         if rd:
             dim_data["max"] = rd["max"]
         else:
-            dim_data.setdefault("max", sum(
-                raw_scale for _ in dim_data.get("items", [])
-            ) or raw_scale)
+            dim_data.setdefault("max", sum(raw_scale for _ in dim_data.get("items", [])) or raw_scale)
 
         for item in dim_data.get("items", []):
             if isinstance(item, dict):

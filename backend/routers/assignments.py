@@ -119,7 +119,9 @@ def get_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbS
 
 
 @router.put("/{assignment_id}", response_model=AssignmentDetail)
-def update_assignment(assignment_id: str, req: AssignmentUpdateRequest, current_user: _AssignmentManager, db: DbSession):
+def update_assignment(
+    assignment_id: str, req: AssignmentUpdateRequest, current_user: _AssignmentManager, db: DbSession
+):
     return _detail_resp(
         AssignmentService(db).update(
             assignment_id=assignment_id,
