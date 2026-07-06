@@ -1,6 +1,6 @@
 # 训练核心大规模收束/归一化重构（扶正系统）设计文档
 
-> 状态：设计已批准，待转 writing-plans
+> 状态：执行中（Batch 0、5-HIGH、2 已完成并合入分支，见文末执行进度）
 > 日期：2026-07-07
 > 目标分支：`refactor/prompt-engineering-clarity`（领先 master 192 提交，承载全部场景系统）
 > 审查基线 worktree：`/tmp/opencode/vp-review`（只读）
@@ -316,3 +316,42 @@ Capability {
 - 一致性：情绪在 D9/§5.B/§5.D 表述一致（builtin 全类型恒开）；护理记录在 D5/§5.E/§5.G 一致（保留模型、删死 FE 客户端）。
 - 范围：单文档覆盖五域，但通过分批 PLAN（§7）拆为可独立执行单元。
 - 歧义：时间优先级、能力门控点、删除项均给出精确 file:line 依据（见各审查节）。
+
+---
+
+## 执行进度（2026-07-07，分支 refactor/prompt-engineering-clarity）
+
+每一步均 `pnpm run check` 绿 + 后端 pytest 409 通过后提交。分支基线先做了 ruff 格式统一（`e471bd15`）。
+
+### ✅ 已完成
+
+**Batch 0 — 清障**（`ab0c3f6b`/`8cb9c4bc`/`baf67862`）
+- 删前端死文件：ChatTraining/PatientPortrait/PanelErrorBoundary/ScoringDisplayOverlay/nursing-records.ts/VirtualMaskText/engine/tts/index.ts
+- 删前端死导出：sendMessage/askInQASession/getUnreadCount/getTrainingState/updateTrainingFeatures + scene-state 死类型
+- 删后端死端点：REST 查体、SSE `/notifications/stream`、`_config.py`(PUT /features)、`GET /state`；死能力残余 `profile.capabilities`/`supported_plugins`
+- 删整个 `miniprogram/` + 摘除 miniapp 构建/文档引用
+- 重命名：`SSEManager`→`RealtimeHub`、`notifySSEProgress`→`notifyProgress`、`api/api-client.ts`→`api/index.ts`
+
+**Batch 5-HIGH — LLM 高危 bug**（`ec1528b2`）
+- F-1：`stream()` 不再向 circuit breaker 双报失败
+- F-2：修复 triage 评分 `exam_results_text` UnboundLocalError（此前 triage 反馈被静默吞掉）
+
+**Batch 2 — 能力系统扶正**（`12f98cdd`/`359c13f9`/`93c1e70d`/`98841924`）
+- Capability 分层 `builtin`/`toggleable` + `training_types` + `requires`；`resolve_features` 成唯一真相
+- emotion 转 builtin、全类型（含 triage）恒开；删 `profile.has_emotion`/`has_initiative`
+- 运行时门控统一走 `resolve_features`：修复主动回复端到端断裂；后端强制 `physical_exam` 门控
+- 时间优先级修复：显式(free-config/practice) > case > 20；chat 增加实时超时守卫
+- 教师 `practice.max_rounds` 覆盖 profile 默认（此前被忽略）
+- **前端能力表自动生成** `capabilities.gen.ts`（`backend/scripts/gen_capabilities_ts.py`，并入 `api:update` + `check:api` CI gate）；删手维护 `capabilities.ts`；教师端 PracticesPage 改用生成能力（移除非法 `allow_pause`/`exam_emotion_bridge`/emotion 开关）
+- 能力模型 characterization 测试（tests/core/test_capabilities.py，20 例）
+
+### ⏳ 待续（下次续接）
+
+- **Batch 2 尾巴**：`questionnaire` 能力后端门控对齐（当前问卷由 `case_questionnaires` 驱动、能力无消费者）；前端 `TrainingEngine` useFeatureToggles 中 emotion 耦合分支现已 moot（emotion 不再是开关），可清理。
+- **Batch 3 — 场景运行时回路闭合**（§5.D）：后端播种 `runtime_state["scene"]` + WS 推送 `scene:state` 补丁 + 前端 WS→MessageBus 桥 + `useSceneState` 提升到 Provider 修复单卡 reset bug + `scene:state` 并入类型化 BusEvents + characterization 测试。
+- **Batch 4 — 护理记录可评分场景**（§5.E）：`nursing_record` toggleable 能力 + 结构化表单场景卡（重建结构化端点）+ 评分钩子（rubric 维度 + `actions` 注入 `sheet_data`）。
+- **Batch 1 / Batch 5 其余**：两车道传输文档；LLM 收敛（F-3~F-8：stream 重试收敛、call_with_tools metrics、score_engine 进度收敛、QA RAG 注入合并、定价单一来源、provider_name 推导）；F-1/F-2 回归测试哈式。
+
+### 备注
+- 分支落地：按作者指示在 `refactor/prompt-engineering-clarity` 上继续（未合 master）。
+- 行为变更（已固化于测试/需回归验证）：triage 现带情绪；physical_exam 后端真正门控；时间优先级反转。
