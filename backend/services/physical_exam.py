@@ -4,6 +4,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from core.capabilities import is_enabled
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from models import Case, TrainingRecord, User
@@ -60,6 +61,9 @@ class PhysicalExamService:
             raise AuthError(detail="只能操作自己的训练", status_code=403)
         if record.status != "in_progress":
             raise ValidationError(detail="训练已结束")
+        # 单一真相门控：未开启护理查体能力则拒绝（此前后端完全不校验）
+        if not is_enabled(record, "physical_exam"):
+            raise ValidationError(detail="本次训练未启用护理查体")
 
         case = self.db.query(Case).filter(Case.id == record.case_id).first()
         if not case:

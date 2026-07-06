@@ -156,7 +156,7 @@ def _build_config(practice=None, features: dict | None = None, time_limit_minute
         "id": 0,
         "name": "自定义配置",
         "features": features or {},
-        "behavior": {"time_limit_minutes": time_limit_minutes or 20},
+        "behavior": {"time_limit_minutes": time_limit_minutes} if time_limit_minutes else {},
     }
 
 
@@ -175,7 +175,8 @@ def _create_record(
     training_type = case.training_type or "history_taking"
     profile = get_profile(training_type)
 
-    time_limit = case.time_limit_minutes or config.get("behavior", {}).get("time_limit_minutes", 20)
+    # 时间优先级（D11）：显式设置(free-config req / 教师 practice) > case 默认 > 全局 20
+    time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
 
     config["features"] = config.get("features") or {}
     validate_case_data(training_type, case_data, strict=False)
