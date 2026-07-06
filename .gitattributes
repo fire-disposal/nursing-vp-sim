@@ -30,4 +30,3 @@
 
 # 生成文件强制 LF
 frontend/src/api/api-types.gen.ts text eol=lf
-miniprogram/api/types.gen.ts text eol=lf

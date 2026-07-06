@@ -1,6 +1,0 @@
-<canvas
-  type="2d"
-  id="lottie-canvas"
-  class="lottie-canvas"
-  style="width: {{width}}rpx; height: {{height}}rpx;"
-></canvas>

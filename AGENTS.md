@@ -34,7 +34,7 @@ All run from monorepo root.
 | `pnpm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
 | `pnpm run db:data -- "name"` | Scaffold data-only migration (`scripts/create-data-migration.js`) |
 | `pnpm run api:update` | `api:spec` + `api:generate` |
-| `pnpm run api:update:all` | `api:spec` + `api:generate` + `api:generate:miniapp` |
+| `pnpm run api:update:all` | `api:spec` + `api:generate` |
 | `pnpm run tag` | Auto-generate date-based tag + push → triggers staging deploy |
 
 > **After any backend schema/route change, run `pnpm run api:update:all` from monorepo root.** Never manually edit `.gen.ts` files. Never dump openapi.json via curl/SSH.
@@ -44,7 +44,6 @@ All run from monorepo root.
 | File | Generator | Update command |
 |------|-----------|----------------|
 | `frontend/src/api/api-types.gen.ts` | `openapi-typescript` | `pnpm run api:update` |
-| `miniprogram/api/types.gen.ts` | `scripts/generate-miniapp-api.mjs` | `pnpm run api:update:all` |
 | `openapi.json` | `pnpm run api:spec` | `pnpm run api:spec` |
 
 **These files are read-only for humans.** Editing them causes `pnpm run check:api` to fail CI and will be overwritten on next regeneration. Any type mismatch means the backend schema changed — regenerate, don't patch.
