@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useRef, useState } from "react";
-import { ALL_CAPABILITIES } from "@/engine/capabilities";
+import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { getSceneCards } from "./scene-cards/registry";

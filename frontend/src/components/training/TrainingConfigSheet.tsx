@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ALL_CAPABILITIES, TRAINING_CAPABILITIES } from "@/engine/capabilities";
+import { ALL_CAPABILITIES, TRAINING_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { TrainingTypeInfo } from "@/training/types";
 import { cn } from "@/utils/cn";
 

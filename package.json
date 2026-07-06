@@ -27,9 +27,10 @@
     "tag:local": "node .husky/_/auto-tag.mjs",
     "api:spec": "cd backend && uv run python -c \"from main import app; import json; json.dump(app.openapi(), open('../openapi.json','w',encoding='utf-8'), ensure_ascii=False, indent=2); print('spec written')\"",
     "api:generate": "cd frontend && pnpm openapi-typescript ../openapi.json -o src/api/api-types.gen.ts",
-    "api:update": "pnpm run api:spec && pnpm run api:generate",
-    "api:update:all": "pnpm run api:spec && pnpm run api:generate",
-    "check:api": "pnpm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts",
+    "cap:generate": "cd backend && uv run python scripts/gen_capabilities_ts.py",
+    "api:update": "pnpm run api:spec && pnpm run api:generate && pnpm run cap:generate",
+    "api:update:all": "pnpm run api:spec && pnpm run api:generate && pnpm run cap:generate",
+    "check:api": "pnpm run api:update:all && git diff --exit-code -- frontend/src/api/api-types.gen.ts frontend/src/engine/capabilities.gen.ts",
     "gen:checklist": "node scripts/gen-combined-checklist.mjs",
     "gen:checklist:target": "node scripts/gen-combined-checklist.mjs"
   },

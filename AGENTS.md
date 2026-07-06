@@ -44,6 +44,7 @@ All run from monorepo root.
 | File | Generator | Update command |
 |------|-----------|----------------|
 | `frontend/src/api/api-types.gen.ts` | `openapi-typescript` | `pnpm run api:update` |
+| `frontend/src/engine/capabilities.gen.ts` | `backend/scripts/gen_capabilities_ts.py` | `pnpm run api:update` |
 | `openapi.json` | `pnpm run api:spec` | `pnpm run api:spec` |
 
 **These files are read-only for humans.** Editing them causes `pnpm run check:api` to fail CI and will be overwritten on next regeneration. Any type mismatch means the backend schema changed — regenerate, don't patch.

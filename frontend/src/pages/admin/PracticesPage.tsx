@@ -12,8 +12,7 @@ import {
 	updatePractice,
 } from "@/api/practices";
 import { queryKeys } from "@/api/query-keys";
-import ExportButton from "@/components/ExportButton";
-import { useToast } from "@/components/Toast";
+import ExportButton from "@/components/ExportButton";import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -28,6 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/ui/page-header";
+import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import { type PracticeValues, practiceSchema } from "@/schemas/practice";
 
 interface PracticeRow {
@@ -45,14 +45,10 @@ interface CaseOption {
 	name: string;
 }
 
-const FEATURE_OPTIONS = [
-	{ key: "physical_exam", label: "护理查体" },
-	{ key: "emotion", label: "情绪状态机" },
-	{ key: "patient_initiative", label: "患者追问" },
-	{ key: "questionnaire", label: "问卷评估" },
-	{ key: "exam_emotion_bridge", label: "查体-情绪联动" },
-	{ key: "allow_pause", label: "允许暂停" },
-];
+// 从生成的能力表派生（单一真相）：仅 toggleable 可由教师配置；builtin(如情绪)恒开不显示
+const FEATURE_OPTIONS = Object.values(ALL_CAPABILITIES)
+	.filter((c) => c.tier === "toggleable")
+	.map((c) => ({ key: c.key, label: c.label }));
 
 const DEFAULT_VALUES: PracticeValues = {
 	name: "",
