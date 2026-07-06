@@ -41,8 +41,6 @@ class TrainingProfile:
     prompts: PromptCollection
     rubric: dict
     max_rounds: int
-    has_emotion: bool
-    has_initiative: bool
 
 
 _PROFILES: dict[str, TrainingProfile] = {}

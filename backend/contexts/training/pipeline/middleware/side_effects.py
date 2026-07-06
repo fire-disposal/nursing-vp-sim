@@ -172,15 +172,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
     app = ctx.app_state
     features = ctx.state.get(STATE_FEATURES) or {}
 
-    training_type = getattr(ctx.record, "training_type", None) or "history_taking"
-    try:
-        from profiles.registry import get_profile
-
-        profile = get_profile(training_type)
-    except KeyError:
-        profile = None
-
-    has_emotion = profile.has_emotion if profile else features.get("emotion", False)
+    # 单一真相：仅从解析后的 features 门控（emotion 为 builtin 恒开；见 core.capabilities）
+    has_emotion = features.get("emotion", False)
 
     if has_emotion and ctx.llm_reply:
         emotion_cache = getattr(app, "emotion_cache", None)
@@ -213,7 +206,8 @@ async def side_effects(ctx: PipelineContext, next_mw) -> None:
                 }
             )
 
-    has_initiative = profile.has_initiative if profile else features.get("patient_initiative", False)
+    # 单一真相：自动主动发言与手动/计时器路径统一门控于 feature（修复此前 has_initiative 造成的端到端断裂）
+    has_initiative = features.get("patient_initiative", False)
     if not has_initiative or not ctx.llm_reply:
         return
 

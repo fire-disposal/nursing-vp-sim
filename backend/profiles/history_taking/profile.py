@@ -69,6 +69,4 @@ PROFILE = TrainingProfile(
     prompts=_PROMPTS,
     rubric=_RUBRIC,
     max_rounds=8,
-    has_emotion=True,
-    has_initiative=False,
 )
