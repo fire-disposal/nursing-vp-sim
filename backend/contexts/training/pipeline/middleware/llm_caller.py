@@ -10,6 +10,7 @@ from ..context import (
     STATE_SOURCE_TRACES,
     STATE_STREAM_CHUNKS,
     STATE_STREAM_MODE,
+    STATE_STREAM_QUEUE,
     PipelineContext,
 )
 
@@ -113,6 +114,7 @@ async def _call_stream(ctx: PipelineContext) -> None:
         ctx.state[STATE_PATIENT_CHAT_CFG] = llm_cfg
     full_reply = ""
     chunks = []
+    stream_queue = ctx.state.get(STATE_STREAM_QUEUE)
     log_meta = {"source_traces": ctx.state.get(STATE_SOURCE_TRACES, [])}
 
     try:
@@ -130,6 +132,8 @@ async def _call_stream(ctx: PipelineContext) -> None:
         ):
             full_reply += chunk
             chunks.append(chunk)
+            if stream_queue is not None:
+                await stream_queue.put(chunk)  # 实时推送至 SSE 流
     except Exception:
         log.exception("LLM stream failed: record_id=%d", ctx.record.id)
         ctx.error = "LLM 服务暂时不可用，请稍后重试"

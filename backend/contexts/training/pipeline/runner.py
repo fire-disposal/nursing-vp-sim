@@ -1,5 +1,6 @@
 """Pipeline runner — executes middleware chain with short-circuit support."""
 
+import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
@@ -8,6 +9,7 @@ from .context import (
     STATE_POST_STREAM_EVENTS,
     STATE_SAVED_MESSAGES,
     STATE_STREAM_CHUNKS,
+    STATE_STREAM_QUEUE,
     PipelineContext,
 )
 
@@ -44,9 +46,38 @@ async def run_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddlewar
 
 
 async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddleware]):
-    """Execute pipeline in streaming mode, yielding SSE events."""
-    try:
+    """Execute pipeline in streaming mode, yielding SSE events.
+
+    使用 asyncio.Queue 在 LLM 产出块时实时推送 SSE，而非全缓冲后回放。
+    保留 STATE_STREAM_CHUNKS 以支持身份纠正（correction 不经过队列）。
+    """
+    queue: asyncio.Queue[str] = asyncio.Queue()
+    ctx.state[STATE_STREAM_QUEUE] = queue
+
+    async def _run():
         await _make_next(ctx, middlewares)()
+
+    task = asyncio.create_task(_run())
+
+    # 在 pipeline 运行中实时消费 LLM 块
+    while not task.done():
+        try:
+            chunk = await asyncio.wait_for(queue.get(), timeout=0.2)
+            yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+        except TimeoutError:
+            continue
+
+    # 消费 pipeline 完成后遗留的块
+    while not queue.empty():
+        try:
+            chunk = queue.get_nowait()
+            yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+        except asyncio.QueueEmpty:
+            break
+
+    # 传播 pipeline 异常
+    try:
+        await task
     except GeneratorExit:
         log.info("Stream pipeline cancelled (disconnect): record_id=%d", ctx.record.id)
         raise
@@ -62,10 +93,6 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
 
     for event in ctx.system_events:
         yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-
-    if ctx.llm_reply:
-        async for chunk in _emit_chunks(ctx):
-            yield chunk
 
     for event in ctx.state.get(STATE_POST_STREAM_EVENTS, []):
         yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
