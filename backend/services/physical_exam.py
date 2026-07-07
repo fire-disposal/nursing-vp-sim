@@ -94,4 +94,9 @@ class PhysicalExamService:
         with unit_of_work(self.db, conflict_detail="体检操作冲突"):
             self.db.flush()
 
-        return {"type": op_type, "data": result, "all_results": exam_results}
+        return {
+            "type": op_type,
+            "data": result,
+            "all_results": exam_results,
+            "vitals_patch": vitals_patch,  # D-2
+        }

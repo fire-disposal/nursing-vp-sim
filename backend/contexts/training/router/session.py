@@ -206,8 +206,34 @@ def _create_record(
     db.commit()
     db.refresh(record)
 
-    # Set rubric from profile (snapshot will be frozen at scoring time)
-    record.rubric_snapshot = profile.rubric
+    # D-1：播种 scene 初始状态（从病例数据派生，供前端 MonitorCard/SceneRenderer 消费）
+    patient_info = case_data.get("patient_info", {})
+    vitals = case_data.get("vitals", {})
+    record.runtime_state = {
+        "scene": {
+            "environment": {
+                "type": "ward" if training_type in ("history_taking",) else "er",
+                "time_of_day": "day",
+                "equipment": [],
+            },
+            "patient": {
+                "position": "semi-recumbent",
+                "consciousness": "alert",
+                "visible_symptoms": patient_info.get("visible_symptoms", []),
+                "expression": patient_info.get("expression", "neutral"),
+            },
+            "vitals": {
+                "hr": vitals.get("hr"),
+                "bp_sys": vitals.get("bp_sys"),
+                "bp_dia": vitals.get("bp_dia"),
+                "spo2": vitals.get("spo2"),
+                "rr": vitals.get("rr"),
+                "temp": vitals.get("temp"),
+                "pain": vitals.get("pain"),
+            },
+            "phase": profile.initial_phase,
+        }
+    }
 
     features = resolve_features(record.practice_snapshot)
     if app_state is not None and features.get("patient_initiative"):

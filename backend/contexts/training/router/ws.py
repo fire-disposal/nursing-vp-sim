@@ -102,6 +102,8 @@ async def training_ws(
                             "op_type": result["type"],
                             "data": result["data"],
                             "all_results": result["all_results"],
+                            # D-2：让前端闭环 scene:state（MonitorCard 据此显示生命体征）
+                            "scene": {"vitals": result.get("vitals_patch", {})},
                         }
                     )
                 except HTTPException as e:

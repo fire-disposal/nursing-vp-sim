@@ -10,6 +10,7 @@ export interface BusEvents {
 	"emotion:changed": [
 		{ state: string; trust: number; comfort: number },
 	];
+	"scene:state": [Partial<import("./scene-state").SceneState>];
 	"initiative:state": [
 		{
 			elapsed_seconds?: number;
