@@ -1,3 +1,13 @@
+/**
+ * 训练 WebSocket 单例 — 会话级双向实时通道（两车道模型之 WS 车道）。
+ *
+ * ┌── HTTP ──── 请求/响应：CRUD、登录、拉数据（不动）
+ * ├── SSE ───── 请求流式响应：LLM 聊天、QA（@/api/sse.ts:readSSEStream）
+ * └── WS ────── 会话级双向实时：查体、评分、scene:state、主动追问
+ *
+ * WS 负责"服务端主动推送 + 客户端命令"，每条连接鉴定用户身份后接入
+ * backend RealtimeHub（见 backend/contexts/training/router/ws.py）。
+ */
 import { useCallback, useEffect, useRef } from "react";
 import useAuthStore from "@/stores/authStore";
 
