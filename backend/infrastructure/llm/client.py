@@ -329,6 +329,19 @@ class LLMClient:
                 cache_hit_tokens=cumulative_cache_hit,
                 cache_miss_tokens=cumulative_cache_miss,
             )
+            prompt_tokens = cumulative_usage.get("prompt_tokens", 0) or 0
+            completion_tokens = cumulative_usage.get("completion_tokens", 0) or 0
+            total_tokens = prompt_tokens + completion_tokens
+            from infrastructure.llm.token_counter import estimate_cost_cny
+
+            actual_cost = estimate_cost_cny(
+                prompt_tokens or 0,
+                completion_tokens or 0,
+                price_input=state.price_input,
+                price_output=state.price_output,
+                model=state.model,
+            )
+            self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
             return content
 
         # Exhausted max_tool_rounds — force final response
@@ -559,12 +572,12 @@ class LLMClient:
 
         secret = getattr(config, "secret", None)
         if secret is not None:
-            state.provider_name = "deepseek"
+            state.provider_name = secret.label or "deepseek"
             state.base_url = secret.base_url
             state.price_input = float(secret.price_input_per_1m or 0)
             state.price_output = float(secret.price_output_per_1m or 0)
         else:
-            state.provider_name = "deepseek"
+            state.provider_name = getattr(config, "label", None) or "deepseek"
             state.base_url = getattr(config, "base_url", "")
             state.price_input = float(getattr(config, "price_input_per_1m", 0) or 0)
             state.price_output = float(getattr(config, "price_output_per_1m", 0) or 0)

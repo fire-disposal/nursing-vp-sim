@@ -61,8 +61,16 @@ class _SyntheticConfig:
         self.consecutive_failures = 0
         self.degraded_reason = None
         self.degraded_until = None
-        self.price_input_per_1m = 1.0
-        self.price_output_per_1m = 2.0
+        # 定价从 token_counter 单一来源派生（F-7）
+        if model:
+            from infrastructure.llm.token_counter import get_model_price_cny
+
+            mpi, mpo = get_model_price_cny(model)
+            self.price_input_per_1m = mpi
+            self.price_output_per_1m = mpo
+        else:
+            self.price_input_per_1m = 1.0
+            self.price_output_per_1m = 2.0
         self.monthly_cost_limit = 0.0
         self.call_count_today = 0
         self.total_tokens_today = 0
