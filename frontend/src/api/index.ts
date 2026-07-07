@@ -11,4 +11,3 @@ export * from "./qa";
 export * from "./questionnaires";
 export * from "./stats";
 export * from "./training";
-export * from "./training-state";

@@ -2,10 +2,9 @@ export { createMessageBus } from "./MessageBus";
 export type { EmotionState } from "./PanelContext";
 export {
 	EMOTION_LABELS,
-	EmotionProvider,
 	getEmotionBorder,
 	getEmotionColor,
-	PortraitProvider,
+	PanelStateProvider,
 	useEmotion,
 	usePortrait,
 } from "./PanelContext";

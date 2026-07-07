@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { triggerInitiative } from "@/api/training-state";
+import { triggerInitiative } from "@/api/training";
 import type { MessageBus } from "@/engine/types";
 import { cn } from "@/utils/cn";
 

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import LoadingState from "@/components/ui/loading-state";
 import { getRecordDetail } from "../api/training";
-import { TRAINING_SCENES } from "../training/scenes/registry";
+import { TRAINING_SCENES } from "../training/scenes/scene-registry";
 
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();

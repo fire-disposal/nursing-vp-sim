@@ -64,3 +64,8 @@ export const submitTriage = (recordId: number, data: TriageSubmitRequest) =>
 	api
 		.post<TriageSubmitResponse>(`/api/triage/${recordId}/submit` as ApiPath, data)
 		.then((r) => r.data);
+
+export const triggerInitiative = (recordId: number) =>
+	api.post<components["schemas"]["InitiativeTriggerResponse"]>(
+		`/training/${recordId}/initiative/trigger` as ApiPath,
+	);

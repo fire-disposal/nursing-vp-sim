@@ -49,45 +49,44 @@ export const EMOTION_LABELS: Record<EmotionState, string> = {
 	open: "开放信任",
 };
 
-interface EmotionContextValue {
+interface PanelStateContextValue {
 	emotion: EmotionState;
 	setEmotion: (e: EmotionState) => void;
-}
-const EmotionCtx = createContext<EmotionContextValue>({
-	emotion: "neutral",
-	setEmotion: () => {},
-});
-
-export function EmotionProvider({ children }: { children: ReactNode }) {
-	const [emotion, setEmotion] = useState<EmotionState>("neutral");
-	const value = useMemo(() => ({ emotion, setEmotion }), [emotion]);
-	return <EmotionCtx.Provider value={value}>{children}</EmotionCtx.Provider>;
-}
-
-export function useEmotion() {
-	return useContext(EmotionCtx);
-}
-
-interface PortraitContextValue {
 	portraitUrl: string | null;
 	setPortraitUrl: (url: string | null) => void;
 }
-const PortraitCtx = createContext<PortraitContextValue>({
+
+const PanelStateCtx = createContext<PanelStateContextValue>({
+	emotion: "neutral",
+	setEmotion: () => {},
 	portraitUrl: null,
 	setPortraitUrl: () => {},
 });
 
-export function PortraitProvider({ children }: { children: ReactNode }) {
+/**
+ * 合并 EmotionProvider + PortraitProvider —— 二者始终成对出现。
+ * 减少一层 Provider 嵌套。
+ */
+export function PanelStateProvider({ children }: { children: ReactNode }) {
+	const [emotion, setEmotion] = useState<EmotionState>("neutral");
 	const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
 	const value = useMemo(
-		() => ({ portraitUrl, setPortraitUrl }),
-		[portraitUrl],
+		() => ({ emotion, setEmotion, portraitUrl, setPortraitUrl }),
+		[emotion, portraitUrl],
 	);
 	return (
-		<PortraitCtx.Provider value={value}>{children}</PortraitCtx.Provider>
+		<PanelStateCtx.Provider value={value}>{children}</PanelStateCtx.Provider>
 	);
 }
 
+/** 读 emotion 状态 */
+export function useEmotion() {
+	const ctx = useContext(PanelStateCtx);
+	return { emotion: ctx.emotion, setEmotion: ctx.setEmotion };
+}
+
+/** 读 portraitUrl 状态 */
 export function usePortrait() {
-	return useContext(PortraitCtx);
+	const ctx = useContext(PanelStateCtx);
+	return { portraitUrl: ctx.portraitUrl, setPortraitUrl: ctx.setPortraitUrl };
 }

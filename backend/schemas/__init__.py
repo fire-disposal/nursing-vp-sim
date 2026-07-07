@@ -1,4 +1,9 @@
-"""Pydantic schemas — re-exported from domain modules."""
+"""Pydantic schemas — re-exported from domain modules.
+
+Star imports cause cascading module loading (~15 submodules) when any schema is imported.
+This is acceptable for a FastAPI server (cold start ≠ request-path perf).
+New code preferred pattern: `from schemas.training import X`.
+"""
 
 from schemas.admin import *  # noqa: F403
 from schemas.assignment import *  # noqa: F403
