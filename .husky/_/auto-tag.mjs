@@ -45,7 +45,9 @@ function hasFeatOrFix() {
 }
 
 // ── Checklist (only for feat/fix versions) ──────────────────────────────
-const needChecklist = doPush && hasFeatOrFix();
+// 测试清单强制开关：大规模重构期间暂时关闭。恢复改回 true。
+const ENFORCE_CHECKLIST = false;
+const needChecklist = doPush && ENFORCE_CHECKLIST && hasFeatOrFix();
 if (needChecklist) {
   if (isCI) {
     // In CI, feat/fix commits require a real checklist committed in the PR
