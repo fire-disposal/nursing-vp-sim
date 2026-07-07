@@ -22,9 +22,6 @@ def upgrade() -> None:
     op.add_column("cases", sa.Column("difficulty", sa.Integer, server_default="1", nullable=False))
     op.add_column("cases", sa.Column("time_limit_minutes", sa.Integer, server_default="20", nullable=False))
 
-    op.execute("UPDATE cases SET difficulty = (case_data->>'difficulty')::int WHERE case_data ? 'difficulty'")
-    op.execute("UPDATE cases SET time_limit_minutes = (case_data->>'time_limit')::int WHERE case_data ? 'time_limit'")
-
     op.add_column("training_records", sa.Column("training_type", sa.String(50), server_default="history_taking", nullable=False))
     op.add_column("training_records", sa.Column("prompt_snapshot", JSONB, nullable=True))
     op.add_column("training_records", sa.Column("rubric_snapshot", JSONB, nullable=True))

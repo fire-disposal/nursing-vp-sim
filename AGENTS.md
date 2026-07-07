@@ -88,7 +88,7 @@ uv run python -m pytest -x -q
 - **单一 head**：CI 与 `check-migration-chain.py` 校验
 - **Idempotency**: downstream migrations must use `insp.get_columns()` / `insp.get_indexes()` / `insp.get_table_names()` guards, not bare `try/except`
 
-> 已知技术债：`ddl/edc17425a5f4_batch_a_case_schema.py` 含 `op.execute()`（历史遗留、已应用），违反 DDL/数据分离。因已入链应用，需专项拆分处理，勿直接改写。
+> ~~已知技术债：`ddl/edc17425a5f4_batch_a_case_schema.py` 含 `op.execute()`（历史遗留、已应用），违反 DDL/数据分离。因已入链应用，需专项拆分处理，勿直接改写。~~ **已修复**（2026-07-07）：数据操作已拆至 `data/mrac4bzvuq7d_batch_a_backfill_data.py`，`ddl/edc17425a5f4` 现为纯 DDL。
 
 ## Commit Format
 
