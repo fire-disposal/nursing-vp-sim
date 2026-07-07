@@ -66,6 +66,14 @@ ALL_CAPABILITIES: dict[str, Capability] = {
         training_types=None,
         default=False,
     ),
+    "nursing_record": Capability(
+        key="nursing_record",
+        label="护理评估记录",
+        description="结构化护理评估表单填写，可开启评分维度。",
+        tier="toggleable",
+        training_types=("history_taking",),
+        default=False,
+    ),
 }
 
 

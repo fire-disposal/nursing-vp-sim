@@ -67,6 +67,17 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     "trainingTypes": null,
     "defaultOn": false,
     "requires": []
+  },
+  "nursing_record": {
+    "key": "nursing_record",
+    "label": "护理评估记录",
+    "description": "结构化护理评估表单填写，可开启评分维度。",
+    "tier": "toggleable",
+    "trainingTypes": [
+      "history_taking"
+    ],
+    "defaultOn": false,
+    "requires": []
   }
 };
 
@@ -75,7 +86,8 @@ export const TRAINING_CAPABILITIES: Record<string, string[]> = {
   "history_taking": [
     "patient_initiative",
     "physical_exam",
-    "questionnaire"
+    "questionnaire",
+    "nursing_record"
   ],
   "triage": [
     "physical_exam",

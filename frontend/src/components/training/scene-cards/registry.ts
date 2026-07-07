@@ -4,6 +4,7 @@ import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import InquiryCard from "./InquiryCard";
 import MonitorCard from "./MonitorCard";
 import NotesCard from "./NotesCard";
+import NursingRecordCard from "./NursingRecordCard";
 import PatientInfoCard from "./PatientInfoCard";
 
 interface CardDef {
@@ -22,7 +23,8 @@ const HISTORY_TAKING: CardDef[] = [
   { id: "inquiry",       component: InquiryCard,                              priority: 1 },
   { id: "monitor",       component: MonitorCard,                              priority: 2 },
   def("body-exam",   () => import("@/components/training/body-exam/ExamBodyScene"), 3, "physical_exam"),
-  { id: "notes",         component: NotesCard,                                priority: 4 },
+  { id: "nursing-record", component: NursingRecordCard,                       priority: 4, featureFlag: "nursing_record" },
+  { id: "notes",         component: NotesCard,                                priority: 5 },
 ];
 
 const TRIAGE: CardDef[] = [

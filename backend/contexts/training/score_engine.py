@@ -13,7 +13,7 @@ from core.llm_profile import get_llm_config
 from infrastructure.llm import _safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
-from models import Message, Score, TrainingRecord
+from models import Message, NursingRecord, Score, TrainingRecord
 from profiles.registry import get_profile
 from prompts.scoring import (
     FEEDBACK_RETRY_USER,
@@ -414,6 +414,86 @@ async def evaluate_training(
             json.dumps(exam_results_raw, ensure_ascii=False, indent=2) if exam_results_raw else "学生未执行任何查体操作"
         )
 
+        # 护理记录评分注入：nursing_record 能力开启时，将学生填写的 sheet_data 注入评分 prompt
+        # 并向 rubric 动态追加"护理记录"评分维度
+        nursing_record_text = ""
+        features = (record.practice_snapshot or {}).get("features", {})
+        if features.get("nursing_record"):
+            nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
+            if nr and nr.sheet_data:
+                parts = []
+                for field in ("subjective", "objective", "assessment", "plan", "evaluation"):
+                    val = nr.sheet_data.get(field, "")
+                    if val:
+                        parts.append(f"{field.upper()}: {val}")
+                nursing_record_text = "\n\n".join(parts) if parts else ""
+
+            # 动态追加评分维度
+            rubric.setdefault("dimensions", []).append(
+                {
+                    "id": "nursing_record",
+                    "name": "护理记录",
+                    "max": 15,
+                    "description": "评估护理评估记录（ADPIE）的完整性与合理性",
+                    "items": [
+                        {
+                            "id": "nr_01",
+                            "name": "护理评估记录的完整性和结构性",
+                            "anchors": {
+                                "3": "五步齐全(主观/客观/评估/计划/评价)，每个部分内容充实",
+                                "2": "多数步骤已填写但部分缺失或内容过简",
+                                "1": "未填写护理记录或内容严重缺失",
+                            },
+                        },
+                        {
+                            "id": "nr_02",
+                            "name": "护理评估的临床合理性与专业性",
+                            "anchors": {
+                                "3": "评估具有逻辑性，护理诊断与采集的病史数据一致，方案具有针对性",
+                                "2": "评估基本合理但部分环节存在逻辑偏差或方案泛化",
+                                "1": "评估缺乏逻辑性或严重脱离病史采集内容",
+                            },
+                        },
+                        {
+                            "id": "nr_03",
+                            "name": "护理记录内容真实反映对话中的客观证据",
+                            "anchors": {
+                                "3": "主客观数据准确反映对话中的患者陈述和查体结果，无编造",
+                                "2": "大部分数据来自对话，但存在少量不准确或推断性表述",
+                                "1": "护理记录存在大量编造或与对话内容明显矛盾的数据",
+                            },
+                        },
+                        {
+                            "id": "nr_04",
+                            "name": "护理问题优先级排序与措施针对性",
+                            "anchors": {
+                                "3": "识别出患者的主要护理问题并按优先级排序，措施具体可行",
+                                "2": "护理问题识别基本正确但排序不够合理，措施过于泛化",
+                                "1": "未识别关键护理问题或措施与问题不匹配",
+                            },
+                        },
+                        {
+                            "id": "nr_05",
+                            "name": "评价环节的反思深度",
+                            "anchors": {
+                                "3": "评价体现对措施效果的批判性反思，提出后续跟进建议",
+                                "2": "有简单的效果评价但缺乏深入反思",
+                                "1": "无评价环节或评价填空性质不反映实际思考",
+                            },
+                        },
+                    ],
+                }
+            )
+            raw_max = rubric.get("raw_max", 57) + 15
+            rubric["raw_max"] = raw_max
+            # 重新生成 scoring_criteria_text 与 scoring_json_schema_text
+            scoring_criteria_text = build_scoring_criteria(rubric)
+            scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
+
+        # 使护理记录内容对 LLM 可见（追加在评分标准之后，LLM 据此与 rubric 维度对照打分）
+        if nursing_record_text:
+            scoring_criteria_text = f"{scoring_criteria_text}\n\n## 学生提交的护理评估记录\n{nursing_record_text}"
+
         pc = PromptContext()
         pc.register(
             "scoring",
@@ -423,6 +503,7 @@ async def evaluate_training(
                 "scoring_json_schema": scoring_json_schema_text,
                 "conversation_text": conversation_text,
                 "exam_results": exam_results_text,
+                "nursing_record": nursing_record_text,
             },
         )
         prompt_kw = pc.as_dict()
@@ -441,6 +522,7 @@ async def evaluate_training(
             "required_inquiries": required_inquiries_text,
             "conversation_text": conversation_text,
             "exam_results": exam_results_text,
+            "nursing_record": nursing_record_text,
         },
     )
     fb_kw = fb_ctx.as_dict()
