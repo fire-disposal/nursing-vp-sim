@@ -154,7 +154,7 @@ def _inject_search_context(
     if not citations:
         return
     try:
-        from infrastructure.rag.chapter_index import read_section, search
+        from infrastructure.rag.chapter_index import read_section
 
         parts = ["【参考教材信息】"]
         parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
