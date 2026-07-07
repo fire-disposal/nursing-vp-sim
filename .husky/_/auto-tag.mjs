@@ -85,8 +85,8 @@ console.log(msg);
 execSync(`git tag -a "${tag}" -m "${tag}"`, { stdio: "inherit" });
 
 if (doPush) {
-  execSync(`git push origin HEAD:master`, { stdio: "inherit" });
-  execSync(`git push origin "${tag}"`, { stdio: "inherit" });
+  execSync(`git push origin HEAD:master`, { stdio: "inherit", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  execSync(`git push origin "${tag}"`, { stdio: "inherit", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
   console.log(`Pushed: ${tag}`);
 } else {
   console.log(`Tag created: ${tag}`);
