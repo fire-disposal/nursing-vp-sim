@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { SceneState } from "./scene-state";
 import type { MessageBus } from "./types";
 
@@ -7,6 +7,8 @@ const DEFAULT_SCENE: SceneState = {
   patient: { position: "supine", consciousness: "alert", expression: "neutral", visible_symptoms: [] },
   vitals: {},
 };
+
+const SceneStateContext = createContext<SceneState>(DEFAULT_SCENE);
 
 /**
  * Keeps a local SceneState mirror that is patched every time
@@ -27,6 +29,29 @@ export function useSceneState(bus: MessageBus | null): SceneState {
   return state;
 }
 
+/**
+ * Provider that lifts scene state above individual cards so it
+ * persists across card mount/unmount (MonitorCard vitals don't reset).
+ */
+export function SceneStateProvider({
+  bus,
+  children,
+}: {
+  bus: MessageBus | null;
+  children: React.ReactNode;
+}) {
+  const sceneState = useSceneState(bus);
+  return (
+    <SceneStateContext.Provider value={sceneState}>
+      {children}
+    </SceneStateContext.Provider>
+  );
+}
+
+export function useSceneStateValue(): SceneState {
+  return useContext(SceneStateContext);
+}
+
 /** Shallow‑merge SceneState patches (2 levels deep). */
 function deepMerge(base: SceneState, patch: Partial<SceneState>): SceneState {
   const out = { ...base } as Record<string, unknown>;
@@ -39,5 +64,3 @@ function deepMerge(base: SceneState, patch: Partial<SceneState>): SceneState {
   }
   return out as SceneState;
 }
-
-
