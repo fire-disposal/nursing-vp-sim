@@ -9,8 +9,7 @@ import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
 import {
-	EmotionProvider,
-	PortraitProvider,
+	PanelStateProvider,
 	useEmotion,
 	usePortrait,
 } from "./PanelContext";
@@ -239,6 +238,47 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		);
 	}, []);
 
+	const toggleTtsCb = useCallback(() => {
+		const next = !ttsAutoPlay;
+		setTtsAutoPlay(next);
+		ttsRef.current.setAutoPlay(next);
+	}, [ttsAutoPlay]);
+
+	const ctxValue = useMemo(
+		() => ({
+			bus: busRef.current,
+			recordId,
+			trainingType,
+			patient: patient!,
+			features,
+			ttsAutoPlay,
+			sending,
+			featuresLocked: !!fromAssignment,
+			fromAssignment: !!fromAssignment,
+			timeLimitMinutes: timeLimit,
+			remainingSeconds,
+			voiceStatus,
+			toggleFeature,
+			toggleTts: toggleTtsCb,
+			endTraining,
+		}),
+		[
+			recordId,
+			trainingType,
+			patient,
+			features,
+			ttsAutoPlay,
+			sending,
+			fromAssignment,
+			timeLimit,
+			remainingSeconds,
+			voiceStatus,
+			toggleFeature,
+			toggleTtsCb,
+			endTraining,
+		],
+	);
+
 	if (loading) {
 		return (
 			<div className="flex flex-col h-screen">
@@ -259,32 +299,9 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			</div>
 		);
 	}
-
 	return (
 		<>
-		<TrainingContext.Provider
-			value={{
-				bus: busRef.current,
-				recordId,
-				trainingType,
-				patient,
-				features,
-				ttsAutoPlay,
-				sending,
-				featuresLocked: !!fromAssignment,
-				fromAssignment: !!fromAssignment,
-				timeLimitMinutes: timeLimit,
-				remainingSeconds,
-				voiceStatus,
-				toggleFeature,
-				toggleTts: () => {
-					const next = !ttsAutoPlay;
-					setTtsAutoPlay(next);
-					ttsRef.current.setAutoPlay(next);
-				},
-				endTraining,
-			}}
-		>
+		<TrainingContext.Provider value={ctxValue}>
 			<div className="flex h-screen">
 				<div className="flex flex-col flex-1 min-w-0">
 				<TrainingHeader />
@@ -317,11 +334,9 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 export function TrainingEngine(props: TrainingEngineProps) {
 	return (
 		<PatientProvider recordId={props.recordId}>
-			<EmotionProvider>
-				<PortraitProvider>
-					<TrainingEngineContent {...props} />
-				</PortraitProvider>
-			</EmotionProvider>
+			<PanelStateProvider>
+				<TrainingEngineContent {...props} />
+			</PanelStateProvider>
 		</PatientProvider>
 	);
 }

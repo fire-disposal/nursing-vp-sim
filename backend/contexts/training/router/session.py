@@ -457,6 +457,7 @@ def get_record_detail(
             joinedload(TrainingRecord.case),
             joinedload(TrainingRecord.user),
             joinedload(TrainingRecord.score),
+            joinedload(TrainingRecord.messages),
         )
         .filter(TrainingRecord.id == record_id)
         .first()
