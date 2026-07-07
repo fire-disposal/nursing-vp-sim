@@ -122,30 +122,50 @@ def _build_tool_handlers() -> dict:
 
 
 def _pre_search(question: str) -> list[dict[str, str]]:
-    """Quick keyword search to provide citation metadata. Never raises."""
+    """Quick keyword search to provide citation metadata + snippets. Never raises."""
     try:
         from infrastructure.rag.chapter_index import search as chapter_search
 
         results = chapter_search(question, top_k=2)
-        return [{"source": r["textbook"], "section": f"{r['chapter']}/{r['heading']}"} for r in results]
+        return [
+            {
+                "source": r["textbook"],
+                "section": f"{r['chapter']}/{r['heading']}",
+                "snippet": r.get("snippet", ""),
+            }
+            for r in results
+        ]
     except Exception:
         log.warning("Pre-search failed for citations", exc_info=True)
         return []
 
 
-def _inject_search_context(llm_messages: list[dict], citations: list[dict]) -> None:
-    """Inject search snippets into messages as system context."""
+def _inject_search_context(
+    llm_messages: list[dict],
+    citations: list[dict],
+    *,
+    snippets_only: bool = False,
+) -> None:
+    """Inject search context into messages as system context.
+
+    snippets_only=True 时直接使用 search 返回的 snippet 字段（流式路径），
+    否则调用 read_section 获取完整段落后截断（批量路径）。
+    """
     if not citations:
         return
     try:
-        from infrastructure.rag.chapter_index import read_section
+        from infrastructure.rag.chapter_index import read_section, search
 
         parts = ["【参考教材信息】"]
         parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
         for i, c in enumerate(citations, 1):
             parts.append(f"[{i}] [来源: {c['source']} > {c['section']}]")
-            text = read_section(c["source"], c["section"].split("/")[0], c["section"].split("/")[1])
-            parts.append(text[:1500])
+            if snippets_only:
+                text = c.get("snippet", "")
+            else:
+                text = read_section(c["source"], c["section"].split("/")[0], c["section"].split("/")[1])[:1500]
+            if text:
+                parts.append(text)
             parts.append("")
         llm_messages.insert(1, {"role": "system", "content": "\n".join(parts)})
     except Exception:
@@ -418,21 +438,8 @@ async def ask_stream(
 
         citations: list[dict[str, str]] = []
         if req.rag_enabled:
-            try:
-                from infrastructure.rag.chapter_index import search as chapter_search
-
-                results = chapter_search(req.question, top_k=2)
-                if results:
-                    parts = ["【参考教材信息】"]
-                    parts.append("以下是从教材中检索到的相关片段，引用时请注明来源。")
-                    for i, r in enumerate(results, 1):
-                        parts.append(f"[{i}] [来源: {r['textbook']} > {r['chapter']}/{r['heading']}]")
-                        parts.append(r["snippet"])
-                        parts.append("")
-                        citations.append({"source": r["textbook"], "section": f"{r['chapter']}/{r['heading']}"})
-                    llm_messages.insert(1, {"role": "system", "content": "\n".join(parts)})
-            except Exception:
-                log.warning("Streaming RAG search failed", exc_info=True)
+            citations = _pre_search(req.question)
+            _inject_search_context(llm_messages, citations, snippets_only=True)
 
         user_record = QARecord(session_id=session_id, user_id=current_user.id, role="user", content=req.question)
         db.add(user_record)
