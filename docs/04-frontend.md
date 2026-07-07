@@ -83,8 +83,6 @@ frontend/src/
 │   │   ├── EmotionIndicator.tsx    # 情绪指示器
 │   │   ├── InitiativeBar.tsx       # 主动发起进度条
 │   │   ├── ExamCard.tsx            # 体格检查卡片
-│   │   ├── PatientPortrait.tsx     # 患者画像
-│   │   ├── FloatingPanelHost.tsx   # 浮动面板宿主
 │   │   ├── PluginErrorBoundary.tsx # 插件异常边界
 │   │   └── PanelHost.tsx           # 侧边面板宿主
 │   ├── teacher/               # 教师端组件 (15 顶级文件 + 4 子目录, 共 36 文件)
@@ -155,7 +153,6 @@ frontend/src/
 │   ├── TeacherDashboard.tsx   # 教师仪表盘
 │   ├── StudentDashboard.tsx   # 学生仪表盘
 │   ├── CaseSelect.tsx         # 病例选择
-│   ├── ChatTraining.tsx       # 训练主页面
 │   ├── History.tsx            # 训练记录列表
 │   ├── RecordDetail.tsx       # 记录详情 + 评分
 │   ├── QA.tsx                 # 护理专业问答
@@ -204,7 +201,7 @@ frontend/src/
 | `/` | → `/home` | 登录 | Layout | 根路径重定向 |
 | `/home` | DashboardHome | 登录 | Layout | 角色分流仪表盘 |
 | `/cases` | CaseSelect | training_access | Layout | 病例选择 + 难度筛选 |
-| `/training/:recordId` | ChatTraining | training_access | 全屏独立 | 流式对话训练 |
+| `/training/:recordId` | TrainingEntry | training_access | 全屏独立 | 流式对话训练 |
 | `/history` | History | 登录 | Layout | 训练记录列表 |
 | `/record/:id` | RecordDetail | 登录 | Layout | 记录详情 + 评分 |
 | `/qa` | QA | 登录 | Layout | 护理专业问答 |

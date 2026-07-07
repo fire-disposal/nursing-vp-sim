@@ -1,14 +1,17 @@
 # AGENTS.md
 
-> **Agent 初始化**: 任何 AI 在开始工作前，用 `git rev-parse --git-dir` 确认在 Git 仓库内，并用 `git config core.hooksPath` 确认其值为 `.husky/_`（Husky v9 钩子目录）。若钩子失效，执行 `pnpm install`（其 `prepare` 脚本会运行 `husky` 正确重装钩子）恢复。**切勿执行 `npx husky --version` 或 `npx husky install`** —— Husky v9 会把首个参数当作 hooks 目录，从而把 `core.hooksPath` 写坏（如 `--version/_`）导致全部钩子失效。提交格式不合规会被 `pre-commit` 驳回。
+> **Agent 初始化**: 任何 AI 在开始工作前，用 `git rev-parse --git-dir` 确认在 Git 仓库内，并用 `git config core.hooksPath` 确认其值为 `.husky/_`（Husky v9 钩子目录）。若钩子失效，执行 `pnpm install`（其 `prepare` 脚本会运行 `husky` 正确重装钩子）恢复。**切勿执行 `npx husky --version` 或 `npx husky install`** —— Husky v9 会把首个参数当作 hooks 目录，从而把 `core.hooksPath` 写坏（如 `--version/_`）导致全部钩子失效。提交格式不合规会被 `commit-msg` 钩子驳回。
 
 > **硬约束**: 禁止主动执行 `git tag` / `git push --tags` / `git push origin v*`。新建标签和推送标签必须在用户明确指示后才能执行。打标签使用 `pnpm run tag`。
 
 ## Hook Chain
 
 ```
-git commit → commit-msg 格式校验 + migration autogen 检查 + ruff format+check (backend) + biome lint+tsc (frontend, via lint-staged)
-git push   → tag 格式校验 + checklist 验证 + alembic roundtrip + biome lint (frontend)
+git commit → commit-msg 格式校验 via validate-commit.js
+           → pre-commit: migration 目录检查(check-migration-autogen.js)
+                        + ruff format+check (staged backend)
+                        + lint-staged: biome lint + tsc (staged frontend)
+git push   → pre-push: tag 格式校验 + checklist 验证 + alembic roundtrip + 迁移链完整性
 ```
 
 - **lint-staged**: `tsc` + `biome lint` 只跑 staged frontend；迁移检查只跑 staged `migrations/versions/`
@@ -18,7 +21,7 @@ git push   → tag 格式校验 + checklist 验证 + alembic roundtrip + biome l
 
 ## Cloud CI Gate (PR → master)
 
-在线 PR 门禁 `.github/workflows/commit-format.yml` 与本地 Husky 行为精确对齐（仅检查 changed files）。本地通过则云端必过。额外校验：`api:spec` + `api:generate` diff 检查（openapi.json / api-types.gen.ts 同步）。
+在线 PR 门禁 `.github/workflows/commit-format.yml` 与本地 Husky 行为精确对齐（仅检查 changed files）。本地通过则云端必过。额外校验：`api:spec` + `api:generate` diff 检查（openapi.json / api-types.gen.ts 同步）。需手动触发 `pnpm run check:api` 验证 `capabilities.gen.ts` 同步。
 
 ## pnpm Scripts
 
@@ -28,13 +31,13 @@ All run from monorepo root.
 |--------|------|
 | `pnpm run dev` | Backend (:8000) + frontend (:3000) concurrently |
 | `pnpm run check` | ruff + ty + biome + tsc (no pytest) |
-| `pnpm run check:full` | check + pytest (pre-push full gate) |
+| `pnpm run check:full` | check + pytest |
 | `pnpm run db:migrate` | `alembic upgrade head` |
 | `pnpm run db:downgrade` | `alembic downgrade -1` |
 | `pnpm run db:migration -- "name"` | `alembic revision --autogenerate -m "name"` |
 | `pnpm run db:data -- "name"` | Scaffold data-only migration (`scripts/create-data-migration.js`) |
-| `pnpm run api:update` | `api:spec` + `api:generate` |
-| `pnpm run api:update:all` | `api:spec` + `api:generate` |
+| `pnpm run api:update` | `api:spec` + `api:generate` + `cap:generate` |
+| `pnpm run api:update:all` | `api:spec` + `api:generate` + `cap:generate`（与 `api:update` 相同） |
 | `pnpm run tag` | Auto-generate date-based tag + push → triggers staging deploy |
 
 > **After any backend schema/route change, run `pnpm run api:update:all` from monorepo root.** Never manually edit `.gen.ts` files. Never dump openapi.json via curl/SSH.
@@ -86,7 +89,6 @@ uv run python -m pytest -x -q
 - **`0001_initial` is the base** — do not hand-edit it
 - **可逆性**：每个迁移须有可用 `downgrade`（pre-push 做 base→head→base→head 往返校验）
 - **单一 head**：CI 与 `check-migration-chain.py` 校验
-- **Idempotency**: downstream migrations must use `insp.get_columns()` / `insp.get_indexes()` / `insp.get_table_names()` guards, not bare `try/except`
 
 > ~~已知技术债：`ddl/edc17425a5f4_batch_a_case_schema.py` 含 `op.execute()`（历史遗留、已应用），违反 DDL/数据分离。因已入链应用，需专项拆分处理，勿直接改写。~~ **已修复**（2026-07-07）：数据操作已拆至 `data/mrac4bzvuq7d_batch_a_backfill_data.py`，`ddl/edc17425a5f4` 现为纯 DDL。
 
@@ -112,7 +114,7 @@ uv run python -m pytest -x -q
 
 ## Testing Checklist
 
-Every tag push needs `docs/testing/{YYYY-MM}/checklist-{tag}.md` (pre-push hook enforces).
+Every tag push needs `docs/testing/{YYYY-MM}/checklist-{tag}.md` (pre-push hook enforces; 当前通过 `ENFORCE_CHECKLIST=false` 临时关闭，重构阶段恢复后启用)。
 
 **"无需测试" only if all commits are non-user-facing** (refactor/docs/ci/test/chore/build). Any `feat` or `fix` commit requires a real checklist.
 

@@ -113,7 +113,7 @@ backend/
 ### 路由变更
 
 ```
-当前:  /training/:recordId  →  ChatTraining → TrainingEngine
+当前:  /training/:recordId  →  TrainingEntry → TRAINING_SCENES[type] → TrainingEngine
 改为:  /training/:recordId  →  TrainingEntry
                                 ├── fetch record.training_type
                                 └── render TRAINING_SCENES[type].component
@@ -613,14 +613,12 @@ function ButtonScene({ recordId, bus }: SceneProps) {
 
 ### Panel 重新定位
 
-当前全局 `PANELS` 数组 + `FloatingPanelHost` → 场景私有：
+当前全局 `PANELS` 数组 → 场景私有：
 
 ```
 当前（框架概念）         →   重新定位（场景概念）
 PANELS（全局数组）       →   场景组件内的 panel 变量
-FloatingPanelHost       →   场景自行选择 panel 容器
 PanelDef.badge 全局计算  →   场景内自行决定角标逻辑
-PanelErrorBoundary      →   场景可选（推荐用）
 ```
 
 ### Operations 取代 Exam

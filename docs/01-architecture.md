@@ -169,11 +169,9 @@ nursing-vp-sim/
 │   │   │   ├── stats.ts                        # 统计API
 │   │   │   ├── export.ts                       # 导出API
 │   │   │   ├── qa.ts                           # 问答API
-│   │   │   ├── nursing-records.ts              # 护理记录API
 │   │   │   ├── questionnaires.ts               # 问卷API
 │   │   │   ├── prompts.ts                      # Prompt管理API
 │   │   │   ├── rubric.ts                       # 评分标准API
-│   │   │   ├── training-state.ts               # 训练状态API
 │   │   │   ├── grades-classes.ts               # 年级班级API
 │   │   │   └── admin/                          # 管理API
 │   │   ├── engine/                             # 训练引擎（核心运行时）

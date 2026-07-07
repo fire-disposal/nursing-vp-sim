@@ -1,5 +1,7 @@
 # Batch 0 — 清障（死代码/死残余删除 + 小程序移除 + 重命名）实施计划
 
+> **✅ 本计划已执行完毕，分支已合并至 master。以下为历史记录，仅供参考。**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development / executing-plans。步骤用 `- [ ]` 跟踪。
 > 依据 spec：`docs/superpowers/specs/2026-07-07-training-core-convergence-design.md` §5.G / §5.A(死导出) / D3。
 
