@@ -2,6 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { submitTriage } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
+import { useSceneStateValue } from "@/engine/useSceneBus";
+import { calcMews, type MewsInput } from "@/utils/mews";
 
 const CATEGORIES = [
   { id: "red",    label: "红色 — 即刻", priority: "需立即抢救", border: "border-red-500/40", activeBg: "bg-red-50 dark:bg-red-950/30", dot: "bg-red-500" },
@@ -14,7 +16,14 @@ const CATEGORIES = [
 const DEPARTMENTS = ["内科", "外科", "妇产科", "儿科", "急诊科", "ICU", "骨科", "神经科"];
 
 export default function MewsPanel({ recordId }: SceneCardProps) {
-  const [mews, setMews] = useState(0);
+  const sceneState = useSceneStateValue();
+  const mews = calcMews({
+    hr: sceneState.vitals?.hr,
+    sbp: sceneState.vitals?.bp_sys,
+    rr: sceneState.vitals?.rr,
+    temp: sceneState.vitals?.temp,
+    consciousness: sceneState.patient?.consciousness as MewsInput["consciousness"],
+  });
   const [category, setCategory] = useState("");
   const [department, setDepartment] = useState("");
   const [notes, setNotes] = useState("");
@@ -44,19 +53,12 @@ export default function MewsPanel({ recordId }: SceneCardProps) {
 
   return (
     <div className="p-3 space-y-4 text-sm">
-      {/* MEWS */}
+      {/* MEWS (auto-computed from vitals) */}
       <div className="space-y-2">
-        <div className="font-semibold text-sm">MEWS 评分</div>
+        <div className="font-semibold text-sm">MEWS 评分（由生命体征自动计算）</div>
         <div className={`${mewsBg} rounded-xl p-3 text-center`}>
           <div className="text-3xl font-bold">{mews}<span className="text-base font-normal text-muted-foreground">/14</span></div>
-          <div className="flex items-center justify-center gap-3 mt-2">
-            <button onClick={() => setMews(Math.max(0, mews - 1))}
-              className="size-8 rounded-full border border-border bg-card cursor-pointer text-lg flex items-center justify-center hover:bg-muted transition-colors">−</button>
-            <input type="number" min={0} max={14} value={mews} onChange={(e) => setMews(Math.min(14, Math.max(0, Number(e.target.value))))}
-              className="w-12 text-center text-base border border-border rounded-md py-1 bg-card" />
-            <button onClick={() => setMews(Math.min(14, mews + 1))}
-              className="size-8 rounded-full border border-border bg-card cursor-pointer text-lg flex items-center justify-center hover:bg-muted transition-colors">+</button>
-          </div>
+          <div className="text-[11px] text-muted-foreground/70 mt-1">HR/BP/RR/TEMP/意识 实测值联动</div>
         </div>
       </div>
 
