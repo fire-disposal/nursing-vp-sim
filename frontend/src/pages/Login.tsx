@@ -46,7 +46,6 @@ export default function Login() {
 	const mountedRef = useRef(true);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
-	const refreshAuth = useAuthStore((s) => s.refreshAuth);
 	const user = useAuthStore((s) => s.user);
 	const token = useAuthStore((s) => s.token);
 
