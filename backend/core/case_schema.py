@@ -111,3 +111,8 @@ def validate_case_data(training_type: str, data: dict, *, strict: bool = False) 
 
 def assert_valid_case_data(data: dict) -> dict:
     return validate_case_data("history_taking", data, strict=True)
+
+
+def list_valid_training_types() -> list[str]:
+    """Return training types that have a registered validator/profile."""
+    return list(_TYPE_VALIDATORS.keys())

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError as PydanticValidationError
 
-from core.case_schema import validate_case_data
+from core.case_schema import list_valid_training_types, validate_case_data
 from core.exceptions import LLMError, NotFoundError, ValidationError
 from core.llm_profile import get_llm_config
 from infrastructure.llm.client import CallContext, LLMClient
@@ -69,6 +69,12 @@ async def generate_case(
     """Run the LLM case‑generation workflow."""
     if not data.description.strip():
         raise ValidationError(detail="描述不能为空")
+
+    valid_types = set(list_valid_training_types())
+    if data.training_type not in valid_types:
+        raise ValidationError(
+            detail=f"不支持的训练类型: {data.training_type}，可选: {sorted(valid_types)}"
+        )
 
     reference_material = _build_reference_material(db, data)
     field_instruction = _build_field_instruction(data)
