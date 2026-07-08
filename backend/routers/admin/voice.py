@@ -28,30 +28,11 @@ router = APIRouter(prefix="/api/admin/voice", tags=["语音管理"])
 
 def _reload_tts_client(app_state) -> None:
     """Reload app.state.tts_client + config cache from active VoiceConfig."""
+    from services.tts import load_tts_state
+
     db = SessionLocal()
     try:
-        vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-        app_state.tts_config = {
-            "model": vc.tts_model if vc else "seed-tts-2.0-standard",
-            "format": vc.tts_format if vc else "mp3",
-            "sample_rate": vc.tts_sample_rate if vc else 24000,
-        }
-        if vc and vc.api_key_enc:
-            try:
-                api_key = decrypt_api_key(vc.api_key_enc)
-            except Exception:
-                log.warning("TTS reload: decryption failed")
-                api_key = ""
-            if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
-                app_state.tts_client = VolcTTSClient(
-                    api_key=api_key,
-                    resource_id=vc.tts_resource_id,
-                    timeout=vc.tts_timeout,
-                )
-                log.info("TTS client reloaded (resource_id=%s)", vc.tts_resource_id)
-                return
-        app_state.tts_client = None
-        log.info("TTS client cleared (no active config)")
+        load_tts_state(app_state, db)
     finally:
         db.close()
 

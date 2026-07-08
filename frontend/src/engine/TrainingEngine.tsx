@@ -136,9 +136,6 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 				onPatientChunk: (chunk: string) => {
 					patientAccRef.current += chunk;
 					bus.emit("stream:chunk");
-					bus.emit("tts:prebuffer", {
-						text: patientAccRef.current,
-					});
 				},
 				onPatientDone: () => {
 					const text = patientAccRef.current;

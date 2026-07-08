@@ -52,9 +52,7 @@ from infrastructure.metrics import MetricsSnapshot
 from infrastructure.queue import TaskQueue
 from infrastructure.scoring_progress import ScoringProgressTracker
 from infrastructure.settlement import settlement_loop
-from infrastructure.tts.client import VolcTTSClient
 from middleware.rate_limits import PgRateLimiter
-from models import VoiceConfig
 from repositories.training import TrainingRepository
 
 log = logging.getLogger(__name__)
@@ -218,32 +216,16 @@ async def lifespan(app: FastAPI):
 
     try:
         from core.database import SessionLocal
-        from infrastructure.llm.crypto_utils import decrypt_api_key
+        from services.tts import load_tts_state
 
         db_voice = SessionLocal()
-        vc = db_voice.query(VoiceConfig).filter_by(is_active=True).first()
-        if vc and vc.api_key_enc:
-            try:
-                api_key = decrypt_api_key(vc.api_key_enc)
-            except Exception:
-                log.warning("TTS client: api_key decryption failed — placeholder or unconfigured")
-                api_key = ""
-            if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
-                app.state.tts_client = VolcTTSClient(
-                    api_key=api_key,
-                    resource_id=vc.tts_resource_id,
-                    timeout=vc.tts_timeout,
-                )
-                log.info("TTS client: ready (resource_id=%s)", vc.tts_resource_id)
-            else:
-                app.state.tts_client = None
-                log.warning("TTS client: api_key empty or integrity check failed")
-        else:
-            app.state.tts_client = None
-            log.warning("TTS client: no active VoiceConfig found")
-        db_voice.close()
+        try:
+            load_tts_state(app.state, db_voice)
+        finally:
+            db_voice.close()
     except Exception:
         app.state.tts_client = None
+        app.state.tts_config = {}
         log.exception("TTS client init failed (non-fatal)")
 
     background_loop = asyncio.new_event_loop()

@@ -6,12 +6,58 @@ import time
 from sqlalchemy.orm import Session
 
 from core.exceptions import AuthError, NotFoundError
+from infrastructure.llm.crypto_utils import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infrastructure.tts.client import VolcTTSClient
 from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
 from models import Case, TrainingRecord, VoiceCallLog
 
 log = logging.getLogger(__name__)
+
+_DEFAULT_TTS_CONFIG = {
+    "model": "seed-tts-2.0-standard",
+    "format": "mp3",
+    "sample_rate": 24000,
+}
+
+
+def load_tts_state(app_state, db: Session) -> None:
+    """(Re)load ``app_state.tts_client`` + ``app_state.tts_config`` from the
+    active VoiceConfig.
+
+    Single source of truth shared by startup (``main.py``) and the admin
+    reload after a config save. Setting ``tts_config`` here is what keeps the
+    ``/api/tts/synthesize`` router usable after a cold start — without it the
+    router treats an empty config as "TTS 未配置" and always 404s.
+    """
+    from models import VoiceConfig
+
+    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    app_state.tts_config = {
+        "model": vc.tts_model if vc else _DEFAULT_TTS_CONFIG["model"],
+        "format": vc.tts_format if vc else _DEFAULT_TTS_CONFIG["format"],
+        "sample_rate": vc.tts_sample_rate if vc else _DEFAULT_TTS_CONFIG["sample_rate"],
+    }
+
+    if vc and vc.api_key_enc:
+        try:
+            api_key = decrypt_api_key(vc.api_key_enc)
+        except Exception:
+            log.warning("TTS load: api_key decryption failed")
+            api_key = ""
+        if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
+            app_state.tts_client = VolcTTSClient(
+                api_key=api_key,
+                resource_id=vc.tts_resource_id,
+                timeout=vc.tts_timeout,
+            )
+            log.info("TTS client ready (resource_id=%s)", vc.tts_resource_id)
+            return
+        log.warning("TTS client: api_key empty or integrity check failed")
+
+    app_state.tts_client = None
+    log.info("TTS client cleared (no usable active config)")
+
 
 _AUDIO_MEDIA_TYPES = {
     "mp3": "audio/mpeg",

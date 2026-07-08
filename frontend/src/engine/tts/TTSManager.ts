@@ -16,11 +16,9 @@ export class TTSManager {
 	private bus: MessageBus | null = null;
 	private autoPlay: boolean;
 	private recordId: number | null;
-	private prebufferAudio: ArrayBuffer | null = null;
 	private currentEmotion: EmotionState = "neutral";
 	private unsubs: Array<() => void> = [];
 	private _currentAudio: HTMLAudioElement | null = null;
-	private _prebufferGen = 0;
 
 	constructor(config?: TTSManagerConfig) {
 		this.emotionProvider = new VolcTTSProvider();
@@ -56,11 +54,6 @@ export class TTSManager {
 			void this.speakNext();
 		});
 
-		const unsubPrebuffer = bus.on("tts:prebuffer", (data: { text: string }) => {
-			if (!this.autoPlay) return;
-			void this.prebuffer(data.text);
-		});
-
 		const unsubBeforeSend = bus.on("chat:beforeSend", () => {
 			this.stop();
 		});
@@ -73,7 +66,7 @@ export class TTSManager {
 			},
 		);
 
-		this.unsubs = [unsubDone, unsubPrebuffer, unsubBeforeSend, unsubEmotion];
+		this.unsubs = [unsubDone, unsubBeforeSend, unsubEmotion];
 	}
 
 	private _pendingText: string | null = null;
@@ -105,15 +98,10 @@ export class TTSManager {
 		this.bus?.emit("tts:start", text);
 		const t0 = performance.now();
 		try {
-			await this.tryEmotionSpeak(text);
+			const provider = await this.tryEmotionSpeak(text);
 			const latencyMs = Math.round(performance.now() - t0);
 			this.bus?.emit("tts:end", text);
-			this.bus?.emit("tts:provider-status", {
-				provider: this.recordId
-					? this.emotionProvider.providerName
-					: this.fallbackProvider.providerName,
-				latencyMs,
-			});
+			this.bus?.emit("tts:provider-status", { provider, latencyMs });
 		} catch (err) {
 			const latencyMs = Math.round(performance.now() - t0);
 			const message = err instanceof Error ? err.message : String(err);
@@ -125,27 +113,16 @@ export class TTSManager {
 		}
 	}
 
-	async prebuffer(text: string): Promise<void> {
-		if (!this.recordId) return;
-		const gen = ++this._prebufferGen;
-		try {
-			const audio = await this.emotionProvider.synthesize(text, this.recordId);
-			if (gen === this._prebufferGen) this.prebufferAudio = audio;
-		} catch {
-			if (gen === this._prebufferGen) this.prebufferAudio = null;
-		}
-	}
-
 	stop(): void {
 		this.fallbackProvider.stop();
 		this.emotionProvider.cancel();
 		this._currentAudio?.pause();
 		this._currentAudio = null;
-		this.prebufferAudio = null;
 		window.speechSynthesis?.cancel();
 	}
 
-	private async tryEmotionSpeak(text: string): Promise<void> {
+	/** Speak `text`, returning the provider name that actually produced audio. */
+	private async tryEmotionSpeak(text: string): Promise<string> {
 		if (this.recordId) {
 			try {
 				const audio = await this.emotionProvider.synthesize(
@@ -153,27 +130,14 @@ export class TTSManager {
 					this.recordId,
 				);
 				await this.playAudio(audio);
-				return;
+				return this.emotionProvider.providerName;
 			} catch {
 				// fall through to browser TTS fallback
 			}
 		}
 		this.fallbackProvider.emotion = this.currentEmotion;
 		await this.fallbackProvider.speak(text);
-	}
-
-	private async playPrebufferedOrFetch(): Promise<void> {
-		if (this.prebufferAudio) {
-			const audio = this.prebufferAudio;
-			this.prebufferAudio = null;
-			try {
-				await this.playAudio(audio);
-				return;
-			} catch {
-				// fall through to speak from pending text
-			}
-		}
-		await this.speakNext();
+		return this.fallbackProvider.providerName;
 	}
 
 	private async playAudio(buffer: ArrayBuffer): Promise<void> {

@@ -92,9 +92,5 @@ export function createBrowserTTS(): TTSProvider {
 			_speaking = false;
 			speechSynthesis.cancel();
 		},
-
-		prebuffer(_text: string): Promise<undefined> {
-			return Promise.resolve(undefined);
-		},
 	};
 }
