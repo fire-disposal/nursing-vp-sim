@@ -21,7 +21,7 @@ export default function MonitorCard(_props: SceneCardProps) {
 
   return (
     <div style={{ padding: 8 }}>
-      <PatientMonitor status={status} />
+      <PatientMonitor status={status} vitals={sceneState.vitals} />
     </div>
   );
 }

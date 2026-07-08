@@ -16,9 +16,15 @@ export interface MonitorStatus {
   rr: RrStatus; temp: TempStatus; pain: PainStatus
 }
 
+export interface MonitorVitals {
+  hr?: number; bp_sys?: number; bp_dia?: number;
+  rr?: number; spo2?: number; temp?: number; pain?: number;
+}
+
 interface PatientMonitorProps {
   status: MonitorStatus
   patientName?: string
+  vitals?: MonitorVitals
 }
 
 // ── Pre-computed ECG lookup table (clinically realistic P‑QRS‑T) ──
@@ -45,30 +51,25 @@ for (let i = 0; i < 400; i++) {
 }
 
 // ── Map status → parameters ──
-function resolve(s: MonitorStatus) {
-  const hrMap = { normal: 72, tachycardia: 118, bradycardia: 48 }
-  const spo2Map = { normal: { val: 98, amp: 1 }, low: { val: 91, amp: 0.4 }, critical: { val: 84, amp: 0.1 } }
-  const bpMap = { normal: [120, 80], elevated: [145, 90], hypertensive: [175, 105] }
-  const rrMap = { normal: 16, tachypnea: 28, bradypnea: 8 }
-  const tempMap = { normal: 36.8, fever: 38.6, hypothermia: 35.2 }
-  const painMap = { none: 0, mild: 3, moderate: 6, severe: 9 }
+function resolve(s: MonitorStatus, v?: MonitorVitals) {
+  const hr = v?.hr ?? (s.hr === "tachycardia" ? 118 : s.hr === "bradycardia" ? 48 : 72);
+  const spo2Val = v?.spo2 ?? (s.spo2 === "critical" ? 84 : s.spo2 === "low" ? 91 : 98);
+  const bpSys = v?.bp_sys ?? (s.bp === "hypertensive" ? 175 : s.bp === "elevated" ? 145 : 120);
+  const bpDia = v?.bp_dia ?? (s.bp === "hypertensive" ? 105 : s.bp === "elevated" ? 90 : 80);
+  const rr = v?.rr ?? (s.rr === "tachypnea" ? 28 : s.rr === "bradypnea" ? 8 : 16);
+  const temp = v?.temp ?? (s.temp === "fever" ? 38.6 : s.temp === "hypothermia" ? 35.2 : 36.8);
+  const pain = v?.pain ?? (s.pain === "severe" ? 9 : s.pain === "moderate" ? 6 : s.pain === "mild" ? 3 : 0);
 
-  const hr = hrMap[s.hr]
-  const spo2 = spo2Map[s.spo2]
-  const [bpSys, bpDia] = bpMap[s.bp]
-  const rr = rrMap[s.rr]
-  const temp = tempMap[s.temp]
-  const pain = painMap[s.pain]
-
-  const alarms: string[] = []
-  if (s.hr !== "normal") alarms.push("HR")
-  if (s.spo2 !== "normal") alarms.push("SpO₂")
-  if (s.bp !== "normal") alarms.push("NIBP")
-  if (s.rr !== "normal") alarms.push("RR")
-  if (s.temp !== "normal") alarms.push("TEMP")
+  const alarms: string[] = [];
+  if (s.hr !== "normal") alarms.push("HR");
+  if (s.spo2 !== "normal") alarms.push("SpO₂");
+  if (s.bp !== "normal") alarms.push("NIBP");
+  if (s.rr !== "normal") alarms.push("RR");
+  if (s.temp !== "normal") alarms.push("TEMP");
 
   return {
-    hr, spo2Val: spo2.val, spo2Amp: spo2.amp,
+    hr, spo2Val,
+    spo2Amp: s.spo2 === "normal" ? 1 : (v?.spo2 != null ? 1 : 0.4),
     bpSys, bpDia, rr, temp, pain, alarms,
     ecgSpeed: 60 / hr,
     respSpeed: 60 / rr,
@@ -146,8 +147,8 @@ function useWaveform(amp: number, cycleSec: number, table: Float32Array | null, 
 }
 
 // ── Component ──
-export function PatientMonitor({ status, patientName }: PatientMonitorProps) {
-  const p = useMemo(() => resolve(status), [status])
+export function PatientMonitor({ status, patientName, vitals }: PatientMonitorProps) {
+  const p = useMemo(() => resolve(status, vitals), [status, vitals])
   const hasAlarm = p.alarms.length > 0
   const [paused, setPaused] = useState(false)
 
