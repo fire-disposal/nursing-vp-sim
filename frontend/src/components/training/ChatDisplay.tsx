@@ -34,14 +34,14 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	const [examResults, setExamResults] = useState<ChatMessage[]>([]);
 
 	useEffect(() => {
-		const unsub = bus.on("scene:exam", (e: { op_type: string; value: string; label?: string }) => {
+		const unsub = bus.on("scene:exam", (e: { op_type: string; value: string; label?: string; unit?: string }) => {
 			setExamResults((prev) => [
 				...prev,
 				{
 					id: `exam-${e.op_type}-${prev.length}-${Date.now()}`,
 					role: "system",
 					content: "",
-					examResult: { type: e.op_type, data: { value: e.value, label: e.label } },
+					examResult: { type: e.op_type, data: { value: e.value, label: e.label, unit: e.unit } },
 				} as ChatMessage,
 			]);
 		});

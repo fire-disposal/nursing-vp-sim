@@ -83,6 +83,7 @@ export default function ExamBodyScene(props: SceneProps) {
 					op_type: m.op_type,
 					value: m.data.value,
 					label: NORMALS[m.op_type]?.label,
+					unit: NORMALS[m.op_type]?.unit,
 				});
 			}
 		}

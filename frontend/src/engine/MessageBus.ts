@@ -11,7 +11,7 @@ export interface BusEvents {
 		{ state: string; trust: number; comfort: number },
 	];
 	"scene:state": [Partial<import("./scene-state").SceneState>];
-	"scene:exam": [{ op_type: string; value: string; label?: string }];
+	"scene:exam": [{ op_type: string; value: string; label?: string; unit?: string }];
 	"initiative:state": [
 		{
 			elapsed_seconds?: number;
