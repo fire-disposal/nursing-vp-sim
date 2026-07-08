@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 from core.exceptions import AuthError, ValidationError
+from core.security import clear_permission_cache
 from core.unit_of_work import unit_of_work
 from models import Role, RolePermission
 from repositories.role import RoleRepository
@@ -64,6 +65,7 @@ class RoleService:
                 role.display_name = display_name
             if permissions is not None:
                 self.repo.replace_permissions(role.id, permissions)
+                clear_permission_cache(role.id)
             self.db.flush()
         perms = self.repo.get_permissions(role.id)
         user_count = self.repo.user_count(role.id)

@@ -30,8 +30,7 @@ async def admin_ops_diagnose(
     request: Request,
 ):
     diag_svc = get_diagnose_service()
-    diagnostic = await diag_svc.get_diagnose()
-    return diagnostic
+    return await diag_svc.get_diagnose()
 
 
 @router.get("/ops/dashboard")

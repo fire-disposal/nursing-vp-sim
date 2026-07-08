@@ -245,7 +245,7 @@ export default function QA() {
 	const nurseAvatar = getNurseAvatar();
 
 	return (
-		<div className="flex h-dvh overflow-hidden">
+		<div className="flex h-full overflow-hidden">
 				{showSidebar && (
 					<div
 						className="fixed inset-0 z-40 bg-black/40 md:hidden"
@@ -319,7 +319,7 @@ export default function QA() {
 					</div>
 				</aside>
 
-				<main className="flex-1 flex flex-col min-w-0 bg-background">
+				<main className="relative flex-1 flex flex-col min-w-0 bg-background">
 					<Button
 						variant="outline"
 						size="icon-sm"

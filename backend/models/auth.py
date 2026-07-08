@@ -64,6 +64,4 @@ class User(Base, TimestampMixin):
     def set_permissions_cache(self, permissions: set[str]) -> None:
         self._permissions_cache = permissions
 
-    @property
-    def is_super_admin(self) -> bool:
-        return self.role is not None and self.role.name == "super_admin"
+

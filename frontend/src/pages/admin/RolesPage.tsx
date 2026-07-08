@@ -56,6 +56,7 @@ export default function RolesPage() {
 	const [loading, setLoading] = useState(true);
 	const [editId, setEditId] = useState<number | null>(null);
 	const [editPerms, setEditPerms] = useState<string[]>([]);
+	const [editDisplayName, setEditDisplayName] = useState("");
 	const [showCreate, setShowCreate] = useState(false);
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
 	const { confirm } = useConfirm();
@@ -99,12 +100,13 @@ export default function RolesPage() {
 		}
 		setEditId(role.id);
 		setEditPerms([...role.permissions]);
+		setEditDisplayName(role.display_name);
 	};
 
 	const saveEdit = async (roleId: number) => {
 		try {
-			await updateRole(roleId, { permissions: editPerms });
-			toast.success("权限已保存");
+			await updateRole(roleId, { display_name: editDisplayName || undefined, permissions: editPerms });
+			toast.success("角色已保存");
 			setEditId(null);
 			loadRoles();
 		} catch (e: unknown) {
@@ -242,7 +244,18 @@ export default function RolesPage() {
 									</div>
 								</div>
 								{editId === role.id ? (
-									<div className="grid grid-cols-3 gap-2 mt-3">
+									<div className="mt-3 space-y-3">
+										<div className="flex items-center gap-2">
+											<span className="text-xs text-muted-foreground shrink-0">显示名称</span>
+											<input
+												type="text"
+												value={editDisplayName}
+												onChange={(e) => setEditDisplayName(e.target.value)}
+												className="h-8 rounded-md border border-border bg-background px-2 text-sm max-w-48"
+												placeholder={role.display_name}
+											/>
+										</div>
+										<div className="grid grid-cols-3 gap-2">
 										{ALL_PERMISSIONS.map((p) => (
 											<label
 												key={p.key}
@@ -257,6 +270,7 @@ export default function RolesPage() {
 												{p.label}
 											</label>
 										))}
+									</div>
 									</div>
 								) : (
 									<div className="flex flex-wrap gap-1">

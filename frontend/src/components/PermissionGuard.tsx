@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
 import useAuthStore from "@/stores/authStore";
 
 interface PermissionGuardProps {
@@ -8,31 +9,23 @@ interface PermissionGuardProps {
 	fallback?: string;
 }
 
-/**
- * Page-level permission guard — shows nothing and redirects if user lacks permission.
- *
- * Unlike ProtectedRoute (which uses <Outlet /> and wraps route groups),
- * PermissionGuard wraps individual page content and can be used inside
- * a flat route structure.  This avoids React Router layout-route switching
- * issues that caused sidebar navigation breakage.
- */
 export default function PermissionGuard({
 	permission,
 	children,
 	fallback = "/home",
 }: PermissionGuardProps) {
-	const permissions = useAuthStore((s) => s.permissions);
+	const hasPerm = useAuthStore(useShallow((s) => s.permissions.includes(permission)));
+	const hydrated = useAuthStore.persist.hasHydrated();
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		if (permissions.length > 0 && !permissions.includes(permission)) {
+		if (hydrated && !hasPerm) {
 			navigate(fallback, { replace: true });
 		}
-	}, [permissions, permission, fallback, navigate]);
+	}, [hydrated, hasPerm, fallback, navigate]);
 
-	if (!permissions.includes(permission)) {
-		return null;
-	}
+	if (!hydrated) return null;
+	if (!hasPerm) return null;
 
 	return <>{children}</>;
 }

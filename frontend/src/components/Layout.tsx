@@ -231,7 +231,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 
 	const isTrainingPage = location.pathname.startsWith("/training/");
 	const isQAPage = location.pathname.startsWith("/qa");
-	const isFullPage = isTrainingPage || isQAPage;
 
 	const handleLogout = () => { logout(); navigate("/login"); };
 
@@ -240,9 +239,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 		return (
 			<div className="flex flex-col h-screen overflow-hidden">
 				{!isOnline && <NetworkBanner />}
-				{!isFullPage && <StudentTopNav links={STUDENT_LINKS} onLogout={handleLogout} />}
-				{isFullPage ? children : (
-					<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+				{isTrainingPage ? children : (
+					<>
+						<StudentTopNav links={STUDENT_LINKS} onLogout={handleLogout} />
+						{isQAPage ? (
+							<div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+						) : (
+							<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+						)}
+					</>
 				)}
 			</div>
 		);
@@ -268,7 +273,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 					</button>
 					<div className="flex-1 min-w-0"><span className="text-sm font-semibold">虚拟患者系统</span></div>
 				</div>
-				{isFullPage ? children : (
+				{isTrainingPage ? children : isQAPage ? (
+					<div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+				) : (
 					<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>
 				)}
 			</div>
