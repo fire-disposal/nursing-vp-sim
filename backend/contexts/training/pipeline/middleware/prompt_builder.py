@@ -70,9 +70,9 @@ async def prompt_builder(ctx: PipelineContext, next_mw) -> None:
     system_prompt = render_template(str(system_template), **prompt_ctx.as_dict())
     try:
         dynamic_prompt = render_template(str(dynamic_template), **prompt_ctx.as_dict())
-    except Exception:
-        log.warning("Dynamic prompt render failed, using system prompt as fallback", exc_info=True)
-        dynamic_prompt = system_prompt
+    except Exception as e:
+        log.exception("动态模板渲染失败 training_type=%s: %s", training_type, e)
+        dynamic_prompt = ""
 
     # 教师 practice 的 max_rounds 覆盖 profile 默认（谁配置谁说了算）；否则用 profile 默认
     snapshot_rounds = (ctx.record.practice_snapshot or {}).get("behavior", {}).get("max_rounds") if ctx.record else None
