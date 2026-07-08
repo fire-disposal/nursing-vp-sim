@@ -24,6 +24,16 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/ops/diagnose")
+async def admin_ops_diagnose(
+    current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    request: Request,
+):
+    diag_svc = get_diagnose_service()
+    diagnostic = await diag_svc.get_diagnose()
+    return diagnostic
+
+
 @router.get("/ops/dashboard")
 async def admin_ops_dashboard(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],

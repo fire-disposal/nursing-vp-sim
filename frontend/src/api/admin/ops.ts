@@ -30,4 +30,4 @@ export interface DiagnoseResponse {
 }
 
 export const fetchDiagnose = () =>
-	api.get<DiagnoseResponse>("/diagnose");
+	api.get<DiagnoseResponse>("/admin/ops/diagnose");
