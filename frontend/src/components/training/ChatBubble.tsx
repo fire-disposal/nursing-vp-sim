@@ -71,7 +71,7 @@ export const ChatBubble = memo(function ChatBubble({
 					)}
 				>
 					{initiative && (
-						<span className="inline-block text-[10px] font-medium bg-warning text-warning-foreground px-1.5 py-0.5 rounded-sm mb-1">
+						<span data-badge className="inline-block text-[10px] font-medium bg-warning text-warning-foreground px-1.5 py-0.5 rounded-sm mb-1">
 							患者自主反应
 						</span>
 					)}

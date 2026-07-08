@@ -26,6 +26,7 @@ export interface BusEvents {
 	"tts:start": [text: string];
 	"tts:end": [text: string];
 	"tts:error": [message: string];
+	"tts:degraded": [{ provider: string }];
 	"chat:beforeSend": [];
 }
 

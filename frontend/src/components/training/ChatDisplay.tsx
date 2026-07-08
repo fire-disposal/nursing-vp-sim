@@ -32,6 +32,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	const { emotion } = useEmotion();
 	const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
 	const [examResults, setExamResults] = useState<ChatMessage[]>([]);
+	const [ttsDegraded, setTtsDegraded] = useState(false);
 
 	useEffect(() => {
 		const unsub = bus.on("scene:exam", (e: { op_type: string; value: string; label?: string; unit?: string }) => {
@@ -86,6 +87,11 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 		return unsub;
 	}, [bus]);
 
+	useEffect(() => {
+		const unsub = bus.on("tts:degraded", () => setTtsDegraded(true));
+		return unsub;
+	}, [bus]);
+
 	const patientAvatar =
 		portraitUrl ||
 		getPatientAvatar({ name: patient.name, gender: patient.gender });
@@ -94,9 +100,14 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	return (
 		<div
 			ref={scrollRef}
-			className="h-full overflow-y-auto scroll-smooth px-4 py-4 space-y-4"
+			className="h-full overflow-y-auto scroll-smooth px-4 py-4 space-y-4 relative"
 			onScroll={handleScroll}
 		>
+			{ttsDegraded && (
+				<div className="sticky top-0 z-10 text-center text-[11px] py-1 bg-warning/90 text-warning-foreground">
+					语音服务不可用，已切换系统语音，音质可能不佳
+				</div>
+			)}
 			{messages.map((msg, i) =>
 				msg.role === "system" && msg.examResult ? (
 					<ExamCard key={msg.id ?? i} result={msg.examResult} />

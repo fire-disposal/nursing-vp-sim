@@ -36,6 +36,7 @@ export interface SceneBusProtocol {
   "scene:state":      [Partial<SceneState>];
   "scene:load":       [{ dsl: unknown }];
   "scene:exam":       [{ op_type: string; value: string; label?: string; unit?: string }];
+  "tts:degraded":     [{ provider: string }];
 }
 
 /** Emit a scene event with correct payload type. */

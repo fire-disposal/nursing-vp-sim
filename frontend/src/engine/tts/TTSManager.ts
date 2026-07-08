@@ -135,6 +135,7 @@ export class TTSManager {
 				// fall through to browser TTS fallback
 			}
 		}
+		this.bus?.emit("tts:degraded", { provider: this.fallbackProvider.providerName });
 		this.fallbackProvider.emotion = this.currentEmotion;
 		await this.fallbackProvider.speak(text);
 		return this.fallbackProvider.providerName;
@@ -155,11 +156,13 @@ export class TTSManager {
 	}
 
 	private extractLastPatientMessage(): string {
-		const elements = document.querySelectorAll(
-			'[data-role="patient"]:not([data-initiated])',
-		);
-		const last = elements[elements.length - 1];
-		const text = last?.textContent?.trim() ?? "";
-		return text.replace(/\[.*?\]/g, "").trim();
+		const elements = document.querySelectorAll('[data-role="patient"]');
+		const last = elements[elements.length - 1] as HTMLElement | undefined;
+		if (!last) return "";
+		const clone = last.cloneNode(true) as HTMLElement;
+		clone.querySelectorAll("[data-badge]").forEach((n) => {
+			n.remove();
+		});
+		return (clone.textContent ?? "").replace(/\[.*?\]/g, "").trim();
 	}
 }
