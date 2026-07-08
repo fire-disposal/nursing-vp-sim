@@ -73,9 +73,8 @@ async def submit_triage(
     case = db.query(Case).filter(Case.id == record.case_id).first()
     case_data = case.case_data if case else {}
 
-    if _try_acquire_scoring(record_id, db):
-        record.status = "completed"
-        record.end_time = datetime.now(UTC)
+    acquired = _try_acquire_scoring(record_id, db)
+    if acquired:
         try:
             await request.app.state.task_queue.enqueue(
                 lambda: _run_scoring_background(
@@ -88,7 +87,14 @@ async def submit_triage(
                 priority=5,
             )
         except QueueFullError:
-            log.warning("Triage scoring queue full for record_id=%d", record_id)
+            # 入队失败：回滚评分锁与终态，返回 503 让前端重试，避免记录卡死为评分中
+            db.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail="评分队列繁忙，请稍后重试结束训练",
+            )
+        record.status = "completed"
+        record.end_time = datetime.now(UTC)
 
     db.commit()
 
