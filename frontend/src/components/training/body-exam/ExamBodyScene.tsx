@@ -79,6 +79,11 @@ export default function ExamBodyScene(props: SceneProps) {
 				if (patcher) {
 					emitSceneEvent(bus, "scene:state", patcher(value));
 				}
+				emitSceneEvent(bus, "scene:exam", {
+					op_type: m.op_type,
+					value: m.data.value,
+					label: NORMALS[m.op_type]?.label,
+				});
 			}
 		}
 	});

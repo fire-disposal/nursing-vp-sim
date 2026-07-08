@@ -31,6 +31,22 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	const { portraitUrl } = usePortrait();
 	const { emotion } = useEmotion();
 	const emotionBorder = useMemo(() => getEmotionBorder(emotion), [emotion]);
+	const [examResults, setExamResults] = useState<ChatMessage[]>([]);
+
+	useEffect(() => {
+		const unsub = bus.on("scene:exam", (e: { op_type: string; value: string; label?: string }) => {
+			setExamResults((prev) => [
+				...prev,
+				{
+					id: `exam-${e.op_type}-${prev.length}-${Date.now()}`,
+					role: "system",
+					content: "",
+					examResult: { type: e.op_type, data: { value: e.value, label: e.label } },
+				} as ChatMessage,
+			]);
+		});
+		return unsub;
+	}, [bus]);
 
 	const checkNearBottom = useCallback(() => {
 		const el = scrollRef.current;
@@ -99,6 +115,9 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					/>
 				)
 			)}
+			{examResults.map((msg, i) => (
+				<ExamCard key={msg.id ?? i} result={msg.examResult!} />
+			))}
 			<div ref={bottomRef} className="h-1" />
 		</div>
 	);
