@@ -27,23 +27,6 @@ const CAT_COLOR: Record<string, string> = {
   musculoskeletal: "#66bb6a", bedside: "#ffa726",
 };
 
-// Randomiser fallback when the API is unreachable
-type RandFn = (base: string) => string;
-const RANDOMIZERS: Record<string, RandFn> = {
-  temp: (b) => { const n = Number(b) + (Math.random() - 0.5) * 0.4; return n.toFixed(1); },
-  hr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 8)}`,
-  rr:   (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 4)}`,
-  bp:   (b) => { const [s, d] = b.split("/").map(Number); return `${Math.round(s + (Math.random() - 0.5) * 10)}/${Math.round(d + (Math.random() - 0.5) * 8)}`; },
-  spo2: (b) => `${Math.round(Number(b) + (Math.random() - 0.5) * 2)}`,
-};
-
-function resolveFallback(opId: string): { value: string } {
-  const def = NORMALS[opId];
-  if (!def) return { value: "—" };
-  const rand = RANDOMIZERS[opId];
-  return { value: rand ? rand(def.normal) : def.normal };
-}
-
 function parseRecordId(props: SceneProps): number {
   const rid = (props as unknown as Record<string, unknown>).recordId;
   return rid ? Number(rid) : 0;
@@ -90,7 +73,12 @@ export default function ExamBodyScene(props: SceneProps) {
 		if (msg.type === "exam:done") {
 			const m = msg as unknown as { op_type: string; data: { value: string } };
 			if (m.data?.value) {
-				setResults((prev) => ({ ...prev, [m.op_type]: { value: m.data.value } }));
+				const value = m.data.value;
+				setResults((prev) => ({ ...prev, [m.op_type]: { value } }));
+				const patcher = VITALS_PATCHERS[m.op_type];
+				if (patcher) {
+					emitSceneEvent(bus, "scene:state", patcher(value));
+				}
 			}
 		}
 	});
@@ -100,19 +88,11 @@ export default function ExamBodyScene(props: SceneProps) {
 		if (!def) return;
 		setFlash(opId);
 
-		// Optimistic local value
-		const local = resolveFallback(opId);
-		setResults((prev) => ({ ...prev, [opId]: local }));
+		// Optimistic placeholder; real value comes from server via exam:done
+		setResults((prev) => ({ ...prev, [opId]: { value: "检测中…" } }));
 		// Persist via WebSocket — backend writes scene.vitals + broadcasts exam:done
 		if (recordId > 0) {
 			sendExam(recordId, opId);
-		}
-
-		// Local bus broadcast for other scene cards (MonitorCard etc.)
-		const patcher = VITALS_PATCHERS[opId];
-		if (patcher) {
-			const patch = patcher(local.value);
-			if (Object.keys(patch).length) emitSceneEvent(bus, "scene:state", patch);
 		}
 
 		setSelected(null);
