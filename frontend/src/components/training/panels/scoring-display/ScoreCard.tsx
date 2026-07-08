@@ -126,11 +126,12 @@ export function ScoreCardInner({ score, onClose, onRestart }: ScoreCardInnerProp
 	const handleRestart = () => onRestart?.();
 
 	const totalMax = useMemo(() => {
-		if (!score.detail_scores) return 100;
-		const dims = Object.values(score.detail_scores);
-		if (dims.length === 0) return 100;
-		return dims.reduce((sum, d) => sum + d.max, 0);
-	}, [score.detail_scores]);
+		const sumOfDimMax = score.detail_scores
+			? Object.values(score.detail_scores).reduce((sum, d) => sum + (d.max || 0), 0)
+			: 0;
+		const denom = Math.max(sumOfDimMax, score.total_score || 0) || 100;
+		return denom;
+	}, [score.detail_scores, score.total_score]);
 
 	return (
 		<Dialog open onOpenChange={(o) => !o && handleClose()}>
