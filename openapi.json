@@ -3075,6 +3075,30 @@
         }
       }
     },
+    "/api/admin/ops/diagnose": {
+      "get": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Admin Ops Diagnose",
+        "operationId": "admin_ops_diagnose_api_admin_ops_diagnose_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/ops/dashboard": {
       "get": {
         "tags": [
@@ -6626,64 +6650,6 @@
         }
       }
     },
-    "/api/training/api/triage/{record_id}/submit": {
-      "post": {
-        "tags": [
-          "训练",
-          "分诊"
-        ],
-        "summary": "Submit Triage",
-        "operationId": "submit_triage_api_training_api_triage__record_id__submit_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "record_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Record Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriageSubmitRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriageSubmitResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/chat/{record_id}/message": {
       "post": {
         "tags": [
@@ -6881,6 +6847,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NursingRecordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/triage/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "分诊"
+        ],
+        "summary": "Submit Triage",
+        "operationId": "submit_triage_api_triage__record_id__submit_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageSubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriageSubmitResponse"
                 }
               }
             }

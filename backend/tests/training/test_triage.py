@@ -22,7 +22,7 @@ class TestSubmitTriage:
         client.app.state.task_queue.enqueue.side_effect = QueueFullError()
 
         resp2 = client.post(
-            f"/api/training/api/triage/{record_id}/submit",
+            f"/api/triage/{record_id}/submit",
             json={"mews_score": 3, "category": "yellow", "department": "内科"},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -43,7 +43,7 @@ class TestSubmitTriage:
         record_id = resp.json()["record_id"]
 
         resp2 = client.post(
-            f"/api/training/api/triage/{record_id}/submit",
+            f"/api/triage/{record_id}/submit",
             json={"mews_score": 3, "category": "yellow", "department": "内科"},
             headers={"Authorization": f"Bearer {token}"},
         )

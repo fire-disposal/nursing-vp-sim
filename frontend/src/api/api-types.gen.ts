@@ -763,6 +763,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ops/diagnose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Ops Diagnose */
+        get: operations["admin_ops_diagnose_api_admin_ops_diagnose_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/ops/dashboard": {
         parameters: {
             query?: never;
@@ -1718,23 +1735,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/training/api/triage/{record_id}/submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit Triage */
-        post: operations["submit_triage_api_training_api_triage__record_id__submit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/chat/{record_id}/message": {
         parameters: {
             query?: never;
@@ -1781,6 +1781,23 @@ export interface paths {
         put?: never;
         /** Save Nursing Record */
         post: operations["save_nursing_record_api_nursing_records__record_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/triage/{record_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Triage */
+        post: operations["submit_triage_api_triage__record_id__submit_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6672,6 +6689,26 @@ export interface operations {
             };
         };
     };
+    admin_ops_diagnose_api_admin_ops_diagnose_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     admin_ops_dashboard_api_admin_ops_dashboard_get: {
         parameters: {
             query?: never;
@@ -8894,41 +8931,6 @@ export interface operations {
             };
         };
     };
-    submit_triage_api_training_api_triage__record_id__submit_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TriageSubmitRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TriageSubmitResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     send_message_api_chat__record_id__message_post: {
         parameters: {
             query?: never;
@@ -9052,6 +9054,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NursingRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_triage_api_triage__record_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageSubmitResponse"];
                 };
             };
             /** @description Validation Error */

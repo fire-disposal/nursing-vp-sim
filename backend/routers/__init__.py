@@ -42,6 +42,10 @@ def register_routers(app: FastAPI) -> None:
     for r in (training_router, chat_router, nursing_router):
         app.include_router(r)
 
+    from contexts.training.router.triage import router as triage_router
+
+    app.include_router(triage_router)
+
     # ── QA context router ──
     from contexts.qa import router as qa_router
 
