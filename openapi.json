@@ -14107,6 +14107,11 @@
             "title": "From Assignment",
             "default": false
           },
+          "pending_questionnaires": {
+            "type": "integer",
+            "title": "Pending Questionnaires",
+            "default": 0
+          },
           "exam_anchors": {
             "additionalProperties": true,
             "type": "object",
@@ -14213,6 +14218,11 @@
             "type": "string",
             "title": "Case Name",
             "default": ""
+          },
+          "pending_questionnaires": {
+            "type": "integer",
+            "title": "Pending Questionnaires",
+            "default": 0
           }
         },
         "type": "object",

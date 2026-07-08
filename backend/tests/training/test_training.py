@@ -38,6 +38,61 @@ class TestStartTraining:
         resp = client.post("/api/training/start", json={"case_id": test_case.id})
         assert resp.status_code == 401
 
+    def test_start_reports_pending_questionnaires_zero(self, client, student, test_case):
+        _, token = student
+        resp = client.post(
+            "/api/training/start",
+            json={"case_id": test_case.id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "pending_questionnaires" in data
+        assert data["pending_questionnaires"] == 0
+
+    def test_start_reports_required_questionnaire_count(self, client, student, test_case, db_session):
+        from models import CaseQuestionnaire, QuestionnaireTemplate
+
+        template = QuestionnaireTemplate(
+            title="训练前问卷",
+            type="pre_training",
+            description="",
+            is_active=True,
+        )
+        db_session.add(template)
+        db_session.commit()
+
+        optional_template = QuestionnaireTemplate(
+            title="可选问卷",
+            type="post_training",
+            description="",
+            is_active=True,
+        )
+        db_session.add(optional_template)
+        db_session.commit()
+
+        db_session.add(
+            CaseQuestionnaire(case_id=test_case.id, template_id=template.id, is_required=True)
+        )
+        db_session.add(
+            CaseQuestionnaire(
+                case_id=test_case.id,
+                template_id=optional_template.id,
+                is_required=False,
+            )
+        )
+        db_session.commit()
+
+        _, token = student
+        resp = client.post(
+            "/api/training/start",
+            json={"case_id": test_case.id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["pending_questionnaires"] == 1
+
 
 class TestEndTraining:
     def test_end_training_as_owner(self, client, student, test_case):

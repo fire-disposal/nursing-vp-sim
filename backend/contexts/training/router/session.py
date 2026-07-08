@@ -19,6 +19,7 @@ from infrastructure.llm import LogWorker, ProfileRouter
 from models import (
     Assignment,
     Case,
+    CaseQuestionnaire,
     LLMCallLog,
     Message,
     Note,
@@ -142,6 +143,15 @@ def _schedule_background(coro):
     except RuntimeError:
         loop = _ensure_loop()
         return asyncio.run_coroutine_threadsafe(coro, loop)
+
+
+def _count_pending_questionnaires(db: Session, case_id: int) -> int:
+    """病例下「必做」问卷的数量（供训练开始/详情响应提示用）。"""
+    return (
+        db.query(CaseQuestionnaire)
+        .filter(CaseQuestionnaire.case_id == case_id, CaseQuestionnaire.is_required == True)
+        .count()
+    )
 
 
 def _build_config(practice=None, features: dict | None = None, time_limit_minutes: int | None = None) -> dict:
@@ -283,7 +293,14 @@ def start_training(
             "action": "training_start",
         },
     )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
+    pending_questionnaires = _count_pending_questionnaires(db, case.id)
+
+    return TrainingStartResponse(
+        record_id=record.id,
+        greeting=greeting,
+        case_name=case.name,
+        pending_questionnaires=pending_questionnaires,
+    )
 
 
 @router.post("/start-from-assignment", response_model=TrainingStartResponse)
@@ -342,6 +359,9 @@ def start_training_from_assignment(
                 record_id=existing.id,
                 greeting=greeting,
                 case_name=assignment.practice.case.name if assignment.practice and assignment.practice.case else "",
+                pending_questionnaires=_count_pending_questionnaires(
+                    db, assignment.practice.case.id if assignment.practice and assignment.practice.case else 0
+                ),
             )
 
     practice = assignment.practice
@@ -373,7 +393,12 @@ def start_training_from_assignment(
         f"Assignment training start: assignment_id={assignment.id} record_id={record.id}",
         extra={"user_id": current_user.id, "action": "assignment_start"},
     )
-    return TrainingStartResponse(record_id=record.id, greeting=greeting, case_name=case.name)
+    return TrainingStartResponse(
+        record_id=record.id,
+        greeting=greeting,
+        case_name=case.name,
+        pending_questionnaires=_count_pending_questionnaires(db, case.id),
+    )
 
 
 @router.get("/records", response_model=PaginatedResponse[TrainingRecordBrief])
@@ -472,6 +497,7 @@ def get_record_detail(
     user = record.user
     score = record.score
     note_records = db.query(Note).filter(Note.record_id == record_id).order_by(Note.updated_at.desc()).all()
+    pending_questionnaires = _count_pending_questionnaires(db, case.id) if case is not None else 0
 
     case_data = case.case_data or {} if case else {}
     time_limit = record.time_limit or 20
@@ -510,6 +536,7 @@ def get_record_detail(
         training_type=record.training_type or "history_taking",
         features=resolve_features(record.practice_snapshot),
         from_assignment=record.assignment_id is not None,
+        pending_questionnaires=pending_questionnaires,
         exam_anchors=case_data.get("exam_anchors", {}),
         exam_results=dict(record.runtime_state or {}).get("exam_results", []),
         triage_result=dict(record.runtime_state or {}).get("triage_result", {}),

@@ -19,6 +19,7 @@ class TrainingStartResponse(BaseModel):
     record_id: int
     greeting: str
     case_name: str = ""
+    pending_questionnaires: int = 0
 
 
 class ChatMessageRequest(BaseModel):
@@ -114,6 +115,7 @@ class TrainingRecordDetail(BaseModel):
     training_type: str = "history_taking"
     features: dict[str, bool] = Field(default_factory=dict)
     from_assignment: bool = False
+    pending_questionnaires: int = 0
     exam_anchors: dict[str, Any] = Field(default_factory=dict)
     exam_results: list[dict[str, Any]] = Field(default_factory=list)
     triage_result: dict[str, Any] = Field(default_factory=dict)

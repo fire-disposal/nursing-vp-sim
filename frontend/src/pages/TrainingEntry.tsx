@@ -38,5 +38,16 @@ export default function TrainingEntry() {
 	const SceneComponent = TRAINING_SCENES[type];
 	if (!SceneComponent) return <div>未知训练类型: {type}</div>;
 
-	return <SceneComponent recordId={recordId} />;
+	const pendingQ = (record as { pending_questionnaires?: number }).pending_questionnaires ?? 0;
+
+	return (
+		<>
+			{pendingQ > 0 && (
+				<div className="bg-info/10 text-info-foreground text-xs px-4 py-2 text-center border-b border-border">
+					本练习包含 {pendingQ} 份问卷，请在训练前后于「我的问卷」中完成
+				</div>
+			)}
+			<SceneComponent recordId={recordId} />
+		</>
+	);
 }

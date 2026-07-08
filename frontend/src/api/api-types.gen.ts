@@ -4585,6 +4585,11 @@ export interface components {
              * @default false
              */
             from_assignment: boolean;
+            /**
+             * Pending Questionnaires
+             * @default 0
+             */
+            pending_questionnaires: number;
             /** Exam Anchors */
             exam_anchors?: {
                 [key: string]: unknown;
@@ -4630,6 +4635,11 @@ export interface components {
              * @default
              */
             case_name: string;
+            /**
+             * Pending Questionnaires
+             * @default 0
+             */
+            pending_questionnaires: number;
         };
         /** TrendStats */
         TrendStats: {
