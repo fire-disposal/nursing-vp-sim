@@ -66,6 +66,13 @@ api.interceptors.response.use(
 			}
 		}
 
+		if (
+			err.response?.status === 403 &&
+			!originalRequest?.url?.startsWith("/auth/")
+		) {
+			useAuthStore.getState().refreshAuth().catch(() => {});
+		}
+
 		const retryCount = originalRequest?._retryCount ?? 0;
 		const MAX_RETRIES = 3;
 		if (!originalRequest || retryCount >= MAX_RETRIES) {
