@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
 import { Activity, Stethoscope } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ function isTokenExpired(token: string): boolean {
 
 export default function Login() {
 	const [error, setError] = useState("");
+	const submittingRef = useRef(false);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
 	const user = useAuthStore((s) => s.user);
@@ -44,7 +45,8 @@ export default function Login() {
 	}
 
 	const onSubmit = async (values: LoginFormValues) => {
-		if (form.formState.isSubmitting) return;
+		if (submittingRef.current) return;
+		submittingRef.current = true;
 		setError("");
 		try {
 			await login(values.username, values.password);
@@ -56,6 +58,8 @@ export default function Login() {
 				message?: string;
 			};
 			setError(axiosErr.message || "登录失败");
+		} finally {
+			submittingRef.current = false;
 		}
 	};
 
@@ -136,10 +140,10 @@ export default function Login() {
 								/>
 								<Button
 									type="submit"
-									disabled={form.formState.isSubmitting}
+									disabled={submittingRef.current}
 									className="h-11 w-full"
 								>
-									{form.formState.isSubmitting ? "登录中..." : "登 录"}
+									{submittingRef.current ? "登录中..." : "登 录"}
 								</Button>
 							</form>
 						</Form>
