@@ -276,7 +276,7 @@ export default function SystemNotificationsPage() {
 									取消
 								</Button>
 								<Button
-									type="submit"
+									onClick={form.handleSubmit(onSubmit)}
 									disabled={form.formState.isSubmitting}
 								>
 									{form.formState.isSubmitting

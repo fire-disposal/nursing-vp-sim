@@ -29,7 +29,7 @@ export function startRefreshTimer(): void {
 		useAuthStore.getState().refreshAuth().finally(() => {
 			setRefreshing(false);
 		});
-	}, 50 * 60 * 1000);
+	}, 24 * 60 * 60 * 1000);
 }
 
 export function stopRefreshTimer(): void {
@@ -145,8 +145,10 @@ const useAuthStore = create<ExtendedAuthState>()(
 			},
 			onRehydrateStorage: () => {
 				return (state) => {
-					if (state?.token) {
-						startRefreshTimer();
+					if (!state?.token) return;
+					startRefreshTimer();
+					if (state.user) {
+						useAuthStore.getState().refreshAuth().catch(() => {});
 					}
 				};
 			},

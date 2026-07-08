@@ -304,7 +304,7 @@ export default function QuestionnaireEditor({
 						<Button type="button" variant="outline" onClick={onClose}>
 							取消
 						</Button>
-						<Button type="submit" disabled={isSaving}>
+						<Button onClick={onSave} disabled={isSaving}>
 							{isSaving ? (
 								<>保存中...</>
 							) : (

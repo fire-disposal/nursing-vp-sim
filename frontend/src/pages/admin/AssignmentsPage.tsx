@@ -395,7 +395,7 @@ export default function AssignmentsPage() {
 								>
 									取消
 								</Button>
-								<Button type="submit" disabled={form.formState.isSubmitting}>
+								<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
 									{editingId ? "保存" : "发布"}
 								</Button>
 							</DialogFooter>

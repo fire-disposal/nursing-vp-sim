@@ -172,7 +172,7 @@ export default function QuestionnaireAssign({
 					<Button type="button" variant="outline" onClick={onClose}>
 						取消
 					</Button>
-					<Button type="submit" disabled={isSaving}>
+					<Button onClick={onSubmit} disabled={isSaving}>
 						{isSaving ? "保存中..." : "保存分配"}
 					</Button>
 				</div>

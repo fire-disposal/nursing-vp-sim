@@ -336,7 +336,7 @@ export default function RolesPage() {
 										取消
 									</Button>
 									<Button
-										type="submit"
+										onClick={form.handleSubmit(onSubmit)}
 										disabled={form.formState.isSubmitting}
 									>
 										{form.formState.isSubmitting ? "创建中..." : "创建角色"}

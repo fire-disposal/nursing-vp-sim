@@ -226,7 +226,7 @@ export default function Profile() {
 
 					<div className="flex justify-end">
 						<Button
-							type="submit"
+							onClick={profileForm.handleSubmit(handleSave)}
 							disabled={profileForm.formState.isSubmitting}
 							className="min-w-28"
 						>
@@ -293,7 +293,7 @@ export default function Profile() {
 								)}
 							/>
 							<Button
-								type="submit"
+								onClick={pwForm.handleSubmit(handleChangePassword)}
 								className="w-full"
 								disabled={pwForm.formState.isSubmitting}
 							>

@@ -391,7 +391,7 @@ export default function GradesClassesPage() {
 								>
 									取消
 								</Button>
-								<Button type="submit" disabled={form.formState.isSubmitting}>
+								<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
 									{editId ? "保存" : "创建"}
 								</Button>
 							</DialogFooter>

@@ -259,7 +259,7 @@ export default function SecretModal({
 							<Button variant="outline" type="button" onClick={onClose}>
 								取消
 							</Button>
-							<Button type="submit" disabled={form.formState.isSubmitting}>
+							<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
 								{form.formState.isSubmitting ? "保存中..." : "保存"}
 							</Button>
 						</DialogFooter>

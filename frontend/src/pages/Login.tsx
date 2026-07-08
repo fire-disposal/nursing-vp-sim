@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
 import { Activity, Stethoscope } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -26,20 +26,47 @@ function isTokenExpired(token: string): boolean {
 	}
 }
 
+function extractError(err: unknown): string {
+	if (err instanceof Error) {
+		const axiosErr = err as {
+			response?: { data?: { detail?: string; message?: string } };
+			message?: string;
+		};
+		return axiosErr.response?.data?.detail
+			?? axiosErr.response?.data?.message
+			?? axiosErr.message
+			?? "登录失败，请检查网络连接";
+	}
+	return "登录失败，请检查网络连接";
+}
+
 export default function Login() {
 	const [error, setError] = useState("");
 	const submittingRef = useRef(false);
+	const mountedRef = useRef(true);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
+	const refreshAuth = useAuthStore((s) => s.refreshAuth);
 	const user = useAuthStore((s) => s.user);
 	const token = useAuthStore((s) => s.token);
+
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
 
 	const form = useForm<LoginFormValues>({
 		resolver: zodResolver(loginSchema),
 		defaultValues: { username: "", password: "" },
-		mode: "onBlur",
+		mode: "onSubmit",
 	});
 
+	// Token exists but expired → silent refresh inline
+	if (token && !user) {
+		return <Navigate to="/home" replace />;
+	}
 	if (token && user && !isTokenExpired(token)) {
 		return <Navigate to="/home" replace />;
 	}
@@ -50,18 +77,21 @@ export default function Login() {
 		setError("");
 		try {
 			await login(values.username, values.password);
-			navigate("/home");
+			if (mountedRef.current) {
+				navigate("/home", { replace: true });
+			}
 		} catch (err: unknown) {
-			if (import.meta.env.DEV) console.error("[Login] failed:", err);
-			const axiosErr = err as {
-				response?: { data?: { message?: string } };
-				message?: string;
-			};
-			setError(axiosErr.message || "登录失败");
+			if (mountedRef.current) {
+				setError(extractError(err));
+			}
 		} finally {
-			submittingRef.current = false;
+			if (mountedRef.current) {
+				submittingRef.current = false;
+			}
 		}
 	};
+
+	const isSubmitting = submittingRef.current;
 
 	return (
 		<div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
@@ -112,6 +142,7 @@ export default function Login() {
 													autoComplete="username"
 													autoFocus
 													className="h-11"
+													disabled={isSubmitting}
 													{...field}
 												/>
 											</FormControl>
@@ -131,6 +162,7 @@ export default function Login() {
 													placeholder="密码"
 													autoComplete="current-password"
 													className="h-11"
+													disabled={isSubmitting}
 													{...field}
 												/>
 											</FormControl>
@@ -139,11 +171,11 @@ export default function Login() {
 									)}
 								/>
 								<Button
-									type="submit"
-									disabled={submittingRef.current}
+									onClick={form.handleSubmit(onSubmit)}
+									disabled={isSubmitting}
 									className="h-11 w-full"
 								>
-									{submittingRef.current ? "登录中..." : "登 录"}
+									{isSubmitting ? "登录中..." : "登 录"}
 								</Button>
 							</form>
 						</Form>

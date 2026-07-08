@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from core.exceptions import AuthError, ConflictError, NotFoundError, ValidationError
 from core.login_strategies import get_strategy_registry
-from core.security import create_access_token, hash_password, verify_password
+from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from infrastructure.wechat import code2session
-from models import Class, Role, RolePermission, User, UserClass
+from models import Class, Role, User, UserClass
 from schemas import (
     OkResponse,
     RegisterRequest,
@@ -36,8 +36,7 @@ class AuthService:
                 "tv": user.token_version,
             }
         )
-        rows = self.db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
-        permissions = [r.permission for r in rows]
+        permissions = list(load_role_permissions(self.db, user.role_id))
         return TokenResponse(
             access_token=token,
             role=user.role.name if user.role else "",
@@ -156,8 +155,7 @@ class AuthService:
             }
         )
         log.info("微信登录成功: openid=%s user=%s", openid[:4] + "***", user.username)
-        rows = self.db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
-        permissions = [r.permission for r in rows]
+        permissions = list(load_role_permissions(self.db, user.role_id))
         return WechatLoginResponse(
             access_token=token,
             role=user.role.name if user.role else "",

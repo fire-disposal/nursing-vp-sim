@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -11,6 +12,34 @@ from core.database import get_db
 from models import RolePermission, User
 
 security = HTTPBearer()
+
+# Process-level permission cache: role_id -> (expires_at_monotonic, frozenset[str])
+_permission_cache: dict[int, tuple[float, frozenset[str]]] = {}
+_PERM_CACHE_TTL = 60
+
+
+def load_role_permissions(db: Session, role_id: int) -> frozenset[str]:
+    now = time.monotonic()
+    cached = _permission_cache.get(role_id)
+    if cached is not None and now < cached[0]:
+        return cached[1]
+    rows = db.query(RolePermission.permission).filter(RolePermission.role_id == role_id).all()
+    perms = frozenset(r.permission for r in rows)
+    _permission_cache[role_id] = (now + _PERM_CACHE_TTL, perms)
+    return perms
+
+
+def clear_permission_cache(role_id: int | None = None) -> None:
+    if role_id is not None:
+        _permission_cache.pop(role_id, None)
+    else:
+        _permission_cache.clear()
+
+
+def _set_user_permissions(user: User, db: Session) -> None:
+    if getattr(user, "_permissions_cache", None) is not None:
+        return
+    user.set_permissions_cache(set(load_role_permissions(db, user.role_id)))
 
 
 def hash_password(password: str) -> str:
@@ -49,11 +78,7 @@ def get_current_user(
     if token_tv != user.token_version:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌已失效，请重新登录")
 
-    # Preload permissions cache for endpoints that call has_permission() directly
-    if getattr(user, "_permissions_cache", None) is None:
-        rows = db.query(RolePermission.permission).filter(RolePermission.role_id == user.role_id).all()
-        user.set_permissions_cache({r.permission for r in rows})
-
+    _set_user_permissions(user, db)
     return user
 
 

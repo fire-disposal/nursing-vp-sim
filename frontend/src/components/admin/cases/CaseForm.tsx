@@ -932,7 +932,7 @@ export default function CaseFormModal({
 						取消
 					</Button>
 					<Button
-						type="submit"
+						onClick={handleSave}
 						disabled={createMutation.isPending || updateMutation.isPending}
 					>
 						{editingCase ? "保存修改" : "创建病例"}
