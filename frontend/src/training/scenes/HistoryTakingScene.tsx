@@ -14,8 +14,8 @@ export default function HistoryTakingScene({ recordId }: { recordId: string }) {
   }, []);
 
   return (
-    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100vh" }}>
-      <Suspense fallback={<LoadingState className="h-screen" />}>
+    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100%" }}>
+      <Suspense fallback={<LoadingState className="h-full" />}>
         <TrainingEngine recordId={recordId}>
           <SceneRenderer />
         </TrainingEngine>

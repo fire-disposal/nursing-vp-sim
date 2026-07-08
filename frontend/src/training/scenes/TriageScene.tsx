@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
 import { SceneRenderer } from "@/components/training/SceneRenderer";
-import LoadingState from "@/components/ui/loading-state";
 
 const TrainingEngine = lazy(() =>
   import("@/engine").then((m) => ({ default: m.TrainingEngine })),
@@ -14,8 +13,8 @@ export default function TriageScene({ recordId }: { recordId: string }) {
   }, []);
 
   return (
-    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100vh" }}>
-      <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">加载中…</div>}>
+    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100%" }}>
+      <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">加载中…</div>}>
         <TrainingEngine recordId={recordId}>
           <SceneRenderer />
         </TrainingEngine>
