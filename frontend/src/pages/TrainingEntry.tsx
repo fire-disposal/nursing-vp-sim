@@ -8,7 +8,7 @@ import { TRAINING_SCENES } from "../training/scenes/scene-registry";
 export default function TrainingEntry() {
 	const { recordId } = useParams<{ recordId: string }>();
 
-	const { data: record, isLoading, error } = useQuery({
+	const { data: record, isLoading, error, refetch } = useQuery({
 		queryKey: queryKeys.training.record(recordId),
 		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
@@ -16,7 +16,22 @@ export default function TrainingEntry() {
 
 	if (!recordId) return <div>缺少训练记录 ID</div>;
 	if (isLoading) return <LoadingState />;
-	if (error) return <div>加载训练记录失败</div>;
+	if (error) {
+		return (
+			<div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-8 text-center">
+				<div className="text-base font-medium">加载训练记录失败</div>
+				<div className="max-w-sm text-xs text-muted-foreground/70 break-words">
+					{error instanceof Error ? error.message : String(error)}
+				</div>
+				<button
+					onClick={() => refetch()}
+					className="mt-1 rounded-lg border border-border bg-card px-4 py-1.5 text-sm transition-colors hover:bg-muted"
+				>
+					重试
+				</button>
+			</div>
+		);
+	}
 	if (!record) return <div>记录不存在</div>;
 
 	const type = record.training_type || "history_taking";
