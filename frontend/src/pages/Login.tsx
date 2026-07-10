@@ -42,7 +42,7 @@ function extractError(err: unknown): string {
 
 export default function Login() {
 	const [error, setError] = useState("");
-	const submittingRef = useRef(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const mountedRef = useRef(true);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
@@ -71,8 +71,8 @@ export default function Login() {
 	}
 
 	const onSubmit = async (values: LoginFormValues) => {
-		if (submittingRef.current) return;
-		submittingRef.current = true;
+		if (isSubmitting) return;
+		setIsSubmitting(true);
 		setError("");
 		try {
 			await login(values.username, values.password);
@@ -85,12 +85,10 @@ export default function Login() {
 			}
 		} finally {
 			if (mountedRef.current) {
-				submittingRef.current = false;
+				setIsSubmitting(false);
 			}
 		}
 	};
-
-	const isSubmitting = submittingRef.current;
 
 	return (
 		<div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
