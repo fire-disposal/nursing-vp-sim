@@ -73,3 +73,18 @@ def test_handle_scoring_failure_corrects_to_completed_when_score_exists(db_sessi
     rec = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_with_score.id).first()
     assert rec.scoring_status == "completed"
     assert rec.scoring_error is None
+
+
+def test_recovery_marks_completed_when_score_exists(db_session, record_with_score, monkeypatch):
+    import core.database
+
+    monkeypatch.setattr(core.database, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+
+    from main import _recover_stuck_scoring_records
+
+    _recover_stuck_scoring_records()
+
+    db_session.expire_all()
+    rec = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_with_score.id).first()
+    assert rec.scoring_status == "completed"

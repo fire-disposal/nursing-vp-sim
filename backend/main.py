@@ -80,7 +80,7 @@ def _recover_stuck_scoring_records():
     """Recover scoring records stuck in 'pending'/'processing' from a previous instance crash."""
 
     from core.database import SessionLocal
-    from models import TrainingRecord
+    from models import Score, TrainingRecord
 
     db = SessionLocal()
     try:
@@ -92,9 +92,19 @@ def _recover_stuck_scoring_records():
             )
             .all()
         )
+        scored_ids = {
+            r[0]
+            for r in db.query(Score.record_id)
+            .filter(Score.record_id.in_([rec.id for rec in stuck]))
+            .all()
+        } if stuck else set()
         for rec in stuck:
-            rec.scoring_status = "failed"
-            rec.scoring_error = "服务重启导致评分中断，请点击重新评分"
+            if rec.id in scored_ids:
+                rec.scoring_status = "completed"
+                rec.scoring_error = None
+            else:
+                rec.scoring_status = "failed"
+                rec.scoring_error = "服务重启导致评分中断，请点击重新评分"
         db.commit()
         if stuck:
             log.info(
