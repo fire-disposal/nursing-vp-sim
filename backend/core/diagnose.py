@@ -20,7 +20,18 @@ log = logging.getLogger(__name__)
 _MAX_ERRORS = 200  # 内存环缓冲最大错误条数
 _CACHE_TTL = 30  # 诊断快照缓存秒数
 _RECENT_ERRORS_N = 20  # 返回的最新错误数
+_MSG_MAX = 4000  # 单条错误消息最大字符数
+_MSG_HEAD = 1200  # 截断时保留的头部字符数（含日志上下文）
 _PROCESS_START = time.time()  # 进程启动时间戳
+
+
+def _truncate_message(msg: str) -> str:
+    """截断超长错误消息，但保留尾部——traceback 的根因行在末尾。"""
+    if len(msg) <= _MSG_MAX:
+        return msg
+    tail = _MSG_MAX - _MSG_HEAD - len("\n...[truncated]...\n")
+    return f"{msg[:_MSG_HEAD]}\n...[truncated]...\n{msg[-tail:]}"
+
 
 # ── 错误日志收集器 ──────────────────────────────────────────────────────────────
 
@@ -53,7 +64,7 @@ class ErrorCaptureHandler(logging.Handler):
             ErrorEntry(
                 level=record.levelname,
                 logger=record.name,
-                message=msg[:800],
+                message=_truncate_message(msg),
                 time=datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
                 timestamp=record.created,
             )

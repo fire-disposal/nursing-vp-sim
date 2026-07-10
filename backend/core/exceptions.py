@@ -84,25 +84,31 @@ class ScoringFeedbackError(ScoringError):
 # ── Exception handlers (for FastAPI add_exception_handler) ──
 
 
-async def _log_and_respond(request: Request, status_code: int, detail: str):
-    log.warning("%s %s → %d %s", request.method, request.url.path, status_code, detail)
+async def _log_and_respond(request: Request, status_code: int, detail: str, exc: Exception | None = None):
+    # 5xx 是真实服务端故障：用 ERROR 级 + exc_info，确保进入诊断错误缓冲区并保留根因。
+    # 4xx 是客户端问题：WARNING 级即可，不污染错误缓冲区。
+    # exc_info 显式传入异常对象（handler 执行时 except 上下文可能已退出，True 会记成 None）。
+    if status_code >= 500:
+        log.error("%s %s → %d %s", request.method, request.url.path, status_code, detail, exc_info=exc)
+    else:
+        log.warning("%s %s → %d %s", request.method, request.url.path, status_code, detail)
     return JSONResponse(status_code=status_code, content={"detail": detail})
 
 
 async def auth_error_handler(request: Request, exc: AuthError):
-    return await _log_and_respond(request, exc.status_code, exc.detail)
+    return await _log_and_respond(request, exc.status_code, exc.detail, exc)
 
 
 async def not_found_handler(request: Request, exc: NotFoundError):
-    return await _log_and_respond(request, exc.status_code, exc.detail)
+    return await _log_and_respond(request, exc.status_code, exc.detail, exc)
 
 
 async def conflict_handler(request: Request, exc: ConflictError):
-    return await _log_and_respond(request, exc.status_code, exc.detail)
+    return await _log_and_respond(request, exc.status_code, exc.detail, exc)
 
 
 async def validation_error_handler(request: Request, exc: ValidationError):
-    return await _log_and_respond(request, exc.status_code, exc.detail)
+    return await _log_and_respond(request, exc.status_code, exc.detail, exc)
 
 
 async def llm_error_handler(request: Request, exc: LLMError):
@@ -114,7 +120,7 @@ async def llm_error_handler(request: Request, exc: LLMError):
         status_code = 429
     else:
         status_code = 500
-    return await _log_and_respond(request, status_code, str(exc))
+    return await _log_and_respond(request, status_code, str(exc), exc)
 
 
 async def scoring_error_handler(request: Request, exc: ScoringError):
@@ -124,4 +130,4 @@ async def scoring_error_handler(request: Request, exc: ScoringError):
         status_code = 500
     else:
         status_code = 500
-    return await _log_and_respond(request, status_code, str(exc))
+    return await _log_and_respond(request, status_code, str(exc), exc)

@@ -43,6 +43,7 @@ def health():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:
+        log.exception("/api/health 数据库连通性检查失败")
         return JSONResponse(status_code=503, content={"detail": "database unreachable"})
     return {"status": "ok", "version": APP_VERSION}
 
@@ -59,7 +60,7 @@ def metrics(request: Request):
     try:
         return m.snapshot()
     except Exception as e:
-        log.warning("/api/metrics snapshot failed: %s", e)
+        log.exception("/api/metrics snapshot failed")
         return JSONResponse(status_code=500, content={"error": str(e)[:200]})
 
 
