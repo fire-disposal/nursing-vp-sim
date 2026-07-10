@@ -69,9 +69,10 @@ def export_feedback(
     db: DbSession,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
+    from core.config import MAX_EXPORT_ROWS
     from models import Feedback
 
-    fb = db.query(Feedback).order_by(Feedback.created_at.desc()).all()
+    fb = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
     columns = [
         ColumnDef("反馈内容", key="content"),
         ColumnDef("评分", key="rating", fmt=lambda v: str(v) if v else ""),

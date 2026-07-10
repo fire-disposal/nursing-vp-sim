@@ -100,7 +100,9 @@ def export_users(
     db: DbSession,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
-    users = db.query(User).order_by(User.created_at.desc()).all()
+    from core.config import MAX_EXPORT_ROWS
+
+    users = db.query(User).order_by(User.created_at.desc()).limit(MAX_EXPORT_ROWS + 1).all()
     columns = [
         ColumnDef("用户名", key="username"),
         ColumnDef("姓名", key="display_name"),

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 from urllib.parse import quote
 
+from fastapi import HTTPException
 from fastapi.responses import Response
 
 T = TypeVar("T")
@@ -115,6 +116,10 @@ def export_response(
     items: Sequence[T], columns: list[ColumnDef[T]], filename: str, title: str = "", format: str = "csv"
 ) -> Response:
     """Build a FastAPI Response exporting *items* in the given *format* (csv|xlsx)."""
+    from core.config import MAX_EXPORT_ROWS
+
+    if len(items) > MAX_EXPORT_ROWS:
+        raise HTTPException(status_code=400, detail=f"单次导出最多 {MAX_EXPORT_ROWS} 行")
     ext = format
     encoded = quote(filename)
     disposition = f"attachment; filename*=UTF-8''{encoded}.{ext}"
