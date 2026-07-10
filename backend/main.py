@@ -92,12 +92,11 @@ def _recover_stuck_scoring_records():
             )
             .all()
         )
-        scored_ids = {
-            r[0]
-            for r in db.query(Score.record_id)
-            .filter(Score.record_id.in_([rec.id for rec in stuck]))
-            .all()
-        } if stuck else set()
+        scored_ids = (
+            {r[0] for r in db.query(Score.record_id).filter(Score.record_id.in_([rec.id for rec in stuck])).all()}
+            if stuck
+            else set()
+        )
         for rec in stuck:
             if rec.id in scored_ids:
                 rec.scoring_status = "completed"
