@@ -13,7 +13,7 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
-import type { TrainingTypeInfo } from "@/training/types";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/utils/cn";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
@@ -64,7 +64,7 @@ function DifficultyStars({ level }: { level?: number | null }) {
 export default function TrainingSelect() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState(0);
-  const [search, setSearch] = useState("");
+  const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
   const [offset, setOffset] = useState(0);
   const [selectedCase, setSelectedCase] = useState<CaseBrief | null>(null);
   const [hintDismissed, setHintDismissed] = useState(() => localStorage.getItem("training_hint_dismissed") === "1");
@@ -85,6 +85,7 @@ export default function TrainingSelect() {
         limit: LIMIT,
         ...(selectedType ? { training_type: selectedType } : {}),
         ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}),
+        ...(search ? { name: search } : {}),
       }).then((r) => r.data),
     staleTime: 5 * 60_000,
   });
@@ -133,7 +134,7 @@ export default function TrainingSelect() {
               const isSelected = selectedType === p.type;
               const count = (p as any).case_count ?? 0;
               return (
-                <button key={p.type} type="button" onClick={() => { setSelectedType(p.type); setOffset(0); setSearch(""); }}
+                <button key={p.type} type="button" onClick={() => { setSelectedType(p.type); setOffset(0); handleSearchChange(""); }}
                   className={cn(
                     "relative flex flex-col items-start gap-3 min-w-[200px] flex-1 rounded-xl border p-5 text-left transition-all",
                     isSelected ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border bg-card hover:border-primary/30 hover:shadow-md",
@@ -182,12 +183,12 @@ export default function TrainingSelect() {
             <div className="flex-1" />
             <div className="relative w-full sm:w-64">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              <input type="text" value={searchInput} onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
                 placeholder="搜索病例名称…"
                 className="w-full h-10 pl-9 pr-3 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
               />
               {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <button onClick={() => handleSearchChange("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   <X size={14} />
                 </button>
               )}
