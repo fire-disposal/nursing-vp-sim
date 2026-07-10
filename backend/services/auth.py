@@ -219,7 +219,8 @@ class AuthService:
             wechat_openid=openid,
         )
         self.db.add(user)
-        self.db.commit()
+        with unit_of_work(self.db, conflict_detail="此微信已注册"):
+            pass
         self.db.refresh(user)
 
         log.info("微信注册成功: openid=%s username=%s", openid[:4] + "***", username)
