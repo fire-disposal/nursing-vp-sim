@@ -307,7 +307,7 @@ async def _stage_with_retry(
     )
     if not result2:
         if fallback_fn:
-            return {}
+            return fallback_fn(result, {}, missing_list)
         raise RuntimeError(f"Stage failed after retry: record_id={record_id} purpose={purpose}")
 
     try:
