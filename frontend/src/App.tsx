@@ -3,7 +3,6 @@ import { lazy, Suspense, useEffect } from "react";
 import {
 	BrowserRouter,
 	Navigate,
-	Outlet,
 	Route,
 	Routes,
 	useNavigate,
@@ -11,12 +10,12 @@ import {
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackProvider } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
-import PermissionGuard from "@/components/PermissionGuard";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import RequirePermission from "@/components/RequirePermission";
 import { ConfirmProvider } from "@/components/ui/confirm";
 import { Toaster } from "@/components/ui/sonner";
+import { APP_ROUTES } from "@/config/navigation";
 import { onForceLogout } from "@/events";
-import { useScoringNotifications } from "@/hooks/useScoringNotifications";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -26,45 +25,13 @@ const queryClient = new QueryClient({
 
 const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
-const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
-const TrainingSelect = lazy(() => import("@/pages/TrainingSelect"));
-const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
-const History = lazy(() => import("@/pages/History"));
-const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
-const QA = lazy(() => import("@/pages/QA"));
-const StatsPage = lazy(() =>
-	import("@/pages/Stats").then((m) => ({ default: m.StatsPage })),
-);
-const Admin = lazy(() => import("@/pages/Admin"));
-const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
-const AdminUserDetail = lazy(() => import("@/pages/admin/UserDetailPage"));
-const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
-const AdminLLM = lazy(() => import("@/pages/admin/LLMManagementPage"));
-const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
-const AdminGradesClasses = lazy(
-	() => import("@/pages/admin/GradesClassesPage"),
-);
-const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
-const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
-const MyResponses = lazy(() => import("@/pages/MyResponses"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
-const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
-const PracticesPage = lazy(() => import("@/pages/admin/PracticesPage"));
-const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
-const SystemNotificationsPage = lazy(() => import("@/pages/admin/SystemNotificationsPage"));
-const AssignmentDetailPage = lazy(
-	() => import("@/pages/admin/AssignmentDetailPage"),
-);
 
 function ForceLogoutListener() {
 	const navigate = useNavigate();
-	useEffect(() => onForceLogout(() => navigate("/login", { replace: true })), [navigate]);
-	return null;
-}
-
-function ScoringNotificationsSubscriber() {
-	useScoringNotifications();
+	useEffect(
+		() => onForceLogout(() => navigate("/login", { replace: true })),
+		[navigate],
+	);
 	return null;
 }
 
@@ -79,175 +46,44 @@ function PageLoader() {
 
 export default function App() {
 	return (
-			<BrowserRouter>
-				<QueryClientProvider client={queryClient}>
-					<ForceLogoutListener />
-					<ScoringNotificationsSubscriber />
-					<Toaster />
-					<ConfirmProvider>
-						<FeedbackProvider>
-							<ErrorBoundary>
-								<Suspense fallback={<PageLoader />}>
-									<Routes>
-										<Route path="/login" element={<Login />} />
-										<Route path="/showcase" element={<Showcase />} />
-										<Route element={<ProtectedRoute />}>
-											<Route
-												element={
-													<Layout>
-														<Outlet />
-													</Layout>
-												}
-											>
-												<Route index element={<Navigate to="/home" replace />} />
-												<Route path="/home" element={<DashboardHome />} />
-												<Route path="/training" element={
-													<PermissionGuard permission="training_access">
-														<TrainingSelect />
-													</PermissionGuard>
-												} />
-												<Route path="/training/:recordId" element={
-													<PermissionGuard permission="training_access">
-														<TrainingEntry />
-													</PermissionGuard>
-												} />
-												<Route path="/history" element={<History />} />
-												<Route path="/record/:id" element={<RecordDetail />} />
-												<Route path="/qa" element={
-													<PermissionGuard permission="qa_access">
-														<QA />
-													</PermissionGuard>
-												} />
-												<Route path="/stats" element={
-													<PermissionGuard permission="stats_view">
-														<StatsPage />
-													</PermissionGuard>
-												} />
-												<Route path="/my-responses" element={<MyResponses />} />
-												<Route path="/profile" element={<Profile />} />
+		<BrowserRouter>
+			<QueryClientProvider client={queryClient}>
+				<ForceLogoutListener />
+				<Toaster />
+				<ConfirmProvider>
+					<FeedbackProvider>
+						<ErrorBoundary>
+							<Suspense fallback={<PageLoader />}>
+								<Routes>
+									<Route path="/login" element={<Login />} />
+									<Route path="/showcase" element={<Showcase />} />
+									<Route element={<ProtectedRoute />}>
+										<Route element={<Layout />}>
+											<Route index element={<Navigate to="/home" replace />} />
+											{APP_ROUTES.map((r) => (
 												<Route
-													path="/admin"
+													key={r.path}
+													path={r.path}
 													element={
-													<PermissionGuard permission="score_review">
-														<Admin />
-													</PermissionGuard>
-												}
+														r.permission ? (
+															<RequirePermission permission={r.permission}>
+																{r.element}
+															</RequirePermission>
+														) : (
+															r.element
+														)
+													}
 												/>
-												<Route
-													path="/admin/system-ops"
-													element={
-													<PermissionGuard permission="api_manage">
-														<SystemOpsPage />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/system-notifications"
-													element={
-													<PermissionGuard permission="api_manage">
-														<SystemNotificationsPage />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/llm"
-													element={
-													<PermissionGuard permission="llm_monitor">
-														<AdminLLM />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/costs"
-													element={
-													<PermissionGuard permission="llm_monitor">
-														<CostManagement />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/cases"
-													element={
-													<PermissionGuard permission="case_manage">
-														<AdminCases />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/practices"
-													element={
-													<PermissionGuard permission="case_manage">
-														<PracticesPage />
-													</PermissionGuard>
-												}
-												/>
-												<Route path="/admin/users" element={
-													<PermissionGuard permission="user_manage">
-														<AdminUsers />
-													</PermissionGuard>
-												} />
-												<Route
-													path="/admin/users/:userId"
-													element={
-													<PermissionGuard permission="user_manage">
-														<AdminUserDetail />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/grades-classes"
-													element={
-													<PermissionGuard permission="grade_class_manage">
-														<AdminGradesClasses />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/feedback"
-													element={
-													<PermissionGuard permission="feedback_review">
-														<AdminFeedback />
-													</PermissionGuard>
-												}
-												/>
-												<Route path="/admin/roles" element={
-													<PermissionGuard permission="role_manage">
-														<AdminRoles />
-													</PermissionGuard>
-												} />
-												<Route
-													path="/admin/questionnaires"
-													element={
-													<PermissionGuard permission="questionnaire_manage">
-														<AdminQuestionnaires />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/assignments"
-													element={
-													<PermissionGuard permission="assignment_manage">
-														<AssignmentsPage />
-													</PermissionGuard>
-												}
-												/>
-												<Route
-													path="/admin/assignments/:id"
-													element={
-													<PermissionGuard permission="assignment_manage">
-														<AssignmentDetailPage />
-													</PermissionGuard>
-												}
-												/>
-											</Route>
+											))}
 										</Route>
-										<Route path="*" element={<Navigate to="/login" replace />} />
-									</Routes>
-								</Suspense>
-							</ErrorBoundary>
-						</FeedbackProvider>
-					</ConfirmProvider>
-				</QueryClientProvider>
-			</BrowserRouter>
+									</Route>
+									<Route path="*" element={<Navigate to="/login" replace />} />
+								</Routes>
+							</Suspense>
+						</ErrorBoundary>
+					</FeedbackProvider>
+				</ConfirmProvider>
+			</QueryClientProvider>
+		</BrowserRouter>
 	);
 }

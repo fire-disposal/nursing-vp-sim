@@ -101,7 +101,7 @@ def _thought_fallback(original_len: int) -> str:
 async def _sse_progress(
     realtime_hub, user_id: int | None, record_id: int, stage: str, pct: int, msg: str, thought: str = ""
 ) -> None:
-    """Publish scoring progress via SSE if realtime_hub and user_id are available."""
+    """Publish scoring progress via realtime_hub (WS) if hub and user_id are available."""
     if not realtime_hub or not user_id:
         return
     try:
@@ -117,7 +117,7 @@ async def _sse_progress(
             },
         )
     except Exception:
-        log.warning("SSE publish failed: stage=%s record_id=%d", stage, record_id)
+        log.warning("realtime publish failed: stage=%s record_id=%d", stage, record_id)
 
 
 async def _stream_attempt(

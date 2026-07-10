@@ -19,7 +19,6 @@ Protocol (JSON messages):
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 
 import jwt
@@ -120,18 +119,8 @@ async def training_ws(
     async def _handle_server():
         while True:
             try:
-                raw = await asyncio.wait_for(queue.get(), timeout=30)
-                event_type = ""
-                data: dict = {}
-                for line in raw.strip().split("\n"):
-                    if line.startswith("event: "):
-                        event_type = line[7:]
-                    elif line.startswith("data: "):
-                        try:
-                            data = json.loads(line[6:])
-                        except json.JSONDecodeError:
-                            data = {}
-                await websocket.send_json({"type": event_type, **data})
+                event = await asyncio.wait_for(queue.get(), timeout=30)
+                await websocket.send_json(event)
             except TimeoutError:
                 try:
                     await websocket.send_json({"type": "heartbeat"})

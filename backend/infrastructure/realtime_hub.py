@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 from collections import defaultdict
 
@@ -7,13 +6,19 @@ log = logging.getLogger(__name__)
 
 
 class RealtimeHub:
+    """In-process fan-out of realtime events to a user's active WS connections.
+
+    Events are queued as plain ``dict`` payloads (``{"type": ..., **data}``)
+    and delivered verbatim over the training WebSocket. No SSE framing.
+    """
+
     def __init__(self):
         self._subscribers: dict[int, list[asyncio.Queue]] = defaultdict(list)
 
     async def subscribe(self, user_id: int) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue(maxsize=50)
         self._subscribers[user_id].append(queue)
-        log.debug("SSE subscriber: user_id=%d total=%d", user_id, len(self._subscribers[user_id]))
+        log.debug("realtime subscriber: user_id=%d total=%d", user_id, len(self._subscribers[user_id]))
         return queue
 
     def unsubscribe(self, user_id: int, queue: asyncio.Queue):
@@ -25,7 +30,7 @@ class RealtimeHub:
             pass
 
     async def publish(self, user_id: int, event_type: str, data: dict):
-        event = f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+        event = {"type": event_type, **data}
         subscribers = self._subscribers.get(user_id, [])
         dead = []
         for queue in subscribers:

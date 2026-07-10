@@ -1,63 +1,38 @@
 ﻿import {
-	Activity, BarChart3, ClipboardCheck, ClipboardList, Coins,
-	GraduationCap, HelpCircle, Home, Info, LogOut, Megaphone,
-	Menu, MessageSquare, Server, Settings, Shield, Stethoscope,
-	UserSearch, Users, X,
+	Info,
+	LogOut,
+	Menu,
+	MessageSquare,
+	Stethoscope,
+	X,
 } from "lucide-react";
-import { memo, type ReactNode, useMemo, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { memo, Suspense, useMemo, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import LoadingState from "@/components/ui/loading-state";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Separator } from "@/components/ui/separator";
+import type { NavItem } from "@/config/navigation";
+import { NAV_ITEMS } from "@/config/navigation";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
+import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
 
-interface NavLinkItem {
-	to: string;
-	icon: typeof Home;
-	label: string;
-	permission?: string;
-}
-
-const allLinks: NavLinkItem[] = [
-	{ to: "/home", icon: Home, label: "首页" },
-	{ to: "/training", icon: Stethoscope, label: "病例训练", permission: "training_access" },
-	{ to: "/history", icon: ClipboardList, label: "训练记录" },
-	{ to: "/qa", icon: HelpCircle, label: "护理问答", permission: "qa_access" },
-	{ to: "/stats", icon: BarChart3, label: "训练统计", permission: "stats_view" },
-	{ to: "/my-responses", icon: ClipboardCheck, label: "我的问卷" },
-	{ to: "/admin/users", icon: Users, label: "用户管理", permission: "user_manage" },
-	{ to: "/admin/roles", icon: Shield, label: "角色管理", permission: "role_manage" },
-	{ to: "/admin/grades-classes", icon: GraduationCap, label: "班级管理", permission: "grade_class_manage" },
-	{ to: "/admin/cases", icon: UserSearch, label: "病例管理", permission: "case_manage" },
-	{ to: "/admin/practices", icon: ClipboardList, label: "练习模板", permission: "case_manage" },
-	{ to: "/admin/assignments", icon: ClipboardCheck, label: "练习发布", permission: "assignment_manage" },
-	{ to: "/admin", icon: Settings, label: "训练管理", permission: "score_review" },
-	{ to: "/admin/llm", icon: Server, label: "LLM 管理", permission: "llm_monitor" },
-	{ to: "/admin/costs", icon: Coins, label: "成本管理", permission: "llm_monitor" },
-	{ to: "/admin/feedback", icon: MessageSquare, label: "用户反馈", permission: "feedback_review" },
-	{ to: "/admin/questionnaires", icon: ClipboardCheck, label: "问卷管理", permission: "questionnaire_manage" },
-	{ to: "/admin/system-ops", icon: Activity, label: "系统运维", permission: "api_manage" },
-	{ to: "/admin/system-notifications", icon: Megaphone, label: "系统通知", permission: "api_manage" },
-];
-
-const STUDENT_LINKS: NavLinkItem[] = [
-	{ to: "/home", icon: Home, label: "首页" },
-	{ to: "/training", icon: Stethoscope, label: "训练" },
-	{ to: "/history", icon: ClipboardList, label: "记录" },
-	{ to: "/stats", icon: BarChart3, label: "统计", permission: "stats_view" },
-	{ to: "/qa", icon: HelpCircle, label: "问答", permission: "qa_access" },
-];
-
 // ── Student top navigation ──
-function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: () => void }) {
+function StudentTopNav({
+	links,
+	onLogout,
+}: {
+	links: NavItem[];
+	onLogout: () => void;
+}) {
 	const [mobileOpen, setMobileOpen] = useState(false);
 
 	return (
@@ -79,7 +54,7 @@ function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: ()
 							<NavLink
 								key={link.to}
 								to={link.to}
-								end={link.to === "/home"}
+								end={link.end}
 								className={({ isActive }) =>
 									cn(
 										"flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
@@ -88,7 +63,7 @@ function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: ()
 								}
 							>
 								<Icon size={16} />
-								{link.label}
+								{link.shortLabel ?? link.label}
 							</NavLink>
 						);
 					})}
@@ -127,7 +102,7 @@ function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: ()
 							<NavLink
 								key={link.to}
 								to={link.to}
-								end={link.to === "/home"}
+								end={link.end}
 								onClick={() => setMobileOpen(false)}
 								className={({ isActive }) =>
 									cn(
@@ -137,7 +112,7 @@ function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: ()
 								}
 							>
 								<Icon size={17} />
-								{link.label}
+								{link.shortLabel ?? link.label}
 							</NavLink>
 						);
 					})}
@@ -149,10 +124,19 @@ function StudentTopNav({ links, onLogout }: { links: NavLinkItem[]; onLogout: ()
 
 // ── Admin sidebar ──
 function AdminSidebar({
-	userLinks, adminLinks, mobileOpen, onClose, onLogout, onAbout,
+	userLinks,
+	adminLinks,
+	mobileOpen,
+	onClose,
+	onLogout,
+	onAbout,
 }: {
-	userLinks: NavLinkItem[]; adminLinks: NavLinkItem[];
-	mobileOpen: boolean; onClose: () => void; onLogout: () => void; onAbout: () => void;
+	userLinks: NavItem[];
+	adminLinks: NavItem[];
+	mobileOpen: boolean;
+	onClose: () => void;
+	onLogout: () => void;
+	onAbout: () => void;
 }) {
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
@@ -207,7 +191,7 @@ function AdminSidebar({
 }
 
 // ── Main Layout ──
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const permissions = useAuthStore((s) => s.permissions);
@@ -218,32 +202,43 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const { openFeedback } = useFeedback();
 	const isOnline = useNetworkStatus();
 
-	const hasAdminPerm = permissions.some(
-		(p) => p !== "training_access" && p !== "qa_access" && p !== "stats_view",
+	const hasAdminPerm = isAdminPermissions(permissions);
+
+	const links = useMemo(
+		() =>
+			NAV_ITEMS.filter(
+				(l) => !l.permission || permissions.includes(l.permission),
+			),
+		[permKey],
 	);
 
-	const links = useMemo(() => {
-		return allLinks.filter((l) => !l.permission || permissions.includes(l.permission));
-	}, [permKey]);
-
-	const userLinks = links.filter((l) => !l.to.startsWith("/admin"));
-	const adminLinks = links.filter((l) => l.to.startsWith("/admin"));
+	const userLinks = links.filter((l) => l.section === "user");
+	const adminLinks = links.filter((l) => l.section === "admin");
 
 	const isTrainingPage = location.pathname.startsWith("/training/");
 	const isQAPage = location.pathname.startsWith("/qa");
 
-	const handleLogout = () => { logout(); navigate("/login"); };
+	const handleLogout = () => {
+		logout();
+		navigate("/login");
+	};
+
+	const content = (
+		<Suspense fallback={<LoadingState className="h-full" />}>
+			<Outlet />
+		</Suspense>
+	);
 
 	// Student layout: top nav
 	if (!hasAdminPerm) {
 		return (
 			<div className="flex flex-col h-screen overflow-hidden">
 				{!isOnline && <NetworkBanner />}
-				<StudentTopNav links={STUDENT_LINKS} onLogout={handleLogout} />
+				<StudentTopNav links={userLinks} onLogout={handleLogout} />
 				{isTrainingPage || isQAPage ? (
-					<div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+					<div className="flex-1 min-h-0 overflow-hidden">{content}</div>
 				) : (
-					<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+					<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{content}</main>
 				)}
 			</div>
 		);
@@ -269,10 +264,10 @@ export default function Layout({ children }: { children: ReactNode }) {
 					</button>
 					<div className="flex-1 min-w-0"><span className="text-sm font-semibold">虚拟患者系统</span></div>
 				</div>
-				{isTrainingPage ? children : isQAPage ? (
-					<div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+				{isTrainingPage ? content : isQAPage ? (
+					<div className="flex-1 min-h-0 overflow-hidden">{content}</div>
 				) : (
-					<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>
+					<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{content}</div>
 				)}
 			</div>
 
@@ -302,14 +297,14 @@ export default function Layout({ children }: { children: ReactNode }) {
 const SidebarNav = memo(function SidebarNav({
 	userLinks, adminLinks, close,
 }: {
-	userLinks: NavLinkItem[]; adminLinks: NavLinkItem[]; close: () => void;
+	userLinks: NavItem[]; adminLinks: NavItem[]; close: () => void;
 }) {
 	return (
 		<>
 			{userLinks.map((link) => {
 				const Icon = link.icon;
 				return (
-					<NavLink key={link.to} to={link.to} end={link.to === "/home"} onClick={close}
+					<NavLink key={link.to} to={link.to} end={link.end} onClick={close}
 						className={({ isActive }) =>
 							cn("mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
 								isActive && "bg-primary/10 text-primary")
@@ -328,7 +323,7 @@ const SidebarNav = memo(function SidebarNav({
 					{adminLinks.map((link) => {
 						const Icon = link.icon;
 						return (
-							<NavLink key={link.to} to={link.to} end={link.to === "/admin"} onClick={close}
+							<NavLink key={link.to} to={link.to} end={link.end} onClick={close}
 								className={({ isActive }) =>
 									cn("mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
 										isActive && "bg-primary/10 text-primary")

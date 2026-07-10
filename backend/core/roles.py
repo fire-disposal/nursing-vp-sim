@@ -1,3 +1,5 @@
+from core.permissions import PERMISSION_KEYS
+
 SYSTEM_PERMISSIONS: dict[str, list[str]] = {
     "super_admin": [
         "user_manage",
@@ -56,3 +58,7 @@ SYSTEM_ROLES: list[tuple[str, str]] = [
     ("teacher", "教师"),
     ("student", "学生"),
 ]
+
+_unknown = {p for perms in SYSTEM_PERMISSIONS.values() for p in perms} - set(PERMISSION_KEYS)
+if _unknown:
+    raise ValueError(f"roles.py 使用了未在 core/permissions.py 定义的权限: {sorted(_unknown)}")

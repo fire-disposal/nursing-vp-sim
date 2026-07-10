@@ -61,10 +61,12 @@ function _connect() {
 		// will trigger onclose
 	};
 
-	ws.onclose = () => {
+	ws.onclose = (ev) => {
 		_ws = null;
 		_connected = false;
 		if (_aborted) return;
+		// 4001 = 鉴权失败（token 无效/缺失）。重连无意义，等待下次显式 _connect。
+		if (ev.code === 4001) return;
 		const delay = Math.min(1000 * 2 ** _retryCount, 30000);
 		_retryCount = Math.min(_retryCount + 1, 5);
 		_retryTimer = setTimeout(_connect, delay);

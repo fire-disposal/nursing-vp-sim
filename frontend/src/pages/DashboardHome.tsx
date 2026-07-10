@@ -15,15 +15,14 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
 import type { RecordExtended } from "@/types/record";
+import { isAdminPermissions } from "@/utils/permissions";
 
 export default function DashboardHome() {
 	const navigate = useNavigate();
 	const toast = useToast();
 
 	const perms = useAuthStore((s) => s.permissions);
-	const isAdmin = perms.some(
-		(p) => p !== "training_access" && p !== "qa_access",
-	);
+	const isAdmin = isAdminPermissions(perms);
 
 	const { data: casesData, isLoading: casesLoading } = useQuery({
 		queryKey: queryKeys.cases.student(),

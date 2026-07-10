@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
+import { PERMISSION_DEFS } from "@/config/permissions.gen";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { type RoleCreateValues, roleCreateSchema } from "@/schemas/role";
 
@@ -32,23 +33,6 @@ interface RoleItem {
 	permissions: string[];
 	user_count: number;
 }
-
-const ALL_PERMISSIONS = [
-	{ key: "user_manage", label: "用户管理" },
-	{ key: "role_manage", label: "角色管理" },
-	{ key: "grade_class_manage", label: "班级管理" },
-	{ key: "case_manage", label: "病例管理" },
-	{ key: "training_access", label: "训练功能" },
-	{ key: "score_review", label: "成绩查看" },
-	{ key: "stats_view", label: "数据统计" },
-	{ key: "qa_access", label: "护理问答" },
-	{ key: "llm_monitor", label: "LLM 监控" },
-	{ key: "api_manage", label: "API 管理" },
-	{ key: "assignment_manage", label: "练习发布" },
-	{ key: "feedback_review", label: "反馈管理" },
-	{ key: "export_data", label: "数据导出" },
-	{ key: "record_notes", label: "训练批注" },
-];
 
 export default function RolesPage() {
 	const toast = useToast();
@@ -256,7 +240,7 @@ export default function RolesPage() {
 											/>
 										</div>
 										<div className="grid grid-cols-3 gap-2">
-										{ALL_PERMISSIONS.map((p) => (
+										{PERMISSION_DEFS.map((p) => (
 											<label
 												key={p.key}
 												className="flex items-center gap-1.5 text-sm cursor-pointer"
@@ -284,7 +268,7 @@ export default function RolesPage() {
 												key={p}
 												className="text-xs bg-muted px-1.5 py-0.5 rounded"
 											>
-												{ALL_PERMISSIONS.find((ap) => ap.key === p)?.label || p}
+												{PERMISSION_DEFS.find((ap) => ap.key === p)?.label || p}
 											</span>
 										))}
 									</div>
