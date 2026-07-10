@@ -27,6 +27,10 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 		}
 	}, []);
 
+	useEffect(() => {
+		return () => stopTicker();
+	}, [stopTicker]);
+
 	const pollTrigger = useCallback(async () => {
 		if (pollingRef.current || maxReachedRef.current) return;
 		pollingRef.current = true;
