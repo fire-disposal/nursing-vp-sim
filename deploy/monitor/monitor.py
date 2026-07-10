@@ -65,18 +65,66 @@ def run(cmd, timeout=15, capture_stderr=True):
         return -1, str(e)
 
 
+def _empty_state():
+    """Fresh state with the three explicit, non-overlapping namespaces.
+
+    - alerts:    alert_key -> {last_alert, count, resolved, resolved_at, detail}
+    - snapshots: endpoint name -> metrics counters (for delta comparison)
+    - daily:     {date, sent} email flood counter
+    """
+    return {"alerts": {}, "snapshots": {}, "daily": {"date": None, "sent": 0}}
+
+
+def _migrate_legacy_state(raw):
+    """Convert the old flat state (alert entries, metrics: snapshots and _daily
+    all mixed at top level, distinguished only by "_" prefix + duck-typing) into
+    the namespaced structure. This mixing caused two bugs: metrics snapshots
+    colliding with alert keys (KeyError crash loop) and the daily cap never
+    engaging. Migration is idempotent — already-namespaced state passes through.
+    """
+    if not isinstance(raw, dict):
+        return _empty_state()
+
+    # Already namespaced.
+    if "alerts" in raw and "snapshots" in raw and "daily" in raw:
+        state = _empty_state()
+        state["alerts"] = raw.get("alerts") or {}
+        state["snapshots"] = raw.get("snapshots") or {}
+        d = raw.get("daily") or {}
+        state["daily"] = {"date": d.get("date"), "sent": d.get("sent", 0)}
+        return state
+
+    state = _empty_state()
+    legacy_daily = raw.get("_daily", {})
+    state["daily"] = {
+        "date": legacy_daily.get("_date"),
+        "sent": legacy_daily.get("_sent", 0),
+    }
+    for key, entry in raw.items():
+        if key.startswith("_"):
+            continue
+        if not isinstance(entry, dict):
+            continue
+        if "last_alert" in entry:
+            # A genuine alert-state entry.
+            state["alerts"][key] = entry
+        # else: a stale metrics snapshot (no last_alert) — dropped; it will be
+        # rebuilt cleanly under snapshots on the next metrics check.
+    return state
+
+
 def load_state():
-    """Load alert state from disk."""
+    """Load monitor state from disk, migrating legacy flat format if needed."""
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            return _migrate_legacy_state(json.loads(STATE_FILE.read_text(encoding="utf-8")))
         except Exception:
             pass
-    return {}
+    return _empty_state()
 
 
 def save_state(state):
-    """Persist alert state. Atomic write via temp file."""
+    """Persist monitor state. Atomic write via temp file."""
     tmp = STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
     tmp.replace(STATE_FILE)
@@ -93,14 +141,15 @@ def get_cooldown(alert_count):
 def should_send(state, alert_key):
     """Return True if this alert should fire now (not in cooldown, not over daily cap)."""
     now = datetime.now()
-    today_key = now.strftime("%Y-%m-%d")
+    today = now.strftime("%Y-%m-%d")
 
-    # Daily cap
-    daily = state.get("_daily", {})
-    if today_key not in daily:
-        daily = {"_date": today_key, "_sent": 0}
-        state["_daily"] = daily
-    if daily.get("_sent", 0) >= MAX_EMAILS_PER_DAY:
+    # Daily cap. Compare against the stored date (previously this compared the
+    # date string against dict keys, which never matched, so the cap never fired).
+    daily = state["daily"]
+    if daily.get("date") != today:
+        daily["date"] = today
+        daily["sent"] = 0
+    if daily.get("sent", 0) >= MAX_EMAILS_PER_DAY:
         log.warning(
             "Daily email cap (%d) reached, suppressing alert: %s",
             MAX_EMAILS_PER_DAY,
@@ -108,7 +157,7 @@ def should_send(state, alert_key):
         )
         return False
 
-    entry = state.get(alert_key)
+    entry = state["alerts"].get(alert_key)
     if entry is None:
         return True  # never alerted before
 
@@ -116,7 +165,10 @@ def should_send(state, alert_key):
     if entry.get("resolved"):
         return True
 
-    last_at = datetime.fromisoformat(entry["last_alert"])
+    last_alert = entry.get("last_alert")
+    if not last_alert:
+        return True  # malformed/legacy entry — treat as sendable, main() will normalize
+    last_at = datetime.fromisoformat(last_alert)
     cooldown = get_cooldown(entry.get("count", 1))
     if now - last_at >= timedelta(minutes=cooldown):
         return True
@@ -262,22 +314,16 @@ def check_health_endpoints():
         name = ep.get("name", url)
         rc, out = run(["curl", "-sS", "-m", "10", "-w", "\n%{http_code}", url])
         if rc != 0:
-            failures.append(
-                {"type": "health", "name": name, "detail": f"不可达: {out[:200]}"}
-            )
+            failures.append({"type": "health", "name": name, "detail": f"不可达: {out[:200]}"})
             continue
         lines = out.splitlines()
         if len(lines) < 2:
-            failures.append(
-                {"type": "health", "name": name, "detail": f"异常响应: {out[:200]}"}
-            )
+            failures.append({"type": "health", "name": name, "detail": f"异常响应: {out[:200]}"})
             continue
         http_code = lines[-1]
         body = "\n".join(lines[:-1])
         if http_code != "200":
-            failures.append(
-                {"type": "health", "name": name, "detail": f"HTTP {http_code}"}
-            )
+            failures.append({"type": "health", "name": name, "detail": f"HTTP {http_code}"})
             continue
         try:
             raw = json.loads(body)
@@ -288,14 +334,10 @@ def check_health_endpoints():
 
         status = data.get("status", "")
         if status not in ("ok", "healthy"):
-            failures.append(
-                {"type": "health", "name": name, "detail": f"状态异常: status={status}"}
-            )
+            failures.append({"type": "health", "name": name, "detail": f"状态异常: status={status}"})
 
         if data.get("db") == "error" or data.get("database") == "error":
-            failures.append(
-                {"type": "health", "name": name, "detail": "数据库连接失败"}
-            )
+            failures.append({"type": "health", "name": name, "detail": "数据库连接失败"})
 
         if data.get("llm") in ("unavailable", "low"):
             label = "LLM 额度不足" if data["llm"] == "low" else "LLM 不可用"
@@ -335,8 +377,10 @@ def check_metrics_anomalies(state: dict):
 
     for ep in ENDPOINTS:
         name = ep.get("name", ep["url"])
-        key = f"metrics:{name}"
-        prev = state.get(key, {})
+        # Snapshots live in their own namespace, fully separate from alert state,
+        # so they can never collide with an alert entry (which is what caused the
+        # KeyError crash loop). Keyed simply by endpoint name.
+        prev = state["snapshots"].get(name, {})
 
         m = fetch_metrics(ep["url"])
         if m is None:
@@ -346,9 +390,7 @@ def check_metrics_anomalies(state: dict):
         llm = m.get("llm", {})
 
         requests_15m = _delta({"requests": reqs, "_metrics_prev": prev}, "total")
-        errors_15m = reqs.get("by_status", {}).get("5xx", 0) - prev.get(
-            "_metrics_prev", {}
-        ).get("err5xx", 0)
+        errors_15m = reqs.get("by_status", {}).get("5xx", 0) - prev.get("_metrics_prev", {}).get("err5xx", 0)
         errors_15m = max(0, errors_15m)
 
         # Anomaly: request count dropped > 80% vs previous 15-min window
@@ -393,9 +435,8 @@ def check_metrics_anomalies(state: dict):
                 }
             )
 
-        # Store current snapshot for next comparison, preserving alert state
-        prev_entry = state.get(key, {})
-        state[key] = {
+        # Store current snapshot for next comparison, in the snapshots namespace.
+        state["snapshots"][name] = {
             "total": reqs.get("total", 0),
             "err5xx": reqs.get("by_status", {}).get("5xx", 0),
             "uptime_seconds": m.get("uptime_seconds", 0),
@@ -405,8 +446,6 @@ def check_metrics_anomalies(state: dict):
             "llm_tokens": llm.get("tokens_used", 0),
             "degraded": llm.get("degraded_providers", 0),
             "p95_ms": reqs.get("latency_ms", {}).get("p95", 0),
-            "resolved": prev_entry.get("resolved", False),
-            "resolved_at": prev_entry.get("resolved_at"),
             "_metrics_prev": {
                 "total": prev.get("total", 0),
                 "err5xx": prev.get("err5xx", 0),
@@ -558,88 +597,89 @@ def main():
     hostname = "yeacoyun"
 
     state = load_state()
-    daily = state.get("_daily", {})
-    today = now.strftime("%Y-%m-%d")
-    if daily.get("_date") != today:
-        daily = {"_date": today, "_sent": 0}
-        state["_daily"] = daily
+    try:
+        daily = state["daily"]
+        today = now.strftime("%Y-%m-%d")
+        if daily.get("date") != today:
+            daily["date"] = today
+            daily["sent"] = 0
 
-    # Run all checks
-    all_failures = []
-    for check_fn in [
-        check_containers,
-        check_disk,
-        check_cpu,
-        check_memory,
-        check_health_endpoints,
-    ]:
-        all_failures.extend(check_fn())
-    all_failures.extend(check_metrics_anomalies(state))
+        # Run all checks
+        all_failures = []
+        for check_fn in [
+            check_containers,
+            check_disk,
+            check_cpu,
+            check_memory,
+            check_health_endpoints,
+        ]:
+            all_failures.extend(check_fn())
+        all_failures.extend(check_metrics_anomalies(state))
 
-    # Determine current failing keys
-    active_keys = set(alert_key(f) for f in all_failures)
+        alerts = state["alerts"]
 
-    # Detect recoveries: keys in state that are not marked resolved but are no longer failing
-    recovered_keys = []
-    for key, entry in state.items():
-        if key.startswith("_"):
-            continue
-        if not entry.get("resolved") and key not in active_keys:
-            recovered_keys.append(key)
+        # Determine current failing keys
+        active_keys = set(alert_key(f) for f in all_failures)
 
-    # Send recovery email
-    if recovered_keys:
-        for key in recovered_keys:
-            state[key]["resolved"] = True
-            state[key]["resolved_at"] = now.isoformat()
-        rec_subject = f"[RECOVERY] {hostname} — {len(recovered_keys)} issue(s) resolved"
-        rec_body = build_recovery_body(recovered_keys, hostname)
-        if send_email(rec_subject, rec_body):
-            daily["_sent"] = daily.get("_sent", 0) + 1
+        # Detect recoveries: alert entries not marked resolved but no longer failing.
+        recovered_keys = []
+        for key, entry in alerts.items():
+            if not entry.get("resolved") and key not in active_keys:
+                recovered_keys.append(key)
 
-    # Process active failures — decide which to alert on
-    new_failures = []
-    for f in all_failures:
-        key = alert_key(f)
-        entry = state.get(key)
+        # Send recovery email
+        if recovered_keys:
+            for key in recovered_keys:
+                alerts[key]["resolved"] = True
+                alerts[key]["resolved_at"] = now.isoformat()
+            rec_subject = f"[RECOVERY] {hostname} — {len(recovered_keys)} issue(s) resolved"
+            rec_body = build_recovery_body(recovered_keys, hostname)
+            if send_email(rec_subject, rec_body):
+                daily["sent"] = daily.get("sent", 0) + 1
 
-        if entry and entry.get("resolved"):
-            # Was resolved, now failing again — new incident
-            entry = None
-            state[key] = {}
+        # Process active failures — decide which to alert on
+        new_failures = []
+        for f in all_failures:
+            key = alert_key(f)
+            entry = alerts.get(key)
 
-        if entry is None:
-            # First alert for this key
-            state[key] = {
-                "last_alert": now.isoformat(),
-                "count": 1,
-                "resolved": False,
-                "detail": f["detail"],
-            }
-            new_failures.append(f)
-        elif should_send(state, key):
-            entry["last_alert"] = now.isoformat()
-            entry["count"] = entry.get("count", 0) + 1
-            entry["detail"] = f["detail"]
-            new_failures.append(f)
+            if entry and entry.get("resolved"):
+                # Was resolved, now failing again — new incident
+                entry = None
+
+            if entry is None:
+                # First alert for this key
+                alerts[key] = {
+                    "last_alert": now.isoformat(),
+                    "count": 1,
+                    "resolved": False,
+                    "detail": f["detail"],
+                }
+                new_failures.append(f)
+            elif should_send(state, key):
+                entry["last_alert"] = now.isoformat()
+                entry["count"] = entry.get("count", 0) + 1
+                entry["detail"] = f["detail"]
+                entry["resolved"] = False
+                new_failures.append(f)
+            else:
+                # Update detail silently
+                entry["detail"] = f["detail"]
+
+        # Send alert email
+        if new_failures:
+            subject = f"[ALERT] {hostname} — {len(new_failures)} issue(s)"
+            body = build_email_body(new_failures, hostname)
+            if send_email(subject, body):
+                daily["sent"] = daily.get("sent", 0) + 1
+                log.info("Alert sent: %d failures", len(new_failures))
+
         else:
-            # Update detail silently
-            entry["detail"] = f["detail"]
-
-    # Send alert email
-    if new_failures:
-        subject = f"[ALERT] {hostname} — {len(new_failures)} issue(s)"
-        body = build_email_body(new_failures, hostname)
-        if send_email(subject, body):
-            daily["_sent"] = daily.get("_sent", 0) + 1
-            log.info("Alert sent: %d failures", len(new_failures))
-
-    else:
-        log.info(
-            "Check OK — no new alerts to send. Active issues: %d", len(active_keys)
-        )
-
-    save_state(state)
+            log.info("Check OK — no new alerts to send. Active issues: %d", len(active_keys))
+    finally:
+        # Always persist state — even if a check/email raised — so recovery flags
+        # and cooldowns are never lost (that loss caused the repeated-email loop).
+        save_state(state)
 
 
 if __name__ == "__main__":

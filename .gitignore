@@ -87,3 +87,9 @@ sync-log.txt
 
 # OpenClaw agent temp files
 .openclaw/
+
+# Monitor runtime files (deploy/monitor)
+deploy/monitor/state.json
+deploy/monitor/*.log
+deploy/monitor/*.bak.*
+deploy/monitor/report_*.html

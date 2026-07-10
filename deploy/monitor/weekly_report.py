@@ -30,9 +30,7 @@ WEEK_AGO = NOW - timedelta(days=7)
 
 def run(cmd, timeout=15):
     try:
-        r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout
-        )
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
         return r.returncode, r.stdout.strip()
     except Exception:
         return -1, ""
@@ -160,9 +158,7 @@ def collect_containers():
                 "unhealthy": unhealthy,
                 "uptime": c.get("RunningFor", "?"),
                 "uptime_h": dur(c.get("RunningFor", "")) if state == "running" else 0,
-                "status_short": "healthy"
-                if healthy
-                else ("unhealthy" if unhealthy else state),
+                "status_short": "healthy" if healthy else ("unhealthy" if unhealthy else state),
             }
         )
 
@@ -202,8 +198,14 @@ def collect_recent_alerts():
         state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     except Exception:
         return alerts
-    for key, entry in state.items():
-        if key.startswith("_"):
+    # New namespaced format stores alert entries under "alerts"; fall back to the
+    # legacy flat format (entries at top level, "_"-prefixed keys are non-alerts).
+    if isinstance(state.get("alerts"), dict):
+        entries = state["alerts"].items()
+    else:
+        entries = [(k, v) for k, v in state.items() if not k.startswith("_")]
+    for key, entry in entries:
+        if not isinstance(entry, dict):
             continue
         try:
             last = datetime.fromisoformat(entry["last_alert"])
@@ -308,11 +310,7 @@ def bar(pct, label=""):
 def tag(status):
     ok_set = {"running", "healthy", "normal", "running", "运行中", "正常"}
     err_set = {"exited", "unhealthy", "dead", "已停止", "异常", "已死亡"}
-    cls = (
-        "tag-ok"
-        if status in ok_set
-        else ("tag-err" if status in err_set else "tag-warn")
-    )
+    cls = "tag-ok" if status in ok_set else ("tag-err" if status in err_set else "tag-warn")
     label = status.upper() if status.isascii() else status
     return f'<span class="tag {cls}">{label}</span>'
 
@@ -366,7 +364,9 @@ def build_html(sys_info, res, containers, stats, alerts):
                 f"<td style='font-size:11px'>{a['last']}</td><td style='font-size:11px;color:var(--c-dim,#94a3b8)'>{a['detail'][:60]}</td></tr>"
             )
     else:
-        alert_rows = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--c-dim,#94a3b8)">本周无告警</td></tr>'
+        alert_rows = (
+            '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--c-dim,#94a3b8)">本周无告警</td></tr>'
+        )
 
     range_str = f"{WEEK_AGO.strftime('%m/%d')} &mdash; {NOW.strftime('%m/%d')}"
     css_block = f"<style>{CSS}</style>"
