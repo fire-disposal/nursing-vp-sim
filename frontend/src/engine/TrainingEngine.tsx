@@ -9,6 +9,7 @@ import { getPatientPortraitUrl } from "@/utils/patient-portrait";
 import { createMessageBus } from "./MessageBus";
 import type { EmotionState } from "./PanelContext";
 import {
+	EMOTION_LABELS,
 	PanelStateProvider,
 	useEmotion,
 	usePortrait,
@@ -203,7 +204,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 		return busRef.current.on(
 			"emotion:changed",
 			(data: { state: string }) => {
-				setEmotion(data.state as EmotionState);
+				setEmotion((data.state in EMOTION_LABELS ? data.state : "neutral") as EmotionState);
 				if (patient) {
 					setPortraitUrl(getPatientPortraitUrl(patient, data.state));
 				}

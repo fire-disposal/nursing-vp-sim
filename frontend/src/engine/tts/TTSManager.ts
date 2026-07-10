@@ -1,4 +1,4 @@
-import type { EmotionState } from "../PanelContext";
+import { EMOTION_LABELS, type EmotionState } from "../PanelContext";
 import type { MessageBus } from "../types";
 import { createBrowserTTS } from "./browser-tts";
 import type { TTSManagerConfig, TTSProvider } from "./types";
@@ -61,7 +61,7 @@ export class TTSManager {
 		const unsubEmotion = bus.on(
 			"emotion:changed",
 			(data: { state: string }) => {
-				this.currentEmotion = data.state as EmotionState;
+				this.currentEmotion = (data.state in EMOTION_LABELS ? data.state : "neutral") as EmotionState;
 				this.fallbackProvider.emotion = data.state;
 			},
 		);
