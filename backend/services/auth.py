@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.exceptions import AuthError, ConflictError, NotFoundError, ValidationError
 from core.login_strategies import get_strategy_registry
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
+from core.unit_of_work import unit_of_work
 from infrastructure.wechat import code2session
 from models import Class, Role, User, UserClass
 from schemas import (
@@ -104,13 +105,11 @@ class AuthService:
             student_id=req.student_id,
             gender=req.gender,
         )
-        self.db.add(user)
-        self.db.flush()
-
-        if req.class_id is not None:
-            self.db.add(UserClass(user_id=user.id, class_id=req.class_id))
-
-        self.db.commit()
+        with unit_of_work(self.db, conflict_detail="用户名已存在"):
+            self.db.add(user)
+            self.db.flush()
+            if req.class_id is not None:
+                self.db.add(UserClass(user_id=user.id, class_id=req.class_id))
         self.db.refresh(user)
         log.info(
             "用户注册: target_id=%d target_name=%s role=%s",

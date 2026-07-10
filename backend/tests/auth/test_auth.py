@@ -89,6 +89,53 @@ class TestRegister:
         )
         assert resp.status_code == 409
 
+    def test_register_duplicate_race_returns_409(self, client, teacher, db_session, engine):
+        import threading
+
+        from sqlalchemy.orm import sessionmaker
+
+        from core.exceptions import ConflictError
+        from models import Role, User
+        from schemas import RegisterRequest
+        from services.auth import AuthService
+
+        results = []
+        barrier = threading.Barrier(2)
+
+        def do_register():
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            session = SessionLocal()
+            try:
+                teacher_user = session.query(User).join(User.role).filter(Role.name == "teacher").first()
+                svc = AuthService(session)
+                req = RegisterRequest(
+                    username="conc_dup",
+                    password="123456",
+                    role="student",
+                    display_name="Conc",
+                )
+                barrier.wait()
+                try:
+                    svc.register(req, teacher_user)
+                    results.append("ok")
+                except ConflictError:
+                    results.append("conflict")
+                except Exception:
+                    results.append("error")
+            finally:
+                session.rollback()
+                session.close()
+
+        t1 = threading.Thread(target=do_register)
+        t2 = threading.Thread(target=do_register)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert "ok" in results, f"Expected one success, got {results}"
+        assert "error" not in results, f"Expected no raw IntegrityError (500), got {results}"
+
     def test_register_requires_teacher(self, client, student):
         """Student cannot register users."""
         _, token = student
