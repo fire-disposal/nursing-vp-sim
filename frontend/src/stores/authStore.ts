@@ -88,12 +88,22 @@ const useAuthStore = create<ExtendedAuthState>()(
 					const { data } = await apiRefreshToken();
 					set({ token: data.access_token, permissions: data.permissions });
 					return true;
-				} catch {
-					console.warn("[authStore] refreshAuth 失败 — 另一标签页可能已刷新令牌");
+			} catch (err: unknown) {
+				const is401 = (
+					err != null &&
+					typeof err === "object" &&
+					"response" in err &&
+					(err as { response?: { status?: number } }).response?.status === 401
+				);
+				if (is401) {
+					console.warn("[authStore] refreshAuth 401 — 清除会话");
 					stopRefreshTimer();
 					set({ user: null, token: null, permissions: [] });
-					return false;
+				} else {
+					console.warn("[authStore] refreshAuth 网络/服务端错误 — 保持现有会话", err);
 				}
+				return false;
+			}
 			},
 
 			refreshUser: async (): Promise<void> => {
@@ -147,9 +157,6 @@ const useAuthStore = create<ExtendedAuthState>()(
 				return (state) => {
 					if (!state?.token) return;
 					startRefreshTimer();
-					if (state.user) {
-						useAuthStore.getState().refreshAuth().catch(() => {});
-					}
 				};
 			},
 		},
