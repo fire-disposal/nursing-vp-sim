@@ -38,6 +38,7 @@ SYSTEM_PERMISSIONS: dict[str, list[str]] = {
         "grade_class_manage",
         "case_manage",
         "training_access",
+        "qa_access",
         "score_review",
         "stats_view",
         "assignment_manage",
