@@ -461,6 +461,24 @@
               "title": "Difficulty"
             },
             "description": "困难程度 1=初级 2=中级 3=高级"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "病例名称模糊搜索",
+              "title": "Name"
+            },
+            "description": "病例名称模糊搜索"
           }
         ],
         "responses": {

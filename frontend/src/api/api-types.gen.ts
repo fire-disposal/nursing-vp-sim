@@ -5245,6 +5245,8 @@ export interface operations {
                 training_type?: string | null;
                 /** @description 困难程度 1=初级 2=中级 3=高级 */
                 difficulty?: number | null;
+                /** @description 病例名称模糊搜索 */
+                name?: string | null;
             };
             header?: never;
             path?: never;
