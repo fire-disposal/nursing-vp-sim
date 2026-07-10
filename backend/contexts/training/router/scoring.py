@@ -153,9 +153,13 @@ def _handle_scoring_failure(
             db.expire_all()
             record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
             if record and record.scoring_status == "processing":
-                record.scoring_status = "failed"
-                record.scoring_error = error_msg[:2000]
+                terminal = _resolve_terminal_status(db, record_id, intended="failed")
+                record.scoring_status = terminal
+                record.scoring_error = None if terminal == "completed" else error_msg[:2000]
                 db.commit()
+                if terminal == "completed":
+                    log.info("评分超时但已存在有效 Score，纠正为 completed", extra={"record_id": record_id})
+                    return
                 actual_user_id = user_id or record.user_id
                 _create_notification(
                     db,

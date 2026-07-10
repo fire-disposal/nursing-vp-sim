@@ -57,3 +57,19 @@ def test_resolve_terminal_status_keeps_failed_when_no_score(db_session):
     db_session.flush()
     status = _resolve_terminal_status(db_session, rec.id, intended="failed")
     assert status == "failed"
+
+
+def test_handle_scoring_failure_corrects_to_completed_when_score_exists(db_session, record_with_score, monkeypatch):
+    import core.database
+
+    monkeypatch.setattr(core.database, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+
+    from contexts.training.router import scoring as scoring_mod
+
+    scoring_mod._handle_scoring_failure(record_with_score.id, "评分超时")
+
+    db_session.expire_all()
+    rec = db_session.query(TrainingRecord).filter(TrainingRecord.id == record_with_score.id).first()
+    assert rec.scoring_status == "completed"
+    assert rec.scoring_error is None
