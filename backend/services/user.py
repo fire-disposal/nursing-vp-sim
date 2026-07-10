@@ -230,7 +230,7 @@ class UserService:
             limit=limit,
         )
 
-    def update(self, user_id: int, req: UserUpdateRequest) -> UserBriefView:
+    def update(self, user_id: int, req: UserUpdateRequest, current_user: User | None = None) -> UserBriefView:
         user = self.repo.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
@@ -240,6 +240,8 @@ class UserService:
             if req.student_id is not None:
                 user.student_id = req.student_id or None
             if req.role is not None:
+                if current_user and current_user.id == user_id:
+                    raise ValidationError("不能修改自己的角色")
                 role_obj = self.repo.get_role_by_name(req.role)
                 if not role_obj:
                     raise ValidationError("角色不存在")

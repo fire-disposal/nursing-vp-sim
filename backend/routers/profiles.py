@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter
 from sqlalchemy import func
 
-from core.deps import DbSession
+from core.deps import CurrentUser, DbSession
 from models import Case
 from profiles.registry import get_known_types, get_profile
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/profiles", tags=["训练类型"])
 
 
 @router.get("")
-def list_profiles(db: DbSession):
+def list_profiles(db: DbSession, current_user: CurrentUser):
     """Return all registered training types with metadata."""
     type_counts: dict[str, int] = {
         training_type: count

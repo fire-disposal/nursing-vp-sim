@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
@@ -125,7 +126,18 @@ export function SceneRenderer() {
             ) : (
               <Suspense fallback={<div className="h-20" />}>
                 <SceneStateProvider bus={bus}>
-                  <activeCard.component {...cardProps} />
+                  <ErrorBoundary
+                    fallback={
+                      <div className="flex flex-col items-center gap-2 p-4 text-sm text-muted-foreground">
+                        <span>卡片加载失败</span>
+                        <span className="text-xs">
+                          {ALL_CAPABILITIES[activeCard.featureFlag ?? ""]?.label ?? activeCard.id}
+                        </span>
+                      </div>
+                    }
+                  >
+                    <activeCard.component {...cardProps} />
+                  </ErrorBoundary>
                 </SceneStateProvider>
               </Suspense>
             )}

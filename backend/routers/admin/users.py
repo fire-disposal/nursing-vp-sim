@@ -114,7 +114,7 @@ def export_users(
 
 @router.put("/users/{user_id}", response_model=UserBrief)
 def update_user(user_id: int, req: UserUpdateRequest, current_user: _Manager, db: DbSession):
-    view = UserService(db).update(user_id, req)
+    view = UserService(db).update(user_id, req, current_user=current_user)
     log.info(
         f"用户更新: target_id={user_id} target_name={view.username}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
