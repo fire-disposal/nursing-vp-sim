@@ -109,6 +109,10 @@ BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))
 # 自动结算与智能评分
 REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "300"))
 SCORING_TIMEOUT_SECONDS = int(os.getenv("SCORING_TIMEOUT_SECONDS", "180"))
+# retry_scoring 判定"评分仍在进行中"的宽限窗口 —— 必须 >= SCORING_TIMEOUT_SECONDS，
+# 否则会出现"任务已超时标 failed，但守卫仍认为在进行中"或"任务仍在跑却被重试抢占"的错配。
+# 取值 = 全局评分超时 + 30s 缓冲。是超时/守卫/文案的单一来源。
+SCORING_RETRY_GRACE_SECONDS = SCORING_TIMEOUT_SECONDS + 30
 CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "30"))
 AUTO_SCORE_COVERED_INQUIRIES_MIN = int(os.getenv("AUTO_SCORE_COVERED_INQUIRIES_MIN", "5"))
 AUTO_SCORE_STUDENT_CHARS_MIN = int(os.getenv("AUTO_SCORE_STUDENT_CHARS_MIN", "200"))
