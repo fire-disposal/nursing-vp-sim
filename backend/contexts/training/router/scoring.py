@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from contexts.training.score_engine import evaluate_training
-from core.config import SCORING_TIMEOUT_SECONDS
+from core.config import SCORING_RETRY_GRACE_SECONDS, SCORING_TIMEOUT_SECONDS
 from core.database import SessionLocal, db_session, get_db
 from core.datetime_utils import ensure_utc
 from core.security import get_current_user
@@ -276,11 +276,12 @@ async def _run_scoring_background(
         )
     except TimeoutError:
         log.exception("[SCORING] TIMEOUT record_id=%d", record_id)
+        _timeout_msg = f"评分超时（超过{SCORING_TIMEOUT_SECONDS}秒）"
         if tracker:
-            tracker.update(record_id, "failed", 0, "评分超时（超过5分钟）")
+            tracker.update(record_id, "failed", 0, _timeout_msg)
         _handle_scoring_failure(
             record_id,
-            "评分超时（超过5分钟）",
+            _timeout_msg,
             tracker=tracker,
             realtime_hub=realtime_hub,
         )
@@ -389,7 +390,7 @@ async def retry_scoring(
 
         now = datetime.now(UTC)
         if record.scoring_status in ("pending", "processing"):
-            if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= 300:
+            if record.end_time and (now - ensure_utc(record.end_time)).total_seconds() <= SCORING_RETRY_GRACE_SECONDS:
                 raise HTTPException(status_code=400, detail="评分正在进行中，请稍后重试")
 
         if not _try_acquire_scoring(record_id, db, allow_retry=True):

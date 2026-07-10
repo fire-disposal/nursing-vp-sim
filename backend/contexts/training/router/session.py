@@ -56,7 +56,7 @@ def _try_acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
     同时消除并发触发同一 record 评分的竞态。
 
     - allow_retry=False: 仅从 NULL 状态获取（正常 end_training 流程）
-    - allow_retry=True:  从任何可重试状态获取（retry_scoring 流程），
+    - allow_retry=True:  从 NULL/completed/failed 获取（不抢占进行中的 pending/processing），
                          同时清除 scoring_error
     """
     from sqlalchemy import text
@@ -66,7 +66,7 @@ def _try_acquire_scoring(record_id: int, db, allow_retry: bool = False) -> bool:
             text(
                 "UPDATE training_records SET scoring_status = 'pending', scoring_error = NULL "
                 "WHERE id = :id AND ("
-                "  scoring_status IS NULL OR scoring_status IN ('completed', 'failed', 'pending', 'processing')"
+                "  scoring_status IS NULL OR scoring_status IN ('completed', 'failed')"
                 ")"
             ),
             {"id": record_id},
