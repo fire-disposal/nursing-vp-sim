@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+from core.datetime_utils import ensure_utc
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class ProfileRouter:
                 if profile and profile.status == "active":
                     return binding
                 if profile and profile.status == "degraded":
-                    if profile.degraded_until and now < profile.degraded_until:
+                    if profile.degraded_until and now < ensure_utc(profile.degraded_until):
                         pass
                     else:
                         profile.status = "active"
@@ -263,7 +264,9 @@ class ProfileRouter:
             if row:
                 profile.status = row.status
                 profile.degraded_reason = row.degraded_reason
-                profile.degraded_until = row.degraded_until
+                profile.degraded_until = (
+                    ensure_utc(row.degraded_until) if row.degraded_until else None
+                )
                 profile.consecutive_failures = row.consecutive_failures
         except Exception:
             log.debug("Failed to refresh profile %d from DB", profile.id, exc_info=True)

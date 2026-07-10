@@ -79,6 +79,36 @@ def test_select_uses_degraded_after_ttl():
     assert secret.status == "active"
 
 
+def test_select_handles_naive_degraded_until_expired():
+    """回归：DB 返回 naive datetime（已过期）时不得抛 TypeError，应恢复为 active。"""
+    router = ProfileRouter()
+    secret = _make_secret(status="degraded")
+    secret.degraded_until = (datetime.now(UTC) - timedelta(seconds=1)).replace(tzinfo=None)
+    assert secret.degraded_until.tzinfo is None
+    cfg = _make_config(1, secret)
+    router._profiles = {secret.id: secret}
+    router._bindings = {"qa": cfg}
+
+    result = router.select("qa")
+    assert result.id == 1
+    assert secret.status == "active"
+
+
+def test_select_handles_naive_degraded_until_active():
+    """回归：naive 且未过期的 degraded_until 也不得崩溃，应保持降级。"""
+    router = ProfileRouter()
+    secret = _make_secret(status="degraded")
+    secret.degraded_until = (datetime.now(UTC) + timedelta(minutes=5)).replace(tzinfo=None)
+    assert secret.degraded_until.tzinfo is None
+    cfg = _make_config(1, secret)
+    router._profiles = {secret.id: secret}
+    router._bindings = {"qa": cfg}
+
+    result = router.select("qa")
+    assert isinstance(result, _SyntheticConfig)
+    assert secret.status == "degraded"
+
+
 def test_select_all_unavailable():
     router = ProfileRouter()
     secret = _make_secret(status="disabled")
