@@ -180,9 +180,8 @@ class AuthService:
         if existing:
             raise ConflictError(detail="此微信已绑定其他账号")
 
-        current_user.wechat_openid = openid
         with unit_of_work(self.db, conflict_detail="此微信已被绑定"):
-            pass
+            current_user.wechat_openid = openid
         log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid[:4] + "***")
         return OkResponse(message="微信绑定成功")
 
@@ -218,9 +217,8 @@ class AuthService:
             display_name=display_name,
             wechat_openid=openid,
         )
-        self.db.add(user)
         with unit_of_work(self.db, conflict_detail="此微信已注册"):
-            pass
+            self.db.add(user)
         self.db.refresh(user)
 
         log.info("微信注册成功: openid=%s username=%s", openid[:4] + "***", username)

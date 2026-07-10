@@ -128,8 +128,7 @@ class UserService:
             if class_id:
                 self.db.add(UserClass(user_id=user.id, class_id=class_id))
             created += 1
-        with unit_of_work(self.db, conflict_detail="批量建用户冲突"):
-            pass
+        self.db.commit()
         return {"created": created, "skipped": skipped, "errors": errors}
 
     def get_stats(self) -> dict:
