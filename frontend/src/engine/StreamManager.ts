@@ -157,15 +157,22 @@ export class StreamManager {
 				content,
 				(chunk) => {
 					const msg = this.findStreaming();
-					if (msg) msg.content += chunk;
+					if (msg) {
+						this.messages = this.messages.map(m =>
+							m.id === msg.id ? { ...m, content: m.content + chunk } : m
+						);
+					}
 					this.scheduleNotify();
 					callbacks.onPatientChunk?.(chunk);
 				},
 				(doneId) => {
 					const msg = this.findStreaming();
 					if (msg) {
-						msg.streaming = false;
-						if (doneId) msg.id = doneId;
+						this.messages = this.messages.map(m =>
+							m.id === msg.id
+								? { ...m, streaming: false, ...(doneId ? { id: doneId } : {}) }
+								: m
+						);
 					}
 					this.notifySync();
 					callbacks.onPatientDone?.(doneId);
@@ -175,8 +182,9 @@ export class StreamManager {
 				(err) => {
 					const partial = this.findStreaming();
 					if (partial?.content.trim()) {
-						partial.streaming = false;
-						partial.streamError = err;
+						this.messages = this.messages.map(m =>
+							m.id === partial.id ? { ...m, streaming: false, streamError: err } : m
+						);
 					} else {
 						this.messages = this.messages.filter(
 							(m) => !m.streaming && m.id !== placeholderId,
@@ -216,8 +224,11 @@ export class StreamManager {
 		} catch (err: unknown) {
 			const partial = this.findStreaming();
 			if (partial?.content.trim()) {
-				partial.streaming = false;
-				partial.streamError = (err as Error)?.message || "发送失败";
+				this.messages = this.messages.map(m =>
+					m.id === partial.id
+						? { ...m, streaming: false, streamError: (err as Error)?.message || "发送失败" }
+						: m
+				);
 			} else {
 				this.messages = this.messages.filter(
 					(m) => !m.streaming && m.id !== placeholderId,
