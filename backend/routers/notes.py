@@ -75,6 +75,16 @@ def create_note(
         tags=req.tags,
         is_private=req.is_private,
     )
+    if req.record_id is not None:
+        from models import TrainingRecord
+
+        owns = (
+            db.query(TrainingRecord.id)
+            .filter(TrainingRecord.id == req.record_id, TrainingRecord.user_id == current_user.id)
+            .first()
+        )
+        if not owns:
+            raise NotFoundError("训练记录不存在")
     db.add(note)
     db.commit()
     db.refresh(note)
