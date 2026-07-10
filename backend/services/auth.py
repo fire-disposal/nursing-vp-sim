@@ -181,7 +181,8 @@ class AuthService:
             raise ConflictError(detail="此微信已绑定其他账号")
 
         current_user.wechat_openid = openid
-        self.db.commit()
+        with unit_of_work(self.db, conflict_detail="此微信已被绑定"):
+            pass
         log.info("微信绑定成功: user=%s openid=%s", current_user.username, openid[:4] + "***")
         return OkResponse(message="微信绑定成功")
 
