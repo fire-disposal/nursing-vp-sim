@@ -27,6 +27,7 @@ export function SceneRenderer() {
   const [minimized, setMinimized] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ x: 0, y: 0, dragging: false });
+  const dragCleanupRef = useRef<(() => void) | null>(null);
 
   const toggleMinimize = useCallback((id: string) => {
     setMinimized((prev) => {
@@ -57,10 +58,18 @@ export function SceneRenderer() {
       el.style.left = `${ev.clientX - dragRef.current.x}px`;
       el.style.top = `${ev.clientY - dragRef.current.y}px`;
     };
-    const onUp = () => { dragRef.current.dragging = false; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    const onUp = () => { dragRef.current.dragging = false; document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); dragCleanupRef.current = null; };
 
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
+    dragCleanupRef.current = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => dragCleanupRef.current?.();
   }, []);
 
   if (cards.length === 0) return null;
