@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 from core.exceptions import AuthError, ValidationError
+from core.permissions import PERMISSION_KEYS
 from core.security import clear_permission_cache
 from core.unit_of_work import unit_of_work
 from models import Role, RolePermission
@@ -45,9 +46,26 @@ class RoleService:
         counts = self.repo.user_counts(role_ids)
         return [self._view(r, perms_map.get(r.id, []), counts.get(r.id, 0)) for r in roles]
 
-    def create(self, name: str, display_name: str, permissions: list[str]) -> RoleView:
+    def _validate_permissions(self, permissions: list[str], grantable: set[str] | None) -> None:
+        unknown = sorted(set(permissions) - set(PERMISSION_KEYS))
+        if unknown:
+            raise ValidationError(f"未知权限: {unknown}")
+        if grantable is not None:
+            escalated = sorted(set(permissions) - grantable)
+            if escalated:
+                raise AuthError(f"无权授予以下权限: {escalated}", status_code=403)
+
+    def create(
+        self,
+        name: str,
+        display_name: str,
+        permissions: list[str],
+        *,
+        grantable: set[str] | None = None,
+    ) -> RoleView:
         if self.repo.name_exists(name):
             raise ValidationError("角色名已存在")
+        self._validate_permissions(permissions, grantable)
         with unit_of_work(self.db, conflict_detail="角色名已存在"):
             role = self.repo.add(Role(name=name, display_name=display_name, is_system=False))
             for perm in permissions:
@@ -55,11 +73,18 @@ class RoleService:
         return self._view(role, list(permissions), 0)
 
     def update(
-        self, role_id: int, *, display_name: str | None = None, permissions: list[str] | None = None
+        self,
+        role_id: int,
+        *,
+        display_name: str | None = None,
+        permissions: list[str] | None = None,
+        grantable: set[str] | None = None,
     ) -> RoleView:
         role = self.repo.get_or_404(role_id, "角色不存在")
         if role.is_system:
             raise AuthError("系统角色不可修改", status_code=403)
+        if permissions is not None:
+            self._validate_permissions(permissions, grantable)
         with unit_of_work(self.db, conflict_detail="角色冲突"):
             if display_name is not None:
                 role.display_name = display_name

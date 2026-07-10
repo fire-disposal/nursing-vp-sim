@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 
 from core.deps import DbSession
-from core.security import require_permission
+from core.security import load_role_permissions, require_permission
 from infrastructure.exporter import ColumnDef, export_response
 from models import User
 from schemas import DeleteResponse, RoleCreateRequest, RoleResponse, RoleUpdateRequest
@@ -12,6 +12,10 @@ from services.role import RoleService
 router = APIRouter(prefix="/api/admin/roles", tags=["角色管理"])
 
 _Manager = Annotated[User, Depends(require_permission("role_manage"))]
+
+
+def _grantable(current_user: User, db) -> set[str]:
+    return set(load_role_permissions(db, current_user.role_id))
 
 
 def _resp(view) -> RoleResponse:
@@ -36,12 +40,26 @@ def list_roles(
 
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 def create_role(req: RoleCreateRequest, current_user: _Manager, db: DbSession):
-    return _resp(RoleService(db).create(req.name, req.display_name, req.permissions))
+    return _resp(
+        RoleService(db).create(
+            req.name,
+            req.display_name,
+            req.permissions,
+            grantable=_grantable(current_user, db),
+        )
+    )
 
 
 @router.put("/{role_id}", response_model=RoleResponse)
 def update_role(role_id: int, req: RoleUpdateRequest, current_user: _Manager, db: DbSession):
-    return _resp(RoleService(db).update(role_id, display_name=req.display_name, permissions=req.permissions))
+    return _resp(
+        RoleService(db).update(
+            role_id,
+            display_name=req.display_name,
+            permissions=req.permissions,
+            grantable=_grantable(current_user, db),
+        )
+    )
 
 
 @router.post("/export")
