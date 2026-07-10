@@ -4,15 +4,15 @@ import { useCallback } from "react";
 
 const ORDER = ["light", "dark", "system"] as const;
 
-function NextIcon(theme: string | undefined) {
-	if (theme === "dark") return Sun;
-	if (theme === "system" || !theme) return Moon;
+function CurrentIcon(theme: string | undefined) {
+	if (theme === "dark") return Moon;
+	if (theme === "light") return Sun;
 	return Monitor;
 }
 
 function Label(theme: string | undefined) {
-	if (theme === "dark") return "亮色模式";
-	if (theme === "system" || !theme) return "深色模式";
+	if (theme === "dark") return "深色模式";
+	if (theme === "light") return "亮色模式";
 	return "跟随系统";
 }
 
@@ -24,7 +24,7 @@ export function ModeToggle() {
 		setTheme(ORDER[(idx + 1) % ORDER.length]);
 	}, [setTheme, theme]);
 
-	const Icon = NextIcon(theme);
+	const Icon = CurrentIcon(theme);
 
 	return (
 		<button
