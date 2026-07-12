@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import time
 from typing import Annotated
 
@@ -31,7 +32,10 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/asr", tags=["ASR"])
 
 _ASR_IDLE_TIMEOUT = 30  # seconds without audio before auto-close
-_ASR_COST_PER_CHAR = 0.00005  # CNY per character (Volcengine SAUC pricing)
+# 火山流式 ASR 按音频时长计费。浏览器上传 16kHz mono 16-bit PCM => 32000 bytes/s。
+_ASR_BYTES_PER_SEC = 16000 * 2
+# 每秒费率（占位估值，须由运维按实际报价经 ASR_COST_PER_SECOND 覆盖）。
+_ASR_COST_PER_SECOND = float(os.getenv("ASR_COST_PER_SECOND", "0.0018"))
 
 
 def _load_active_config(db: Session) -> tuple[str, VoiceConfig] | None:
@@ -111,6 +115,7 @@ async def asr_stream(websocket: WebSocket, token: str = Query(default="")) -> No
 
         final_text = ""
         t0 = time.perf_counter()
+        audio_stats = {"bytes": 0}  # 累计上行音频字节，用于按时长计费
 
         async def browser_to_upstream() -> None:
             last_audio = time.perf_counter()
@@ -125,6 +130,7 @@ async def asr_stream(websocket: WebSocket, token: str = Query(default="")) -> No
                     raise WebSocketDisconnect
                 if (data := msg.get("bytes")) is not None:
                     last_audio = time.perf_counter()
+                    audio_stats["bytes"] += len(data)
                     await client.send_audio(data)
                 elif (text := msg.get("text")) is not None:
                     try:
@@ -170,6 +176,7 @@ async def asr_stream(websocket: WebSocket, token: str = Query(default="")) -> No
         # Best-effort usage log
         if final_text:
             latency_ms = int((time.perf_counter() - t0) * 1000)
+            duration_sec = audio_stats["bytes"] / _ASR_BYTES_PER_SEC
             db.add(
                 VoiceCallLog(
                     user_id=user_id,
@@ -178,7 +185,7 @@ async def asr_stream(websocket: WebSocket, token: str = Query(default="")) -> No
                     text_length=len(final_text),
                     latency_ms=latency_ms,
                     status="success",
-                    cost_estimated=round(len(final_text) * _ASR_COST_PER_CHAR, 6),
+                    cost_estimated=round(duration_sec * _ASR_COST_PER_SECOND, 6),
                 )
             )
             db.commit()
