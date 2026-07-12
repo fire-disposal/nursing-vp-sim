@@ -1,5 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { queryKeys } from "@/api/query-keys";
+import { getRecordDetail } from "@/api/training";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
@@ -221,6 +224,28 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 			},
 		);
 	}, []);
+
+	// 继续训练：回填服务器端持久化的情绪(信赖/舒适/状态)，仅一次。
+	const { data: _restoreRecord } = useQuery({
+		queryKey: queryKeys.training.record(String(recordNum)),
+		queryFn: () => getRecordDetail(recordNum).then((r) => r.data),
+		enabled: recordNum > 0,
+	});
+	const emotionSeededRef = useRef(false);
+	useEffect(() => {
+		if (emotionSeededRef.current || !_restoreRecord) return;
+		const em = (_restoreRecord as unknown as {
+			emotion?: { trust?: number; comfort?: number; state?: string };
+		}).emotion;
+		if (em && typeof em.trust === "number" && typeof em.comfort === "number") {
+			busRef.current.emit("emotion:changed", {
+				state: em.state ?? "neutral",
+				trust: em.trust,
+				comfort: em.comfort,
+			});
+		}
+		emotionSeededRef.current = true;
+	}, [_restoreRecord]);
 
 	useEffect(() => {
 		return busRef.current.on("stream:error", (err: string) => {

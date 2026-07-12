@@ -1,6 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
-import { submitTriage } from "@/api/training";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { queryKeys } from "@/api/query-keys";
+import { getRecordDetail, submitTriage } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { useSceneStateValue } from "@/engine/useSceneBus";
 import { calcMews, type MewsInput } from "@/utils/mews";
@@ -28,6 +29,27 @@ export default function MewsPanel({ recordId }: SceneCardProps) {
   const [department, setDepartment] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  // 继续训练/查看：回填已提交的分诊结果（仅一次）。
+  const { data: record } = useQuery({
+    queryKey: queryKeys.training.record(String(recordId)),
+    queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
+    enabled: !!recordId,
+  });
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || !record) return;
+    const tr = (record as unknown as {
+      triage_result?: { category?: string; department?: string; notes?: string };
+    }).triage_result;
+    if (tr && (tr.category || tr.department)) {
+      setCategory(tr.category ?? "");
+      setDepartment(tr.department ?? "");
+      setNotes(tr.notes ?? "");
+      setSubmitted(true);
+    }
+    seededRef.current = true;
+  }, [record]);
 
   const submitMutation = useMutation({
     mutationFn: () => submitTriage(Number(recordId), { mews_score: mews, category, department, notes }),

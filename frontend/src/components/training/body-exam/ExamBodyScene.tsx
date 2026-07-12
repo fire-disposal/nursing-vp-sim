@@ -1,4 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { queryKeys } from "@/api/query-keys";
+import { getRecordDetail } from "@/api/training";
 import { emitSceneEvent, type SceneProps, type SceneState } from "@/engine/scene-state";
 import { useTrainingWS } from "@/hooks/useTrainingWS";
 import { cn } from "@/utils/cn";
@@ -88,6 +91,29 @@ export default function ExamBodyScene(props: SceneProps) {
 			}
 		}
 	});
+
+	// 继续训练：从记录详情回填已完成的体格检查结果 + 场景 vitals（仅一次）。
+	const { data: record } = useQuery({
+		queryKey: queryKeys.training.record(String(recordId)),
+		queryFn: () => getRecordDetail(recordId).then((r) => r.data),
+		enabled: recordId > 0,
+	});
+	const seededRef = useRef(false);
+	useEffect(() => {
+		if (seededRef.current || !record) return;
+		const prior = (record as unknown as { exam_results?: Array<{ type: string; value: string }> }).exam_results;
+		if (Array.isArray(prior) && prior.length > 0) {
+			const seeded: Record<string, { value: string }> = {};
+			for (const e of prior) {
+				if (!e?.type) continue;
+				seeded[e.type] = { value: String(e.value ?? "") };
+				const patcher = VITALS_PATCHERS[e.type];
+				if (patcher) emitSceneEvent(bus, "scene:state", patcher(String(e.value ?? "")));
+			}
+			setResults(seeded);
+		}
+		seededRef.current = true;
+	}, [record, bus]);
 
 	const interact = useCallback((opId: string) => {
 		const def = NORMALS[opId];
