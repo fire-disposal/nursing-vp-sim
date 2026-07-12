@@ -185,9 +185,9 @@ async def lifespan(app: FastAPI):
     )
     await app.state.log_worker.start()
 
-    app.state.task_queue = TaskQueue(max_workers=3)
+    app.state.task_queue = TaskQueue()  # 读 SCORING_WORKERS（默认 8），提升 21 人同时交卷的评分吞吐
     await app.state.task_queue.start()
-    log.info("Task queue: 3 workers")
+    log.info("Task queue: %d workers", app.state.task_queue.max_workers)
 
     from infrastructure.realtime_hub import RealtimeHub
 

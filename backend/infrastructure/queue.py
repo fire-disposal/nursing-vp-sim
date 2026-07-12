@@ -112,6 +112,11 @@ class TaskQueue:
         """Number of tasks waiting in the queue."""
         return self._queue.qsize()
 
+    @property
+    def max_workers(self) -> int:
+        """Configured worker count (scoring parallelism)."""
+        return self._max_workers
+
     async def _worker(self, wid: int) -> None:
         while True:
             try:

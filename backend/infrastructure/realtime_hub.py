@@ -32,14 +32,17 @@ class RealtimeHub:
     async def publish(self, user_id: int, event_type: str, data: dict):
         event = {"type": event_type, **data}
         subscribers = self._subscribers.get(user_id, [])
-        dead = []
         for queue in subscribers:
             try:
                 queue.put_nowait(event)
             except asyncio.QueueFull:
-                dead.append(queue)
-        for queue in dead:
-            self.unsubscribe(user_id, queue)
+                # 队列满时丢弃最旧一条再入队，保留订阅（避免整条实时通道静默失联，
+                # 否则消费者会一直卡在 queue.get() 收不到 scoring_complete 等事件）。
+                try:
+                    queue.get_nowait()
+                    queue.put_nowait(event)
+                except (asyncio.QueueEmpty, asyncio.QueueFull):
+                    log.warning("realtime queue overflow, event dropped: user_id=%d type=%s", user_id, event_type)
 
     @property
     def stats(self) -> dict:
