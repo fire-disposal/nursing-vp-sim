@@ -23,7 +23,7 @@ from schemas import ScoringTriggerResponse
 from schemas.common import OkResponse
 from schemas.training import ScoringStatusResponse, TrainingNotificationItem
 
-from .session import _try_acquire_scoring
+from .session import _claim_for_scoring, _try_acquire_scoring
 
 log = logging.getLogger(__name__)
 
@@ -204,8 +204,15 @@ async def _run_scoring_background(
             log.warning("评分任务：记录不存在", extra={"record_id": record_id})
             return
         log.info("评分任务开始", extra={"record_id": record_id, "scoring_status": record.scoring_status})
-        if record.scoring_status != "processing":
-            log.info("评分状态已变更 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
+        # 原子性认领：仅当记录处于可执行态才继续。
+        # 'pending'  — end_training / retry_scoring / triage 经 _try_acquire_scoring 获取；
+        # NULL       — settlement 自动结算路径（未走 acquire）。
+        # UPDATE 的 rowcount 保证并发重复入队时只有一个 worker 认领成功（幂等）。
+        claimed = _claim_for_scoring(record_id, db)
+        db.commit()
+        if not claimed:
+            db.refresh(record)
+            log.info("评分状态非可执行态 (%s)，跳过执行", record.scoring_status, extra={"record_id": record_id})
             return
 
         # Write prompt/rubric snapshot if not yet set
@@ -222,9 +229,6 @@ async def _run_scoring_background(
                 db.commit()
             except (KeyError, AttributeError):
                 pass
-
-        record.scoring_status = "processing"
-        db.commit()
 
         if tracker:
             tracker.start(record_id)
