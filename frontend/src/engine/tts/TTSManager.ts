@@ -23,7 +23,7 @@ export class TTSManager {
 	constructor(config?: TTSManagerConfig) {
 		this.emotionProvider = new VolcTTSProvider();
 		this.fallbackProvider = createBrowserTTS();
-		this.autoPlay = config?.autoPlay ?? true;
+		this.autoPlay = config?.autoPlay ?? false;
 		this.recordId = config?.recordId ?? null;
 	}
 

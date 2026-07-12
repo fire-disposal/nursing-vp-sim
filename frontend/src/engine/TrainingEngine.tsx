@@ -69,7 +69,7 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 	const busRef = useRef(createMessageBus());
 	const streamRef = useRef(new StreamManager(recordNum));
 	const scoreRef = useRef(new ScoreManager(recordNum, busRef.current));
-	const ttsRef = useRef(new TTSManager({ autoPlay: true, recordId: recordNum }));
+	const ttsRef = useRef(new TTSManager({ autoPlay: false, recordId: recordNum }));
 	const seededRef = useRef(false);
 	const patientAccRef = useRef("");
 
