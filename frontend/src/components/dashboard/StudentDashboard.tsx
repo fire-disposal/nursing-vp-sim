@@ -29,11 +29,13 @@ export default function StudentDashboard({
 	records,
 	durationStats,
 	navigate,
+	inProgressRecord: inProgressRecordProp,
 }: {
 	cases: CaseBrief[];
 	records: RecordExtended[];
 	durationStats: DurationStats | null;
 	navigate: (path: string, opts?: { state?: Record<string, unknown> }) => void;
+	inProgressRecord?: RecordExtended | null;
 }) {
 	const location = useLocation();
 	const { openFeedback, showPrompt } = useFeedback();
@@ -48,7 +50,10 @@ export default function StudentDashboard({
 		}
 	}, [location.state, showPrompt, openFeedback]);
 
-	const inProgressRecord = records.find((r) => r.status === "in_progress");
+	// 优先用显式 status=in_progress 查询结果（可靠识别任意未完成练习，不受"最近N条"限制）；
+	// 未传入时回退到从 records 里查找。
+	const inProgressRecord =
+		inProgressRecordProp ?? records.find((r) => r.status === "in_progress");
 	const latestCompleted = records.find(
 		(r) => r.status === "completed" && r.score_total != null,
 	);

@@ -47,9 +47,19 @@ export default function DashboardHome() {
 		queryFn: () => getRecords({ limit: 20, offset: 0 }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
+	// 显式查询未完成训练，确保 dashboard 的"继续训练"入口不受"最近20条"限制而漏识别。
+	const { data: inProgressData } = useQuery({
+		queryKey: queryKeys.training.records({ status: "in_progress" }),
+		queryFn: () =>
+			getRecords({ status: "in_progress", limit: 1, offset: 0 }).then((r) => r.data),
+		staleTime: 60_000,
+		enabled: !isAdmin,
+	});
 
 	const cases = casesData?.items ?? [];
 	const records = (recordsData?.items ?? []) as RecordExtended[];
+	const inProgressRecord =
+		((inProgressData?.items ?? []) as RecordExtended[])[0] ?? null;
 	const durationStats = durationData ?? null;
 	const stats = statsData ?? null;
 
@@ -101,6 +111,7 @@ export default function DashboardHome() {
 			records={records}
 			durationStats={durationStats}
 			navigate={navigate}
+			inProgressRecord={inProgressRecord}
 		/>
 	);
 }
