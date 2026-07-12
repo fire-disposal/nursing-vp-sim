@@ -3,6 +3,7 @@
 	LogOut,
 	Menu,
 	MessageSquare,
+	MessageSquarePlus,
 	Stethoscope,
 	X,
 } from "lucide-react";
@@ -34,6 +35,7 @@ function StudentTopNav({
 	onLogout: () => void;
 }) {
 	const [mobileOpen, setMobileOpen] = useState(false);
+	const { openFeedback } = useFeedback();
 
 	return (
 		<header className="shrink-0 border-b border-border bg-card">
@@ -81,6 +83,14 @@ function StudentTopNav({
 
 				{/* Right side */}
 				<div className="flex items-center gap-1">
+					<button
+						onClick={openFeedback}
+						className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
+						title="意见反馈"
+						aria-label="意见反馈"
+					>
+						<MessageSquarePlus size={16} />
+					</button>
 					<NotificationBell />
 					<ModeToggle />
 					<button
@@ -140,6 +150,7 @@ function AdminSidebar({
 }) {
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
+	const { openFeedback } = useFeedback();
 
 	return (
 		<aside
@@ -180,6 +191,7 @@ function AdminSidebar({
 				<div className="flex gap-1 flex-wrap items-center">
 					<ModeToggle />
 					<NotificationBell />
+					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}><MessageSquarePlus size={13} />反馈</Button>
 					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onAbout}><Info size={13} />关于</Button>
 					<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout}>
 						<LogOut size={13} />退出
