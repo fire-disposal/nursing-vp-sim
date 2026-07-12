@@ -52,23 +52,18 @@ def estimate_cost_cny(
     price_output: float | None = None,
     model: str | None = None,
 ) -> float:
-    """统一成本计算 (CNY)。定价优先级：显式传入 > 模型识别 > 全局环境变量回退。"""
-    pi = price_input if price_input is not None and price_input > 0 else None
-    po = price_output if price_output is not None and price_output > 0 else None
+    """统一成本计算 (CNY)。定价优先级：模型（权威官方价）> 显式 key 价（仅当无 model）> 环境变量回退。
 
-    if pi is None or po is None:
-        if model:
-            mpi, mpo = get_model_price_cny(model)
-            if pi is None:
-                pi = mpi
-            if po is None:
-                po = mpo
-        else:
-            from core.config import LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M
+    单个 ApiSecret 只有一对价格，无法表达多模型定价；pro/flash 官方价才是正确的
+    每模型定价维度（修复 H-1：pro 被按 flash 少计 ~3x）。
+    """
+    if model:
+        pi, po = get_model_price_cny(model)
+    elif price_input is not None and price_input > 0 and price_output is not None and price_output > 0:
+        pi, po = price_input, price_output
+    else:
+        from core.config import LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M
 
-            if pi is None:
-                pi = LLM_PRICE_INPUT_PER_1M
-            if po is None:
-                po = LLM_PRICE_OUTPUT_PER_1M
+        pi, po = LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M
 
     return round(prompt_tokens / 1_000_000 * float(pi) + completion_tokens / 1_000_000 * float(po), 6)
