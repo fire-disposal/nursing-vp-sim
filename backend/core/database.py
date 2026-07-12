@@ -17,8 +17,8 @@ if _URL.startswith("postgresql://") and "+" not in _URL.split("://")[0]:
 engine = create_engine(
     _URL,
     poolclass=QueuePool,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=20,
+    max_overflow=30,
     pool_timeout=30,
     pool_pre_ping=True,
     pool_recycle=3600,

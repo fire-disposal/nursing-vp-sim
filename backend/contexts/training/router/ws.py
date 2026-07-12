@@ -19,6 +19,7 @@ Protocol (JSON messages):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 import jwt
@@ -75,11 +76,24 @@ async def training_ws(
     manager = websocket.app.state.realtime_hub
     queue = await manager.subscribe(user.id)
 
+    # Both _handle_client and _handle_server may write to the same WebSocket.
+    # Starlette/uvicorn do not guarantee concurrent-write safety, so serialize
+    # every send through a single lock and swallow post-close writes.
+    send_lock = asyncio.Lock()
+
+    async def _safe_send(payload: dict) -> bool:
+        try:
+            async with send_lock:
+                await websocket.send_json(payload)
+            return True
+        except (WebSocketDisconnect, RuntimeError):
+            return False
+
     async def _handle_client():
         while True:
             try:
                 raw = await websocket.receive_json()
-            except WebSocketDisconnect:
+            except (WebSocketDisconnect, RuntimeError):
                 return
 
             msg_type = raw.get("type")
@@ -88,14 +102,15 @@ async def training_ws(
                 record_id = raw.get("record_id")
                 op_type = raw.get("op_type")
                 if not record_id or not op_type:
-                    await websocket.send_json({"type": "error", "detail": "Missing record_id or op_type"})
+                    if not await _safe_send({"type": "error", "detail": "Missing record_id or op_type"}):
+                        return
                     continue
 
                 db = SessionLocal()
                 try:
                     svc = PhysicalExamService(db)
                     result = svc.perform(record_id, op_type, user)
-                    await websocket.send_json(
+                    ok = await _safe_send(
                         {
                             "type": "exam:done",
                             "op_type": result["type"],
@@ -106,32 +121,40 @@ async def training_ws(
                         }
                     )
                 except HTTPException as e:
-                    await websocket.send_json({"type": "exam:error", "detail": e.detail})
+                    ok = await _safe_send({"type": "exam:error", "detail": e.detail})
                 except Exception as e:
                     log.exception("WS exam failed")
-                    await websocket.send_json({"type": "exam:error", "detail": str(e)})
+                    ok = await _safe_send({"type": "exam:error", "detail": str(e)})
                 finally:
                     db.close()
+                if not ok:
+                    return
 
             elif msg_type == "ping":
-                await websocket.send_json({"type": "pong"})
+                if not await _safe_send({"type": "pong"}):
+                    return
 
     async def _handle_server():
         while True:
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=30)
-                await websocket.send_json(event)
             except TimeoutError:
-                try:
-                    await websocket.send_json({"type": "heartbeat"})
-                except WebSocketDisconnect:
-                    return
+                event = {"type": "heartbeat"}
+            if not await _safe_send(event):
+                return
 
+    client_task = asyncio.create_task(_handle_client())
+    server_task = asyncio.create_task(_handle_server())
     try:
-        await asyncio.gather(_handle_client(), _handle_server())
-    except WebSocketDisconnect:
-        log.info("WS disconnected: user_id=%d", user.id)
+        done, pending = await asyncio.wait({client_task, server_task}, return_when=asyncio.FIRST_COMPLETED)
+        for t in done:
+            with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
+                t.result()
     except Exception:
         log.exception("WS error: user_id=%d", user.id)
     finally:
+        for t in (client_task, server_task):
+            t.cancel()
+        with contextlib.suppress(Exception):
+            await asyncio.gather(client_task, server_task, return_exceptions=True)
         manager.unsubscribe(user.id, queue)
