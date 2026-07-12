@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+from core.llm_profile import get_llm_config
 from infrastructure.cache import InitiativeCache
 from infrastructure.llm.client import CallContext
 from infrastructure.prompt import render_template
@@ -36,6 +37,9 @@ async def generate_initiative_llm(
     mood = _describe_mood(trust, comfort)
     traits = _describe_traits(personality)
 
+    # 归一到 patient_chat profile（单一来源），不再硬编码参数。
+    llm_cfg = get_llm_config("patient_chat")
+
     kwargs = {
         "case_name": case_name,
         "traits": traits,
@@ -50,11 +54,8 @@ async def generate_initiative_llm(
         result = await llm_client.call(
             [{"role": "system", "content": system}],
             purpose="patient_chat",
-            temperature=0.9,
-            max_tokens=80,
-            timeout=15,
-            max_retries=1,
             ctx=ctx,
+            **llm_cfg,
         )
         text = result.strip()
         if 8 <= len(text) <= 80:
@@ -67,11 +68,8 @@ async def generate_initiative_llm(
         result = await llm_client.call(
             [{"role": "system", "content": system}],
             purpose="patient_chat",
-            temperature=0.9,
-            max_tokens=60,
-            timeout=10,
-            max_retries=0,
             ctx=ctx,
+            **llm_cfg,
         )
         text = result.strip()
         if 5 <= len(text) <= 80:

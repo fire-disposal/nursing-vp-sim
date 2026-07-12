@@ -23,6 +23,9 @@ class LLMProfile:
     semaphore: int = 50
     """Max concurrent calls for this purpose."""
 
+    enable_thinking: bool = False
+    """是否启用 DeepSeek 推理模式 (reasoning_effort=high + thinking)。仅评分链需要。"""
+
 
 # ── Purpose registry ──
 
@@ -51,6 +54,7 @@ PROFILES: dict[str, LLMProfile] = {
         max_retries=3,
         response_format={"type": "json_object"},
         semaphore=10,
+        enable_thinking=True,
     ),
     "scoring_feedback": LLMProfile(
         model="deepseek-v4-pro",
@@ -60,6 +64,7 @@ PROFILES: dict[str, LLMProfile] = {
         max_retries=2,
         response_format={"type": "json_object"},
         semaphore=10,
+        enable_thinking=True,
     ),
     "case_generation": LLMProfile(
         model="deepseek-v4-flash",
@@ -104,6 +109,11 @@ def get_model(purpose: str) -> str:
 def get_semaphore(purpose: str) -> int:
     """Return the concurrency limit for a purpose."""
     return _resolve(purpose).semaphore
+
+
+def get_enable_thinking(purpose: str) -> bool:
+    """Return whether DeepSeek thinking mode is enabled for a purpose."""
+    return _resolve(purpose).enable_thinking
 
 
 def _resolve(purpose: str) -> LLMProfile:

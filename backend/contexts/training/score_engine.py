@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from contexts.training.pipeline.prompt_context import PromptContext
 from core.exceptions import LLMParseError
-from core.llm_profile import get_llm_config
+from core.llm_profile import get_enable_thinking, get_llm_config
 from infrastructure.llm import _safe_parse_json
 from infrastructure.llm.client import CallContext, LLMClient
 from infrastructure.prompt import build_scoring_criteria, build_scoring_json_schema, render_template
@@ -145,7 +145,7 @@ async def _stream_attempt(
         case_id=case_id,
         log_meta=log_meta,
     )
-    stream_kwargs: dict[str, Any] = {"purpose": purpose, "ctx": ctx, "enable_thinking": True}
+    stream_kwargs: dict[str, Any] = {"purpose": purpose, "ctx": ctx, "enable_thinking": get_enable_thinking(purpose)}
     for key in ("temperature", "max_tokens", "timeout", "max_retries", "response_format"):
         if key in cfg:
             stream_kwargs[key] = cfg[key]
