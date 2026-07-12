@@ -22,7 +22,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """删除通配符 LLMConfig。"""
+    """删除通配符 LLMConfig。
+
+    先把 llm_call_logs 中指向 '*' config 的外键引用置空（config_id 可空，保留历史日志行），
+    再删除 config，避免 llm_call_logs_config_id_fkey 外键约束冲突。
+    """
+    op.execute(
+        "UPDATE llm_call_logs SET config_id = NULL "
+        "WHERE config_id IN (SELECT id FROM llm_configs WHERE purpose = '*')"
+    )
     op.execute("DELETE FROM llm_configs WHERE purpose = '*'")
 
 
