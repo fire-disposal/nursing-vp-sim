@@ -483,6 +483,7 @@ class LLMClient:
                     max_tokens=max_tokens,
                     timeout=timeout,
                     max_retries=0,
+                    response_format=response_format,
                     ctx=ctx,
                 )
                 yield content
