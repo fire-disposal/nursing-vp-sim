@@ -196,3 +196,35 @@ def test_select_ignores_wildcard_binding():
     assert result is not wildcard_cfg
     assert isinstance(result, _SyntheticConfig)
     assert "env" in result.label.lower()
+
+
+async def test_env_fallback_circuit_breaks_after_repeated_failures():
+    """env 兜底连续失败达阈值后应熔断，select() 快速失败而非无限重试击打死密钥。"""
+    import infrastructure.llm.router as router_mod
+
+    router_mod._env_fallback_consecutive_failures = 0
+    router_mod._env_fallback_degraded_until = None
+    try:
+        router = ProfileRouter()
+        router._profiles = {}
+        router._bindings = {}
+
+        # 未熔断 → 正常返回 env 兜底
+        assert isinstance(router.select("scoring"), _SyntheticConfig)
+
+        # 连续失败累计到阈值
+        for _ in range(router_mod.CIRCUIT_BREAKER_THRESHOLD):
+            await router_mod._record_synthetic_result(
+                success=False, error="connection error", prompt_tokens=0, completion_tokens=0
+            )
+
+        # 熔断后 select 抛错（全局降级）
+        with pytest.raises(RuntimeError):
+            router.select("scoring")
+
+        # 成功一次即恢复
+        await router_mod._record_synthetic_result(success=True, error=None, prompt_tokens=10, completion_tokens=10)
+        assert router_mod._env_fallback_degraded_until is None
+    finally:
+        router_mod._env_fallback_consecutive_failures = 0
+        router_mod._env_fallback_degraded_until = None

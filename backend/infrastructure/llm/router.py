@@ -23,14 +23,32 @@ _env_fallback_error: str | None = None
 _env_fallback_stats = {"call_count": 0, "total_tokens": 0, "total_cost": 0.0}
 _env_fallback_lock = asyncio.Lock()
 
+# env 兜底熔断状态（死密钥/限流时停止无谓重试）。
+# 写于 async report_result，读于 sync select()；datetime 赋值在 CPython 下原子，容忍轻微 stale。
+_env_fallback_consecutive_failures = 0
+_env_fallback_degraded_until: datetime | None = None
 
-async def _update_synthetic_stats(success: bool, prompt_tokens: int, completion_tokens: int):
-    if success:
-        total = prompt_tokens + completion_tokens
-        async with _env_fallback_lock:
+
+async def _record_synthetic_result(
+    success: bool, error: str | None, prompt_tokens: int, completion_tokens: int
+) -> None:
+    global _env_fallback_consecutive_failures, _env_fallback_degraded_until
+    async with _env_fallback_lock:
+        if success:
+            _env_fallback_consecutive_failures = 0
+            _env_fallback_degraded_until = None
+            total = prompt_tokens + completion_tokens
             _env_fallback_stats["call_count"] += 1
             _env_fallback_stats["total_tokens"] += total
             _env_fallback_stats["total_cost"] += (prompt_tokens * 1.0 + completion_tokens * 2.0) / 1_000_000
+            return
+        now = datetime.now(UTC)
+        if error and "429" in error:
+            _env_fallback_degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+        else:
+            _env_fallback_consecutive_failures += 1
+            if _env_fallback_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                _env_fallback_degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
 
 
 async def get_env_fallback_state() -> dict:
@@ -44,6 +62,8 @@ async def get_env_fallback_state() -> dict:
             "model_pro": "deepseek-v4-pro",
             "latency_ms": _env_fallback_latency_ms,
             "error": _env_fallback_error,
+            "degraded_until": _env_fallback_degraded_until.isoformat() if _env_fallback_degraded_until else None,
+            "consecutive_failures": _env_fallback_consecutive_failures,
             "call_count": _env_fallback_stats["call_count"],
             "total_tokens": _env_fallback_stats["total_tokens"],
             "total_cost": round(_env_fallback_stats["total_cost"], 4),
@@ -139,6 +159,11 @@ class ProfileRouter:
         from core.llm_profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+            # env 兜底自身已熔断（死密钥/限流）→ 全局降级，停止无谓重试击打死密钥。
+            if _env_fallback_degraded_until and now < _env_fallback_degraded_until:
+                with self._state_lock:
+                    self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
+                raise RuntimeError(f"purpose={purpose} env 兜底已熔断，全局降级中")
             log.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)
             return _SyntheticConfig(
                 label="DeepSeek (env)",
@@ -173,7 +198,7 @@ class ProfileRouter:
         error: str | None = None,
     ):
         if isinstance(config, _SyntheticConfig):
-            await _update_synthetic_stats(success, prompt_tokens, completion_tokens)
+            await _record_synthetic_result(success, error, prompt_tokens, completion_tokens)
             return
 
         with self._state_lock:
@@ -262,9 +287,7 @@ class ProfileRouter:
             if row:
                 profile.status = row.status
                 profile.degraded_reason = row.degraded_reason
-                profile.degraded_until = (
-                    ensure_utc(row.degraded_until) if row.degraded_until else None
-                )
+                profile.degraded_until = ensure_utc(row.degraded_until) if row.degraded_until else None
                 profile.consecutive_failures = row.consecutive_failures
         except Exception:
             log.debug("Failed to refresh profile %d from DB", profile.id, exc_info=True)
