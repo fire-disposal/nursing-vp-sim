@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
@@ -15,6 +15,18 @@ from schemas.voice import (
     VoiceUsageItem,
     VoiceUsageResponse,
 )
+
+_LOCAL_TZ = "Asia/Shanghai"
+
+
+def _local_ts(col):
+    """将 naive-UTC 时间列转为北京时区（先标记 UTC 再转 Asia/Shanghai）。"""
+    return func.timezone(_LOCAL_TZ, func.timezone("UTC", col))
+
+
+def _local_date(col):
+    """按北京时区对时间列取 date，用于日/月成本分桶（修正跨零点错位）。"""
+    return func.date(_local_ts(col))
 
 
 class CostService:
@@ -74,7 +86,11 @@ class CostService:
         success = base.filter(LLMCallLog.status == "success").count()
         error_count = base.filter(LLMCallLog.status == "error").count()
         avg_latency = self.db.query(func.avg(LLMCallLog.latency_ms)).filter(LLMCallLog.created_at >= since).scalar()
-        total_cost = self.db.query(func.sum(LLMCallLog.estimated_cost)).filter(LLMCallLog.created_at >= since).scalar()
+        total_cost = (
+            self.db.query(func.sum(LLMCallLog.estimated_cost))
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.status == "success")
+            .scalar()
+        )
         return total, success, error_count, float(avg_latency or 0), float(total_cost or 0)
 
     def _voice_stats(self, since: datetime) -> tuple:
@@ -98,17 +114,17 @@ class CostService:
         since = now - timedelta(days=days - 1)
         llm_rows = (
             self.db.query(
-                func.date(LLMCallLog.created_at).label("date"),
+                _local_date(LLMCallLog.created_at).label("date"),
                 func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("llm_cost"),
             )
-            .filter(LLMCallLog.created_at >= since)
+            .filter(LLMCallLog.created_at >= since, LLMCallLog.status == "success")
             .group_by("date")
             .all()
         )
         llm_map = {str(r[0]): float(r[1]) for r in llm_rows}
         tts_rows = (
             self.db.query(
-                func.date(VoiceCallLog.created_at).label("date"),
+                _local_date(VoiceCallLog.created_at).label("date"),
                 func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0).label(
                     "tts_cost"
                 ),
@@ -120,7 +136,7 @@ class CostService:
         tts_map = {str(r[0]): float(r[1]) for r in tts_rows}
         asr_rows = (
             self.db.query(
-                func.date(VoiceCallLog.created_at).label("date"),
+                _local_date(VoiceCallLog.created_at).label("date"),
                 func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "asr"), 0).label(
                     "asr_cost"
                 ),
@@ -263,9 +279,9 @@ class CostService:
         rows: list[dict] = []
 
         date_group = (
-            func.date_trunc("month", LLMCallLog.created_at)
+            func.date_trunc("month", _local_ts(LLMCallLog.created_at))
             if granularity == "monthly"
-            else func.date(LLMCallLog.created_at)
+            else _local_date(LLMCallLog.created_at)
         )
 
         include_llm = not service or service == "llm"
@@ -275,7 +291,9 @@ class CostService:
             for r in (
                 self.db.query(
                     date_group.label("date"),
-                    func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("cost"),
+                    func.coalesce(
+                        func.sum(case((LLMCallLog.status == "success", LLMCallLog.estimated_cost), else_=0)), 0
+                    ).label("cost"),
                     func.count().label("calls"),
                     func.sum(func.cast(LLMCallLog.status == "success", type_=int)).label("success"),
                     func.sum(func.cast(LLMCallLog.status != "success", type_=int)).label("error"),
@@ -298,9 +316,9 @@ class CostService:
 
         if include_voice:
             voice_date_group = (
-                func.date_trunc("month", VoiceCallLog.created_at)
+                func.date_trunc("month", _local_ts(VoiceCallLog.created_at))
                 if granularity == "monthly"
-                else func.date(VoiceCallLog.created_at)
+                else _local_date(VoiceCallLog.created_at)
             )
             for direction in [service] if service in ("tts", "asr") else ["tts", "asr"]:
                 for r in (
