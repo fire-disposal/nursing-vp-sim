@@ -4619,6 +4619,15 @@ export interface components {
             profile_info?: {
                 [key: string]: unknown;
             };
+            /** Emotion */
+            emotion?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Initiative Count
+             * @default 0
+             */
+            initiative_count: number;
         };
         /** TrainingStartRequest */
         TrainingStartRequest: {

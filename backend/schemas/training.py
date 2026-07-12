@@ -121,6 +121,8 @@ class TrainingRecordDetail(BaseModel):
     triage_result: dict[str, Any] = Field(default_factory=dict)
     case_data: dict[str, Any] = Field(default_factory=dict)
     profile_info: dict[str, Any] = Field(default_factory=dict)
+    emotion: dict[str, Any] | None = None
+    initiative_count: int = 0
 
 
 class ScoringTriggerResponse(BaseModel):

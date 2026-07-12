@@ -535,6 +535,21 @@ def get_record_detail(
     except KeyError:
         pass
 
+    # 继续训练：回填服务器端持久化的情绪(信赖/舒适/状态)与主动追问计数。
+    session_state = (
+        db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
+    )
+    emotion = None
+    initiative_count = 0
+    if session_state is not None:
+        es_dict = session_state.emotion_state
+        if isinstance(es_dict, dict) and "trust" in es_dict:
+            from profiles.history_taking.emotion import EmotionState
+
+            es = EmotionState.from_dict(es_dict)
+            emotion = {"trust": es.trust, "comfort": es.comfort, "state": es.state}
+        initiative_count = session_state.initiative_count or 0
+
     return TrainingRecordDetail(
         id=record.id,
         case_id=record.case_id,
@@ -563,6 +578,8 @@ def get_record_detail(
         triage_result=dict(record.runtime_state or {}).get("triage_result", {}),
         case_data=case_data,
         profile_info=profile_info,
+        emotion=emotion,
+        initiative_count=initiative_count,
     )
 
 

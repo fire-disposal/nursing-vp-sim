@@ -14190,6 +14190,23 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Profile Info"
+          },
+          "emotion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emotion"
+          },
+          "initiative_count": {
+            "type": "integer",
+            "title": "Initiative Count",
+            "default": 0
           }
         },
         "type": "object",
