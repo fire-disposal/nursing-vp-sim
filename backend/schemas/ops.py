@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -177,5 +178,8 @@ class FallbackStateResponse(BaseModel):
     call_count: int = 0
     total_tokens: int = 0
     total_cost: float = 0.0
+    degraded_reason: str | None = None
+    degraded_until: datetime | None = None
+    consecutive_failures: int = 0
 
     model_config = ConfigDict(extra="allow")

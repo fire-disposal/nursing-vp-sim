@@ -2865,6 +2865,15 @@ export interface components {
              * @default 0
              */
             total_cost: number;
+            /** Degraded Reason */
+            degraded_reason?: string | null;
+            /** Degraded Until */
+            degraded_until?: string | null;
+            /**
+             * Consecutive Failures
+             * @default 0
+             */
+            consecutive_failures: number;
         } & {
             [key: string]: unknown;
         };
