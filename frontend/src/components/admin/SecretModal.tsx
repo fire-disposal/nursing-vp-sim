@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { createSecret, updateSecret } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -37,6 +38,7 @@ export default function SecretModal({
 }: SecretModalProps) {
 	const { success, apiError } = useToast();
 	const isEdit = secret != null;
+	const [showKey, setShowKey] = useState(false);
 
 	const form = useForm<SecretFormValues>({
 		resolver: zodResolver(secretFormSchema),
@@ -154,12 +156,22 @@ export default function SecretModal({
 												API Key
 											</FormLabel>
 											<FormControl>
-												<input
-													type="password"
-													placeholder="sk-..."
-													className={inputClass}
-													{...field}
-												/>
+												<div className="relative">
+													<input
+														type={showKey ? "text" : "password"}
+														placeholder="sk-..."
+														className={`${inputClass} pr-9`}
+														{...field}
+													/>
+													<button
+														type="button"
+														onClick={() => setShowKey((v) => !v)}
+														className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+														title={showKey ? "隐藏" : "显示"}
+													>
+														{showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+													</button>
+												</div>
 											</FormControl>
 											<FormMessage />
 										</FormItem>
