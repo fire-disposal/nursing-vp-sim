@@ -14,6 +14,7 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@/components/ui/form";
+import { LLM_PURPOSES } from "@/config/llm-purposes";
 import { type LlmConfigValues, llmConfigSchema } from "@/schemas/llm-config";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
@@ -27,46 +28,14 @@ interface ConfigModalProps {
 	onSaved: () => void;
 }
 
-const PURPOSE_QUICK = [
-	{
-		purpose: "scoring",
-		label: "评分",
-		desc: "DeepSeek Pro — 高精度评分",
-		icon: "📊",
-	},
-	{
-		purpose: "patient_chat",
-		label: "患者对话",
-		desc: "DeepSeek Flash — 快速响应",
-		icon: "💬",
-	},
-	{
-		purpose: "qa",
-		label: "问答",
-		desc: "DeepSeek Flash — 通用问答",
-		icon: "❓",
-	},
-	{
-		purpose: "case_generation",
-		label: "病例生成",
-		desc: "DeepSeek Flash — 生成病例",
-		icon: "📋",
-	},
-	{
-		purpose: "*",
-		label: "通配兜底",
-		desc: "DeepSeek Flash — 其他用途后备",
-		icon: "🔄",
-	},
-];
+const PURPOSE_QUICK = LLM_PURPOSES.map((p) => ({
+	purpose: p.value,
+	label: p.label,
+	desc: p.desc,
+	icon: p.icon,
+}));
 
-const ALL_PURPOSES = [
-	{ value: "*", label: "通配 (全部)" },
-	{ value: "qa", label: "问答 (QA)" },
-	{ value: "patient_chat", label: "患者对话" },
-	{ value: "scoring", label: "评分" },
-	{ value: "case_generation", label: "病例生成" },
-];
+const ALL_PURPOSES = LLM_PURPOSES.map((p) => ({ value: p.value, label: p.label }));
 
 const inputClass =
 	"w-full px-3 py-2 border border-border rounded-md text-sm bg-card focus-ring";

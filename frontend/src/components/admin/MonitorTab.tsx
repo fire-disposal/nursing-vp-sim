@@ -16,20 +16,13 @@ import CallLogTimeline from "@/components/admin/CallLogTimeline";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
+import { LLM_PURPOSE_LABELS } from "@/config/llm-purposes";
 import { cn } from "@/utils/cn";
 
 type Schemas = components["schemas"];
 type LLMCallLogItem = Schemas["LLMCallLogItem"];
 
-const PURPOSE_LABELS: Record<string, string> = {
-	patient_chat: "患者对话",
-	scoring: "评分",
-	qa: "问答",
-	case_generation: "病例生成",
-	summary: "总结",
-	other: "其他",
-	"*": "通配",
-};
+const PURPOSE_LABELS = LLM_PURPOSE_LABELS;
 
 function safeDate(iso: string | null | undefined): string {
 	if (!iso) return "\u2014";

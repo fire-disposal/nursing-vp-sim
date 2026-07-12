@@ -183,7 +183,8 @@ def test_select_no_config_for_purpose():
     assert "env" in result.label.lower()
 
 
-def test_select_falls_back_to_wildcard():
+def test_select_ignores_wildcard_binding():
+    """通配符已退役：即使存在 '*' binding，未显式绑定的 purpose 也不应命中它，而是走 env 兜底。"""
     secret = _make_secret(id=99)
     wildcard_cfg = _make_config(99, secret, purpose="*")
 
@@ -192,14 +193,6 @@ def test_select_falls_back_to_wildcard():
     router._bindings = {"*": wildcard_cfg}
 
     result = router.select("patient_chat")
-    assert result is wildcard_cfg
-
-
-def test_select_wildcard_fallback_for_star():
-    router = ProfileRouter()
-    router._profiles = {}
-    router._bindings = {}
-
-    result = router.select("*")
+    assert result is not wildcard_cfg
     assert isinstance(result, _SyntheticConfig)
-    assert len(result._raw_key) > 0
+    assert "env" in result.label.lower()

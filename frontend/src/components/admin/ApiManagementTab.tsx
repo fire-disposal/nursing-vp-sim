@@ -20,19 +20,14 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Tooltip from "@/components/ui/tooltip";
+import { LLM_PURPOSES } from "@/config/llm-purposes";
 import { cn } from "@/utils/cn";
 import SecretModal from "./SecretModal";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
 type LLMConfigResponse = components["schemas"]["LLMConfigResponse"];
 
-const PURPOSES = [
-	{ key: "scoring", label: "评分", desc: "训练对话结束后自动评分" },
-	{ key: "patient_chat", label: "患者对话", desc: "学生模拟问诊时的患者回复" },
-	{ key: "qa", label: "问答", desc: "学生自由提问的AI导师" },
-	{ key: "case_generation", label: "病例生成", desc: "AI辅助生成训练病例" },
-	{ key: "*", label: "通配兜底", desc: "以上用途未配置时的后备" },
-];
+const PURPOSES = LLM_PURPOSES.map((p) => ({ key: p.value, label: p.label, desc: p.desc }));
 
 const STATUS_DOT: Record<string, string> = {
 	active: "bg-green-500",

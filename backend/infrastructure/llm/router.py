@@ -112,8 +112,6 @@ class ProfileRouter:
                 raise RuntimeError("所有档案不可用，全局降级中")
 
             binding = self._bindings.get(purpose)
-            if not binding and purpose != "*":
-                binding = self._bindings.get("*")
 
             if binding and not isinstance(binding, _SyntheticConfig):
                 profile = self._profiles.get(binding.secret_id)
