@@ -164,11 +164,10 @@ class ProfileRouter:
         from core.llm_profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
-            # env 兜底自身已熔断（死密钥/限流）→ 全局降级，停止无谓重试击打死密钥。
+            # env 兜底自身已熔断（死密钥/限流）→ 仅对本次调用 fail-fast，不设全局降级。
+            # 熔断窗口本身已阻止返回死配置；不牵连其它绑定了健康 DB 密钥的 purpose。
             if _env_fallback_degraded_until and now < _env_fallback_degraded_until:
-                with self._state_lock:
-                    self._global_degraded_until = now + timedelta(seconds=GLOBAL_DEGRADED_TTL_SECONDS)
-                raise RuntimeError(f"purpose={purpose} env 兜底已熔断，全局降级中")
+                raise RuntimeError(f"purpose={purpose} env 兜底已熔断，暂不可用")
             log.warning("ProfileRouter: 最后防线 — env 兜底 (purpose=%s)", purpose)
             return _SyntheticConfig(
                 label="DeepSeek (env)",

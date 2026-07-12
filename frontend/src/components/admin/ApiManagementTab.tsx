@@ -259,8 +259,8 @@ export default function ApiManagementTab() {
 								<Tooltip
 									content={
 										limit
-											? `本月已用 ¥${cost.toFixed(2)} / 上限 ¥${Number(limit).toFixed(0)}`
-											: `本月已用 ¥${cost.toFixed(2)}`
+											? `本月已用 ¥${cost.toFixed(2)} / 上限 ¥${Number(limit).toFixed(0)} · 今日 ¥${Number(s.total_cost_today ?? 0).toFixed(2)}`
+											: `本月已用 ¥${cost.toFixed(2)} · 今日 ¥${Number(s.total_cost_today ?? 0).toFixed(2)}`
 									}
 								>
 									<span
@@ -269,7 +269,7 @@ export default function ApiManagementTab() {
 											costColorClass(cost, limit),
 										)}
 									>
-										¥{Number(s.total_cost_today ?? 0).toFixed(2)} /{" "}
+										¥{cost.toFixed(2)} /{" "}
 										{limit ? `¥${Number(limit).toFixed(0)}` : "不限"}
 									</span>
 								</Tooltip>
