@@ -48,26 +48,6 @@ export const ALL_CAPABILITIES: Record<string, CapabilityDef> = {
     "defaultOn": false,
     "requires": []
   },
-  "exam_scene": {
-    "key": "exam_scene",
-    "label": "人体查体场景",
-    "description": "启用可视化人体查体交互（点击人体部位执行检查）。",
-    "tier": "toggleable",
-    "trainingTypes": [
-      "triage"
-    ],
-    "defaultOn": false,
-    "requires": []
-  },
-  "questionnaire": {
-    "key": "questionnaire",
-    "label": "问卷评估",
-    "description": "训练结束后向学生推送问卷调查。",
-    "tier": "toggleable",
-    "trainingTypes": null,
-    "defaultOn": false,
-    "requires": []
-  },
   "nursing_record": {
     "key": "nursing_record",
     "label": "护理评估记录",
@@ -86,12 +66,9 @@ export const TRAINING_CAPABILITIES: Record<string, string[]> = {
   "history_taking": [
     "patient_initiative",
     "physical_exam",
-    "questionnaire",
     "nursing_record"
   ],
   "triage": [
-    "physical_exam",
-    "exam_scene",
-    "questionnaire"
+    "physical_exam"
   ]
 };

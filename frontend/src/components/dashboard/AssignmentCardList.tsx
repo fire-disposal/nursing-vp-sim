@@ -1,93 +1,139 @@
-import { ClipboardList, Play } from "lucide-react";
+import { CheckCircle2, ClipboardList, Clock, Play } from "lucide-react";
 import type { components } from "@/api/api-types.gen";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-} from "@/components/ui/card";
 import { cn } from "@/utils/cn";
+
+type Assignment = components["schemas"]["StudentAssignmentItem"];
+
+function dueLabel(endTime: string): { text: string; urgent: boolean } {
+	const hoursLeft = Math.ceil(
+		(new Date(endTime).getTime() - Date.now()) / (1000 * 60 * 60),
+	);
+	if (hoursLeft <= 0) return { text: "即将截止", urgent: true };
+	if (hoursLeft <= 24) return { text: `剩 ${hoursLeft} 小时`, urgent: true };
+	return { text: `剩 ${Math.ceil(hoursLeft / 24)} 天`, urgent: false };
+}
 
 export default function AssignmentCardList({
 	studentAssignments,
 	onStart,
+	onViewResult,
 }: {
-	studentAssignments: components["schemas"]["StudentAssignmentItem"][];
+	studentAssignments: Assignment[];
 	onStart: (id: string) => void;
+	onViewResult?: (recordId: number) => void;
 }) {
 	if (studentAssignments.length === 0) return null;
 
+	const pending = studentAssignments.filter(
+		(a) => a.status !== "completed",
+	).length;
+
 	return (
-		<div className="mb-6 space-y-3">
-			<div className="flex items-center gap-2">
-				<ClipboardList size={18} className="text-primary" />
-				<h2 className="text-lg font-semibold">待完成练习</h2>
+		<section className="mb-6 overflow-hidden rounded-xl bg-primary/5 ring-1 ring-primary/20">
+			<div className="flex items-center justify-between gap-3 border-b border-primary/10 bg-primary/10 px-4 py-3">
+				<div className="flex items-center gap-2.5">
+					<div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+						<ClipboardList size={18} />
+					</div>
+					<div>
+						<h2 className="text-base font-semibold leading-tight text-foreground">
+							教师布置的作业
+						</h2>
+						<p className="text-xs text-muted-foreground">
+							{pending > 0
+								? `${pending} 项待完成，请在截止前提交`
+								: "全部已完成，做得好！"}
+						</p>
+					</div>
+				</div>
+				{pending > 0 && (
+					<Badge variant="default" className="shrink-0">
+						{pending} 待完成
+					</Badge>
+				)}
 			</div>
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+			<div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
 				{studentAssignments.map((a) => {
 					const isOverdue = a.status === "overdue";
 					const isCompleted = a.status === "completed";
-					const hoursLeft = Math.max(
-						0,
-						Math.ceil(
-							(new Date(a.end_time).getTime() - Date.now()) /
-								(1000 * 60 * 60),
-						),
-					);
+					const due = dueLabel(a.end_time);
 					return (
-						<Card
+						<div
 							key={a.id}
-							size="sm"
 							className={cn(
-								isOverdue && "border-destructive/30 bg-destructive/5",
+								"flex flex-col gap-2 rounded-lg border bg-card p-4 transition-shadow hover:shadow-sm",
+								isOverdue
+									? "border-destructive/40"
+									: isCompleted
+										? "border-border opacity-90"
+										: "border-primary/30",
 							)}
 						>
-							<CardContent className="p-4">
-								<div className="flex items-start justify-between mb-2">
-									<div className="min-w-0">
-										<div className="text-sm font-semibold truncate">
-											{a.title}
-										</div>
-										<div className="text-xs text-muted-foreground">
-											{a.practice_name}
-										</div>
+							<div className="flex items-start justify-between gap-2">
+								<div className="min-w-0">
+									<div className="truncate text-sm font-semibold">
+										{a.title}
 									</div>
-									{isCompleted ? (
-										<Badge variant="outline" className="shrink-0 ml-2">
-											已完成
-										</Badge>
-									) : isOverdue ? (
-										<Badge variant="destructive" className="shrink-0 ml-2">
-											已逾期
-										</Badge>
-									) : (
-										<Badge variant="default" className="shrink-0 ml-2">
-											{hoursLeft > 24
-												? `${Math.ceil(hoursLeft / 24)}天`
-												: `${hoursLeft}小时`}
-										</Badge>
+									<div className="truncate text-xs text-muted-foreground">
+										{a.practice_name}
+									</div>
+								</div>
+								{isCompleted ? (
+									<Badge variant="success" className="shrink-0">
+										<CheckCircle2 size={12} /> 已完成
+									</Badge>
+								) : isOverdue ? (
+									<Badge variant="destructive" className="shrink-0">
+										已逾期
+									</Badge>
+								) : (
+									<Badge
+										variant={due.urgent ? "warning" : "outline"}
+										className="shrink-0"
+									>
+										<Clock size={12} /> {due.text}
+									</Badge>
+								)}
+							</div>
+
+							{isCompleted && a.score_total != null ? (
+								<div className="mt-auto flex items-end justify-between">
+									<div>
+										<span className="text-2xl font-bold text-primary">
+											{a.score_total}
+										</span>
+										<span className="ml-0.5 text-xs text-muted-foreground">
+											分
+										</span>
+									</div>
+									{onViewResult && a.record_id != null && (
+										<Button
+											size="xs"
+											variant="outline"
+											onClick={() => onViewResult(a.record_id as number)}
+										>
+											查看结果
+										</Button>
 									)}
 								</div>
-								{a.score_total != null && (
-									<div className="text-lg font-bold text-primary mb-2">
-										{a.score_total} 分
-									</div>
-								)}
-								{!isCompleted && (
-									<Button
-										size="sm"
-										className="w-full"
-										onClick={() => onStart(a.id)}
-									>
-										<Play size={14} className="mr-1" />
-										开始练习
-									</Button>
-								)}
-							</CardContent>
-						</Card>
+							) : (
+								<Button
+									size="sm"
+									variant={isOverdue ? "outline" : "default"}
+									className="mt-auto w-full"
+									onClick={() => onStart(a.id)}
+								>
+									<Play size={14} />
+									{isOverdue ? "补做练习" : "开始练习"}
+								</Button>
+							)}
+						</div>
 					);
 				})}
 			</div>
-		</div>
+		</section>
 	);
 }

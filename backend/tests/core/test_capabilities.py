@@ -64,12 +64,12 @@ class TestResolveFeatures:
         result = resolve_features(training_type="triage")
         assert "patient_initiative" not in result
         assert result["emotion"] is True  # builtin 全类型
-        assert "exam_scene" in result  # triage 适用
+        assert "physical_exam" in result  # triage 适用
 
     def test_training_type_filtering_history_taking(self):
         result = resolve_features(training_type="history_taking")
         assert "patient_initiative" in result
-        assert "exam_scene" not in result  # exam_scene 仅 triage
+        assert "nursing_record" in result  # nursing_record 仅 history_taking
 
 
 class TestIsEnabled:
@@ -111,8 +111,8 @@ class TestCapabilitiesRegistry:
     def test_initiative_requires_emotion(self):
         assert "emotion" in ALL_CAPABILITIES["patient_initiative"].requires
 
-    def test_questionnaire_flag_exists(self):
-        assert "questionnaire" in ALL_CAPABILITIES
+    def test_nursing_record_flag_exists(self):
+        assert "nursing_record" in ALL_CAPABILITIES
 
     def test_capabilities_for_type_filters(self):
         triage = capabilities_for_type("triage")

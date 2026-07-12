@@ -1,4 +1,15 @@
-import { Clock, Minus, Plus, Star, User } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  ClipboardEdit,
+  Clock,
+  MessageCircleQuestion,
+  Minus,
+  Plus,
+  Sparkles,
+  Star,
+  Stethoscope,
+  User,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Button from "@/components/ui/button";
@@ -8,6 +19,12 @@ import type { TrainingTypeInfo } from "@/training/types";
 import { cn } from "@/utils/cn";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
+
+const CAPABILITY_ICONS: Record<string, LucideIcon> = {
+  patient_initiative: MessageCircleQuestion,
+  physical_exam: Stethoscope,
+  nursing_record: ClipboardEdit,
+};
 
 interface Props {
   open: boolean;
@@ -82,12 +99,17 @@ export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart
           {/* Capabilities */}
           {availableKeys.length > 0 && (
             <div>
-              <span className="text-sm font-medium mb-3 block">训练特性</span>
+              <div className="mb-3 flex items-center gap-1.5">
+                <Sparkles size={15} className="text-primary" />
+                <span className="text-sm font-medium">训练特性</span>
+                <span className="text-[11px] text-muted-foreground">· 自主练习，可按需开启</span>
+              </div>
               <div className="space-y-2">
                 {availableKeys.map((key) => {
                   const def = ALL_CAPABILITIES[key];
                   if (!def) return null;
                   const on = caps[key];
+                  const Icon = CAPABILITY_ICONS[key] ?? Sparkles;
                   return (
                     <button key={key} type="button" onClick={() => toggle(key)}
                       className={cn(
@@ -99,7 +121,7 @@ export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart
                         "flex size-9 items-center justify-center rounded-lg shrink-0 transition-colors",
                         on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
                       )}>
-                        <span className="text-sm font-bold">{def.label.slice(0, 2)}</span>
+                        <Icon size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">{def.label}</p>

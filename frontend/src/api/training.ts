@@ -46,23 +46,15 @@ export const submitScoreReview = (
 		data,
 	);
 
-// TODO: use generated types after api:spec is fixed
-interface TriageSubmitRequest {
-	mews_score: number;
-	category: string;
-	department: string;
-	notes: string;
-}
-
-interface TriageSubmitResponse {
-	message: string;
-	record_id: number;
-	triage_result?: Record<string, unknown>;
-}
-
-export const submitTriage = (recordId: number, data: TriageSubmitRequest) =>
+export const submitTriage = (
+	recordId: number,
+	data: Schemas["TriageSubmitRequest"],
+) =>
 	api
-		.post<TriageSubmitResponse>(`/api/triage/${recordId}/submit` as ApiPath, data)
+		.post<Schemas["TriageSubmitResponse"]>(
+			`/triage/${recordId}/submit` as ApiPath,
+			data,
+		)
 		.then((r) => r.data);
 
 export const triggerInitiative = (recordId: number) =>

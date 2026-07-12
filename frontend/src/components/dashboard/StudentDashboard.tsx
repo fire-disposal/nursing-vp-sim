@@ -102,16 +102,17 @@ export default function StudentDashboard({
 				}
 			/>
 
+			<AssignmentCardList
+				studentAssignments={studentAssignments}
+				onStart={handleStartAssignment}
+				onViewResult={(recordId) => navigate(`/record/${recordId}`)}
+			/>
+
 			<StudentStatCards
 				totalRecords={records.length}
 				completedCount={completedCount}
 				durationStats={durationStats}
 				latestScore={latestScore}
-			/>
-
-			<AssignmentCardList
-				studentAssignments={studentAssignments}
-				onStart={handleStartAssignment}
 			/>
 
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] items-start">

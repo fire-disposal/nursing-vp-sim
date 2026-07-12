@@ -50,22 +50,6 @@ ALL_CAPABILITIES: dict[str, Capability] = {
         training_types=("history_taking", "triage"),
         default=False,
     ),
-    "exam_scene": Capability(
-        key="exam_scene",
-        label="人体查体场景",
-        description="启用可视化人体查体交互（点击人体部位执行检查）。",
-        tier="toggleable",
-        training_types=("triage",),
-        default=False,
-    ),
-    "questionnaire": Capability(
-        key="questionnaire",
-        label="问卷评估",
-        description="训练结束后向学生推送问卷调查。",
-        tier="toggleable",
-        training_types=None,
-        default=False,
-    ),
     "nursing_record": Capability(
         key="nursing_record",
         label="护理评估记录",
