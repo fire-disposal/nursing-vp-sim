@@ -5,9 +5,7 @@ from models import TrainingRecord
 
 
 class TestSubmitTriage:
-    def test_submit_queue_full_returns_503_and_keeps_in_progress(
-        self, client, student, test_case, db_session
-    ):
+    def test_submit_queue_full_returns_503_and_keeps_in_progress(self, client, student, test_case, db_session):
         _, token = student
         # Create an in-progress training record owned by the student
         resp = client.post(

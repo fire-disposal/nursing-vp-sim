@@ -71,9 +71,7 @@ class TestStartTraining:
         db_session.add(optional_template)
         db_session.commit()
 
-        db_session.add(
-            CaseQuestionnaire(case_id=test_case.id, template_id=template.id, is_required=True)
-        )
+        db_session.add(CaseQuestionnaire(case_id=test_case.id, template_id=template.id, is_required=True))
         db_session.add(
             CaseQuestionnaire(
                 case_id=test_case.id,

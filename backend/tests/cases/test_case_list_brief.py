@@ -11,7 +11,10 @@ def three_cases(db_session):
     ids = []
     for nm in ("急性胸痛", "腹痛待查", "胸闷气短"):
         c = Case(
-            name=nm, training_type="history_taking", difficulty=1, case_data={},
+            name=nm,
+            training_type="history_taking",
+            difficulty=1,
+            case_data={},
         )
         db_session.add(c)
         db_session.flush()

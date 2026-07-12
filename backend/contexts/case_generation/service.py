@@ -72,9 +72,7 @@ async def generate_case(
 
     valid_types = set(list_valid_training_types())
     if data.training_type not in valid_types:
-        raise ValidationError(
-            detail=f"不支持的训练类型: {data.training_type}，可选: {sorted(valid_types)}"
-        )
+        raise ValidationError(detail=f"不支持的训练类型: {data.training_type}，可选: {sorted(valid_types)}")
 
     reference_material = _build_reference_material(db, data)
     field_instruction = _build_field_instruction(data)

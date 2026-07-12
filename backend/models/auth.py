@@ -63,5 +63,3 @@ class User(Base, TimestampMixin):
 
     def set_permissions_cache(self, permissions: set[str]) -> None:
         self._permissions_cache = permissions
-
-
