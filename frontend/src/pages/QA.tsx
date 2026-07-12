@@ -89,6 +89,9 @@ export default function QA() {
 
 	const switchSession = useCallback(
 		async (sessionId: number) => {
+			// 切换会话前中止正在进行的流，避免旧流的 onDone 把上一个会话的
+			// 答案追加进新会话的消息列表（跨会话答案污染）。
+			abortRef.current?.abort();
 			try {
 				const res = await getQASessionMessages(sessionId);
 				setActiveSessionId(sessionId);

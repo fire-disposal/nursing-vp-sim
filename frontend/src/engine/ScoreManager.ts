@@ -78,9 +78,11 @@ export class ScoreManager {
 
 		const poll = async () => {
 			if (!this._polling) return;
-			// Don't count retries when the tab is hidden — reschedule instead
+			// 后台标签页：既不发请求也不计超时。仅 setInterval 空转返回，
+			// 由 visibilitychange 处理器在回到前台时立即 poll 恢复。
+			// （旧实现在此额外 setTimeout(poll)，与 setInterval 叠加会使待执行 poll
+			//  随隐藏时长成倍增殖，回前台时集中爆发请求。）
 			if (document.hidden) {
-				setTimeout(() => poll(), POLL_INTERVAL);
 				return;
 			}
 			if (retries >= maxRetries) {

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
 import { ChatArea } from "@/components/training/ChatArea";
 import { ScoreCard, ScoringOverlay } from "@/components/training/panels/scoring-display";
@@ -304,16 +305,25 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 				<div className="flex flex-col flex-1 min-w-0">
 				<TrainingHeader />
 				<div className="flex-1 overflow-hidden relative">
-					<ChatArea
-						messages={messages}
-						patient={patient}
-						sending={sending}
-						trainingEnded={trainingEnded}
-						onSend={sendMessage}
-						bus={busRef.current}
-						features={features}
-						recordId={recordNum}
-					/>
+					<ErrorBoundary
+						fallback={
+							<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
+								<div className="text-sm font-medium">对话区渲染出错</div>
+								<div className="text-xs">请刷新页面继续训练（其余功能不受影响）</div>
+							</div>
+						}
+					>
+						<ChatArea
+							messages={messages}
+							patient={patient}
+							sending={sending}
+							trainingEnded={trainingEnded}
+							onSend={sendMessage}
+							bus={busRef.current}
+							features={features}
+							recordId={recordNum}
+						/>
+					</ErrorBoundary>
 				</div>
 				</div>
 				{children}
