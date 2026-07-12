@@ -47,7 +47,8 @@ export default function TrainingEntry() {
 					本练习包含 {pendingQ} 份问卷，请在训练前后于「我的问卷」中完成
 				</div>
 			)}
-			<SceneComponent recordId={recordId} />
+			{/* key={recordId}：切换病例时强制重挂场景子树，避免复用旧对话状态 */}
+			<SceneComponent key={recordId} recordId={recordId} />
 		</>
 	);
 }

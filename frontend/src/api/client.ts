@@ -55,11 +55,22 @@ api.interceptors.response.use(
 					originalRequest.headers.Authorization = `Bearer ${newToken}`;
 					return api(originalRequest);
 				}
-				throw new Error("refresh failed");
+				// refreshAuth 返回 false 有两种情况：
+				//  - 真 401（refresh token 失效）：refreshAuth 已清空会话 → token 变为 null，需登出跳转登录。
+				//  - 网络/服务端抖动：refreshAuth 刻意保留会话 → token 仍在，此时不能误登出，仅拒绝本次请求。
+				processQueue(err);
+				if (useAuthStore.getState().token == null) {
+					console.warn("[axios] refresh token 失效，登出");
+					useAuthStore.getState().logout();
+				} else {
+					console.warn("[axios] Token 刷新遇网络/服务端错误 — 保持会话");
+				}
+				return Promise.reject(err);
 			} catch {
 				processQueue(err);
-				console.warn("[axios] Token 刷新失败");
-				useAuthStore.getState().logout();
+				if (useAuthStore.getState().token == null) {
+					useAuthStore.getState().logout();
+				}
 				return Promise.reject(err);
 			} finally {
 				setRefreshing(false);

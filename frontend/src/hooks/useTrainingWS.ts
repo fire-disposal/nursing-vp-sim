@@ -28,6 +28,7 @@ let _retryTimer: ReturnType<typeof setTimeout> | null = null;
 let _aborted = false;
 let _connected = false;
 let _refCount = 0;
+let _authRetried = false;
 
 function buildWsUrl(): string {
 	const token = useAuthStore.getState().token ?? "";
@@ -43,6 +44,7 @@ function _connect() {
 
 	ws.onopen = () => {
 		_retryCount = 0;
+		_authRetried = false;
 		_connected = true;
 	};
 
@@ -65,9 +67,23 @@ function _connect() {
 		_ws = null;
 		_connected = false;
 		if (_aborted) return;
-		// 4001 = 鉴权失败（token 无效/缺失）。重连无意义，等待下次显式 _connect。
-		if (ev.code === 4001) return;
-		const delay = Math.min(1000 * 2 ** _retryCount, 30000);
+		// 4001 = 鉴权失败。可能是 access token 已过期 —— 先刷新一次令牌再重连；
+		// 若刷新后仍 4001，说明 refresh token 也失效，放弃（等待显式重连/登出）。
+		if (ev.code === 4001) {
+			if (_authRetried) return;
+			_authRetried = true;
+			useAuthStore
+				.getState()
+				.refreshAuth()
+				.then((ok) => {
+					if (ok && !_aborted && !_ws) _connect();
+				})
+				.catch(() => {});
+			return;
+		}
+		// 指数退避 + ±50% 抖动，避免后端重启时 21 个客户端齐步重连（惊群）。
+		const base = Math.min(1000 * 2 ** _retryCount, 30000);
+		const delay = base / 2 + Math.random() * (base / 2);
 		_retryCount = Math.min(_retryCount + 1, 5);
 		_retryTimer = setTimeout(_connect, delay);
 	};

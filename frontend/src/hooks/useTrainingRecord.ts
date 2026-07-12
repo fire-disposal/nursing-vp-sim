@@ -115,7 +115,8 @@ export function useTrainingRecord(recordId: string) {
 
 	return {
 		data,
-		loading: query.isLoading || query.isFetching,
+		// 仅首帧加载阻塞 UI；后台 refetch(isFetching) 不应触发整屏骨架屏。
+		loading: query.isLoading,
 		error,
 	};
 }
