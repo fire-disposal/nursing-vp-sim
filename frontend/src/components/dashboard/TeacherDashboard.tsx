@@ -225,7 +225,7 @@ export default function TeacherDashboard({
 								<Button
 									variant="outline"
 									className="justify-start"
-									onClick={() => navigate("/admin/llm")}
+									onClick={() => navigate("/admin/costs?tab=monitor")}
 								>
 									<TrendingUp size={14} /> LLM 调用监控
 								</Button>

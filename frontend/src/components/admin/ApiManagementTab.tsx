@@ -406,10 +406,15 @@ export default function ApiManagementTab() {
 											<select
 												value={cfg.secret_id}
 												onChange={async (e) => {
-													await updateConfig(cfg.id, {
-														secret_id: Number(e.target.value),
-													});
-													invalidate();
+													try {
+														await updateConfig(cfg.id, {
+															secret_id: Number(e.target.value),
+														});
+														toast.success("已改绑");
+														invalidate();
+													} catch (err: unknown) {
+														toast.apiError(err, "改绑失败");
+													}
 												}}
 												className={selectClass}
 											>
