@@ -10,7 +10,6 @@ import {
 	type LucideIcon,
 	Megaphone,
 	MessageSquare,
-	Server,
 	Settings,
 	Shield,
 	Stethoscope,
@@ -44,7 +43,6 @@ const AssignmentsPage = lazy(() => import("@/pages/admin/AssignmentsPage"));
 const AssignmentDetailPage = lazy(
 	() => import("@/pages/admin/AssignmentDetailPage"),
 );
-const AdminLLM = lazy(() => import("@/pages/admin/LLMManagementPage"));
 const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
 const AdminQuestionnaires = lazy(() => import("@/pages/AdminQuestionnaires"));
@@ -190,12 +188,6 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <Admin />,
 		permission: "score_review",
 		nav: { label: "训练管理", icon: Settings, section: "admin", end: true },
-	},
-	{
-		path: "/admin/llm",
-		element: <AdminLLM />,
-		permission: "llm_monitor",
-		nav: { label: "LLM 管理", icon: Server, section: "admin" },
 	},
 	{
 		path: "/admin/costs",
