@@ -27,16 +27,18 @@ _env_fallback_lock = asyncio.Lock()
 # 写于 async report_result，读于 sync select()；datetime 赋值在 CPython 下原子，容忍轻微 stale。
 _env_fallback_consecutive_failures = 0
 _env_fallback_degraded_until: datetime | None = None
+_env_fallback_degraded_reason: str | None = None
 
 
 async def _record_synthetic_result(
     success: bool, error: str | None, prompt_tokens: int, completion_tokens: int
 ) -> None:
-    global _env_fallback_consecutive_failures, _env_fallback_degraded_until
+    global _env_fallback_consecutive_failures, _env_fallback_degraded_until, _env_fallback_degraded_reason
     async with _env_fallback_lock:
         if success:
             _env_fallback_consecutive_failures = 0
             _env_fallback_degraded_until = None
+            _env_fallback_degraded_reason = None
             total = prompt_tokens + completion_tokens
             _env_fallback_stats["call_count"] += 1
             _env_fallback_stats["total_tokens"] += total
@@ -45,10 +47,12 @@ async def _record_synthetic_result(
         now = datetime.now(UTC)
         if error and "429" in error:
             _env_fallback_degraded_until = now + timedelta(seconds=RATE_LIMIT_COOLDOWN_SECONDS)
+            _env_fallback_degraded_reason = "rate_limited"
         else:
             _env_fallback_consecutive_failures += 1
             if _env_fallback_consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
                 _env_fallback_degraded_until = now + timedelta(seconds=DEGRADED_TTL_SECONDS)
+                _env_fallback_degraded_reason = "consecutive_failures"
 
 
 async def get_env_fallback_state() -> dict:
@@ -62,6 +66,7 @@ async def get_env_fallback_state() -> dict:
             "model_pro": "deepseek-v4-pro",
             "latency_ms": _env_fallback_latency_ms,
             "error": _env_fallback_error,
+            "degraded_reason": _env_fallback_degraded_reason,
             "degraded_until": _env_fallback_degraded_until.isoformat() if _env_fallback_degraded_until else None,
             "consecutive_failures": _env_fallback_consecutive_failures,
             "call_count": _env_fallback_stats["call_count"],
