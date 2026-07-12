@@ -15,3 +15,15 @@ def test_flash_model_priced_by_model():
 def test_no_model_falls_back_to_key_price():
     cost = estimate_cost_cny(1_000_000, 0, price_input=5.0, price_output=9.0)
     assert cost == 5.0
+
+
+def test_cache_hit_priced_lower():
+    # pro：100万 prompt 全部命中缓存 + 0 输出。命中价 ¥0.025/1M，远低于满价 ¥3。
+    cost = estimate_cost_cny(1_000_000, 0, model="deepseek-v4-pro", cache_hit_tokens=1_000_000)
+    assert cost == 0.025
+
+
+def test_cache_hit_partial_split():
+    # pro：50 万命中(0.025) + 50 万未命中(3) + 0 输出 = 0.0125 + 1.5 = 1.5125
+    cost = estimate_cost_cny(1_000_000, 0, model="deepseek-v4-pro", cache_hit_tokens=500_000)
+    assert cost == round(500_000 / 1_000_000 * 3.0 + 500_000 / 1_000_000 * 0.025, 6)

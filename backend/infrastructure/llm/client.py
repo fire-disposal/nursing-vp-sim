@@ -445,6 +445,8 @@ class LLMClient:
                     provider_name=state.provider_name,
                     key_price_input=state.price_input,
                     key_price_output=state.price_output,
+                    cache_hit_tokens=state.cache_hit_tokens,
+                    cache_miss_tokens=state.cache_miss_tokens,
                 )
                 from infrastructure.llm.token_counter import estimate_cost_cny
 
@@ -454,6 +456,7 @@ class LLMClient:
                     price_input=state.price_input,
                     price_output=state.price_output,
                     model=state.model,
+                    cache_hit_tokens=state.cache_hit_tokens,
                 )
                 self._record_metrics(status="success", tokens=total_tokens, cost=actual_cost, latency_ms=latency_ms)
                 return
@@ -739,6 +742,8 @@ class LLMClient:
                         # Extract usage from last SSE chunk (some providers include it)
                         if last_obj and "usage" in last_obj:
                             state.usage = last_obj["usage"]
+                            state.cache_hit_tokens = last_obj["usage"].get("prompt_cache_hit_tokens", 0) or 0
+                            state.cache_miss_tokens = last_obj["usage"].get("prompt_cache_miss_tokens", 0) or 0
         except Exception as e:
             log.error("_do_stream failure: purpose=%s model=%s error=%s", purpose, state.model, e)
             await self._router.report_result(

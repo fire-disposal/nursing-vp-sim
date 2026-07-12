@@ -58,6 +58,7 @@ def _build_entry(
         price_input=key_price_input,
         price_output=key_price_output,
         model=model,
+        cache_hit_tokens=cache_hit_tokens or 0,
     )
 
     return {

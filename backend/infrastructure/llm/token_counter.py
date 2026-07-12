@@ -19,6 +19,10 @@ _EN_TOKENS_PER_CHAR = 0.3
 _PRICE_FLASH = (1.0, 2.0)  # (input, output)
 _PRICE_PRO = (3.0, 6.0)
 
+# ── 缓存命中价 (元/百万 tokens) ──
+_CACHE_PRICE_FLASH = 0.02
+_CACHE_PRICE_PRO = 0.025
+
 # ── 模型识别 —— 含 "pro" 则按 pro 计费 ──
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f\uff00-\uffef]")
 
@@ -44,6 +48,11 @@ def get_model_price_cny(model: str) -> tuple[float, float]:
     return _PRICE_FLASH
 
 
+def get_cache_price_cny(model: str) -> float:
+    """返回缓存命中输入价 (元/百万 tokens)。"""
+    return _CACHE_PRICE_PRO if "pro" in (model or "").lower() else _CACHE_PRICE_FLASH
+
+
 def estimate_cost_cny(
     prompt_tokens: int,
     completion_tokens: int,
@@ -51,11 +60,15 @@ def estimate_cost_cny(
     price_input: float | None = None,
     price_output: float | None = None,
     model: str | None = None,
+    cache_hit_tokens: int = 0,
 ) -> float:
     """统一成本计算 (CNY)。定价优先级：模型（权威官方价）> 显式 key 价（仅当无 model）> 环境变量回退。
 
     单个 ApiSecret 只有一对价格，无法表达多模型定价；pro/flash 官方价才是正确的
     每模型定价维度（修复 H-1：pro 被按 flash 少计 ~3x）。
+
+    缓存命中的 prompt token 按缓存价计（修复 M-1：全额输入价会高估）。无 model 时不做
+    缓存折扣（按满额输入价），保持向后兼容。
     """
     if model:
         pi, po = get_model_price_cny(model)
@@ -66,4 +79,12 @@ def estimate_cost_cny(
 
         pi, po = LLM_PRICE_INPUT_PER_1M, LLM_PRICE_OUTPUT_PER_1M
 
-    return round(prompt_tokens / 1_000_000 * float(pi) + completion_tokens / 1_000_000 * float(po), 6)
+    hit = max(0, min(cache_hit_tokens or 0, prompt_tokens or 0))
+    miss = max(0, (prompt_tokens or 0) - hit)
+    cache_price = get_cache_price_cny(model) if model else float(pi)
+    return round(
+        miss / 1_000_000 * float(pi)
+        + hit / 1_000_000 * float(cache_price)
+        + (completion_tokens or 0) / 1_000_000 * float(po),
+        6,
+    )
