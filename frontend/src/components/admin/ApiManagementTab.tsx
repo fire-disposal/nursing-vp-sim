@@ -1,5 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Edit3, Info, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+	Activity,
+	ChevronDown,
+	ChevronRight,
+	Edit3,
+	Info,
+	Plus,
+	RefreshCw,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import {
 	createConfig,
@@ -10,6 +19,7 @@ import {
 	fetchSecrets,
 	reloadRouter,
 	resetConfig,
+	testAllConfigs,
 	testConfig,
 	toggleConfig,
 	updateConfig,
@@ -22,6 +32,12 @@ import EmptyState from "@/components/ui/empty-state";
 import Tooltip from "@/components/ui/tooltip";
 import { LLM_PURPOSES } from "@/config/llm-purposes";
 import { cn } from "@/utils/cn";
+import {
+	costColorClass,
+	degradedReasonLabel,
+	recoveryText,
+	statusText,
+} from "./llm-status";
 import SecretModal from "./SecretModal";
 
 type ApiSecretResponse = components["schemas"]["ApiSecretResponse"];
@@ -46,6 +62,8 @@ export default function ApiManagementTab() {
 	const [editingSecret, setEditingSecret] = useState<ApiSecretResponse | null>(
 		null,
 	);
+	const [bindingsOpen, setBindingsOpen] = useState(false);
+	const [testingAll, setTestingAll] = useState(false);
 
 	const { data: secrets = [] } = useQuery({
 		queryKey: queryKeys.apiManagement.secrets,
@@ -157,132 +175,195 @@ export default function ApiManagementTab() {
 		}
 	};
 
+	const handleTestAll = async () => {
+		setTestingAll(true);
+		try {
+			const r = await testAllConfigs();
+			const results = r.data.results ?? [];
+			const ok = results.filter((x) => x.ok).length;
+			const fail = results.length - ok;
+			fail === 0
+				? toast.success(`全部连通（${ok} 项）`)
+				: toast.error(`成功 ${ok} · 失败 ${fail}`);
+		} catch {
+			toast.error("测试失败");
+		} finally {
+			setTestingAll(false);
+		}
+	};
+
 	return (
 		<>
-			{/* Env fallback status */}
-			<div className="mb-3 flex items-center gap-2">
-				<span
-					className={cn(
-						"inline-block w-[6px] h-[6px] rounded-full",
-						envFallback?.available ? "bg-green-400" : "bg-red-400",
-					)}
-				/>
-				<span className="text-[0.7rem] text-muted-foreground/70 font-mono">
-					sk-...{envFallback?.key_suffix || "****"}
-				</span>
-				{envFallback?.call_count != null && envFallback.call_count > 0 && (
-					<span className="text-[0.68rem] text-muted-foreground/60">
-						{envFallback.call_count}次 · ¥{envFallback.total_cost}
-					</span>
-				)}
-				<Tooltip content="当数据库内无可用 API 密钥时，系统自动回退到此环境变量密钥继续工作">
-					<button className="bg-transparent border-none cursor-pointer p-0 text-muted-foreground/40 hover:text-muted-foreground/70">
-						<Info size={12} />
-					</button>
-				</Tooltip>
-			</div>
-
-			{/* Secrets section */}
+			{/* Secrets table */}
 			<div className="mb-4">
 				<div className="flex justify-between items-center mb-2">
 					<h3 className="text-sm font-semibold text-foreground">API 密钥</h3>
-					<button
-						onClick={() => {
-							setEditingSecret(null);
-							setShowSecretModal(true);
-						}}
-						className="inline-flex items-center gap-1 py-1 px-3 border-none rounded-md bg-primary text-primary-foreground cursor-pointer text-sm"
-					>
-						<Plus size={14} /> 添加密钥
-					</button>
+					<div className="flex gap-2">
+						<button
+							onClick={handleTestAll}
+							disabled={testingAll}
+							className="inline-flex items-center gap-1 py-1 px-3 border border-border rounded-md bg-muted text-foreground cursor-pointer text-sm disabled:opacity-50"
+						>
+							<Activity size={14} /> {testingAll ? "测试中..." : "测试全部"}
+						</button>
+						<button
+							onClick={() => {
+								setEditingSecret(null);
+								setShowSecretModal(true);
+							}}
+							className="inline-flex items-center gap-1 py-1 px-3 border-none rounded-md bg-primary text-primary-foreground cursor-pointer text-sm"
+						>
+							<Plus size={14} /> 添加密钥
+						</button>
+					</div>
 				</div>
-				{secrets.length === 0 ? (
-					<div className="border border-dashed border-border rounded-md">
+				<div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+					{secrets.length === 0 && !envFallback?.available && (
 						<EmptyState
 							title="暂无密钥"
 							description="添加 DeepSeek API Key 以开始使用"
 						/>
-					</div>
-				) : (
-					<div className="flex gap-2 flex-wrap">
-						{secrets.map((s) => {
-							const secStatus = s.status;
-							const statusLabel =
-								secStatus === "active"
-									? "正常"
-									: secStatus === "degraded"
-										? "熔断"
-										: "关闭";
-							const statusColor =
-								secStatus === "active"
-									? "text-success-foreground"
-									: secStatus === "degraded"
-										? "text-warning-foreground"
-										: "text-danger-foreground";
-							return (
-								<div
-									key={s.id}
-									className="flex-1 min-w-[240px] max-w-[320px] rounded-lg border border-border bg-card p-3 transition-shadow duration-200 hover:shadow-md"
-								>
-									<div className="flex items-center gap-1.5 mb-0.5">
-										<span className="font-semibold text-sm">{s.label}</span>
-										<span className={cn("ml-auto text-[0.7rem]", statusColor)}>
-											{statusLabel}
+					)}
+					{secrets.map((s) => {
+						const cost = Number(s.monthly_cost_used ?? 0);
+						const limit = s.monthly_cost_limit ?? null;
+						const recovery =
+							s.status === "degraded"
+								? recoveryText(s.degraded_until, s.degraded_reason)
+								: "";
+						return (
+							<div
+								key={s.id}
+								className="flex items-center gap-2 py-2 px-3 hover:bg-muted/40"
+							>
+								<span
+									className={cn(
+										"inline-block w-[7px] h-[7px] rounded-full shrink-0",
+										STATUS_DOT[s.status] || "bg-gray-400",
+									)}
+								/>
+								<span className="font-semibold text-sm truncate">{s.label}</span>
+								<span className="text-[0.68rem] text-muted-foreground/70 font-mono shrink-0">
+									sk-...{s.key_suffix}
+								</span>
+								<span className="text-xs text-muted-foreground shrink-0">
+									{statusText(s.status)}
+									{s.status === "degraded" && (
+										<span className="text-muted-foreground/60">
+											{" · "}
+											{degradedReasonLabel(s.degraded_reason)}
+											{recovery ? ` · ${recovery}` : ""}
 										</span>
-									</div>
-									<div className="text-[0.68rem] text-muted-foreground">
-										<span className="font-mono">sk-...{s.key_suffix}</span>
-										{s.base_url && (
-											<span className="ml-1.5 text-muted-foreground/70">
-												{s.base_url}
-											</span>
+									)}
+								</span>
+								<Tooltip
+									content={
+										limit
+											? `本月已用 ¥${cost.toFixed(2)} / 上限 ¥${Number(limit).toFixed(0)}`
+											: `本月已用 ¥${cost.toFixed(2)}`
+									}
+								>
+									<span
+										className={cn(
+											"ml-auto text-[0.7rem] shrink-0",
+											costColorClass(cost, limit),
 										)}
-									</div>
-									<div className="flex items-center justify-between mt-1">
-										{s.monthly_cost_limit != null && s.monthly_cost_limit > 0 ? (
-											<Tooltip
-												content={`月度预算: ¥${Number(s.monthly_cost_limit).toFixed(0)}，已用 ¥${Number(s.monthly_cost_used).toFixed(2)}`}
-											>
-												<span className="text-[0.68rem] text-muted-foreground/60">
-													¥{Number(s.monthly_cost_used).toFixed(2)} / ¥{Number(s.monthly_cost_limit).toFixed(0)}
-												</span>
-											</Tooltip>
-										) : (
-											<span className="text-[0.68rem] text-muted-foreground/60">
-												¥{Number(s.monthly_cost_used).toFixed(2)}
-											</span>
-										)}
-										<div className="flex gap-0.5">
-											<button
-												onClick={() => {
-													setEditingSecret(s);
-													setShowSecretModal(true);
-												}}
-												className="bg-transparent border-none cursor-pointer text-muted-foreground/70 hover:text-foreground p-0.5"
-												title="编辑"
-											>
-												<Edit3 size={12} />
-											</button>
-											<button
-												onClick={() => handleDeleteSecret(s)}
-												className="bg-transparent border-none cursor-pointer text-destructive hover:text-destructive p-0.5"
-												title="删除"
-											>
-												<Trash2 size={12} />
-											</button>
-										</div>
-									</div>
+									>
+										¥{Number(s.total_cost_today ?? 0).toFixed(2)} /{" "}
+										{limit ? `¥${Number(limit).toFixed(0)}` : "不限"}
+									</span>
+								</Tooltip>
+								<div className="flex gap-0.5 shrink-0">
+									<button
+										onClick={() => {
+											setEditingSecret(s);
+											setShowSecretModal(true);
+										}}
+										className="text-muted-foreground/70 hover:text-foreground p-0.5"
+										title="编辑"
+									>
+										<Edit3 size={12} />
+									</button>
+									<button
+										onClick={() => handleDeleteSecret(s)}
+										className="text-destructive p-0.5"
+										title="删除"
+									>
+										<Trash2 size={12} />
+									</button>
 								</div>
-							);
-						})}
+							</div>
+						);
+					})}
+					{/* env 兜底常驻行 */}
+					<div className="flex items-center gap-2 py-2 px-3 bg-muted/30">
+						<span
+							className={cn(
+								"inline-block w-[7px] h-[7px] rounded-full shrink-0",
+								envFallback?.degraded_until &&
+									new Date(envFallback.degraded_until) > new Date()
+									? "bg-amber-500"
+									: envFallback?.available
+										? "bg-green-400"
+										: "bg-red-400",
+							)}
+						/>
+						<span className="font-semibold text-sm text-muted-foreground">
+							环境变量兜底
+						</span>
+						<span className="text-[0.6rem] px-1 py-px rounded bg-muted text-muted-foreground/70 shrink-0">
+							兜底
+						</span>
+						<span className="text-[0.68rem] text-muted-foreground/70 font-mono shrink-0">
+							sk-...{envFallback?.key_suffix || "****"}
+						</span>
+						<span className="text-xs text-muted-foreground shrink-0">
+							{envFallback?.degraded_until &&
+							new Date(envFallback.degraded_until) > new Date() ? (
+								<>
+									熔断 · {degradedReasonLabel(envFallback.degraded_reason)}
+									{recoveryText(
+										envFallback.degraded_until,
+										envFallback.degraded_reason,
+									)
+										? ` · ${recoveryText(envFallback.degraded_until, envFallback.degraded_reason)}`
+										: ""}
+								</>
+							) : envFallback?.available ? (
+								"可用"
+							) : (
+								"不可用"
+							)}
+						</span>
+						{envFallback?.call_count != null && envFallback.call_count > 0 && (
+							<span className="ml-auto text-[0.68rem] text-muted-foreground/60 shrink-0">
+								{envFallback.call_count}次 · ¥{envFallback.total_cost}
+							</span>
+						)}
+						<Tooltip content="数据库无可用密钥时自动回退到此环境变量密钥；连续失败/限流会临时熔断以避免无谓重试">
+							<button className="text-muted-foreground/40 hover:text-muted-foreground/70 p-0.5">
+								<Info size={12} />
+							</button>
+						</Tooltip>
 					</div>
-				)}
+				</div>
 			</div>
 
 			{/* Purpose bindings */}
 			<div>
 				<div className="flex justify-between items-center mb-2">
-					<h3 className="text-sm font-semibold text-foreground">用途绑定</h3>
+					<button
+						onClick={() => setBindingsOpen((v) => !v)}
+						className="flex items-center gap-1 text-sm font-semibold text-foreground bg-transparent border-none cursor-pointer"
+					>
+						{bindingsOpen ? (
+							<ChevronDown size={14} />
+						) : (
+							<ChevronRight size={14} />
+						)}
+						用途路由（{configs.filter((c) => c.status !== "disabled").length}/
+						{PURPOSES.length} 已绑定）
+					</button>
 					<button
 						onClick={() =>
 							reloadRouter()
@@ -293,10 +374,12 @@ export default function ApiManagementTab() {
 								.catch(() => toast.error("重载失败"))
 						}
 						className="inline-flex items-center gap-1 py-1 px-2 border border-border rounded-md bg-muted text-foreground cursor-pointer text-sm"
+						title="重载路由"
 					>
 						<RefreshCw size={14} />
 					</button>
 				</div>
+				{bindingsOpen && (
 				<div className="border border-border rounded-lg overflow-hidden">
 					{PURPOSES.map((p, i) => {
 						const cfg = getConfig(p.key);
@@ -427,6 +510,7 @@ export default function ApiManagementTab() {
 						);
 					})}
 				</div>
+				)}
 			</div>
 
 			<SecretModal
