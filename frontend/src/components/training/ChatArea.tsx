@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
-import { cn } from "@/utils/cn";
+import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InitiativeBar } from "./InitiativeBar";
-import { WelcomeScreen } from "./WelcomeScreen";
 import SceneToolbar from "./SceneToolbar";
+import { WelcomeScreen } from "./WelcomeScreen";
 
 interface ChatAreaProps {
 	messages: ChatMessage[];
@@ -17,6 +17,7 @@ interface ChatAreaProps {
 	bus: MessageBus;
 	features: Record<string, boolean>;
 	recordId: number;
+	hasHistory?: boolean;
 }
 
 export function ChatArea({
@@ -28,17 +29,12 @@ export function ChatArea({
 	bus,
 	features,
 	recordId,
+	hasHistory,
 }: ChatAreaProps) {
   const hasMessages = messages.length > 0;
   const [initiativeMsgs, setInitiativeMsgs] = useState<Set<string>>(new Set());
-  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
-
-  // Auto-dismiss welcome once user sends first message
-  useEffect(() => {
-    if (hasMessages) setWelcomeDismissed(true);
-  }, [hasMessages]);
-
-  const showWelcome = !hasMessages && !welcomeDismissed;
+  const layout = useLayoutMode();
+  const isCompact = layout === "phone";
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -64,36 +60,27 @@ export function ChatArea({
 
 	return (
 		<div className="flex flex-col h-full">
-			<EmotionIndicator bus={bus} features={features} />
-			<div className="flex-1 overflow-hidden relative">
-				<div
-					className={cn(
-						"absolute inset-0 transition-opacity duration-300",
-						hasMessages ? "opacity-100" : "opacity-0 pointer-events-none",
-					)}
-				>
-					<ChatDisplay
-						messages={messages}
-						patient={patient}
-						bus={bus}
-						initiativeMsgs={initiativeMsgs}
-						hasStreaming={sending}
-					/>
-				</div>
-				<div
-					className={cn(
-						"absolute inset-0 transition-opacity duration-300",
-						showWelcome ? "opacity-100" : "opacity-0 pointer-events-none",
-					)}
-				>
+			{isCompact ? (
+				<EmotionIndicator bus={bus} features={features} compact />
+			) : (
+				<EmotionIndicator bus={bus} features={features} />
+			)}
+			<div className="flex-1 overflow-y-auto overscroll-contain">
+				{!hasMessages && !hasHistory && (
 					<WelcomeScreen
 						patient={patient}
 						onQuickPrompt={onSend}
-						onDismiss={() => setWelcomeDismissed(true)}
 					/>
-				</div>
+				)}
+				<ChatDisplay
+					messages={messages}
+					patient={patient}
+					bus={bus}
+					initiativeMsgs={initiativeMsgs}
+					hasStreaming={sending}
+				/>
 			</div>
-			<InitiativeBar bus={bus} features={features} recordId={recordId} />
+			<InitiativeBar bus={bus} features={features} recordId={recordId} compact={isCompact} />
 			<SceneToolbar />
 			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} />
 		</div>

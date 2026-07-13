@@ -11,6 +11,7 @@ import { cn } from "@/utils/cn";
 interface EmotionIndicatorProps {
 	bus: MessageBus;
 	features: Record<string, boolean>;
+	compact?: boolean;
 }
 
 const EMOTION_ICONS: Record<EmotionState, string> = {
@@ -40,7 +41,7 @@ const VALUE_BAR_COLOR: Record<EmotionState, string> = {
 	open: "bg-green-500",
 };
 
-export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
+export function EmotionIndicator({ bus, features, compact }: EmotionIndicatorProps) {
 	const { emotion } = useEmotion();
 	const [values, setValues] = useState({ trust: 50, comfort: 50 });
 	const [pulse, setPulse] = useState(false);
@@ -60,6 +61,22 @@ export function EmotionIndicator({ bus, features }: EmotionIndicatorProps) {
 	}, [bus]);
 
 	if (!features.emotion) return null;
+
+	if (compact) {
+		return (
+			<div
+				className={cn(
+					"shrink-0 border-b border-border px-2 py-0.5 transition-colors duration-300",
+					pulse && "bg-primary/5",
+				)}
+			>
+				<div className="flex items-center gap-1">
+					<span className="text-sm">{EMOTION_ICONS[emotion]}</span>
+					<span className={cn("size-1.5 rounded-full", EMOTION_DOT[emotion])} />
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div

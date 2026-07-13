@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -348,23 +347,13 @@ function TrainingEngineContent({ recordId, children }: TrainingEngineProps) {
 							bus={busRef.current}
 							features={features}
 							recordId={recordNum}
+							hasHistory={initialMessages.length > 0}
 						/>
 					</ErrorBoundary>
 				</div>
 				</div>
 				{children}
 			</div>
-		{/* Floating end button — mobile only, fixed at bottom-right */}
-			<button
-				onClick={() => {
-					const el = document.querySelector("[data-end-training]");
-					if (el) (el as HTMLElement).click();
-				}}
-				className="fixed bottom-24 right-4 z-50 flex size-12 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg active:scale-95 transition-transform md:hidden"
-				aria-label="结束训练"
-			>
-				<X size={20} />
-			</button>
 		</TrainingContext.Provider>
 			<ScoringOverlay
 				bus={busRef.current}

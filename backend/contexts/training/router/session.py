@@ -208,6 +208,7 @@ def _create_record(
 
     # 时间优先级（D11）：显式设置(free-config req / 教师 practice) > case 默认 > 全局 20
     time_limit = config.get("behavior", {}).get("time_limit_minutes") or case.time_limit_minutes or 20
+    time_limit = max(1, min(180, int(time_limit)))
 
     config["features"] = config.get("features") or {}
     validate_case_data(training_type, case_data, strict=False)
@@ -536,9 +537,7 @@ def get_record_detail(
         pass
 
     # 继续训练：回填服务器端持久化的情绪(信赖/舒适/状态)与主动追问计数。
-    session_state = (
-        db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
-    )
+    session_state = db.query(TrainingSessionState).filter(TrainingSessionState.record_id == record_id).first()
     emotion = None
     initiative_count = 0
     if session_state is not None:
@@ -549,6 +548,20 @@ def get_record_detail(
             es = EmotionState.from_dict(es_dict)
             emotion = {"trust": es.trust, "comfort": es.comfort, "state": es.state}
         initiative_count = session_state.initiative_count or 0
+
+    case_title = case_data.get("title", "") or (case.name if case else "")
+
+    personality_dict = case_data.get("personality", {})
+    personality_parts = []
+    if personality_dict.get("health_literacy"):
+        personality_parts.append(
+            {"low": "低素养", "normal": "中等", "high": "高素养"}.get(personality_dict["health_literacy"], "")
+        )
+    if personality_dict.get("verbosity"):
+        personality_parts.append(
+            {"terse": "寡言", "normal": "正常", "verbose": "絮叨"}.get(personality_dict["verbosity"], "")
+        )
+    personality_label = "·".join(filter(None, personality_parts))
 
     return TrainingRecordDetail(
         id=record.id,
@@ -571,6 +584,11 @@ def get_record_detail(
         patient_gender=normalize_gender(patient_info.get("gender", "")),
         training_type=record.training_type or "history_taking",
         features=resolve_features(record.practice_snapshot, case_defaults=case_data.get("capabilities")),
+        patient_name=patient_info.get("name", ""),
+        patient_age=patient_info.get("age", 0),
+        chief_complaint=case_data.get("chief_complaint", ""),
+        personality=personality_label,
+        case_title=case_title,
         from_assignment=record.assignment_id is not None,
         pending_questionnaires=pending_questionnaires,
         exam_anchors=case_data.get("exam_anchors", {}),

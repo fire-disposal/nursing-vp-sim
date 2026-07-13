@@ -45,8 +45,10 @@ def _to_case_brief(c: Case) -> CaseBrief:
         training_type=c.training_type,
         difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
         description=c.description,
+        time_limit_minutes=c.time_limit_minutes,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
         profile_info=profile_info,
+        capabilities=c.case_data.get("capabilities", {}) if c.case_data else {},
     )
 
 

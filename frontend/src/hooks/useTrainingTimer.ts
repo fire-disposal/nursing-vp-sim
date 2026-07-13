@@ -19,13 +19,18 @@ export function useTrainingTimer({
 	const toast = useToast();
 
 	useEffect(() => {
-		setRemaining(initialRemaining);
-		if (initialRemaining != null && initialRemaining > 0) {
+		if (initialRemaining == null) return;
+		const diff = Math.abs((remaining ?? 0) - initialRemaining);
+		if (diff > 30) {
+			setRemaining(initialRemaining);
+		}
+		if (initialRemaining > 0 && remaining == null) {
+			setRemaining(initialRemaining);
 			setTimerActive(true);
 		}
 		warned5Ref.current = false;
 		warned2Ref.current = false;
-		autoEndRef.current = initialRemaining != null && initialRemaining <= 0;
+		autoEndRef.current = initialRemaining <= 0;
 	}, [initialRemaining]);
 
 	useEffect(() => {
@@ -80,9 +85,10 @@ export function useTrainingTimer({
 	}, [stopTimer]);
 
 	const formatTime = useCallback((sec: number | null): string => {
-		if (sec == null) return "--:--";
+		if (sec == null || !Number.isFinite(sec) || sec < 0) return "--:--";
+		if (sec > 59940) return "999:59";
 		const m = Math.floor(sec / 60);
-		const s = sec % 60;
+		const s = Math.floor(sec % 60);
 		return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 	}, []);
 

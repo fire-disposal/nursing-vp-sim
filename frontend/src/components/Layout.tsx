@@ -12,6 +12,9 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
+import DefaultShell from "@/components/shell/DefaultShell";
+import ImmersiveShell from "@/components/shell/ImmersiveShell";
+import StudentTabShell from "@/components/shell/StudentTabShell";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import LoadingState from "@/components/ui/loading-state";
@@ -25,10 +28,6 @@ import { getUserAvatar } from "@/utils/avatar";
 import { cn } from "@/utils/cn";
 import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
-
-import ImmersiveShell from "@/components/shell/ImmersiveShell";
-import DefaultShell from "@/components/shell/DefaultShell";
-import StudentTabShell from "@/components/shell/StudentTabShell";
 
 // ── Admin sidebar ──
 function AdminSidebar({

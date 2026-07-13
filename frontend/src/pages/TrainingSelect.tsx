@@ -1,17 +1,15 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Ambulance, Lightbulb, Search, Star, Stethoscope, User, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, getProfiles, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import { TrainingConfigSheet } from "@/components/training/TrainingConfigSheet";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { cn } from "@/utils/cn";
@@ -21,6 +19,17 @@ type CaseBrief = components["schemas"]["CaseBrief"];
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
 
+const CAPABILITY_BADGES: Record<string, { label: string; color: string }> = {
+  patient_initiative: { label: "患者追问", color: "bg-amber-50 text-amber-600" },
+  physical_exam: { label: "护理查体", color: "bg-purple-50 text-purple-600" },
+  nursing_record: { label: "评估记录", color: "bg-teal-50 text-teal-600" },
+};
+
+const TYPE_LABELS: Record<string, { label: string; icon: typeof Stethoscope }> = {
+  history_taking: { label: "病史采集", icon: Stethoscope },
+  triage: { label: "预检分诊", icon: Ambulance },
+};
+
 interface PatientSummary { gender?: string; age?: number; chief_complaint?: string }
 
 function getPatientSummary(ps: CaseBrief["patient_summary"]): PatientSummary {
@@ -28,27 +37,6 @@ function getPatientSummary(ps: CaseBrief["patient_summary"]): PatientSummary {
   return {};
 }
 
-const TYPE_META: Record<string, { icon: typeof Stethoscope; color: string; features: { label: string; color: string }[] }> = {
-  history_taking: {
-    icon: Stethoscope,
-    color: "from-blue-500/10 to-blue-500/5",
-    features: [
-      { label: "问诊", color: "bg-blue-50 text-blue-600" },
-      { label: "查体", color: "bg-purple-50 text-purple-600" },
-      { label: "评分", color: "bg-green-50 text-green-600" },
-    ],
-  },
-  triage: {
-    icon: Ambulance,
-    color: "from-red-500/10 to-red-500/5",
-    features: [
-      { label: "快速评估", color: "bg-orange-50 text-orange-600" },
-      { label: "分诊", color: "bg-red-50 text-red-600" },
-    ],
-  },
-};
-
-// ── Difficulty stars ──
 function DifficultyStars({ level }: { level?: number | null }) {
   const lvl = level && DIFFICULTY_LABELS[level] ? level : 1;
   return (
@@ -60,16 +48,15 @@ function DifficultyStars({ level }: { level?: number | null }) {
   );
 }
 
-// ── Component ──
 export default function TrainingSelect() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState(0);
   const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
   const [offset, setOffset] = useState(0);
-  const [selectedCase, setSelectedCase] = useState<CaseBrief | null>(null);
   const [hintDismissed, setHintDismissed] = useState(() => localStorage.getItem("training_hint_dismissed") === "1");
   const navigate = useNavigate();
   const toast = useToast();
+  const startingCaseRef = useRef<number | null>(null);
 
   const { data: profiles = [] } = useQuery({
     queryKey: queryKeys.profiles.all,
@@ -91,194 +78,178 @@ export default function TrainingSelect() {
   });
 
   const startMutation = useMutation({
-    mutationFn: ({ caseId, features, timeLimit }: { caseId: number; features: Record<string, boolean>; timeLimit: number }) =>
-      startTraining(caseId, null, features, timeLimit),
-    onSuccess: (res: { data: { record_id: number } }) => navigate(`/training/${res.data.record_id}`),
-    onError: () => toast.error("开始训练失败，请重试"),
+    mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => {
+      startingCaseRef.current = caseId;
+      return startTraining(caseId, null, {}, timeLimit);
+    },
+    onSuccess: (res: { data: { record_id: number } }) => {
+      startingCaseRef.current = null;
+      navigate(`/training/${res.data.record_id}`);
+    },
+    onError: () => {
+      startingCaseRef.current = null;
+      toast.error("开始训练失败，请重试");
+    },
   });
 
   const cases = casesData?.items ?? [];
   const total = casesData?.total ?? 0;
 
   return (
-    <>
-      <PageHeader title="训练中心" icon={selectedType === "triage" ? Ambulance : Stethoscope}
-        subtitle={selectedType ? "选择虚拟患者病例开始训练" : "选择训练类型和虚拟患者，系统将模拟真实护理场景"}
-        backTo="/home"
-      />
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-lg font-bold text-foreground">病例列表</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">选择病例开始护理模拟训练，系统自动评分</p>
+      </div>
 
-      <div className="space-y-6">
-        {/* Hint */}
-        {!hintDismissed && (
-          <div className="relative rounded-xl border border-transparent bg-warning p-4">
-            <div className="flex gap-3 items-start">
-              <Lightbulb size={20} className="text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-warning-foreground">
-                <span className="font-semibold">提示：</span>选择训练类型和病例后，系统会模拟真实患者，你通过对话完成问诊或分诊。训练结束后自动评分。
-              </p>
-            </div>
-            <button onClick={() => { localStorage.setItem("training_hint_dismissed", "1"); setHintDismissed(true); }}
-              className="absolute top-2 right-2 size-8 flex items-center justify-center rounded-lg hover:bg-amber-200/50" aria-label="关闭">
-              <X size={14} />
+      {!hintDismissed && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning-foreground">
+          <Lightbulb size={14} className="text-warning shrink-0" />
+          <span className="flex-1">选择病例后即开始模拟对话训练，结束后自动评分</span>
+          <button onClick={() => { localStorage.setItem("training_hint_dismissed", "1"); setHintDismissed(true); }}
+            className="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { setSelectedType(null); setOffset(0); }}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors",
+              selectedType === null ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            全部
+          </button>
+          {profiles.map((p) => {
+            const meta = TYPE_LABELS[p.type] ?? TYPE_LABELS.history_taking;
+            const Icon = meta.icon;
+            const count = (p as any).case_count ?? 0;
+            return (
+              <button
+                key={p.type}
+                type="button"
+                onClick={() => { setSelectedType(p.type); setOffset(0); }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors",
+                  selectedType === p.type
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon size={14} />
+                {meta.label}
+                <span className="text-[11px] opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {[0, 1, 2, 3].map((d) => (
+            <button key={d} type="button" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                difficultyFilter === d
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}
             </button>
+          ))}
+          <div className="relative w-36 sm:w-44">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input type="text" value={searchInput} onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
+              placeholder="搜索…"
+              className="w-full h-8 pl-8 pr-2 rounded-md border border-border bg-background text-xs outline-none focus:border-primary/50"
+            />
+            {search && (
+              <button onClick={() => handleSearchChange("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={12} />
+              </button>
+            )}
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Training type selector */}
-        <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">选择训练类型</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {profiles.map((p) => {
-              const meta = TYPE_META[p.type] ?? TYPE_META.history_taking;
-              const Icon = meta.icon;
-              const isSelected = selectedType === p.type;
-              const count = (p as any).case_count ?? 0;
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
+        </div>
+      ) : isError ? (
+        <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" />
+      ) : cases.length === 0 ? (
+        <EmptyState icon={AlertTriangle} title="暂无病例" description={search ? "没有匹配的病例" : "该分类暂无病例"} />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {cases.map((c) => {
+              const summary = getPatientSummary(c.patient_summary);
+              const isStarting = startMutation.isPending && startingCaseRef.current === c.id;
+              const typeMeta = TYPE_LABELS[c.training_type] ?? TYPE_LABELS.history_taking;
+              const TypeIcon = typeMeta.icon;
+              const caps = c.capabilities ?? {};
+              const enabledCaps = Object.entries(caps).filter(([, v]) => v).map(([k]) => k);
               return (
-                <button key={p.type} type="button" onClick={() => { setSelectedType(p.type); setOffset(0); handleSearchChange(""); }}
-                  className={cn(
-                    "relative flex flex-col items-start gap-3 min-w-[200px] flex-1 rounded-xl border p-5 text-left transition-all",
-                    isSelected ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20" : "border-border bg-card hover:border-primary/30 hover:shadow-md",
+                <div key={c.id} className="group flex flex-col gap-3 rounded-xl border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <TypeIcon size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold leading-snug truncate">{c.name}</h3>
+                        <p className="text-[10px] text-muted-foreground">{typeMeta.label}</p>
+                      </div>
+                    </div>
+                    <DifficultyStars level={c.difficulty} />
+                  </div>
+
+                  {summary && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {summary.gender && <span className="inline-flex items-center gap-1"><User size={12} />{summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}</span>}
+                      {typeof summary.age === "number" && <span>{summary.age}岁</span>}
+                      {summary.chief_complaint && <span className="truncate max-w-[200px]">主诉：{summary.chief_complaint}</span>}
+                    </div>
                   )}
-                >
-                  <div className={cn("absolute inset-0 rounded-xl opacity-30", "bg-gradient-to-br", meta.color)} />
-                  <div className={cn("relative flex size-12 items-center justify-center rounded-xl",
-                    isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                    <Icon size={24} />
+
+                  <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
+
+                  <div className="flex gap-1.5 flex-wrap">
+                    <Badge variant="outline" className="text-[10px] px-1.5">{(c.difficulty && DIFFICULTY_LABELS[c.difficulty]) || "初级"}</Badge>
+                    {enabledCaps.map((key) => {
+                      const badge = CAPABILITY_BADGES[key];
+                      if (!badge) return null;
+                      return (
+                        <span key={key} className={cn("text-[10px] px-1.5 py-0.5 rounded", badge.color)}>{badge.label}</span>
+                      );
+                    })}
                   </div>
-                  <div className="relative">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-base font-semibold">{p.label}</h3>
-                      <Badge variant={isSelected ? "default" : "outline"}>{count} 例</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{p.description}</p>
-                    <div className="flex gap-2 mt-2">
-                      {meta.features.map((f) => (
-                        <span key={f.label} className={cn("text-[10px] px-2 py-0.5 rounded-full", f.color)}>{f.label}</span>
-                      ))}
-                    </div>
-                  </div>
-                </button>
+
+                  <Button
+                    className="mt-auto w-full"
+                    onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
+                    disabled={startMutation.isPending}
+                  >
+                    {isStarting ? "启动中…" : "开始训练"}
+                  </Button>
+                </div>
               );
             })}
           </div>
-        </div>
 
-        {/* Filters — only when type selected */}
-        {selectedType && (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex gap-2">
-              {[0, 1, 2, 3].map((d) => (
-                <button key={d} type="button" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
-                  className={cn(
-                    "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                    difficultyFilter === d
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {d === 0 ? "全部" : DIFFICULTY_LABELS[d]}
-                </button>
-              ))}
+          {total > LIMIT && (
+            <div className="rounded-xl border bg-card px-4 py-3">
+              <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
             </div>
-            <div className="flex-1" />
-            <div className="relative w-full sm:w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" value={searchInput} onChange={(e) => { handleSearchChange(e.target.value); setOffset(0); }}
-                placeholder="搜索病例名称…"
-                className="w-full h-10 pl-9 pr-3 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-              />
-              {search && (
-                <button onClick={() => handleSearchChange("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Case cards */}
-        {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
-          </div>
-        ) : isError ? (
-          <EmptyState icon={AlertTriangle} title="加载失败" description="请检查网络后重试" />
-        ) : !selectedType ? (
-          <EmptyState icon={Stethoscope} title="请先选择一种训练类型" description="选择后即可浏览对应的虚拟患者病例" />
-        ) : cases.length === 0 ? (
-          <EmptyState icon={AlertTriangle} title="暂无病例" description={search ? "没有匹配的病例名称" : "该类型暂无可用病例"} />
-        ) : (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {cases.map((c) => {
-                const summary = getPatientSummary(c.patient_summary);
-                const isStarting = startMutation.isPending && selectedCase?.id === c.id;
-                const meta = TYPE_META[c.training_type] ?? TYPE_META.history_taking;
-                return (
-                  <div key={c.id} className="group flex flex-col gap-3 rounded-xl border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <meta.icon size={16} />
-                        </div>
-                        <h3 className="text-sm font-semibold leading-snug truncate">{c.name}</h3>
-                      </div>
-                      <DifficultyStars level={c.difficulty} />
-                    </div>
-
-                    {/* Patient info */}
-                    {summary && (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        {summary.gender && <span className="inline-flex items-center gap-1"><User size={12} />{summary.gender === "男" ? "男性" : summary.gender === "女" ? "女性" : summary.gender}</span>}
-                        {typeof summary.age === "number" && <span>{summary.age}岁</span>}
-                        {summary.chief_complaint && <span className="truncate">主诉：{summary.chief_complaint}</span>}
-                      </div>
-                    )}
-
-                    {/* Description */}
-                    <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
-
-                    {/* Type badges */}
-                    <div className="flex gap-1.5">
-                      <Badge variant="outline" className="text-[10px] px-1.5">{(c.difficulty && DIFFICULTY_LABELS[c.difficulty]) || "初级"}</Badge>
-                      {meta.features.slice(0, 2).map((f) => (
-                        <span key={f.label} className={cn("text-[10px] px-1.5 py-0.5 rounded", f.color)}>{f.label}</span>
-                      ))}
-                    </div>
-
-                    <Button className="mt-auto w-full" onClick={() => setSelectedCase(c)} disabled={startMutation.isPending}>
-                      {isStarting ? "启动中…" : "开始训练"}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Pagination */}
-            {total > LIMIT && (
-              <div className="rounded-xl border bg-card px-4 py-3">
-                <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Config sheet */}
-      {selectedCase && (
-        <TrainingConfigSheet
-          open={!!selectedCase}
-          caseInfo={selectedCase}
-          profiles={profiles}
-          onClose={() => setSelectedCase(null)}
-          onStart={(features, timeLimit) => {
-            startMutation.mutate({ caseId: selectedCase.id, features, timeLimit });
-            setSelectedCase(null);
-          }}
-          loading={startMutation.isPending}
-        />
+          )}
+        </>
       )}
-    </>
+    </div>
   );
 }

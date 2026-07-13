@@ -7,9 +7,10 @@ interface InitiativeBarProps {
 	bus: MessageBus;
 	features: Record<string, boolean>;
 	recordId: number;
+	compact?: boolean;
 }
 
-export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
+export function InitiativeBar({ bus, features, recordId, compact }: InitiativeBarProps) {
 	const [percent, setPercent] = useState(0);
 	const [_maxReached, setMaxReached] = useState(false);
 	const elapsedRef = useRef(0);
@@ -128,25 +129,27 @@ export function InitiativeBar({ bus, features, recordId }: InitiativeBarProps) {
 
 	const barColor =
 		percent > 80
-			? "bg-destructive"
+			? "bg-danger"
 			: percent > 50
-				? "bg-amber-500"
-				: "bg-green-500";
+				? "bg-warning"
+				: "bg-success";
 
 	return (
-		<div className="shrink-0 bg-muted/30 overflow-hidden">
+		<div className={cn("shrink-0 overflow-hidden", !compact && "bg-muted/30")}>
 			{percent > 0 && (
-				<div className="flex items-center gap-2 px-3 py-1">
-					<span className="text-[10px] text-muted-foreground shrink-0">患者等待</span>
-					<div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+				<div className={cn("flex items-center gap-2", compact ? "px-3 py-0.5" : "px-3 py-1")}>
+					{!compact && <span className="text-[10px] text-muted-foreground shrink-0">患者等待</span>}
+					<div className={cn("rounded-full bg-muted overflow-hidden", compact ? "flex-1 h-1" : "flex-1 h-2")}>
 						<div
 							className={cn("h-full rounded-full transition-all duration-1000 ease-linear", barColor)}
 							style={{ width: `${Math.min(100, percent)}%` }}
 						/>
 					</div>
-					<span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-						{Math.round(percent)}%
-					</span>
+					{!compact && (
+						<span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+							{Math.round(percent)}%
+						</span>
+					)}
 				</div>
 			)}
 		</div>

@@ -38,7 +38,7 @@ export default function RecordStatsBar({
 			</div>
 
 			<div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
-				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
+				<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info-foreground">
 					<FileText size={18} />
 				</div>
 				<div className="min-w-0 flex-1">

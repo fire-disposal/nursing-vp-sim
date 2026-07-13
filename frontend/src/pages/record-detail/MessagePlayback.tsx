@@ -26,7 +26,7 @@ export default function MessagePlayback({ messages }: Props) {
 								"font-semibold mr-2",
 								msg.role === "student"
 									? "text-primary"
-									: "text-teal-600 dark:text-teal-400",
+									: "text-info-foreground",
 							)}
 						>
 							{msg.role === "student" ? "学生：" : "患者："}

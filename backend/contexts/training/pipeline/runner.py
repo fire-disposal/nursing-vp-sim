@@ -80,6 +80,12 @@ async def stream_pipeline(ctx: PipelineContext, middlewares: list[PipelineMiddle
         await task
     except GeneratorExit:
         log.info("Stream pipeline cancelled (disconnect): record_id=%d", ctx.record.id)
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         raise
     except Exception as e:
         log.exception("Stream pipeline error: record_id=%d", ctx.record.id)

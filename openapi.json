@@ -8866,6 +8866,11 @@
             "title": "Training Type",
             "default": "history_taking"
           },
+          "time_limit_minutes": {
+            "type": "integer",
+            "title": "Time Limit Minutes",
+            "default": 20
+          },
           "patient_summary": {
             "anyOf": [
               {
@@ -8882,6 +8887,13 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Profile Info"
+          },
+          "capabilities": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Capabilities"
           }
         },
         "type": "object",
@@ -14152,6 +14164,31 @@
             },
             "type": "object",
             "title": "Features"
+          },
+          "patient_name": {
+            "type": "string",
+            "title": "Patient Name",
+            "default": ""
+          },
+          "patient_age": {
+            "type": "integer",
+            "title": "Patient Age",
+            "default": 0
+          },
+          "chief_complaint": {
+            "type": "string",
+            "title": "Chief Complaint",
+            "default": ""
+          },
+          "personality": {
+            "type": "string",
+            "title": "Personality",
+            "default": ""
+          },
+          "case_title": {
+            "type": "string",
+            "title": "Case Title",
+            "default": ""
           },
           "from_assignment": {
             "type": "boolean",

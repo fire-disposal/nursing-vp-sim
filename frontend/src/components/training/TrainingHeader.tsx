@@ -114,11 +114,17 @@ export function TrainingHeader() {
 							<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
 								{patient.name}
 							</div>
-							<div className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight hidden sm:block">
-								{patient.caseTitle}
+							<div className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight">
+								{patient.caseTitle || patient.chiefComplaint}
 							</div>
 						</div>
 					</div>
+
+					{patient.age != null && (
+						<span className="text-xs text-muted-foreground shrink-0 hidden sm:inline tabular-nums">
+							{patient.gender === "male" ? "男" : "女"} · {patient.age}岁
+						</span>
+					)}
 
 					<div
 						className={cn(
@@ -171,7 +177,7 @@ export function TrainingHeader() {
 					>
 						<X size={14} className="sm:size-[15px]" />
 						<span className="hidden sm:inline">结束训练</span>
-						<span className="sm:hidden">结束</span>
+						<span className="sm:hidden">结束训练</span>
 					</button>
 				</div>
 			</header>
@@ -241,7 +247,7 @@ export function TrainingHeader() {
 							onClick={onTtsToggle}
 							className={cn(
 								"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-								ttsAutoPlay ? "bg-primary" : "bg-gray-300",
+								ttsAutoPlay ? "bg-primary" : "bg-muted-foreground/25",
 							)}
 						>
 							<span
@@ -260,10 +266,10 @@ export function TrainingHeader() {
 							<span className={cn(
 								"size-2 rounded-full",
 								!voiceStatus || voiceStatus.provider === "unavailable"
-									? "bg-red-400"
+									? "bg-danger"
 									: voiceStatus.provider.includes("browser")
-										? "bg-amber-400"
-										: "bg-emerald-400",
+										? "bg-warning"
+										: "bg-success",
 							)} />
 							<span className="text-sm">
 								{voiceStatus

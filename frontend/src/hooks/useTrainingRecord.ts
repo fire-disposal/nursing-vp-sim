@@ -27,7 +27,7 @@ export function useTrainingRecord(recordId: string) {
 		queryKey: queryKeys.training.detail(recordId),
 		queryFn: () => getRecordDetail(recordId).then((r) => r.data),
 		enabled: !!recordId,
-		staleTime: 2 * 60_000,
+		staleTime: 15_000,
 		gcTime: 5 * 60_000,
 	});
 

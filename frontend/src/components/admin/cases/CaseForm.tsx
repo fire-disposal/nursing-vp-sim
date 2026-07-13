@@ -5,6 +5,7 @@ import type { components } from "@/api/api-types.gen";
 import { useToast } from "@/components/Toast";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ALL_CAPABILITIES, TRAINING_CAPABILITIES } from "@/engine/capabilities.gen";
 import { cn } from "@/utils/cn";
 import type { CaseForm, CaseManageItem, ScoringDimension } from "./types";
 import {
@@ -54,7 +55,7 @@ export default function CaseFormModal({
 
 	const updateField = (
 		field: string,
-		value: string | number | string[] | Record<string, ScoringDimension>,
+		value: string | number | string[] | Record<string, boolean> | Record<string, ScoringDimension>,
 	) => setCaseForm((prev) => ({ ...prev, [field]: value }));
 	const updateList = (field: string, text: string) =>
 		setCaseForm((prev) => ({
@@ -831,6 +832,37 @@ export default function CaseFormModal({
 					</legend>
 					{showAdvanced && (
 						<div className="flex flex-col gap-3 mt-3">
+							<div>
+								<label className="text-xs font-semibold text-muted-foreground mb-2 block">
+									训练功能特性
+								</label>
+								<div className="flex flex-wrap gap-2">
+									{(TRAINING_CAPABILITIES[caseForm.training_type] ?? []).map((key) => {
+										const def = ALL_CAPABILITIES[key];
+										if (!def) return null;
+										const on = caseForm.capabilities[key] ?? false;
+										return (
+											<button
+												key={key}
+												type="button"
+												onClick={() => {
+													const next = { ...caseForm.capabilities, [key]: !on };
+													updateField("capabilities", next);
+												}}
+												className={cn(
+													"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+													on
+														? "border-primary/50 bg-primary/5 text-primary"
+														: "border-border text-muted-foreground hover:border-primary/20 hover:bg-muted/50",
+												)}
+											>
+												<span className={cn("size-1.5 rounded-full", on ? "bg-primary" : "bg-muted-foreground/30")} />
+												{def.label}
+											</button>
+										);
+									})}
+								</div>
+							</div>
 							<div>
 								<label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground mb-1">
 									隐藏信息（一行一条）

@@ -115,9 +115,11 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 					/>
 				)
 			)}
-			{examResults.map((msg, i) => (
-				<ExamCard key={msg.id ?? i} result={msg.examResult!} />
-			))}
+			{examResults
+				.filter((er) => !messages.some((m) => m.role === "system" && m.examResult?.type === er.examResult?.type))
+				.map((msg, i) => (
+					<ExamCard key={msg.id ?? `exam-${i}`} result={msg.examResult!} />
+				))}
 			<div ref={bottomRef} className="h-1" />
 		</div>
 	);

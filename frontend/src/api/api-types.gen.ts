@@ -2512,6 +2512,11 @@ export interface components {
              * @default history_taking
              */
             training_type: string;
+            /**
+             * Time Limit Minutes
+             * @default 20
+             */
+            time_limit_minutes: number;
             /** Patient Summary */
             patient_summary?: {
                 [key: string]: unknown;
@@ -2519,6 +2524,10 @@ export interface components {
             /** Profile Info */
             profile_info?: {
                 [key: string]: unknown;
+            };
+            /** Capabilities */
+            capabilities?: {
+                [key: string]: boolean;
             };
         };
         /** CaseCreateRequest */
@@ -4589,6 +4598,31 @@ export interface components {
             features?: {
                 [key: string]: boolean;
             };
+            /**
+             * Patient Name
+             * @default
+             */
+            patient_name: string;
+            /**
+             * Patient Age
+             * @default 0
+             */
+            patient_age: number;
+            /**
+             * Chief Complaint
+             * @default
+             */
+            chief_complaint: string;
+            /**
+             * Personality
+             * @default
+             */
+            personality: string;
+            /**
+             * Case Title
+             * @default
+             */
+            case_title: string;
             /**
              * From Assignment
              * @default false

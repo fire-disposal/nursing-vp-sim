@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { SceneRenderer } from "@/components/training/SceneRenderer";
 import LoadingState from "@/components/ui/loading-state";
 
@@ -7,14 +7,8 @@ const TrainingEngine = lazy(() =>
 );
 
 export default function HistoryTakingScene({ recordId }: { recordId: string }) {
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
-
   return (
-    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100%" }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       <Suspense fallback={<LoadingState className="h-full" />}>
         <TrainingEngine recordId={recordId}>
           <SceneRenderer />

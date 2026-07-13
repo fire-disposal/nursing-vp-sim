@@ -1,16 +1,12 @@
 ﻿import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
-	exportRecords,
 	getCases,
 	getDurationStats,
 	getRecords,
-	getStats,
 } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import StudentDashboard from "@/components/dashboard/StudentDashboard";
-import TeacherDashboard from "@/components/dashboard/TeacherDashboard";
-import { useToast } from "@/components/Toast";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import useAuthStore from "@/stores/authStore";
@@ -19,8 +15,6 @@ import { isAdminPermissions } from "@/utils/permissions";
 
 export default function DashboardHome() {
 	const navigate = useNavigate();
-	const toast = useToast();
-
 	const perms = useAuthStore((s) => s.permissions);
 	const isAdmin = isAdminPermissions(perms);
 
@@ -36,18 +30,11 @@ export default function DashboardHome() {
 		enabled: !isAdmin,
 		staleTime: 2 * 60_000,
 	});
-	const { data: statsData, isLoading: statsLoading } = useQuery({
-		queryKey: queryKeys.stats.admin(),
-		queryFn: () => getStats().then((r) => r.data),
-		enabled: isAdmin,
-		staleTime: 2 * 60_000,
-	});
 	const { data: recordsData, isLoading: recordsLoading } = useQuery({
 		queryKey: queryKeys.training.recent(),
 		queryFn: () => getRecords({ limit: 20, offset: 0 }).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
-	// 显式查询未完成训练，确保 dashboard 的"继续训练"入口不受"最近20条"限制而漏识别。
 	const { data: inProgressData } = useQuery({
 		queryKey: queryKeys.training.records({ status: "in_progress" }),
 		queryFn: () =>
@@ -56,33 +43,17 @@ export default function DashboardHome() {
 		enabled: !isAdmin,
 	});
 
+	if (isAdmin) {
+		return <Navigate to="/admin" replace />;
+	}
+
 	const cases = casesData?.items ?? [];
 	const records = (recordsData?.items ?? []) as RecordExtended[];
 	const inProgressRecord =
 		((inProgressData?.items ?? []) as RecordExtended[])[0] ?? null;
 	const durationStats = durationData ?? null;
-	const stats = statsData ?? null;
 
-	const handleExport = async () => {
-		try {
-			const { data } = await exportRecords();
-			const url = URL.createObjectURL(new Blob([data], { type: "text/csv" }));
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `training_records_${new Date().toISOString().slice(0, 10)}.csv`;
-			a.click();
-			URL.revokeObjectURL(url);
-			toast.success("导出成功");
-		} catch {
-			toast.error("导出失败");
-		}
-	};
-
-	const isLoading =
-		recordsLoading ||
-		(isAdmin ? statsLoading : casesLoading || durationLoading);
-
-	if (isLoading) {
+	if (casesLoading || recordsLoading || durationLoading) {
 		return (
 			<>
 				<PageHeader title="加载中..." subtitle="正在获取最新数据" />
@@ -91,17 +62,6 @@ export default function DashboardHome() {
 					<LoadingSkeleton variant="card" />
 				</div>
 			</>
-		);
-	}
-
-	if (isAdmin) {
-		return (
-			<TeacherDashboard
-				stats={stats}
-				records={records}
-				handleExport={handleExport}
-				navigate={navigate}
-			/>
 		);
 	}
 

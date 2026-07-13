@@ -78,7 +78,7 @@ export function SceneRenderer() {
   const activeCard = cards.find((c) => c.id === activeId);
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0 hidden md:flex">
       {/* Icon bar */}
       <div className="flex flex-col items-center gap-1 border-l border-border bg-card py-2 px-1 h-full">
         {cards.map((card) => {

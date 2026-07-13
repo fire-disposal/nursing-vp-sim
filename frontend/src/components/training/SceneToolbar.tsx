@@ -8,10 +8,10 @@ import { Suspense, useCallback, useState } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Bottomsheet from "@/components/ui/Bottomsheet";
 import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
-import type { SceneCardProps } from "@/engine/scene-card";
-import type { SceneCard } from "@/engine/scene-card";
+import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
+import { useTrainingWS } from "@/hooks/useTrainingWS";
 import { getSceneCards } from "./scene-cards/registry";
 
 const ICONS: Record<string, string> = {
@@ -43,12 +43,19 @@ export default function SceneToolbar() {
 
 	const handleClose = useCallback(() => setActiveId(null), []);
 
+	useTrainingWS((msg) => {
+		const m = msg as unknown as { type: string; scene?: Partial<import("@/engine/scene-state").SceneState> };
+		if (m.type === "exam:done" && m.scene) {
+			bus.emit("scene:state", m.scene);
+		}
+	});
+
 	if (cards.length === 0) return null;
 
 	return (
 		<>
 			{/* Horizontal icon toolbar — placed above chat input on mobile */}
-			<div className="flex items-center gap-1 px-2 py-1.5 border-t border-border bg-card shrink-0 md:hidden overflow-x-auto">
+			<div className="flex items-center gap-1 px-1.5 py-1 border-t border-border bg-card shrink-0 md:hidden overflow-x-auto">
 				{cards.map((card) => {
 					const isActive = card.id === activeId;
 					const cap = card.featureFlag ? ALL_CAPABILITIES[card.featureFlag] : null;
@@ -56,12 +63,12 @@ export default function SceneToolbar() {
 						<button
 							key={card.id}
 							onClick={() => setActiveId(isActive ? null : card.id)}
-							className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0 text-xs"
+							className="flex items-center gap-1 px-2 h-7 rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0 text-[11px]"
 							title={cap?.label ?? card.id}
 							style={isActive ? { borderColor: "var(--color-primary)", background: "var(--color-primary-10)" } : {}}
 						>
 							<span>{ICONS[card.id] ?? "◻"}</span>
-							<span>{TITLES[card.id] ?? card.id}</span>
+							<span className="hidden sm:inline">{TITLES[card.id] ?? card.id}</span>
 						</button>
 					);
 				})}

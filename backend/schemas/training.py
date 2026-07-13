@@ -114,6 +114,11 @@ class TrainingRecordDetail(BaseModel):
     patient_gender: str = ""
     training_type: str = "history_taking"
     features: dict[str, bool] = Field(default_factory=dict)
+    patient_name: str = ""
+    patient_age: int = 0
+    chief_complaint: str = ""
+    personality: str = ""
+    case_title: str = ""
     from_assignment: bool = False
     pending_questionnaires: int = 0
     exam_anchors: dict[str, Any] = Field(default_factory=dict)

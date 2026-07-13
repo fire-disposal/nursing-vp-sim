@@ -6,10 +6,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { FileText, Loader2, Save } from "lucide-react";
 import { useCallback, useRef } from "react";
+import { api } from "@/api/client";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { cn } from "@/utils/cn";
 
-const API_BASE = "/api/nursing-records";
+const ENDPOINT = "/nursing-records" satisfies string;
 
 interface SheetData {
   subjective?: string;
@@ -26,8 +27,7 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
   const { data, isLoading } = useQuery({
     queryKey: ["nursing-record", rid],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/${rid}`);
-      const d = await res.json();
+      const { data: d } = await api.get(`${ENDPOINT}/${rid}`);
       const sd: SheetData = d.sheet_data || {};
       initialRef.current = { ...sd };
       return { ...d, sheet_data: sd };
@@ -36,11 +36,7 @@ export default function NursingRecordCard({ recordId }: SceneCardProps) {
 
   const saveMutation = useMutation({
     mutationFn: async (sd: SheetData) => {
-      await fetch(`${API_BASE}/${rid}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet_data: sd, status: "draft" }),
-      });
+      await api.post(`${ENDPOINT}/${rid}`, { sheet_data: sd, status: "draft" });
     },
   });
 

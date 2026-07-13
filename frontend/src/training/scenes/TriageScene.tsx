@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { SceneRenderer } from "@/components/training/SceneRenderer";
 
 const TrainingEngine = lazy(() =>
@@ -6,14 +6,8 @@ const TrainingEngine = lazy(() =>
 );
 
 export default function TriageScene({ recordId }: { recordId: string }) {
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
-
   return (
-    <div style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", height: "100%" }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">加载中…</div>}>
         <TrainingEngine recordId={recordId}>
           <SceneRenderer />

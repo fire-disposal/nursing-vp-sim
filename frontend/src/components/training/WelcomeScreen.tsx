@@ -6,10 +6,9 @@ import { getPatientAvatar } from "@/utils/avatar";
 interface WelcomeScreenProps {
 	patient: PatientData;
 	onQuickPrompt?: (text: string) => void;
-	onDismiss?: () => void;
 }
 
-export function WelcomeScreen({ patient, onQuickPrompt, onDismiss }: WelcomeScreenProps) {
+export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	const { portraitUrl } = usePortrait();
 	const avatarSrc =
 		portraitUrl ||
@@ -20,65 +19,46 @@ export function WelcomeScreen({ patient, onQuickPrompt, onDismiss }: WelcomeScre
 	const subInfo = [genderLabel, ageLabel].filter(Boolean).join(" · ");
 
 	return (
-		<div
-			className="flex h-full items-center justify-center p-4 cursor-pointer"
-			onClick={onDismiss}
-		>
-			<div className="text-center space-y-6 max-w-sm w-full">
-				<Card className="p-6 text-center space-y-4">
+		<div className="px-3 py-4">
+			<Card className="p-4 space-y-3">
+				<div className="flex items-center gap-3">
 					<img
-						className="w-20 h-20 rounded-full object-cover mx-auto bg-muted ring-4 ring-border"
+						className="size-10 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
 						src={avatarSrc}
 						alt={patient.name}
 					/>
-					<div>
-						<h2 className="text-lg font-bold text-foreground">
+					<div className="min-w-0">
+						<h2 className="text-sm font-bold text-foreground truncate">
 							{patient.name}
 						</h2>
-						<p className="text-sm text-muted-foreground">{subInfo}</p>
+						<p className="text-xs text-muted-foreground">{subInfo}</p>
 					</div>
-					<div className="space-y-2 text-left">
-						{patient.chiefComplaint && (
-							<div className="rounded-lg border bg-muted/30 p-3">
-								<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-									主诉
-								</div>
-								<p className="text-sm leading-relaxed">
-									{patient.chiefComplaint}
-								</p>
-							</div>
-						)}
-						{patient.personality && (
-							<div className="rounded-lg border bg-muted/30 p-3">
-								<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-									性格特征
-								</div>
-								<p className="text-sm leading-relaxed">{patient.personality}</p>
-							</div>
-						)}
-						<div className="rounded-lg border bg-muted/30 p-3">
-							<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-								病案
-							</div>
-							<p className="text-sm leading-relaxed">
-								{patient.caseTitle || "未提供"}
-							</p>
+				</div>
+
+				<div className="space-y-1.5">
+					{patient.chiefComplaint && (
+						<div className="flex items-baseline gap-2 text-xs">
+							<span className="text-muted-foreground shrink-0">主诉</span>
+							<span className="text-foreground">{patient.chiefComplaint}</span>
 						</div>
+					)}
+					<div className="flex items-baseline gap-2 text-xs">
+						<span className="text-muted-foreground shrink-0">病案</span>
+						<span className="text-foreground">{patient.caseTitle || "未提供"}</span>
 					</div>
-				</Card>
-				<div className="text-center space-y-2">
-					<p className="text-sm text-muted-foreground">
-						在下方输入框开始与患者对话
-					</p>
+				</div>
+
+				<div className="pt-1 border-t border-border flex items-center gap-2">
+					<span className="text-[10px] text-muted-foreground">快速开始：</span>
 					<button
 						type="button"
 						onClick={() => onQuickPrompt?.("您好，请问哪里不舒服？")}
-						className="text-xs text-primary hover:underline"
+						className="text-[11px] text-primary hover:underline"
 					>
-						试试："您好，请问哪里不舒服？"
+						您好，请问哪里不舒服？
 					</button>
 				</div>
-			</div>
+			</Card>
 		</div>
 	);
 }

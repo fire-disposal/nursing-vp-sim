@@ -21,7 +21,7 @@ function def(id: string, loader: () => Promise<{ default: ComponentType<SceneCar
 const HISTORY_TAKING: CardDef[] = [
   { id: "patient-info",  component: PatientInfoCard,                          priority: 0 },
   { id: "inquiry",       component: InquiryCard,                              priority: 1 },
-  { id: "monitor",       component: MonitorCard,                              priority: 2 },
+  { id: "monitor",       component: MonitorCard,                              priority: 2, featureFlag: "physical_exam" },
   def("body-exam",   () => import("@/components/training/body-exam/ExamBodyScene"), 3, "physical_exam"),
   { id: "nursing-record", component: NursingRecordCard,                       priority: 4, featureFlag: "nursing_record" },
   { id: "notes",         component: NotesCard,                                priority: 5 },

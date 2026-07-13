@@ -18,6 +18,12 @@ async def persister(ctx: PipelineContext, next_mw) -> None:
     if ctx.should_shortcut or ctx.error:
         student_msg = Message(record_id=ctx.record.id, role="student", content=ctx.student_input)
         ctx.db.add(student_msg)
+        if ctx.llm_reply and ctx.llm_reply.strip():
+            patient_msg = Message(record_id=ctx.record.id, role="patient", content=ctx.llm_reply)
+            ctx.db.add(patient_msg)
+            ctx.db.flush()
+            ctx.state[STATE_SAVED_MESSAGES] = [patient_msg]
+            log.warning("Persisted partial reply after error: record_id=%d len=%d", ctx.record.id, len(ctx.llm_reply))
         _persist_phase_op_count(ctx)
         _reset_initiative_timer(ctx)
         ctx.db.commit()

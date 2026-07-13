@@ -68,6 +68,9 @@ async def _build_context(
     )
     messages = db.query(Message).filter(Message.id.in_(db.query(_subq.c.id))).order_by(Message.created_at.asc()).all()
 
+    if messages and messages[-1].role == "student":
+        log.warning("Orphaned student message detected: record_id=%d msg_id=%d", record_id, messages[-1].id)
+
     ctx = PipelineContext(
         record=record,
         case_data=case_data,

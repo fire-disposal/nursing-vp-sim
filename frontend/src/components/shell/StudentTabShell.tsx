@@ -24,24 +24,22 @@ import {
 	HelpCircle,
 	Home,
 	LogOut,
-	Menu,
 	MessageSquarePlus,
 	Stethoscope,
-	X,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
+import LoadingState from "@/components/ui/loading-state";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import type { NavItem } from "@/config/navigation";
 import { NAV_ITEMS } from "@/config/navigation";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
 import { cn } from "@/utils/cn";
-import LoadingState from "@/components/ui/loading-state";
 
 // ── Tab 定义 ──
 const BOTTOM_TABS: Array<{
@@ -104,7 +102,7 @@ function BottomTabBar() {
 	);
 }
 
-// ── Student top navigation (从 Layout.tsx 抽取) ──
+// ── Student top navigation — compact on mobile (bottom tabs cover nav) ──
 function StudentTopNav({
 	links,
 	onLogout,
@@ -112,22 +110,21 @@ function StudentTopNav({
 	links: NavItem[];
 	onLogout: () => void;
 }) {
-	const [mobileOpen, setMobileOpen] = useState(false);
 	const { openFeedback } = useFeedback();
 
 	return (
 		<header className="shrink-0 border-b border-border bg-card">
-			<div className="flex h-14 items-center gap-2 px-4">
+			<div className="flex items-center gap-2 px-3 h-10 md:h-14">
 				{/* Brand */}
-				<div className="flex items-center gap-2.5 mr-4">
-					<div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-						<Stethoscope size={16} className="text-primary-foreground" />
+				<div className="flex items-center gap-2">
+					<div className="flex size-7 md:size-8 items-center justify-center rounded-lg bg-primary">
+						<Stethoscope size={14} className="md:size-[16px] text-primary-foreground" />
 					</div>
-					<span className="text-sm font-semibold hidden sm:block">虚拟患者系统</span>
+					<span className="text-xs md:text-sm font-semibold">虚拟患者系统</span>
 				</div>
 
-				{/* Nav links (desktop) */}
-				<nav className="hidden md:flex items-center gap-0.5 flex-1">
+				{/* Nav links (desktop only) */}
+				<nav className="hidden md:flex items-center gap-0.5 flex-1 ml-2">
 					{links.map((link) => {
 						const Icon = link.icon;
 						return (
@@ -149,25 +146,15 @@ function StudentTopNav({
 					})}
 				</nav>
 
-				{/* Mobile menu button */}
-				<button
-					type="button"
-					className="flex md:hidden size-9 items-center justify-center rounded-lg border border-border hover:bg-accent mr-auto"
-					onClick={() => setMobileOpen((v) => !v)}
-					aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
-				>
-					{mobileOpen ? <X size={18} /> : <Menu size={18} />}
-				</button>
-
-				{/* Right side */}
-				<div className="flex items-center gap-1">
+				{/* Right side — utility icons (compact on mobile) */}
+				<div className="flex items-center gap-0.5 ml-auto">
 					<button
 						onClick={openFeedback}
 						className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
 						title="意见反馈"
 						aria-label="意见反馈"
 					>
-						<MessageSquarePlus size={16} />
+						<MessageSquarePlus size={15} />
 					</button>
 					<NotificationBell />
 					<ModeToggle />
@@ -180,32 +167,6 @@ function StudentTopNav({
 					</button>
 				</div>
 			</div>
-
-			{/* Mobile nav (overlay) */}
-			{mobileOpen && (
-				<nav className="md:hidden border-t border-border px-3 py-2 space-y-0.5">
-					{links.map((link) => {
-						const Icon = link.icon;
-						return (
-							<NavLink
-								key={link.to}
-								to={link.to}
-								end={link.end}
-								onClick={() => setMobileOpen(false)}
-								className={({ isActive }) =>
-									cn(
-										"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent",
-										isActive && "bg-primary/10 text-primary",
-									)
-								}
-							>
-								<Icon size={17} />
-								{link.shortLabel ?? link.label}
-							</NavLink>
-						);
-					})}
-				</nav>
-			)}
 		</header>
 	);
 }
@@ -241,7 +202,7 @@ export default function StudentTabShell({ children }: { children?: ReactNode }) 
 		<div className="flex flex-col h-screen overflow-hidden">
 			{!isOnline && <NetworkBanner />}
 			<StudentTopNav links={links} onLogout={handleLogout} />
-			<div className="flex-1 min-h-0 overflow-hidden">
+			<div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 				{content}
 			</div>
 			<BottomTabBar />
