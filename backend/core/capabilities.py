@@ -80,12 +80,17 @@ def resolve_features(
     snapshot: dict | None = None,
     overrides: dict[str, bool] | None = None,
     training_type: str | None = None,
+    case_defaults: dict[str, bool] | None = None,
 ) -> dict[str, bool]:
-    """单一真相：把默认/分层/快照/覆盖/依赖统一解析为最终 features。
+    """单一真相：把默认/病例/分层/快照/覆盖统一解析为最终 features。
 
-    - builtin 恒 True，不可被 snapshot/overrides 关闭。
-    - toggleable 取 default，再被 snapshot、overrides 依次覆盖。
-    - training_type 非 None 时，仅解析适用于该类型的能力。
+    解析链（优先级从低到高）:
+    1. global_defaults: builtin 恒 True，toggleable 取 global default (False)
+    2. case_defaults:   病例声明的能力开关（仅可开启 toggleable）
+    3. snapshot:        教师 Practice.features（可覆盖 case_defaults）
+    4. overrides:       学生/请求覆盖（可覆盖 snapshot）
+
+    - builtin 恒 True，不可被任何层关闭。
     - 递归应用 requires：开启的能力强制开启其依赖。
     """
     result: dict[str, bool] = {}
@@ -94,16 +99,24 @@ def resolve_features(
             continue
         result[k] = True if cap.tier == "builtin" else cap.default
 
-    def _overlay(src: dict[str, bool] | None) -> None:
+    def _overlay(src: dict[str, bool] | None, *, allow_off: bool = True) -> None:
         if not src:
             return
         for k, v in src.items():
             cap = ALL_CAPABILITIES.get(k)
             # builtin 不可关；仅覆盖适用且可开关的键
             if cap and cap.tier == "toggleable" and k in result:
-                result[k] = bool(v)
+                if allow_off:
+                    result[k] = bool(v)
+                elif v:
+                    # case_defaults 仅可开启
+                    result[k] = True
 
+    # case_defaults: 病例声明的能力（仅可开启，不可关闭）
+    _overlay(case_defaults, allow_off=False)
+    # snapshot: 教师 Practice.features
     _overlay(snapshot.get("features", {}) if snapshot else None)
+    # overrides: 学生/请求覆盖
     _overlay(overrides)
 
     # 递归应用 requires（如 patient_initiative requires emotion）

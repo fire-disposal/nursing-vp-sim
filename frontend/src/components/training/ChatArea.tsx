@@ -6,6 +6,7 @@ import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InitiativeBar } from "./InitiativeBar";
 import { WelcomeScreen } from "./WelcomeScreen";
+import SceneToolbar from "./SceneToolbar";
 
 interface ChatAreaProps {
 	messages: ChatMessage[];
@@ -93,6 +94,7 @@ export function ChatArea({
 				</div>
 			</div>
 			<InitiativeBar bus={bus} features={features} recordId={recordId} />
+			<SceneToolbar />
 			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} />
 		</div>
 	);

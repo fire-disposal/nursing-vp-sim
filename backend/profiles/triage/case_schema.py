@@ -28,3 +28,6 @@ class TriageCaseData(BaseModel):
     red_flags: list[str] = Field(default_factory=list)
     description: str = ""
     time_limit_minutes: int = Field(default=10, ge=1, le=60)
+
+    # 病例声明的能力开关
+    capabilities: dict[str, bool] = {}

@@ -55,6 +55,10 @@ class CaseDataSchema(JsonbModel):
     difficulty: int = Field(default=1, ge=1, le=3)
     time_limit: int = Field(default=20, ge=1, le=180)
 
+    # 病例声明的能力开关：开启的能力将在训练中默认启用
+    # 学生端不再展示开关，教师端 Practice.features 可覆盖
+    capabilities: dict[str, bool] = {}
+
     patient_info: PatientInfo | None = None
     chief_complaint: str = ""
     opening_line: str = ""

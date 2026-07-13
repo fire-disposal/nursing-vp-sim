@@ -175,8 +175,54 @@ export default function History() {
 						<EmptyState icon={ClipboardList} title="暂无训练记录" />
 					</div>
 				) : (
+
 					<div className="rounded-xl border bg-card overflow-hidden">
-						<div className="overflow-x-auto">
+						{/* Mobile: card list */}
+						<div className="space-y-2 p-2 md:hidden">
+							{records.map((r) => {
+								const durMins = r.end_time
+									? Math.round(
+											(new Date(r.end_time).getTime() -
+												new Date(r.start_time).getTime()) / 60000,
+										)
+									: null;
+								return (
+									<button
+										key={r.id}
+										onClick={() => navigate(`/record/${r.id}`)}
+										className="w-full text-left rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50 active:scale-[0.99]"
+									>
+										<div className="flex items-start justify-between gap-2">
+											<div className="min-w-0 flex-1">
+												<div className="text-sm font-semibold truncate">{r.case_name}</div>
+												<div className="text-xs text-muted-foreground mt-0.5">
+													{new Date(r.start_time).toLocaleString("zh-CN", {
+														month: "numeric", day: "numeric",
+														hour: "2-digit", minute: "2-digit",
+													})}
+													{r.training_type === "triage" ? " · 分诊" : " · 问诊"}
+													{durMins != null ? ` · ${durMins} 分钟` : ""}
+												</div>
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
+											{r.status === "completed" ? (
+												<span className="text-xs tabular-nums font-semibold">
+													{r.score_total != null ? `${r.score_total} 分` : "评分中"}
+												</span>
+											) : (
+												<span className="flex items-center gap-1 text-xs text-amber-600">
+													<span className="size-1.5 rounded-full bg-amber-500" />
+													进行中
+												</span>
+											)}
+										</div>
+									</div>
+								</button>
+							);
+						})}
+						</div>
+
+						<div className="overflow-x-auto hidden md:block">
 							<Table>
 								<TableHeader>
 									<TableRow className="bg-muted/50">

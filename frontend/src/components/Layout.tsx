@@ -26,111 +26,9 @@ import { cn } from "@/utils/cn";
 import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
 
-// ── Student top navigation ──
-function StudentTopNav({
-	links,
-	onLogout,
-}: {
-	links: NavItem[];
-	onLogout: () => void;
-}) {
-	const [mobileOpen, setMobileOpen] = useState(false);
-	const { openFeedback } = useFeedback();
-
-	return (
-		<header className="shrink-0 border-b border-border bg-card">
-			<div className="flex h-14 items-center gap-2 px-4">
-				{/* Brand */}
-				<div className="flex items-center gap-2.5 mr-4">
-					<div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-						<Stethoscope size={16} className="text-primary-foreground" />
-					</div>
-					<span className="text-sm font-semibold hidden sm:block">虚拟患者系统</span>
-				</div>
-
-				{/* Nav links */}
-				<nav className="hidden md:flex items-center gap-0.5 flex-1">
-					{links.map((link) => {
-						const Icon = link.icon;
-						return (
-							<NavLink
-								key={link.to}
-								to={link.to}
-								end={link.end}
-								className={({ isActive }) =>
-									cn(
-										"flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-accent-foreground",
-										isActive && "bg-primary/10 text-primary",
-									)
-								}
-							>
-								<Icon size={16} />
-								{link.shortLabel ?? link.label}
-							</NavLink>
-						);
-					})}
-				</nav>
-
-				{/* Mobile menu button */}
-				<button
-					type="button"
-					className="flex md:hidden size-9 items-center justify-center rounded-lg border border-border hover:bg-accent mr-auto"
-					onClick={() => setMobileOpen((v) => !v)}
-					aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
-				>
-					{mobileOpen ? <X size={18} /> : <Menu size={18} />}
-				</button>
-
-				{/* Right side */}
-				<div className="flex items-center gap-1">
-					<button
-						onClick={openFeedback}
-						className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-						title="意见反馈"
-						aria-label="意见反馈"
-					>
-						<MessageSquarePlus size={16} />
-					</button>
-					<NotificationBell />
-					<ModeToggle />
-					<button
-						onClick={onLogout}
-						className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-						title="退出登录"
-					>
-						<LogOut size={15} />
-					</button>
-				</div>
-			</div>
-
-			{/* Mobile nav */}
-			{mobileOpen && (
-				<nav className="md:hidden border-t border-border px-3 py-2 space-y-0.5">
-					{links.map((link) => {
-						const Icon = link.icon;
-						return (
-							<NavLink
-								key={link.to}
-								to={link.to}
-								end={link.end}
-								onClick={() => setMobileOpen(false)}
-								className={({ isActive }) =>
-									cn(
-										"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:bg-accent",
-										isActive && "bg-primary/10 text-primary",
-									)
-								}
-							>
-								<Icon size={17} />
-								{link.shortLabel ?? link.label}
-							</NavLink>
-						);
-					})}
-				</nav>
-			)}
-		</header>
-	);
-}
+import ImmersiveShell from "@/components/shell/ImmersiveShell";
+import DefaultShell from "@/components/shell/DefaultShell";
+import StudentTabShell from "@/components/shell/StudentTabShell";
 
 // ── Admin sidebar ──
 function AdminSidebar({
@@ -241,19 +139,22 @@ export default function Layout() {
 		</Suspense>
 	);
 
-	// Student layout: top nav
+	// Student layout: route-based shell dispatch
 	if (!hasAdminPerm) {
-		return (
-			<div className="flex flex-col h-screen overflow-hidden">
-				{!isOnline && <NetworkBanner />}
-				<StudentTopNav links={userLinks} onLogout={handleLogout} />
-				{isTrainingPage || isQAPage ? (
-					<div className="flex-1 min-h-0 overflow-hidden">{content}</div>
-				) : (
-					<main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{content}</main>
-				)}
-			</div>
-		);
+		const path = location.pathname;
+		const isImmersive = path.startsWith("/training/") && path !== "/training";
+		const isSimple =
+			path.startsWith("/record/") ||
+			path === "/stats" ||
+			path === "/profile";
+
+		if (isImmersive) {
+			return <ImmersiveShell><Outlet /></ImmersiveShell>;
+		}
+		if (isSimple) {
+			return <DefaultShell><Outlet /></DefaultShell>;
+		}
+		return <StudentTabShell />;
 	}
 
 	// Admin layout: sidebar + content
