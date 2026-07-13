@@ -126,7 +126,7 @@ export default function AdminDashboard({
 			</Card>
 
 			<Card size="sm">
-				<CardHeader className="flex-row items-center justify-between border-b pb-4">
+				<CardHeader className="flex-row items-center justify-between border-b pb-3 sm:pb-4">
 					<CardTitle className="flex items-center gap-2">
 						<ClipboardList size={17} />
 						最近训练动态
@@ -143,6 +143,7 @@ export default function AdminDashboard({
 				</CardHeader>
 				{records.length > 0 ? (
 					<div className="max-h-96 overflow-auto">
+						<div className="hidden sm:block">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -200,6 +201,32 @@ export default function AdminDashboard({
 								))}
 							</TableBody>
 						</Table>
+						</div>
+						<div className="sm:hidden divide-y divide-border">
+							{records.slice(0, 10).map((r) => (
+								<div key={r.id} className="flex items-center justify-between gap-2 px-4 py-3">
+									<div className="flex-1 min-w-0">
+										<div className="text-sm font-medium truncate">{r.user_display_name}</div>
+										<div className="text-xs text-muted-foreground truncate mt-0.5">{r.case_name}</div>
+									</div>
+									<div className="flex items-center gap-2 shrink-0">
+										<Badge variant={r.status === "completed" ? "success" : "info"}>
+											{r.status === "completed" ? "已完成" : "进行中"}
+										</Badge>
+										{r.score_total != null ? (
+											<span className={cn("text-sm font-semibold tabular-nums",
+												r.score_total >= 85 ? "text-emerald-600"
+													: r.score_total >= 70 ? "text-blue-600"
+													: r.score_total >= 60 ? "text-amber-600"
+													: "text-red-500",
+											)}>{r.score_total}分</span>
+										) : (
+											<span className="text-sm text-muted-foreground">-</span>
+										)}
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				) : (
 					<CardContent className="text-center py-10 text-muted-foreground">

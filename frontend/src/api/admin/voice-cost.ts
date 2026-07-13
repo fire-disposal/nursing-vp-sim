@@ -168,3 +168,16 @@ export interface VoiceConfigExportResponse {
 
 export const exportVoiceConfig = () =>
 	api.get<VoiceConfigExportResponse>("/admin/voice/config/export");
+
+export const testSynthesize = (text: string) =>
+	api.post<ArrayBuffer>("/admin/voice/config/test-synthesize", { text }, { responseType: "arraybuffer" });
+
+export interface VoiceSecretOption {
+	id: number;
+	label: string;
+	key_suffix: string;
+	status: string;
+}
+
+export const fetchVoiceSecretOptions = () =>
+	api.get<VoiceSecretOption[]>("/admin/voice/secrets");

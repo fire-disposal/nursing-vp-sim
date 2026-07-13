@@ -4,7 +4,6 @@ import { useLayoutMode } from "@/hooks/useLayoutMode";
 import { ChatDisplay } from "./ChatDisplay";
 import { ChatInput } from "./ChatInput";
 import { EmotionIndicator } from "./EmotionIndicator";
-import { InitiativeBar } from "./InitiativeBar";
 import SceneToolbar from "./SceneToolbar";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -61,9 +60,9 @@ export function ChatArea({
 	return (
 		<div className="flex flex-col h-full">
 			{isCompact ? (
-				<EmotionIndicator bus={bus} features={features} compact />
+				<EmotionIndicator bus={bus} features={features} recordId={recordId} compact />
 			) : (
-				<EmotionIndicator bus={bus} features={features} />
+				<EmotionIndicator bus={bus} features={features} recordId={recordId} />
 			)}
 			<div className="flex-1 overflow-y-auto overscroll-contain">
 				{!hasMessages && !hasHistory && (
@@ -80,7 +79,6 @@ export function ChatArea({
 					hasStreaming={sending}
 				/>
 			</div>
-			<InitiativeBar bus={bus} features={features} recordId={recordId} compact={isCompact} />
 			<SceneToolbar />
 			<ChatInput onSend={onSend} disabled={sending || trainingEnded} loading={sending} />
 		</div>

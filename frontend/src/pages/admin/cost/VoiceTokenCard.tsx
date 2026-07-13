@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Loader2, Save } from "lucide-react";
+import { Download, Loader2, Play, Save, Volume2 } from "lucide-react";
 import type { ElementType } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	exportVoiceConfig,
 	fetchVoiceConfig,
+	testSynthesize,
 	updateVoiceConfig,
 	type VoiceConfigResponse,
 } from "@/api/admin/voice-cost";
@@ -95,6 +96,11 @@ export default function VoiceTokenCard({
 
 	const [form, setForm] = useState({ ...DEFAULT_FORM });
 	const [testPending, setTestPending] = useState(false);
+	const [synthPending, setSynthPending] = useState(false);
+	const [testText, setTestText] = useState("你好，这是一段测试语音。");
+	const [audioUrl, setAudioUrl] = useState<string | null>(null);
+	const [audioFormat, setAudioFormat] = useState("mp3");
+	const audioRef = useRef<HTMLAudioElement>(null);
 
 	useEffect(() => {
 		if (!isLoading && config) setForm(formFromConfig(config));
@@ -127,6 +133,34 @@ export default function VoiceTokenCard({
 		} finally {
 			setTestPending(false);
 		}
+	};
+
+	const handleSynthesize = async () => {
+		if (!testText.trim()) return;
+		setSynthPending(true);
+		try {
+			const res = await testSynthesize(testText.trim());
+			const arr = res.data as unknown as ArrayBuffer;
+			const ct = (res.headers as Record<string, string>)?.["content-type"] || "audio/mpeg";
+			const fmt = (res.headers as Record<string, string>)?.["x-tts-format"] || "mp3";
+			setAudioFormat(fmt);
+			const blob = new Blob([arr], { type: ct });
+			if (audioUrl) URL.revokeObjectURL(audioUrl);
+			setAudioUrl(URL.createObjectURL(blob));
+			toast.success("语音生成成功");
+		} catch (e: unknown) {
+			toast.apiError(e, "语音生成失败");
+		} finally {
+			setSynthPending(false);
+		}
+	};
+
+	const handleDownload = () => {
+		if (!audioUrl) return;
+		const a = document.createElement("a");
+		a.href = audioUrl;
+		a.download = `tts_test.${audioFormat}`;
+		a.click();
 	};
 
 	const handleExport = async () => {
@@ -327,6 +361,52 @@ export default function VoiceTokenCard({
 									)}
 									{testLabel}
 								</Button>
+							</div>
+
+							<Separator />
+
+							<div className="space-y-3">
+								<div className="flex items-center gap-2">
+									<Volume2 size={16} className="text-muted-foreground" />
+									<span className="text-sm font-medium">语音测试生成</span>
+								</div>
+								<div className="space-y-1.5">
+									<Label htmlFor="voice-test-text">测试文本（最长 200 字）</Label>
+									<Input
+										id="voice-test-text"
+										value={testText}
+										onChange={(e) => setTestText(e.target.value)}
+										placeholder="输入要合成的文本..."
+										maxLength={200}
+									/>
+								</div>
+								<div className="flex gap-2">
+									<Button
+										variant="outline"
+										onClick={handleSynthesize}
+										disabled={synthPending || !testText.trim()}
+									>
+										{synthPending ? (
+											<Loader2 className="size-4 animate-spin" />
+										) : (
+											<Play className="size-4" />
+										)}
+										生成语音
+									</Button>
+									{audioUrl && (
+										<Button variant="ghost" onClick={handleDownload}>
+											<Download className="size-4" />
+											下载 {audioFormat}
+										</Button>
+									)}
+								</div>
+								{audioUrl && (
+									<div className="rounded-lg border border-border bg-muted/20 p-3">
+										<audio ref={audioRef} controls className="w-full h-8" src={audioUrl}>
+											<track kind="captions" />
+										</audio>
+									</div>
+								)}
 							</div>
 						</>
 					)}

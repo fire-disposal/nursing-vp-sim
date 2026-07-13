@@ -78,6 +78,26 @@ def _build_voice_config_response(vc: VoiceConfig | None) -> VoiceConfigResponse 
 # ── Voice Config CRUD ──
 
 
+@router.get("/secrets")
+def list_voice_key_options(
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """返回可选的 LLM API 密钥列表（供 TTS 配置选择）。"""
+    from models.llm import ApiSecret
+
+    secrets = db.query(ApiSecret).order_by(ApiSecret.id).all()
+    return [
+        {
+            "id": s.id,
+            "label": s.label,
+            "key_suffix": s.key_suffix,
+            "status": s.status,
+        }
+        for s in secrets
+    ]
+
+
 @router.get("/config", response_model=VoiceConfigResponse)
 def get_config(
     current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
@@ -240,6 +260,58 @@ async def test_asr(
     db: Annotated[Session, Depends(get_db)],
 ):
     return await _do_test_asr(db, request)
+
+
+@router.post("/config/test-synthesize")
+async def test_synthesize(
+    request: Request,
+    current_user: Annotated[User, Depends(require_permission("llm_monitor"))],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """合成短文本测试语音并返回可下载音频文件。"""
+    body = await request.json()
+    text = str(body.get("text", "你好，这是一段测试语音。"))[:200]
+
+    vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
+    if not vc:
+        raise HTTPException(status_code=404, detail="未找到激活的语音配置")
+
+    try:
+        api_key = decrypt_api_key(vc.api_key_enc) if vc.api_key_enc else ""
+    except Exception:
+        api_key = ""
+
+    if not api_key:
+        raise HTTPException(status_code=400, detail="尚未设置 API Key")
+
+    from infrastructure.tts.client import TTSRequest
+
+    tts_req = TTSRequest(
+        text=text,
+        speaker=vc.tts_speaker,
+        model=vc.tts_model,
+        fmt=vc.tts_format,
+        sample_rate=vc.tts_sample_rate,
+    )
+    client = VolcTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
+    try:
+        audio_bytes = await client.synthesize(tts_req)
+        await client.close()
+        media_type_map = {"mp3": "audio/mpeg", "wav": "audio/wav", "pcm": "audio/pcm", "ogg_opus": "audio/ogg"}
+        mt = media_type_map.get(vc.tts_format, "audio/mpeg")
+        ext = vc.tts_format or "mp3"
+        return Response(
+            content=audio_bytes,
+            media_type=mt,
+            headers={
+                "Content-Disposition": f'attachment; filename="tts_test.{ext}"',
+                "X-TTS-Speaker": vc.tts_speaker,
+                "X-TTS-Format": ext,
+            },
+        )
+    except Exception as e:
+        await client.close()
+        raise HTTPException(status_code=502, detail=f"TTS 合成失败: {str(e)[:500]}")
 
 
 @router.get("/config/export")

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Ambulance, Lightbulb, Search, Star, Stethoscope, User, X } from "lucide-react";
+import { AlertTriangle, Ambulance, Search, Star, Stethoscope, User, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCases, getProfiles, startTraining } from "@/api";
@@ -53,7 +53,6 @@ export default function TrainingSelect() {
   const [difficultyFilter, setDifficultyFilter] = useState(0);
   const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
   const [offset, setOffset] = useState(0);
-  const [hintDismissed, setHintDismissed] = useState(() => localStorage.getItem("training_hint_dismissed") === "1");
   const navigate = useNavigate();
   const toast = useToast();
   const startingCaseRef = useRef<number | null>(null);
@@ -101,17 +100,6 @@ export default function TrainingSelect() {
         <h1 className="text-lg font-bold text-foreground">病例列表</h1>
         <p className="text-sm text-muted-foreground mt-0.5">选择病例开始护理模拟训练，系统自动评分</p>
       </div>
-
-      {!hintDismissed && (
-        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning-foreground">
-          <Lightbulb size={14} className="text-warning shrink-0" />
-          <span className="flex-1">选择病例后即开始模拟对话训练，结束后自动评分</span>
-          <button onClick={() => { localStorage.setItem("training_hint_dismissed", "1"); setHintDismissed(true); }}
-            className="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground">
-            <X size={12} />
-          </button>
-        </div>
-      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">

@@ -22,6 +22,7 @@ import {
 type ResponseItem = components["schemas"]["QuestionnaireResponseItem"];
 
 const LIKERT_LABELS = ["非常不同意", "不同意", "一般", "同意", "非常同意"];
+const SATISFACTION_LABELS = ["非常不满意", "不满意", "一般", "满意", "非常满意"];
 const LIMIT = 20;
 
 function ResponseDetailModal({
@@ -60,6 +61,13 @@ function ResponseDetailModal({
 									<span className="text-primary font-semibold">
 										{a.answer_value} -{" "}
 										{LIKERT_LABELS[parseInt(a.answer_value, 10) - 1] ||
+											a.answer_value}
+									</span>
+								)}
+								{a.question_type === "satisfaction_5" && a.answer_value && (
+									<span className="text-primary font-semibold">
+										{a.answer_value} -{" "}
+										{SATISFACTION_LABELS[parseInt(a.answer_value, 10) - 1] ||
 											a.answer_value}
 									</span>
 								)}

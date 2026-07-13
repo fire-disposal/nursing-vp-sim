@@ -79,19 +79,19 @@ export default function FeedbackModal({
 	return (
 		<Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
 			<DialogContent title="意见反馈" maxWidth={480}>
-			<div className="flex flex-col gap-6">
+			<div className="flex flex-col gap-5">
 				<div>
 					<div className="text-sm text-muted-foreground mb-3 font-medium">
 						整体评价
 					</div>
-					<div className="flex justify-center gap-3">
+					<div className="flex justify-center gap-1.5 sm:gap-3 flex-nowrap">
 						{moods.map((m) => (
 							<button
 								type="button"
 								key={m.value}
 								onClick={() => setRating(m.value)}
 								className={cn(
-									"flex flex-col items-center gap-1 py-2 px-3 rounded-md border-2 cursor-pointer transition-all duration-150",
+									"flex flex-col items-center gap-0.5 py-1.5 px-1 sm:py-2 sm:px-3 rounded-md border-2 cursor-pointer transition-all duration-150 min-w-0",
 									rating === m.value
 										? "border-primary bg-accent scale-110"
 										: "border-transparent bg-transparent",
@@ -100,14 +100,14 @@ export default function FeedbackModal({
 								<span
 									className={cn(
 										"leading-none transition-all",
-										rating === m.value ? "text-[44px]" : "text-[36px]",
+										rating === m.value ? "text-[32px] sm:text-[44px]" : "text-[28px] sm:text-[36px]",
 									)}
 								>
 									{m.emoji}
 								</span>
 								<span
 									className={cn(
-										"text-xs",
+										"text-[10px] sm:text-xs whitespace-nowrap",
 										rating === m.value
 											? "text-primary font-semibold"
 											: "text-muted-foreground/60 font-normal",
@@ -131,7 +131,7 @@ export default function FeedbackModal({
 								key={t.value}
 								onClick={() => setTag(tag === t.value ? "" : t.value)}
 								className={cn(
-									"py-1 px-3 rounded-full border text-sm cursor-pointer transition-all duration-150",
+									"py-1 px-2.5 sm:px-3 rounded-full border text-sm cursor-pointer transition-all duration-150",
 									tag === t.value
 										? "border-primary bg-primary text-primary-foreground"
 										: "border-border bg-card text-muted-foreground",
@@ -158,12 +158,12 @@ export default function FeedbackModal({
 				</div>
 			</div>
 
-			<div className="flex justify-end gap-2">
+			<div className="flex justify-end gap-2 mt-2">
 				<button
 					type="button"
 					onClick={handleClose}
 					disabled={submitting}
-					className="px-6 py-2 rounded-md border border-border bg-card text-muted-foreground text-sm font-medium cursor-pointer transition-colors duration-150"
+					className="px-5 py-2 rounded-md border border-border bg-card text-muted-foreground text-sm font-medium cursor-pointer transition-colors duration-150"
 				>
 					取消
 				</button>
@@ -172,7 +172,7 @@ export default function FeedbackModal({
 					onClick={handleSubmit}
 					disabled={!rating || submitting}
 					className={cn(
-						"px-6 py-2 rounded-md border-none cursor-pointer text-sm font-medium text-white flex items-center gap-1 transition-colors duration-150",
+						"px-5 py-2 rounded-md border-none cursor-pointer text-sm font-medium text-white flex items-center gap-1 transition-colors duration-150",
 						rating && !submitting
 							? "bg-primary"
 							: "bg-muted opacity-60 cursor-not-allowed",

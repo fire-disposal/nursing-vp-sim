@@ -248,7 +248,7 @@ class QuestionnaireResponseService:
                 response_count=len(vals),
             )
 
-            if qa.question_type == "likert_5" and vals:
+            if qa.question_type in {"likert_5", "satisfaction_5"} and vals:
                 numeric = []
                 for v in vals:
                     try:

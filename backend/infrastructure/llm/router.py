@@ -30,6 +30,29 @@ _env_fallback_degraded_until: datetime | None = None
 _env_fallback_degraded_reason: str | None = None
 
 
+def _env_key_suffix() -> str:
+    return DEEPSEEK_API_KEY[-4:] if len(DEEPSEEK_API_KEY) >= 4 else ""
+
+
+def _mirror_env_degradation_from_db(
+    db_key_suffix: str, degraded_until: datetime | None, degraded_reason: str | None
+) -> None:
+    """当 env 兜底密钥与 DB 密钥相同时，镜像 DB 的熔断状态到 env 兜底。"""
+    if _env_key_suffix() and _env_key_suffix() == db_key_suffix:
+        global _env_fallback_degraded_until, _env_fallback_degraded_reason
+        _env_fallback_degraded_until = degraded_until
+        _env_fallback_degraded_reason = degraded_reason
+
+
+def _clear_env_degradation_if_same_key(db_key_suffix: str) -> None:
+    """DB 密钥恢复时，若 env 密钥相同则一并清除熔断。"""
+    if _env_key_suffix() and _env_key_suffix() == db_key_suffix:
+        global _env_fallback_consecutive_failures, _env_fallback_degraded_until, _env_fallback_degraded_reason
+        _env_fallback_consecutive_failures = 0
+        _env_fallback_degraded_until = None
+        _env_fallback_degraded_reason = None
+
+
 async def _record_synthetic_result(
     success: bool, error: str | None, prompt_tokens: int, completion_tokens: int
 ) -> None:
@@ -164,6 +187,19 @@ class ProfileRouter:
         from core.llm_profile import get_model
 
         if DEEPSEEK_API_KEY and DEEPSEEK_API_KEY.startswith("sk-"):
+            # 若 env 密钥与某个已熔断的 DB 密钥相同 → 镜像熔断状态，fail-fast
+            env_sfx = _env_key_suffix()
+            with self._state_lock:
+                for profile in self._profiles.values():
+                    if isinstance(profile, _SyntheticConfig):
+                        continue
+                    pfx = getattr(profile, "key_suffix", "")
+                    if pfx and pfx == env_sfx and profile.status == "degraded":
+                        if profile.degraded_until and now < ensure_utc(profile.degraded_until):
+                            _mirror_env_degradation_from_db(
+                                env_sfx, profile.degraded_until, profile.degraded_reason
+                            )
+                            raise RuntimeError(f"purpose={purpose} env 兜底与 DB 密钥({pfx})一致且已熔断")
             # env 兜底自身已熔断（死密钥/限流）→ 仅对本次调用 fail-fast，不设全局降级。
             # 熔断窗口本身已阻止返回死配置；不牵连其它绑定了健康 DB 密钥的 purpose。
             if _env_fallback_degraded_until and now < _env_fallback_degraded_until:
@@ -217,6 +253,10 @@ class ProfileRouter:
                     profile.status = "active"
                     profile.degraded_reason = None
                     profile.degraded_until = None
+                # DB 密钥恢复时，若 env 密钥相同则一并清除熔断
+                pfx = getattr(profile, "key_suffix", "")
+                if pfx:
+                    _clear_env_degradation_if_same_key(pfx)
                 self._update_stats(profile, prompt_tokens, completion_tokens)
             elif error and "429" in error:
                 profile.status = "degraded"

@@ -76,12 +76,14 @@ export type ViewMode = "list" | "stats";
 
 export const QUESTION_TYPE_LABELS: Record<string, string> = {
 	likert_5: "李克特5级量表",
+	satisfaction_5: "满意度5级",
 	multiple_choice: "多选题",
 	short_text: "简答题",
 };
 
 export const QUESTION_TYPE_OPTIONS = [
 	{ value: "likert_5", label: "李克特5级量表" },
+	{ value: "satisfaction_5", label: "满意度5级" },
 	{ value: "multiple_choice", label: "多选题" },
 	{ value: "short_text", label: "简答题" },
 ];

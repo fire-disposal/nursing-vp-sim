@@ -45,6 +45,7 @@ interface QuestionnaireModalProps {
 }
 
 const LIKERT_LABELS = ["非常不同意", "不同意", "一般", "同意", "非常同意"];
+const SATISFACTION_LABELS = ["非常不满意", "不满意", "一般", "满意", "非常满意"];
 
 export function QuestionnaireModal({
 	open,
@@ -137,6 +138,28 @@ export function QuestionnaireModal({
 												<span className="text-lg font-semibold">{val}</span>
 												<span className="text-[10px] text-muted-foreground">
 													{LIKERT_LABELS[val - 1]}
+												</span>
+											</button>
+										))}
+									</div>
+								)}
+
+								{q.question_type === "satisfaction_5" && (
+									<div className="flex flex-wrap gap-2">
+										{[1, 2, 3, 4, 5].map((val) => (
+											<button
+												key={val}
+												type="button"
+												onClick={() => handleAnswer(q.id, String(val))}
+												className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-muted ${
+													answers[q.id] === String(val)
+														? "border-primary bg-primary/10 text-primary"
+														: "border-border"
+												}`}
+											>
+												<span className="text-lg font-semibold">{val}</span>
+												<span className="text-[10px] text-muted-foreground">
+													{SATISFACTION_LABELS[val - 1]}
 												</span>
 											</button>
 										))}
