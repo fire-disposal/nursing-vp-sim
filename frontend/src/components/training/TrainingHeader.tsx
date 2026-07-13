@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, EarOff, Phone, Volume2 } from "lucide-react";
+import { ArrowLeft, Clock, EarOff, Phone, Volume2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
@@ -91,13 +91,13 @@ export function TrainingHeader() {
 	return (
 		<>
 			<header
-				className="shrink-0 border-b border-border bg-card px-2 py-1 sm:px-4 sm:py-0 sm:h-14"
-				style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}
+				className="shrink-0 border-b border-border bg-card/95 backdrop-blur-sm px-2 sm:px-4 h-12 sm:h-14"
+				style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
 			>
 				<div className="flex items-center gap-2 h-full">
 					<button
 						onClick={() => navigate("/training")}
-						className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
+						className="size-8 sm:w-9 sm:h-9 rounded-lg border border-border bg-card text-muted-foreground flex items-center justify-center shrink-0 hover:bg-muted hover:text-foreground transition-colors"
 						title="返回训练选择"
 						aria-label="返回训练选择"
 					>
@@ -106,15 +106,15 @@ export function TrainingHeader() {
 
 					<div className="flex items-center gap-2 flex-1 min-w-0">
 						<img
-							className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
+							className="size-6 sm:w-9 sm:h-9 rounded-full object-cover shrink-0 bg-muted ring-2 ring-border"
 							src={avatarSrc}
 							alt={patient.name}
 						/>
 						<div className="min-w-0">
-							<div className="text-xs sm:text-sm font-semibold text-foreground truncate">
+							<div className="text-xs sm:text-sm font-semibold text-foreground truncate leading-tight">
 								{patient.name}
 							</div>
-							<div className="text-xs sm:text-sm text-muted-foreground truncate">
+							<div className="text-[10px] sm:text-xs text-muted-foreground truncate leading-tight hidden sm:block">
 								{patient.caseTitle}
 							</div>
 						</div>
@@ -164,12 +164,13 @@ export function TrainingHeader() {
 					
 
 					<button
+						data-end-training
 						onClick={handleEndClick}
-						className="flex items-center gap-1 px-2.5 h-10 sm:h-9 rounded-md border border-destructive/30 bg-card text-destructive text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/10 transition-colors"
+						className="flex items-center gap-1 px-2.5 h-9 rounded-md bg-destructive text-destructive-foreground text-xs sm:text-sm font-medium shrink-0 hover:bg-destructive/90 transition-colors active:scale-95 shadow-sm"
 						title="结束训练并生成评分"
 					>
-						<Phone size={13} className="sm:size-[15px]" />
-						<span className="hidden sm:block">结束训练</span>
+						<X size={14} className="sm:size-[15px]" />
+						<span className="hidden sm:inline">结束训练</span>
 						<span className="sm:hidden">结束</span>
 					</button>
 				</div>
