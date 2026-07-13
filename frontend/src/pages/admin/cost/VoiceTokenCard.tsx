@@ -71,7 +71,6 @@ function formFromConfig(config: VoiceConfigResponse | undefined) {
 		asr_sample_rate: config.asr_sample_rate || DEFAULT_FORM.asr_sample_rate,
 		asr_endpoint_mode: config.asr_endpoint_mode || DEFAULT_FORM.asr_endpoint_mode,
 		monthly_budget: config.monthly_budget || DEFAULT_FORM.monthly_budget,
-		speaker_library: config.speaker_library || {},
 	};
 }
 

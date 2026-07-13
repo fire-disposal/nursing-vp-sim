@@ -87,7 +87,8 @@ class VoiceConfigService:
                 if "is_active" in data:
                     vc.is_active = data["is_active"]
                 if "speaker_library" in data:
-                    vc.speaker_library = data["speaker_library"]
+                    lib = data["speaker_library"]
+                    vc.speaker_library = lib or None
             else:
                 api_key_enc = encrypt_api_key(data.get("api_key", "")) if data.get("api_key") else ""
                 raw_key = data.get("api_key", "")
@@ -209,6 +210,7 @@ class VoiceConfigService:
             "format": vc.tts_format if vc else "mp3",
             "sample_rate": vc.tts_sample_rate if vc else 24000,
             "timeout": vc.tts_timeout if vc else 8,
+            "speaker_library": vc.speaker_library if vc else None,
         }
 
     def export_config(self) -> dict:
@@ -227,5 +229,6 @@ class VoiceConfigService:
             "asr_sample_rate": vc.asr_sample_rate,
             "asr_endpoint_mode": vc.asr_endpoint_mode,
             "monthly_budget": vc.monthly_budget,
+            "speaker_library": vc.speaker_library,
             "exported_at": datetime.now(UTC).isoformat(),
         }
