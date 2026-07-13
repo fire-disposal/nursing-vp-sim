@@ -64,5 +64,100 @@
       "answer": "婆婆帮着带孩子做饭，但她觉得我就是想太多...老公天天加班，回来孩子都睡了。我也不敢跟她们多说，怕被觉得矫情。"
     }
   ],
-  "training_type": "history_taking"
+  "training_type": "history_taking",
+  "capabilities": {
+    "patient_initiative": true,
+    "nursing_record": true
+  },
+  "scoring_criteria": {
+    "沟通技能": {
+      "name": "沟通技能",
+      "max": 42,
+      "description": "建立信任、倾听共情、清晰表达、尊重关怀",
+      "items": [
+        {
+          "name": "开场与自我介绍",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "倾听与共情回应",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "开放式提问",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "语言通俗易懂",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "尊重患者隐私",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "确认信息准确",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "结束语与总结",
+          "score": 6,
+          "max": 6
+        }
+      ]
+    },
+    "病史采集": {
+      "name": "病史采集",
+      "max": 58,
+      "description": "系统完整地采集病史信息",
+      "items": [
+        {
+          "name": "主诉与起病情况",
+          "score": 8,
+          "max": 8
+        },
+        {
+          "name": "现病史详细信息",
+          "score": 8,
+          "max": 8
+        },
+        {
+          "name": "既往病史",
+          "score": 8,
+          "max": 8
+        },
+        {
+          "name": "用药史",
+          "score": 8,
+          "max": 8
+        },
+        {
+          "name": "过敏史",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "家族史",
+          "score": 6,
+          "max": 6
+        },
+        {
+          "name": "个人与社会史",
+          "score": 8,
+          "max": 8
+        },
+        {
+          "name": "系统回顾",
+          "score": 6,
+          "max": 6
+        }
+      ]
+    }
+  }
 }
