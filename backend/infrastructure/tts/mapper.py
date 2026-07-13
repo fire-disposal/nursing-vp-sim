@@ -24,14 +24,17 @@ EMOTION_TTS_MAP: dict[str, tuple[int, int]] = {
 }
 
 # Built-in defaults — overridden by VoiceConfig.speaker_library in DB.
+# 9 demographic slots covering all gender × age combinations + fallback.
 _BUILTIN_SPEAKER_LIBRARY: dict[str, str] = {
-    "vv": DEFAULT_SPEAKER,
+    "child_male": DEFAULT_SPEAKER,
+    "child_female": DEFAULT_SPEAKER,
     "male_young": DEFAULT_SPEAKER,
-    "female_young": DEFAULT_SPEAKER,
-    "male_teacher": DEFAULT_SPEAKER,
-    "child": DEFAULT_SPEAKER,
+    "male_middle": DEFAULT_SPEAKER,
     "male_elder": DEFAULT_SPEAKER,
+    "female_young": DEFAULT_SPEAKER,
+    "female_middle": DEFAULT_SPEAKER,
     "female_elder": DEFAULT_SPEAKER,
+    "fallback": DEFAULT_SPEAKER,
 }
 
 
@@ -59,16 +62,16 @@ def resolve_voice_type(
 
     if age is not None:
         if age <= 12:
-            return lib["child"]
+            return lib["child_male"] if gender == "男" else lib["child_female"]
         if age >= 60:
             return lib["female_elder"] if gender == "女" else lib["male_elder"]
 
     if gender == "男":
-        return lib["male_young"] if (age is not None and age <= 25) else lib["male_teacher"]
+        return lib["male_young"] if (age is not None and age <= 25) else lib["male_middle"]
     if gender == "女":
-        return lib["female_young"] if (age is not None and age <= 25) else lib["vv"]
+        return lib["female_young"] if (age is not None and age <= 25) else lib["female_middle"]
 
-    return lib["vv"]
+    return lib["fallback"]
 
 
 def emotion_to_tts(

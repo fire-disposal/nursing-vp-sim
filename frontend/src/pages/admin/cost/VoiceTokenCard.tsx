@@ -43,13 +43,15 @@ const DEFAULT_FORM = {
 };
 
 const SPEAKER_SLOT_LABELS: Record<string, string> = {
-	vv: "默认女声",
-	male_young: "男声·青年",
-	female_young: "女声·青年",
-	male_teacher: "男声·教师",
-	child: "童声",
-	male_elder: "男声·老年",
-	female_elder: "女声·老年",
+	child_male: "男童 ≤12岁",
+	child_female: "女童 ≤12岁",
+	male_young: "男 13-25岁",
+	male_middle: "男 26-59岁",
+	male_elder: "男 ≥60岁",
+	female_young: "女 13-25岁",
+	female_middle: "女 26-59岁",
+	female_elder: "女 ≥60岁",
+	fallback: "未知性别/年龄",
 };
 
 const SPEAKER_SLOTS = Object.keys(SPEAKER_SLOT_LABELS);
