@@ -42,6 +42,18 @@ const DEFAULT_FORM = {
 	monthly_budget: 200,
 };
 
+const SPEAKER_SLOT_LABELS: Record<string, string> = {
+	vv: "默认女声",
+	male_young: "男声·青年",
+	female_young: "女声·青年",
+	male_teacher: "男声·教师",
+	child: "童声",
+	male_elder: "男声·老年",
+	female_elder: "女声·老年",
+};
+
+const SPEAKER_SLOTS = Object.keys(SPEAKER_SLOT_LABELS);
+
 function formFromConfig(config: VoiceConfigResponse | undefined) {
 	if (!config) return { ...DEFAULT_FORM };
 	return {
@@ -57,6 +69,7 @@ function formFromConfig(config: VoiceConfigResponse | undefined) {
 		asr_sample_rate: config.asr_sample_rate || DEFAULT_FORM.asr_sample_rate,
 		asr_endpoint_mode: config.asr_endpoint_mode || DEFAULT_FORM.asr_endpoint_mode,
 		monthly_budget: config.monthly_budget || DEFAULT_FORM.monthly_budget,
+		speaker_library: config.speaker_library || {},
 	};
 }
 
@@ -82,6 +95,7 @@ export default function VoiceTokenCard() {
 	});
 
 	const [form, setForm] = useState({ ...DEFAULT_FORM });
+	const [speakerLibrary, setSpeakerLibrary] = useState<Record<string, string>>({});
 	const [ttsOnline, setTtsOnline] = useState<boolean | null>(null);
 	const [checkingStatus, setCheckingStatus] = useState(false);
 	const [synthPending, setSynthPending] = useState(false);
@@ -90,7 +104,10 @@ export default function VoiceTokenCard() {
 	const audioRef = useRef<HTMLAudioElement>(null);
 
 	useEffect(() => {
-		if (!isLoading && config) setForm(formFromConfig(config));
+		if (!isLoading && config) {
+			setForm(formFromConfig(config));
+			setSpeakerLibrary(config.speaker_library || {});
+		}
 	}, [config, isLoading]);
 
 	// 页面加载后自动检测 TTS 服务状态
@@ -121,6 +138,7 @@ export default function VoiceTokenCard() {
 			asr_sample_rate: form.asr_sample_rate,
 			asr_endpoint_mode: form.asr_endpoint_mode,
 			monthly_budget: form.monthly_budget,
+			speaker_library: Object.keys(speakerLibrary).length > 0 ? speakerLibrary : undefined,
 		});
 	};
 
@@ -316,6 +334,36 @@ export default function VoiceTokenCard() {
 								</select>
 							</div>
 						</div>
+
+						<Separator />
+
+						<div className="space-y-3">
+							<div className="text-sm font-medium text-muted-foreground">Speaker Library（人口 → 音色 ID 映射）</div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								{SPEAKER_SLOTS.map((slot) => (
+									<div key={slot} className="space-y-1">
+										<Label className="text-xs">{SPEAKER_SLOT_LABELS[slot]}</Label>
+										<Input
+											value={speakerLibrary[slot] || ""}
+											onChange={(e) => setSpeakerLibrary((prev) => ({ ...prev, [slot]: e.target.value }))}
+											placeholder={DEFAULT_FORM.tts_speaker}
+											className="text-xs h-8"
+										/>
+									</div>
+								))}
+							</div>
+							{Object.keys(speakerLibrary).length > 0 && (
+								<button
+									type="button"
+									onClick={() => setSpeakerLibrary({})}
+									className="text-xs text-muted-foreground hover:text-foreground underline"
+								>
+									重置为默认
+								</button>
+							)}
+						</div>
+
+						<Separator />
 
 						<div className="flex gap-2">
 							<Button onClick={handleSave} disabled={saveMutation.isPending}>

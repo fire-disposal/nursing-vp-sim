@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -36,6 +37,7 @@ class VoiceConfig(Base, TimestampMixin):
     asr_endpoint_mode: Mapped[str] = mapped_column(String(24), default="bigmodel_nostream")
     monthly_budget: Mapped[float] = mapped_column(Float, default=200.0)
     is_active: Mapped[bool] = mapped_column(default=True)
+    speaker_library: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 class VoiceCallLog(Base):

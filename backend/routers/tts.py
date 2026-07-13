@@ -54,6 +54,7 @@ async def synthesize(
             tts_model=cfg["model"],
             tts_format=cfg["format"],
             tts_sample_rate=cfg["sample_rate"],
+            speaker_library=cfg.get("speaker_library"),
         )
     except CircuitOpenError:
         raise HTTPException(status_code=503, detail="TTS 服务暂时不可用，已切换浏览器端语音")

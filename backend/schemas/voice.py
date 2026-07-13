@@ -22,6 +22,7 @@ class VoiceConfigUpdateRequest(BaseModel):
     asr_endpoint_mode: str = Field(default="bigmodel_nostream", max_length=24)
     monthly_budget: float = Field(default=200.0, ge=0)
     is_active: bool = True
+    speaker_library: dict[str, str] | None = None
 
 
 class VoiceConfigResponse(BaseModel):
@@ -41,6 +42,7 @@ class VoiceConfigResponse(BaseModel):
     asr_endpoint_mode: str
     monthly_budget: float
     is_active: bool
+    speaker_library: dict[str, str] | None = None
     created_at: str
     updated_at: str
 

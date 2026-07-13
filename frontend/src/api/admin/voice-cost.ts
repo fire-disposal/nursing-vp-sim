@@ -18,6 +18,7 @@ export interface VoiceConfigResponse {
 	asr_endpoint_mode: string;
 	monthly_budget: number;
 	is_active: boolean;
+	speaker_library: Record<string, string> | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -36,6 +37,7 @@ export interface VoiceConfigUpdateRequest {
 	asr_endpoint_mode?: string;
 	monthly_budget?: number;
 	is_active?: boolean;
+	speaker_library?: Record<string, string> | null;
 }
 
 // ── Voice Usage ──

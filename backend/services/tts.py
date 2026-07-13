@@ -37,6 +37,7 @@ def load_tts_state(app_state, db: Session) -> None:
         "model": vc.tts_model if vc else _DEFAULT_TTS_CONFIG["model"],
         "format": vc.tts_format if vc else _DEFAULT_TTS_CONFIG["format"],
         "sample_rate": vc.tts_sample_rate if vc else _DEFAULT_TTS_CONFIG["sample_rate"],
+        "speaker_library": vc.speaker_library if vc else None,
     }
 
     if vc and vc.api_key_enc:
@@ -84,6 +85,7 @@ class TTSService:
         tts_model: str,
         tts_format: str,
         tts_sample_rate: int,
+        speaker_library: dict | None = None,
     ) -> tuple[bytes, str, str, int, str]:
         record = self.db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
         if not record:
@@ -99,7 +101,7 @@ class TTSService:
             raise NotFoundError("TTS 服务未配置（请先在管理面板添加语音配置）")
 
         age, gender = _extract_demographics(case)
-        speaker = resolve_voice_type(voice_type, age, gender)
+        speaker = resolve_voice_type(voice_type, age, gender, speaker_library=speaker_library)
 
         tts_req = emotion_to_tts(
             text=text,
