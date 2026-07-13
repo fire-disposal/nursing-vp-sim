@@ -266,7 +266,7 @@ def _create_record(
         }
     }
 
-    features = resolve_features(record.practice_snapshot)
+    features = resolve_features(record.practice_snapshot, case_defaults=case_data.get("capabilities"))
     if app_state is not None and features.get("patient_initiative"):
         from profiles.history_taking.initiative import update_initiative_timer
 
@@ -291,8 +291,8 @@ def start_training(
         practice = db.query(Practice).filter(Practice.id == req.practice_id, Practice.case_id == req.case_id).first()
         if not practice:
             raise HTTPException(status_code=400, detail="练习模板不存在或不属于该病例")
-    elif req.features is None:
-        practice = db.query(Practice).filter(Practice.case_id == req.case_id, Practice.is_active == True).first()
+    # 学生自选训练：不再自动关联 Practice，使用 case_data.capabilities 决定默认能力
+    # features 参数保留用于组件兼容，但推荐通过 case_data 声明
 
     config = _build_config(practice, req.features, req.time_limit_minutes)
 
@@ -570,7 +570,7 @@ def get_record_detail(
         patient_info=patient_info,
         patient_gender=normalize_gender(patient_info.get("gender", "")),
         training_type=record.training_type or "history_taking",
-        features=resolve_features(record.practice_snapshot),
+        features=resolve_features(record.practice_snapshot, case_defaults=case_data.get("capabilities")),
         from_assignment=record.assignment_id is not None,
         pending_questionnaires=pending_questionnaires,
         exam_anchors=case_data.get("exam_anchors", {}),

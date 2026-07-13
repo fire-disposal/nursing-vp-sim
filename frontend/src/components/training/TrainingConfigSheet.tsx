@@ -1,30 +1,11 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  ClipboardEdit,
-  Clock,
-  MessageCircleQuestion,
-  Minus,
-  Plus,
-  Sparkles,
-  Star,
-  Stethoscope,
-  User,
-} from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { Clock, Minus, Plus, Sparkles, Star, User } from "lucide-react";
+import { useState } from "react";
 import type { components } from "@/api/api-types.gen";
 import Button from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ALL_CAPABILITIES, TRAINING_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { TrainingTypeInfo } from "@/training/types";
-import { cn } from "@/utils/cn";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
-
-const CAPABILITY_ICONS: Record<string, LucideIcon> = {
-  patient_initiative: MessageCircleQuestion,
-  physical_exam: Stethoscope,
-  nursing_record: ClipboardEdit,
-};
 
 interface Props {
   open: boolean;
@@ -37,32 +18,14 @@ interface Props {
 
 export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart, loading }: Props) {
   const isTriage = caseInfo.training_type === "triage";
-  const availableKeys = TRAINING_CAPABILITIES[caseInfo.training_type] ?? [];
-  const [toggles, setToggles] = useState<Record<string, boolean>>({});
   const [timeLimit, setTimeLimit] = useState(isTriage ? 10 : 20);
   const timeMin = 5;
   const timeMax = isTriage ? 30 : 60;
 
-  const caps = useMemo(() => {
-    const result: Record<string, boolean> = {};
-    for (const key of availableKeys) {
-      const def = ALL_CAPABILITIES[key];
-      result[key] = toggles[key] ?? (def ? def.defaultOn : false);
-    }
-    return result;
-  }, [availableKeys, toggles]);
-
-  const toggle = useCallback((key: string) => {
-    setToggles((prev) => {
-      const def = ALL_CAPABILITIES[key];
-      const current = prev[key] ?? (def ? def.defaultOn : false);
-      return { ...prev, [key]: !current };
-    });
-  }, []);
-
-  const handleStart = useCallback(() => {
-    onStart(caps, timeLimit);
-  }, [caps, timeLimit, onStart]);
+  const handleStart = () => {
+    // 学生端不再展示能力开关：传空 features，让后端从 case_data.capabilities 读取
+    onStart({}, timeLimit);
+  };
 
   const profile = profiles.find((p) => p.type === caseInfo.training_type);
   const summary = caseInfo.patient_summary as { gender?: string; age?: number; chief_complaint?: string } | undefined;
@@ -96,46 +59,12 @@ export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart
             {profile && <div className="mt-2 text-[11px] text-muted-foreground">{profile.description}</div>}
           </div>
 
-          {/* Capabilities */}
-          {availableKeys.length > 0 && (
-            <div>
-              <div className="mb-3 flex items-center gap-1.5">
-                <Sparkles size={15} className="text-primary" />
-                <span className="text-sm font-medium">训练特性</span>
-                <span className="text-[11px] text-muted-foreground">· 自主练习，可按需开启</span>
-              </div>
-              <div className="space-y-2">
-                {availableKeys.map((key) => {
-                  const def = ALL_CAPABILITIES[key];
-                  if (!def) return null;
-                  const on = caps[key];
-                  const Icon = CAPABILITY_ICONS[key] ?? Sparkles;
-                  return (
-                    <button key={key} type="button" onClick={() => toggle(key)}
-                      className={cn(
-                        "flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all",
-                        on ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/20 hover:bg-muted/50",
-                      )}
-                    >
-                      <div className={cn(
-                        "flex size-9 items-center justify-center rounded-lg shrink-0 transition-colors",
-                        on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-                      )}>
-                        <Icon size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{def.label}</p>
-                        <p className="text-[11px] text-muted-foreground">{def.description}</p>
-                      </div>
-                      <div className={cn("h-5 w-9 rounded-full transition-colors shrink-0", on ? "bg-primary" : "bg-muted-foreground/25")}>
-                        <div className={cn("size-4 rounded-full bg-white shadow-sm transition-transform mt-0.5", on ? "translate-x-[18px]" : "translate-x-[2px]")} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* 训练特性提示 — 仅展示，不提供开关 */}
+          <div className="flex items-center gap-1.5 px-1">
+            <Sparkles size={15} className="text-primary" />
+            <span className="text-sm font-medium">训练特性</span>
+            <span className="text-[11px] text-muted-foreground">· 由病例自动配置</span>
+          </div>
 
           {/* Triage info */}
           {isTriage && (
@@ -172,7 +101,7 @@ export function TrainingConfigSheet({ open, caseInfo, profiles, onClose, onStart
           </div>
 
           <Button onClick={handleStart} disabled={loading} className="w-full h-11 text-base font-semibold" size="lg">
-            {loading ? "启动中…" : `开始${isTriage ? "分诊" : "训练"}`}
+            {loading ? "启动中…" : "开始训练"}
           </Button>
         </div>
       </DialogContent>
