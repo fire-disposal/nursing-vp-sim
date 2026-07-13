@@ -30,7 +30,7 @@ import {
 	X,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { memo, Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";

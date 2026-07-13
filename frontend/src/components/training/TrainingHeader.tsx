@@ -1,4 +1,4 @@
-import { ArrowLeft, Clock, EarOff, Phone, Volume2, X } from "lucide-react";
+import { ArrowLeft, Clock, EarOff, Volume2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "@/components/ui/button";
