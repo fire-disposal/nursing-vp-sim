@@ -40,62 +40,47 @@ export default function BatchImport({ open, onClose, roles, isImporting, onImpor
 
 		if (lines.length === 0) return;
 
-		// Detect header row: if first line contains CSV_HEADERS keywords
-		const header = lines[0].split(",").map((s) => s.trim().replace(BOM, ""));
-		const isHeader = CSV_HEADERS.some((h) => header.includes(h));
-		const colMap: Record<string, number> = {};
-		if (isHeader) {
-			header.forEach((col, idx) => { colMap[col] = idx; });
-			lines = lines.slice(1);
-		}
+		// Detect header row
+		const firstParts = lines[0].split(",").map((s) => s.trim().replace(BOM, ""));
+		const isHeader = CSV_HEADERS.some((h) => firstParts.includes(h));
+		const dataRows = isHeader ? lines.slice(1) : lines;
 
 		const errors: string[] = [];
 		const users: BatchUser[] = [];
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			if (!line.trim()) continue;
+		for (let i = 0; i < dataRows.length; i++) {
+			const row = dataRows[i];
+			if (!row.trim()) continue;
 
-			const parts = line.split(",").map((s) => s.trim());
-			const getVal = (col: string) => {
-				if (isHeader && col in colMap) return parts[colMap[col]] || "";
-				const pos = CSV_HEADERS.indexOf(col);
-				return pos >= 0 ? (parts[pos] || "") : "";
-			};
+			const parts = row.split(",").map((s) => s.trim());
 
-			const username = getVal("用户名");
-			const password = getVal("密码");
-			const displayName = getVal("姓名");
-			const role = getVal("角色") || "student";
-			const studentId = getVal("学号") || null;
-			const classIdRaw = getVal("班级ID");
-
-			const rowNum = i + 1;
-			const locator = isHeader ? `第${rowNum}行` : `第${rowNum}行(${username || "?"})`;
-
-			if (!username || !password || !displayName) {
-				errors.push(`${locator}: 用户名/密码/姓名不能为空`);
-				continue;
-			}
-			if (password.length < 6) {
-				errors.push(`${locator}: 密码长度不能少于6位`);
-				continue;
-			}
-			if (role !== "student") {
-				errors.push(`${locator}: 仅支持学生角色（当前: ${role}）`);
-				continue;
+			let username = "", password = "", displayName = "", role = "student", studentId: string | null = null, classId: number | null = null;
+			if (isHeader) {
+				username = parts[firstParts.indexOf("用户名")] || "";
+				password = parts[firstParts.indexOf("密码")] || "";
+				displayName = parts[firstParts.indexOf("姓名")] || "";
+				role = parts[firstParts.indexOf("角色")] || "student";
+				studentId = parts[firstParts.indexOf("学号")] || null;
+				const raw = parts[firstParts.indexOf("班级ID")] || "";
+				classId = /^\d+$/.test(raw) ? Number(raw) : null;
+				if (raw && classId === null) { errors.push(`第${i+1}行: 班级ID "${raw}" 无效`); continue; }
+			} else {
+				username = parts[0] || "";
+				password = parts[1] || "";
+				displayName = parts[2] || "";
+				role = parts[3] || "student";
+				studentId = parts[4] || null;
+				const raw = parts[5] || "";
+				classId = /^\d+$/.test(raw) ? Number(raw) : null;
+				if (raw && classId === null) { errors.push(`第${i+1}行: 班级ID "${raw}" 无效`); continue; }
 			}
 
-			const classId = /^\d+$/.test(classIdRaw) ? Number(classIdRaw) : (classIdRaw ? null : null);
-			if (classIdRaw && !classId) {
-				errors.push(`${locator}: 班级ID "${classIdRaw}" 无效`);
-				continue;
-			}
+			const locator = isHeader ? `第${i+1}行` : `第${i+1}行(${username || "?"})`;
+			if (!username || !password || !displayName) { errors.push(`${locator}: 用户名/密码/姓名不能为空`); continue; }
+			if (password.length < 6) { errors.push(`${locator}: 密码长度不能少于6位`); continue; }
+			if (role !== "student") { errors.push(`${locator}: 仅支持学生角色（当前: ${role}）`); continue; }
 
-			users.push({
-				username, password, display_name: displayName, role: "student",
-				student_id: studentId || null, class_id: classId || null,
-			});
+			users.push({ username, password, display_name: displayName, role: "student", student_id: studentId, class_id: classId });
 		}
 
 		if (errors.length > 0) {
