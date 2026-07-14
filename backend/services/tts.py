@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from core.exceptions import AuthError, NotFoundError
 from infrastructure.llm.crypto_utils import decrypt_api_key
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
-from infrastructure.tts.client import VolcTTSClient
+from infrastructure.tts.client import VolcBidirectionalTTSClient
 from infrastructure.tts.mapper import emotion_to_tts, resolve_voice_type
 from models import Case, TrainingRecord, VoiceCallLog
 
@@ -47,7 +47,7 @@ def load_tts_state(app_state, db: Session) -> None:
             log.warning("TTS load: api_key decryption failed")
             api_key = ""
         if api_key and (not vc.api_key_suffix or api_key.endswith(vc.api_key_suffix)):
-            app_state.tts_client = VolcTTSClient(
+            app_state.tts_client = VolcBidirectionalTTSClient(
                 api_key=api_key,
                 resource_id=vc.tts_resource_id,
                 timeout=vc.tts_timeout,
@@ -80,9 +80,8 @@ class TTSService:
         text: str,
         voice_type: str | None,
         user_id: int,
-        client: VolcTTSClient | None,
+        client: VolcBidirectionalTTSClient | None,
         emotion_state: str,
-        tts_model: str,
         tts_format: str,
         tts_sample_rate: int,
         speaker_library: dict | None = None,
@@ -107,7 +106,6 @@ class TTSService:
             text=text,
             state=emotion_state,
             speaker=speaker,
-            model=tts_model,
             fmt=tts_format,
             sample_rate=tts_sample_rate,
         )

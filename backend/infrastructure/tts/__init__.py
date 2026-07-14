@@ -1,7 +1,7 @@
 """TTS (Text-to-Speech) infrastructure layer — Volcengine SeedTTS 2.0 (v3)."""
 
 from infrastructure.tts.circuit import CircuitOpenError, TTSCircuitBreaker
-from infrastructure.tts.client import TTSRequest, VolcTTSClient
+from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
 from infrastructure.tts.mapper import (
     _BUILTIN_SPEAKER_LIBRARY,
     DEFAULT_SPEAKER,
@@ -18,7 +18,7 @@ __all__ = [
     "CircuitOpenError",
     "TTSCircuitBreaker",
     "TTSRequest",
-    "VolcTTSClient",
+    "VolcBidirectionalTTSClient",
     "emotion_to_tts",
     "get_speaker_library",
     "resolve_voice_type",

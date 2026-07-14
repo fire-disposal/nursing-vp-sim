@@ -8,7 +8,7 @@ from core.exceptions import NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
 from infrastructure.asr.client import VolcASRClient
 from infrastructure.llm.crypto_utils import decrypt_api_key, encrypt_api_key
-from infrastructure.tts.client import TTSRequest, VolcTTSClient
+from infrastructure.tts.client import TTSRequest, VolcBidirectionalTTSClient
 from models import VoiceConfig
 from schemas.voice import VoiceConfigResponse, VoiceStatusResponse
 
@@ -132,7 +132,7 @@ class VoiceConfigService:
         if not vc:
             raise NotFoundError("未找到激活的语音配置")
         api_key = self._decrypt_key(vc)
-        client = VolcTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
+        client = VolcBidirectionalTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
         try:
             ok = await client.health_check(speaker=vc.tts_speaker)
             await client.close()
@@ -189,11 +189,10 @@ class VoiceConfigService:
         tts_req = TTSRequest(
             text=text[:200],
             speaker=vc.tts_speaker,
-            model=vc.tts_model,
             fmt=vc.tts_format,
             sample_rate=vc.tts_sample_rate,
         )
-        client = VolcTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
+        client = VolcBidirectionalTTSClient(api_key=api_key, resource_id=vc.tts_resource_id, timeout=vc.tts_timeout)
         try:
             audio = await client.synthesize(tts_req)
         finally:

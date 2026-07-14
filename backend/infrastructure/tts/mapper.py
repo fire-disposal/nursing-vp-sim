@@ -78,7 +78,6 @@ def emotion_to_tts(
     text: str,
     state: str,
     speaker: str = DEFAULT_SPEAKER,
-    model: str = "seed-tts-2.0-standard",
     fmt: str = "mp3",
     sample_rate: int = 24000,
 ) -> TTSRequest:
@@ -89,7 +88,6 @@ def emotion_to_tts(
         speaker=speaker,
         speech_rate=speech_rate,
         loudness_rate=loudness_rate,
-        model=model,
         fmt=fmt,
         sample_rate=sample_rate,
     )

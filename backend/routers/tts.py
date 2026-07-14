@@ -10,7 +10,7 @@ from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.security import get_current_user
 from infrastructure.tts.circuit import CircuitOpenError
-from infrastructure.tts.client import VolcTTSClient
+from infrastructure.tts.client import VolcBidirectionalTTSClient
 from middleware.rate_limits import check_tts_limit
 from models import User
 from profiles.history_taking.emotion import get_emotion
@@ -31,7 +31,7 @@ async def synthesize(
 ) -> Response:
     await check_tts_limit(current_user.id, request)
 
-    client: VolcTTSClient | None = request.app.state.tts_client
+    client: VolcBidirectionalTTSClient | None = request.app.state.tts_client
 
     emotion_cache = getattr(request.app.state, "emotion_cache", None)
     emotion_state = "neutral"
@@ -51,7 +51,6 @@ async def synthesize(
             user_id=current_user.id,
             client=client,
             emotion_state=emotion_state,
-            tts_model=cfg["model"],
             tts_format=cfg["format"],
             tts_sample_rate=cfg["sample_rate"],
             speaker_library=cfg.get("speaker_library"),
