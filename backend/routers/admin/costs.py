@@ -28,6 +28,11 @@ def get_cost_dashboard(current_user: _Manager, db: DbSession):
     return CostService(db).get_dashboard()
 
 
+@router.get("/users")
+def get_user_cost_breakdown(current_user: _Manager, db: DbSession):
+    return {"items": CostService(db).get_user_breakdown()}
+
+
 @router.get("/export")
 def export_costs(
     current_user: _Manager,

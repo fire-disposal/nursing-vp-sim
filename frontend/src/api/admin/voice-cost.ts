@@ -171,6 +171,24 @@ export interface VoiceConfigExportResponse {
 export const exportVoiceConfig = () =>
 	api.get<VoiceConfigExportResponse>("/admin/voice/config/export");
 
+export const fetchUserCostBreakdown = () =>
+	api.get<{ items: UserCostItem[] }>("/admin/costs/users");
+
+export interface UserPurposeCost {
+	calls: number;
+	input_tokens: number;
+	output_tokens: number;
+	cost: number;
+}
+
+export interface UserCostItem {
+	user_id: number;
+	user_name: string;
+	total_cost: number;
+	total_calls: number;
+	purposes: Record<string, UserPurposeCost>;
+}
+
 export const testSynthesize = (text: string) =>
 	api.post<ArrayBuffer>("/admin/voice/config/test-synthesize", { text }, { responseType: "arraybuffer" });
 

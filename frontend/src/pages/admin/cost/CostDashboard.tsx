@@ -15,7 +15,7 @@ import {
 	YAxis,
 } from "recharts";
 import type { CostDashboardResponse } from "@/api/admin/voice-cost";
-import { fetchCostDashboard } from "@/api/admin/voice-cost";
+import { fetchCostDashboard, fetchUserCostBreakdown } from "@/api/admin/voice-cost";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
@@ -295,6 +295,44 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 	);
 }
 
+function UserCostBreakdown() {
+	const { data, isLoading } = useQuery({
+		queryKey: ["admin", "costs", "users"],
+		queryFn: () => fetchUserCostBreakdown().then((r) => r.data),
+		staleTime: 2 * 60_000,
+	});
+	const items = (data?.items || []) as { user_id: number; user_name: string; total_cost: number; total_calls: number; purposes: Record<string, { calls: number; cost: number }> }[];
+	const purposeLabels: Record<string, string> = { patient_chat: "患者对话", scoring: "评分", scoring_feedback: "评分反馈", qa: "护理问答", case_generation: "病例生成", json: "结构化提取" };
+	if (items.length === 0 && !isLoading) return null;
+	return (
+		<Card>
+			<CardHeader className="flex flex-row items-center justify-between">
+				<CardTitle>用户 LLM 消费明细（本月）</CardTitle>
+				<span className="text-xs text-muted-foreground">{items.length} 位用户</span>
+			</CardHeader>
+			<CardContent>
+				{isLoading ? <div className="text-sm text-muted-foreground text-center py-4">加载中…</div> : (
+					<div className="space-y-2">
+						{items.map((u) => (
+							<div key={u.user_id} className="rounded-lg border border-border p-2.5">
+								<div className="flex items-center justify-between mb-1">
+									<span className="text-sm font-semibold">{u.user_name}</span>
+									<span className="text-sm font-bold tabular-nums text-primary">¥{u.total_cost.toFixed(2)} <span className="text-xs text-muted-foreground font-normal">{u.total_calls}次</span></span>
+								</div>
+								<div className="flex flex-wrap gap-1.5">
+									{Object.entries(u.purposes).map(([p, d]) => (
+										<span key={p} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{purposeLabels[p] || p}: {d.calls}次 ¥{d.cost.toFixed(2)}</span>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
 export default function CostDashboard() {
 	const { data, isLoading } = useQuery({
 		queryKey: queryKeys.cost.dashboard,
@@ -337,6 +375,7 @@ export default function CostDashboard() {
 			</div>
 
 			<TopUsersTable data={d} />
+			<UserCostBreakdown />
 		</div>
 	);
 }

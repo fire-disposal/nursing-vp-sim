@@ -272,6 +272,47 @@ class CostService:
             top_users=top_users,
         )
 
+    def get_user_breakdown(
+        self, month_start: datetime | None = None, limit: int = 50
+    ) -> list[dict]:
+        since = month_start or datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        rows = (
+            self.db.query(
+                User.id.label("user_id"),
+                User.display_name.label("user_name"),
+                LLMCallLog.purpose,
+                func.count(LLMCallLog.id).label("calls"),
+                func.sum(LLMCallLog.input_tokens).label("input_tokens"),
+                func.sum(LLMCallLog.output_tokens).label("output_tokens"),
+                func.sum(LLMCallLog.estimated_cost).label("cost"),
+            )
+            .join(LLMCallLog, LLMCallLog.user_id == User.id)
+            .filter(LLMCallLog.created_at >= since)
+            .group_by(User.id, User.display_name, LLMCallLog.purpose)
+            .order_by(func.sum(LLMCallLog.estimated_cost).desc())
+            .all()
+        )
+
+        user_map: dict[int, dict] = {}
+        for r in rows:
+            uid = r.user_id
+            if uid not in user_map:
+                user_map[uid] = {"user_id": uid, "user_name": r.user_name or "未知", "total_cost": 0.0, "total_calls": 0, "purposes": {}}
+            user_map[uid]["total_cost"] += float(r.cost or 0)
+            user_map[uid]["total_calls"] += int(r.calls or 0)
+            user_map[uid]["purposes"][r.purpose] = {
+                "calls": int(r.calls or 0),
+                "input_tokens": int(r.input_tokens or 0),
+                "output_tokens": int(r.output_tokens or 0),
+                "cost": round(float(r.cost or 0), 6),
+            }
+
+        return sorted(
+            user_map.values(),
+            key=lambda x: x["total_cost"],
+            reverse=True,
+        )[:limit]
+
     def export_data(self, start_date: str, end_date: str, service: str, granularity: str) -> list[dict]:
         now = datetime.now(UTC)
         since = self._parse_date(start_date) if start_date else now - timedelta(days=30)
