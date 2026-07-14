@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from core.config import APP_VERSION
 from core.datetime_utils import parse_iso_datetime
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
@@ -19,6 +20,7 @@ class FeedbackRow:
     rating: int = 3
     tag: str = ""
     content: str | None = None
+    version: str = ""
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime | None = None
@@ -37,6 +39,7 @@ class FeedbackService:
                     rating=rating,
                     tag=tag or "",
                     content=content,
+                    version=APP_VERSION,
                 )
             )
 
@@ -59,6 +62,7 @@ class FeedbackService:
             FeedbackRow(
                 id=r.id, user_id=r.user_id, user_name=r.user_name,
                 rating=r.rating, tag=r.tag, content=r.content,
+                version=r.version,
                 developer_reply=r.developer_reply, replied_at=r.replied_at,
                 created_at=r.created_at,
             )
@@ -77,6 +81,7 @@ class FeedbackService:
             FeedbackRow(
                 id=r.id, user_id=r.user_id,
                 rating=r.rating, tag=r.tag, content=r.content,
+                version=r.version,
                 developer_reply=r.developer_reply, replied_at=r.replied_at,
                 created_at=r.created_at,
             )

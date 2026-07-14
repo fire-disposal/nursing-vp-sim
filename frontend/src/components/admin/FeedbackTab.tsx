@@ -36,6 +36,7 @@ type FeedbackDailyItem = Schemas["FeedbackDailyItem"];
 type FeedbackItem = Schemas["FeedbackItem"] & {
 	developer_reply?: string | null;
 	replied_at?: string | null;
+	version?: string;
 };
 
 const TAG_OPTIONS = [
@@ -80,7 +81,7 @@ const RATING_COLORS = [
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
 
-function FeedbackRow({ fb }: { fb: FeedbackItem }) {
+function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => void }) {
 	const [replyOpen, setReplyOpen] = useState(false);
 	const [replyText, setReplyText] = useState("");
 	const [sending, setSending] = useState(false);
@@ -94,6 +95,7 @@ function FeedbackRow({ fb }: { fb: FeedbackItem }) {
 			toast.success("回复已发送");
 			setReplyText("");
 			setReplyOpen(false);
+			onReplied();
 		} catch {
 			toast.error("回复失败");
 		} finally {
@@ -121,8 +123,9 @@ function FeedbackRow({ fb }: { fb: FeedbackItem }) {
 			{fb.content && (
 				<div className="text-sm text-foreground mb-1 leading-relaxed">{fb.content}</div>
 			)}
-			<div className="text-xs text-muted-foreground/70 mb-1">
+			<div className="text-xs text-muted-foreground/70 mb-1 flex items-center gap-2">
 				{new Date(fb.created_at).toLocaleString("zh-CN")}
+				{fb.version && <span className="opacity-50">v{fb.version}</span>}
 			</div>
 			{fb.developer_reply ? (
 				<div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-sm leading-relaxed">
@@ -433,12 +436,14 @@ export default function FeedbackTab() {
 	if (dateFrom) params.date_from = dateFrom;
 	if (dateTo) params.date_to = dateTo;
 
-	const { data: feedbacksData, isLoading } = useQuery({
+	const { data: feedbacksData, isLoading, refetch } = useQuery({
 		queryKey: queryKeys.admin.feedback.list(params),
 		queryFn: () => getFeedbacks(params).then((r) => r.data),
 		placeholderData: (prev) => prev,
 		staleTime: 2 * 60_000,
 	});
+
+	const refetchFeedbacks = () => refetch();
 
 	const feedbacks = feedbacksData?.items ?? [];
 	const total = feedbacksData?.total ?? 0;
@@ -529,7 +534,7 @@ export default function FeedbackTab() {
 			) : (
 				<div className="flex flex-col gap-2">
 					{feedbacks.map((fb: FeedbackItem) => (
-						<FeedbackRow key={fb.id} fb={fb} />
+						<FeedbackRow key={fb.id} fb={fb} onReplied={refetchFeedbacks} />
 					))}
 				</div>
 			)}

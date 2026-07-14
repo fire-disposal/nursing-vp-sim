@@ -33,6 +33,7 @@ class Feedback(Base):
     rating: Mapped[int] = mapped_column(Integer, default=3)
     tag: Mapped[str] = mapped_column(String(20), default="")
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
     developer_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
     replied_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now_utc)

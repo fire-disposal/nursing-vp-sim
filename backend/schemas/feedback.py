@@ -25,6 +25,7 @@ class FeedbackItem(BaseModel):
     rating: int
     tag: str
     content: str | None = None
+    version: str = ""
     developer_reply: str | None = None
     replied_at: datetime | None = None
     created_at: datetime

@@ -15,6 +15,7 @@ type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"] & {
 	developer_reply?: string | null;
 	replied_at?: string | null;
+	version?: string;
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
@@ -74,6 +75,7 @@ export default function MyFeedbackPage() {
 								</div>
 								<span className="text-xs text-muted-foreground">
 									{new Date(fb.created_at).toLocaleString("zh-CN")}
+									{fb.version && <span className="ml-2 opacity-60">v{fb.version}</span>}
 								</span>
 							</div>
 							{fb.content && (
@@ -89,7 +91,11 @@ export default function MyFeedbackPage() {
 												{new Date(fb.replied_at).toLocaleString("zh-CN")}
 											</span>
 										)}
-									</div>
+							</div>
+							<div className="flex items-center gap-3 text-xs text-muted-foreground">
+								<span>{new Date(fb.created_at).toLocaleString("zh-CN")}</span>
+								{fb.version && <span className="opacity-60">v{fb.version}</span>}
+							</div>
 									<p className="text-sm leading-relaxed">{fb.developer_reply}</p>
 								</div>
 							)}

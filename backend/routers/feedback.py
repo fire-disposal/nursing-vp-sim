@@ -85,6 +85,9 @@ def export_feedback(
     columns = [
         ColumnDef("反馈内容", key="content"),
         ColumnDef("评分", key="rating", fmt=lambda v: str(v) if v else ""),
+        ColumnDef("标签", key="tag"),
+        ColumnDef("版本", key="version"),
+        ColumnDef("开发者回复", key="developer_reply"),
         ColumnDef("创建时间", value=lambda r: r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else ""),
     ]
     return export_response(fb, columns, "用户反馈", "用户反馈", format)
@@ -104,6 +107,7 @@ def _to_item(r) -> FeedbackItem:
     return FeedbackItem(
         id=r.id, user_id=r.user_id, user_name=r.user_name,
         rating=r.rating, tag=r.tag, content=r.content,
+        version=getattr(r, "version", ""),
         developer_reply=r.developer_reply, replied_at=r.replied_at,
         created_at=r.created_at,
     )
@@ -113,6 +117,7 @@ def _to_item_from_model(fb: Feedback) -> FeedbackItem:
     return FeedbackItem(
         id=fb.id, user_id=fb.user_id, user_name="",
         rating=fb.rating, tag=fb.tag, content=fb.content,
+        version=fb.version,
         developer_reply=fb.developer_reply, replied_at=fb.replied_at,
         created_at=fb.created_at,
     )
