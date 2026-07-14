@@ -1,5 +1,6 @@
-import { Loader2, Send } from "lucide-react";
+import { Loader2, MessageSquare, Send } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { submitFeedback } from "@/api";
 import { useToast } from "@/components/Toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -40,6 +41,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 	const [content, setContent] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const toast = useToast();
+	const navigate = useNavigate();
 
 	const handleSubmit = async () => {
 		setSubmitting(true);
@@ -143,7 +145,12 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 				</div>
 			</div>
 
-			<div className="flex justify-end gap-2 mt-2">
+			<div className="flex justify-between items-center mt-2">
+				<button type="button" onClick={() => { onClose(); navigate("/my-feedback"); }}
+					className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+					<MessageSquare size={13} /> 查看我的反馈
+				</button>
+				<div className="flex gap-2">
 				<button
 					type="button"
 					onClick={handleClose}
@@ -163,6 +170,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 				>
 					{submitting ? (<><Loader2 size={14} className="animate-spin" /> 提交中...</>) : (<><Send size={14} /> 提交</>)}
 				</button>
+			</div>
 			</div>
 			</DialogContent>
 		</Dialog>

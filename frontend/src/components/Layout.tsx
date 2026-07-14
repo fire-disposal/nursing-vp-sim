@@ -45,7 +45,6 @@ function AdminSidebar({
 	onLogout: () => void;
 	onAbout: () => void;
 }) {
-	const navigate = useNavigate();
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
 	const { openFeedback } = useFeedback();
@@ -90,7 +89,6 @@ function AdminSidebar({
 					<ModeToggle />
 					<NotificationBell />
 					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={openFeedback}><MessageSquarePlus size={13} />反馈</Button>
-					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => navigate("/my-feedback")}><MessageSquare size={13} />我的反馈</Button>
 					<Button variant="ghost" size="sm" className="h-8 text-xs" onClick={onAbout}><Info size={13} />关于</Button>
 					<Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={onLogout}>
 						<LogOut size={13} />退出
