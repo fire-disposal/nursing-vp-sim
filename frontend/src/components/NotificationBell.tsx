@@ -116,6 +116,8 @@ export default function NotificationBell() {
 			setOpen(false);
 			if (n.type === "feedback_replied") {
 				navigate("/my-feedback");
+			} else if (n.type === "assignment_new") {
+				navigate("/home");
 			} else if (n.record_id) {
 				navigate(`/record/${n.record_id}`);
 			} else if (n.type === "scoring_complete" || n.type.startsWith("scoring_")) {

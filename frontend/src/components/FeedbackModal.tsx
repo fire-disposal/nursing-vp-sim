@@ -6,6 +6,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/utils/cn";
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
+const RATING_COLORS = [
+	"hover:border-red-400 data-[active=true]:border-red-500 data-[active=true]:bg-red-50 data-[active=true]:text-red-600",
+	"hover:border-orange-400 data-[active=true]:border-orange-500 data-[active=true]:bg-orange-50 data-[active=true]:text-orange-600",
+	"hover:border-amber-400 data-[active=true]:border-amber-500 data-[active=true]:bg-amber-50 data-[active=true]:text-amber-600",
+	"hover:border-emerald-400 data-[active=true]:border-emerald-500 data-[active=true]:bg-emerald-50 data-[active=true]:text-emerald-600",
+	"hover:border-green-400 data-[active=true]:border-green-500 data-[active=true]:bg-green-50 data-[active=true]:text-green-600",
+];
 
 interface Tag {
 	value: string;
@@ -73,22 +80,24 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 								type="button"
 								key={val}
 								onClick={() => setRating(val)}
+								data-active={rating === val}
 								className={cn(
-									"flex flex-col items-center gap-1 py-1.5 px-1 rounded-md border-2 cursor-pointer transition-all duration-150 min-w-0 flex-1",
+									"flex flex-col items-center gap-1 py-2 px-1 rounded-md border-2 cursor-pointer transition-all duration-150 min-w-0 flex-1",
+									RATING_COLORS[val - 1],
 									rating === val
-										? "border-primary bg-primary/10 scale-105"
-										: "border-transparent bg-transparent hover:bg-muted/50",
+										? "scale-105"
+										: "border-transparent bg-transparent text-muted-foreground/60",
 								)}
 							>
 								<span className={cn(
 									"text-xl font-bold transition-all",
-									rating === val ? "text-primary" : "text-muted-foreground/50",
+									rating === val ? "" : "",
 								)}>
 									{val}
 								</span>
 								<span className={cn(
 									"text-[10px] sm:text-xs whitespace-nowrap",
-									rating === val ? "text-primary font-semibold" : "text-muted-foreground/50",
+									rating === val ? "font-semibold" : "",
 								)}>
 									{RATING_LABELS[val - 1]}
 								</span>

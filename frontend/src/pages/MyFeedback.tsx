@@ -9,6 +9,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import { useState } from "react";
+import { cn } from "@/utils/cn";
 
 type Schemas = components["schemas"];
 type FeedbackItem = Schemas["FeedbackItem"] & {
@@ -17,6 +18,13 @@ type FeedbackItem = Schemas["FeedbackItem"] & {
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
+const RATING_COLORS = [
+	"text-red-600 bg-red-50",
+	"text-orange-600 bg-orange-50",
+	"text-amber-600 bg-amber-50",
+	"text-emerald-600 bg-emerald-50",
+	"text-green-600 bg-green-50",
+];
 const TAG_LABELS: Record<string, string> = {
 	feature: "功能建议", bug: "BUG反馈", experience: "体验评价",
 	content: "内容质量", ui: "界面设计", other: "其他",
@@ -51,8 +59,12 @@ export default function MyFeedbackPage() {
 						<div key={fb.id} className="rounded-xl border bg-card p-4 space-y-2">
 							<div className="flex items-center justify-between gap-2">
 								<div className="flex items-center gap-2">
-									<span className="text-sm font-semibold">
-										{fb.rating} - {RATING_LABELS[fb.rating - 1] || ""}
+									<span className={cn(
+										"inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold",
+										RATING_COLORS[fb.rating - 1] || "",
+									)}>
+										<span className="text-sm leading-none">{fb.rating}</span>
+										<span className="text-[10px] opacity-70">{RATING_LABELS[fb.rating - 1]}</span>
 									</span>
 									{fb.tag && (
 										<Badge variant="outline" className="text-[10px]">

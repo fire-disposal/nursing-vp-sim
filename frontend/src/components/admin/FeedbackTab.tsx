@@ -70,6 +70,13 @@ const TAG_LABEL: Record<string, string> = {
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
+const RATING_COLORS = [
+	"text-red-600 bg-red-50 border-red-200",
+	"text-orange-600 bg-orange-50 border-orange-200",
+	"text-amber-600 bg-amber-50 border-amber-200",
+	"text-emerald-600 bg-emerald-50 border-emerald-200",
+	"text-green-600 bg-green-50 border-green-200",
+];
 
 const PIE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
 
@@ -97,14 +104,13 @@ function FeedbackRow({ fb }: { fb: FeedbackItem }) {
 	return (
 		<div className="py-2.5 px-3.5 border border-border rounded-lg bg-card">
 			<div className="flex items-center justify-between mb-1">
-				<div className="flex items-center gap-1.5">
+				<div className="flex items-center gap-2">
 					<span className={cn(
-						"text-sm font-bold px-1.5 py-0.5 rounded",
-						fb.rating >= 4 ? "text-emerald-700 bg-emerald-50" :
-						fb.rating >= 3 ? "text-amber-700 bg-amber-50" :
-						"text-red-700 bg-red-50",
+						"inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border",
+						RATING_COLORS[fb.rating - 1] || "",
 					)}>
-						{fb.rating}分
+						<span className="text-sm leading-none">{fb.rating}</span>
+						<span className="hidden sm:inline text-[10px] opacity-70">{RATING_LABELS[fb.rating - 1]}</span>
 					</span>
 					<span className="font-semibold text-sm">{fb.user_name}</span>
 				</div>

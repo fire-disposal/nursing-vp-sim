@@ -4,9 +4,10 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session, joinedload
 
+from core.database import SessionLocal
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.unit_of_work import unit_of_work
-from models import Assignment, Practice, TrainingRecord
+from models import Assignment, Practice, TrainingRecord, UserClass
 from repositories.assignment import AssignmentRepository
 
 log = logging.getLogger(__name__)
@@ -146,6 +147,8 @@ class AssignmentService:
                 )
             )
         self.db.refresh(assignment)
+
+        self._notify_students(class_id, title, practice.case.name if practice.case else "")
         log.info(f"Assignment created: id={assignment.id} title={assignment.title}", extra={"user_id": teacher_id})
         return self._build_detail_view(assignment)
 
@@ -240,3 +243,26 @@ class AssignmentService:
             self.repo.delete(assignment)
 
         return {"message": "练习发布已删除"}
+
+    @staticmethod
+    def _notify_students(class_id: int, title: str, case_name: str) -> None:
+        from models.ux import Notification
+
+        db = SessionLocal()
+        try:
+            students = db.execute(
+                db.query(UserClass.user_id).filter(UserClass.class_id == class_id)
+            ).scalars().all()
+            body = f"病例：{case_name}" if case_name else ""
+            now = datetime.now(UTC)
+            for uid in students:
+                db.add(Notification(
+                    user_id=uid, type="assignment_new",
+                    title=f"新作业：{title}",
+                    body=body, created_at=now,
+                ))
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
