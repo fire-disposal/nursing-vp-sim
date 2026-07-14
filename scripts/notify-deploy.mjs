@@ -7,7 +7,6 @@
  *   DEPLOY_VERSION    部署版本号（如 2026.07.14-1）
  *   DEPLOY_ENV        环境标识（staging | production）
  *   DEPLOY_URL        访问 URL
- *   PREV_VERSION      上一个版本号（可选）
  *   COMMITS           最近提交列表（可选，每行一个 --oneline 格式）
  */
 
@@ -20,18 +19,14 @@ if (!webhook) {
 const version = process.env.DEPLOY_VERSION || "unknown";
 const env = process.env.DEPLOY_ENV || "unknown";
 const url = process.env.DEPLOY_URL || "";
-const prev = process.env.PREV_VERSION || "";
 const commitsRaw = process.env.COMMITS || "";
 
 const envLabel = env === "production" ? "🚀 正式服" : "🧪 测试服";
 const title = `${envLabel} 部署成功`;
 
 const pad = (n) => String(n).padStart(2, "0");
-const now = new Date();
-const bj = new Date(now.getTime() + 8 * 3600 * 1000);
+const bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
 const ts = `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}:${pad(bj.getUTCSeconds())} CST`;
-
-const prevLine = prev ? `\n> 上一版本：**${prev}**` : "";
 
 let commitsBlock = "";
 if (commitsRaw) {
@@ -42,8 +37,7 @@ if (commitsRaw) {
 }
 
 const markdown = `## ${title} v${version}
-> 时间：${ts}
-> 地址：[${url}](${url})${prevLine}${commitsBlock}
+> ${ts}  |  [${url}](${url})${commitsBlock}
 ---
 > Nursing VP Sim 护理虚拟患者系统`;
 
