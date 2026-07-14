@@ -117,6 +117,11 @@ export default function VoiceTokenCard() {
 		checkStatus();
 	}, [config?.id]);
 
+	// 语音生成后自动播放
+	useEffect(() => {
+		if (audioUrl) audioRef.current?.play();
+	}, [audioUrl]);
+
 	const checkStatus = () => {
 		if (!config) return;
 		setCheckingStatus(true);
@@ -156,8 +161,9 @@ export default function VoiceTokenCard() {
 			const arr = res.data as unknown as ArrayBuffer;
 			const ct = (res.headers as Record<string, string>)?.["content-type"] || "audio/mpeg";
 			const blob = new Blob([arr], { type: ct });
+			const url = URL.createObjectURL(blob);
 			if (audioUrl) URL.revokeObjectURL(audioUrl);
-			setAudioUrl(URL.createObjectURL(blob));
+			setAudioUrl(url);
 			toast.success("语音生成成功");
 		} catch (e: unknown) {
 			toast.apiError(e, "语音生成失败");
