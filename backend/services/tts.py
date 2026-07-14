@@ -142,11 +142,12 @@ class TTSService:
 
 def _extract_demographics(case: Case) -> tuple[int | None, str | None]:
     case_data = case.case_data or {}
-    age = case_data.get("age") or case_data.get("patient_age")
+    pi = case_data.get("patient_info") or {}
+    age = pi.get("age") or case_data.get("age") or case_data.get("patient_age")
     if age is not None:
         try:
             age = int(age)
         except (TypeError, ValueError):
             age = None
-    gender = case_data.get("gender") or case_data.get("patient_gender")
+    gender = pi.get("gender") or case_data.get("gender") or case_data.get("patient_gender")
     return age, gender

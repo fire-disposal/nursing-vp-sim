@@ -213,18 +213,21 @@ export default function VoiceTokenCard() {
 				</Button>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{!config ? (
-					<EmptyState
-						title="无语音服务配置"
-						description="请通过下方表单配置火山引擎 API Key"
-					/>
-				) : (
-					<>
+				{!config && (
+					<div className="rounded-lg border border-border bg-muted/30 p-4 text-xs text-muted-foreground space-y-2">
+						<p className="font-medium text-foreground text-sm">接入步骤</p>
+						<ol className="list-decimal list-inside space-y-1">
+							<li>前往 <a href="https://console.volcengine.com/speech/new/setting/apikeys" target="_blank" rel="noreferrer" className="text-primary underline">火山引擎控制台 → API Key 管理</a> 创建 API Key</li>
+							<li>前往 <a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="text-primary underline">音色库</a> 选择需要的音色 ID</li>
+							<li>填写下方表单并保存</li>
+						</ol>
+					</div>
+				)}
 						<div className="space-y-1.5">
 							<Label htmlFor="voice-api-key">
 								API Key{" "}
 								<span className="text-muted-foreground text-xs">
-									(当前: {config.api_key_masked || "未设置"})
+									(当前: {config?.api_key_masked || "未设置"})
 								</span>
 							</Label>
 							<Input
@@ -232,7 +235,7 @@ export default function VoiceTokenCard() {
 								type="password"
 								value={form.api_key}
 								onChange={(e) => setField({ api_key: e.target.value })}
-								placeholder="留空不修改"
+								placeholder="从 火山引擎控制台 → API Key 管理 获取"
 							/>
 						</div>
 
@@ -240,12 +243,16 @@ export default function VoiceTokenCard() {
 
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							<div className="space-y-1.5">
-								<Label htmlFor="voice-tts-speaker">TTS 音色 (speaker)</Label>
+								<Label htmlFor="voice-tts-speaker">TTS 音色 ID</Label>
 								<Input
 									id="voice-tts-speaker"
 									value={form.tts_speaker}
 									onChange={(e) => setField({ tts_speaker: e.target.value })}
+									placeholder="zh_female_vv_uranus_bigtts"
 								/>
+								<p className="text-[10px] text-muted-foreground">
+									<a href="https://console.volcengine.com/speech/new/voices" target="_blank" rel="noreferrer" className="underline">音色库</a> 获取 ID，或使用 Speaker Library 按人口匹配
+								</p>
 							</div>
 							<div className="space-y-1.5">
 								<Label htmlFor="voice-tts-resource">TTS Resource ID</Label>
@@ -455,9 +462,7 @@ export default function VoiceTokenCard() {
 								</div>
 							)}
 						</div>
-					</>
-				)}
-			</CardContent>
+				</CardContent>
 		</Card>
 	);
 }
