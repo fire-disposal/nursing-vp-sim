@@ -55,3 +55,6 @@ try:
     HOSTNAME = os.uname().nodename
 except AttributeError:
     HOSTNAME = "nursing-server"
+
+# ── DingTalk Webhook (optional second alert channel) ──────────────────────
+DINGTALK_WEBHOOK = _get("DINGTALK_WEBHOOK")

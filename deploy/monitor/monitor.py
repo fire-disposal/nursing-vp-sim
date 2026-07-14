@@ -475,8 +475,54 @@ def alert_key(failure):
         return f"health:{name}"
     return f"{tp}:{name}"
 
-
 # ── Email ─────────────────────────────────────────────────────────────────────
+
+
+def build_dingtalk_alert(failures: list, hostname: str) -> str:
+    """Build compact DingTalk markdown alert message."""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    type_cn = {
+        "container": "容器", "disk": "磁盘", "cpu": "CPU",
+        "memory": "内存", "health": "健康检查", "metrics": "指标异常",
+    }
+    lines = [f"## ⚠️ 告警 — {hostname}"]
+    lines.append(f"> {now}  |  {len(failures)} 个异常\n")
+    for f in failures:
+        tp = type_cn.get(f["type"], f["type"])
+        name = f.get("name", "-")
+        detail = f.get("detail", "")
+        lines.append(f"> **[{tp}]** {name}")
+        lines.append(f"> {detail}\n")
+    lines.append("---\n> 由 monitor.py 自动发送")
+    return "\n".join(lines)
+
+
+def build_dingtalk_recovery(recovered_keys: list, hostname: str) -> str:
+    """Build compact DingTalk recovery message."""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [f"## ✅ 恢复 — {hostname}"]
+    lines.append(f"> {now}  |  {len(recovered_keys)} 项已恢复\n")
+    for key in recovered_keys:
+        lines.append(f"> {key}")
+    return "\n".join(lines)
+
+
+def send_dingtalk(text: str) -> bool:
+    """Send DingTalk markdown message via webhook."""
+    if not DINGTALK_WEBHOOK:
+        return False
+    try:
+        import urllib.request
+
+        payload = json.dumps({"msgtype": "markdown", "markdown": {"title": "监控告警", "text": text}}).encode()
+        req = urllib.request.Request(DINGTALK_WEBHOOK, data=payload, headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=10)
+        log.info("DingTalk alert sent")
+        return True
+    except Exception as e:
+        log.error("DingTalk send failed: %s", e)
+        return False
+
 
 MONITOR_CSS = """
 :root{color-scheme:light dark}
@@ -636,6 +682,7 @@ def main():
             rec_body = build_recovery_body(recovered_keys, hostname)
             if send_email(rec_subject, rec_body):
                 daily["sent"] = daily.get("sent", 0) + 1
+            send_dingtalk(build_dingtalk_recovery(recovered_keys, hostname))
 
         # Process active failures — decide which to alert on
         new_failures = []
@@ -673,6 +720,7 @@ def main():
             if send_email(subject, body):
                 daily["sent"] = daily.get("sent", 0) + 1
                 log.info("Alert sent: %d failures", len(new_failures))
+            send_dingtalk(build_dingtalk_alert(new_failures, hostname))
 
         else:
             log.info("Check OK — no new alerts to send. Active issues: %d", len(active_keys))
