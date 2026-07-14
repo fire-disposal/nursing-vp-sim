@@ -204,7 +204,7 @@ def check_containers():
         state = c.get("State", "?")
         status = c.get("Status", "")
 
-        if state != "running":
+        if state != "running" and state != "created":
             failures.append(
                 {
                     "type": "container",
