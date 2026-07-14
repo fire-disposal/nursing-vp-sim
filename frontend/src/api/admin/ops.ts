@@ -1,9 +1,7 @@
 import { api } from "@/api/client";
 
 export interface DiagnoseResponse {
-	version: string;
-	health: { status: "ok" };
-	summary: { status: "healthy" | "degraded" };
+	health: { status: string; version?: string };
 	llm: {
 		total_calls_24h: number;
 		success_rate: number;
@@ -17,11 +15,7 @@ export interface DiagnoseResponse {
 		asr: { calls_24h: number; success_rate: number; error_count_24h: number; avg_latency_ms: number; cost_24h: number };
 	};
 	voice_budget: { monthly_budget: number; monthly_cost: number; usage_pct: number };
-	metrics: {
-		active_sessions: number;
-		uptime_seconds: number;
-		version: string;
-	} & Record<string, unknown>;
+	metrics: Record<string, unknown>;
 	errors: {
 		count: { last_5min: number; last_hour: number; total_captured: number };
 		recent: { time: string; level: string; logger: string; message: string }[];
@@ -30,4 +24,4 @@ export interface DiagnoseResponse {
 }
 
 export const fetchDiagnose = () =>
-	api.get<DiagnoseResponse>("/admin/ops/diagnose");
+	api.get<DiagnoseResponse>("/admin/ops/dashboard");

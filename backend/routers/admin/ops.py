@@ -72,6 +72,15 @@ async def admin_ops_dashboard(
         diagnostic = {"error": "diagnose service unavailable"}
         system_errors = {}
 
+    errors_structured = {
+        "count": {
+            "last_5min": system_errors.get("last_5min", 0),
+            "last_hour": system_errors.get("last_hour", 0),
+            "total_captured": system_errors.get("total_captured", 0),
+        },
+        "recent": system_errors.get("recent", []),
+    }
+
     return {
         "health": {"status": "ok", "version": APP_VERSION},
         "time": data["time"],
@@ -83,8 +92,7 @@ async def admin_ops_dashboard(
         "voice_budget": data["voice_budget"],
         "sse": sse_stats,
         "metrics": metrics_snapshot,
-        "diagnostic": diagnostic,
-        "system_errors": system_errors,
+        "errors": errors_structured,
     }
 
 

@@ -18,16 +18,16 @@ import {
 import { cn } from "@/utils/cn";
 
 function StatGrid({ data }: { data: DiagnoseResponse }) {
-	const successRate = data.llm.success_rate;
+	const successRate = data.llm?.success_rate ?? 100;
 	const rateColor =
 		successRate >= 95 ? "green" : successRate >= 90 ? "amber" : "red";
-	const activeSessions = data.metrics?.active_sessions ?? 0;
+	const activeSessions = (data.metrics as Record<string, unknown>)?.active_sessions as number ?? 0;
 
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 			<StatCard
 				icon={Activity}
-				value={data.health.status === "ok" ? "正常" : data.health.status}
+				value={data.health?.status === "ok" ? "正常" : (data.health?.status ?? "未知")}
 				label="运行状态"
 				color="green"
 			/>
@@ -39,9 +39,9 @@ function StatGrid({ data }: { data: DiagnoseResponse }) {
 			/>
 			<StatCard
 				icon={Timer}
-				value={data.scoring.pending}
+				value={data.scoring?.pending ?? 0}
 				label="评分待处理"
-				color={data.scoring.pending > 10 ? "amber" : "blue"}
+				color={(data.scoring?.pending ?? 0) > 10 ? "amber" : "blue"}
 			/>
 			<StatCard
 				icon={Server}
@@ -63,26 +63,26 @@ function LLMDetailCard({ data }: { data: DiagnoseResponse }) {
 				<div className="grid grid-cols-2 gap-y-3 text-sm">
 					<span className="text-muted-foreground">总调用</span>
 					<span className="text-right tabular-nums font-medium">
-						{data.llm.total_calls_24h.toLocaleString()}
+						{data.llm?.total_calls_24h?.toLocaleString() ?? 0}
 					</span>
 					<span className="text-muted-foreground">成功</span>
 					<span className="text-right tabular-nums text-emerald-600">
-						{Math.round(data.llm.total_calls_24h * data.llm.success_rate / 100)}
+						{Math.round((data.llm?.total_calls_24h ?? 0) * (data.llm?.success_rate ?? 100) / 100)}
 					</span>
 					<span className="text-muted-foreground">失败</span>
 					<span className="text-right tabular-nums text-danger-foreground">
-						{data.llm.error_count_24h}
+						{data.llm?.error_count_24h ?? 0}
 					</span>
 					<span className="text-muted-foreground">平均延迟</span>
 					<span className="text-right tabular-nums">
-						{data.llm.avg_latency_ms} ms
+						{data.llm?.avg_latency_ms ?? 0} ms
 					</span>
 				</div>
-				{data.llm.recent_errors.length > 0 && (
+				{(data.llm?.recent_errors?.length ?? 0) > 0 && (
 					<div className="mt-3 pt-3 border-t">
 						<div className="text-xs text-muted-foreground mb-2">Top 错误类型</div>
 						<div className="space-y-1">
-							{data.llm.recent_errors.map((e) => (
+							{(data.llm?.recent_errors ?? []).map((e) => (
 								<div key={e.type} className="flex justify-between text-xs">
 									<span className="text-muted-foreground font-mono">
 										{e.type || "unknown"}
@@ -99,9 +99,9 @@ function LLMDetailCard({ data }: { data: DiagnoseResponse }) {
 }
 
 function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
-	const uptimeSeconds = data.metrics?.uptime_seconds ?? 0;
+	const uptimeSeconds = Number((data.metrics as Record<string, unknown>)?.uptime_seconds ?? 0);
 	const uptimeHours = (uptimeSeconds / 3600).toFixed(1);
-	const activeSessions = data.metrics?.active_sessions ?? 0;
+	const activeSessions = String((data.metrics as Record<string, unknown>)?.active_sessions ?? 0);
 
 	return (
 		<Card>
@@ -112,20 +112,20 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 				<div className="grid grid-cols-2 gap-y-3 text-sm">
 					<span className="text-muted-foreground">评分待处理</span>
 					<span className="text-right tabular-nums font-medium">
-						{data.scoring.pending}
+						{data.scoring?.pending ?? 0}
 					</span>
 					<span className="text-muted-foreground">评分进行中</span>
 					<span className="text-right tabular-nums font-medium text-blue-600">
-						{data.scoring.in_progress}
+						{data.scoring?.in_progress ?? 0}
 					</span>
 					<span className="text-muted-foreground">卡住 &gt;24h</span>
 					<span
 						className={cn(
 							"text-right tabular-nums font-medium",
-							data.scoring.stuck > 0 && "text-danger-foreground",
+							(data.scoring?.stuck ?? 0) > 0 && "text-danger-foreground",
 						)}
 					>
-						{data.scoring.stuck}
+						{data.scoring?.stuck ?? 0}
 					</span>
 					<span className="text-muted-foreground">活跃会话</span>
 					<span className="text-right tabular-nums">
@@ -137,7 +137,7 @@ function ScoringSessionsCard({ data }: { data: DiagnoseResponse }) {
 					</span>
 					<span className="text-muted-foreground">版本</span>
 					<span className="text-right font-mono text-xs">
-						{data.version}
+						{data.health?.version ?? "-"}
 					</span>
 				</div>
 			</CardContent>
@@ -189,7 +189,7 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 			<CardHeader className="flex flex-row items-center justify-between">
 				<CardTitle>最近系统错误</CardTitle>
 				<span className="text-xs text-muted-foreground">
-					5min: {data.errors.count.last_5min} · 1h: {data.errors.count.last_hour} · 总计: {data.errors.count.total_captured}
+					5min: {data.errors?.count?.last_5min ?? 0} · 1h: {data.errors?.count?.last_hour ?? 0} · 总计: {data.errors?.count?.total_captured ?? 0}
 				</span>
 			</CardHeader>
 			<CardContent>
