@@ -1,7 +1,7 @@
 import type { components } from "@/api/api-types.gen";
 
 type Schemas = components["schemas"];
-export type CaseManageItem = Schemas["CaseManageItem"];
+export type CaseManageItem = Schemas["CaseManageItem"] & { is_open?: boolean };
 
 export interface ScoringCriteriaItem {
 	name: string;

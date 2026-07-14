@@ -1,4 +1,5 @@
-import { ClipboardList, Edit3, Plus, Trash2, Wand2 } from "lucide-react";
+import { ClipboardList, Edit3, Eye, EyeOff, Play, Plus, Trash2, Wand2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -22,23 +23,16 @@ interface CaseListProps {
 	onAIAdd: () => void;
 	onEdit: (c: CaseManageItem) => void;
 	onDelete: (c: CaseManageItem) => void;
+	onToggleOpen: (c: CaseManageItem) => void;
 }
 
 export default function CaseList({
-	cases,
-	total,
-	offset,
-	limit,
-	filters,
-	searchInput,
-	onSearchChange,
-	onFilterChange,
-	onOffsetChange,
-	onAdd,
-	onAIAdd,
-	onEdit,
-	onDelete,
+	cases, total, offset, limit,
+	filters, searchInput,
+	onSearchChange, onFilterChange, onOffsetChange,
+	onAdd, onAIAdd, onEdit, onDelete, onToggleOpen,
 }: CaseListProps) {
+	const navigate = useNavigate();
 	const columns: DataTableColumn<CaseManageItem>[] = [
 		{
 			key: "name",
@@ -98,25 +92,39 @@ export default function CaseList({
 			),
 		},
 		{
+			key: "is_open",
+			header: "开放",
+			render: (c) => (
+				<button
+					type="button"
+					onClick={() => onToggleOpen(c)}
+					className={cn(
+						"inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+						c.is_open
+							? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+							: "bg-muted text-muted-foreground hover:bg-muted/70",
+					)}
+				>
+					{c.is_open ? <Eye size={13} /> : <EyeOff size={13} />}
+					{c.is_open ? "可见" : "隐藏"}
+				</button>
+			),
+		},
+		{
 			key: "actions",
 			header: "操作",
 			render: (c) => (
-				<div className="flex gap-2">
-					<Button
-						size="sm"
-						variant="ghost"
-						onClick={() => onEdit(c)}
-						title="编辑"
-					>
+				<div className="flex gap-1">
+					<Button size="sm" variant="ghost" onClick={() => navigate(`/training?caseId=${c.id}`)}
+						title="快速体验">
+						<Play size={14} />
+					</Button>
+					<Button size="sm" variant="ghost" onClick={() => onEdit(c)} title="编辑">
 						<Edit3 size={14} />
 					</Button>
-					<Button
-						size="sm"
-						variant="destructive"
-						onClick={() => onDelete(c)}
+					<Button size="sm" variant="destructive" onClick={() => onDelete(c)}
 						disabled={c.training_count > 0}
-						title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}
-					>
+						title={c.training_count > 0 ? "有训练记录，无法删除" : "删除"}>
 						<Trash2 size={14} />
 					</Button>
 				</div>

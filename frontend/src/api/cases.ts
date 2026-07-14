@@ -62,3 +62,8 @@ export const generateCase = (data: Schemas["CaseGenerateRequest"]) =>
 		"/cases/generate" satisfies ApiPath as string,
 		data,
 	);
+
+export const toggleCaseOpen = (id: number | string, open: boolean) =>
+	api.put<Schemas["CaseManageItem"]>(
+		`/cases/${id}/open?open=${open}`,
+	);

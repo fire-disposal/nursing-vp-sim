@@ -46,6 +46,7 @@ def _to_case_brief(c: Case) -> CaseBrief:
         difficulty=c.case_data.get("difficulty", 1) if c.case_data else 1,
         description=c.description,
         time_limit_minutes=c.time_limit_minutes,
+        is_open=c.is_open,
         patient_summary=c.case_data.get("patient_info") if c.case_data else None,
         profile_info=profile_info,
         capabilities=c.case_data.get("capabilities", {}) if c.case_data else {},
@@ -65,6 +66,7 @@ def _to_manage_item(v: CaseManageView) -> CaseManageItem:
         time_limit=v.time_limit,
         difficulty=v.difficulty,
         patient_personality=v.patient_personality,
+        is_open=v.is_open,
         created_at=v.created_at,
         training_count=v.training_count,
     )
@@ -182,6 +184,21 @@ def update_case(
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return _to_manage_item(view)
+
+
+@router.put("/{case_id}/open", response_model=CaseManageItem)
+def toggle_case_open(
+    case_id: int,
+    db: DbSession,
+    current_user: _CaseManager,
+    open: bool = Query(..., description="是否向学生开放"),
+):
+    svc = CaseService(db)
+    case = svc.get(case_id)
+    case.is_open = open
+    db.commit()
+    count = svc.repo.training_count(case_id)
+    return _to_manage_item(svc._manage_view(case, count))
 
 
 @router.delete("/{case_id}", response_model=DeleteResponse)

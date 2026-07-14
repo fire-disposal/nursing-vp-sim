@@ -33,6 +33,7 @@ class Case(Base, TimestampMixin):
     training_type: Mapped[str] = mapped_column(String(50), default="history_taking")
     difficulty: Mapped[int] = mapped_column(Integer, default=1)
     time_limit_minutes: Mapped[int] = mapped_column(Integer, default=20)
+    is_open: Mapped[bool] = mapped_column(default=False)
     case_data: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     practices: Mapped[list[Practice]] = relationship(back_populates="case")

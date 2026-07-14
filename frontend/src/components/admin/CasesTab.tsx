@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { getManageCases } from "@/api";
+import { getManageCases, toggleCaseOpen } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
@@ -77,6 +77,17 @@ export default function CasesTab() {
 		deleteMutation.mutate(c.id);
 	};
 
+	const handleToggleOpen = async (c: CaseManageItem) => {
+		try {
+			await toggleCaseOpen(c.id, !c.is_open);
+			queryClient.invalidateQueries({
+				queryKey: queryKeys.cases.managed.list({}),
+			});
+		} catch {
+			toast.error("操作失败");
+		}
+	};
+
 	const handleFilterChange = (newFilters: {
 		name: string;
 		difficulty: string;
@@ -102,6 +113,7 @@ export default function CasesTab() {
 				onAIAdd={handleAIAdd}
 				onEdit={handleEdit}
 				onDelete={handleDelete}
+				onToggleOpen={handleToggleOpen}
 			/>
 			<CaseFormModal
 				open={showEditor}

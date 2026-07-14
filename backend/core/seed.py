@@ -127,6 +127,7 @@ def _seed_cases() -> None:
                         training_type=d.get("training_type", "history_taking"),
                         difficulty=d.get("difficulty", 1),
                         time_limit_minutes=d.get("time_limit", 20),
+                        is_open=True,
                         case_data=d,
                     )
                 )

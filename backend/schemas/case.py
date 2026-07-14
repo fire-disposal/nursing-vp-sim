@@ -15,6 +15,7 @@ class CaseBrief(BaseModel):
     description: str | None = None
     training_type: str = "history_taking"
     time_limit_minutes: int = 20
+    is_open: bool = False
     patient_summary: dict[str, Any] | None = None
     profile_info: dict[str, Any] = Field(default_factory=dict)
     capabilities: dict[str, bool] = Field(default_factory=dict)
@@ -68,6 +69,7 @@ class CaseManageItem(BaseModel):
     time_limit: int = 20
     difficulty: int = 1
     patient_personality: str = ""
+    is_open: bool = False
     created_at: datetime
     training_count: int = 0
 

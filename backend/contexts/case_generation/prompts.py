@@ -35,6 +35,11 @@ CASE_GENERATION_HEAD = """你是一名资深的护理学教育专家和临床病
     "职业": "退休工人",
     "用药顾虑": "因经济原因自行减少药量"
   },
+  "capabilities": {
+    "physical_exam": false,
+    "nursing_record": false,
+    "patient_initiative": false
+  },
   "exam_anchors": {
     "vital_signs": {
       "temperature": "36.8",
