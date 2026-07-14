@@ -90,7 +90,8 @@ export function useAdminList<
 	return {
 		items: query.data?.items ?? [],
 		total: query.data?.total ?? 0,
-		isLoading: query.isLoading || query.isFetching,
+		isLoading: query.isLoading,
+		isFetching: query.isFetching,
 		refetch: query.refetch,
 		searchInput,
 		debouncedValue,
