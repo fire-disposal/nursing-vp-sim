@@ -41,11 +41,21 @@ _PROMPTS = PromptCollection(
 
 **现病史**: {#present_illness#}
 
+**既往史**: {#past_history#}
+
+**用药史**: {#medication_history#}
+
 **过敏史**: {#allergy_history#}
+
+**家族史**: {#family_history#}
+
+**个人史**: {#social_history#}
 
 **隐藏背景**: {#deep_background#}
 
 **对话参考**: {#example_dialogues#}
+
+**当前状态**: {#scene_state#}
 """,
 )
 
