@@ -11,26 +11,23 @@ import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
-import { useTrainingWS } from "@/hooks/useTrainingWS";
+import { useExamBridge } from "@/hooks/useExamBridge";
 import { getSceneCards } from "./scene-cards/registry";
 
 const ICONS: Record<string, string> = {
-	"patient-info": "👤",
-	inquiry: "📋",
-	monitor: "💓",
-	"body-exam": "🩺",
-	notes: "📝",
-	mews: "📊",
+	"patient-info":   "👤",
+	inquiry:          "📋",
+	"physical-exam":  "💓",
+	"nursing-record": "📄",
+	mews:             "📊",
 };
 
 const TITLES: Record<string, string> = {
-	"patient-info": "患者信息",
-	inquiry: "问诊指引",
-	monitor: "生命体征",
-	"body-exam": "护理查体",
+	"patient-info":   "患者信息",
+	inquiry:          "问诊指引",
+	"physical-exam":  "护理查体",
 	"nursing-record": "护理记录",
-	notes: "备忘笔记",
-	mews: "MEWS 评分",
+	mews:             "MEWS 评分",
 };
 
 export default function SceneToolbar() {
@@ -41,14 +38,9 @@ export default function SceneToolbar() {
 	const activeCard = cards.find((c) => c.id === activeId);
 	const cardProps: SceneCardProps = { bus, mode: "training" as const, recordId };
 
-	const handleClose = useCallback(() => setActiveId(null), []);
+  const handleClose = useCallback(() => setActiveId(null), []);
 
-	useTrainingWS((msg) => {
-		const m = msg as unknown as { type: string; scene?: Partial<import("@/engine/scene-state").SceneState> };
-		if (m.type === "exam:done" && m.scene) {
-			bus.emit("scene:state", m.scene);
-		}
-	});
+  useExamBridge(bus);
 
 	if (cards.length === 0) return null;
 

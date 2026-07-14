@@ -2,10 +2,10 @@ import type { ComponentType } from "react";
 import { lazy } from "react";
 import type { SceneCard, SceneCardProps } from "@/engine/scene-card";
 import InquiryCard from "./InquiryCard";
-import MonitorCard from "./MonitorCard";
 import NotesCard from "./NotesCard";
 import NursingRecordCard from "./NursingRecordCard";
 import PatientInfoCard from "./PatientInfoCard";
+import PhysicalAssessmentCard from "./PhysicalAssessmentCard";
 
 interface CardDef {
   id: string;
@@ -19,18 +19,17 @@ function def(id: string, loader: () => Promise<{ default: ComponentType<SceneCar
 }
 
 const HISTORY_TAKING: CardDef[] = [
-  { id: "patient-info",  component: PatientInfoCard,                          priority: 0 },
-  { id: "inquiry",       component: InquiryCard,                              priority: 1 },
-  { id: "monitor",       component: MonitorCard,                              priority: 2, featureFlag: "physical_exam" },
-  def("body-exam",   () => import("@/components/training/body-exam/ExamBodyScene"), 3, "physical_exam"),
-  { id: "nursing-record", component: NursingRecordCard,                       priority: 4, featureFlag: "nursing_record" },
-  { id: "notes",         component: NotesCard,                                priority: 5 },
+  { id: "patient-info",     component: PatientInfoCard,                            priority: 0 },
+  { id: "inquiry",          component: InquiryCard,                                priority: 1 },
+  { id: "physical-exam",    component: PhysicalAssessmentCard,                     priority: 2, featureFlag: "physical_exam" },
+  { id: "nursing-record",   component: NursingRecordCard,                          priority: 3, featureFlag: "nursing_record" },
+  // { id: "notes",            component: NotesCard,                                  priority: 4 },
 ];
 
 const TRIAGE: CardDef[] = [
-  { id: "patient-info",  component: PatientInfoCard,                          priority: 0 },
-  { id: "monitor",       component: MonitorCard,                              priority: 1 },
-  def("mews",        () => import("@/components/training/panels/triage/MewsPanel"), 2, "physical_exam"),
+  { id: "patient-info",     component: PatientInfoCard,                            priority: 0 },
+  { id: "physical-exam",    component: PhysicalAssessmentCard,                     priority: 1, featureFlag: "physical_exam" },
+  def("mews",           () => import("@/components/training/panels/triage/MewsPanel"), 2, "physical_exam"),
 ];
 
 const REGISTRY: Record<string, CardDef[]> = {

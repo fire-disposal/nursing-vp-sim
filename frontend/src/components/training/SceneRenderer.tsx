@@ -4,16 +4,15 @@ import { ALL_CAPABILITIES } from "@/engine/capabilities.gen";
 import type { SceneCardProps } from "@/engine/scene-card";
 import { useTrainingContext } from "@/engine/TrainingContext";
 import { SceneStateProvider } from "@/engine/useSceneBus";
-import { useTrainingWS } from "@/hooks/useTrainingWS";
+import { useExamBridge } from "@/hooks/useExamBridge";
 import { getSceneCards } from "./scene-cards/registry";
 
 const ICONS: Record<string, string> = {
-  "patient-info": "👤",
-  "inquiry":      "📋",
-  "monitor":      "💓",
-  "body-exam":    "🩺",
-  "notes":        "📝",
-  "mews":         "📊",
+  "patient-info":   "👤",
+  "inquiry":        "📋",
+  "physical-exam":  "💓",
+  "nursing-record": "📄",
+  "mews":           "📊",
 };
 
 /**
@@ -40,13 +39,7 @@ export function SceneRenderer() {
 
   const cardProps: SceneCardProps = { bus, mode: "training", recordId };
 
-  // D-3: WS→MessageBus 桥（使 scene 消息通过 bus 到达各 card/useSceneState）
-  useTrainingWS((msg) => {
-    const m = msg as unknown as { type: string; scene?: Partial<import("@/engine/scene-state").SceneState> };
-    if (m.type === "exam:done" && m.scene) {
-      bus.emit("scene:state", m.scene);
-    }
-  });
+  useExamBridge(bus);
 
   // ── Drag logic ──
   const onHeaderDown = useCallback((e: React.MouseEvent) => {
@@ -99,7 +92,7 @@ export function SceneRenderer() {
       {/* Overlay panel */}
       {activeCard && (
         <>
-          <div ref={panelRef} style={{ width: bodyExamOnly(activeCard.id) ? 360 : 280 }}
+          <div ref={panelRef} style={{ width: physicalExamPanel(activeCard.id) ? 360 : 280 }}
             className="absolute top-0 right-full border border-border bg-card rounded-xl shadow-xl overflow-hidden"
           >
             {/* Draggable header */}
@@ -149,6 +142,6 @@ export function SceneRenderer() {
   );
 }
 
-function bodyExamOnly(id: string) {
-  return id === "body-exam" ? 480 : 280;
+function physicalExamPanel(id: string) {
+  return id === "physical-exam" ? 400 : 280;
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { SceneState } from "./scene-state";
 import type { MessageBus } from "./types";
 
@@ -8,31 +8,41 @@ const DEFAULT_SCENE: SceneState = {
   vitals: {},
 };
 
+let _busRef: MessageBus | null = null;
+let _sceneState: SceneState = deepClone(DEFAULT_SCENE);
+const _subscribers = new Set<() => void>();
+
+function _notify() {
+  _subscribers.forEach((fn) => { fn(); });
+}
+
 const SceneStateContext = createContext<SceneState>(DEFAULT_SCENE);
 
-/**
- * Keeps a local SceneState mirror that is patched every time
- * the backend broadcasts `scene:state` over the MessageBus.
- *
- * Scenes use this hook to drive their visual rendering.
- */
 export function useSceneState(bus: MessageBus | null): SceneState {
-  const [state, setState] = useState<SceneState>(DEFAULT_SCENE);
+  const [, setTick] = useState(0);
+
+  if (bus !== _busRef) {
+    _busRef = bus;
+    _sceneState = deepClone(DEFAULT_SCENE);
+  }
+
+  useEffect(() => {
+    const listener = () => setTick((t) => t + 1);
+    _subscribers.add(listener);
+    return () => { _subscribers.delete(listener); };
+  }, []);
 
   useEffect(() => {
     if (!bus) return;
     return bus.on("scene:state", (patch: Partial<SceneState>) => {
-      setState((prev) => deepMerge(prev, patch));
+      _sceneState = deepMerge(_sceneState, patch);
+      _notify();
     });
   }, [bus]);
 
-  return state;
+  return _sceneState;
 }
 
-/**
- * Provider that lifts scene state above individual cards so it
- * persists across card mount/unmount (MonitorCard vitals don't reset).
- */
 export function SceneStateProvider({
   bus,
   children,
@@ -52,7 +62,10 @@ export function useSceneStateValue(): SceneState {
   return useContext(SceneStateContext);
 }
 
-/** Shallow‑merge SceneState patches (2 levels deep). */
+function deepClone(obj: SceneState): SceneState {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 function deepMerge(base: SceneState, patch: Partial<SceneState>): SceneState {
   const out = { ...base } as Record<string, unknown>;
   for (const [key, val] of Object.entries(patch)) {

@@ -1,27 +1,90 @@
 import { useQuery } from "@tanstack/react-query";
-import { User } from "lucide-react";
+import { ChevronDown, Loader2, User } from "lucide-react";
+import { useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import { getRecordDetail } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 
+const PERSONALITY_LABELS: Record<string, string> = {
+  health_literacy_low: "健康素养低",
+  verbosity_terse: "寡言",
+  verbosity_verbose: "健谈",
+  anxiety_trait_anxious: "易焦虑",
+};
+
+const BACKGROUND_SECTIONS: [string, string][] = [
+  ["present_illness", "现病史"],
+  ["past_history", "既往史"],
+  ["medication_history", "用药史"],
+  ["allergy_history", "过敏史"],
+  ["family_history", "家族史"],
+  ["social_history", "个人史"],
+];
+
+function CollapsibleSection({ title, text }: { title: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-border pt-2">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {title}
+        <ChevronDown size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{text}</p>}
+    </div>
+  );
+}
+
 export default function PatientInfoCard({ recordId }: SceneCardProps) {
-  const { data: record } = useQuery({
+  const { data: record, isLoading } = useQuery({
     queryKey: queryKeys.training.record(recordId),
     queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-24 text-muted-foreground">
+        <Loader2 size={18} className="animate-spin" />
+      </div>
+    );
+  }
+
   const cd = ((record as Record<string, unknown>)?.case_data as Record<string, unknown>) || {};
   const patient = (cd.patient_info as Record<string, unknown>) || {};
-  const personality = (cd.personality as Record<string, string>) || {};
   const name = String(patient.name || "患者");
   const age = String(patient.age ?? "");
   const gender = String(patient.gender || "");
   const chiefComplaint = String(cd.chief_complaint || "无");
+  const personality = (cd.personality as Record<string, string>) || {};
+
+  const tags: string[] = [];
+  const checked = new Set<string>();
+  for (const [key, label] of Object.entries(PERSONALITY_LABELS)) {
+    const idx = key.lastIndexOf("_");
+    const trait = key.slice(0, idx);
+    const expected = key.slice(idx + 1);
+    if (String(personality[trait]) === expected) {
+      tags.push(label);
+      checked.add(trait);
+    }
+  }
+  if (!checked.has("health_literacy") && personality.health_literacy) {
+    tags.push("健康素养正常");
+  }
+
+  const sections = BACKGROUND_SECTIONS
+    .map(([key, title]) => {
+      const text = String(cd[key] || "");
+      return text ? { key, title, text } : null;
+    })
+    .filter(Boolean) as { key: string; title: string; text: string }[];
 
   return (
-    <div className="space-y-3 p-3">
+    <div className="space-y-2 p-3">
       <div className="flex items-center gap-3 pb-3 border-b">
-        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <User className="text-primary" size={24} />
         </div>
         <div>
@@ -31,14 +94,15 @@ export default function PatientInfoCard({ recordId }: SceneCardProps) {
         </div>
       </div>
 
-      {personality.health_literacy ? (
+      {tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          <Tag label={personality.health_literacy === "low" ? "健康素养低" : "正常"} />
-          {personality.verbosity === "terse" && <Tag label="寡言" />}
-          {personality.verbosity === "verbose" && <Tag label="健谈" />}
-          {personality.anxiety_trait === "anxious" && <Tag label="易焦虑" />}
+          {tags.map((t) => <Tag key={t} label={t} />)}
         </div>
-      ) : null}
+      )}
+
+      {sections.map((s) => (
+        <CollapsibleSection key={s.key} title={s.title} text={s.text} />
+      ))}
     </div>
   );
 }

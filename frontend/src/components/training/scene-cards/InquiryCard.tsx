@@ -1,15 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Circle } from "lucide-react";
-import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import { queryKeys } from "@/api/query-keys";
 import { getRecordDetail } from "@/api/training";
 import type { SceneCardProps } from "@/engine/scene-card";
 
-export default function InquiryCard({ recordId }: SceneCardProps) {
-  const { data: record } = useQuery({
+export default function InquiryCard({ bus, recordId }: SceneCardProps) {
+  const queryClient = useQueryClient();
+
+  const { data: record, isLoading } = useQuery({
     queryKey: queryKeys.training.record(recordId),
     queryFn: () => getRecordDetail(Number(recordId)).then((r) => r.data),
   });
+
+  useEffect(() => {
+    if (!bus) return;
+    return bus.on("stream:done", () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.training.record(recordId) });
+    });
+  }, [bus, recordId, queryClient]);
 
   const inquiries: string[] = useMemo(() => {
     const cd = ((record as Record<string, unknown>)?.case_data as Record<string, unknown>) || {};
@@ -29,6 +38,14 @@ export default function InquiryCard({ recordId }: SceneCardProps) {
       }),
     );
   }, [record, inquiries]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-24 text-muted-foreground">
+        <Loader2 size={18} className="animate-spin" />
+      </div>
+    );
+  }
 
   if (inquiries.length === 0) {
     return <div className="text-sm text-muted-foreground text-center py-8 p-3">该病例未配置问诊清单</div>;
