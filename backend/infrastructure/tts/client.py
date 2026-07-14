@@ -164,12 +164,15 @@ class VolcBidirectionalTTSClient:
             "X-Control-Require-Usage-Tokens-Return": "*",
         }
 
-        ws = await websockets.connect(
-            TTS_WS_URL,
-            additional_headers=headers,
-            max_size=10 * 1024 * 1024,
-            open_timeout=10,
-        )
+        try:
+            ws = await websockets.connect(
+                TTS_WS_URL,
+                additional_headers=headers,
+                max_size=10 * 1024 * 1024,
+                open_timeout=10,
+            )
+        except Exception as e:
+            raise RuntimeError(f"TTS WebSocket 连接失败: {e}") from e
 
         try:
             session_id = uuid.uuid4().hex
