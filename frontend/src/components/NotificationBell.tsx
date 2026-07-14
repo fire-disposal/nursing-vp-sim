@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, EyeOff, X } from "lucide-react";
+import { Bell, EyeOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
@@ -11,6 +11,8 @@ import {
 } from "@/api/notifications";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import Button from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
@@ -24,14 +26,13 @@ export default function NotificationBell() {
 	const navigate = useNavigate();
 	const { error: toastError } = useToast();
 	const mutationLockRef = useRef(false);
-	const bellRef = useRef<HTMLButtonElement>(null);
-	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	const { data, isLoading, isError } = useQuery({
 		queryKey: queryKeys.notifications.list({ offset }),
 		queryFn: () =>
 			getNotifications({ unread_only: false, limit: LIMIT, offset }).then((r) => r.data),
 		refetchInterval: 60_000,
+		enabled: open,
 	});
 
 	useEffect(() => {
@@ -46,19 +47,6 @@ export default function NotificationBell() {
 			});
 		}
 	}, [data, offset]);
-
-	// Close on outside click
-	useEffect(() => {
-		if (!open) return;
-		const handler = (e: MouseEvent) => {
-			if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-				bellRef.current && !bellRef.current.contains(e.target as Node)) {
-				setOpen(false);
-			}
-		};
-		document.addEventListener("mousedown", handler);
-		return () => document.removeEventListener("mousedown", handler);
-	}, [open]);
 
 	const hasMore = (data?.length ?? 0) >= LIMIT;
 	const unreadCount = items.filter((n) => !n.is_read).length;
@@ -128,11 +116,10 @@ export default function NotificationBell() {
 	);
 
 	return (
-		<div className="relative">
+		<>
 			<button
-				ref={bellRef}
 				type="button"
-				onClick={() => setOpen(!open)}
+				onClick={() => setOpen(true)}
 				className="relative h-8 p-2 rounded-lg hover:bg-muted transition-colors"
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
 			>
@@ -144,63 +131,47 @@ export default function NotificationBell() {
 				)}
 			</button>
 
-			{open && (
-				<div
-					ref={dropdownRef}
-					className="absolute right-0 top-full mt-1 w-80 max-h-[70vh] bg-card rounded-xl shadow-lg border border-border overflow-hidden z-50"
-				>
-					<div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/20">
-						<span className="font-semibold text-sm">通知</span>
-						<div className="flex items-center gap-2">
-							{unreadCount > 0 && (
-								<button
-									type="button"
-									onClick={() => markAllReadMutation.mutate()}
-									disabled={mutationLockRef.current}
-									className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-								>
-									全部已读
-								</button>
-							)}
-							<button
-								type="button"
-								onClick={() => setOpen(false)}
-								className="size-7 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-							>
-								<X size={14} />
-							</button>
+			<Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+				<DialogContent title="通知" maxWidth={400} className="p-4">
+					{isError ? (
+						<div className="py-10 text-center text-sm text-destructive">加载失败</div>
+					) : isLoading && items.length === 0 ? (
+						<div className="py-10 text-center">
+							<div className="mx-auto size-6 animate-spin rounded-full border-[3px] border-primary/30 border-t-primary" />
 						</div>
-					</div>
-					<div className="max-h-80 overflow-y-auto">
-						{isError ? (
-							<div className="px-4 py-8 text-center text-sm text-destructive">加载失败</div>
-						) : isLoading && items.length === 0 ? (
-							<div className="px-4 py-8 text-center text-sm text-muted-foreground">加载中…</div>
-						) : items.length > 0 ? (
-							<>
-								{items.map((n) => (
-									<div key={n.id} className={`border-b last:border-0 ${n.is_read ? "opacity-60" : ""}`}>
+					) : items.length > 0 ? (
+						<div className="-mx-4 -mb-4">
+							<div className="max-h-72 overflow-y-auto">
+								{items.map((n, i) => (
+									<div
+										key={n.id}
+										className={`${i > 0 ? "border-t" : ""} ${n.is_read ? "opacity-50" : ""}`}
+									>
 										<button
 											type="button"
-											className="w-full text-left p-2.5 hover:bg-muted/50 transition-colors"
+											className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors"
 											onClick={() => handleClick(n)}
 										>
-											<div className="flex items-center gap-2">
-												{!n.is_read && <span className="size-1.5 rounded-full bg-destructive shrink-0" />}
-												<span className="text-sm font-medium flex-1 truncate">{n.title}</span>
-											</div>
-											{n.body && (
-												<div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</div>
-											)}
-											<div className="text-[10px] text-muted-foreground mt-0.5">
-												{n.created_at.slice(0, 16).replace("T", " ")}
+											<div className="flex items-start gap-2.5">
+												{!n.is_read && (
+													<span className="mt-1.5 size-2 rounded-full bg-destructive shrink-0" />
+												)}
+												<div className="min-w-0 flex-1">
+													<div className="text-sm font-medium leading-snug">{n.title}</div>
+													{n.body && (
+														<div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</div>
+													)}
+													<div className="text-[10px] text-muted-foreground/70 mt-1">
+														{n.created_at.slice(0, 16).replace("T", " ")}
+													</div>
+												</div>
 											</div>
 										</button>
 										{n.is_read && (
-											<div className="px-2.5 pb-1.5">
+											<div className="px-4 pb-2">
 												<button
 													type="button"
-													className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+													className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70 hover:text-foreground transition-colors"
 													onClick={(e) => { e.stopPropagation(); markOneUnreadMutation.mutate(n.id); }}
 												>
 													<EyeOff size={10} /> 标记未读
@@ -209,22 +180,28 @@ export default function NotificationBell() {
 										)}
 									</div>
 								))}
+							</div>
+							<div className="flex items-center justify-between border-t px-4 py-2">
+								{unreadCount > 0 ? (
+									<Button variant="ghost" size="sm" className="text-xs h-7"
+										onClick={() => markAllReadMutation.mutate()}
+										disabled={mutationLockRef.current}>
+										全部已读
+									</Button>
+								) : <div />}
 								{hasMore && (
-									<button
-										type="button"
-										className="w-full px-4 py-2.5 text-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-										onClick={() => setOffset((prev) => prev + LIMIT)}
-									>
+									<Button variant="ghost" size="sm" className="text-xs h-7"
+										onClick={() => setOffset((prev) => prev + LIMIT)}>
 										加载更多
-									</button>
+									</Button>
 								)}
-							</>
-						) : (
-							<div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无通知</div>
-						)}
-					</div>
-				</div>
-			)}
-		</div>
+							</div>
+						</div>
+					) : (
+						<div className="py-10 text-center text-sm text-muted-foreground">暂无通知</div>
+					)}
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }

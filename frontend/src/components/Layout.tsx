@@ -63,7 +63,7 @@ function AdminSidebar({
 				</div>
 				<div className="min-w-0">
 					<div className="truncate text-sm font-semibold">虚拟患者系统</div>
-					<div className="text-xs text-muted-foreground">护理训练平台</div>
+					<div className="text-xs text-muted-foreground">{APP_VERSION}</div>
 				</div>
 			</div>
 
