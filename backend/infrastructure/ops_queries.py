@@ -153,22 +153,41 @@ def compute_alerts(dashboard: dict) -> list[str]:
     scoring = dashboard.get("scoring", {})
     sessions = dashboard.get("sessions", {})
     voice = dashboard.get("voice", {})
+    voice_budget = dashboard.get("voice_budget", {})
 
     alerts: list[str] = []
+
+    # ── LLM ──
     if llm.get("total_calls_24h", 0) > 0 and llm.get("success_rate", 100) < 90:
         alerts.append(f"LLM 成功率 {llm['success_rate']}% 低于 90%")
     if llm.get("error_count_24h", 0) > 50:
         alerts.append(f"近 24h LLM 错误 {llm['error_count_24h']} 次")
+    rate_errors = [e for e in (llm.get("recent_errors") or []) if "rate" in str(e.get("type", "")).lower() or "429" in str(e.get("type", ""))]
+    if rate_errors:
+        total_rate = sum(e.get("count", 0) for e in rate_errors)
+        if total_rate > 10:
+            alerts.append(f"LLM 限流错误 {total_rate} 次 (24h)")
+
+    # ── Scoring ──
     if scoring.get("stuck", 0) > 5:
         alerts.append(f"卡住评分 {scoring['stuck']} 条")
+    if scoring.get("pending", 0) > 20:
+        alerts.append(f"排队评分 {scoring['pending']} 条")
+
+    # ── Sessions ──
     if sessions.get("active", 0) > 50:
         alerts.append(f"活跃会话 {sessions['active']} 个")
 
+    # ── Voice ──
     for svc, sr_min, err_max in [("tts", 90, 20), ("asr", 80, 20)]:
         s = voice.get(svc, {})
         if s.get("calls_24h", 0) > 0 and s.get("success_rate", 100) < sr_min:
             alerts.append(f"{svc.upper()} 成功率 {s['success_rate']}% 低于 {sr_min}%")
         if s.get("error_count_24h", 0) > err_max:
             alerts.append(f"近 24h {svc.upper()} 错误 {s['error_count_24h']} 次")
+
+    # ── Voice budget ──
+    if voice_budget.get("usage_pct", 0) > 90:
+        alerts.append(f"语音月度预算已用 {voice_budget['usage_pct']}%")
 
     return alerts

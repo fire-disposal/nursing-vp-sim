@@ -252,6 +252,33 @@ def check_disk():
     return []
 
 
+def check_inodes():
+    """Check inode usage on root partition."""
+    rc, out = run(["df", "-i", "/"])
+    if rc != 0:
+        return []
+    lines = [l for l in out.splitlines() if l.strip()]
+    if not lines:
+        return []
+    parts = lines[-1].split()
+    if len(parts) < 5:
+        return []
+    ios = parts[4].replace("%", "")
+    try:
+        ios_pct = int(ios)
+    except ValueError:
+        return []
+    if ios_pct >= DISK_THRESHOLD_PCT:
+        return [
+            {
+                "type": "disk",
+                "name": "inodes /",
+                "detail": f"Inode {ios_pct}% used — risk of file creation failure",
+            }
+        ]
+    return []
+
+
 def check_cpu():
     """Check system load average vs CPU cores."""
     try:
@@ -655,6 +682,7 @@ def main():
         for check_fn in [
             check_containers,
             check_disk,
+            check_inodes,
             check_cpu,
             check_memory,
             check_health_endpoints,
