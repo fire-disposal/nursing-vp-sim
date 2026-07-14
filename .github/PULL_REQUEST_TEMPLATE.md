@@ -24,4 +24,4 @@
 
 ## 关联
 
-<!-- Closes #issue 或链接到飞书 Bitable 问题记录 -->
+<!-- Closes #issue -->

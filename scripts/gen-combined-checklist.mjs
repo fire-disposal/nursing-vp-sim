@@ -25,7 +25,6 @@ function ssh(cmd) {
   catch { return ""; }
 }
 
-// Get all version tags sorted
 const allTags = git("tag --sort=version:refname")
   .split("\n")
   .filter(t => /^v\d+\.\d+\.\d+-\d+$/.test(t));
@@ -35,7 +34,6 @@ if (allTags.length === 0) {
   process.exit(1);
 }
 
-// Target version: from arg or latest tag
 let targetVer = arg("t", "target").replace(/^v/, "");
 if (!targetVer) {
   targetVer = allTags[allTags.length - 1].replace(/^v/, "");
@@ -47,7 +45,6 @@ if (!allTags.includes(targetTag)) {
   process.exit(1);
 }
 
-// Production version: from arg, server, or tag before target
 let prodVer = arg("f", "from").replace(/^v/, "");
 if (!prodVer) {
   prodVer = ssh("tail -1 /opt/nursing-vp-sim/.version-history-prod 2>/dev/null | cut -d'|' -f1");
@@ -62,16 +59,13 @@ const prodTag = "v" + prodVer;
 console.error(`Production: ${prodTag}`);
 console.error(`Target:     ${targetTag}`);
 
-// Find tags between prod and target (inclusive)
 const prodIdx = allTags.indexOf(prodTag);
 const targetIdx = allTags.indexOf(targetTag);
 const range = allTags.slice(Math.max(0, prodIdx), targetIdx + 1);
 
-// Read and combine non-empty checklists — extract items and renumber
 const items = [];
 
 for (const tag of range) {
-  // Tag format: vYYYY.MM.DD-N → month YYYY.MM
   const month = tag.substring(1, 8);
   const monthlyFile = path.join(ROOT, "docs", "testing", month, `checklist-${tag}.md`);
   const flatFile = path.join(ROOT, "docs", "testing", `checklist-${tag}.md`);
@@ -82,12 +76,10 @@ for (const tag of range) {
   const stripped = content.replace(/\s/g, "");
   if (stripped === "无需测试" || stripped === "") continue;
 
-  // Split by "###" sections, keep each item block
   const sections = content.split(/\n(?=###\s)/);
   for (const section of sections) {
     const s = section.trim();
     if (!s.startsWith("### ")) continue;
-    // Strip original number, keep the rest
     const cleaned = s.replace(/^###\s+\d+\.\s*/, "### ");
     if (cleaned.trim()) items.push(cleaned);
   }
@@ -101,7 +93,6 @@ if (items.length === 0) {
   process.exit(0);
 }
 
-// Renumber items sequentially
 const numbered = items.map((item, i) => item.replace(/^###\s+/, `### ${i + 1}. `));
 
 const output = [
@@ -125,139 +116,3 @@ if (outputFile) {
   console.log(output);
 }
 console.error(`${items.length} items across ${range.length} versions`);
-
-// ── Feishu Bitable integration ──
-const useFeishu = process.argv.includes("--feishu");
-if (useFeishu) {
-  const ok = await publishToFeishu(items, targetTag);
-  if (!ok) process.exit(1);
-}
-
-async function publishToFeishu(items, targetTag) {
-  const appId = process.env.FEISHU_APP_ID;
-  const appSecret = process.env.FEISHU_APP_SECRET;
-  const appToken = process.env.FEISHU_BITABLE_TOKEN;
-  const tableId = process.env.FEISHU_TABLE_ID;
-
-  if (!appId || !appSecret || !appToken || !tableId) {
-    console.error("⚠ Feishu env vars missing, skipping");
-    return true;
-  }
-
-  // Filter out items with empty title — prevents blank rows in Bitable
-  const validItems = items.filter(item => {
-    const p = parseItem(item);
-    return p.title && p.title.length > 0;
-  });
-
-  if (validItems.length === 0) {
-    console.error("⚠ No valid items with content, skipping Feishu write");
-    return true;
-  }
-
-  if (validItems.length < items.length) {
-    console.error(`⚠ Skipping ${items.length - validItems.length} item(s) with empty title`);
-  }
-
-  console.error(">> Feishu auth...");
-  const auth = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
-  });
-  const token = (await auth.json())?.tenant_access_token;
-  if (!token) { console.error("Auth failed"); return false; }
-
-  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-  const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}`;
-
-  // Dedup: fetch existing records for the same version to avoid duplicate rows
-  console.error(">> Checking existing records for dedup...");
-  const existingKeys = new Set();
-  try {
-    let pageToken = "";
-    do {
-      const url = `${base}/records?page_size=500${pageToken ? `&page_token=${pageToken}` : ""}`;
-      const res = await fetch(url, { headers });
-      if (res.ok) {
-        const body = await res.json();
-        for (const rec of (body.data?.items || [])) {
-          const f = rec.fields || {};
-          existingKeys.add(`${f["版本"]}::${f["功能"]}`);
-        }
-        pageToken = body.data?.page_token || "";
-      } else {
-        break;
-      }
-    } while (pageToken);
-    console.error(`  ${existingKeys.size} existing records found`);
-  } catch (e) {
-    console.error("⚠ Dedup check failed, will write items anyway:", e.message);
-  }
-
-  // Write new items only
-  let written = 0;
-  let skipped = 0;
-  console.error(`>> Writing items...`);
-  for (const item of validItems) {
-    const p = parseItem(item);
-    const key = `${targetTag}::${p.title}`;
-    if (existingKeys.has(key)) {
-      skipped++;
-      continue;
-    }
-    existingKeys.add(key);
-
-    const record = {
-      fields: {
-        "版本": targetTag,
-        "功能": p.title,
-        "操作步骤": p.op,
-        "预期结果": p.ex,
-        "来源": "自动生成",
-      },
-    };
-    const res = await fetch(`${base}/records`, { method: "POST", headers, body: JSON.stringify(record) });
-    if (!res.ok) { console.error(`Write failed: ${res.status}`); return false; }
-    written++;
-  }
-  console.error(`  ${written} new items written${skipped > 0 ? `, ${skipped} duplicates skipped` : ""}`);
-
-  // Notify chat if configured (use actual written count)
-  const totalNew = written;
-  const chatId = process.env.FEISHU_CHAT_ID;
-  if (chatId && process.env.FEISHU_BITABLE_URL) {
-    const url = process.env.FEISHU_BITABLE_URL;
-    const summary = totalNew > 0
-      ? `共 ${totalNew} 项新增。`
-      : `无新项目(${skipped} 项已存在)。`;
-    const msg = JSON.stringify({
-      receive_id: chatId,
-      msg_type: "interactive",
-      content: JSON.stringify({
-        header: { title: { tag: "plain_text", content: `📋 ${targetTag} 待测试` } },
-        elements: [{ tag: "markdown", content: `${summary}\n[打开表格](${url})` }],
-      }),
-    });
-    await fetch("https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id", {
-      method: "POST", headers, body: msg,
-    });
-    console.error("  Notification sent");
-  }
-
-  return true;
-}
-
-function parseItem(item) {
-  let title = item.replace(/^###\s+\d+\.\s*/, "").split("\n")[0].trim();
-  title = title.replace(/^###\s*/, "").trim();
-  title = title.replace(/^\*\*/g, "").replace(/\*\*$/g, "").trim();
-  const body = item.replace(/^###\s+.*\n/, "");
-  // Use [\s\S] instead of . to match across lines (multi-line op/ex content)
-  const opMatch = body.match(/\*\*操作\*\*:\s*([\s\S]*?)(?=\n\*\*预期|$)/);
-  const exMatch = body.match(/\*\*预期\*\*:\s*([\s\S]*?)(?=\n\*\*|$)/);
-  return {
-    title,
-    op: opMatch ? opMatch[1].trim() : "",
-    ex: exMatch ? exMatch[1].trim() : "",
-  };
-}
