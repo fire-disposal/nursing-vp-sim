@@ -399,7 +399,7 @@ export default function PracticesPage() {
 									取消
 								</Button>
 								<Button onClick={form.handleSubmit(onSubmit)} disabled={form.formState.isSubmitting}>
-									{editingId ? "保存" : "创建"}
+									{form.formState.isSubmitting ? (editingId ? "保存中..." : "创建中...") : (editingId ? "保存" : "创建")}
 								</Button>
 							</DialogFooter>
 						</form>

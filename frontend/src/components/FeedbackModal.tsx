@@ -1,4 +1,4 @@
-import { Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { useState } from "react";
 import { submitFeedback } from "@/api";
 import { useToast } from "@/components/Toast";
@@ -161,8 +161,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 						submitting ? "bg-muted opacity-60 cursor-not-allowed" : "bg-primary",
 					)}
 				>
-					<Send size={14} />
-					提交
+					{submitting ? (<><Loader2 size={14} className="animate-spin" /> 提交中...</>) : (<><Send size={14} /> 提交</>)}
 				</button>
 			</div>
 			</DialogContent>

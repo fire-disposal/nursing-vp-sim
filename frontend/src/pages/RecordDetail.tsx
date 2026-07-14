@@ -1,4 +1,5 @@
 ﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -209,6 +210,14 @@ export default function RecordDetail() {
 	return (
 		<>
 			<div className="max-w-4xl mx-auto space-y-4 pt-2">
+				<div className="flex items-center gap-2">
+					<button onClick={() => navigate("/history")} className="size-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
+						<ArrowLeft size={16} />
+					</button>
+					<h1 className="text-sm font-semibold truncate">
+						{record ? `${(record as any).user_display_name || ""} · ${(record as any).case_name || ""}` : "训练详情"}
+					</h1>
+				</div>
 				<RecordStatsBar
 					record={record as { user_display_name?: string; case_name?: string; training_type?: string }}
 					duration={duration}
