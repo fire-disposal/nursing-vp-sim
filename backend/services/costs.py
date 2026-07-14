@@ -282,8 +282,8 @@ class CostService:
                 User.display_name.label("user_name"),
                 LLMCallLog.purpose,
                 func.count(LLMCallLog.id).label("calls"),
-                func.sum(LLMCallLog.input_tokens).label("input_tokens"),
-                func.sum(LLMCallLog.output_tokens).label("output_tokens"),
+                func.sum(LLMCallLog.prompt_tokens).label("input_tokens"),
+                func.sum(LLMCallLog.completion_tokens).label("output_tokens"),
                 func.sum(LLMCallLog.estimated_cost).label("cost"),
             )
             .join(LLMCallLog, LLMCallLog.user_id == User.id)
