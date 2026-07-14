@@ -82,23 +82,19 @@ async def _read_frame(ws: ClientConnection) -> ServerMessage:
         return _parse_server_message(json.loads(raw), b"")
     if not isinstance(raw, bytes):
         raise TypeError("TTS: expected text or binary frame")
-    if len(raw) < 4:
-        raise RuntimeError(f"TTS: frame too short ({len(raw)} bytes)")
-    header_len_raw = HEADER_STRUCT.unpack(raw[:4])[0]
-    # The header length may or may not include the 4-byte prefix.
-    # Try excluding it first, then including.
-    for offset in (0, 4):
-        hl = header_len_raw - offset
-        if hl <= 0 or hl > len(raw) - 4:
+
+    # Find the JSON object by scanning for '{'
+    for start in range(min(len(raw), 16)):
+        if raw[start:start + 1] != b"{":
             continue
-        try:
-            header_bytes = raw[4 : 4 + hl]
-            header = json.loads(header_bytes.decode())
-            payload = raw[4 + hl :]
-            return _parse_server_message(header, payload)
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            continue
-    raise RuntimeError(f"TTS: cannot decode binary frame header (header_len={header_len_raw}, total={len(raw)})")
+        for end in range(len(raw), start, -1):
+            try:
+                header = json.loads(raw[start:end].decode())
+                payload = raw[end:]
+                return _parse_server_message(header, payload)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+    raise RuntimeError(f"TTS: cannot decode binary frame ({len(raw)} bytes)")
 
 
 def _parse_server_message(header: dict, payload: bytes) -> ServerMessage:
